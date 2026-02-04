@@ -1,16 +1,13 @@
-// Version API Notion
 const NOTION_VERSION = "2025-09-03";
 
 export default {
   async fetch(request, env) {
-    // CORS headers
     const corsHeaders = {
-      'Access-Control-Allow-Origin': '*', // Remplacez par votre domaine si besoin
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Notion-Version',
     };
 
-    // Gérer preflight CORS
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
@@ -19,158 +16,79 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname;
 
-      // Headers Notion (avec votre clé secrète)
+      // LOG 1: Requête reçue
+      console.log('=== REQUÊTE REÇUE ===');
+      console.log('Path:', path);
+      console.log('Method:', request.method);
+
+      // LOG 2: Vérifier la clé API
+      console.log('=== CLÉ API ===');
+      console.log('Clé présente:', !!env.NOTION_API_KEY);
+      console.log('Longueur clé:', env.NOTION_API_KEY?.length);
+      console.log('Début clé:', env.NOTION_API_KEY?.substring(0, 10) + '...');
+
       const notionHeaders = {
         'Authorization': `Bearer ${env.NOTION_API_KEY}`,
         'Notion-Version': NOTION_VERSION,
         'Content-Type': 'application/json',
       };
 
-      // Router les différentes opérations
+      const notionPath = path.replace(/^\/v1/, '/v1');
+      const notionUrl = `https://api.notion.com${notionPath}`;
+
+      // LOG 3: URL et headers envoyés à Notion
+      console.log('=== ENVOI À NOTION ===');
+      console.log('URL:', notionUrl);
+      console.log('Headers:', JSON.stringify(notionHeaders, null, 2));
+
       let notionResponse;
+      let requestBody = null;
 
-      // ===== CONTENT DATABASE =====
+      if (request.method === 'GET') {
+        notionResponse = await fetch(notionUrl, {
+          method: 'GET',
+          headers: notionHeaders,
+        });
+      } else if (request.method === 'POST' || request.method === 'PATCH') {
+        requestBody = await request.text();
+        
+        // LOG 4: Body de la requête
+        console.log('=== BODY ENVOYÉ ===');
+        console.log(requestBody);
+        
+        notionResponse = await fetch(notionUrl, {
+          method: request.method,
+          headers: notionHeaders,
+          body: requestBody,
+        });
+      } else {
+        return new Response('Method not allowed', { 
+          status: 405,
+          headers: corsHeaders 
+        });
+      }
+
+      // LOG 5: Réponse de Notion
+      console.log('=== RÉPONSE NOTION ===');
+      console.log('Status:', notionResponse.status);
+      console.log('Headers:', JSON.stringify([...notionResponse.headers.entries()], null, 2));
+
+      const data = await notionResponse.text();
       
-      if (path === '/content/fetch') {
-        // GET data_sources puis query
-        const { contentDbId } = await request.json();
-        
-        // 1. Get database
-        const dbRes = await fetch(`https://api.notion.com/v1/databases/${contentDbId}`, {
-          headers: notionHeaders,
-        });
-        const dbData = await dbRes.json();
-        const dataSourceId = dbData.data_sources?.[0]?.id;
-        
-        // 2. Query data_source
-        notionResponse = await fetch(`https://api.notion.com/v1/data_sources/${dataSourceId}/query`, {
-          method: 'POST',
-          headers: notionHeaders,
-          body: JSON.stringify({
-            sorts: [{ timestamp: "last_edited_time", direction: "descending" }]
-          }),
-        });
-      }
+      // LOG 6: Body de la réponse
+      console.log('=== BODY RÉPONSE ===');
+      console.log(data);
 
-      else if (path === '/content/create') {
-        const { contentDbId, title, status } = await request.json();
-        
-        // 1. Get data_source
-        const dbRes = await fetch(`https://api.notion.com/v1/databases/${contentDbId}`, {
-          headers: notionHeaders,
-        });
-        const dbData = await dbRes.json();
-        const dataSourceId = dbData.data_sources?.[0]?.id;
-        
-        // 2. Create page
-        notionResponse = await fetch('https://api.notion.com/v1/pages', {
-          method: 'POST',
-          headers: notionHeaders,
-          body: JSON.stringify({
-            parent: { type: "data_source_id", data_source_id: dataSourceId },
-            properties: {
-              "Titre": { title: [{ text: { content: title } }] },
-              "Statut": { select: { name: status } }
-            }
-          }),
-        });
-      }
-
-      else if (path === '/content/update') {
-        const { pageId, properties } = await request.json();
-        
-        notionResponse = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-          method: 'PATCH',
-          headers: notionHeaders,
-          body: JSON.stringify({ properties }),
-        });
-      }
-
-      // ===== CONTEXT DATABASE =====
-      
-      else if (path === '/context/fetch') {
-        const { contextDbId } = await request.json();
-        
-        // 1. Get database
-        const dbRes = await fetch(`https://api.notion.com/v1/databases/${contextDbId}`, {
-          headers: notionHeaders,
-        });
-        const dbData = await dbRes.json();
-        const dataSourceId = dbData.data_sources?.[0]?.id;
-        
-        // 2. Query data_source
-        notionResponse = await fetch(`https://api.notion.com/v1/data_sources/${dataSourceId}/query`, {
-          method: 'POST',
-          headers: notionHeaders,
-          body: JSON.stringify({}),
-        });
-      }
-
-      else if (path === '/context/create') {
-        const { contextDbId, name, description } = await request.json();
-        
-        // 1. Get data_source
-        const dbRes = await fetch(`https://api.notion.com/v1/databases/${contextDbId}`, {
-          headers: notionHeaders,
-        });
-        const dbData = await dbRes.json();
-        const dataSourceId = dbData.data_sources?.[0]?.id;
-        
-        // 2. Create page
-        notionResponse = await fetch('https://api.notion.com/v1/pages', {
-          method: 'POST',
-          headers: notionHeaders,
-          body: JSON.stringify({
-            parent: { type: "data_source_id", data_source_id: dataSourceId },
-            properties: {
-              "Nom": { title: [{ text: { content: name } }] },
-              "Description": { rich_text: [{ text: { content: description } }] }
-            }
-          }),
-        });
-      }
-
-      else if (path === '/context/update') {
-        const { contextId, name, description } = await request.json();
-        
-        notionResponse = await fetch(`https://api.notion.com/v1/pages/${contextId}`, {
-          method: 'PATCH',
-          headers: notionHeaders,
-          body: JSON.stringify({
-            properties: {
-              "Nom": { title: [{ text: { content: name } }] },
-              "Description": { rich_text: [{ text: { content: description } }] }
-            }
-          }),
-        });
-      }
-
-      else if (path === '/context/delete') {
-        const { contextId } = await request.json();
-        
-        notionResponse = await fetch(`https://api.notion.com/v1/pages/${contextId}`, {
-          method: 'PATCH',
-          headers: notionHeaders,
-          body: JSON.stringify({ archived: true }),
-        });
-      }
-
-      else {
-        return new Response(JSON.stringify({ error: 'Endpoint non trouvé' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Retourner la réponse Notion
-      const data = await notionResponse.json();
-      
-      return new Response(JSON.stringify(data), {
+      return new Response(data, {
         status: notionResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        },
       });
 
     } catch (error) {
+      console.error('=== ERREUR WORKER ===', error);
       return new Response(JSON.stringify({ 
         error: error.message,
         stack: error.stack 
