@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Lightbulb, Calendar as CalendarIcon, Archive, Search, ArrowRight, Plus, AlertCircle, Users, Settings, Briefcase, ChevronRight, CheckCircle2, PenLine, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Layout, Lightbulb, Calendar as CalendarIcon, Archive, Search, ArrowRight, Plus, AlertCircle, Users, Settings, Briefcase, ChevronRight, CheckCircle2, PenLine, Loader2, RefreshCw, ExternalLink, LogOut } from 'lucide-react';
 import { ContentItem, ContentStatus, ContextItem } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
@@ -7,6 +7,8 @@ import ContentCard from './components/ContentCard';
 import SettingsModal from './components/SettingsModal';
 import EditorModal from './components/EditorModal';
 import CalendarView from './components/CalendarView';
+import { LoginPage } from './components/LoginPage';
+import { isAuthenticated, logout } from './auth';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -14,13 +16,17 @@ type SpaceView = 'social' | 'clients';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'calendar' | 'archive';
 
 function App() {
+  // Auth State
+  const [authenticated, setAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   // Data State
   const [items, setItems] = useState<ContentItem[]>([]);
   const [contexts, setContexts] = useState<ContextItem[]>([]);
   
   // Loading States
-  const [isInitializing, setIsInitializing] = useState(true); // Chargement du cache
-  const [isSyncing, setIsSyncing] = useState(false); // Synchronisation Notion
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // UI State
@@ -34,11 +40,15 @@ function App() {
   const [editingItem, setEditingItem] = useState<ContentItem | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  // --- DATA LOADING STRATEGY ---
+  // --- AUTH CHECK ---
+  useEffect(() => {
+    setAuthenticated(isAuthenticated());
+    setCheckingAuth(false);
+  }, []);
 
+  // --- DATA LOADING STRATEGY ---
   const initData = async () => {
       try {
-          // 1. Charger le cache immédiatement (Rapide)
           const [cachedItems, cachedContexts] = await Promise.all([
               StorageService.getCachedContent(),
               StorageService.getCachedContexts()
@@ -51,7 +61,6 @@ function App() {
           console.error("Erreur lecture cache:", e);
       } finally {
           setIsInitializing(false);
-          // 2. Lancer la synchro réseau ensuite
           syncWithNotion();
       }
   };
@@ -67,11 +76,9 @@ function App() {
             NotionService.fetchContexts()
         ]);
         
-        // Mise à jour de l'état React
         setItems(fetchedContent);
         setContexts(fetchedContexts);
 
-        // Mise à jour du Cache
         await Promise.all([
             StorageService.setCachedContent(fetchedContent),
             StorageService.setCachedContexts(fetchedContexts)
@@ -79,7 +86,6 @@ function App() {
 
     } catch (err: any) {
         console.error("Sync Error:", err);
-        // On n'écrase pas les données locales si Notion échoue, on garde le cache actif.
         let msg = err.message || "Impossible de synchroniser avec Notion.";
         setError(msg);
     } finally {
@@ -88,19 +94,32 @@ function App() {
   };
 
   useEffect(() => {
-    initData();
-  }, []);
+    if (authenticated) {
+      initData();
+    }
+  }, [authenticated]);
 
-  // Reset search query when tab changes to avoid confusion
   useEffect(() => {
       setSearchQuery("");
   }, [currentSocialTab]);
 
-  // --- HANDLERS ---
+  // --- AUTH HANDLERS ---
+  const handleLoginSuccess = () => {
+    setAuthenticated(true);
+  };
 
+  const handleLogout = () => {
+    logout();
+    setAuthenticated(false);
+    // Réinitialiser l'état de l'app
+    setItems([]);
+    setContexts([]);
+    setIsInitializing(true);
+  };
+
+  // --- HANDLERS ---
   const handleContextsChange = (newContexts: ContextItem[]) => {
       setContexts(newContexts);
-      // On sauvegarde en cache immédiatement pour la fluidité
       StorageService.setCachedContexts(newContexts); 
   };
 
@@ -111,7 +130,7 @@ function App() {
     const text = newIdeaText;
     setNewIdeaText(""); 
     
-    setIsSyncing(true); // On affiche le loader central car c'est une action réseau explicite
+    setIsSyncing(true);
     try {
         const newItem = await NotionService.createContent(text);
         
@@ -132,15 +151,12 @@ function App() {
   };
 
   const handleUpdateItem = async (updatedItem: ContentItem): Promise<void> => {
-    // Optimistic UI Update : On met à jour l'interface et le cache TOUT DE SUITE
     const newItems = items.map(i => i.id === updatedItem.id ? updatedItem : i);
     setItems(newItems);
     setEditingItem(updatedItem);
     
-    // Update Cache
     StorageService.updateCachedItem(updatedItem).catch(console.error);
 
-    // Background Network Update (Fire & Forget visuel, mais on gère l'erreur)
     try {
       await NotionService.updateContent(updatedItem);
     } catch (error) {
@@ -153,10 +169,23 @@ function App() {
       setIsContextManagerOpen(true);
   };
 
+  // --- AUTH LOADING ---
+  if (checkingAuth) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+      </div>
+    );
+  }
+
+  // --- LOGIN SCREEN ---
+  if (!authenticated) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   // --- FILTERED LISTS & LOGIC ---
   const today = new Date();
 
-  // On applique le filtre de recherche globalement, mais l'input n'est visible que sur certains onglets
   const filteredItems = items.filter(item => 
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.body.toLowerCase().includes(searchQuery.toLowerCase())
@@ -166,19 +195,17 @@ function App() {
     i.status === ContentStatus.IDEA
   );
 
-  const draftingItems = items.filter(i => // Note: Drafting doesn't use search filter based on requirements, using raw items
+  const draftingItems = items.filter(i => 
     i.status === ContentStatus.DRAFTING
   );
 
-  const readyItems = items.filter(i => // Note: Ready doesn't use search filter based on requirements
+  const readyItems = items.filter(i => 
     i.status === ContentStatus.READY
   );
   
-  // Logic Archive: Published AND Date < Today
-  // Uses filteredItems because search IS enabled for Archive
   const archiveItems = filteredItems.filter(i => {
     if (i.status !== ContentStatus.PUBLISHED) return false;
-    if (!i.scheduledDate) return false; // Must have a date to be "past"
+    if (!i.scheduledDate) return false;
     return new Date(i.scheduledDate) < today;
   }).sort((a, b) => {
     const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
@@ -186,7 +213,6 @@ function App() {
     return dateB - dateA;
   });
 
-  // Logic Calendar Counter: Any item with Date > Today (Future)
   const futureScheduledCount = items.filter(i => 
     i.scheduledDate && new Date(i.scheduledDate) > today
   ).length;
@@ -232,8 +258,8 @@ function App() {
             </nav>
           </div>
           
-          {/* Refresh Button Manual */}
-          <div className="flex items-center">
+          {/* Actions Header */}
+          <div className="flex items-center gap-2">
                <button 
                   onClick={syncWithNotion}
                   disabled={isSyncing}
@@ -241,6 +267,13 @@ function App() {
                   title="Synchroniser avec Notion"
                >
                    <RefreshCw className="w-4 h-4" />
+               </button>
+               <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"
+                  title="Déconnexion"
+               >
+                   <LogOut className="w-4 h-4" />
                </button>
           </div>
         </div>
@@ -298,7 +331,6 @@ function App() {
                     <div className="p-4 flex-1 overflow-y-auto space-y-1">
                          <div className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-3 px-3 mt-2">Navigation</div>
                          
-                         {/* 1. Idées */}
                          <SidebarItem 
                             active={currentSocialTab === 'ideas'} 
                             onClick={() => setCurrentSocialTab('ideas')} 
@@ -307,7 +339,6 @@ function App() {
                             count={ideaItems.length}
                          />
 
-                         {/* 2. En cours */}
                          <SidebarItem 
                             active={currentSocialTab === 'drafts'} 
                             onClick={() => setCurrentSocialTab('drafts')} 
@@ -316,7 +347,6 @@ function App() {
                             count={draftingItems.length}
                          />
                          
-                         {/* 3. Prêt à publier */}
                          <SidebarItem 
                             active={currentSocialTab === 'ready'} 
                             onClick={() => setCurrentSocialTab('ready')} 
@@ -325,10 +355,8 @@ function App() {
                             count={readyItems.length}
                          />
 
-                         {/* 4. Separator */}
                          <div className="my-3 border-t border-gray-100 dark:border-slate-800 mx-2"></div>
 
-                         {/* 5. Calendrier */}
                          <SidebarItem 
                             active={currentSocialTab === 'calendar'} 
                             onClick={() => setCurrentSocialTab('calendar')} 
@@ -337,7 +365,6 @@ function App() {
                             count={futureScheduledCount}
                          />
 
-                         {/* 6. Archives */}
                          <SidebarItem 
                             active={currentSocialTab === 'archive'} 
                             onClick={() => setCurrentSocialTab('archive')} 
@@ -371,7 +398,6 @@ function App() {
                              {currentSocialTab === 'archive' && 'Historique des publications'}
                          </h2>
 
-                        {/* Search Bar - Only visible in IDEAS and ARCHIVE */}
                         {['ideas', 'archive'].includes(currentSocialTab) && (
                              <div className="relative group w-72 animate-in fade-in slide-in-from-right-4 duration-300">
                                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400 dark:text-slate-500 group-focus-within:text-brand-500 transition-colors" />

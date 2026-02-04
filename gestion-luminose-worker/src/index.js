@@ -5,28 +5,82 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Notion-Version',
+      'Access-Control-Allow-Headers': 'Content-Type, Notion-Version, X-Session-Token',
     };
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
 
-    try {
-      const url = new URL(request.url);
-      const path = url.pathname;
+    const url = new URL(request.url);
+    const path = url.pathname;
 
-      // LOG 1: Requête reçue
-      console.log('=== REQUÊTE REÇUE ===');
-      console.log('Path:', path);
-      console.log('Method:', request.method);
+    // ===== ROUTE DE LOGIN =====
+    if (path === '/auth/login') {
+      const { username, password } = await request.json();
 
-      // LOG 2: Vérifier la clé API
-      console.log('=== CLÉ API ===');
-      console.log('Clé présente:', !!env.NOTION_API_KEY);
-      console.log('Longueur clé:', env.NOTION_API_KEY?.length);
-      console.log('Début clé:', env.NOTION_API_KEY?.substring(0, 10) + '...');
+      // Vérifier les credentials
+      if (username === env.AUTH_USERNAME && password === env.AUTH_PASSWORD) {
+        // Générer un token de session aléatoire
+        const sessionToken = crypto.randomUUID();
+        
+        // Stocker en KV avec expiration 24h (ou utiliser un simple hash si pas de KV)
+        // Option simple sans KV : retourner juste un token hashé
+        const tokenData = btoa(JSON.stringify({
+          token: sessionToken,
+          expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24h
+        }));
 
+        return new Response(JSON.stringify({ 
+          success: true,
+          sessionToken: tokenData
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        error: 'Identifiants incorrects' 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ===== VÉRIFIER LE TOKEN POUR LES ROUTES NOTION =====
+    if (path.startsWith('/v1/')) {
+      const sessionToken = request.headers.get('X-Session-Token');
+      
+      if (!sessionToken) {
+        return new Response(JSON.stringify({ 
+          error: 'Non authentifié - Token manquant' 
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Vérifier la validité du token
+      try {
+        const tokenData = JSON.parse(atob(sessionToken));
+        if (Date.now() > tokenData.expiresAt) {
+          return new Response(JSON.stringify({ 
+            error: 'Session expirée' 
+          }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } catch (e) {
+        return new Response(JSON.stringify({ 
+          error: 'Token invalide' 
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Token valide, continuer vers Notion
       const notionHeaders = {
         'Authorization': `Bearer ${env.NOTION_API_KEY}`,
         'Notion-Version': NOTION_VERSION,
@@ -36,13 +90,7 @@ export default {
       const notionPath = path.replace(/^\/v1/, '/v1');
       const notionUrl = `https://api.notion.com${notionPath}`;
 
-      // LOG 3: URL et headers envoyés à Notion
-      console.log('=== ENVOI À NOTION ===');
-      console.log('URL:', notionUrl);
-      console.log('Headers:', JSON.stringify(notionHeaders, null, 2));
-
       let notionResponse;
-      let requestBody = null;
 
       if (request.method === 'GET') {
         notionResponse = await fetch(notionUrl, {
@@ -50,52 +98,22 @@ export default {
           headers: notionHeaders,
         });
       } else if (request.method === 'POST' || request.method === 'PATCH') {
-        requestBody = await request.text();
-        
-        // LOG 4: Body de la requête
-        console.log('=== BODY ENVOYÉ ===');
-        console.log(requestBody);
-        
+        const body = await request.text();
         notionResponse = await fetch(notionUrl, {
           method: request.method,
           headers: notionHeaders,
-          body: requestBody,
-        });
-      } else {
-        return new Response('Method not allowed', { 
-          status: 405,
-          headers: corsHeaders 
+          body: body,
         });
       }
 
-      // LOG 5: Réponse de Notion
-      console.log('=== RÉPONSE NOTION ===');
-      console.log('Status:', notionResponse.status);
-      console.log('Headers:', JSON.stringify([...notionResponse.headers.entries()], null, 2));
-
       const data = await notionResponse.text();
       
-      // LOG 6: Body de la réponse
-      console.log('=== BODY RÉPONSE ===');
-      console.log(data);
-
       return new Response(data, {
         status: notionResponse.status,
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        },
-      });
-
-    } catch (error) {
-      console.error('=== ERREUR WORKER ===', error);
-      return new Response(JSON.stringify({ 
-        error: error.message,
-        stack: error.stack 
-      }), {
-        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    return new Response('Not found', { status: 404, headers: corsHeaders });
   },
 };

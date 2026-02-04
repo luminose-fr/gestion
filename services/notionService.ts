@@ -1,6 +1,7 @@
 import { ContentItem, ContentStatus, Platform, ContextItem } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
+import { getSessionToken } from "../auth";
 
 // Version API Notion actuelle
 const NOTION_VERSION = "2025-09-03";
@@ -9,6 +10,7 @@ const NOTION_VERSION = "2025-09-03";
 const getHeaders = () => ({
   "Notion-Version": NOTION_VERSION,
   "Content-Type": "application/json",
+  "X-Session-Token": getSessionToken() || "",
 });
 
 // Le Worker proxifie les requêtes vers Notion
