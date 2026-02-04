@@ -1,7 +1,8 @@
 import { ContentStatus, Platform } from "./types";
 
-// Utilisation de corsproxy.io pour contourner les restrictions CORS de Notion dans le navigateur
-export const NOTION_CORS_PROXY = "https://corsproxy.io/?"; 
+// Utilisation de cors-anywhere pour une meilleure compatibilité avec les headers Notion (Authorization, Notion-Version)
+// Note : Nécessite une activation temporaire via https://cors-anywhere.herokuapp.com/corsdemo pour les projets de démo
+export const NOTION_CORS_PROXY = "https://cors-anywhere.herokuapp.com/"; 
 
 export const DEFAULT_BRAND_CONTEXT = `Je suis un expert en marketing digital. 
 Mon ton est professionnel mais accessible. 

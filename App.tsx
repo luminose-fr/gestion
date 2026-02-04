@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Lightbulb, Calendar as CalendarIcon, Archive, Search, ArrowRight, Plus, AlertCircle, Users, Settings, Briefcase, ChevronRight, CheckCircle2, PenLine, Loader2, RefreshCw } from 'lucide-react';
+import { Layout, Lightbulb, Calendar as CalendarIcon, Archive, Search, ArrowRight, Plus, AlertCircle, Users, Settings, Briefcase, ChevronRight, CheckCircle2, PenLine, Loader2, RefreshCw, ExternalLink } from 'lucide-react';
 import { ContentItem, ContentStatus, ContextItem } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
@@ -80,7 +80,13 @@ function App() {
     } catch (err: any) {
         console.error("Sync Error:", err);
         // On n'écrase pas les données locales si Notion échoue, on garde le cache actif.
-        setError(err.message || "Impossible de synchroniser avec Notion.");
+        let msg = err.message || "Impossible de synchroniser avec Notion.";
+        
+        // Détection spécifique pour le Proxy CORS
+        if (msg.includes("403") || msg.includes("Failed to fetch")) {
+             msg = "Erreur d'accès (CORS). Le proxy nécessite peut-être une activation.";
+        }
+        setError(msg);
     } finally {
         setIsSyncing(false);
     }
@@ -248,11 +254,24 @@ function App() {
 
       {/* ERROR BANNER */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 p-2 text-center text-xs flex-shrink-0">
-            <span className="text-red-700 dark:text-red-300 flex items-center justify-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                {error}
-                <button onClick={syncWithNotion} className="underline font-bold hover:text-red-900">Réessayer</button>
+        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 p-2 text-center text-xs flex-shrink-0 animate-fade-in">
+            <span className="text-red-700 dark:text-red-300 flex items-center justify-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {error}
+                </div>
+                {/* Lien spécial pour l'erreur CORS */}
+                {error.includes("activation") && (
+                    <a 
+                        href="https://cors-anywhere.herokuapp.com/corsdemo" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-800 px-2 py-0.5 rounded text-red-800 dark:text-red-200 font-bold underline transition-colors"
+                    >
+                        Activer l'accès temporaire <ExternalLink className="w-3 h-3" />
+                    </a>
+                )}
+                <button onClick={syncWithNotion} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
             </span>
         </div>
       )}
