@@ -81,11 +81,6 @@ function App() {
         console.error("Sync Error:", err);
         // On n'écrase pas les données locales si Notion échoue, on garde le cache actif.
         let msg = err.message || "Impossible de synchroniser avec Notion.";
-        
-        // Détection spécifique pour le Proxy CORS
-        if (msg.includes("403") || msg.includes("Failed to fetch")) {
-             msg = "Erreur d'accès (CORS). Le proxy nécessite peut-être une activation.";
-        }
         setError(msg);
     } finally {
         setIsSyncing(false);
@@ -151,7 +146,6 @@ function App() {
     } catch (error) {
       console.error("Erreur update Notion:", error);
       setError("Échec de la sauvegarde sur Notion. Vos modifications sont locales pour l'instant.");
-      // Idéalement ici on marquerait l'item comme "dirty" pour re-try plus tard
     }
   };
 
@@ -260,17 +254,6 @@ function App() {
                     <AlertCircle className="w-4 h-4" />
                     {error}
                 </div>
-                {/* Lien spécial pour l'erreur CORS */}
-                {error.includes("activation") && (
-                    <a 
-                        href="https://cors-anywhere.herokuapp.com/corsdemo" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-800 px-2 py-0.5 rounded text-red-800 dark:text-red-200 font-bold underline transition-colors"
-                    >
-                        Activer l'accès temporaire <ExternalLink className="w-3 h-3" />
-                    </a>
-                )}
                 <button onClick={syncWithNotion} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
             </span>
         </div>

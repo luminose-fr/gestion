@@ -1,17 +1,18 @@
 import { ContentItem, ContentStatus, Platform, ContextItem } from "../types";
 import { CONFIG } from "../config";
-import { NOTION_CORS_PROXY } from "../constants";
+import { WORKER_URL } from "../constants";
 
 // Version API Notion actuelle
 const NOTION_VERSION = "2025-09-03";
 
+// Headers sans la clé API (gérée par le Worker)
 const getHeaders = () => ({
-  "Authorization": `Bearer ${CONFIG.NOTION_API_KEY}`,
   "Notion-Version": NOTION_VERSION,
   "Content-Type": "application/json",
 });
 
-const getUrl = (endpoint: string) => `${NOTION_CORS_PROXY}https://api.notion.com/v1${endpoint}`;
+// Le Worker proxifie les requêtes vers Notion
+const getUrl = (endpoint: string) => `${WORKER_URL}/v1${endpoint}`;
 
 // --- HELPERS DE PARSING ---
 
@@ -31,17 +32,14 @@ const getPlainText = (property: any): string => {
 const mapNotionPageToItem = (page: any): ContentItem => {
   const props = page.properties;
   
-  // Mapping des propriétés en Français
   const title = getPlainText(props["Titre"]) || "Sans titre";
   
-  // Support des types Select et Status (natif Notion)
   const statusValue = props["Statut"]?.select?.name || props["Statut"]?.status?.name;
   const status = (statusValue as ContentStatus) || ContentStatus.IDEA;
 
   const platforms = props["Plateforme"]?.multi_select?.map((p: any) => p.name as Platform) || [];
   
   const body = getPlainText(props["Contenu"]);
-  // Notion peut avoir des espaces dans les clés
   const scheduledDate = props["Date de publication"]?.date?.start || null;
   const notes = getPlainText(props["Notes"]);
 
@@ -58,10 +56,10 @@ const mapNotionPageToItem = (page: any): ContentItem => {
 };
 
 export const fetchContent = async (): Promise<ContentItem[]> => {
-  console.log("Tentative de connexion à Notion (Content DB)...");
+  console.log("Tentative de connexion via Worker...");
   
-  if (!CONFIG.NOTION_API_KEY) {
-     throw new Error("Clé API Notion manquante. Vérifiez votre fichier .env");
+  if (!CONFIG.NOTION_CONTENT_DB_ID) {
+     throw new Error("Database ID manquant");
   }
 
   try {
@@ -74,12 +72,11 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
     if (!dbResponse.ok) {
         const errorText = await dbResponse.text();
         console.error("Erreur récupération database:", dbResponse.status, errorText);
-        throw new Error(`Erreur Notion ${dbResponse.status}: ${errorText}`);
+        throw new Error(`Erreur ${dbResponse.status}: ${errorText}`);
     }
 
     const dbData = await dbResponse.json();
     
-    // Récupérer le premier data_source (ou tous si besoin)
     const dataSourceId = dbData.data_sources?.[0]?.id;
     
     if (!dataSourceId) {
@@ -102,8 +99,8 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error("Erreur Notion API (Content):", response.status, errorText);
-        throw new Error(`Erreur Notion ${response.status}: ${errorText}`);
+        console.error("Erreur Worker/Notion (Content):", response.status, errorText);
+        throw new Error(`Erreur ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
@@ -177,7 +174,6 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
         "Titre": { title: [{ text: { content: item.title } }] },
     };
 
-    // Rich Text properties
     if (item.body !== undefined) {
         properties["Contenu"] = { 
             rich_text: item.body ? [{ text: { content: item.body } }] : [] 
@@ -190,17 +186,14 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
         };
     }
     
-    // Status update
     if (item.status) {
         properties["Statut"] = { select: { name: item.status } };
     }
 
-    // Date update
     if (item.scheduledDate !== undefined) {
         properties["Date de publication"] = item.scheduledDate ? { date: { start: item.scheduledDate } } : { date: null };
     }
     
-    // Platforms update
     if (item.platforms) {
         properties["Plateforme"] = { 
             multi_select: item.platforms.map(p => ({ name: p })) 
@@ -337,7 +330,6 @@ export const updateContext = async (context: ContextItem): Promise<void> => {
 };
 
 export const deleteContext = async (id: string): Promise<void> => {
-    // Pour archiver une page dans Notion, on utilise l'endpoint /pages avec archived: true
     const response = await fetch(getUrl(`/pages/${id}`), {
         method: "PATCH",
         headers: getHeaders(),

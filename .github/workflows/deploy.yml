@@ -22,14 +22,14 @@ jobs:
           node-version: 20
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build
         run: npm run build
         env:
           # Mapping des Secrets GitHub vers les variables d'environnement Vite
           # Vite requiert le préfixe VITE_ pour les exposer au frontend
-          VITE_NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          # Note: NOTION_API_KEY est retirée car gérée par le Cloudflare Worker
           VITE_NOTION_CONTENT_DB_ID: ${{ secrets.NOTION_CONTENT_DB_ID }}
           VITE_NOTION_CONTEXT_DB_ID: ${{ secrets.NOTION_CONTEXT_DB_ID }}
 
