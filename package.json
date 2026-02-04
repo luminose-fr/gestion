@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "homepage": "https://luminose-fr.github.io/gestion",
+  "homepage": "https://gestion.luminose.fr",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -26,6 +26,6 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.4.2",
-    "vite": "^7.3.1"
+    "vite": "^5.1.5"
   }
 }

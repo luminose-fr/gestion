@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    base: '/gestion/', 
+    base: '/', 
     server: {
       host: true,
       port: 7860
