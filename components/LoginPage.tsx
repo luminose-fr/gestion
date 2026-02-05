@@ -25,9 +25,9 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
-        <h1 className="text-2xl font-bold mb-6 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-brand-light dark:bg-dark-bg">
+      <div className="bg-white dark:bg-dark-surface p-8 rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border max-w-md w-full">
+        <h1 className="text-2xl font-bold mb-6 text-center text-brand-main dark:text-white">
           🔐 Gestion Luminose
         </h1>
         
@@ -39,14 +39,14 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-brand-main dark:text-dark-text text-sm font-bold mb-2">
               Identifiant
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white rounded-lg focus:outline-none focus:border-brand-main dark:focus:border-brand-light"
               required
               autoComplete="username"
               disabled={loading}
@@ -54,14 +54,14 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
           </div>
 
           <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2">
+            <label className="block text-brand-main dark:text-dark-text text-sm font-bold mb-2">
               Mot de passe
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white rounded-lg focus:outline-none focus:border-brand-main dark:focus:border-brand-light"
               required
               autoComplete="current-password"
               disabled={loading}
@@ -71,7 +71,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white py-3 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>

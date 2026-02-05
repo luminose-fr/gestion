@@ -15,6 +15,12 @@ export enum ContentStatus {
   PUBLISHED = "Publié"
 }
 
+export enum Verdict {
+  VALID = "Valide",
+  TOO_BLAND = "Trop lisse",
+  NEEDS_WORK = "À revoir"
+}
+
 export interface ContentItem {
   id: string;
   title: string;
@@ -24,6 +30,10 @@ export interface ContentItem {
   scheduledDate: string | null; // ISO string
   notes: string; // AI Context or prompt notes
   lastEdited: string;
+  // Champs Analyse IA
+  analyzed?: boolean;
+  verdict?: Verdict;
+  strategicAngle?: string;
 }
 
 export interface ContextItem {

@@ -8,7 +8,7 @@ import { fr } from 'date-fns/locale';
 interface ContentCardProps {
   item: ContentItem;
   onClick: (item: ContentItem) => void;
-  highlight?: string; // New optional prop
+  highlight?: string;
 }
 
 const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) => {
@@ -32,17 +32,17 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
     <div 
       onClick={() => onClick(item)}
       className={`
-        bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm border border-gray-100 dark:border-slate-800 cursor-pointer 
-        hover:shadow-md hover:border-brand-200 dark:hover:border-brand-700 transition-all duration-200 group
+        bg-white dark:bg-dark-surface rounded-lg p-4 shadow-sm border border-brand-border dark:border-dark-sec-border cursor-pointer 
+        hover:shadow-md hover:border-brand-main dark:hover:border-white transition-all duration-200 group
       `}
     >
       <div className="flex justify-between items-start mb-2">
-        <h4 className="font-semibold text-gray-800 dark:text-slate-100 line-clamp-2 leading-tight group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+        <h4 className="font-semibold text-brand-main dark:text-white line-clamp-2 leading-tight group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors">
           {getHighlightedText(item.title || "Nouvelle idée", highlight)}
         </h4>
       </div>
 
-      <p className="text-xs text-gray-500 dark:text-slate-400 mb-3 line-clamp-2 min-h-[1.5em]">
+      <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mb-3 line-clamp-2 min-h-[1.5em]">
         {getHighlightedText(item.body || "Pas de contenu...", highlight)}
       </p>
 
@@ -51,12 +51,12 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
           {item.platforms.length > 0 ? (
              <div className="flex flex-wrap gap-1">
                  {item.platforms.slice(0, 2).map((p, i) => (
-                    <span key={i} className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                    <span key={i} className="text-[10px] uppercase font-bold text-brand-main/50 dark:text-dark-text/50 bg-brand-light dark:bg-dark-bg px-1.5 py-0.5 rounded">
                         {p}
                     </span>
                  ))}
                  {item.platforms.length > 2 && (
-                    <span className="text-[10px] text-gray-400 px-1">+{item.platforms.length - 2}</span>
+                    <span className="text-[10px] text-brand-main/40 dark:text-dark-text/40 px-1">+{item.platforms.length - 2}</span>
                  )}
              </div>
           ) : (
@@ -67,7 +67,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
                         Prêt
                     </div>
                 ) : (
-                    <div className="text-gray-400 dark:text-slate-500 flex items-center">
+                    <div className="text-brand-main/40 dark:text-dark-text/40 flex items-center">
                         <FileText className="w-3 h-3 mr-1" />
                         Brouillon
                     </div>
@@ -77,7 +77,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
         </div>
 
         {formattedDate && (
-          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 px-2 py-1 rounded-md">
+          <div className="flex items-center gap-1 text-xs text-brand-main/60 dark:text-dark-text/60 bg-brand-light dark:bg-dark-bg px-2 py-1 rounded-md">
             <Calendar className="w-3 h-3" />
             <span>{formattedDate}</span>
           </div>

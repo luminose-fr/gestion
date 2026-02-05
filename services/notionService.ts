@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, ContextItem } from "../types";
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -15,6 +15,35 @@ const getHeaders = () => ({
 
 // Le Worker proxifie les requêtes vers Notion
 const getUrl = (endpoint: string) => `${WORKER_URL}/v1${endpoint}`;
+
+// --- HELPERS D'ERREUR ---
+const handleNotionResponse = async (response: Response, context: string) => {
+    if (!response.ok) {
+        let errorData: any = {};
+        let errorMessage = `Erreur ${response.status}`;
+
+        try {
+            errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+            
+            // Gestion spécifique des erreurs de validation Notion (limite caractères, etc.)
+            if (errorData.code === 'validation_error') {
+                if (errorMessage.includes('length should be ≤ `2000`')) {
+                    throw new Error("Le texte dépasse la limite de 2000 caractères imposée par Notion. Veuillez raccourcir le contenu.");
+                }
+            }
+        } catch (e: any) {
+            // Si le parsing JSON échoue ou si c'est une autre erreur
+            if (e.message && e.message.includes("limite de 2000 caractères")) throw e;
+            const text = await response.text().catch(() => "");
+            console.error(`Erreur brute Notion (${context}):`, text);
+        }
+
+        console.error(`Erreur structurée Notion (${context}):`, errorData);
+        throw new Error(errorMessage);
+    }
+    return response.json();
+};
 
 // --- HELPERS DE PARSING ---
 
@@ -45,6 +74,12 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   const scheduledDate = props["Date de publication"]?.date?.start || null;
   const notes = getPlainText(props["Notes"]);
 
+  // Nouveaux champs Analyse
+  const analyzed = props["Analysé"]?.checkbox || false;
+  const verdictValue = props["Verdict"]?.select?.name;
+  const verdict = (verdictValue as Verdict) || undefined;
+  const strategicAngle = getPlainText(props["Angle stratégique"]);
+
   return {
     id: page.id,
     title,
@@ -54,12 +89,13 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     scheduledDate,
     notes,
     lastEdited: page.last_edited_time,
+    analyzed,
+    verdict,
+    strategicAngle
   };
 };
 
 export const fetchContent = async (): Promise<ContentItem[]> => {
-  console.log("Tentative de connexion via Worker...");
-  
   if (!CONFIG.NOTION_CONTENT_DB_ID) {
      throw new Error("Database ID manquant");
   }
@@ -70,15 +106,8 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
       method: "GET",
       headers: getHeaders(),
     });
-
-    if (!dbResponse.ok) {
-        const errorText = await dbResponse.text();
-        console.error("Erreur récupération database:", dbResponse.status, errorText);
-        throw new Error(`Erreur ${dbResponse.status}: ${errorText}`);
-    }
-
-    const dbData = await dbResponse.json();
     
+    const dbData = await handleNotionResponse(dbResponse, "fetchContent DB");
     const dataSourceId = dbData.data_sources?.[0]?.id;
     
     if (!dataSourceId) {
@@ -99,13 +128,7 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
       }),
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erreur Worker/Notion (Content):", response.status, errorText);
-        throw new Error(`Erreur ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
+    const data = await handleNotionResponse(response, "fetchContent Query");
     return data.results.map(mapNotionPageToItem);
 
   } catch (error: any) {
@@ -121,14 +144,7 @@ export const createContent = async (title: string): Promise<ContentItem> => {
             method: "GET",
             headers: getHeaders(),
         });
-
-        if (!dbResponse.ok) {
-            const err = await dbResponse.text();
-            console.error("Erreur Get Database:", err);
-            throw new Error("Impossible de récupérer le database");
-        }
-
-        const dbData = await dbResponse.json();
+        const dbData = await handleNotionResponse(dbResponse, "createContent DB");
         const dataSourceId = dbData.data_sources?.[0]?.id;
         
         if (!dataSourceId) {
@@ -157,13 +173,7 @@ export const createContent = async (title: string): Promise<ContentItem> => {
             })
         });
 
-        if (!response.ok) {
-             const err = await response.text();
-             console.error("Erreur Create:", err);
-             throw new Error("Impossible de créer la page Notion");
-        }
-
-        const page = await response.json();
+        const page = await handleNotionResponse(response, "createContent Page");
         return mapNotionPageToItem(page);
     } catch (e) {
         console.error(e);
@@ -178,13 +188,13 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
 
     if (item.body !== undefined) {
         properties["Contenu"] = { 
-            rich_text: item.body ? [{ text: { content: item.body } }] : [] 
+            rich_text: item.body ? [{ text: { content: item.body.substring(0, 2000) } }] : [] 
         };
     }
     
     if (item.notes !== undefined) {
         properties["Notes"] = { 
-            rich_text: item.notes ? [{ text: { content: item.notes } }] : [] 
+            rich_text: item.notes ? [{ text: { content: item.notes.substring(0, 2000) } }] : [] 
         };
     }
     
@@ -202,17 +212,39 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
         };
     }
 
+    // Mise à jour des champs d'analyse si présents
+    if (item.analyzed !== undefined) {
+        properties["Analysé"] = { checkbox: item.analyzed };
+    }
+    
+    if (item.verdict) {
+        properties["Verdict"] = { select: { name: item.verdict } };
+    }
+    
+    if (item.strategicAngle !== undefined) {
+        properties["Angle stratégique"] = { 
+            rich_text: [{ text: { content: item.strategicAngle.substring(0, 2000) } }] 
+        };
+    }
+
     const response = await fetch(getUrl(`/pages/${item.id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({ properties })
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erreur Update Notion:", errorText);
-        throw new Error(`Erreur lors de la mise à jour: ${errorText}`);
-    }
+    await handleNotionResponse(response, "updateContent");
+};
+
+export const deleteContent = async (id: string): Promise<void> => {
+    const response = await fetch(getUrl(`/pages/${id}`), {
+        method: "PATCH",
+        headers: getHeaders(),
+        body: JSON.stringify({
+            archived: true
+        })
+    });
+    await handleNotionResponse(response, "deleteContent");
 };
 
 // --- CONTEXT DATABASE ---
@@ -228,36 +260,27 @@ const mapNotionPageToContext = (page: any): ContextItem => {
 
 export const fetchContexts = async (): Promise<ContextItem[]> => {
     try {
-        // Étape 1: Récupérer les data_sources
         const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTEXT_DB_ID}`), {
             method: "GET",
             headers: getHeaders(),
         });
-
-        if (!dbResponse.ok) {
-             console.error("Erreur fetchContexts database:", dbResponse.status);
-             return [];
-        }
+        
+        // On ne throw pas ici pour ne pas bloquer l'app si les contextes échouent
+        if (!dbResponse.ok) return [];
 
         const dbData = await dbResponse.json();
         const dataSourceId = dbData.data_sources?.[0]?.id;
         
-        if (!dataSourceId) {
-            console.error("Aucun data source trouvé pour Context DB");
-            return [];
-        }
+        if (!dataSourceId) return [];
 
-        // Étape 2: Query le data_source
         const response = await fetch(getUrl(`/data_sources/${dataSourceId}/query`), {
             method: "POST",
             headers: getHeaders(),
             body: JSON.stringify({})
         });
 
-        if (!response.ok) {
-             console.error("Erreur query data_source:", response.status);
-             return [];
-        }
+        if (!response.ok) return [];
+        
         const data = await response.json();
         return data.results.map(mapNotionPageToContext);
     } catch (error) {
@@ -267,26 +290,15 @@ export const fetchContexts = async (): Promise<ContextItem[]> => {
 };
 
 export const createContext = async (name: string, description: string): Promise<ContextItem> => {
-    // Étape 1: Récupérer le data_source_id
     const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTEXT_DB_ID}`), {
         method: "GET",
         headers: getHeaders(),
     });
-
-    if (!dbResponse.ok) {
-        const err = await dbResponse.text();
-        console.error("Erreur Get Database (Context):", err);
-        throw new Error("Impossible de récupérer le database");
-    }
-
-    const dbData = await dbResponse.json();
+    const dbData = await handleNotionResponse(dbResponse, "createContext DB");
     const dataSourceId = dbData.data_sources?.[0]?.id;
     
-    if (!dataSourceId) {
-        throw new Error("Aucun data source trouvé pour Context DB");
-    }
+    if (!dataSourceId) throw new Error("Aucun data source trouvé pour Context DB");
 
-    // Étape 2: Créer la page
     const response = await fetch(getUrl("/pages"), {
         method: "POST",
         headers: getHeaders(),
@@ -297,18 +309,12 @@ export const createContext = async (name: string, description: string): Promise<
             },
             properties: {
                 "Nom": { title: [{ text: { content: name } }] },
-                "Description": { rich_text: [{ text: { content: description } }] }
+                "Description": { rich_text: [{ text: { content: description.substring(0, 2000) } }] }
             }
         })
     });
     
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erreur createContext:", errorText);
-        throw new Error("Impossible de créer le contexte");
-    }
-    
-    const page = await response.json();
+    const page = await handleNotionResponse(response, "createContext Page");
     return mapNotionPageToContext(page);
 };
 
@@ -319,16 +325,11 @@ export const updateContext = async (context: ContextItem): Promise<void> => {
         body: JSON.stringify({
             properties: {
                 "Nom": { title: [{ text: { content: context.name } }] },
-                "Description": { rich_text: [{ text: { content: context.description } }] }
+                "Description": { rich_text: [{ text: { content: context.description.substring(0, 2000) } }] }
             }
         })
     });
-    
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erreur updateContext:", errorText);
-        throw new Error("Impossible de mettre à jour le contexte");
-    }
+    await handleNotionResponse(response, "updateContext");
 };
 
 export const deleteContext = async (id: string): Promise<void> => {
@@ -339,10 +340,5 @@ export const deleteContext = async (id: string): Promise<void> => {
             archived: true
         })
     });
-    
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erreur deleteContext:", errorText);
-        throw new Error("Impossible de supprimer le contexte");
-    }
+    await handleNotionResponse(response, "deleteContext");
 };

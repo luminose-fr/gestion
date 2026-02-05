@@ -19,13 +19,9 @@ export default {
     if (path === '/auth/login') {
       const { username, password } = await request.json();
 
-      // Vérifier les credentials
       if (username === env.AUTH_USERNAME && password === env.AUTH_PASSWORD) {
-        // Générer un token de session aléatoire
         const sessionToken = crypto.randomUUID();
         
-        // Stocker en KV avec expiration 24h (ou utiliser un simple hash si pas de KV)
-        // Option simple sans KV : retourner juste un token hashé
         const tokenData = btoa(JSON.stringify({
           token: sessionToken,
           expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24h
@@ -47,33 +43,171 @@ export default {
       });
     }
 
-    // ===== VÉRIFIER LE TOKEN POUR LES ROUTES NOTION =====
-    if (path.startsWith('/v1/')) {
-      const sessionToken = request.headers.get('X-Session-Token');
-      
+    // ===== HELPER: VÉRIFIER LE TOKEN =====
+    const verifySessionToken = (sessionToken) => {
       if (!sessionToken) {
+        return { valid: false, error: 'Token manquant' };
+      }
+
+      try {
+        const tokenData = JSON.parse(atob(sessionToken));
+        if (Date.now() > tokenData.expiresAt) {
+          return { valid: false, error: 'Session expirée' };
+        }
+        return { valid: true };
+      } catch (e) {
+        return { valid: false, error: 'Token invalide' };
+      }
+    };
+
+    // ===== ROUTES GEMINI AI =====
+    if (path.startsWith('/gemini/')) {
+      const sessionToken = request.headers.get('X-Session-Token');
+      const tokenCheck = verifySessionToken(sessionToken);
+      
+      if (!tokenCheck.valid) {
         return new Response(JSON.stringify({ 
-          error: 'Non authentifié - Token manquant' 
+          error: `Non authentifié - ${tokenCheck.error}` 
         }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Vérifier la validité du token
-      try {
-        const tokenData = JSON.parse(atob(sessionToken));
-        if (Date.now() > tokenData.expiresAt) {
+      // Route: /gemini/generate-content
+      if (path === '/gemini/generate-content') {
+        try {
+          const { model, prompt, systemInstruction, generationConfig } = await request.json();
+          
+          // Model par défaut
+          const modelName = model || 'gemini-3-flash-preview';
+          
+          // URL de l'API Gemini
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${env.GEMINI_API_KEY}`;
+          
+          // Construction du body selon le format Gemini
+          const requestBody = {
+            contents: [
+              {
+                parts: [
+                  { text: prompt }
+                ]
+              }
+            ]
+          };
+
+          // Ajouter systemInstruction si présent
+          if (systemInstruction) {
+            requestBody.systemInstruction = {
+              parts: [
+                { text: systemInstruction }
+              ]
+            };
+          }
+
+          // Ajouter generationConfig si présent
+          if (generationConfig) {
+            requestBody.generationConfig = generationConfig;
+          }
+
+          const geminiResponse = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          const data = await geminiResponse.json();
+
+          if (!geminiResponse.ok) {
+            console.error('Gemini API Error:', data);
+            return new Response(JSON.stringify({ 
+              error: 'Erreur API Gemini',
+              details: data 
+            }), {
+              status: geminiResponse.status,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+
+          return new Response(JSON.stringify(data), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+
+        } catch (error) {
+          console.error('Gemini request error:', error);
           return new Response(JSON.stringify({ 
-            error: 'Session expirée' 
+            error: 'Erreur lors de la requête Gemini',
+            message: error.message 
           }), {
-            status: 401,
+            status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
-      } catch (e) {
+      }
+
+      // Route: /gemini/stream-content (pour le streaming)
+      if (path === '/gemini/stream-content') {
+        try {
+          const { model, prompt, systemInstruction } = await request.json();
+          
+          const modelName = model || 'gemini-3-flash-preview';
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?key=${env.GEMINI_API_KEY}&alt=sse`;
+          
+          const requestBody = {
+            contents: [
+              {
+                parts: [{ text: prompt }]
+              }
+            ]
+          };
+
+          if (systemInstruction) {
+            requestBody.systemInstruction = {
+              parts: [{ text: systemInstruction }]
+            };
+          }
+
+          const geminiResponse = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+
+          // Retourner le stream directement
+          return new Response(geminiResponse.body, {
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+            },
+          });
+
+        } catch (error) {
+          console.error('Gemini stream error:', error);
+          return new Response(JSON.stringify({ 
+            error: 'Erreur lors du streaming Gemini',
+            message: error.message 
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+    }
+
+    // ===== ROUTES NOTION =====
+    if (path.startsWith('/v1/')) {
+      const sessionToken = request.headers.get('X-Session-Token');
+      const tokenCheck = verifySessionToken(sessionToken);
+      
+      if (!tokenCheck.valid) {
         return new Response(JSON.stringify({ 
-          error: 'Token invalide' 
+          error: `Non authentifié - ${tokenCheck.error}` 
         }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

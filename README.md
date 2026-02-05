@@ -1,6 +1,6 @@
 # SocialFlow Manager
 
-SocialFlow Manager est une application web de gestion de contenu pour les réseaux sociaux. Elle centralise vos idées, utilise l'IA (via Puter.js) pour la rédaction, et stocke tout votre travail directement dans Notion.
+SocialFlow Manager est une application web de gestion de contenu pour les réseaux sociaux. Elle centralise vos idées, utilise l'IA (via Gemini) pour la rédaction, et stocke tout votre travail directement dans Notion.
 
 ## 📚 1. Configuration de Notion (OBLIGATOIRE)
 
@@ -25,6 +25,9 @@ Ajoutez les propriétés suivantes **exactement** comme indiqué (respectez les 
 | **Contenu** | Text | - (Sera le corps du post) |
 | **Date de publication** | Date | - (Date de planification) |
 | **Notes** | Text | - (Notes internes ou mémo) |
+| **Analysé** | Checkbox | - (Sera coché si analysé par l'IA) |
+| **Verdict** | Select | `Valide`, `Trop lisse`, `À revoir` |
+| **Angle stratégique** | Text | - (Sera rempli par l'IA) |
 
 *Note : Récupérez l'ID de cette base de données depuis l'URL (la partie après le `/` et avant le `?`). Ce sera votre `VITE_NOTION_CONTENT_DB_ID`.*
 
@@ -85,9 +88,7 @@ Ouvrez un terminal dans le dossier du projet :
 
 ---
 
-## 🤖 Note sur l'IA (Puter.js)
+## 🤖 Note sur l'IA
 
-L'application utilise **Puter.js** pour les fonctionnalités d'intelligence artificielle.
-- Aucune clé API supplémentaire n'est requise pour l'IA.
-- Puter.js est chargé directement via un script dans `index.html`.
-- Assurez-vous que votre bloqueur de publicités ne bloque pas `js.puter.com`.
+L'application utilise **Gemini API** via le worker Cloudflare pour les fonctionnalités d'intelligence artificielle.
+- Assurez-vous que la clé API Gemini est correctement configurée côté Worker.
