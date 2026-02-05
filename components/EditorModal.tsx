@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Send, Calendar, Save, Trash2, Settings, Lock, CheckCircle2, Edit3, Eye, Loader2, ArrowRight, FileText, Info } from 'lucide-react';
-import { ContentItem, ContentStatus, Platform, ContextItem } from '../types';
+import { X, Sparkles, Send, Calendar, Save, Trash2, Settings, Lock, CheckCircle2, Edit3, Eye, Loader2, ArrowRight, FileText, Info, Brain } from 'lucide-react';
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict } from '../types';
 import { STATUS_COLORS } from '../constants';
 import * as GeminiService from '../services/geminiService';
 import { format, parseISO } from 'date-fns';
@@ -140,6 +140,15 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
           await onDelete(editedItem);
       }
       onClose();
+  };
+
+  const getVerdictColor = (verdict?: Verdict) => {
+      switch (verdict) {
+          case Verdict.VALID: return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
+          case Verdict.TOO_BLAND: return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
+          case Verdict.NEEDS_WORK: return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
+          default: return 'bg-gray-100 text-gray-600';
+      }
   };
 
   // --- WRAPPER UNIFIÉ POUR TOUTES LES VUES DE LA MODALE ---
@@ -354,6 +363,31 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                         />
                     </div>
 
+                    {/* Bloc Analyse IA (Si présent) */}
+                    {editedItem.analyzed && (
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-800 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider flex items-center gap-2">
+                                    <Brain className="w-4 h-4" />
+                                    Analyse IA
+                                </span>
+                                {editedItem.verdict && (
+                                     <span className={`text-[10px] px-2 py-1 rounded-full font-medium border ${getVerdictColor(editedItem.verdict)}`}>
+                                         {editedItem.verdict}
+                                     </span>
+                                )}
+                            </div>
+                            {editedItem.strategicAngle && (
+                                <div>
+                                    <p className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-1">Angle Stratégique :</p>
+                                    <p className="text-sm text-purple-800/80 dark:text-purple-200/80 leading-relaxed italic">
+                                        "{editedItem.strategicAngle}"
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <div>
                          <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-2">Notes & Contexte (Mémo)</label>
                          <textarea 
@@ -378,12 +412,15 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
 
                      <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
                         <button 
-                            onClick={handleManualSave}
+                            onClick={async () => {
+                                await handleManualSave();
+                                onClose();
+                            }}
                             disabled={isSaving}
                             className="px-4 py-3 md:py-2 text-brand-main dark:text-dark-text hover:bg-white dark:hover:bg-dark-surface rounded-lg font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 border-2 border-transparent hover:border-brand-border dark:hover:border-dark-sec-border w-full md:w-auto"
                         >
                             {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
-                            Enregistrer sans commencer
+                            Enregistrer & Fermer
                         </button>
                         <button 
                             onClick={() => changeStatus(ContentStatus.DRAFTING)}
