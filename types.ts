@@ -34,6 +34,9 @@ export interface ContentItem {
   analyzed?: boolean;
   verdict?: Verdict;
   strategicAngle?: string;
+  // Nouveaux champs Interview
+  interviewAnswers?: string;
+  interviewQuestions?: string;
 }
 
 export interface ContextItem {

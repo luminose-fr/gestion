@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Lightbulb, Calendar as CalendarIcon, Archive, Search, ArrowRight, Plus, AlertCircle, Users, Settings, Briefcase, ChevronRight, CheckCircle2, PenLine, Loader2, RefreshCw, ExternalLink, LogOut, Menu, X, Brain, Sparkles } from 'lucide-react';
+import { Layout, Lightbulb, Calendar as CalendarIcon, Archive, Search, ArrowRight, Plus, AlertCircle, Users, Settings, Briefcase, ChevronRight, CheckCircle2, PenLine, Loader2, RefreshCw, ExternalLink, LogOut, Menu, X, Brain, Sparkles, Filter } from 'lucide-react';
 import { ContentItem, ContentStatus, ContextItem, Verdict } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
@@ -13,9 +13,47 @@ import { isAuthenticated, logout } from './auth';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { AlertModal, ConfirmModal, CharCounter } from './components/CommonModals';
+import { RichTextarea } from './components/RichTextarea';
+import { MarkdownToolbar } from './components/MarkdownToolbar';
 
 type SpaceView = 'social' | 'clients';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'calendar' | 'archive';
+
+// Missing Helper Components
+const SidebarItem = ({ active, onClick, icon: Icon, label, count }: { active: boolean, onClick: () => void, icon: any, label: string, count?: number }) => (
+    <button 
+        onClick={onClick}
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group
+            ${active 
+                ? 'bg-brand-main text-white shadow-md dark:bg-white dark:text-brand-main' 
+                : 'text-brand-main/70 hover:bg-brand-light hover:text-brand-main dark:text-dark-text/70 dark:hover:bg-dark-sec-bg dark:hover:text-white'}
+        `}
+    >
+        <div className="flex items-center gap-3">
+            <Icon className={`w-4 h-4 ${active ? 'text-white dark:text-brand-main' : 'text-brand-main/50 group-hover:text-brand-main dark:text-dark-text/50 dark:group-hover:text-white'}`} />
+            <span>{label}</span>
+        </div>
+        {count !== undefined && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${active ? 'bg-white/20 text-white dark:bg-brand-main/10 dark:text-brand-main' : 'bg-brand-light text-brand-main/50 dark:bg-dark-bg dark:text-dark-text/50'}`}>
+                {count}
+            </span>
+        )}
+    </button>
+);
+
+const HighlightText = ({ text, highlight }: { text: string, highlight: string }) => {
+    if (!highlight || !highlight.trim()) return <>{text}</>;
+    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    return (
+        <>
+            {parts.map((part, i) => 
+                part.toLowerCase() === highlight.toLowerCase() ? (
+                    <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded px-0.5">{part}</span>
+                ) : part
+            )}
+        </>
+    );
+};
 
 function App() {
   // Auth State
@@ -35,7 +73,12 @@ function App() {
   const [currentSpace, setCurrentSpace] = useState<SpaceView>('social');
   const [currentSocialTab, setCurrentSocialTab] = useState<SocialTab>('ideas');
   const [searchQuery, setSearchQuery] = useState("");
-  const [newIdeaText, setNewIdeaText] = useState("");
+  const [verdictFilter, setVerdictFilter] = useState<Verdict | 'ALL' | 'TO_ANALYZE'>('ALL');
+  
+  // Quick Add State
+  const [newIdeaTitle, setNewIdeaTitle] = useState("");
+  const [newIdeaNotes, setNewIdeaNotes] = useState("");
+  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Modals State
@@ -111,6 +154,7 @@ function App() {
 
   useEffect(() => {
       setSearchQuery("");
+      setVerdictFilter('ALL');
       setIsMobileMenuOpen(false); // Close menu on tab change
   }, [currentSocialTab]);
 
@@ -136,14 +180,17 @@ function App() {
 
   const handleQuickAddIdea = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newIdeaText.trim()) return;
+    if (!newIdeaTitle.trim()) return;
 
-    const text = newIdeaText;
-    setNewIdeaText(""); 
+    const title = newIdeaTitle;
+    const notes = newIdeaNotes;
+    
+    setNewIdeaTitle(""); 
+    setNewIdeaNotes("");
     
     setIsSyncing(true);
     try {
-        const newItem = await NotionService.createContent(text);
+        const newItem = await NotionService.createContent(title, notes);
         
         const newItems = [newItem, ...items];
         setItems(newItems);
@@ -156,6 +203,9 @@ function App() {
             message: e.message || "Erreur lors de la création.",
             type: 'error'
         });
+        // Restore input on error
+        setNewIdeaTitle(title);
+        setNewIdeaNotes(notes);
     } finally {
         setIsSyncing(false);
     }
@@ -244,22 +294,28 @@ function App() {
   // --- FILTERED LISTS & LOGIC ---
   const today = new Date();
 
+  // 1. Filtrage Global par Recherche
   const filteredItems = items.filter(item => 
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.body.toLowerCase().includes(searchQuery.toLowerCase())
+    item.body.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.notes.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const ideaItems = filteredItems.filter(i => 
-    i.status === ContentStatus.IDEA
-  );
+  // 2. Base lists (filtered by search)
+  const baseIdeaItems = filteredItems.filter(i => i.status === ContentStatus.IDEA);
+  
+  // 3. Apply Verdict Filter for Ideas view
+  const ideaItems = baseIdeaItems.filter(i => {
+      if (verdictFilter === 'ALL') return true;
+      if (verdictFilter === 'TO_ANALYZE' && !i.analyzed) return true;
+      if (verdictFilter === Verdict.VALID && i.verdict === Verdict.VALID) return true;
+      if (verdictFilter === Verdict.TOO_BLAND && i.verdict === Verdict.TOO_BLAND) return true;
+      if (verdictFilter === Verdict.NEEDS_WORK && i.verdict === Verdict.NEEDS_WORK) return true;
+      return false;
+  });
 
-  const draftingItems = items.filter(i => 
-    i.status === ContentStatus.DRAFTING
-  );
-
-  const readyItems = items.filter(i => 
-    i.status === ContentStatus.READY
-  );
+  const draftingItems = filteredItems.filter(i => i.status === ContentStatus.DRAFTING);
+  const readyItems = filteredItems.filter(i => i.status === ContentStatus.READY);
   
   const archiveItems = filteredItems.filter(i => {
     if (i.status !== ContentStatus.PUBLISHED) return false;
@@ -274,6 +330,13 @@ function App() {
   const futureScheduledCount = items.filter(i => 
     i.scheduledDate && new Date(i.scheduledDate) > today
   ).length;
+
+  // Counts for Idea Filters
+  const countAllIdeas = baseIdeaItems.length;
+  const countToAnalyze = baseIdeaItems.filter(i => !i.analyzed).length;
+  const countValidIdeas = baseIdeaItems.filter(i => i.verdict === Verdict.VALID).length;
+  const countBlandIdeas = baseIdeaItems.filter(i => i.verdict === Verdict.TOO_BLAND).length;
+  const countWorkIdeas = baseIdeaItems.filter(i => i.verdict === Verdict.NEEDS_WORK).length;
 
   // Helper pour la couleur du Verdict
   const getVerdictColor = (verdict?: Verdict) => {
@@ -305,7 +368,7 @@ function App() {
               L
             </div>
 
-            {/* Main Navigation (Spaces) - Hidden on small mobile if needed, or condensed */}
+            {/* Main Navigation (Spaces) */}
             <nav className="hidden md:flex space-x-2">
                 <button
                     onClick={() => setCurrentSpace('social')}
@@ -388,7 +451,7 @@ function App() {
             </div>
         )}
 
-        {/* BACKDROP MOBILE - Shared across spaces */}
+        {/* BACKDROP MOBILE */}
         {isMobileMenuOpen && (
             <div 
                 className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm"
@@ -396,7 +459,7 @@ function App() {
             />
         )}
 
-        {/* RESPONSIVE SIDEBAR - Shared logic */}
+        {/* RESPONSIVE SIDEBAR */}
         <aside className={`
             fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-dark-surface border-r border-brand-border dark:border-dark-sec-border flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:static
             ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -420,7 +483,7 @@ function App() {
                             onClick={() => setCurrentSocialTab('ideas')} 
                             icon={Lightbulb} 
                             label="Boîte à Idées"
-                            count={ideaItems.length}
+                            count={baseIdeaItems.length} // Use base count (ignoring verdict filter)
                          />
 
                          <SidebarItem 
@@ -494,7 +557,6 @@ function App() {
                             Modules à venir...
                         </div>
 
-                         {/* Mobile Spaces Navigation must remain for switching back */}
                          <div className="md:hidden pt-4 mt-4 border-t border-brand-light dark:border-dark-sec-border">
                             <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3">Espaces</div>
                             <button
@@ -539,19 +601,6 @@ function App() {
                              {currentSocialTab === 'calendar' && 'Planning'}
                              {currentSocialTab === 'archive' && 'Archives'}
                          </h2>
-
-                        {['ideas', 'archive'].includes(currentSocialTab) && (
-                             <div className="relative group w-full md:w-72 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-brand-main/50 dark:text-dark-text/50 group-focus-within:text-brand-main transition-colors" />
-                                <input 
-                                    type="text" 
-                                    placeholder={currentSocialTab === 'ideas' ? "Rechercher une idée..." : "Chercher dans les archives..."} 
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-brand-light rounded-lg text-sm outline-none transition-all shadow-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40"
-                                />
-                             </div>
-                        )}
                     </div>
 
                     <div className="px-4 md:px-6 pb-12 max-w-6xl mx-auto mt-4 md:mt-0">
@@ -565,7 +614,9 @@ function App() {
                                             <PenLine className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
                                         </div>
                                         <h3 className="text-lg font-medium text-brand-main dark:text-white">Aucun brouillon en cours</h3>
-                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">Vous n'avez aucun post en rédaction.</p>
+                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
+                                            {searchQuery ? "Aucun brouillon ne correspond à votre recherche." : "Vous n'avez aucun post en rédaction."}
+                                        </p>
                                         <button onClick={() => setCurrentSocialTab('ideas')} className="mt-6 text-brand-main dark:text-white font-medium hover:underline flex items-center justify-center gap-1 mx-auto">
                                             Choisir une idée <ChevronRight className="w-4 h-4" />
                                         </button>
@@ -573,7 +624,7 @@ function App() {
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {draftingItems.map(item => (
-                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} />
+                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
                                         ))}
                                     </div>
                                 )}
@@ -589,12 +640,14 @@ function App() {
                                             <CheckCircle2 className="w-8 h-8 text-green-500 dark:text-green-400" />
                                         </div>
                                         <h3 className="text-lg font-medium text-brand-main dark:text-white">Rien à valider</h3>
-                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">Tous vos posts sont soit en brouillon, soit déjà publiés.</p>
+                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
+                                            {searchQuery ? "Aucun post prêt ne correspond à votre recherche." : "Tous vos posts sont soit en brouillon, soit déjà publiés."}
+                                        </p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {readyItems.map(item => (
-                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} />
+                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
                                         ))}
                                     </div>
                                 )}
@@ -606,91 +659,164 @@ function App() {
                             <div className="space-y-6 animate-fade-in">
                                 <div className="bg-white dark:bg-dark-surface shadow-sm rounded-xl p-6 border border-brand-border dark:border-dark-sec-border">
                                     <h3 className="text-sm font-semibold text-brand-main dark:text-white mb-3">Ajout rapide</h3>
-                                    <form onSubmit={handleQuickAddIdea} className="flex flex-col md:flex-row gap-4">
-                                        <div className="flex-1 flex flex-col">
-                                            <input 
-                                                type="text" 
-                                                value={newIdeaText}
-                                                onChange={(e) => setNewIdeaText(e.target.value)}
-                                                maxLength={100} // Limite plus stricte pour le titre rapide
-                                                placeholder="Ex: Post sur les tendances IA 2024..."
-                                                className="bg-brand-light dark:bg-dark-bg border-none rounded-lg px-4 py-3 text-brand-main dark:text-white outline-none focus:ring-2 focus:ring-brand-main dark:focus:ring-brand-light transition-shadow placeholder-brand-main/40 dark:placeholder-dark-text/40"
+                                    <form onSubmit={handleQuickAddIdea} className="space-y-3">
+                                        {/* Titre Input */}
+                                        <input 
+                                            type="text" 
+                                            value={newIdeaTitle}
+                                            onChange={(e) => setNewIdeaTitle(e.target.value)}
+                                            placeholder="Titre de l'idée..."
+                                            className="w-full px-4 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg outline-none focus:border-brand-main dark:focus:border-brand-light text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 font-bold"
+                                        />
+                                        
+                                        {/* Notes RichTextarea */}
+                                        <div className="flex-1 flex flex-col w-full border border-brand-border dark:border-dark-sec-border rounded-lg bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main dark:focus:ring-brand-light overflow-hidden transition-shadow">
+                                            <MarkdownToolbar />
+                                            <RichTextarea 
+                                                value={newIdeaNotes}
+                                                onChange={setNewIdeaNotes}
+                                                className="w-full h-24 p-3"
+                                                placeholder="Détails, notes, liens..."
                                             />
-                                            {newIdeaText.length > 80 && <CharCounter current={newIdeaText.length} max={100} />}
+                                            {newIdeaNotes.length > 80 && (
+                                                <div className="p-1 px-3 border-t border-brand-border/50 dark:border-dark-sec-border/50">
+                                                    <CharCounter current={newIdeaNotes.length} max={2000} />
+                                                </div>
+                                            )}
                                         </div>
-                                        <button 
-                                            type="submit" 
-                                            disabled={!newIdeaText.trim()}
-                                            className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-3 md:py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm h-fit self-start md:self-center"
-                                        >
-                                            <Plus className="w-5 h-5" />
-                                            Ajouter
-                                        </button>
+                                        
+                                        <div className="flex justify-end">
+                                            <button 
+                                                type="submit" 
+                                                disabled={!newIdeaTitle.trim() || isSyncing}
+                                                className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                                            >
+                                                {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                                                Ajouter
+                                            </button>
+                                        </div>
                                     </form>
                                 </div>
 
-                                {/* Toolbar Analyse Globale */}
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                                    <div className="text-sm font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">
-                                        Vos Idées ({ideaItems.length})
+                                {/* SINGLE ROW TOOLBAR: Search | Filters | Action */}
+                                <div className="flex flex-col xl:flex-row items-center justify-between gap-4 pt-4">
+                                    
+                                    {/* Left: Search (Expands) */}
+                                    <div className="relative group w-full xl:w-72 flex-shrink-0 animate-in fade-in slide-in-from-left-4 duration-300">
+                                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-brand-main/50 dark:text-dark-text/50 group-focus-within:text-brand-main transition-colors" />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Rechercher..." 
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-brand-light rounded-lg text-sm outline-none transition-all shadow-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40"
+                                        />
                                     </div>
+
+                                    {/* Center: Filters (Scrollable) */}
+                                    <div className="flex gap-2 overflow-x-auto pb-2 xl:pb-0 scrollbar-hide max-w-full">
+                                        <button 
+                                            onClick={() => setVerdictFilter('ALL')}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                ${verdictFilter === 'ALL' 
+                                                    ? 'bg-brand-main text-white border-brand-main dark:bg-brand-light dark:text-brand-main' 
+                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-brand-main'}
+                                            `}
+                                        >
+                                            Tout
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === 'ALL' ? 'bg-white/20' : 'bg-brand-light dark:bg-dark-bg'}`}>{countAllIdeas}</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setVerdictFilter('TO_ANALYZE')}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                ${verdictFilter === 'TO_ANALYZE'
+                                                    ? 'bg-brand-hover text-white border-brand-hover dark:bg-dark-sec-bg' 
+                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-brand-hover'}
+                                            `}
+                                        >
+                                            À analyser
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === 'TO_ANALYZE' ? 'bg-white/20' : 'bg-brand-light dark:bg-dark-bg'}`}>{countToAnalyze}</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setVerdictFilter(Verdict.VALID)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                ${verdictFilter === Verdict.VALID
+                                                    ? 'bg-green-600 text-white border-green-600' 
+                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-green-500'}
+                                            `}
+                                        >
+                                            Valide
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.VALID ? 'bg-white/20' : 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>{countValidIdeas}</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setVerdictFilter(Verdict.TOO_BLAND)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                ${verdictFilter === Verdict.TOO_BLAND
+                                                    ? 'bg-yellow-500 text-white border-yellow-500' 
+                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-yellow-500'}
+                                            `}
+                                        >
+                                            Trop lisse
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.TOO_BLAND ? 'bg-white/20' : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'}`}>{countBlandIdeas}</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => setVerdictFilter(Verdict.NEEDS_WORK)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                ${verdictFilter === Verdict.NEEDS_WORK
+                                                    ? 'bg-red-500 text-white border-red-500' 
+                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-red-500'}
+                                            `}
+                                        >
+                                            À revoir
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.NEEDS_WORK ? 'bg-white/20' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>{countWorkIdeas}</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Right: Action Button */}
                                     <button 
                                         onClick={handleGlobalAnalysis}
-                                        className="flex items-center gap-2 text-xs sm:text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-lg font-medium transition-colors border border-purple-200 dark:border-purple-800 shadow-sm w-full sm:w-auto justify-center"
+                                        className="w-full xl:w-auto flex items-center gap-2 text-xs sm:text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-lg font-medium transition-colors border border-purple-200 dark:border-purple-800 shadow-sm whitespace-nowrap justify-center animate-in fade-in slide-in-from-right-4 duration-300"
                                         title="Analyser toutes les nouvelles idées avec l'IA"
                                     >
                                         <Sparkles className="w-4 h-4" />
-                                        Analyser les nouvelles idées
+                                        Analyser
                                     </button>
                                 </div>
 
                                 <div className="space-y-2">
                                     {!isInitializing && ideaItems.length === 0 && (
                                         <div className="p-12 text-center text-brand-main/50 dark:text-dark-text/50 italic bg-white dark:bg-dark-surface rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border">
-                                            {searchQuery ? "Aucune idée trouvée pour cette recherche." : "La boîte à idées est vide."}
+                                            {searchQuery ? "Aucune idée trouvée pour cette recherche." : "La boîte à idées est vide pour ce filtre."}
                                         </div>
                                     )}
                                     {ideaItems.map(item => (
                                         <div 
                                             key={item.id} 
                                             onClick={() => handleEditItem(item)}
-                                            className="group bg-white dark:bg-dark-surface p-4 rounded-xl border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-md cursor-pointer transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                                            className="group bg-white dark:bg-dark-surface p-4 rounded-xl border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-md cursor-pointer transition-all flex flex-col md:flex-row md:items-start justify-between gap-4"
                                         >
-                                            <div className="flex items-center gap-4 flex-1">
-                                                <div className="w-10 h-10 rounded-full bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400 flex-shrink-0">
-                                                    <Lightbulb className="w-5 h-5" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <h4 className="font-medium text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors truncate max-w-full">
-                                                            <HighlightText text={item.title || "Idée sans titre"} highlight={searchQuery} />
-                                                        </h4>
-                                                        {item.verdict && (
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${getVerdictColor(item.verdict)}`}>
-                                                                {item.verdict}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {item.strategicAngle && (
-                                                        <p className="text-xs text-brand-main/50 dark:text-dark-text/50 italic mt-0.5 line-clamp-1">
-                                                            Angle : {item.strategicAngle}
-                                                        </p>
-                                                    )}
-                                                    {item.notes && !item.strategicAngle && (
-                                                        <p className="text-sm text-brand-main/60 dark:text-dark-text/70 line-clamp-1 mt-0.5">
-                                                            <HighlightText text={item.notes} highlight={searchQuery} />
-                                                        </p>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                    {item.verdict && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${getVerdictColor(item.verdict)}`}>
+                                                            {item.verdict}
+                                                        </span>
                                                     )}
                                                 </div>
-                                            </div>
-                                            
-                                            <div className="flex items-center gap-3 self-end md:self-auto">
-                                                <div className="hidden md:block opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
-                                                    <button className="flex items-center gap-1 text-xs bg-brand-light dark:bg-dark-bg text-brand-main dark:text-white px-3 py-1.5 rounded-full font-medium">
-                                                        Travailler
-                                                        <ArrowRight className="w-3 h-3" />
-                                                    </button>
-                                                </div>
+                                                <h4 className="font-medium text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors whitespace-normal break-words leading-snug">
+                                                    <HighlightText text={item.title || "Idée sans titre"} highlight={searchQuery} />
+                                                </h4>
+                                                
+                                                {item.strategicAngle && (
+                                                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 italic mt-1 line-clamp-2">
+                                                        Angle : {item.strategicAngle}
+                                                    </p>
+                                                )}
+                                                {item.notes && !item.strategicAngle && (
+                                                    <p className="text-sm text-brand-main/60 dark:text-dark-text/70 line-clamp-2 mt-1">
+                                                        <HighlightText text={item.notes} highlight={searchQuery} />
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -700,146 +826,77 @@ function App() {
 
                         {/* VIEW: CALENDAR */}
                         {currentSocialTab === 'calendar' && (
-                            <div className="h-[600px] md:h-[750px] animate-fade-in overflow-hidden">
+                            <div className="h-[calc(100vh-250px)] animate-fade-in">
                                 <CalendarView items={items} onItemClick={handleEditItem} />
                             </div>
                         )}
 
                         {/* VIEW: ARCHIVE */}
                         {currentSocialTab === 'archive' && (
-                            <div className="bg-white dark:bg-dark-surface shadow rounded-xl overflow-hidden border border-brand-border dark:border-dark-sec-border transition-colors animate-fade-in overflow-x-auto">
-                                <table className="min-w-full divide-y divide-brand-border dark:divide-dark-sec-border">
-                                    <thead className="bg-brand-light dark:bg-dark-bg">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-brand-main/60 dark:text-dark-text/60 uppercase tracking-wider">Date</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-brand-main/60 dark:text-dark-text/60 uppercase tracking-wider">Titre / Contenu</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-brand-main/60 dark:text-dark-text/60 uppercase tracking-wider">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white dark:bg-dark-surface divide-y divide-brand-border dark:divide-dark-sec-border">
-                                        {!isInitializing && archiveItems.length === 0 && (
-                                            <tr>
-                                                <td colSpan={3} className="px-6 py-12 text-center text-sm text-brand-main/50 dark:text-dark-text/50">
-                                                    {searchQuery ? "Aucun post trouvé pour cette recherche." : "Aucun post publié dans le passé."}
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {archiveItems.map((item) => (
-                                            <tr key={item.id} className="hover:bg-brand-light dark:hover:bg-dark-bg transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-brand-main dark:text-dark-text">
-                                                    {item.scheduledDate ? format(parseISO(item.scheduledDate), 'dd MMM yyyy', { locale: fr }) : '-'}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-medium text-brand-main dark:text-white line-clamp-1">
-                                                        <HighlightText text={item.title} highlight={searchQuery} />
-                                                    </div>
-                                                    <div className="text-sm text-brand-main/60 dark:text-dark-text/60 line-clamp-1">
-                                                        <HighlightText text={item.body} highlight={searchQuery} />
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    <button 
-                                                        onClick={() => handleEditItem(item)}
-                                                        className="text-brand-main dark:text-white hover:text-brand-hover dark:hover:text-brand-light font-medium"
-                                                    >
-                                                        Voir
-                                                    </button>
-                                                </td>
-                                            </tr>
+                             <div className="space-y-6 animate-fade-in">
+                                {!isInitializing && archiveItems.length === 0 ? (
+                                    <div className="text-center py-20">
+                                        <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-border dark:border-dark-sec-border">
+                                            <Archive className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
+                                        </div>
+                                        <h3 className="text-lg font-medium text-brand-main dark:text-white">Aucune archive</h3>
+                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
+                                            Vos publications passées apparaîtront ici.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {archiveItems.map(item => (
+                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
                                         ))}
-                                    </tbody>
-                                </table>
+                                    </div>
+                                )}
                             </div>
                         )}
+
                     </div>
+
+                    {/* Editor Modal */}
+                    <EditorModal 
+                        item={editingItem} 
+                        contexts={contexts}
+                        isOpen={isEditorOpen} 
+                        onClose={() => setIsEditorOpen(false)} 
+                        onSave={handleUpdateItem}
+                        onDelete={handleDeleteItem}
+                        onManageContexts={handleOpenContextManagerFromEditor}
+                    />
+
+                    {/* Context Manager Modal */}
+                    <SettingsModal 
+                        isOpen={isContextManagerOpen}
+                        onClose={() => setIsContextManagerOpen(false)}
+                        contexts={contexts}
+                        onContextsChange={handleContextsChange}
+                    />
+
+                    {/* Analysis Modal */}
+                    <AnalysisModal 
+                        isOpen={isAnalysisModalOpen}
+                        onClose={() => setIsAnalysisModalOpen(false)}
+                        itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed)}
+                        contexts={contexts}
+                        onAnalysisComplete={handleAnalysisComplete}
+                    />
+                    
+                    {/* Alerts */}
+                    <AlertModal 
+                        isOpen={alertInfo.isOpen}
+                        onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
+                        title={alertInfo.title}
+                        message={alertInfo.message}
+                        type={alertInfo.type}
+                    />
                 </main>
         )}
-
       </div>
-
-      {/* Modals */}
-      <SettingsModal 
-        isOpen={isContextManagerOpen} 
-        onClose={() => setIsContextManagerOpen(false)} 
-        contexts={contexts}
-        onContextsChange={handleContextsChange}
-      />
-
-      <EditorModal 
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-        item={editingItem}
-        onSave={handleUpdateItem}
-        onDelete={handleDeleteItem}
-        contexts={contexts}
-        onManageContexts={handleOpenContextManagerFromEditor}
-      />
-
-      <AnalysisModal 
-        isOpen={isAnalysisModalOpen}
-        onClose={() => setIsAnalysisModalOpen(false)}
-        itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed)}
-        contexts={contexts}
-        onAnalysisComplete={handleAnalysisComplete}
-      />
-
-      {/* Global Alerts */}
-      <AlertModal 
-        isOpen={alertInfo.isOpen} 
-        onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
-        title={alertInfo.title}
-        message={alertInfo.message}
-        type={alertInfo.type}
-      />
     </div>
   );
 }
-
-// Sub-component for Sidebar Items
-const SidebarItem = ({ active, onClick, icon: Icon, label, count }: { active: boolean, onClick: () => void, icon: any, label: string, count?: number }) => (
-    <button
-        onClick={onClick}
-        className={`
-            w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-            ${active 
-                ? 'bg-brand-light text-brand-main dark:bg-dark-sec-bg dark:text-white' 
-                : 'text-brand-main/70 dark:text-dark-text/70 hover:bg-brand-light/50 dark:hover:bg-dark-sec-bg/50 hover:text-brand-main dark:hover:text-white'}
-        `}
-    >
-        <div className="flex items-center gap-3">
-            <Icon className={`w-5 h-5 ${active ? 'text-brand-main dark:text-white' : 'text-brand-main/50 dark:text-dark-text/50'}`} />
-            <span>{label}</span>
-        </div>
-        {count !== undefined && count > 0 && (
-            <span className={`
-                text-xs font-bold px-2 py-0.5 rounded-full border
-                ${active 
-                    ? 'bg-white border-brand-border text-brand-main dark:bg-dark-bg dark:border-dark-sec-border dark:text-white shadow-sm' 
-                    : 'bg-brand-light border-transparent text-brand-main/70 dark:bg-dark-bg dark:text-dark-text/70'}
-            `}>
-                {count}
-            </span>
-        )}
-    </button>
-);
-
-// Helper for highlighting text
-const HighlightText = ({ text, highlight }: { text: string, highlight: string }) => {
-    if (!highlight.trim()) {
-        return <>{text}</>;
-    }
-    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
-    return (
-        <>
-            {parts.map((part, i) => 
-                part.toLowerCase() === highlight.toLowerCase() ? (
-                    <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded px-0.5">{part}</span>
-                ) : (
-                    <span key={i}>{part}</span>
-                )
-            )}
-        </>
-    );
-};
 
 export default App;

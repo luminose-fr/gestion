@@ -3,6 +3,7 @@ import { X, Sparkles, Brain, CheckCircle2, AlertCircle, Loader2 } from 'lucide-r
 import { ContentItem, ContextItem, Verdict, Platform } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as NotionService from '../services/notionService';
+import { AI_ACTIONS } from '../ai/config';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -44,11 +45,13 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     setProgress("Préparation des données...");
 
     try {
-      // 1. Préparation du System Prompt
+      // 1. Préparation du System Prompt via la config centralisée
+      const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
+      
       const selectedContext = contexts.find(c => c.id === selectedContextId);
       const contextDesc = selectedContext ? selectedContext.description : "Analyse marketing standard.";
       
-      const systemInstruction = `${contextDesc} \n\n --- \n\n REGLÈS DE SORTIE (FIXE) : \n Tu dois traiter la liste d'idées fournie. \n Pour chaque idée, tu dois répondre avec : \n 1. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'. \n 2. 'angle' : ton conseil stratégique (remplira le champ 'Angle stratégique'). \n 3. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter). \n\n Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu ni balises markdown (pas de \`\`\`json).`;
+      const systemInstruction = actionConfig.getSystemInstruction(contextDesc);
 
       // 2. Préparation du User Prompt (JSON des idées)
       const contentPayload = itemsToAnalyze.map(item => ({
@@ -61,12 +64,10 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       
       // 3. Appel API Gemini
       const responseText = await GeminiService.generateContent({
-        model: "gemini-3-flash-preview", // Rapide et efficace pour du batch
+        model: actionConfig.model,
         systemInstruction: systemInstruction,
         prompt: JSON.stringify(contentPayload),
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
+        generationConfig: actionConfig.generationConfig
       });
 
       setProgress("Traitement des réponses...");

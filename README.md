@@ -28,6 +28,8 @@ Ajoutez les propriétés suivantes **exactement** comme indiqué (respectez les 
 | **Analysé** | Checkbox | - (Sera coché si analysé par l'IA) |
 | **Verdict** | Select | `Valide`, `Trop lisse`, `À revoir` |
 | **Angle stratégique** | Text | - (Sera rempli par l'IA) |
+| **Réponses interview** | Text | - (Pour stocker les réponses) |
+| **Questions interview** | Text | - (Pour stocker les questions) |
 
 *Note : Récupérez l'ID de cette base de données depuis l'URL (la partie après le `/` et avant le `?`). Ce sera votre `VITE_NOTION_CONTENT_DB_ID`.*
 

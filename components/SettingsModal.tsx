@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { X, Plus, Trash2, Edit2, Save, Settings } from 'lucide-react';
+import { X, Plus, Trash2, Edit2, Save, Settings, Loader2 } from 'lucide-react';
 import { ContextItem } from '../types';
 import * as NotionService from '../services/notionService';
 import { ConfirmModal, CharCounter } from './CommonModals';
+import { MarkdownToolbar } from './MarkdownToolbar';
+import { RichTextarea } from './RichTextarea';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -16,7 +18,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, contexts
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!isOpen) return null;
 
@@ -35,24 +39,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, contexts
   };
 
   const handleSave = async () => {
-    if (isCreating) {
-        const newCtx = await NotionService.createContext(editName, editDesc);
-        onContextsChange([...contexts, newCtx]);
-        setIsCreating(false);
-    } else if (editingId) {
-        const updatedCtx = { id: editingId, name: editName, description: editDesc };
-        await NotionService.updateContext(updatedCtx);
-        onContextsChange(contexts.map(c => c.id === editingId ? updatedCtx : c));
-        setEditingId(null);
+    setIsSaving(true);
+    try {
+        if (isCreating) {
+            const newCtx = await NotionService.createContext(editName, editDesc);
+            onContextsChange([...contexts, newCtx]);
+            setIsCreating(false);
+        } else if (editingId) {
+            const updatedCtx = { id: editingId, name: editName, description: editDesc };
+            await NotionService.updateContext(updatedCtx);
+            onContextsChange(contexts.map(c => c.id === editingId ? updatedCtx : c));
+            setEditingId(null);
+        }
+    } catch (error) {
+        console.error("Erreur sauvegarde contexte", error);
+    } finally {
+        setIsSaving(false);
     }
   };
 
   const handleConfirmDelete = async () => {
       if (deleteId) {
-          await NotionService.deleteContext(deleteId);
-          onContextsChange(contexts.filter(c => c.id !== deleteId));
-          if (editingId === deleteId) setEditingId(null);
-          setDeleteId(null);
+          setIsDeleting(true);
+          try {
+              await NotionService.deleteContext(deleteId);
+              onContextsChange(contexts.filter(c => c.id !== deleteId));
+              if (editingId === deleteId) setEditingId(null);
+          } catch (e) {
+              console.error(e);
+          } finally {
+              setIsDeleting(false);
+              setDeleteId(null);
+          }
       }
   };
 
@@ -129,14 +147,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, contexts
                         </div>
                         <div className="flex-1 flex flex-col min-h-[300px]">
                              <label className="block text-xs font-semibold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-1.5">Prompt / Description</label>
-                             <textarea 
-                                value={editDesc}
-                                onChange={(e) => setEditDesc(e.target.value)}
-                                maxLength={2000}
-                                className="flex-1 w-full p-4 border border-brand-border dark:border-dark-sec-border rounded-lg bg-brand-light dark:bg-dark-bg outline-none focus:ring-2 focus:ring-brand-main dark:focus:ring-brand-light resize-y text-sm leading-relaxed text-brand-main dark:text-white"
-                                placeholder="Décrivez comment l'IA doit se comporter..."
-                             />
-                             <CharCounter current={editDesc.length} max={2000} />
+                             <div className="flex-1 flex flex-col border border-brand-border dark:border-dark-sec-border rounded-lg bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main dark:focus-within:ring-brand-light overflow-hidden transition-shadow">
+                                <MarkdownToolbar />
+                                <RichTextarea 
+                                    value={editDesc}
+                                    onChange={setEditDesc}
+                                    className="w-full flex-1 p-4"
+                                    placeholder="Décrivez comment l'IA doit se comporter..."
+                                />
+                             </div>
+                             <CharCounter current={editDesc.length} max={10000} />
                         </div>
                         <div className="flex justify-between items-center pt-4">
                             {!isCreating && (
@@ -151,10 +171,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, contexts
                             <div className="flex gap-2 ml-auto">
                                 <button 
                                     onClick={handleSave}
-                                    disabled={!editName.trim()}
+                                    disabled={!editName.trim() || isSaving}
                                     className="flex items-center gap-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <Save className="w-4 h-4" />
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     {isCreating ? 'Créer' : 'Enregistrer'}
                                 </button>
                             </div>
@@ -178,6 +198,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, contexts
         message="Cette action est irréversible et supprimera ce persona de vos options."
         isDestructive={true}
         confirmLabel="Supprimer"
+        isLoading={isDeleting}
+        autoClose={false}
       />
     </div>
   );

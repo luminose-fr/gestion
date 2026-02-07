@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, AlertCircle, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 
 // --- TYPES ---
 interface AlertModalProps {
@@ -18,6 +18,8 @@ interface ConfirmModalProps {
   message: string;
   confirmLabel?: string;
   isDestructive?: boolean;
+  isLoading?: boolean;
+  autoClose?: boolean;
 }
 
 // --- COMPONENTS ---
@@ -58,12 +60,19 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, 
 };
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({ 
-  isOpen, onClose, onConfirm, title, message, confirmLabel = "Confirmer", isDestructive = false 
+  isOpen, onClose, onConfirm, title, message, confirmLabel = "Confirmer", isDestructive = false, isLoading = false, autoClose = true
 }) => {
   if (!isOpen) return null;
 
+  const handleConfirm = () => {
+      onConfirm();
+      if (autoClose) {
+          onClose();
+      }
+  };
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={isLoading ? undefined : onClose}>
       <div className="bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4 text-brand-main dark:text-white">
           <AlertTriangle className={`w-6 h-6 ${isDestructive ? 'text-red-500' : 'text-yellow-500'}`} />
@@ -75,19 +84,23 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <div className="flex justify-end gap-3">
           <button 
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-bg rounded-lg transition-colors"
+            disabled={isLoading}
+            className="px-4 py-2 text-sm font-medium text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-bg rounded-lg transition-colors disabled:opacity-50"
           >
             Annuler
           </button>
           <button 
-            onClick={() => { onConfirm(); onClose(); }}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors shadow-sm
+            onClick={handleConfirm}
+            disabled={isLoading}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors shadow-sm flex items-center gap-2
               ${isDestructive 
                 ? 'bg-red-500 hover:bg-red-600' 
                 : 'bg-brand-main hover:bg-brand-hover'}
+              ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}
             `}
           >
-            {confirmLabel}
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isLoading ? '...' : confirmLabel}
           </button>
         </div>
       </div>

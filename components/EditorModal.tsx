@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Send, Calendar, Save, Trash2, Settings, Lock, CheckCircle2, Edit3, Eye, Loader2, ArrowRight, FileText, Info, Brain } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Sparkles, Send, Calendar, Save, Trash2, Settings, Lock, CheckCircle2, Edit3, Eye, Loader2, ArrowRight, FileText, Info, Brain, Globe, MessageSquare, PenTool, LayoutTemplate } from 'lucide-react';
 import { ContentItem, ContentStatus, Platform, ContextItem, Verdict } from '../types';
 import { STATUS_COLORS } from '../constants';
 import * as GeminiService from '../services/geminiService';
+import * as OneMinService from '../services/oneMinService';
+import * as NotionService from '../services/notionService';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { AlertModal, ConfirmModal, CharCounter } from './CommonModals';
+import { MarkdownToolbar } from './MarkdownToolbar';
+import { RichTextarea } from './RichTextarea';
+import { AI_ACTIONS, AI_MODELS, isOneMinModel } from '../ai/config';
 
 interface EditorModalProps {
   item: ContentItem | null;
@@ -17,17 +22,52 @@ interface EditorModalProps {
   onManageContexts: () => void;
 }
 
-type MobileTab = 'editor' | 'details' | 'ai';
+// Composant Layout stable défini à l'extérieur pour éviter les re-renders inutiles
+const ModalLayout = ({ 
+    children, 
+    headerContent, 
+    onClose 
+}: { 
+    children: React.ReactNode, 
+    headerContent: React.ReactNode, 
+    onClose: () => void 
+}) => (
+      <div 
+        className="fixed inset-0 z-50 bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-fade-in"
+        onClick={onClose}
+      >
+         <div 
+            className="bg-white dark:bg-dark-surface w-full h-full md:h-[90vh] md:max-w-5xl md:rounded-2xl shadow-2xl border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden transition-colors"
+            onClick={(e) => e.stopPropagation()}
+         >
+            <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex-shrink-0">
+                <div className="flex-1 min-w-0">
+                    {headerContent}
+                </div>
+                <button onClick={onClose} className="p-2 ml-2 text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors">
+                    <X className="w-6 h-6" />
+                </button>
+            </div>
+            {children}
+         </div>
+      </div>
+);
 
 const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClose, onSave, onDelete, onManageContexts }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isPublerOpen, setIsPublerOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('editor');
   
+  // États de chargement et UI
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Gestion du selecteur de contexte et modèle
+  const [showContextSelector, setShowContextSelector] = useState(false);
   const [selectedContextId, setSelectedContextId] = useState<string>("");
+  const [selectedModel, setSelectedModel] = useState<string>(AI_MODELS.FAST);
+  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | null>(null);
+
+  // Onglets pour le mode Brouillon
+  const [draftTab, setDraftTab] = useState<'interview' | 'content'>('interview');
 
   // Modal states
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
@@ -35,97 +75,45 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Initialisation et mise à jour de l'item sans reset brutal
   useEffect(() => {
-    if (item) setEditedItem({ ...item });
-  }, [item]);
+    if (isOpen && item) {
+        if (!editedItem || item.id !== editedItem.id) {
+            setEditedItem({ ...item });
+            setShowContextSelector(false);
+            setIsGenerating(false);
+            setSelectedContextId(""); 
+            setPendingContextAction(null);
+            // Si du contenu existe déjà, on ouvre directement l'onglet contenu
+            if (item.body && item.body.trim().length > 0) {
+                setDraftTab('content');
+            } else {
+                setDraftTab('interview');
+            }
+        } else {
+            // Mise à jour douce
+            setEditedItem(prev => prev ? { ...prev, ...item } : item);
+        }
+    }
+  }, [item, isOpen]);
 
   if (!isOpen || !editedItem) return null;
 
   const isIdea = editedItem.status === ContentStatus.IDEA;
-  const isPublished = editedItem.status === ContentStatus.PUBLISHED;
   const isDrafting = editedItem.status === ContentStatus.DRAFTING;
-  const isReady = editedItem.status === ContentStatus.READY;
 
-  const handleAiGenerate = async () => {
-    if (!aiPrompt.trim()) return;
-    
-    const contextItem = contexts.find(c => c.id === selectedContextId);
-    const contextString = contextItem ? contextItem.description : "Standard professional tone.";
-    const platformsString = editedItem.platforms.join(', ') || "Réseaux Sociaux";
-
-    setIsGenerating(true);
-    try {
-      // Construction du prompt système et utilisateur (anciennement dans aiService)
-      const systemInstruction = `
-        Tu es un assistant de rédaction expert pour les réseaux sociaux.
-        
-        CONTEXTE DE L'UTILISATEUR (BRAND VOICE):
-        ${contextString}
-
-        TA MISSION:
-        Rédiger ou améliorer un post pour la plateforme : ${platformsString}.
-        
-        RÈGLES:
-        1. Renvoie UNIQUEMENT le contenu du post suggéré.
-        2. Pas de phrases d'introduction du type "Voici une proposition" ou "Certes".
-        3. Utilise le ton défini dans le contexte.
-      `;
-
-      const userPrompt = `
-        CONTENU ACTUEL / IDÉE DE DÉPART:
-        "${editedItem.body || ''}"
-
-        INSTRUCTION SPÉCIFIQUE:
-        ${aiPrompt}
-      `;
-
-      const generated = await GeminiService.generateContent({
-        model: "gemini-3-flash-preview",
-        systemInstruction: systemInstruction,
-        prompt: userPrompt
-      });
-
-      setEditedItem(prev => prev ? { ...prev, body: generated.substring(0, 2000) } : null);
-      setAiPrompt("");
-      // Switch back to editor on mobile to see result
-      setActiveMobileTab('editor');
-    } catch (e) {
-      console.error(e);
-      setAlertInfo({ 
-          isOpen: true, 
-          title: "Erreur IA", 
-          message: "Impossible de générer le contenu.", 
-          type: 'error' 
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleMarkAsPublished = async () => {
-    setIsPublerOpen(true);
-    // Simulation du délai Publer
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsPublerOpen(false);
-    
-    // Changement de statut réel
-    await changeStatus(ContentStatus.PUBLISHED);
-    setAlertInfo({ 
-        isOpen: true, 
-        title: "Félicitations !", 
-        message: "Contenu marqué comme publié.", 
-        type: 'success' 
-    });
-  };
+  // --- ACTIONS ---
 
   const changeStatus = async (newStatus: ContentStatus) => {
       if (isSaving) return;
       setIsSaving(true);
       const newItem = { ...editedItem, status: newStatus };
-      setEditedItem(newItem); // Optimistic UI local pour la modale
-      
+      setEditedItem(newItem);
       await onSave(newItem);
       setIsSaving(false);
+      if (newStatus === ContentStatus.READY || newStatus === ContentStatus.PUBLISHED) {
+          onClose();
+      }
   };
 
   const handleManualSave = async () => {
@@ -142,6 +130,178 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       onClose();
   };
 
+  // --- AI FLOW ORCHESTRATION ---
+
+  const handleContextConfirm = async () => {
+      if (!selectedContextId) {
+          setAlertInfo({ isOpen: true, title: "Attention", message: "Veuillez choisir un contexte.", type: "error" });
+          return;
+      }
+      
+      if (pendingContextAction === 'interview') {
+          await handleLaunchInterview();
+      } else if (pendingContextAction === 'draft') {
+          await handleLaunchDrafting();
+      }
+  };
+
+  // Helper pour appeler le bon service
+  const callAI = async (model: string, systemInstruction: string, prompt: string, config: any) => {
+      if (isOneMinModel(model)) {
+          // Appel via 1min.AI Service
+          return await OneMinService.generateContent({
+              model: model,
+              systemInstruction: systemInstruction,
+              prompt: prompt
+          });
+      } else {
+          // Appel via Gemini Service (Standard)
+          return await GeminiService.generateContent({
+              model: model,
+              systemInstruction: systemInstruction,
+              prompt: prompt,
+              generationConfig: config
+          });
+      }
+  };
+
+  // 1. Lancer l'interview (Génération des questions)
+  const handleOpenInterviewer = () => {
+      setPendingContextAction('interview');
+      setSelectedModel(AI_MODELS.FAST); // Défaut pour l'interview
+      setShowContextSelector(true);
+  };
+
+  const handleLaunchInterview = async () => {
+      setIsGenerating(true);
+      setShowContextSelector(false);
+
+      try {
+          const contextItem = contexts.find(c => c.id === selectedContextId);
+          const contextDesc = contextItem ? contextItem.description : "Journaliste standard.";
+          
+          const actionConfig = AI_ACTIONS.GENERATE_INTERVIEW;
+          const systemInstruction = actionConfig.getSystemInstruction(contextDesc);
+
+          const promptPayload = [{
+              titre: editedItem.title,
+              notes: editedItem.notes,
+              angle_strategique: editedItem.strategicAngle || "",
+              plateformes: editedItem.platforms
+          }];
+
+          const jsonResponse = await callAI(
+              selectedModel,
+              systemInstruction,
+              JSON.stringify(promptPayload),
+              actionConfig.generationConfig
+          );
+
+          let formattedQuestions = "";
+          try {
+              // Nettoyage éventuel du JSON (markdown fences) si l'IA en a mis
+              const cleanedJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '');
+              const data = JSON.parse(cleanedJson);
+              
+              if (data.questions_interieures && Array.isArray(data.questions_interieures)) {
+                  formattedQuestions = data.questions_interieures.map((block: any) => {
+                      const questionsList = block.questions.map((q: string) => `- ${q}`).join('\n');
+                      return `**Angle : ${block.angle}**\n${questionsList}`;
+                  }).join('\n\n');
+              } else {
+                  formattedQuestions = jsonResponse; 
+              }
+          } catch (e) {
+              formattedQuestions = jsonResponse;
+          }
+
+          const newItem = { ...editedItem, interviewQuestions: formattedQuestions };
+          setEditedItem(newItem);
+          await onSave(newItem);
+
+      } catch (error: any) {
+          console.error(error);
+          setAlertInfo({ isOpen: true, title: "Erreur IA", message: error.message || "Erreur lors de la génération.", type: "error" });
+      } finally {
+          setIsGenerating(false);
+          setPendingContextAction(null);
+      }
+  };
+
+  // 2. Lancer la rédaction finale (Payload JSON structuré)
+  const handleOpenDrafting = () => {
+      if (!editedItem.interviewAnswers) {
+          setAlertInfo({ isOpen: true, title: "Réponses manquantes", message: "Veuillez répondre aux questions avant de générer le brouillon.", type: "error" });
+          return;
+      }
+      setPendingContextAction('draft');
+      setSelectedModel(AI_MODELS.SMART); // Défaut pour la rédaction
+      setShowContextSelector(true);
+  };
+
+  const handleLaunchDrafting = async () => {
+      setIsGenerating(true);
+      setShowContextSelector(false);
+
+      try {
+          const contextItem = contexts.find(c => c.id === selectedContextId) || contexts[0];
+          const contextDesc = contextItem ? contextItem.description : "Expert marketing.";
+          const platformsStr = editedItem.platforms.length > 0 ? editedItem.platforms.join(", ") : "Réseaux Sociaux";
+
+          const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
+          // Le System Instruction contient les règles de sortie JSON
+          const systemInstruction = actionConfig.getSystemInstruction(contextDesc, platformsStr);
+
+          // Construction du Payload JSON requis par le prompt
+          const promptPayload = {
+              titre: editedItem.title,
+              angle_strategique: editedItem.strategicAngle || "Non défini",
+              plateformes: editedItem.platforms || [],
+              notes_initiales: editedItem.notes || "",
+              reponses_interview: editedItem.interviewAnswers || ""
+          };
+
+          const jsonResponse = await callAI(
+              selectedModel,
+              systemInstruction,
+              JSON.stringify(promptPayload),
+              actionConfig.generationConfig
+          );
+
+          // Extraction du draft_final depuis le JSON
+          let finalContent = "";
+          try {
+              const cleanedJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '');
+              const data = JSON.parse(cleanedJson);
+              if (data.draft_final) {
+                  finalContent = data.draft_final;
+              } else {
+                  // Fallback si le JSON est mal formé mais contient du texte
+                  finalContent = jsonResponse;
+              }
+          } catch (e) {
+              console.warn("Erreur parsing JSON Draft, utilisation brute", e);
+              finalContent = jsonResponse;
+          }
+
+          const newItem = { ...editedItem, body: finalContent };
+          setEditedItem(newItem);
+          await onSave(newItem);
+          
+          // Bascule automatique vers l'onglet contenu
+          setDraftTab('content');
+
+      } catch (error: any) {
+          console.error(error);
+          setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
+      } finally {
+          setIsGenerating(false);
+          setPendingContextAction(null);
+      }
+  };
+
+  // --- RENDER HELPERS ---
+
   const getVerdictColor = (verdict?: Verdict) => {
       switch (verdict) {
           case Verdict.VALID: return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
@@ -151,30 +311,19 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       }
   };
 
-  // --- WRAPPER UNIFIÉ POUR TOUTES LES VUES DE LA MODALE ---
-  const ModalWrapper = ({ children, headerContent }: { children: React.ReactNode, headerContent: React.ReactNode }) => (
-      <div 
-        className="fixed inset-0 z-50 bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-fade-in"
-        onClick={onClose} // Close on backdrop click
-      >
-         <div 
-            className="bg-white dark:bg-dark-surface w-full h-full md:h-[90vh] md:max-w-7xl md:rounded-2xl shadow-2xl border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden transition-colors"
-            onClick={(e) => e.stopPropagation()} // Prevent close when clicking content
-         >
-            {/* Unified Header */}
-            <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex-shrink-0">
-                <div className="flex-1 min-w-0">
-                    {headerContent}
-                </div>
-                <button onClick={onClose} className="p-2 ml-2 text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors">
-                    <X className="w-6 h-6" />
-                </button>
-            </div>
-            
-            {/* Content Area */}
-            {children}
-         </div>
+  const renderReadOnlyText = (text: string) => {
+      const parts = text.split(/(\*\*.*?\*\*)/g);
+      return parts.map((part, index) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={index} className="font-bold text-purple-900 dark:text-purple-100">{part.slice(2, -2)}</strong>;
+          }
+          return part;
+      });
+  };
 
+  // --- COMMON OVERLAYS ---
+  const renderCommonOverlays = () => (
+      <>
          <AlertModal 
             isOpen={alertInfo.isOpen} 
             onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
@@ -187,150 +336,74 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
             isOpen={confirmDelete}
             onClose={() => setConfirmDelete(false)}
             onConfirm={handleDelete}
-            title="Supprimer le brouillon ?"
+            title="Supprimer ?"
             message="Cette action est irréversible."
             isDestructive={true}
             confirmLabel="Supprimer"
          />
-      </div>
-  );
 
-  // 1. VUE PUBLIÉE (READ ONLY)
-  if (isPublished) {
-    return (
-        <ModalWrapper 
-            headerContent={
-                <div className="flex items-center gap-4">
-                     <div className="flex flex-col">
-                        <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white flex items-center gap-2 truncate">
-                           <Lock className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                           <span className="truncate">{editedItem.title}</span>
-                        </h2>
-                        <span className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1 mt-0.5">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Publié le {editedItem.scheduledDate ? format(parseISO(editedItem.scheduledDate), 'dd MMMM yyyy', { locale: fr }) : "Date inconnue"}
-                        </span>
-                     </div>
-                     <div className={`hidden md:block px-3 py-1 rounded-full border text-sm font-medium ${STATUS_COLORS[ContentStatus.PUBLISHED]}`}>
-                        PUBLIÉ
-                    </div>
-                </div>
-            }
-        >
-             <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg p-4 md:p-8 flex justify-center">
-                 <div className="w-full max-w-3xl bg-white dark:bg-dark-surface shadow-sm border border-brand-border dark:border-dark-sec-border rounded-xl p-6 md:p-8 space-y-8">
-                     {/* Platforms */}
-                     <div>
-                        <h3 className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3">Destinations</h3>
-                        <div className="flex flex-wrap gap-2">
-                            {editedItem.platforms.length > 0 ? editedItem.platforms.map(p => (
-                                <span key={p} className="px-3 py-1 bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text rounded-lg text-sm font-medium border border-brand-border dark:border-dark-sec-border">
-                                    {p}
-                                </span>
-                            )) : <span className="text-sm text-gray-400 italic">Aucune plateforme spécifiée</span>}
-                        </div>
-                     </div>
+         {showContextSelector && (
+             <div className="fixed inset-0 z-[60] bg-white/90 dark:bg-dark-surface/90 flex items-center justify-center animate-in fade-in zoom-in duration-200">
+                 <div className="bg-white dark:bg-dark-bg p-6 rounded-xl shadow-xl border border-brand-border dark:border-dark-sec-border w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                     <h3 className="text-lg font-bold text-brand-main dark:text-white mb-4 flex items-center gap-2">
+                         <MessageSquare className="w-5 h-5" />
+                         {pendingContextAction === 'interview' ? "Choisir l'Interviewer" : "Choisir le Rédacteur"}
+                     </h3>
+                     <div className="space-y-4">
+                         <div>
+                             <label className="block text-xs font-semibold text-brand-main/50 dark:text-dark-text/50 mb-1">Persona</label>
+                             <select 
+                                value={selectedContextId}
+                                onChange={(e) => setSelectedContextId(e.target.value)}
+                                className="w-full p-2 rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-brand-main dark:text-white outline-none focus:ring-2 focus:ring-brand-main"
+                             >
+                                 <option value="">-- Sélectionner --</option>
+                                 {contexts.map(ctx => <option key={ctx.id} value={ctx.id}>{ctx.name}</option>)}
+                             </select>
+                         </div>
+                         
+                         {/* MODEL SELECTOR */}
+                         <div>
+                             <label className="block text-xs font-semibold text-brand-main/50 dark:text-dark-text/50 mb-1">Modèle IA</label>
+                             <select 
+                                value={selectedModel}
+                                onChange={(e) => setSelectedModel(e.target.value)}
+                                className="w-full p-2 rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-brand-main dark:text-white outline-none focus:ring-2 focus:ring-brand-main"
+                             >
+                                 <optgroup label="Google Gemini">
+                                    <option value={AI_MODELS.FAST}>Gemini Flash (Rapide)</option>
+                                    <option value={AI_MODELS.SMART}>Gemini Pro (Intelligent)</option>
+                                 </optgroup>
+                                 <optgroup label="1min.AI (Premium)">
+                                    <option value={AI_MODELS.GPT_4O_MINI}>GPT-4o Mini (Équilibré)</option>
+                                    <option value={AI_MODELS.GPT_4O}>GPT-4o (Top Qualité)</option>
+                                    <option value={AI_MODELS.CLAUDE_3_5_SONNET}>Claude 3.5 Sonnet (Rédaction)</option>
+                                    <option value={AI_MODELS.MISTRAL_LARGE}>Mistral Large</option>
+                                 </optgroup>
+                             </select>
+                         </div>
 
-                     {/* Content */}
-                     <div className="prose dark:prose-invert max-w-none">
-                         <h3 className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3">Contenu publié</h3>
-                         <div className="p-6 bg-brand-light dark:bg-dark-bg rounded-lg border border-brand-border dark:border-dark-sec-border text-lg leading-relaxed whitespace-pre-wrap font-serif text-brand-main dark:text-white">
-                            {editedItem.body}
+                         <div className="flex gap-2 justify-end pt-2">
+                             <button onClick={() => setShowContextSelector(false)} className="px-4 py-2 text-sm text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg rounded-lg">Annuler</button>
+                             <button 
+                                onClick={handleContextConfirm}
+                                disabled={!selectedContextId}
+                                className="px-4 py-2 text-sm bg-brand-main text-white rounded-lg hover:bg-brand-hover disabled:opacity-50"
+                             >
+                                 Valider
+                             </button>
                          </div>
                      </div>
                  </div>
              </div>
-        </ModalWrapper>
-    );
-  }
+         )}
+      </>
+  );
 
-  // 2. VUE READY (PRÊT À PUBLIER - READ ONLY PREVIEW)
-  if (isReady) {
-    return (
-        <ModalWrapper
-            headerContent={
-                <div className="flex items-center gap-4">
-                     <div className="min-w-0">
-                        <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white flex items-center gap-2 truncate">
-                           <span className="truncate">{editedItem.title}</span>
-                        </h2>
-                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">Prêt pour la validation finale</p>
-                     </div>
-                     <div className={`hidden md:block px-3 py-1 rounded-full border text-sm font-medium ${STATUS_COLORS[ContentStatus.READY]}`}>
-                        PRÊT
-                    </div>
-                </div>
-            }
-        >
-             <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg p-4 md:p-8 flex justify-center">
-                 <div className="w-full max-w-4xl flex flex-col md:flex-row gap-8">
-                     
-                     {/* Preview Card */}
-                     <div className="flex-1 bg-white dark:bg-dark-surface shadow-xl shadow-brand-main/5 dark:shadow-black/20 border border-brand-border dark:border-dark-sec-border rounded-xl p-6 md:p-8 space-y-6">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Eye className="w-5 h-5 text-brand-main/50 dark:text-dark-text/50" />
-                            <h3 className="text-sm font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Aperçu du contenu</h3>
-                        </div>
-
-                        <div className="p-6 bg-brand-light dark:bg-dark-bg rounded-lg border border-brand-border dark:border-dark-sec-border text-lg leading-relaxed whitespace-pre-wrap font-serif text-brand-main dark:text-white">
-                            {editedItem.body || <span className="text-gray-400 italic">Contenu vide...</span>}
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 pt-4 border-t border-brand-border dark:border-dark-sec-border">
-                            {editedItem.platforms.map(p => (
-                                <span key={p} className="px-2 py-1 bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text rounded text-xs border border-brand-border dark:border-dark-sec-border">
-                                    {p}
-                                </span>
-                            ))}
-                        </div>
-                     </div>
-
-                     {/* Actions Sidebar */}
-                     <div className="w-full md:w-72 space-y-4">
-                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl p-5 shadow-sm">
-                            <h3 className="font-semibold text-brand-main dark:text-white mb-4">Actions</h3>
-                            
-                            <button 
-                                onClick={handleMarkAsPublished}
-                                disabled={isPublerOpen || isSaving}
-                                className="w-full mb-3 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                                {(isPublerOpen || isSaving) ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        <span>Publication...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 className="w-4 h-4" />
-                                        Marquer comme publié
-                                    </>
-                                )}
-                            </button>
-
-                            <button 
-                                onClick={() => changeStatus(ContentStatus.DRAFTING)}
-                                disabled={isSaving}
-                                className="w-full bg-white dark:bg-dark-sec-bg hover:bg-brand-light dark:hover:bg-dark-bg text-brand-main dark:text-white border-2 border-brand-border dark:border-dark-sec-border px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50"
-                            >
-                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4" />}
-                                Revenir en brouillon
-                            </button>
-                        </div>
-
-                        <div className="bg-brand-light dark:bg-dark-sec-bg border border-brand-border dark:border-dark-sec-border rounded-xl p-4 text-sm text-brand-main dark:text-dark-text">
-                            <p><strong>Note :</strong> Ce contenu est verrouillé. Pour le modifier, repassez-le en mode brouillon.</p>
-                        </div>
-                     </div>
-                 </div>
-             </div>
-        </ModalWrapper>
-    );
-  }
-
-  // 3. VUE IDÉE
+  // 1. VUE IDÉE
   if (isIdea) {
       return (
+        <>
         <div 
             className="fixed inset-0 z-50 bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-fade-in"
             onClick={onClose}
@@ -341,358 +414,368 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
              >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border dark:border-dark-sec-border">
-                    <div className={`px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLORS[ContentStatus.IDEA]}`}>
-                        IDÉE
-                    </div>
-                    <button onClick={onClose} className="p-2 -mr-2 text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
+                    <div className={`px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLORS[ContentStatus.IDEA]}`}>IDÉE</div>
+                    <button onClick={onClose} className="p-2 -mr-2 text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors"><X className="w-5 h-5" /></button>
                 </div>
 
                 {/* Body */}
-                <div className="p-8 space-y-6 flex-1 overflow-y-auto">
+                <div className="p-8 space-y-8 flex-1 overflow-y-auto">
+                    {/* 1. Titre */}
                     <div>
                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-2">Titre de l'idée</label>
                         <input 
                             type="text" 
                             value={editedItem.title}
                             onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
-                            className="w-full text-2xl font-bold text-brand-main dark:text-white bg-transparent border-b-2 border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-brand-light outline-none py-2 placeholder-brand-main/30 dark:placeholder-dark-text/30 transition-colors"
-                            placeholder="Titre de votre idée..."
+                            className="w-full text-2xl font-bold text-brand-main dark:text-white bg-transparent border-b-2 border-brand-border dark:border-dark-sec-border focus:border-brand-main outline-none py-2"
+                            placeholder="Titre..."
                             autoFocus
                         />
                     </div>
 
-                    {/* Bloc Analyse IA (Si présent) */}
+                    {/* 2. Notes (Input) */}
+                    <div className="flex flex-col border border-brand-border dark:border-dark-sec-border rounded-xl overflow-hidden bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main transition-shadow">
+                         <div className="bg-brand-light dark:bg-dark-bg p-2 flex justify-between items-center border-b border-brand-border dark:border-dark-sec-border">
+                             <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase">Notes</label>
+                         </div>
+                         <MarkdownToolbar />
+                         <RichTextarea 
+                            value={editedItem.notes}
+                            onChange={(val) => setEditedItem({...editedItem, notes: val})}
+                            className="w-full h-40 p-4"
+                            placeholder="Détaillez votre idée, vos sources, vos inspirations..."
+                         />
+                         <div className="p-2 flex justify-end">
+                            <CharCounter current={editedItem.notes.length} max={10000} />
+                         </div>
+                    </div>
+
+                    {/* 3. Analyse IA (Affichage uniquement) */}
                     {editedItem.analyzed && (
-                        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-800 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider flex items-center gap-2">
-                                    <Brain className="w-4 h-4" />
-                                    Analyse IA
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-xl border border-purple-100 dark:border-purple-800 space-y-4">
+                            <div className="flex items-center justify-between border-b border-purple-200 dark:border-purple-800/50 pb-3">
+                                <span className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase flex items-center gap-2">
+                                    <Brain className="w-4 h-4" /> 
+                                    ANALYSE IA
                                 </span>
                                 {editedItem.verdict && (
-                                     <span className={`text-[10px] px-2 py-1 rounded-full font-medium border ${getVerdictColor(editedItem.verdict)}`}>
-                                         {editedItem.verdict}
-                                     </span>
+                                    <span className={`text-[10px] px-2 py-1 rounded-full border ${getVerdictColor(editedItem.verdict)}`}>
+                                        {editedItem.verdict}
+                                    </span>
                                 )}
                             </div>
-                            {editedItem.strategicAngle && (
-                                <div>
-                                    <p className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-1">Angle Stratégique :</p>
-                                    <p className="text-sm text-purple-800/80 dark:text-purple-200/80 leading-relaxed italic">
-                                        "{editedItem.strategicAngle}"
-                                    </p>
+                            
+                            {/* Strategic Angle - Read Only */}
+                            <div>
+                                <p className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-2 uppercase tracking-wide opacity-70">Angle Stratégique</p>
+                                <div className="text-sm leading-relaxed text-purple-900 dark:text-purple-100 whitespace-pre-wrap">
+                                    {renderReadOnlyText(editedItem.strategicAngle || "Aucune analyse disponible.")}
                                 </div>
-                            )}
+                            </div>
+
+                            {/* Plateformes Envisagées */}
+                            <div>
+                                <p className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-2 uppercase tracking-wide opacity-70 flex items-center gap-1">
+                                    <Globe className="w-3 h-3" />
+                                    Plateformes envisagées
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {editedItem.platforms.length > 0 ? (
+                                        editedItem.platforms.map((p, i) => (
+                                            <span key={i} className="px-3 py-1 bg-white dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded-lg text-xs font-bold border border-purple-200 dark:border-purple-800 shadow-sm">
+                                                {p}
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="text-xs text-purple-800/50 italic">Aucune plateforme définie</span>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
-
-                    <div>
-                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-2">Notes & Contexte (Mémo)</label>
-                         <textarea 
-                            value={editedItem.notes}
-                            onChange={(e) => setEditedItem({...editedItem, notes: e.target.value})}
-                            maxLength={2000}
-                            className="w-full h-48 md:h-32 p-4 bg-brand-light dark:bg-dark-bg rounded-xl border border-brand-border dark:border-dark-sec-border outline-none focus:ring-2 focus:ring-brand-main dark:focus:ring-brand-light text-brand-main dark:text-white resize-none text-sm leading-relaxed placeholder-brand-main/40 dark:placeholder-dark-text/40"
-                            placeholder="Notez vos premières pensées ici..."
-                         />
-                         <CharCounter current={editedItem.notes.length} max={2000} />
-                    </div>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="p-6 bg-brand-light dark:bg-dark-bg border-t border-brand-border dark:border-dark-sec-border flex flex-col md:flex-row items-center justify-between gap-4">
-                     <button 
-                        onClick={() => setConfirmDelete(true)}
-                        className="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors self-start md:self-auto"
-                     >
-                        <Trash2 className="w-5 h-5" />
-                     </button>
-
-                     <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                {/* Footer */}
+                <div className="p-6 bg-brand-light dark:bg-dark-bg border-t border-brand-border flex justify-between items-center">
+                     <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded hover:bg-red-50"><Trash2 className="w-5 h-5" /></button>
+                     <div className="flex gap-3">
                         <button 
-                            onClick={async () => {
-                                await handleManualSave();
-                                onClose();
-                            }}
-                            disabled={isSaving}
-                            className="px-4 py-3 md:py-2 text-brand-main dark:text-dark-text hover:bg-white dark:hover:bg-dark-surface rounded-lg font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 border-2 border-transparent hover:border-brand-border dark:hover:border-dark-sec-border w-full md:w-auto"
+                            onClick={async () => { await handleManualSave(); onClose(); }} 
+                            disabled={isSaving} 
+                            className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium disabled:opacity-50"
                         >
                             {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
-                            Enregistrer & Fermer
+                            Enregistrer
                         </button>
                         <button 
-                            onClick={() => changeStatus(ContentStatus.DRAFTING)}
-                            disabled={isSaving}
-                            className="px-6 py-3 md:py-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white rounded-lg font-medium shadow-lg shadow-brand-main/20 dark:shadow-none flex items-center justify-center gap-2 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 w-full md:w-auto"
+                            onClick={() => changeStatus(ContentStatus.DRAFTING)} 
+                            disabled={isSaving} 
+                            className="px-6 py-2 bg-brand-main text-white rounded-lg font-medium shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                            Travailler cette idée
-                            {!isSaving && <ArrowRight className="w-4 h-4" />}
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Travailler <ArrowRight className="w-4 h-4" /></>}
                         </button>
                      </div>
                 </div>
              </div>
-             
-             <ConfirmModal 
-                isOpen={confirmDelete}
-                onClose={() => setConfirmDelete(false)}
-                onConfirm={handleDelete}
-                title="Supprimer l'idée ?"
-                message="Cette action est irréversible."
-                isDestructive={true}
-                confirmLabel="Supprimer"
-             />
         </div>
+        {renderCommonOverlays()}
+        </>
       );
   }
 
-  // 4. VUE ÉDITEUR DRAFT (PAR DÉFAUT)
-  return (
-    <ModalWrapper
-        headerContent={
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
-                <input 
-                    type="text" 
-                    value={editedItem.title}
-                    onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
-                    className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-none placeholder-brand-main/40 dark:placeholder-dark-text/40 w-full md:max-w-2xl"
-                    placeholder="Titre du post..."
-                />
-                
-                <div className="flex items-center gap-2 md:gap-3 md:ml-auto w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                    <div className={`hidden md:block px-3 py-1 mr-2 rounded-full border text-sm font-medium ${STATUS_COLORS[ContentStatus.DRAFTING]}`}>
-                            BROUILLON
-                    </div>
-                    
-                    <button 
-                        onClick={handleManualSave}
-                        disabled={isSaving}
-                        className="flex-1 md:flex-none justify-center text-brand-main dark:text-white hover:bg-brand-light dark:hover:bg-dark-bg bg-white dark:bg-dark-sec-bg border-2 border-brand-border dark:border-dark-sec-border px-3 md:px-4 py-2 rounded-lg font-medium transition-colors text-xs md:text-sm flex items-center gap-2 disabled:opacity-50 whitespace-nowrap"
-                    >
-                        {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
-                        Enregistrer
-                    </button>
+  // 2. VUE BROUILLON (Refondue avec Onglets)
+  if (isDrafting) {
+      const hasGeneratedContent = !!editedItem.body && editedItem.body.trim().length > 0;
 
-                    <button 
-                        onClick={() => changeStatus(ContentStatus.READY)}
-                        disabled={isSaving}
-                        className="flex-1 md:flex-none justify-center flex items-center gap-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-4 md:px-5 py-2 rounded-lg font-medium transition-colors shadow-sm text-xs md:text-sm disabled:opacity-50 whitespace-nowrap"
-                    >
-                        {isSaving ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <CheckCircle2 className="w-4 h-4" />
+      return (
+        <>
+        <ModalLayout
+            onClose={onClose}
+            headerContent={
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
+                    <input 
+                        type="text" 
+                        value={editedItem.title}
+                        onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
+                        className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-none w-full md:max-w-2xl"
+                        placeholder="Titre du post..."
+                    />
+                    <div className="flex items-center gap-2 md:ml-auto">
+                        <div className={`hidden md:block px-3 py-1 mr-2 rounded-full border text-sm font-medium ${STATUS_COLORS[ContentStatus.DRAFTING]}`}>BROUILLON</div>
+                        <button onClick={handleManualSave} disabled={isSaving} className="flex items-center gap-2 border px-3 py-2 rounded-lg text-sm font-medium">{isSaving && <Loader2 className="w-3 h-3 animate-spin"/>} Enregistrer</button>
+                    </div>
+                </div>
+            }
+        >
+            <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg p-6 md:p-10">
+                <div className="max-w-5xl mx-auto space-y-8">
+                    
+                    {/* SECTION 1: CONTEXTE (Notes + Analyse) - Toujours visible mais repliable ou compacte */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Notes */}
+                        <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-main transition-shadow h-full flex flex-col max-h-60">
+                            <div className="bg-brand-light dark:bg-dark-bg p-3 border-b border-brand-border dark:border-dark-sec-border">
+                                <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                    <FileText className="w-3 h-3"/> Notes
+                                </p>
+                            </div>
+                            <RichTextarea 
+                                value={editedItem.notes}
+                                onChange={(val) => setEditedItem({...editedItem, notes: val})}
+                                className="w-full flex-1 p-3 text-sm"
+                                placeholder="Vos notes..."
+                            />
+                        </div>
+
+                        {/* Analyse IA (Read Only) */}
+                        <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 shadow-sm flex flex-col h-full max-h-60">
+                            <h3 className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase mb-3 flex items-center gap-2"><Brain className="w-4 h-4"/> Analyse Stratégique</h3>
+                            <div className="flex-1 text-sm text-purple-900 dark:text-purple-100/80 leading-relaxed overflow-y-auto custom-scrollbar">
+                                {editedItem.strategicAngle ? (
+                                    <>
+                                        <p className="font-semibold mb-2">Angle suggéré :</p>
+                                        <div className="whitespace-pre-wrap">{renderReadOnlyText(editedItem.strategicAngle)}</div>
+                                        {editedItem.platforms.length > 0 && (
+                                            <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-800/50">
+                                                <p className="text-xs font-bold mb-2">Canaux :</p>
+                                                <div className="flex gap-2 flex-wrap">
+                                                    {editedItem.platforms.map(p => <span key={p} className="px-2 py-0.5 bg-white dark:bg-purple-800/50 rounded text-xs border border-purple-200 dark:border-purple-800">{p}</span>)}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="italic opacity-70">Aucune analyse disponible pour ce contenu.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="w-full h-px bg-brand-border dark:border-dark-sec-border"></div>
+
+                    {/* SECTION 2: TABS (Interview vs Contenu) */}
+                    <div className="flex flex-col min-h-[500px]">
+                        {/* Tab Headers */}
+                        <div className="flex items-center gap-1 border-b border-brand-border dark:border-dark-sec-border mb-6">
+                            <button 
+                                onClick={() => setDraftTab('interview')}
+                                className={`px-6 py-3 text-sm font-bold flex items-center gap-2 transition-all relative top-[1px] border-b-2 
+                                    ${draftTab === 'interview' 
+                                        ? 'text-brand-main dark:text-white border-brand-main' 
+                                        : 'text-brand-main/50 dark:text-dark-text/50 border-transparent hover:text-brand-main/80'}`}
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                Interview
+                            </button>
+                            <button 
+                                onClick={() => setDraftTab('content')}
+                                disabled={!hasGeneratedContent}
+                                className={`px-6 py-3 text-sm font-bold flex items-center gap-2 transition-all relative top-[1px] border-b-2 disabled:opacity-30 disabled:cursor-not-allowed
+                                    ${draftTab === 'content' 
+                                        ? 'text-pink-600 dark:text-pink-300 border-pink-600 dark:border-pink-300' 
+                                        : 'text-brand-main/50 dark:text-dark-text/50 border-transparent hover:text-pink-600/80'}`}
+                            >
+                                <LayoutTemplate className="w-4 h-4" />
+                                Contenu Rédigé
+                            </button>
+                        </div>
+
+                        {/* TAB CONTENT: INTERVIEW */}
+                        {draftTab === 'interview' && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                {/* Questions */}
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-bold text-brand-main dark:text-white uppercase tracking-wider">1. Questions de l'IA</h4>
+                                    {!editedItem.interviewQuestions ? (
+                                        <div className="bg-white dark:bg-dark-surface p-8 rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border flex flex-col items-center justify-center text-center">
+                                            <p className="text-brand-main/60 dark:text-dark-text/60 mb-6 max-w-md">
+                                                L'IA peut agir comme un journaliste pour vous poser les bonnes questions et faire émerger le meilleur contenu de vos notes.
+                                            </p>
+                                            <button 
+                                                onClick={handleOpenInterviewer}
+                                                disabled={isGenerating}
+                                                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md transition-all disabled:opacity-50"
+                                            >
+                                                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                                                Envoyer à l'interviewer
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                                            <div className="prose prose-sm dark:prose-invert max-w-none text-blue-900 dark:text-blue-100 whitespace-pre-wrap">
+                                                {renderReadOnlyText(editedItem.interviewQuestions)}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Réponses */}
+                                <div className="space-y-3 pb-10">
+                                    <h4 className="text-sm font-bold text-brand-main dark:text-white uppercase tracking-wider">2. Vos Réponses</h4>
+                                    <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-pink-500 transition-shadow">
+                                        <div className="bg-brand-light dark:bg-dark-bg p-2 border-b border-brand-border dark:border-dark-sec-border">
+                                            <MarkdownToolbar />
+                                        </div>
+                                        <RichTextarea 
+                                            value={editedItem.interviewAnswers || ""} 
+                                            onChange={(val) => setEditedItem({...editedItem, interviewAnswers: val})} 
+                                            className="w-full min-h-[200px] p-4"
+                                            placeholder="Répondez aux questions ici..."
+                                        />
+                                    </div>
+                                    <div className="flex justify-end gap-3 pt-4">
+                                        <button 
+                                            onClick={handleManualSave}
+                                            disabled={isSaving}
+                                            className="flex items-center gap-2 px-4 py-2 border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text rounded-lg hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors text-sm font-medium"
+                                        >
+                                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                            Sauvegarder
+                                        </button>
+                                        <button 
+                                            onClick={handleOpenDrafting}
+                                            disabled={isGenerating || !editedItem.interviewAnswers}
+                                            className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                            Envoyer et rédiger le contenu
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         )}
-                        Valider
-                    </button>
+
+                        {/* TAB CONTENT: CONTENU RÉDIGÉ */}
+                        {draftTab === 'content' && (
+                            <div className="flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-2 duration-300 pb-10">
+                                <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-pink-500/20 overflow-hidden flex flex-col flex-1 h-full min-h-[500px]">
+                                    <div className="bg-brand-light dark:bg-dark-bg p-3 border-b border-brand-border dark:border-dark-sec-border flex justify-between items-center">
+                                        <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase">Éditeur Final</p>
+                                    </div>
+                                    <div className="flex-1 flex flex-col">
+                                        <MarkdownToolbar />
+                                        <RichTextarea 
+                                            value={editedItem.body || ""}
+                                            onChange={(val) => setEditedItem({...editedItem, body: val})}
+                                            className="w-full flex-1 p-6 text-lg leading-relaxed"
+                                            placeholder="Le contenu généré apparaîtra ici..."
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             </div>
-        }
-    >
-      {/* Main Workspace */}
-      <div className="flex flex-1 overflow-hidden relative flex-col md:flex-row">
-          
-          {/* Left: Metadata (Hidden on Mobile unless active tab) */}
-          <div className={`
-              ${activeMobileTab === 'details' ? 'block' : 'hidden'} 
-              md:block w-full md:w-80 border-r border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-6 overflow-y-auto space-y-8
-          `}>
-              <div>
-                  <h3 className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-4">Destinations</h3>
-                  <div className="flex flex-col gap-2">
-                      {Object.values(Platform).map(p => (
-                          <label key={p} className="flex items-center gap-3 cursor-pointer group">
-                              <div className={`
-                                  w-5 h-5 rounded border flex items-center justify-center transition-colors
-                                  ${editedItem.platforms.includes(p) 
-                                      ? 'bg-brand-main border-brand-main text-white dark:bg-brand-light dark:border-brand-light dark:text-brand-hover' 
-                                      : 'bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border group-hover:border-brand-main/50'}
-                              `}>
-                                  {editedItem.platforms.includes(p) && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>}
-                              </div>
-                              <input 
-                                  type="checkbox" 
-                                  className="hidden"
-                                  checked={editedItem.platforms.includes(p)}
-                                  onChange={() => {
-                                      const platforms = editedItem.platforms.includes(p)
-                                          ? editedItem.platforms.filter(pl => pl !== p)
-                                          : [...editedItem.platforms, p];
-                                      setEditedItem({...editedItem, platforms});
-                                  }}
-                              />
-                              <span className={`text-sm ${editedItem.platforms.includes(p) ? 'text-brand-main dark:text-white font-medium' : 'text-brand-main/70 dark:text-dark-text/70'}`}>
-                                  {p}
-                              </span>
-                          </label>
-                      ))}
-                  </div>
-              </div>
 
-              <div>
-                  <h3 className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-4">Planification</h3>
-                  <div className="relative">
-                      <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-brand-main/50 dark:text-dark-text/50" />
-                      <input 
-                          type="date"
-                          value={editedItem.scheduledDate || ""}
-                          onChange={(e) => setEditedItem({...editedItem, scheduledDate: e.target.value})}
-                          className="w-full pl-9 pr-3 py-2 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface rounded-lg text-sm text-brand-main dark:text-white focus:ring-2 focus:ring-brand-main dark:focus:ring-brand-light outline-none"
-                      />
-                  </div>
-              </div>
+            {/* Footer DRAFTING */}
+            <div className="p-4 bg-white dark:bg-dark-surface border-t border-brand-border dark:border-dark-sec-border flex justify-between items-center">
+                 <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-sm font-medium">
+                    <Trash2 className="w-4 h-4" /> Supprimer
+                 </button>
+                 
+                 <div className="flex items-center gap-3">
+                     <div className="text-xs text-brand-main/40 dark:text-dark-text/40 italic mr-2 hidden md:block">
+                        {editedItem.lastEdited ? `Modifié le ${format(parseISO(editedItem.lastEdited), 'dd/MM/yyyy à HH:mm', {locale: fr})}` : ''}
+                     </div>
+                     <button 
+                        onClick={() => changeStatus(ContentStatus.READY)} 
+                        disabled={isSaving || !hasGeneratedContent} 
+                        className="flex items-center gap-2 bg-green-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-700 transition-all"
+                    >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Valider pour publication</>}
+                    </button>
+                 </div>
+            </div>
+        </ModalLayout>
+        {renderCommonOverlays()}
+        </>
+      );
+  }
 
-              <div>
-                  <h3 className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-4">Notes internes</h3>
-                  <textarea 
-                      value={editedItem.notes}
-                      onChange={(e) => setEditedItem({...editedItem, notes: e.target.value})}
-                      maxLength={2000}
-                      className="w-full h-40 p-3 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface rounded-lg text-sm text-brand-main dark:text-white focus:ring-2 focus:ring-brand-main dark:focus:ring-brand-light outline-none resize-none placeholder-brand-main/40 dark:placeholder-dark-text/40"
-                      placeholder="Mémo..."
-                  />
-                  <CharCounter current={editedItem.notes.length} max={2000} />
-              </div>
-
-               <button 
-                  className="w-full text-red-500 hover:text-red-700 dark:hover:text-red-400 text-sm flex items-center justify-center gap-2 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors mt-8"
-                  onClick={() => setConfirmDelete(true)}
-              >
-                  <Trash2 className="w-4 h-4" />
-                  Supprimer
-              </button>
-          </div>
-
-          {/* Center: Writing Canvas (Hidden on Mobile unless active tab) */}
-          <div className={`
-              ${activeMobileTab === 'editor' ? 'flex' : 'hidden'} 
-              md:flex flex-1 flex-col bg-white dark:bg-dark-surface relative
-          `}>
-              <div className="flex-1 overflow-y-auto">
-                  <div className="max-w-3xl mx-auto py-6 md:py-12 px-4 md:px-8 h-full flex flex-col">
-                      <textarea 
-                          value={editedItem.body}
-                          onChange={(e) => setEditedItem({...editedItem, body: e.target.value})}
-                          maxLength={2000}
-                          className="w-full flex-1 text-base md:text-lg leading-relaxed text-brand-main dark:text-white bg-transparent outline-none resize-none placeholder-brand-main/30 dark:placeholder-dark-text/30 font-serif pb-20 md:pb-0"
-                          placeholder="Écrivez votre contenu ici..."
-                          autoFocus
-                      />
-                      <div className="mt-2 flex justify-end">
-                          <CharCounter current={editedItem.body.length} max={2000} />
-                      </div>
-                  </div>
-              </div>
-          </div>
-
-          {/* Right: AI Assistant (Hidden on Mobile unless active tab) */}
-          <div className={`
-              ${activeMobileTab === 'ai' ? 'flex' : 'hidden'} 
-              md:flex w-full md:w-96 border-l border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg flex-col
-          `}>
-              <div className="p-4 border-b border-brand-border dark:border-dark-sec-border bg-white/50 dark:bg-dark-surface/50">
-                  <div className="flex items-center gap-2 text-brand-hover dark:text-brand-light font-semibold mb-3">
-                      <Sparkles className="w-5 h-5" />
-                      <span>Co-pilote IA</span>
-                  </div>
-                  
-                  {/* Context Selector */}
-                  <div className="flex gap-2">
-                      <select 
-                          value={selectedContextId}
-                          onChange={(e) => setSelectedContextId(e.target.value)}
-                          className="flex-1 text-sm bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-md p-1.5 outline-none focus:ring-1 focus:ring-brand-main dark:focus:ring-brand-light text-brand-main dark:text-white"
-                      >
-                          <option value="">Aucun (Standard)</option>
-                          {contexts.map(ctx => (
-                              <option key={ctx.id} value={ctx.id}>{ctx.name}</option>
-                          ))}
-                      </select>
-                      <button 
-                          onClick={onManageContexts}
-                          className="p-1.5 bg-brand-200 dark:bg-dark-sec-bg rounded-md hover:bg-brand-border dark:hover:bg-brand-hover text-brand-main dark:text-white transition-colors border border-transparent"
-                          title="Gérer les contextes"
-                      >
-                          <Settings className="w-4 h-4" />
-                      </button>
-                  </div>
-              </div>
-
-              <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                  <div className="bg-white dark:bg-dark-surface p-4 rounded-xl border border-brand-border dark:border-dark-sec-border shadow-sm text-sm text-brand-main dark:text-dark-text leading-relaxed">
-                      {selectedContextId ? (
-                          <p>
-                              Mode : <span className="font-semibold text-brand-hover dark:text-brand-light">{contexts.find(c => c.id === selectedContextId)?.name}</span>
-                          </p>
-                      ) : (
-                          <p>Mode : <span className="font-semibold">Standard</span></p>
-                      )}
-                      <p className="mt-2 text-xs opacity-70">Décrivez ce que vous voulez : "Réécris en plus court", "Ajoute des emojis", "Traduis en anglais"...</p>
-                  </div>
-                  {isGenerating && (
-                      <div className="flex justify-center py-4">
-                          <div className="animate-pulse flex space-x-2">
-                              <div className="h-2 w-2 bg-brand-main/50 rounded-full"></div>
-                              <div className="h-2 w-2 bg-brand-main/50 rounded-full"></div>
-                              <div className="h-2 w-2 bg-brand-main/50 rounded-full"></div>
-                          </div>
-                      </div>
-                  )}
-              </div>
-
-              <div className="p-4 border-t border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface pb-24 md:pb-4">
-                  <div className="relative">
-                      <textarea
-                          value={aiPrompt}
-                          onChange={(e) => setAiPrompt(e.target.value)}
-                          onKeyDown={(e) => {
-                              if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleAiGenerate();
-                              }
-                          }}
-                          className="w-full pr-10 pl-3 py-3 border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg rounded-xl text-sm text-brand-main dark:text-white focus:ring-2 focus:ring-brand-main dark:focus:ring-brand-light outline-none resize-none h-24 placeholder-brand-main/40 dark:placeholder-dark-text/40 shadow-sm"
-                          placeholder="Instructions IA..."
-                      />
-                      <button 
-                          onClick={handleAiGenerate}
-                          disabled={isGenerating || !aiPrompt.trim()}
-                          className="absolute right-2 bottom-2 p-2 bg-brand-main text-white dark:bg-brand-light dark:text-brand-hover rounded-lg hover:bg-brand-hover dark:hover:bg-white disabled:opacity-50 transition-colors shadow-sm"
-                      >
-                          <Send className="w-4 h-4" />
-                      </button>
-                  </div>
-              </div>
-          </div>
-
-          {/* MOBILE NAVIGATION TABS (Bottom Bar) */}
-          <div className="md:hidden absolute bottom-0 left-0 right-0 bg-white dark:bg-dark-surface border-t border-brand-border dark:border-dark-sec-border flex justify-around p-2 z-10">
-              <button 
-                  onClick={() => setActiveMobileTab('details')}
-                  className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 ${activeMobileTab === 'details' ? 'text-brand-main dark:text-white bg-brand-light dark:bg-dark-sec-bg' : 'text-gray-400'}`}
-              >
-                  <Info className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">Détails</span>
-              </button>
-              <button 
-                  onClick={() => setActiveMobileTab('editor')}
-                  className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 ${activeMobileTab === 'editor' ? 'text-brand-main dark:text-white bg-brand-light dark:bg-dark-sec-bg' : 'text-gray-400'}`}
-              >
-                  <FileText className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">Éditeur</span>
-              </button>
-              <button 
-                  onClick={() => setActiveMobileTab('ai')}
-                  className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 ${activeMobileTab === 'ai' ? 'text-brand-main dark:text-white bg-brand-light dark:bg-dark-sec-bg' : 'text-gray-400'}`}
-              >
-                  <Sparkles className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">IA</span>
-              </button>
-          </div>
-      </div>
-    </ModalWrapper>
+  // 3. VUE LECTURE SEULE (PUBLISHED / READY)
+  return (
+        <>
+        <ModalLayout 
+            onClose={onClose}
+            headerContent={
+                <div className="flex items-center gap-4">
+                     <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white flex items-center gap-2 truncate">
+                        <Lock className="w-5 h-5 text-gray-400" />
+                        <span className="truncate">{editedItem.title}</span>
+                     </h2>
+                     <div className={`hidden md:block px-3 py-1 rounded-full border text-sm font-medium ${STATUS_COLORS[editedItem.status]}`}>
+                        {editedItem.status}
+                    </div>
+                </div>
+            }
+        >
+             <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg p-4 md:p-8 flex justify-center">
+                 <div className="w-full max-w-4xl flex flex-col md:flex-row gap-8">
+                     <div className="flex-1 bg-white dark:bg-dark-surface shadow-xl border border-brand-border dark:border-dark-sec-border rounded-xl p-6 md:p-8 space-y-6">
+                        <div className="flex items-center gap-2 mb-6">
+                            <Eye className="w-5 h-5 text-brand-main/50 dark:text-dark-text/50" />
+                            <h3 className="text-sm font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Aperçu</h3>
+                        </div>
+                        <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">{editedItem.body}</div>
+                     </div>
+                     <div className="w-full md:w-72 space-y-4">
+                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl p-5 shadow-sm">
+                            <button 
+                                onClick={() => changeStatus(ContentStatus.DRAFTING)} 
+                                disabled={isSaving}
+                                className="w-full bg-white border border-brand-border text-brand-main px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-brand-light dark:bg-transparent dark:text-white dark:border-white/20 dark:hover:bg-white/5 transition-colors"
+                            >
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Modifier (Brouillon)"}
+                            </button>
+                        </div>
+                     </div>
+                 </div>
+             </div>
+        </ModalLayout>
+        {renderCommonOverlays()}
+        </>
   );
 };
 

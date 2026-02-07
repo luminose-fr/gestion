@@ -27,8 +27,36 @@ export const generateContent = async (request: GeminiRequest): Promise<string> =
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erreur Gemini API');
+    const errorData = await response.json();
+    
+    // Gestion spécifique des erreurs de Quota (429)
+    const internalError = errorData.details?.error;
+    
+    if (response.status === 429 || internalError?.code === 429 || internalError?.status === "RESOURCE_EXHAUSTED") {
+        let waitTime = "quelques instants";
+        
+        // Tentative d'extraction du temps d'attente depuis le message
+        // Pattern: "Please retry in 55.487327673s."
+        if (internalError?.message) {
+            const match = internalError.message.match(/Please retry in ([0-9.]+)s/);
+            if (match && match[1]) {
+                const seconds = Math.ceil(parseFloat(match[1]));
+                waitTime = `${seconds} secondes`;
+            }
+        }
+        
+        // Tentative d'extraction depuis les détails structurés
+        if (waitTime === "quelques instants" && internalError?.details) {
+             const retryInfo = internalError.details.find((d: any) => d['@type']?.includes('RetryInfo'));
+             if (retryInfo && retryInfo.retryDelay) {
+                 waitTime = retryInfo.retryDelay;
+             }
+        }
+
+        throw new Error(`⚠️ Quota IA dépassé (Free Tier). Veuillez patienter ${waitTime} avant de réessayer.`);
+    }
+
+    throw new Error(internalError?.message || errorData.error || 'Erreur Gemini API');
   }
 
   const data = await response.json();

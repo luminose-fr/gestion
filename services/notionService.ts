@@ -25,16 +25,7 @@ const handleNotionResponse = async (response: Response, context: string) => {
         try {
             errorData = await response.json();
             errorMessage = errorData.message || errorMessage;
-            
-            // Gestion spécifique des erreurs de validation Notion (limite caractères, etc.)
-            if (errorData.code === 'validation_error') {
-                if (errorMessage.includes('length should be ≤ `2000`')) {
-                    throw new Error("Le texte dépasse la limite de 2000 caractères imposée par Notion. Veuillez raccourcir le contenu.");
-                }
-            }
         } catch (e: any) {
-            // Si le parsing JSON échoue ou si c'est une autre erreur
-            if (e.message && e.message.includes("limite de 2000 caractères")) throw e;
             const text = await response.text().catch(() => "");
             console.error(`Erreur brute Notion (${context}):`, text);
         }
@@ -45,40 +36,168 @@ const handleNotionResponse = async (response: Response, context: string) => {
     return response.json();
 };
 
-// --- HELPERS DE PARSING ---
+// --- RICH TEXT ENGINE (Parser & Serializer) ---
 
-const getPlainText = (property: any): string => {
-  if (!property) return "";
-  
-  const contentArray = property.rich_text || property.title;
-  
-  if (Array.isArray(contentArray)) {
-    return contentArray.map((chunk: any) => chunk.plain_text || "").join("");
-  }
-  return "";
+/**
+ * 1. SERIALIZER: Notion Rich Text Object [] -> Markdown String
+ * Convertit la structure complexe de Notion en chaîne éditable par l'utilisateur.
+ */
+const notionToMarkdown = (property: any): string => {
+    if (!property) return "";
+    
+    // Notion renvoie parfois { rich_text: [...] } ou { title: [...] }
+    const contentArray = property.rich_text || property.title || [];
+    
+    if (!Array.isArray(contentArray)) return "";
+
+    return contentArray.map((chunk: any) => {
+        let text = chunk.plain_text || "";
+        const { annotations } = chunk;
+
+        if (!text) return "";
+
+        // Gestion des liens
+        if (chunk.text && chunk.text.link) {
+            return `[${text}](${chunk.text.link.url})`;
+        }
+
+        // Gestion des styles (Ordre : Code > Gras > Italique > Barré)
+        if (annotations) {
+            if (annotations.code) text = `\`${text}\``;
+            if (annotations.bold) text = `**${text}**`;
+            if (annotations.italic) text = `_${text}_`;
+            if (annotations.strikethrough) text = `~${text}~`;
+        }
+        return text;
+    }).join("");
 };
 
-// --- CONTENT DATABASE ---
+/**
+ * 2. PARSER: Markdown String -> Notion Rich Text Object []
+ * Découpe la chaîne, identifie les balises Markdown, génère les objets annotés
+ * ET respecte la limite de 2000 caractères par bloc.
+ */
+const markdownToNotion = (text: string): any[] => {
+    if (!text) return [];
+
+    const parts: any[] = [];
+    // Regex simplifiée pour tokeniser : Gras (**), Italique (_), Code (`), Barré (~), Liens [txt](url)
+    // Capture les délimiteurs pour le traitement
+    const regex = /(\*\*.+?\*\*)|(_.+?_)|(`.+?`)|(~.+?~)|(\[.+?\]\(.+?\))/g;
+    
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+        // Ajouter le texte brut avant le match
+        if (match.index > lastIndex) {
+            parts.push(createRawTextObject(text.substring(lastIndex, match.index)));
+        }
+
+        const fullMatch = match[0];
+        
+        if (fullMatch.startsWith('**')) {
+            parts.push(createStyledTextObject(fullMatch.slice(2, -2), { bold: true }));
+        } else if (fullMatch.startsWith('_')) {
+            parts.push(createStyledTextObject(fullMatch.slice(1, -1), { italic: true }));
+        } else if (fullMatch.startsWith('`')) {
+            parts.push(createStyledTextObject(fullMatch.slice(1, -1), { code: true }));
+        } else if (fullMatch.startsWith('~')) {
+            parts.push(createStyledTextObject(fullMatch.slice(1, -1), { strikethrough: true }));
+        } else if (fullMatch.startsWith('[')) {
+            const linkMatch = fullMatch.match(/^\[(.+?)\]\((.+?)\)$/);
+            if (linkMatch) {
+                parts.push(createLinkObject(linkMatch[1], linkMatch[2]));
+            } else {
+                parts.push(createRawTextObject(fullMatch)); // Fallback si parsing lien échoue
+            }
+        }
+
+        lastIndex = regex.lastIndex;
+    }
+
+    // Ajouter le reste du texte
+    if (lastIndex < text.length) {
+        parts.push(createRawTextObject(text.substring(lastIndex)));
+    }
+
+    // Post-traitement : Découpage des blocs > 2000 chars
+    return splitChunksToLimit(parts);
+};
+
+// --- Helpers pour le Parser ---
+
+const createRawTextObject = (content: string) => ({
+    type: "text",
+    text: { content }
+});
+
+const createStyledTextObject = (content: string, annotations: any) => ({
+    type: "text",
+    text: { content },
+    annotations
+});
+
+const createLinkObject = (content: string, url: string) => ({
+    type: "text",
+    text: { content, link: { url } }
+});
+
+const splitChunksToLimit = (chunks: any[]) => {
+    const LIMIT = 2000;
+    const result: any[] = [];
+
+    for (const chunk of chunks) {
+        const content = chunk.text.content;
+        
+        if (content.length <= LIMIT) {
+            result.push(chunk);
+            continue;
+        }
+
+        // Si le chunk est trop long, on le découpe en gardant ses annotations/liens
+        let i = 0;
+        while (i < content.length) {
+            const slice = content.substring(i, i + LIMIT);
+            
+            const newChunk: any = {
+                type: "text",
+                text: { 
+                    content: slice,
+                },
+                annotations: chunk.annotations
+            };
+
+            if (chunk.text.link) {
+                newChunk.text.link = chunk.text.link;
+            }
+
+            result.push(newChunk);
+            i += LIMIT;
+        }
+    }
+    return result;
+};
+
+
+// --- MAPPERS BASE DE DONNÉES ---
 
 const mapNotionPageToItem = (page: any): ContentItem => {
   const props = page.properties;
   
-  const title = getPlainText(props["Titre"]) || "Sans titre";
-  
+  const title = notionToMarkdown(props["Titre"]) || "Sans titre";
   const statusValue = props["Statut"]?.select?.name || props["Statut"]?.status?.name;
   const status = (statusValue as ContentStatus) || ContentStatus.IDEA;
-
   const platforms = props["Plateforme"]?.multi_select?.map((p: any) => p.name as Platform) || [];
-  
-  const body = getPlainText(props["Contenu"]);
+  const body = notionToMarkdown(props["Contenu"]);
   const scheduledDate = props["Date de publication"]?.date?.start || null;
-  const notes = getPlainText(props["Notes"]);
-
-  // Nouveaux champs Analyse
+  const notes = notionToMarkdown(props["Notes"]);
   const analyzed = props["Analysé"]?.checkbox || false;
   const verdictValue = props["Verdict"]?.select?.name;
   const verdict = (verdictValue as Verdict) || undefined;
-  const strategicAngle = getPlainText(props["Angle stratégique"]);
+  const strategicAngle = notionToMarkdown(props["Angle stratégique"]);
+  const interviewAnswers = notionToMarkdown(props["Réponses interview"]);
+  const interviewQuestions = notionToMarkdown(props["Questions interview"]);
 
   return {
     id: page.id,
@@ -91,9 +210,22 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     lastEdited: page.last_edited_time,
     analyzed,
     verdict,
-    strategicAngle
+    strategicAngle,
+    interviewAnswers,
+    interviewQuestions
   };
 };
+
+const mapNotionPageToContext = (page: any): ContextItem => {
+  const props = page.properties;
+  return {
+    id: page.id,
+    name: notionToMarkdown(props["Nom"]) || "Contexte sans nom",
+    description: notionToMarkdown(props["Description"]) || "",
+  };
+};
+
+// --- API CALLS (CONTENT) ---
 
 export const fetchContent = async (): Promise<ContentItem[]> => {
   if (!CONFIG.NOTION_CONTENT_DB_ID) {
@@ -101,7 +233,6 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
   }
 
   try {
-    // Étape 1: Récupérer les data_sources du database
     const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTENT_DB_ID}`), {
       method: "GET",
       headers: getHeaders(),
@@ -114,7 +245,6 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
         throw new Error("Aucun data source trouvé pour ce database");
     }
 
-    // Étape 2: Query le data_source
     const response = await fetch(getUrl(`/data_sources/${dataSourceId}/query`), {
       method: "POST",
       headers: getHeaders(),
@@ -137,9 +267,8 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
   }
 };
 
-export const createContent = async (title: string): Promise<ContentItem> => {
+export const createContent = async (title: string, notes?: string): Promise<ContentItem> => {
     try {
-        // Étape 1: Récupérer le data_source_id
         const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTENT_DB_ID}`), {
             method: "GET",
             headers: getHeaders(),
@@ -151,7 +280,21 @@ export const createContent = async (title: string): Promise<ContentItem> => {
             throw new Error("Aucun data source trouvé");
         }
 
-        // Étape 2: Créer la page avec data_source_id
+        const properties: any = {
+            "Titre": {
+                title: markdownToNotion(title) // Utilisation du parser
+            },
+            "Statut": {
+                select: { name: ContentStatus.IDEA }
+            }
+        };
+
+        if (notes) {
+            properties["Notes"] = {
+                rich_text: markdownToNotion(notes)
+            };
+        }
+
         const response = await fetch(getUrl("/pages"), {
             method: "POST",
             headers: getHeaders(),
@@ -160,16 +303,7 @@ export const createContent = async (title: string): Promise<ContentItem> => {
                     type: "data_source_id",
                     data_source_id: dataSourceId 
                 },
-                properties: {
-                    "Titre": {
-                        title: [
-                            { text: { content: title } }
-                        ]
-                    },
-                    "Statut": {
-                        select: { name: ContentStatus.IDEA }
-                    }
-                }
+                properties: properties
             })
         });
 
@@ -183,18 +317,18 @@ export const createContent = async (title: string): Promise<ContentItem> => {
 
 export const updateContent = async (item: ContentItem): Promise<void> => {
     const properties: any = {
-        "Titre": { title: [{ text: { content: item.title } }] },
+        "Titre": { title: markdownToNotion(item.title) },
     };
 
     if (item.body !== undefined) {
         properties["Contenu"] = { 
-            rich_text: item.body ? [{ text: { content: item.body.substring(0, 2000) } }] : [] 
+            rich_text: markdownToNotion(item.body)
         };
     }
     
     if (item.notes !== undefined) {
         properties["Notes"] = { 
-            rich_text: item.notes ? [{ text: { content: item.notes.substring(0, 2000) } }] : [] 
+            rich_text: markdownToNotion(item.notes)
         };
     }
     
@@ -212,7 +346,6 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
         };
     }
 
-    // Mise à jour des champs d'analyse si présents
     if (item.analyzed !== undefined) {
         properties["Analysé"] = { checkbox: item.analyzed };
     }
@@ -223,7 +356,19 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
     
     if (item.strategicAngle !== undefined) {
         properties["Angle stratégique"] = { 
-            rich_text: [{ text: { content: item.strategicAngle.substring(0, 2000) } }] 
+            rich_text: markdownToNotion(item.strategicAngle || "")
+        };
+    }
+
+    if (item.interviewAnswers !== undefined) {
+        properties["Réponses interview"] = { 
+            rich_text: markdownToNotion(item.interviewAnswers || "")
+        };
+    }
+
+    if (item.interviewQuestions !== undefined) {
+        properties["Questions interview"] = { 
+            rich_text: markdownToNotion(item.interviewQuestions || "")
         };
     }
 
@@ -247,16 +392,7 @@ export const deleteContent = async (id: string): Promise<void> => {
     await handleNotionResponse(response, "deleteContent");
 };
 
-// --- CONTEXT DATABASE ---
-
-const mapNotionPageToContext = (page: any): ContextItem => {
-  const props = page.properties;
-  return {
-    id: page.id,
-    name: getPlainText(props["Nom"]) || "Contexte sans nom",
-    description: getPlainText(props["Description"]) || "",
-  };
-};
+// --- API CALLS (CONTEXT) ---
 
 export const fetchContexts = async (): Promise<ContextItem[]> => {
     try {
@@ -265,7 +401,6 @@ export const fetchContexts = async (): Promise<ContextItem[]> => {
             headers: getHeaders(),
         });
         
-        // On ne throw pas ici pour ne pas bloquer l'app si les contextes échouent
         if (!dbResponse.ok) return [];
 
         const dbData = await dbResponse.json();
@@ -308,8 +443,10 @@ export const createContext = async (name: string, description: string): Promise<
                 data_source_id: dataSourceId 
             },
             properties: {
-                "Nom": { title: [{ text: { content: name } }] },
-                "Description": { rich_text: [{ text: { content: description.substring(0, 2000) } }] }
+                "Nom": { title: markdownToNotion(name) },
+                "Description": { 
+                    rich_text: markdownToNotion(description)
+                }
             }
         })
     });
@@ -324,8 +461,10 @@ export const updateContext = async (context: ContextItem): Promise<void> => {
         headers: getHeaders(),
         body: JSON.stringify({
             properties: {
-                "Nom": { title: [{ text: { content: context.name } }] },
-                "Description": { rich_text: [{ text: { content: context.description.substring(0, 2000) } }] }
+                "Nom": { title: markdownToNotion(context.name) },
+                "Description": { 
+                    rich_text: markdownToNotion(context.description)
+                }
             }
         })
     });
@@ -340,5 +479,5 @@ export const deleteContext = async (id: string): Promise<void> => {
             archived: true
         })
     });
-    await handleNotionResponse(response, "deleteContext");
+    await handleNotionResponse(response, "deleteContent");
 };

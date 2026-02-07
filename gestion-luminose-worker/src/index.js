@@ -60,6 +60,74 @@ export default {
       }
     };
 
+    // ===== ROUTES 1MIN.AI =====
+    if (path.startsWith('/1min/')) {
+      const sessionToken = request.headers.get('X-Session-Token');
+      const tokenCheck = verifySessionToken(sessionToken);
+      
+      if (!tokenCheck.valid) {
+        return new Response(JSON.stringify({ 
+          error: `Non authentifié - ${tokenCheck.error}` 
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const oneMinHeaders = {
+        'API-KEY': env.ONE_MIN_API_KEY,
+        'Content-Type': 'application/json'
+      };
+
+      try {
+        // 1. Créer une conversation
+        if (path === '/1min/create-conversation') {
+          const body = await request.json();
+          // Force le type si non présent
+          if (!body.type) body.type = "CHAT_WITH_AI";
+          
+          const response = await fetch('https://api.1min.ai/api/conversations', {
+            method: 'POST',
+            headers: oneMinHeaders,
+            body: JSON.stringify(body)
+          });
+          
+          const data = await response.json();
+          return new Response(JSON.stringify(data), {
+            status: response.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // 2. Envoyer un message (Feature API)
+        if (path === '/1min/send-message') {
+          const body = await request.json();
+          
+          const response = await fetch('https://api.1min.ai/api/features', { // Mode non-streaming pour simplifier le parsing JSON
+            method: 'POST',
+            headers: oneMinHeaders,
+            body: JSON.stringify(body)
+          });
+
+          const data = await response.json();
+          return new Response(JSON.stringify(data), {
+            status: response.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+      } catch (error) {
+        console.error('1min.AI Proxy Error:', error);
+        return new Response(JSON.stringify({ 
+          error: 'Erreur proxy 1min.AI',
+          details: error.message 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // ===== ROUTES GEMINI AI =====
     if (path.startsWith('/gemini/')) {
       const sessionToken = request.headers.get('X-Session-Token');
