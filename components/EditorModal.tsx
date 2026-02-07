@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Send, Calendar, Save, Trash2, Settings, Lock, CheckCircle2, Edit3, Eye, Loader2, ArrowRight, FileText, Info, Brain, Globe, MessageSquare, PenTool, LayoutTemplate } from 'lucide-react';
-import { ContentItem, ContentStatus, Platform, ContextItem, Verdict } from '../types';
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel } from '../types';
 import { STATUS_COLORS } from '../constants';
 import * as GeminiService from '../services/geminiService';
 import * as OneMinService from '../services/oneMinService';
@@ -10,11 +10,14 @@ import { fr } from 'date-fns/locale';
 import { AlertModal, ConfirmModal, CharCounter } from './CommonModals';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
-import { AI_ACTIONS, AI_MODELS, isOneMinModel } from '../ai/config';
+// Changement: Import de INTERNAL_MODELS au lieu de AI_MODELS pour la valeur par défaut
+import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../ai/config';
 
 interface EditorModalProps {
   item: ContentItem | null;
   contexts: ContextItem[];
+  // Ajout de la prop aiModels
+  aiModels: AIModel[];
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: ContentItem) => Promise<void>;
@@ -22,16 +25,33 @@ interface EditorModalProps {
   onManageContexts: () => void;
 }
 
-// Composant Layout stable défini à l'extérieur pour éviter les re-renders inutiles
+const parseAIResponse = (responseText: string, key: string): string => {
+    if (!responseText) return "";
+    let cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
+    try {
+        const data = JSON.parse(cleaned);
+        if (data[key]) return data[key];
+        if (key === 'questions_interieures' && Array.isArray(data.questions_interieures)) {
+            return JSON.stringify(data);
+        }
+    } catch (e) {
+        const regex = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"\\s*[,}]`);
+        const match = cleaned.match(regex);
+        if (match && match[1]) {
+            return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        }
+    }
+    return cleaned;
+};
+
 const ModalLayout = ({ 
     children, 
     headerContent, 
     onClose 
-}: { 
-    children: React.ReactNode, 
+}: React.PropsWithChildren<{ 
     headerContent: React.ReactNode, 
     onClose: () => void 
-}) => (
+}>) => (
       <div 
         className="fixed inset-0 z-50 bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-fade-in"
         onClick={onClose}
@@ -53,29 +73,24 @@ const ModalLayout = ({
       </div>
 );
 
-const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClose, onSave, onDelete, onManageContexts }) => {
+const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = [], isOpen, onClose, onSave, onDelete, onManageContexts }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
   
-  // États de chargement et UI
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Gestion du selecteur de contexte et modèle
   const [showContextSelector, setShowContextSelector] = useState(false);
   const [selectedContextId, setSelectedContextId] = useState<string>("");
-  const [selectedModel, setSelectedModel] = useState<string>(AI_MODELS.FAST);
+  const [selectedModel, setSelectedModel] = useState<string>(INTERNAL_MODELS.FAST);
   const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | null>(null);
 
-  // Onglets pour le mode Brouillon
   const [draftTab, setDraftTab] = useState<'interview' | 'content'>('interview');
 
-  // Modal states
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Initialisation et mise à jour de l'item sans reset brutal
   useEffect(() => {
     if (isOpen && item) {
         if (!editedItem || item.id !== editedItem.id) {
@@ -84,14 +99,12 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
             setIsGenerating(false);
             setSelectedContextId(""); 
             setPendingContextAction(null);
-            // Si du contenu existe déjà, on ouvre directement l'onglet contenu
             if (item.body && item.body.trim().length > 0) {
                 setDraftTab('content');
             } else {
                 setDraftTab('interview');
             }
         } else {
-            // Mise à jour douce
             setEditedItem(prev => prev ? { ...prev, ...item } : item);
         }
     }
@@ -101,8 +114,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
 
   const isIdea = editedItem.status === ContentStatus.IDEA;
   const isDrafting = editedItem.status === ContentStatus.DRAFTING;
-
-  // --- ACTIONS ---
 
   const changeStatus = async (newStatus: ContentStatus) => {
       if (isSaving) return;
@@ -130,8 +141,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       onClose();
   };
 
-  // --- AI FLOW ORCHESTRATION ---
-
   const handleContextConfirm = async () => {
       if (!selectedContextId) {
           setAlertInfo({ isOpen: true, title: "Attention", message: "Veuillez choisir un contexte.", type: "error" });
@@ -145,17 +154,15 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       }
   };
 
-  // Helper pour appeler le bon service
   const callAI = async (model: string, systemInstruction: string, prompt: string, config: any) => {
-      if (isOneMinModel(model)) {
-          // Appel via 1min.AI Service
+      // isOneMinModel utilise maintenant la liste dynamique
+      if (isOneMinModel(model, aiModels)) {
           return await OneMinService.generateContent({
               model: model,
               systemInstruction: systemInstruction,
               prompt: prompt
           });
       } else {
-          // Appel via Gemini Service (Standard)
           return await GeminiService.generateContent({
               model: model,
               systemInstruction: systemInstruction,
@@ -165,10 +172,9 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       }
   };
 
-  // 1. Lancer l'interview (Génération des questions)
   const handleOpenInterviewer = () => {
       setPendingContextAction('interview');
-      setSelectedModel(AI_MODELS.FAST); // Défaut pour l'interview
+      setSelectedModel(INTERNAL_MODELS.FAST);
       setShowContextSelector(true);
   };
 
@@ -190,29 +196,29 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
               plateformes: editedItem.platforms
           }];
 
-          const jsonResponse = await callAI(
+          const responseText = await callAI(
               selectedModel,
               systemInstruction,
               JSON.stringify(promptPayload),
               actionConfig.generationConfig
           );
 
+          // Extraction robuste des questions
+          const interviewDataRaw = parseAIResponse(responseText, 'questions_interieures');
           let formattedQuestions = "";
+
           try {
-              // Nettoyage éventuel du JSON (markdown fences) si l'IA en a mis
-              const cleanedJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '');
-              const data = JSON.parse(cleanedJson);
-              
+              const data = JSON.parse(interviewDataRaw);
               if (data.questions_interieures && Array.isArray(data.questions_interieures)) {
                   formattedQuestions = data.questions_interieures.map((block: any) => {
                       const questionsList = block.questions.map((q: string) => `- ${q}`).join('\n');
                       return `**Angle : ${block.angle}**\n${questionsList}`;
                   }).join('\n\n');
               } else {
-                  formattedQuestions = jsonResponse; 
+                  formattedQuestions = responseText; 
               }
           } catch (e) {
-              formattedQuestions = jsonResponse;
+              formattedQuestions = responseText;
           }
 
           const newItem = { ...editedItem, interviewQuestions: formattedQuestions };
@@ -228,14 +234,13 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       }
   };
 
-  // 2. Lancer la rédaction finale (Payload JSON structuré)
   const handleOpenDrafting = () => {
       if (!editedItem.interviewAnswers) {
           setAlertInfo({ isOpen: true, title: "Réponses manquantes", message: "Veuillez répondre aux questions avant de générer le brouillon.", type: "error" });
           return;
       }
       setPendingContextAction('draft');
-      setSelectedModel(AI_MODELS.SMART); // Défaut pour la rédaction
+      setSelectedModel(INTERNAL_MODELS.SMART);
       setShowContextSelector(true);
   };
 
@@ -249,10 +254,8 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
           const platformsStr = editedItem.platforms.length > 0 ? editedItem.platforms.join(", ") : "Réseaux Sociaux";
 
           const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
-          // Le System Instruction contient les règles de sortie JSON
           const systemInstruction = actionConfig.getSystemInstruction(contextDesc, platformsStr);
 
-          // Construction du Payload JSON requis par le prompt
           const promptPayload = {
               titre: editedItem.title,
               angle_strategique: editedItem.strategicAngle || "Non défini",
@@ -261,34 +264,19 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
               reponses_interview: editedItem.interviewAnswers || ""
           };
 
-          const jsonResponse = await callAI(
+          const responseText = await callAI(
               selectedModel,
               systemInstruction,
               JSON.stringify(promptPayload),
               actionConfig.generationConfig
           );
 
-          // Extraction du draft_final depuis le JSON
-          let finalContent = "";
-          try {
-              const cleanedJson = jsonResponse.replace(/```json/g, '').replace(/```/g, '');
-              const data = JSON.parse(cleanedJson);
-              if (data.draft_final) {
-                  finalContent = data.draft_final;
-              } else {
-                  // Fallback si le JSON est mal formé mais contient du texte
-                  finalContent = jsonResponse;
-              }
-          } catch (e) {
-              console.warn("Erreur parsing JSON Draft, utilisation brute", e);
-              finalContent = jsonResponse;
-          }
+          // Extraction robuste du contenu final (éjecte le JSON et garde le markdown de draft_final)
+          const finalContent = parseAIResponse(responseText, 'draft_final');
 
           const newItem = { ...editedItem, body: finalContent };
           setEditedItem(newItem);
           await onSave(newItem);
-          
-          // Bascule automatique vers l'onglet contenu
           setDraftTab('content');
 
       } catch (error: any) {
@@ -299,8 +287,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
           setPendingContextAction(null);
       }
   };
-
-  // --- RENDER HELPERS ---
 
   const getVerdictColor = (verdict?: Verdict) => {
       switch (verdict) {
@@ -321,7 +307,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       });
   };
 
-  // --- COMMON OVERLAYS ---
   const renderCommonOverlays = () => (
       <>
          <AlertModal 
@@ -362,7 +347,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                              </select>
                          </div>
                          
-                         {/* MODEL SELECTOR */}
                          <div>
                              <label className="block text-xs font-semibold text-brand-main/50 dark:text-dark-text/50 mb-1">Modèle IA</label>
                              <select 
@@ -370,16 +354,19 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                                 onChange={(e) => setSelectedModel(e.target.value)}
                                 className="w-full p-2 rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-brand-main dark:text-white outline-none focus:ring-2 focus:ring-brand-main"
                              >
-                                 <optgroup label="Google Gemini">
-                                    <option value={AI_MODELS.FAST}>Gemini Flash (Rapide)</option>
-                                    <option value={AI_MODELS.SMART}>Gemini Pro (Intelligent)</option>
+                                 <optgroup label="Modèles Internes (Gemini)">
+                                    <option value={INTERNAL_MODELS.FAST}>Gemini Flash (Rapide)</option>
+                                    <option value={INTERNAL_MODELS.SMART}>Gemini Pro (Intelligent)</option>
                                  </optgroup>
-                                 <optgroup label="1min.AI (Premium)">
-                                    <option value={AI_MODELS.GPT_4O_MINI}>GPT-4o Mini (Équilibré)</option>
-                                    <option value={AI_MODELS.GPT_4O}>GPT-4o (Top Qualité)</option>
-                                    <option value={AI_MODELS.CLAUDE_3_5_SONNET}>Claude 3.5 Sonnet (Rédaction)</option>
-                                    <option value={AI_MODELS.MISTRAL_LARGE}>Mistral Large</option>
-                                 </optgroup>
+                                 
+                                 {/* Rendu dynamique des modèles */}
+                                 {aiModels.length > 0 && (
+                                     <optgroup label="Modèles Personnalisés (1min.AI)">
+                                         {aiModels.map(m => (
+                                             <option key={m.id} value={m.apiCode}>{m.name}</option>
+                                         ))}
+                                     </optgroup>
+                                 )}
                              </select>
                          </div>
 
@@ -400,7 +387,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       </>
   );
 
-  // 1. VUE IDÉE
   if (isIdea) {
       return (
         <>
@@ -412,15 +398,12 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                 className="bg-white dark:bg-dark-surface w-full h-full md:h-auto md:max-w-2xl md:rounded-2xl shadow-2xl border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
              >
-                {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border dark:border-dark-sec-border">
                     <div className={`px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLORS[ContentStatus.IDEA]}`}>IDÉE</div>
                     <button onClick={onClose} className="p-2 -mr-2 text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors"><X className="w-5 h-5" /></button>
                 </div>
 
-                {/* Body */}
                 <div className="p-8 space-y-8 flex-1 overflow-y-auto">
-                    {/* 1. Titre */}
                     <div>
                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-2">Titre de l'idée</label>
                         <input 
@@ -433,7 +416,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                         />
                     </div>
 
-                    {/* 2. Notes (Input) */}
                     <div className="flex flex-col border border-brand-border dark:border-dark-sec-border rounded-xl overflow-hidden bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main transition-shadow">
                          <div className="bg-brand-light dark:bg-dark-bg p-2 flex justify-between items-center border-b border-brand-border dark:border-dark-sec-border">
                              <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase">Notes</label>
@@ -450,7 +432,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                          </div>
                     </div>
 
-                    {/* 3. Analyse IA (Affichage uniquement) */}
                     {editedItem.analyzed && (
                         <div className="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-xl border border-purple-100 dark:border-purple-800 space-y-4">
                             <div className="flex items-center justify-between border-b border-purple-200 dark:border-purple-800/50 pb-3">
@@ -465,7 +446,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                                 )}
                             </div>
                             
-                            {/* Strategic Angle - Read Only */}
                             <div>
                                 <p className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-2 uppercase tracking-wide opacity-70">Angle Stratégique</p>
                                 <div className="text-sm leading-relaxed text-purple-900 dark:text-purple-100 whitespace-pre-wrap">
@@ -473,7 +453,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                                 </div>
                             </div>
 
-                            {/* Plateformes Envisagées */}
                             <div>
                                 <p className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-2 uppercase tracking-wide opacity-70 flex items-center gap-1">
                                     <Globe className="w-3 h-3" />
@@ -495,7 +474,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                     )}
                 </div>
 
-                {/* Footer */}
                 <div className="p-6 bg-brand-light dark:bg-dark-bg border-t border-brand-border flex justify-between items-center">
                      <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded hover:bg-red-50"><Trash2 className="w-5 h-5" /></button>
                      <div className="flex gap-3">
@@ -523,7 +501,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       );
   }
 
-  // 2. VUE BROUILLON (Refondue avec Onglets)
   if (isDrafting) {
       const hasGeneratedContent = !!editedItem.body && editedItem.body.trim().length > 0;
 
@@ -550,9 +527,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
             <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg p-6 md:p-10">
                 <div className="max-w-5xl mx-auto space-y-8">
                     
-                    {/* SECTION 1: CONTEXTE (Notes + Analyse) - Toujours visible mais repliable ou compacte */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Notes */}
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-main transition-shadow h-full flex flex-col max-h-60">
                             <div className="bg-brand-light dark:bg-dark-bg p-3 border-b border-brand-border dark:border-dark-sec-border">
                                 <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
@@ -567,7 +542,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                             />
                         </div>
 
-                        {/* Analyse IA (Read Only) */}
                         <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 shadow-sm flex flex-col h-full max-h-60">
                             <h3 className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase mb-3 flex items-center gap-2"><Brain className="w-4 h-4"/> Analyse Stratégique</h3>
                             <div className="flex-1 text-sm text-purple-900 dark:text-purple-100/80 leading-relaxed overflow-y-auto custom-scrollbar">
@@ -593,9 +567,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
 
                     <div className="w-full h-px bg-brand-border dark:border-dark-sec-border"></div>
 
-                    {/* SECTION 2: TABS (Interview vs Contenu) */}
                     <div className="flex flex-col min-h-[500px]">
-                        {/* Tab Headers */}
                         <div className="flex items-center gap-1 border-b border-brand-border dark:border-dark-sec-border mb-6">
                             <button 
                                 onClick={() => setDraftTab('interview')}
@@ -620,10 +592,8 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                             </button>
                         </div>
 
-                        {/* TAB CONTENT: INTERVIEW */}
                         {draftTab === 'interview' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                {/* Questions */}
                                 <div className="space-y-3">
                                     <h4 className="text-sm font-bold text-brand-main dark:text-white uppercase tracking-wider">1. Questions de l'IA</h4>
                                     {!editedItem.interviewQuestions ? (
@@ -649,7 +619,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                                     )}
                                 </div>
 
-                                {/* Réponses */}
                                 <div className="space-y-3 pb-10">
                                     <h4 className="text-sm font-bold text-brand-main dark:text-white uppercase tracking-wider">2. Vos Réponses</h4>
                                     <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-pink-500 transition-shadow">
@@ -685,7 +654,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                             </div>
                         )}
 
-                        {/* TAB CONTENT: CONTENU RÉDIGÉ */}
                         {draftTab === 'content' && (
                             <div className="flex flex-col flex-1 animate-in fade-in slide-in-from-bottom-2 duration-300 pb-10">
                                 <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-pink-500/20 overflow-hidden flex flex-col flex-1 h-full min-h-[500px]">
@@ -709,7 +677,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
                 </div>
             </div>
 
-            {/* Footer DRAFTING */}
             <div className="p-4 bg-white dark:bg-dark-surface border-t border-brand-border dark:border-dark-sec-border flex justify-between items-center">
                  <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-sm font-medium">
                     <Trash2 className="w-4 h-4" /> Supprimer
@@ -734,7 +701,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, isOpen, onClo
       );
   }
 
-  // 3. VUE LECTURE SEULE (PUBLISHED / READY)
   return (
         <>
         <ModalLayout 

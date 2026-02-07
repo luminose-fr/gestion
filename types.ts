@@ -21,6 +21,17 @@ export enum Verdict {
   NEEDS_WORK = "À revoir"
 }
 
+export interface AIModel {
+  id: string;
+  name: string;
+  apiCode: string;
+  cost: 'very_high' | 'high' | 'medium' | 'low_medium' | 'low';
+  strengths: string;
+  provider: string;
+  bestUseCases: string;
+  textQuality: number;
+}
+
 export interface ContentItem {
   id: string;
   title: string;
@@ -46,7 +57,5 @@ export interface ContextItem {
 }
 
 export interface AppSettings {
-  // Config moved to config.ts
-  // Settings can now store UI preferences if needed in the future
   lastUsedContextId?: string;
 }

@@ -4,7 +4,7 @@ import { getSessionToken } from "../auth";
 interface OneMinRequest {
   model: string;
   prompt: string;
-  systemInstruction?: string; // 1min.AI n'a pas de champ system distinct dans promptObject, on concatènera
+  systemInstruction?: string;
 }
 
 // Helper pour les appels fetch
@@ -30,7 +30,7 @@ const fetch1Min = async (endpoint: string, body: any) => {
 
 export const generateContent = async (request: OneMinRequest): Promise<string> => {
     try {
-        // 1. Concaténer System Instruction et Prompt car 1min.AI n'a pas de champ système dédié dans promptObject
+        // 1. Concaténer System Instruction et Prompt
         const fullPrompt = request.systemInstruction 
             ? `${request.systemInstruction}\n\n---\n\n${request.prompt}`
             : request.prompt;
@@ -55,20 +55,32 @@ export const generateContent = async (request: OneMinRequest): Promise<string> =
             promptObject: {
                 prompt: fullPrompt,
                 isMixed: false,
-                webSearch: false // On désactive pour la vitesse et le coût, sauf si besoin spécifique
+                webSearch: false
             }
         });
 
-        // 4. Extraire la réponse
-        // Note: La structure de réponse exacte dépend de l'API. 
-        // On suppose ici que la réponse textuelle est dans data.response ou data.text ou similaire.
-        // D'après les standards, souvent c'est dans `response` ou une structure `message`.
-        // On log pour debug si besoin.
+        // 4. Extraction robuste du résultat
+        // L'API peut renvoyer la réponse dans aiRecord.aiRecordDetail.resultObject (tableau de strings)
+        // ou directement dans response / text selon le model/feature.
         
-        // Tentative d'extraction générique
-        const text = messageResponse.response || messageResponse.text || messageResponse.output || JSON.stringify(messageResponse);
+        let rawContent = "";
         
-        return text;
+        const aiRecord = messageResponse.aiRecord;
+        const resultObject = aiRecord?.aiRecordDetail?.resultObject;
+
+        if (resultObject && Array.isArray(resultObject) && resultObject.length > 0) {
+            rawContent = resultObject[0];
+        } else {
+            // Fallbacks selon les différentes versions de l'API constatées
+            rawContent = messageResponse.response || 
+                         messageResponse.text || 
+                         messageResponse.output || 
+                         aiRecord?.response ||
+                         JSON.stringify(messageResponse);
+        }
+
+        // Nettoyage des éventuels caractères d'échappement excessifs ou artefacts de stream
+        return rawContent.trim();
 
     } catch (error: any) {
         console.error("1min.AI Service Error:", error);

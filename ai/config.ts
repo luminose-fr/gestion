@@ -1,34 +1,27 @@
-import { Platform } from "../types";
 
-// Modèles disponibles
-export const AI_MODELS = {
-    // Google Gemini
+import { Platform, AIModel } from "../types";
+
+// Modèles internes fixes (Gemini de base)
+export const INTERNAL_MODELS = {
     FAST: "gemini-3-flash-preview", 
-    SMART: "gemini-3-pro-preview",
-    
-    // 1min.AI Models
-    GPT_4O_MINI: "gpt-4o-mini", // Équilibré et rapide
-    GPT_4O: "gpt-4o", // Très intelligent
-    CLAUDE_3_5_SONNET: "claude-3-5-sonnet-20240620", // Excellent pour la rédaction
-    MISTRAL_LARGE: "mistral-large-latest" // Alternative européenne
+    SMART: "gemini-3-pro-preview"
 };
 
-export const isOneMinModel = (model: string) => {
-    return [
-        AI_MODELS.GPT_4O_MINI,
-        AI_MODELS.GPT_4O,
-        AI_MODELS.CLAUDE_3_5_SONNET,
-        AI_MODELS.MISTRAL_LARGE
-    ].includes(model);
+// Détecte si on doit utiliser 1min.AI ou Gemini direct
+export const isOneMinModel = (apiCode: string, dynamicModels: AIModel[] = []) => {
+    // Si c'est un code API présent dans la base Notion et n'est pas un code Gemini interne
+    if (apiCode === INTERNAL_MODELS.FAST || apiCode === INTERNAL_MODELS.SMART) {
+        return false;
+    }
+    return dynamicModels.some(m => m.apiCode === apiCode) || true; // Par défaut on tente 1min si inconnu
 };
 
 // Configuration des actions IA
 export const AI_ACTIONS = {
-    // 1. Action : Analyser un lot d'idées (Vue Idées)
     ANALYZE_BATCH: {
-        model: AI_MODELS.FAST,
+        model: INTERNAL_MODELS.FAST,
         generationConfig: {
-            response_mime_type: "application/json" as const
+            responseMimeType: "application/json" as const
         },
         getSystemInstruction: (contextDesc: string) => `
 ${contextDesc}
@@ -46,12 +39,10 @@ Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu 
         `
     },
 
-    // 2. Action : Envoyer à l'interviewer (Vue En cours)
-    // Génère des questions pour aider l'utilisateur à approfondir son sujet
     GENERATE_INTERVIEW: {
-        model: AI_MODELS.FAST, // Le modèle rapide suffit souvent pour poser des questions
+        model: INTERNAL_MODELS.FAST,
         generationConfig: {
-            response_mime_type: "application/json" as const
+            responseMimeType: "application/json" as const
         },
         getSystemInstruction: (contextDesc: string) => `
 ${contextDesc}
@@ -60,7 +51,7 @@ ${contextDesc}
 
 RÈGLES DE SORTIE (FIXE) :
 1. Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON. 
-2. Ne fais aucune introduction, aucune conclusion, aucun commentaire.
+2. Ne fais aucune introduction, aucune conclusion, aucune commentaire.
 3. Le format JSON doit être le suivant :
 {
   "questions_interieures": [
@@ -72,11 +63,10 @@ RÈGLES DE SORTIE (FIXE) :
         `
     },
 
-    // 3. Action : Rédiger le contenu (Vue En cours / Éditeur)
     DRAFT_CONTENT: {
-        model: AI_MODELS.SMART, // On peut passer à SMART si besoin de plus de finesse
+        model: INTERNAL_MODELS.SMART,
         generationConfig: {
-            response_mime_type: "application/json" as const
+            responseMimeType: "application/json" as const
         },
         getSystemInstruction: (contextDesc: string, platforms: string) => `
 

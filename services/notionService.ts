@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, ContextItem, Verdict } from "../types";
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -223,6 +223,20 @@ const mapNotionPageToContext = (page: any): ContextItem => {
     name: notionToMarkdown(props["Nom"]) || "Contexte sans nom",
     description: notionToMarkdown(props["Description"]) || "",
   };
+};
+
+const mapNotionPageToModel = (page: any): AIModel => {
+    const props = page.properties;
+    return {
+        id: page.id,
+        name: notionToMarkdown(props["Nom"]) || "Modèle sans nom",
+        apiCode: notionToMarkdown(props["Code API"]) || "",
+        provider: props["Fournisseur"]?.select?.name || "",
+        cost: props["Coût"]?.select?.name || "medium",
+        strengths: notionToMarkdown(props["Forces"]) || "",
+        bestUseCases: notionToMarkdown(props["Cas d'usage"]) || "",
+        textQuality: props["Qualité Rédaction"]?.number || 3
+    };
 };
 
 // --- API CALLS (CONTENT) ---
@@ -479,5 +493,106 @@ export const deleteContext = async (id: string): Promise<void> => {
             archived: true
         })
     });
-    await handleNotionResponse(response, "deleteContent");
+    await handleNotionResponse(response, "deleteContext");
+};
+
+// --- API CALLS (MODELS) ---
+
+export const fetchModels = async (): Promise<AIModel[]> => {
+    if (!CONFIG.NOTION_MODELS_DB_ID) {
+        console.warn("NOTION_MODELS_DB_ID manquant");
+        return [];
+    }
+
+    try {
+        const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_MODELS_DB_ID}`), {
+            method: "GET",
+            headers: getHeaders(),
+        });
+        
+        if (!dbResponse.ok) return [];
+
+        const dbData = await dbResponse.json();
+        const dataSourceId = dbData.data_sources?.[0]?.id;
+        
+        if (!dataSourceId) return [];
+
+        const response = await fetch(getUrl(`/data_sources/${dataSourceId}/query`), {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) return [];
+        
+        const data = await response.json();
+        return data.results.map(mapNotionPageToModel);
+    } catch (error) {
+        console.error("Erreur fetchModels:", error);
+        return [];
+    }
+};
+
+export const createModel = async (model: Partial<AIModel>): Promise<AIModel> => {
+    const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_MODELS_DB_ID}`), {
+        method: "GET",
+        headers: getHeaders(),
+    });
+    const dbData = await handleNotionResponse(dbResponse, "createModel DB");
+    const dataSourceId = dbData.data_sources?.[0]?.id;
+    
+    if (!dataSourceId) throw new Error("Aucun data source trouvé pour Models DB");
+
+    const response = await fetch(getUrl("/pages"), {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+            parent: { 
+                type: "data_source_id",
+                data_source_id: dataSourceId 
+            },
+            properties: {
+                "Nom": { title: markdownToNotion(model.name || "") },
+                "Code API": { rich_text: markdownToNotion(model.apiCode || "") },
+                "Fournisseur": { select: { name: model.provider || "Autre" } },
+                "Coût": { select: { name: model.cost || "medium" } },
+                "Forces": { rich_text: markdownToNotion(model.strengths || "") },
+                "Cas d'usage": { rich_text: markdownToNotion(model.bestUseCases || "") },
+                "Qualité Rédaction": { number: model.textQuality || 3 }
+            }
+        })
+    });
+    
+    const page = await handleNotionResponse(response, "createModel Page");
+    return mapNotionPageToModel(page);
+};
+
+export const updateModel = async (model: AIModel): Promise<void> => {
+    const response = await fetch(getUrl(`/pages/${model.id}`), {
+        method: "PATCH",
+        headers: getHeaders(),
+        body: JSON.stringify({
+            properties: {
+                "Nom": { title: markdownToNotion(model.name) },
+                "Code API": { rich_text: markdownToNotion(model.apiCode) },
+                "Fournisseur": { select: { name: model.provider } },
+                "Coût": { select: { name: model.cost } },
+                "Forces": { rich_text: markdownToNotion(model.strengths) },
+                "Cas d'usage": { rich_text: markdownToNotion(model.bestUseCases) },
+                "Qualité Rédaction": { number: model.textQuality }
+            }
+        })
+    });
+    await handleNotionResponse(response, "updateModel");
+};
+
+export const deleteModel = async (id: string): Promise<void> => {
+    const response = await fetch(getUrl(`/pages/${id}`), {
+        method: "PATCH",
+        headers: getHeaders(),
+        body: JSON.stringify({
+            archived: true
+        })
+    });
+    await handleNotionResponse(response, "deleteModel");
 };

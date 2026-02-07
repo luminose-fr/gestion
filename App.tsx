@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Lightbulb, Calendar as CalendarIcon, Archive, Search, ArrowRight, Plus, AlertCircle, Users, Settings, Briefcase, ChevronRight, CheckCircle2, PenLine, Loader2, RefreshCw, ExternalLink, LogOut, Menu, X, Brain, Sparkles, Filter } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, Verdict } from './types';
+import { ContentItem, ContentStatus, ContextItem, Verdict, AIModel } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import ContentCard from './components/ContentCard';
@@ -63,6 +63,7 @@ function App() {
   // Data State
   const [items, setItems] = useState<ContentItem[]>([]);
   const [contexts, setContexts] = useState<ContextItem[]>([]);
+  const [aiModels, setAiModels] = useState<AIModel[]>([]);
   
   // Loading States
   const [isInitializing, setIsInitializing] = useState(true);
@@ -102,13 +103,15 @@ function App() {
   // --- DATA LOADING STRATEGY ---
   const initData = async () => {
       try {
-          const [cachedItems, cachedContexts] = await Promise.all([
+          const [cachedItems, cachedContexts, cachedModels] = await Promise.all([
               StorageService.getCachedContent(),
-              StorageService.getCachedContexts()
+              StorageService.getCachedContexts(),
+              StorageService.getCachedModels()
           ]);
           
           if (cachedItems.length > 0) setItems(cachedItems);
           if (cachedContexts.length > 0) setContexts(cachedContexts);
+          if (cachedModels.length > 0) setAiModels(cachedModels);
           
       } catch (e) {
           console.error("Erreur lecture cache:", e);
@@ -124,17 +127,20 @@ function App() {
     setError(null);
 
     try {
-        const [fetchedContent, fetchedContexts] = await Promise.all([
+        const [fetchedContent, fetchedContexts, fetchedModels] = await Promise.all([
             NotionService.fetchContent(),
-            NotionService.fetchContexts()
+            NotionService.fetchContexts(),
+            NotionService.fetchModels()
         ]);
         
         setItems(fetchedContent);
         setContexts(fetchedContexts);
+        setAiModels(fetchedModels);
 
         await Promise.all([
             StorageService.setCachedContent(fetchedContent),
-            StorageService.setCachedContexts(fetchedContexts)
+            StorageService.setCachedContexts(fetchedContexts),
+            StorageService.setCachedModels(fetchedModels)
         ]);
 
     } catch (err: any) {
@@ -169,6 +175,7 @@ function App() {
     // Réinitialiser l'état de l'app
     setItems([]);
     setContexts([]);
+    setAiModels([]);
     setIsInitializing(true);
   };
 
@@ -176,6 +183,11 @@ function App() {
   const handleContextsChange = (newContexts: ContextItem[]) => {
       setContexts(newContexts);
       StorageService.setCachedContexts(newContexts); 
+  };
+
+  const handleModelsChange = (newModels: AIModel[]) => {
+      setAiModels(newModels);
+      StorageService.setCachedModels(newModels);
   };
 
   const handleQuickAddIdea = async (e: React.FormEvent) => {
@@ -860,6 +872,7 @@ function App() {
                     <EditorModal 
                         item={editingItem} 
                         contexts={contexts}
+                        aiModels={aiModels}
                         isOpen={isEditorOpen} 
                         onClose={() => setIsEditorOpen(false)} 
                         onSave={handleUpdateItem}
@@ -873,6 +886,8 @@ function App() {
                         onClose={() => setIsContextManagerOpen(false)}
                         contexts={contexts}
                         onContextsChange={handleContextsChange}
+                        aiModels={aiModels}
+                        onModelsChange={handleModelsChange}
                     />
 
                     {/* Analysis Modal */}
