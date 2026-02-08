@@ -227,12 +227,18 @@ const mapNotionPageToContext = (page: any): ContextItem => {
 
 const mapNotionPageToModel = (page: any): AIModel => {
     const props = page.properties;
+    
+    // Mapping strict sur la propriété "Cout"
+    // Si la propriété est vide dans Notion, select est null, on fallback sur "medium"
+    const costValue = props["Cout"]?.select?.name || "medium";
+
     return {
         id: page.id,
         name: notionToMarkdown(props["Nom"]) || "Modèle sans nom",
         apiCode: notionToMarkdown(props["Code API"]) || "",
-        provider: props["Fournisseur"]?.select?.name || "",
-        cost: props["Coût"]?.select?.name || "medium",
+        // Fournisseur est un champ Rich Text (Texte)
+        provider: notionToMarkdown(props["Fournisseur"]) || "", 
+        cost: costValue as any,
         strengths: notionToMarkdown(props["Forces"]) || "",
         bestUseCases: notionToMarkdown(props["Cas d'usage"]) || "",
         textQuality: props["Qualité Rédaction"]?.number || 3
@@ -554,8 +560,9 @@ export const createModel = async (model: Partial<AIModel>): Promise<AIModel> => 
             properties: {
                 "Nom": { title: markdownToNotion(model.name || "") },
                 "Code API": { rich_text: markdownToNotion(model.apiCode || "") },
-                "Fournisseur": { select: { name: model.provider || "Autre" } },
-                "Coût": { select: { name: model.cost || "medium" } },
+                // Fournisseur est un champ Rich Text (Texte)
+                "Fournisseur": { rich_text: markdownToNotion(model.provider || "Autre") },
+                "Cout": { select: { name: model.cost || "medium" } },
                 "Forces": { rich_text: markdownToNotion(model.strengths || "") },
                 "Cas d'usage": { rich_text: markdownToNotion(model.bestUseCases || "") },
                 "Qualité Rédaction": { number: model.textQuality || 3 }
@@ -575,8 +582,9 @@ export const updateModel = async (model: AIModel): Promise<void> => {
             properties: {
                 "Nom": { title: markdownToNotion(model.name) },
                 "Code API": { rich_text: markdownToNotion(model.apiCode) },
-                "Fournisseur": { select: { name: model.provider } },
-                "Coût": { select: { name: model.cost } },
+                // Fournisseur est un champ Rich Text (Texte)
+                "Fournisseur": { rich_text: markdownToNotion(model.provider) },
+                "Cout": { select: { name: model.cost } },
                 "Forces": { rich_text: markdownToNotion(model.strengths) },
                 "Cas d'usage": { rich_text: markdownToNotion(model.bestUseCases) },
                 "Qualité Rédaction": { number: model.textQuality }

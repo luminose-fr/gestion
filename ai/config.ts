@@ -4,13 +4,13 @@ import { Platform, AIModel } from "../types";
 // Modèles internes fixes (Gemini de base)
 export const INTERNAL_MODELS = {
     FAST: "gemini-3-flash-preview", 
-    SMART: "gemini-3-pro-preview"
+    // SMART supprimé car n'existe pas publiquement
 };
 
 // Détecte si on doit utiliser 1min.AI ou Gemini direct
 export const isOneMinModel = (apiCode: string, dynamicModels: AIModel[] = []) => {
     // Si c'est un code API présent dans la base Notion et n'est pas un code Gemini interne
-    if (apiCode === INTERNAL_MODELS.FAST || apiCode === INTERNAL_MODELS.SMART) {
+    if (apiCode === INTERNAL_MODELS.FAST) {
         return false;
     }
     return dynamicModels.some(m => m.apiCode === apiCode) || true; // Par défaut on tente 1min si inconnu
@@ -64,7 +64,7 @@ RÈGLES DE SORTIE (FIXE) :
     },
 
     DRAFT_CONTENT: {
-        model: INTERNAL_MODELS.SMART,
+        model: INTERNAL_MODELS.FAST, // Utilisation de FAST car SMART est supprimé
         generationConfig: {
             responseMimeType: "application/json" as const
         },

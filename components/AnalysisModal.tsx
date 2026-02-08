@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Brain, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { ContentItem, ContextItem, Verdict, Platform } from '../types';
+import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu, User } from 'lucide-react';
+import { ContentItem, ContextItem, Verdict, Platform, AIModel } from '../types';
 import * as GeminiService from '../services/geminiService';
+import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
-import { AI_ACTIONS } from '../ai/config';
+import { AI_ACTIONS, isOneMinModel } from '../ai/config';
 
 interface AnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
   itemsToAnalyze: ContentItem[];
   contexts: ContextItem[];
+  aiModels: AIModel[];
+  selectedContextId: string;
+  selectedModelId: string;
   onAnalysisComplete: () => void;
 }
 
@@ -25,70 +29,82 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
   onClose, 
   itemsToAnalyze, 
   contexts,
+  aiModels,
+  selectedContextId,
+  selectedModelId,
   onAnalysisComplete
 }) => {
-  const [selectedContextId, setSelectedContextId] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleStartAnalysis = async () => {
-    if (!selectedContextId) {
-      setError("Veuillez sélectionner un contexte IA.");
-      return;
-    }
+  const contextName = contexts.find(c => c.id === selectedContextId)?.name || "Contexte par défaut";
+  const modelName = aiModels.find(m => m.apiCode === selectedModelId)?.name || selectedModelId;
 
+  const handleStartAnalysis = async () => {
     setIsAnalyzing(true);
     setError(null);
     setProgress("Préparation des données...");
 
     try {
-      // 1. Préparation du System Prompt via la config centralisée
+      // 1. Préparation du System Prompt
       const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
-      
       const selectedContext = contexts.find(c => c.id === selectedContextId);
       const contextDesc = selectedContext ? selectedContext.description : "Analyse marketing standard.";
       
       const systemInstruction = actionConfig.getSystemInstruction(contextDesc);
 
-      // 2. Préparation du User Prompt (JSON des idées)
+      // 2. Préparation du User Prompt
       const contentPayload = itemsToAnalyze.map(item => ({
         id: item.id,
         titre: item.title,
         notes: item.notes
       }));
       
-      setProgress("Interrogation de Gemini...");
+      setProgress(`Interrogation de l'IA (${modelName})...`);
       
-      // 3. Appel API Gemini
-      const responseText = await GeminiService.generateContent({
-        model: actionConfig.model,
-        systemInstruction: systemInstruction,
-        prompt: JSON.stringify(contentPayload),
-        generationConfig: actionConfig.generationConfig
-      });
+      // 3. Appel API (Gemini ou 1min.AI)
+      let responseText = "";
+      
+      if (isOneMinModel(selectedModelId, aiModels)) {
+          responseText = await OneMinService.generateContent({
+              model: selectedModelId,
+              systemInstruction: systemInstruction,
+              prompt: JSON.stringify(contentPayload)
+          });
+      } else {
+          responseText = await GeminiService.generateContent({
+              model: selectedModelId,
+              systemInstruction: systemInstruction,
+              prompt: JSON.stringify(contentPayload),
+              generationConfig: actionConfig.generationConfig
+          });
+      }
 
       setProgress("Traitement des réponses...");
 
       // 4. Parsing de la réponse
       let results: AnalysisResult[] = [];
       try {
-        results = JSON.parse(responseText);
+        // Nettoyage markdown json
+        const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
+        results = JSON.parse(cleaned);
       } catch (e) {
-        console.error("Erreur parsing JSON Gemini:", responseText);
+        console.error("Erreur parsing JSON IA:", responseText);
         throw new Error("L'IA a renvoyé un format invalide.");
       }
 
-      // 5. Mise à jour de Notion (Séquentiel pour éviter de surcharger le rate limit si besoin, ou Promise.all)
+      // 5. Mise à jour de Notion
       setProgress(`Mise à jour de Notion (0/${results.length})...`);
       
+      const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+
       let updateCount = 0;
       for (const res of results) {
         const originalItem = itemsToAnalyze.find(i => i.id === res.id);
         if (originalItem) {
-          // Mapping des plateformes strings vers l'enum Platform
           const mappedPlatforms: Platform[] = res.plateformes
             .map(p => p as Platform)
             .filter(p => Object.values(Platform).includes(p));
@@ -96,7 +112,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           const updatedItem: ContentItem = {
             ...originalItem,
             verdict: res.verdict,
-            strategicAngle: res.angle,
+            strategicAngle: res.angle + signature,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
             analyzed: true,
           };
@@ -108,7 +124,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       }
 
       setProgress("Terminé !");
-      onAnalysisComplete(); // Rafraichir les données dans App
+      onAnalysisComplete();
       onClose();
 
     } catch (err: any) {
@@ -156,24 +172,27 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                             <span className="bg-brand-main text-white text-xs px-2 py-0.5 rounded-full font-bold">{itemsToAnalyze.length}</span>
                         </div>
                         <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
-                            Ces idées seront envoyées à Gemini pour évaluation, suggestion d'angle stratégique et choix des plateformes.
+                            Ces idées seront envoyées à l'IA pour évaluation, suggestion d'angle stratégique et choix des plateformes.
                         </p>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-brand-main dark:text-white mb-2">
-                            Choisir le Contexte (Persona)
-                        </label>
-                        <select 
-                            value={selectedContextId}
-                            onChange={(e) => setSelectedContextId(e.target.value)}
-                            className="w-full p-3 rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-brand-main dark:text-white outline-none focus:ring-2 focus:ring-brand-main dark:focus:ring-brand-light transition-shadow"
-                        >
-                            <option value="">-- Sélectionner --</option>
-                            {contexts.map(ctx => (
-                                <option key={ctx.id} value={ctx.id}>{ctx.name}</option>
-                            ))}
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg">
+                            <div className="flex items-center gap-2 mb-1 text-brand-main/50 dark:text-dark-text/50 text-[10px] uppercase font-bold">
+                                <User className="w-3 h-3" /> Persona
+                            </div>
+                            <div className="text-sm font-semibold text-brand-main dark:text-white truncate" title={contextName}>
+                                {contextName}
+                            </div>
+                        </div>
+                        <div className="p-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg">
+                            <div className="flex items-center gap-2 mb-1 text-brand-main/50 dark:text-dark-text/50 text-[10px] uppercase font-bold">
+                                <Cpu className="w-3 h-3" /> Modèle
+                            </div>
+                            <div className="text-sm font-semibold text-brand-main dark:text-white truncate" title={modelName}>
+                                {modelName}
+                            </div>
+                        </div>
                     </div>
 
                     {error && (
@@ -203,11 +222,10 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                 </button>
                 <button 
                     onClick={handleStartAnalysis}
-                    disabled={!selectedContextId || itemsToAnalyze.length === 0}
-                    className="flex items-center gap-2 px-6 py-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white rounded-lg font-medium shadow-lg shadow-brand-main/20 dark:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white rounded-lg font-medium shadow-lg shadow-brand-main/20 dark:shadow-none transition-all hover:-translate-y-0.5"
                 >
                     <Sparkles className="w-4 h-4" />
-                    Lancer l'analyse
+                    Confirmer & Lancer
                 </button>
             </div>
         )}
