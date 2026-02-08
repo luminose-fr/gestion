@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, Send, Calendar, Save, Trash2, Settings, Lock, CheckCircle2, Edit3, Eye, Loader2, ArrowRight, FileText, Info, Brain, Globe, MessageSquare, PenTool, LayoutTemplate } from 'lucide-react';
+import { X, Sparkles, Send, Calendar, Save, Trash2, Settings, Lock, CheckCircle2, Edit3, Eye, Loader2, ArrowRight, FileText, Info, Brain, Globe, MessageSquare, PenTool, LayoutTemplate, RefreshCw, ChevronLeft } from 'lucide-react';
 import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel } from '../types';
 import { STATUS_COLORS } from '../constants';
 import * as GeminiService from '../services/geminiService';
@@ -10,15 +10,14 @@ import { fr } from 'date-fns/locale';
 import { AlertModal, ConfirmModal, CharCounter } from './CommonModals';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
-// Changement: Import de INTERNAL_MODELS au lieu de AI_MODELS pour la valeur par défaut
 import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../ai/config';
 
 interface EditorModalProps {
   item: ContentItem | null;
   contexts: ContextItem[];
-  // Ajout de la prop aiModels
   aiModels: AIModel[];
-  isOpen: boolean;
+  isOpen: boolean; // Gardé pour compatibilité, mais moins utilisé en mode fullPage
+  isFullPage?: boolean; // Nouvelle prop pour le mode pleine page
   onClose: () => void;
   onSave: (item: ContentItem) => Promise<void>;
   onDelete?: (item: ContentItem) => Promise<void>;
@@ -30,10 +29,12 @@ const parseAIResponse = (responseText: string, key: string): string => {
     let cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
     try {
         const data = JSON.parse(cleaned);
-        if (data[key]) return data[key];
-        if (key === 'questions_interieures' && Array.isArray(data.questions_interieures)) {
-            return JSON.stringify(data);
+        if (data[key]) {
+            if (typeof data[key] === 'object') return JSON.stringify(data[key]);
+            return String(data[key]);
         }
+        if (Array.isArray(data) && key === 'ROOT') return JSON.stringify(data);
+        
     } catch (e) {
         const regex = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"\\s*[,}]`);
         const match = cleaned.match(regex);
@@ -47,11 +48,34 @@ const parseAIResponse = (responseText: string, key: string): string => {
 const ModalLayout = ({ 
     children, 
     headerContent, 
-    onClose 
+    onClose,
+    isFullPage
 }: React.PropsWithChildren<{ 
     headerContent: React.ReactNode, 
-    onClose: () => void 
-}>) => (
+    onClose: () => void,
+    isFullPage?: boolean
+}>) => {
+    if (isFullPage) {
+        return (
+            <div className="w-full h-full flex flex-col bg-brand-light dark:bg-dark-bg animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex-shrink-0 z-20 shadow-sm">
+                    <button 
+                        onClick={onClose} 
+                        className="flex items-center gap-2 pr-4 mr-4 border-r border-brand-border dark:border-dark-sec-border text-brand-main/70 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white transition-colors font-medium text-sm"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                        Retour
+                    </button>
+                    <div className="flex-1 min-w-0">
+                        {headerContent}
+                    </div>
+                </div>
+                {children}
+            </div>
+        );
+    }
+
+    return (
       <div 
         className="fixed inset-0 z-50 bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-fade-in"
         onClick={onClose}
@@ -71,18 +95,20 @@ const ModalLayout = ({
             {children}
          </div>
       </div>
-);
+    );
+};
 
-const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = [], isOpen, onClose, onSave, onDelete, onManageContexts }) => {
+const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = [], isOpen, isFullPage = false, onClose, onSave, onDelete, onManageContexts }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
   
   const [showContextSelector, setShowContextSelector] = useState(false);
   const [selectedContextId, setSelectedContextId] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>(INTERNAL_MODELS.FAST);
-  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | null>(null);
+  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | null>(null);
 
   const [draftTab, setDraftTab] = useState<'interview' | 'content'>('interview');
 
@@ -92,11 +118,13 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    if (isOpen && item) {
+    // Si isFullPage est true, on considère que l'item est toujours "ouvert" s'il est présent
+    if ((isOpen || isFullPage) && item) {
         if (!editedItem || item.id !== editedItem.id) {
             setEditedItem({ ...item });
             setShowContextSelector(false);
             setIsGenerating(false);
+            setIsReanalyzing(false);
             setSelectedContextId(""); 
             setPendingContextAction(null);
             if (item.body && item.body.trim().length > 0) {
@@ -105,12 +133,13 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                 setDraftTab('interview');
             }
         } else {
+            // Mise à jour douce si l'item change (ex: sync background) mais qu'on édite le même ID
             setEditedItem(prev => prev ? { ...prev, ...item } : item);
         }
     }
-  }, [item, isOpen]);
+  }, [item, isOpen, isFullPage]);
 
-  if (!isOpen || !editedItem) return null;
+  if ((!isOpen && !isFullPage) || !editedItem) return null;
 
   const isIdea = editedItem.status === ContentStatus.IDEA;
   const isDrafting = editedItem.status === ContentStatus.DRAFTING;
@@ -151,11 +180,12 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
           await handleLaunchInterview();
       } else if (pendingContextAction === 'draft') {
           await handleLaunchDrafting();
+      } else if (pendingContextAction === 'analyze') {
+          await handleReanalyze();
       }
   };
 
   const callAI = async (model: string, systemInstruction: string, prompt: string, config: any) => {
-      // isOneMinModel utilise maintenant la liste dynamique
       if (isOneMinModel(model, aiModels)) {
           return await OneMinService.generateContent({
               model: model,
@@ -172,6 +202,65 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
       }
   };
 
+  const handleOpenReanalyze = () => {
+      setPendingContextAction('analyze');
+      setSelectedModel(INTERNAL_MODELS.FAST);
+      setShowContextSelector(true);
+  };
+
+  const handleReanalyze = async () => {
+      if (isReanalyzing || !editedItem) return;
+      setIsReanalyzing(true);
+      setShowContextSelector(false);
+
+      try {
+          const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
+          const contextItem = contexts.find(c => c.id === selectedContextId);
+          const contextDesc = contextItem ? contextItem.description : "Expert marketing.";
+          const systemInstruction = actionConfig.getSystemInstruction(contextDesc);
+
+          const contentPayload = [{
+              id: editedItem.id,
+              titre: editedItem.title,
+              notes: editedItem.notes
+          }];
+
+          const responseText = await callAI(
+              selectedModel,
+              systemInstruction,
+              JSON.stringify(contentPayload),
+              actionConfig.generationConfig
+          );
+
+          const results = JSON.parse(responseText);
+          
+          if (Array.isArray(results) && results.length > 0) {
+              const res = results[0];
+              const mappedPlatforms: Platform[] = res.plateformes
+                .map((p: string) => p as Platform)
+                .filter((p: any) => Object.values(Platform).includes(p));
+
+              const updatedItem: ContentItem = {
+                  ...editedItem,
+                  verdict: res.verdict,
+                  strategicAngle: res.angle,
+                  platforms: mappedPlatforms.length > 0 ? mappedPlatforms : editedItem.platforms,
+                  analyzed: true,
+              };
+
+              setEditedItem(updatedItem);
+              await onSave(updatedItem);
+          }
+
+      } catch (error: any) {
+          console.error("Erreur Re-analyse:", error);
+          setAlertInfo({ isOpen: true, title: "Erreur Analyse", message: error.message || "Impossible de relancer l'analyse.", type: "error" });
+      } finally {
+          setIsReanalyzing(false);
+          setPendingContextAction(null);
+      }
+  };
+
   const handleOpenInterviewer = () => {
       setPendingContextAction('interview');
       setSelectedModel(INTERNAL_MODELS.FAST);
@@ -185,7 +274,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
       try {
           const contextItem = contexts.find(c => c.id === selectedContextId);
           const contextDesc = contextItem ? contextItem.description : "Journaliste standard.";
-          
           const actionConfig = AI_ACTIONS.GENERATE_INTERVIEW;
           const systemInstruction = actionConfig.getSystemInstruction(contextDesc);
 
@@ -203,22 +291,26 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
               actionConfig.generationConfig
           );
 
-          // Extraction robuste des questions
-          const interviewDataRaw = parseAIResponse(responseText, 'questions_interieures');
+          const cleanedJson = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
           let formattedQuestions = "";
 
           try {
-              const data = JSON.parse(interviewDataRaw);
-              if (data.questions_interieures && Array.isArray(data.questions_interieures)) {
-                  formattedQuestions = data.questions_interieures.map((block: any) => {
-                      const questionsList = block.questions.map((q: string) => `- ${q}`).join('\n');
-                      return `**Angle : ${block.angle}**\n${questionsList}`;
+              const data = JSON.parse(cleanedJson);
+              const qList = data.questions_interieures;
+
+              if (Array.isArray(qList)) {
+                  formattedQuestions = qList.map((block: any) => {
+                      const angle = block.angle || "Angle";
+                      const questions = Array.isArray(block.questions) 
+                          ? block.questions.map((q: string) => `- ${q}`).join('\n')
+                          : `- ${block.questions}`;
+                      return `**Angle : ${angle}**\n${questions}`;
                   }).join('\n\n');
               } else {
-                  formattedQuestions = responseText; 
+                  formattedQuestions = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
               }
           } catch (e) {
-              formattedQuestions = responseText;
+              formattedQuestions = cleanedJson;
           }
 
           const newItem = { ...editedItem, interviewQuestions: formattedQuestions };
@@ -271,7 +363,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
               actionConfig.generationConfig
           );
 
-          // Extraction robuste du contenu final (éjecte le JSON et garde le markdown de draft_final)
           const finalContent = parseAIResponse(responseText, 'draft_final');
 
           const newItem = { ...editedItem, body: finalContent };
@@ -332,7 +423,8 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                  <div className="bg-white dark:bg-dark-bg p-6 rounded-xl shadow-xl border border-brand-border dark:border-dark-sec-border w-full max-w-sm" onClick={e => e.stopPropagation()}>
                      <h3 className="text-lg font-bold text-brand-main dark:text-white mb-4 flex items-center gap-2">
                          <MessageSquare className="w-5 h-5" />
-                         {pendingContextAction === 'interview' ? "Choisir l'Interviewer" : "Choisir le Rédacteur"}
+                         {pendingContextAction === 'interview' ? "Choisir l'Interviewer" : 
+                          pendingContextAction === 'analyze' ? "Choisir l'Analyste" : "Choisir le Rédacteur"}
                      </h3>
                      <div className="space-y-4">
                          <div>
@@ -359,7 +451,6 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                                     <option value={INTERNAL_MODELS.SMART}>Gemini Pro (Intelligent)</option>
                                  </optgroup>
                                  
-                                 {/* Rendu dynamique des modèles */}
                                  {aiModels.length > 0 && (
                                      <optgroup label="Modèles Personnalisés (1min.AI)">
                                          {aiModels.map(m => (
@@ -390,19 +481,17 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
   if (isIdea) {
       return (
         <>
-        <div 
-            className="fixed inset-0 z-50 bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 animate-fade-in"
-            onClick={onClose}
-        >
-             <div 
-                className="bg-white dark:bg-dark-surface w-full h-full md:h-auto md:max-w-2xl md:rounded-2xl shadow-2xl border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-             >
-                <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border dark:border-dark-sec-border">
+        <ModalLayout 
+            onClose={onClose} 
+            isFullPage={isFullPage}
+            headerContent={
+                <div className="flex items-center gap-4">
                     <div className={`px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLORS[ContentStatus.IDEA]}`}>IDÉE</div>
-                    <button onClick={onClose} className="p-2 -mr-2 text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors"><X className="w-5 h-5" /></button>
+                    {!isFullPage && <span className="text-sm text-brand-main/50 dark:text-dark-text/50">Détails de l'idée</span>}
                 </div>
-
+            }
+        >
+             <div className="bg-white dark:bg-dark-surface w-full h-full flex flex-col overflow-hidden">
                 <div className="p-8 space-y-8 flex-1 overflow-y-auto">
                     <div>
                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-2">Titre de l'idée</label>
@@ -439,11 +528,23 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                                     <Brain className="w-4 h-4" /> 
                                     ANALYSE IA
                                 </span>
-                                {editedItem.verdict && (
-                                    <span className={`text-[10px] px-2 py-1 rounded-full border ${getVerdictColor(editedItem.verdict)}`}>
-                                        {editedItem.verdict}
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={handleOpenReanalyze}
+                                        disabled={isReanalyzing}
+                                        className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-white/50 dark:bg-black/20 hover:bg-white dark:hover:bg-black/40 text-purple-700 dark:text-purple-300 transition-colors border border-purple-200 dark:border-purple-800 disabled:opacity-50"
+                                        title="Relancer l'analyse IA"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
+                                        {isReanalyzing ? 'Analyse...' : 'Relancer'}
+                                    </button>
+
+                                    {editedItem.verdict && (
+                                        <span className={`text-[10px] px-2 py-1 rounded-full border ${getVerdictColor(editedItem.verdict)}`}>
+                                            {editedItem.verdict}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             
                             <div>
@@ -480,7 +581,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                         <button 
                             onClick={async () => { await handleManualSave(); onClose(); }} 
                             disabled={isSaving} 
-                            className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium disabled:opacity-50"
+                            className="flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium disabled:opacity-50 bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text"
                         >
                             {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
                             Enregistrer
@@ -488,14 +589,14 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                         <button 
                             onClick={() => changeStatus(ContentStatus.DRAFTING)} 
                             disabled={isSaving} 
-                            className="px-6 py-2 bg-brand-main text-white rounded-lg font-medium shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 py-2 bg-brand-main text-white rounded-lg font-medium shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-hover"
                         >
                             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Travailler <ArrowRight className="w-4 h-4" /></>}
                         </button>
                      </div>
                 </div>
              </div>
-        </div>
+        </ModalLayout>
         {renderCommonOverlays()}
         </>
       );
@@ -508,6 +609,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
         <>
         <ModalLayout
             onClose={onClose}
+            isFullPage={isFullPage}
             headerContent={
                 <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
                     <input 
@@ -519,13 +621,13 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                     />
                     <div className="flex items-center gap-2 md:ml-auto">
                         <div className={`hidden md:block px-3 py-1 mr-2 rounded-full border text-sm font-medium ${STATUS_COLORS[ContentStatus.DRAFTING]}`}>BROUILLON</div>
-                        <button onClick={handleManualSave} disabled={isSaving} className="flex items-center gap-2 border px-3 py-2 rounded-lg text-sm font-medium">{isSaving && <Loader2 className="w-3 h-3 animate-spin"/>} Enregistrer</button>
+                        <button onClick={handleManualSave} disabled={isSaving} className="flex items-center gap-2 border px-3 py-2 rounded-lg text-sm font-medium text-brand-main dark:text-white border-brand-border dark:border-dark-sec-border hover:bg-brand-light dark:hover:bg-dark-bg transition-colors">{isSaving && <Loader2 className="w-3 h-3 animate-spin"/>} Enregistrer</button>
                     </div>
                 </div>
             }
         >
             <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg p-6 md:p-10">
-                <div className="max-w-5xl mx-auto space-y-8">
+                <div className="max-w-6xl mx-auto space-y-8">
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-main transition-shadow h-full flex flex-col max-h-60">
@@ -595,7 +697,20 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
                         {draftTab === 'interview' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="space-y-3">
-                                    <h4 className="text-sm font-bold text-brand-main dark:text-white uppercase tracking-wider">1. Questions de l'IA</h4>
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-sm font-bold text-brand-main dark:text-white uppercase tracking-wider">1. Questions de l'IA</h4>
+                                        {editedItem.interviewQuestions && (
+                                            <button 
+                                                onClick={handleOpenInterviewer}
+                                                disabled={isGenerating}
+                                                className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 transition-colors border border-blue-200 dark:border-blue-800 disabled:opacity-50"
+                                                title="Relancer l'interview"
+                                            >
+                                                <RefreshCw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                                                {isGenerating ? 'Génération...' : 'Relancer'}
+                                            </button>
+                                        )}
+                                    </div>
                                     {!editedItem.interviewQuestions ? (
                                         <div className="bg-white dark:bg-dark-surface p-8 rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border flex flex-col items-center justify-center text-center">
                                             <p className="text-brand-main/60 dark:text-dark-text/60 mb-6 max-w-md">
@@ -705,6 +820,7 @@ const EditorModal: React.FC<EditorModalProps> = ({ item, contexts, aiModels = []
         <>
         <ModalLayout 
             onClose={onClose}
+            isFullPage={isFullPage}
             headerContent={
                 <div className="flex items-center gap-4">
                      <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white flex items-center gap-2 truncate">

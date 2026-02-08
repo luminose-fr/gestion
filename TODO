@@ -1,5 +1,4 @@
 Ajouter le nom du modèle utilisé et le persona pour la génération dans le corps de "Content"
-Ajouter un bouton pour "Relance l'analyse IA" dans une idée
 Sélectionner le modèle et contexte dans chaque appel IA + paramétrer des settings par défaut (préselection d'un modèle pour tel cas)
 Revoir la liste des modèles affichée dans le contexte (ordre par ordre Notion)
 Gérer les raccourcis clavier

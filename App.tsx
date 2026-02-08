@@ -86,7 +86,6 @@ function App() {
   const [isContextManagerOpen, setIsContextManagerOpen] = useState(false);
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ContentItem | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   // Global Alert/Confirm State
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
@@ -162,6 +161,7 @@ function App() {
       setSearchQuery("");
       setVerdictFilter('ALL');
       setIsMobileMenuOpen(false); // Close menu on tab change
+      setEditingItem(null); // Close editor on tab change
   }, [currentSocialTab]);
 
   // --- AUTH HANDLERS ---
@@ -225,7 +225,6 @@ function App() {
 
   const handleEditItem = (item: ContentItem) => {
     setEditingItem(item);
-    setIsEditorOpen(true);
   };
 
   const handleGlobalAnalysis = () => {
@@ -250,7 +249,7 @@ function App() {
   const handleUpdateItem = async (updatedItem: ContentItem): Promise<void> => {
     const newItems = items.map(i => i.id === updatedItem.id ? updatedItem : i);
     setItems(newItems);
-    setEditingItem(updatedItem);
+    setEditingItem(updatedItem); // Keep editing
     
     StorageService.updateCachedItem(updatedItem).catch(console.error);
 
@@ -266,7 +265,7 @@ function App() {
       // Optimistic update : on supprime localement tout de suite
       const newItems = items.filter(i => i.id !== itemToDelete.id);
       setItems(newItems);
-      setIsEditorOpen(false); // Fermer la modale
+      setEditingItem(null); // Return to list
       
       StorageService.setCachedContent(newItems).catch(console.error);
 
@@ -281,7 +280,6 @@ function App() {
       } catch (error: any) {
           console.error("Erreur delete Notion:", error);
           setError("Impossible de supprimer sur Notion. " + error.message);
-          // On pourrait remettre l'item en cas d'erreur, mais on laisse comme ça pour l'instant
       }
   };
 
@@ -491,7 +489,7 @@ function App() {
                          <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3 mt-2">Navigation</div>
                          
                          <SidebarItem 
-                            active={currentSocialTab === 'ideas'} 
+                            active={!editingItem && currentSocialTab === 'ideas'} 
                             onClick={() => setCurrentSocialTab('ideas')} 
                             icon={Lightbulb} 
                             label="Boîte à Idées"
@@ -499,7 +497,7 @@ function App() {
                          />
 
                          <SidebarItem 
-                            active={currentSocialTab === 'drafts'} 
+                            active={!editingItem && currentSocialTab === 'drafts'} 
                             onClick={() => setCurrentSocialTab('drafts')} 
                             icon={PenLine} 
                             label="En cours"
@@ -507,7 +505,7 @@ function App() {
                          />
                          
                          <SidebarItem 
-                            active={currentSocialTab === 'ready'} 
+                            active={!editingItem && currentSocialTab === 'ready'} 
                             onClick={() => setCurrentSocialTab('ready')} 
                             icon={CheckCircle2} 
                             label="Prêt à publier"
@@ -517,7 +515,7 @@ function App() {
                          <div className="my-3 border-t border-brand-light dark:border-dark-sec-border mx-2"></div>
 
                          <SidebarItem 
-                            active={currentSocialTab === 'calendar'} 
+                            active={!editingItem && currentSocialTab === 'calendar'} 
                             onClick={() => setCurrentSocialTab('calendar')} 
                             icon={CalendarIcon} 
                             label="Calendrier"
@@ -525,7 +523,7 @@ function App() {
                          />
 
                          <SidebarItem 
-                            active={currentSocialTab === 'archive'} 
+                            active={!editingItem && currentSocialTab === 'archive'} 
                             onClick={() => setCurrentSocialTab('archive')} 
                             icon={Archive} 
                             label="Archives"
@@ -602,312 +600,320 @@ function App() {
 
         {/* === SPACE: SOCIALFLOWS MAIN === */}
         {currentSpace === 'social' && (
-                <main className="flex-1 overflow-y-auto relative">
-                    
-                    {/* Workspace Header inside content area */}
-                    <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur z-10 px-4 md:px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
-                         <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2">
-                             {currentSocialTab === 'drafts' && 'Brouillons en cours'}
-                             {currentSocialTab === 'ready' && 'Prêts pour publication'}
-                             {currentSocialTab === 'ideas' && 'Idées & Inspiration'}
-                             {currentSocialTab === 'calendar' && 'Planning'}
-                             {currentSocialTab === 'archive' && 'Archives'}
-                         </h2>
-                    </div>
-
-                    <div className="px-4 md:px-6 pb-12 max-w-6xl mx-auto mt-4 md:mt-0">
-                        
-                        {/* VIEW: DRAFTS */}
-                        {currentSocialTab === 'drafts' && (
-                            <div className="space-y-6 animate-fade-in">
-                                {!isInitializing && draftingItems.length === 0 ? (
-                                    <div className="text-center py-20">
-                                        <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-brand-border dark:border-dark-sec-border">
-                                            <PenLine className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
-                                        </div>
-                                        <h3 className="text-lg font-medium text-brand-main dark:text-white">Aucun brouillon en cours</h3>
-                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
-                                            {searchQuery ? "Aucun brouillon ne correspond à votre recherche." : "Vous n'avez aucun post en rédaction."}
-                                        </p>
-                                        <button onClick={() => setCurrentSocialTab('ideas')} className="mt-6 text-brand-main dark:text-white font-medium hover:underline flex items-center justify-center gap-1 mx-auto">
-                                            Choisir une idée <ChevronRight className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {draftingItems.map(item => (
-                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* VIEW: READY */}
-                        {currentSocialTab === 'ready' && (
-                            <div className="space-y-6 animate-fade-in">
-                                {!isInitializing && readyItems.length === 0 ? (
-                                    <div className="text-center py-20">
-                                        <div className="w-16 h-16 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-200 dark:border-green-800">
-                                            <CheckCircle2 className="w-8 h-8 text-green-500 dark:text-green-400" />
-                                        </div>
-                                        <h3 className="text-lg font-medium text-brand-main dark:text-white">Rien à valider</h3>
-                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
-                                            {searchQuery ? "Aucun post prêt ne correspond à votre recherche." : "Tous vos posts sont soit en brouillon, soit déjà publiés."}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {readyItems.map(item => (
-                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* VIEW: IDEAS */}
-                        {currentSocialTab === 'ideas' && (
-                            <div className="space-y-6 animate-fade-in">
-                                <div className="bg-white dark:bg-dark-surface shadow-sm rounded-xl p-6 border border-brand-border dark:border-dark-sec-border">
-                                    <h3 className="text-sm font-semibold text-brand-main dark:text-white mb-3">Ajout rapide</h3>
-                                    <form onSubmit={handleQuickAddIdea} className="space-y-3">
-                                        {/* Titre Input */}
-                                        <input 
-                                            type="text" 
-                                            value={newIdeaTitle}
-                                            onChange={(e) => setNewIdeaTitle(e.target.value)}
-                                            placeholder="Titre de l'idée..."
-                                            className="w-full px-4 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg outline-none focus:border-brand-main dark:focus:border-brand-light text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 font-bold"
-                                        />
-                                        
-                                        {/* Notes RichTextarea */}
-                                        <div className="flex-1 flex flex-col w-full border border-brand-border dark:border-dark-sec-border rounded-lg bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main dark:focus:ring-brand-light overflow-hidden transition-shadow">
-                                            <MarkdownToolbar />
-                                            <RichTextarea 
-                                                value={newIdeaNotes}
-                                                onChange={setNewIdeaNotes}
-                                                className="w-full h-24 p-3"
-                                                placeholder="Détails, notes, liens..."
-                                            />
-                                            {newIdeaNotes.length > 80 && (
-                                                <div className="p-1 px-3 border-t border-brand-border/50 dark:border-dark-sec-border/50">
-                                                    <CharCounter current={newIdeaNotes.length} max={2000} />
-                                                </div>
-                                            )}
-                                        </div>
-                                        
-                                        <div className="flex justify-end">
-                                            <button 
-                                                type="submit" 
-                                                disabled={!newIdeaTitle.trim() || isSyncing}
-                                                className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
-                                            >
-                                                {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                                                Ajouter
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-
-                                {/* SINGLE ROW TOOLBAR: Search | Filters | Action */}
-                                <div className="flex flex-col xl:flex-row items-center justify-between gap-4 pt-4">
-                                    
-                                    {/* Left: Search (Expands) */}
-                                    <div className="relative group w-full xl:w-72 flex-shrink-0 animate-in fade-in slide-in-from-left-4 duration-300">
-                                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-brand-main/50 dark:text-dark-text/50 group-focus-within:text-brand-main transition-colors" />
-                                        <input 
-                                            type="text" 
-                                            placeholder="Rechercher..." 
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full pl-9 pr-4 py-2 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-brand-light rounded-lg text-sm outline-none transition-all shadow-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40"
-                                        />
-                                    </div>
-
-                                    {/* Center: Filters (Scrollable) */}
-                                    <div className="flex gap-2 overflow-x-auto pb-2 xl:pb-0 scrollbar-hide max-w-full">
-                                        <button 
-                                            onClick={() => setVerdictFilter('ALL')}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
-                                                ${verdictFilter === 'ALL' 
-                                                    ? 'bg-brand-main text-white border-brand-main dark:bg-brand-light dark:text-brand-main' 
-                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-brand-main'}
-                                            `}
-                                        >
-                                            Tout
-                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === 'ALL' ? 'bg-white/20' : 'bg-brand-light dark:bg-dark-bg'}`}>{countAllIdeas}</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => setVerdictFilter('TO_ANALYZE')}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
-                                                ${verdictFilter === 'TO_ANALYZE'
-                                                    ? 'bg-brand-hover text-white border-brand-hover dark:bg-dark-sec-bg' 
-                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-brand-hover'}
-                                            `}
-                                        >
-                                            À analyser
-                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === 'TO_ANALYZE' ? 'bg-white/20' : 'bg-brand-light dark:bg-dark-bg'}`}>{countToAnalyze}</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => setVerdictFilter(Verdict.VALID)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
-                                                ${verdictFilter === Verdict.VALID
-                                                    ? 'bg-green-600 text-white border-green-600' 
-                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-green-500'}
-                                            `}
-                                        >
-                                            Valide
-                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.VALID ? 'bg-white/20' : 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>{countValidIdeas}</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => setVerdictFilter(Verdict.TOO_BLAND)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
-                                                ${verdictFilter === Verdict.TOO_BLAND
-                                                    ? 'bg-yellow-500 text-white border-yellow-500' 
-                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-yellow-500'}
-                                            `}
-                                        >
-                                            Trop lisse
-                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.TOO_BLAND ? 'bg-white/20' : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'}`}>{countBlandIdeas}</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => setVerdictFilter(Verdict.NEEDS_WORK)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
-                                                ${verdictFilter === Verdict.NEEDS_WORK
-                                                    ? 'bg-red-500 text-white border-red-500' 
-                                                    : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-red-500'}
-                                            `}
-                                        >
-                                            À revoir
-                                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.NEEDS_WORK ? 'bg-white/20' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>{countWorkIdeas}</span>
-                                        </button>
-                                    </div>
-
-                                    {/* Right: Action Button */}
-                                    <button 
-                                        onClick={handleGlobalAnalysis}
-                                        className="w-full xl:w-auto flex items-center gap-2 text-xs sm:text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-lg font-medium transition-colors border border-purple-200 dark:border-purple-800 shadow-sm whitespace-nowrap justify-center animate-in fade-in slide-in-from-right-4 duration-300"
-                                        title="Analyser toutes les nouvelles idées avec l'IA"
-                                    >
-                                        <Sparkles className="w-4 h-4" />
-                                        Analyser
-                                    </button>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {!isInitializing && ideaItems.length === 0 && (
-                                        <div className="p-12 text-center text-brand-main/50 dark:text-dark-text/50 italic bg-white dark:bg-dark-surface rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border">
-                                            {searchQuery ? "Aucune idée trouvée pour cette recherche." : "La boîte à idées est vide pour ce filtre."}
-                                        </div>
-                                    )}
-                                    {ideaItems.map(item => (
-                                        <div 
-                                            key={item.id} 
-                                            onClick={() => handleEditItem(item)}
-                                            className="group bg-white dark:bg-dark-surface p-4 rounded-xl border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-md cursor-pointer transition-all flex flex-col md:flex-row md:items-start justify-between gap-4"
-                                        >
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                    {item.verdict && (
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${getVerdictColor(item.verdict)}`}>
-                                                            {item.verdict}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <h4 className="font-medium text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors whitespace-normal break-words leading-snug">
-                                                    <HighlightText text={item.title || "Idée sans titre"} highlight={searchQuery} />
-                                                </h4>
-                                                
-                                                {item.strategicAngle && (
-                                                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 italic mt-1 line-clamp-2">
-                                                        Angle : {item.strategicAngle}
-                                                    </p>
-                                                )}
-                                                {item.notes && !item.strategicAngle && (
-                                                    <p className="text-sm text-brand-main/60 dark:text-dark-text/70 line-clamp-2 mt-1">
-                                                        <HighlightText text={item.notes} highlight={searchQuery} />
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* VIEW: CALENDAR */}
-                        {currentSocialTab === 'calendar' && (
-                            <div className="h-[calc(100vh-250px)] animate-fade-in">
-                                <CalendarView items={items} onItemClick={handleEditItem} />
-                            </div>
-                        )}
-
-                        {/* VIEW: ARCHIVE */}
-                        {currentSocialTab === 'archive' && (
-                             <div className="space-y-6 animate-fade-in">
-                                {!isInitializing && archiveItems.length === 0 ? (
-                                    <div className="text-center py-20">
-                                        <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-border dark:border-dark-sec-border">
-                                            <Archive className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
-                                        </div>
-                                        <h3 className="text-lg font-medium text-brand-main dark:text-white">Aucune archive</h3>
-                                        <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
-                                            Vos publications passées apparaîtront ici.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {archiveItems.map(item => (
-                                            <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                    </div>
-
-                    {/* Editor Modal */}
+            <main className="flex-1 overflow-hidden relative flex flex-col">
+                
+                {/* CONDITIONAL RENDER: EDITOR VS GRID */}
+                {editingItem ? (
+                    // --- FULL PAGE EDITOR VIEW ---
                     <EditorModal 
                         item={editingItem} 
                         contexts={contexts}
                         aiModels={aiModels}
-                        isOpen={isEditorOpen} 
-                        onClose={() => setIsEditorOpen(false)} 
+                        isOpen={true} // Not strictly used in fullPage mode but kept for logic safety
+                        isFullPage={true}
+                        onClose={() => setEditingItem(null)} 
                         onSave={handleUpdateItem}
                         onDelete={handleDeleteItem}
                         onManageContexts={handleOpenContextManagerFromEditor}
                     />
+                ) : (
+                    // --- GRID / LIST VIEW ---
+                    <div className="flex-1 overflow-y-auto">
+                        
+                        {/* Workspace Header inside content area */}
+                        <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur z-10 px-4 md:px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
+                             <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2">
+                                 {currentSocialTab === 'drafts' && 'Brouillons en cours'}
+                                 {currentSocialTab === 'ready' && 'Prêts pour publication'}
+                                 {currentSocialTab === 'ideas' && 'Idées & Inspiration'}
+                                 {currentSocialTab === 'calendar' && 'Planning'}
+                                 {currentSocialTab === 'archive' && 'Archives'}
+                             </h2>
+                        </div>
 
-                    {/* Context Manager Modal */}
-                    <SettingsModal 
-                        isOpen={isContextManagerOpen}
-                        onClose={() => setIsContextManagerOpen(false)}
-                        contexts={contexts}
-                        onContextsChange={handleContextsChange}
-                        aiModels={aiModels}
-                        onModelsChange={handleModelsChange}
-                    />
+                        <div className="px-4 md:px-6 pb-12 max-w-6xl mx-auto mt-4 md:mt-0">
+                            
+                            {/* VIEW: DRAFTS */}
+                            {currentSocialTab === 'drafts' && (
+                                <div className="space-y-6 animate-fade-in">
+                                    {!isInitializing && draftingItems.length === 0 ? (
+                                        <div className="text-center py-20">
+                                            <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-brand-border dark:border-dark-sec-border">
+                                                <PenLine className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
+                                            </div>
+                                            <h3 className="text-lg font-medium text-brand-main dark:text-white">Aucun brouillon en cours</h3>
+                                            <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
+                                                {searchQuery ? "Aucun brouillon ne correspond à votre recherche." : "Vous n'avez aucun post en rédaction."}
+                                            </p>
+                                            <button onClick={() => setCurrentSocialTab('ideas')} className="mt-6 text-brand-main dark:text-white font-medium hover:underline flex items-center justify-center gap-1 mx-auto">
+                                                Choisir une idée <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {draftingItems.map(item => (
+                                                <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
-                    {/* Analysis Modal */}
-                    <AnalysisModal 
-                        isOpen={isAnalysisModalOpen}
-                        onClose={() => setIsAnalysisModalOpen(false)}
-                        itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed)}
-                        contexts={contexts}
-                        onAnalysisComplete={handleAnalysisComplete}
-                    />
-                    
-                    {/* Alerts */}
-                    <AlertModal 
-                        isOpen={alertInfo.isOpen}
-                        onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
-                        title={alertInfo.title}
-                        message={alertInfo.message}
-                        type={alertInfo.type}
-                    />
-                </main>
+                            {/* VIEW: READY */}
+                            {currentSocialTab === 'ready' && (
+                                <div className="space-y-6 animate-fade-in">
+                                    {!isInitializing && readyItems.length === 0 ? (
+                                        <div className="text-center py-20">
+                                            <div className="w-16 h-16 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-200 dark:border-green-800">
+                                                <CheckCircle2 className="w-8 h-8 text-green-500 dark:text-green-400" />
+                                            </div>
+                                            <h3 className="text-lg font-medium text-brand-main dark:text-white">Rien à valider</h3>
+                                            <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
+                                                {searchQuery ? "Aucun post prêt ne correspond à votre recherche." : "Tous vos posts sont soit en brouillon, soit déjà publiés."}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {readyItems.map(item => (
+                                                <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* VIEW: IDEAS */}
+                            {currentSocialTab === 'ideas' && (
+                                <div className="space-y-6 animate-fade-in">
+                                    <div className="bg-white dark:bg-dark-surface shadow-sm rounded-xl p-6 border border-brand-border dark:border-dark-sec-border">
+                                        <h3 className="text-sm font-semibold text-brand-main dark:text-white mb-3">Ajout rapide</h3>
+                                        <form onSubmit={handleQuickAddIdea} className="space-y-3">
+                                            {/* Titre Input */}
+                                            <input 
+                                                type="text" 
+                                                value={newIdeaTitle}
+                                                onChange={(e) => setNewIdeaTitle(e.target.value)}
+                                                placeholder="Titre de l'idée..."
+                                                className="w-full px-4 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg outline-none focus:border-brand-main dark:focus:border-brand-light text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 font-bold"
+                                            />
+                                            
+                                            {/* Notes RichTextarea */}
+                                            <div className="flex-1 flex flex-col w-full border border-brand-border dark:border-dark-sec-border rounded-lg bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main dark:focus:ring-brand-light overflow-hidden transition-shadow">
+                                                <MarkdownToolbar />
+                                                <RichTextarea 
+                                                    value={newIdeaNotes}
+                                                    onChange={setNewIdeaNotes}
+                                                    className="w-full h-24 p-3"
+                                                    placeholder="Détails, notes, liens..."
+                                                />
+                                                {newIdeaNotes.length > 80 && (
+                                                    <div className="p-1 px-3 border-t border-brand-border/50 dark:border-dark-sec-border/50">
+                                                        <CharCounter current={newIdeaNotes.length} max={2000} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="flex justify-end">
+                                                <button 
+                                                    type="submit" 
+                                                    disabled={!newIdeaTitle.trim() || isSyncing}
+                                                    className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                                                >
+                                                    {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                                                    Ajouter
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    {/* SINGLE ROW TOOLBAR: Search | Filters | Action */}
+                                    <div className="flex flex-col xl:flex-row items-center justify-between gap-4 pt-4">
+                                        
+                                        {/* Left: Search (Expands) */}
+                                        <div className="relative group w-full xl:w-72 flex-shrink-0 animate-in fade-in slide-in-from-left-4 duration-300">
+                                            <Search className="absolute left-3 top-2.5 w-4 h-4 text-brand-main/50 dark:text-dark-text/50 group-focus-within:text-brand-main transition-colors" />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Rechercher..." 
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-brand-light rounded-lg text-sm outline-none transition-all shadow-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40"
+                                            />
+                                        </div>
+
+                                        {/* Center: Filters (Scrollable) */}
+                                        <div className="flex gap-2 overflow-x-auto pb-2 xl:pb-0 scrollbar-hide max-w-full">
+                                            <button 
+                                                onClick={() => setVerdictFilter('ALL')}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                    ${verdictFilter === 'ALL' 
+                                                        ? 'bg-brand-main text-white border-brand-main dark:bg-brand-light dark:text-brand-main' 
+                                                        : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-brand-main'}
+                                                `}
+                                            >
+                                                Tout
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === 'ALL' ? 'bg-white/20' : 'bg-brand-light dark:bg-dark-bg'}`}>{countAllIdeas}</span>
+                                            </button>
+                                            <button 
+                                                onClick={() => setVerdictFilter('TO_ANALYZE')}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                    ${verdictFilter === 'TO_ANALYZE'
+                                                        ? 'bg-brand-hover text-white border-brand-hover dark:bg-dark-sec-bg' 
+                                                        : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-brand-hover'}
+                                                `}
+                                            >
+                                                À analyser
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === 'TO_ANALYZE' ? 'bg-white/20' : 'bg-brand-light dark:bg-dark-bg'}`}>{countToAnalyze}</span>
+                                            </button>
+                                            <button 
+                                                onClick={() => setVerdictFilter(Verdict.VALID)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                    ${verdictFilter === Verdict.VALID
+                                                        ? 'bg-green-600 text-white border-green-600' 
+                                                        : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-green-500'}
+                                                `}
+                                            >
+                                                Valide
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.VALID ? 'bg-white/20' : 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>{countValidIdeas}</span>
+                                            </button>
+                                            <button 
+                                                onClick={() => setVerdictFilter(Verdict.TOO_BLAND)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                    ${verdictFilter === Verdict.TOO_BLAND
+                                                        ? 'bg-yellow-500 text-white border-yellow-500' 
+                                                        : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-yellow-500'}
+                                                `}
+                                            >
+                                                Trop lisse
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.TOO_BLAND ? 'bg-white/20' : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'}`}>{countBlandIdeas}</span>
+                                            </button>
+                                            <button 
+                                                onClick={() => setVerdictFilter(Verdict.NEEDS_WORK)}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap
+                                                    ${verdictFilter === Verdict.NEEDS_WORK
+                                                        ? 'bg-red-500 text-white border-red-500' 
+                                                        : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-red-500'}
+                                                `}
+                                            >
+                                                À revoir
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${verdictFilter === Verdict.NEEDS_WORK ? 'bg-white/20' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>{countWorkIdeas}</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Right: Action Button */}
+                                        <button 
+                                            onClick={handleGlobalAnalysis}
+                                            className="w-full xl:w-auto flex items-center gap-2 text-xs sm:text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-lg font-medium transition-colors border border-purple-200 dark:border-purple-800 shadow-sm whitespace-nowrap justify-center animate-in fade-in slide-in-from-right-4 duration-300"
+                                            title="Analyser toutes les nouvelles idées avec l'IA"
+                                        >
+                                            <Sparkles className="w-4 h-4" />
+                                            Analyser
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {!isInitializing && ideaItems.length === 0 && (
+                                            <div className="p-12 text-center text-brand-main/50 dark:text-dark-text/50 italic bg-white dark:bg-dark-surface rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border">
+                                                {searchQuery ? "Aucune idée trouvée pour cette recherche." : "La boîte à idées est vide pour ce filtre."}
+                                            </div>
+                                        )}
+                                        {ideaItems.map(item => (
+                                            <div 
+                                                key={item.id} 
+                                                onClick={() => handleEditItem(item)}
+                                                className="group bg-white dark:bg-dark-surface p-4 rounded-xl border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-md cursor-pointer transition-all flex flex-col md:flex-row md:items-start justify-between gap-4"
+                                            >
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                        {item.verdict && (
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${getVerdictColor(item.verdict)}`}>
+                                                                {item.verdict}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <h4 className="font-medium text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors whitespace-normal break-words leading-snug">
+                                                        <HighlightText text={item.title || "Idée sans titre"} highlight={searchQuery} />
+                                                    </h4>
+                                                    
+                                                    {item.strategicAngle && (
+                                                        <p className="text-xs text-brand-main/50 dark:text-dark-text/50 italic mt-1 line-clamp-2">
+                                                            Angle : {item.strategicAngle}
+                                                        </p>
+                                                    )}
+                                                    {item.notes && !item.strategicAngle && (
+                                                        <p className="text-sm text-brand-main/60 dark:text-dark-text/70 line-clamp-2 mt-1">
+                                                            <HighlightText text={item.notes} highlight={searchQuery} />
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* VIEW: CALENDAR */}
+                            {currentSocialTab === 'calendar' && (
+                                <div className="h-[calc(100vh-250px)] animate-fade-in">
+                                    <CalendarView items={items} onItemClick={handleEditItem} />
+                                </div>
+                            )}
+
+                            {/* VIEW: ARCHIVE */}
+                            {currentSocialTab === 'archive' && (
+                                 <div className="space-y-6 animate-fade-in">
+                                    {!isInitializing && archiveItems.length === 0 ? (
+                                        <div className="text-center py-20">
+                                            <div className="w-16 h-16 bg-white dark:bg-dark-surface rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-border dark:border-dark-sec-border">
+                                                <Archive className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
+                                            </div>
+                                            <h3 className="text-lg font-medium text-brand-main dark:text-white">Aucune archive</h3>
+                                            <p className="text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
+                                                Vos publications passées apparaîtront ici.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {archiveItems.map(item => (
+                                                <ContentCard key={item.id} item={item} onClick={handleEditItem} highlight={searchQuery} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                )}
+
+                {/* Context Manager Modal */}
+                <SettingsModal 
+                    isOpen={isContextManagerOpen}
+                    onClose={() => setIsContextManagerOpen(false)}
+                    contexts={contexts}
+                    onContextsChange={handleContextsChange}
+                    aiModels={aiModels}
+                    onModelsChange={handleModelsChange}
+                />
+
+                {/* Analysis Modal */}
+                <AnalysisModal 
+                    isOpen={isAnalysisModalOpen}
+                    onClose={() => setIsAnalysisModalOpen(false)}
+                    itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed)}
+                    contexts={contexts}
+                    onAnalysisComplete={handleAnalysisComplete}
+                />
+                
+                {/* Alerts */}
+                <AlertModal 
+                    isOpen={alertInfo.isOpen}
+                    onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
+                    title={alertInfo.title}
+                    message={alertInfo.message}
+                    type={alertInfo.type}
+                />
+            </main>
         )}
       </div>
     </div>
