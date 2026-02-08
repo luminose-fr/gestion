@@ -32,6 +32,7 @@ jobs:
           # Note: NOTION_API_KEY est retirée car gérée par le Cloudflare Worker
           VITE_NOTION_CONTENT_DB_ID: ${{ secrets.NOTION_CONTENT_DB_ID }}
           VITE_NOTION_CONTEXT_DB_ID: ${{ secrets.NOTION_CONTEXT_DB_ID }}
+          VITE_NOTION_MODELS_DB_ID: ${{ secrets.NOTION_MODELS_DB_ID }}
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
