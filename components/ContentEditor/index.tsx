@@ -194,13 +194,19 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const contextItem = contexts.find(c => c.id === contextId) || contexts[0];
           const platformsStr = editedItem?.platforms.length ? editedItem.platforms.join(", ") : "Réseaux Sociaux";
+          const formatCible = editedItem?.targetFormat || "Non défini";
           const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
-          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description || "Rédacteur.", platformsStr);
+          const systemInstruction = actionConfig.getSystemInstruction(
+              contextItem?.description || "Rédacteur.",
+              platformsStr,
+              formatCible
+          );
 
           const promptPayload = {
               titre: editedItem?.title,
               angle_strategique: editedItem?.strategicAngle || "Non défini",
               plateformes: editedItem?.platforms || [],
+              format_cible: editedItem?.targetFormat || "Non défini",
               notes_initiales: editedItem?.notes || "",
               reponses_interview: editedItem?.interviewAnswers || ""
           };

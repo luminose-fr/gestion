@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu, User } from 'lucide-react';
-import { ContentItem, ContextItem, Verdict, Platform, AIModel } from '../types';
+import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetFormat } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
 import { AI_ACTIONS, isOneMinModel } from '../ai/config';
+import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ interface AnalysisResult {
   verdict: Verdict;
   angle: string;
   plateformes: string[];
+  format_cible?: string;
+  format_suggere?: string;
 }
 
 const AnalysisModal: React.FC<AnalysisModalProps> = ({ 
@@ -37,6 +40,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+
+  useEscapeClose(isOpen, onClose, isAnalyzing);
 
   if (!isOpen) return null;
 
@@ -105,15 +110,20 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       for (const res of results) {
         const originalItem = itemsToAnalyze.find(i => i.id === res.id);
         if (originalItem) {
-          const mappedPlatforms: Platform[] = res.plateformes
+          const rawPlatforms = Array.isArray(res.plateformes) ? res.plateformes : [];
+          const mappedPlatforms: Platform[] = rawPlatforms
             .map(p => p as Platform)
             .filter(p => Object.values(Platform).includes(p));
+
+          const rawFormat = res.format_cible ?? res.format_suggere;
+          const targetFormat = isTargetFormat(rawFormat) ? rawFormat : undefined;
 
           const updatedItem: ContentItem = {
             ...originalItem,
             verdict: res.verdict,
             strategicAngle: res.angle + signature,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
+            targetFormat,
             analyzed: true,
           };
 

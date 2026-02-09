@@ -21,6 +21,33 @@ export enum Verdict {
   NEEDS_WORK = "À revoir"
 }
 
+export enum TargetFormat {
+  POST_TEXTE_COURT = "Post Texte (Court)",
+  ARTICLE_LONG_SEO = "Article (Long/SEO)",
+  SCRIPT_VIDEO_REEL_SHORT = "Script Vidéo (Reel/Short)",
+  SCRIPT_VIDEO_YOUTUBE = "Script Vidéo (Youtube)",
+  CARROUSEL_SLIDE = "Carrousel (Slide par Slide)",
+  PROMPT_IMAGE = "Prompt Image"
+}
+
+export const TARGET_FORMAT_VALUES = Object.values(TargetFormat) as string[];
+
+export const isTargetFormat = (value: unknown): value is TargetFormat => {
+  return typeof value === "string" && TARGET_FORMAT_VALUES.includes(value);
+};
+
+export enum ContextUsage {
+  REDACTEUR = "Rédacteur",
+  ANALYSTE = "Analyste",
+  INTERVIEWER = "Interviewer"
+}
+
+export const CONTEXT_USAGE_VALUES = Object.values(ContextUsage) as string[];
+
+export const isContextUsage = (value: unknown): value is ContextUsage => {
+  return typeof value === "string" && CONTEXT_USAGE_VALUES.includes(value);
+};
+
 export interface AIModel {
   id: string;
   name: string;
@@ -45,6 +72,7 @@ export interface ContentItem {
   analyzed?: boolean;
   verdict?: Verdict;
   strategicAngle?: string;
+  targetFormat?: TargetFormat | null;
   // Nouveaux champs Interview
   interviewAnswers?: string;
   interviewQuestions?: string;
@@ -54,6 +82,7 @@ export interface ContextItem {
   id: string;
   name: string; // e.g., "LinkedIn Professionnel"
   description: string; // The actual prompt context
+  usage?: ContextUsage;
 }
 
 export interface AppSettings {

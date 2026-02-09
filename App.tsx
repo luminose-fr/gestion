@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform } from './types';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import * as GeminiService from './services/geminiService';
@@ -89,6 +89,21 @@ function App() {
       isOpen: false, title: '', message: '', type: 'info'
   });
 
+  const mergeById = <T extends { id: string }>(current: T[], updates: T[]): T[] => {
+      if (updates.length === 0) return current;
+      const map = new Map(current.map(item => [item.id, item]));
+      updates.forEach(item => map.set(item.id, item));
+      return Array.from(map.values());
+  };
+
+  const sortByLastEditedDesc = (list: ContentItem[]): ContentItem[] => {
+      return [...list].sort((a, b) => {
+          const aTime = a.lastEdited ? new Date(a.lastEdited).getTime() : 0;
+          const bTime = b.lastEdited ? new Date(b.lastEdited).getTime() : 0;
+          return bTime - aTime;
+      });
+  };
+
   useEffect(() => {
       const handleHashChange = () => {
           const { space, tab, itemId, step } = getHashState();
@@ -128,8 +143,11 @@ function App() {
   }, []);
 
   const initData = async () => {
+      let cachedItems: ContentItem[] = [];
+      let cachedContexts: ContextItem[] = [];
+      let cachedModels: AIModel[] = [];
       try {
-          const [cachedItems, cachedContexts, cachedModels] = await Promise.all([
+          [cachedItems, cachedContexts, cachedModels] = await Promise.all([
               StorageService.getCachedContent(),
               StorageService.getCachedContexts(),
               StorageService.getCachedModels()
@@ -143,31 +161,80 @@ function App() {
           console.error("Erreur lecture cache:", e);
       } finally {
           setIsInitializing(false);
-          syncWithNotion();
+          syncWithNotion(false, { items: cachedItems, contexts: cachedContexts, models: cachedModels });
       }
   };
 
-  const syncWithNotion = async () => {
+  const syncWithNotion = async (
+      forceFullSync = false,
+      baseCache?: { items?: ContentItem[]; contexts?: ContextItem[]; models?: AIModel[] }
+  ) => {
     if (isSyncing) return;
     setIsSyncing(true);
     setError(null);
 
     try {
+        const nowIso = new Date().toISOString();
+        const fullSyncThresholdMs = 24 * 60 * 60 * 1000;
+
+        const lastContentSync = StorageService.getLastSync("content");
+        const lastContextsSync = StorageService.getLastSync("contexts");
+        const lastModelsSync = StorageService.getLastSync("models");
+
+        const lastContentFullSync = StorageService.getLastFullSync("content");
+        const lastContextsFullSync = StorageService.getLastFullSync("contexts");
+        const lastModelsFullSync = StorageService.getLastFullSync("models");
+
+        const shouldFullSync = (lastFullSync: string | null) => {
+            if (!lastFullSync) return true;
+            const last = Date.parse(lastFullSync);
+            if (Number.isNaN(last)) return true;
+            return (Date.now() - last) > fullSyncThresholdMs;
+        };
+
+        const contentSince = forceFullSync
+            ? undefined
+            : (shouldFullSync(lastContentFullSync) ? undefined : lastContentSync || undefined);
+        const contextsSince = forceFullSync
+            ? undefined
+            : (shouldFullSync(lastContextsFullSync) ? undefined : lastContextsSync || undefined);
+        const modelsSince = forceFullSync
+            ? undefined
+            : (shouldFullSync(lastModelsFullSync) ? undefined : lastModelsSync || undefined);
+
         const [fetchedContent, fetchedContexts, fetchedModels] = await Promise.all([
-            NotionService.fetchContent(),
-            NotionService.fetchContexts(),
-            NotionService.fetchModels()
+            NotionService.fetchContent(contentSince),
+            NotionService.fetchContexts(contextsSince),
+            NotionService.fetchModels(modelsSince)
         ]);
+
+        const baseItems = contentSince ? (baseCache?.items ?? items) : [];
+        const baseContexts = contextsSince ? (baseCache?.contexts ?? contexts) : [];
+        const baseModels = modelsSince ? (baseCache?.models ?? aiModels) : [];
+
+        const nextItems = sortByLastEditedDesc(
+            contentSince ? mergeById(baseItems, fetchedContent) : fetchedContent
+        );
+        const nextContexts = contextsSince ? mergeById(baseContexts, fetchedContexts) : fetchedContexts;
+        const nextModels = modelsSince ? mergeById(baseModels, fetchedModels) : fetchedModels;
         
-        setItems(fetchedContent);
-        setContexts(fetchedContexts);
-        setAiModels(fetchedModels);
+        setItems(nextItems);
+        setContexts(nextContexts);
+        setAiModels(nextModels);
 
         await Promise.all([
-            StorageService.setCachedContent(fetchedContent),
-            StorageService.setCachedContexts(fetchedContexts),
-            StorageService.setCachedModels(fetchedModels)
+            StorageService.setCachedContent(nextItems),
+            StorageService.setCachedContexts(nextContexts),
+            StorageService.setCachedModels(nextModels)
         ]);
+
+        StorageService.setLastSync("content", nowIso);
+        StorageService.setLastSync("contexts", nowIso);
+        StorageService.setLastSync("models", nowIso);
+
+        if (!contentSince) StorageService.setLastFullSync("content", nowIso);
+        if (!contextsSince) StorageService.setLastFullSync("contexts", nowIso);
+        if (!modelsSince) StorageService.setLastFullSync("models", nowIso);
 
     } catch (err: any) {
         console.error("Sync Error:", err);
@@ -356,9 +423,13 @@ function App() {
           
           if (Array.isArray(results) && results.length > 0) {
               const res = results[0];
-              const mappedPlatforms: Platform[] = res.plateformes
+              const rawPlatforms = Array.isArray(res.plateformes) ? res.plateformes : [];
+              const mappedPlatforms: Platform[] = rawPlatforms
                 .map((p: string) => p as Platform)
                 .filter((p: any) => Object.values(Platform).includes(p));
+
+              const rawFormat = res.format_cible ?? res.format_suggere;
+              const targetFormat = isTargetFormat(rawFormat) ? rawFormat : undefined;
 
               const contextName = contextItem?.name || "Contexte par défaut";
               const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
@@ -369,6 +440,7 @@ function App() {
                   verdict: res.verdict,
                   strategicAngle: res.angle + signature,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
+                  targetFormat,
                   analyzed: true,
               };
               await handleUpdateItem(updatedItem);
@@ -479,7 +551,7 @@ function App() {
           
           <div className="flex items-center gap-2">
                <button 
-                  onClick={syncWithNotion}
+                  onClick={() => syncWithNotion(true)}
                   disabled={isSyncing}
                   className="p-2 text-brand-main/70 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white transition-colors rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg disabled:opacity-50 disabled:animate-spin"
                   title="Synchroniser avec Notion"

@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, AlertCircle, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { useEscapeClose } from './hooks/useEscapeClose';
 
 // --- TYPES ---
 interface AlertModalProps {
@@ -25,6 +26,7 @@ interface ConfirmModalProps {
 // --- COMPONENTS ---
 
 export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, message, type = 'info' }) => {
+  useEscapeClose(isOpen, onClose);
   if (!isOpen) return null;
 
   const getIcon = () => {
@@ -62,6 +64,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({ 
   isOpen, onClose, onConfirm, title, message, confirmLabel = "Confirmer", isDestructive = false, isLoading = false, autoClose = true
 }) => {
+  useEscapeClose(isOpen, onClose, isLoading);
   if (!isOpen) return null;
 
   const handleConfirm = () => {

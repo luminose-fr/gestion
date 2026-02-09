@@ -4,6 +4,7 @@ import { ContentItem, ContentStatus, Verdict, Platform } from '../types';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
 import { CharCounter, ConfirmModal } from './CommonModals';
+import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface IdeaModalProps {
     item: ContentItem;
@@ -20,6 +21,8 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
     const [localItem, setLocalItem] = useState<ContentItem>(item);
     const [isSaving, setIsSaving] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+    useEscapeClose(true, onClose, isSaving || isReanalyzing || showDeleteConfirm);
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -141,6 +144,13 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                             <span className="text-xs text-purple-800/50 italic">Aucune</span>
                                         )}
                                     </div>
+                                    {localItem.targetFormat && (
+                                        <div className="mt-3">
+                                            <span className="text-[10px] px-2 py-1 rounded-full border font-bold bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700">
+                                                Format cible : {localItem.targetFormat}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ) : (

@@ -5,6 +5,7 @@ import * as NotionService from '../services/notionService';
 import { ConfirmModal } from './CommonModals';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
+import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -49,6 +50,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           setIsCreating(false);
       }
   }, [isOpen]);
+
+  useEscapeClose(isOpen, onClose, isSaving || isDeleting || !!deleteId);
 
   if (!isOpen) return null;
 

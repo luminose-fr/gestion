@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel } from "../types";
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -15,6 +15,134 @@ const getHeaders = () => ({
 
 // Le Worker proxifie les requêtes vers Notion
 const getUrl = (endpoint: string) => `${WORKER_URL}/v1${endpoint}`;
+
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const MAX_RETRIES = 3;
+const MAX_BACKOFF_MS = 8000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const parseRetryAfterMs = (response: Response): number | null => {
+    const header = response.headers.get("Retry-After");
+    if (!header) return null;
+    const seconds = Number(header);
+    if (!Number.isNaN(seconds)) return Math.max(0, seconds * 1000);
+    const date = Date.parse(header);
+    if (!Number.isNaN(date)) return Math.max(0, date - Date.now());
+    return null;
+};
+
+const getBackoffMs = (attempt: number, retryAfterMs: number | null) => {
+    if (retryAfterMs !== null) return retryAfterMs;
+    const base = Math.min(1000 * 2 ** (attempt - 1), MAX_BACKOFF_MS);
+    const jitter = 0.75 + Math.random() * 0.5;
+    return Math.round(base * jitter);
+};
+
+const fetchWithRetry = async (
+    url: string,
+    options: RequestInit,
+    context: string,
+    maxAttempts = MAX_RETRIES
+): Promise<Response> => {
+    let lastError: unknown;
+    let lastResponse: Response | null = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const response = await fetch(url, options);
+            if (response.ok) return response;
+
+            lastResponse = response;
+            if (!RETRYABLE_STATUS.has(response.status) || attempt === maxAttempts) {
+                return response;
+            }
+
+            const delay = getBackoffMs(attempt, parseRetryAfterMs(response));
+            await sleep(delay);
+        } catch (error) {
+            lastError = error;
+            if (attempt === maxAttempts) {
+                throw error;
+            }
+            const delay = getBackoffMs(attempt, null);
+            await sleep(delay);
+        }
+    }
+
+    if (lastResponse) return lastResponse;
+    throw lastError ?? new Error(`Erreur réseau (${context})`);
+};
+
+const dataSourceCache: Record<string, string | undefined> = {};
+const dataSourceInFlight: Record<string, Promise<string>> = {};
+
+const getDataSourceId = async (dbId: string, cacheKey: string, context: string): Promise<string> => {
+    if (!dbId) {
+        throw new Error("Database ID manquant");
+    }
+    const cached = dataSourceCache[cacheKey];
+    if (cached) return cached;
+    if (dataSourceInFlight[cacheKey]) return dataSourceInFlight[cacheKey];
+
+    dataSourceInFlight[cacheKey] = (async () => {
+        const response = await fetchWithRetry(
+            getUrl(`/databases/${dbId}`),
+            { method: "GET", headers: getHeaders() },
+            `${context} DB`
+        );
+        const dbData = await handleNotionResponse(response, `${context} DB`);
+        const dataSourceId = dbData.data_sources?.[0]?.id;
+        if (!dataSourceId) {
+            throw new Error("Aucun data source trouvé pour ce database");
+        }
+        dataSourceCache[cacheKey] = dataSourceId;
+        return dataSourceId;
+    })();
+
+    try {
+        return await dataSourceInFlight[cacheKey];
+    } finally {
+        delete dataSourceInFlight[cacheKey];
+    }
+};
+
+const queryDataSourceAll = async (
+    dataSourceId: string,
+    body: Record<string, unknown>,
+    context: string
+): Promise<any[]> => {
+    const results: any[] = [];
+    let cursor: string | null = null;
+    let hasMore = true;
+
+    while (hasMore) {
+        const payload: Record<string, unknown> = {
+            page_size: 100,
+            ...body,
+        };
+        if (cursor) {
+            payload.start_cursor = cursor;
+        }
+
+        const response = await fetchWithRetry(
+            getUrl(`/data_sources/${dataSourceId}/query`),
+            {
+                method: "POST",
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            },
+            context
+        );
+
+        const data = await handleNotionResponse(response, context);
+        results.push(...(data.results || []));
+        hasMore = Boolean(data.has_more);
+        cursor = data.next_cursor || null;
+    }
+
+    return results;
+};
 
 // --- HELPERS D'ERREUR ---
 const handleNotionResponse = async (response: Response, context: string) => {
@@ -121,8 +249,8 @@ const markdownToNotion = (text: string): any[] => {
         parts.push(createRawTextObject(text.substring(lastIndex)));
     }
 
-    // Post-traitement : Découpage des blocs > 2000 chars
-    return splitChunksToLimit(parts);
+    // Post-traitement : Découpage des blocs > 2000 chars + limite Notion (100 segments)
+    return enforceRichTextLimit(splitChunksToLimit(parts));
 };
 
 // --- Helpers pour le Parser ---
@@ -179,6 +307,23 @@ const splitChunksToLimit = (chunks: any[]) => {
     return result;
 };
 
+const enforceRichTextLimit = (chunks: any[]) => {
+    const MAX_ITEMS = 100;
+    if (chunks.length <= MAX_ITEMS) return chunks;
+
+    console.warn("Rich text trop long (>100 segments). Fallback en texte brut.");
+    const fullText = chunks.map((chunk) => chunk?.text?.content || "").join("");
+    const LIMIT = 2000;
+    const maxLength = MAX_ITEMS * LIMIT;
+    const truncated = fullText.length > maxLength ? fullText.slice(0, maxLength) : fullText;
+
+    const result: any[] = [];
+    for (let i = 0; i < truncated.length; i += LIMIT) {
+        result.push(createRawTextObject(truncated.substring(i, i + LIMIT)));
+    }
+    return result;
+};
+
 
 // --- MAPPERS BASE DE DONNÉES ---
 
@@ -195,6 +340,8 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   const analyzed = props["Analysé"]?.checkbox || false;
   const verdictValue = props["Verdict"]?.select?.name;
   const verdict = (verdictValue as Verdict) || undefined;
+  const targetFormatValue = props["Format cible"]?.select?.name;
+  const targetFormat = (targetFormatValue as TargetFormat) || undefined;
   const strategicAngle = notionToMarkdown(props["Angle stratégique"]);
   const interviewAnswers = notionToMarkdown(props["Réponses interview"]);
   const interviewQuestions = notionToMarkdown(props["Questions interview"]);
@@ -210,6 +357,7 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     lastEdited: page.last_edited_time,
     analyzed,
     verdict,
+    targetFormat,
     strategicAngle,
     interviewAnswers,
     interviewQuestions
@@ -218,10 +366,13 @@ const mapNotionPageToItem = (page: any): ContentItem => {
 
 const mapNotionPageToContext = (page: any): ContextItem => {
   const props = page.properties;
+  const usageValue = props["Usage"]?.select?.name;
+  const usage = isContextUsage(usageValue) ? (usageValue as ContextUsage) : undefined;
   return {
     id: page.id,
     name: notionToMarkdown(props["Nom"]) || "Contexte sans nom",
     description: notionToMarkdown(props["Description"]) || "",
+    usage,
   };
 };
 
@@ -247,39 +398,43 @@ const mapNotionPageToModel = (page: any): AIModel => {
 
 // --- API CALLS (CONTENT) ---
 
-export const fetchContent = async (): Promise<ContentItem[]> => {
+export const fetchContent = async (since?: string): Promise<ContentItem[]> => {
   if (!CONFIG.NOTION_CONTENT_DB_ID) {
      throw new Error("Database ID manquant");
   }
 
   try {
-    const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTENT_DB_ID}`), {
-      method: "GET",
-      headers: getHeaders(),
-    });
-    
-    const dbData = await handleNotionResponse(dbResponse, "fetchContent DB");
-    const dataSourceId = dbData.data_sources?.[0]?.id;
-    
-    if (!dataSourceId) {
-        throw new Error("Aucun data source trouvé pour ce database");
+    const dataSourceId = await getDataSourceId(
+        CONFIG.NOTION_CONTENT_DB_ID,
+        "content",
+        "fetchContent"
+    );
+
+    const queryBody: Record<string, unknown> = {
+        sorts: [
+            {
+                timestamp: "last_edited_time",
+                direction: "descending",
+            },
+        ],
+    };
+
+    if (since) {
+        queryBody.filter = {
+            timestamp: "last_edited_time",
+            last_edited_time: { after: since }
+        };
     }
 
-    const response = await fetch(getUrl(`/data_sources/${dataSourceId}/query`), {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify({
-        sorts: [
-          {
-            timestamp: "last_edited_time",
-            direction: "descending",
-          },
-        ],
-      }),
-    });
+    const results = await queryDataSourceAll(
+        dataSourceId,
+        queryBody,
+        "fetchContent Query"
+    );
 
-    const data = await handleNotionResponse(response, "fetchContent Query");
-    return data.results.map(mapNotionPageToItem);
+    return results
+        .filter((page: any) => !page.archived && !page.in_trash)
+        .map(mapNotionPageToItem);
 
   } catch (error: any) {
     console.error("EXCEPTION fetchContent:", error);
@@ -289,16 +444,11 @@ export const fetchContent = async (): Promise<ContentItem[]> => {
 
 export const createContent = async (title: string, notes?: string): Promise<ContentItem> => {
     try {
-        const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTENT_DB_ID}`), {
-            method: "GET",
-            headers: getHeaders(),
-        });
-        const dbData = await handleNotionResponse(dbResponse, "createContent DB");
-        const dataSourceId = dbData.data_sources?.[0]?.id;
-        
-        if (!dataSourceId) {
-            throw new Error("Aucun data source trouvé");
-        }
+        const dataSourceId = await getDataSourceId(
+            CONFIG.NOTION_CONTENT_DB_ID,
+            "content",
+            "createContent"
+        );
 
         const properties: any = {
             "Titre": {
@@ -315,7 +465,7 @@ export const createContent = async (title: string, notes?: string): Promise<Cont
             };
         }
 
-        const response = await fetch(getUrl("/pages"), {
+        const response = await fetchWithRetry(getUrl("/pages"), {
             method: "POST",
             headers: getHeaders(),
             body: JSON.stringify({
@@ -373,6 +523,10 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
     if (item.verdict) {
         properties["Verdict"] = { select: { name: item.verdict } };
     }
+
+    if (item.targetFormat !== undefined) {
+        properties["Format cible"] = item.targetFormat ? { select: { name: item.targetFormat } } : { select: null };
+    }
     
     if (item.strategicAngle !== undefined) {
         properties["Angle stratégique"] = { 
@@ -392,7 +546,7 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
         };
     }
 
-    const response = await fetch(getUrl(`/pages/${item.id}`), {
+    const response = await fetchWithRetry(getUrl(`/pages/${item.id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({ properties })
@@ -402,7 +556,7 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
 };
 
 export const deleteContent = async (id: string): Promise<void> => {
-    const response = await fetch(getUrl(`/pages/${id}`), {
+    const response = await fetchWithRetry(getUrl(`/pages/${id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -414,30 +568,31 @@ export const deleteContent = async (id: string): Promise<void> => {
 
 // --- API CALLS (CONTEXT) ---
 
-export const fetchContexts = async (): Promise<ContextItem[]> => {
+export const fetchContexts = async (since?: string): Promise<ContextItem[]> => {
     try {
-        const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTEXT_DB_ID}`), {
-            method: "GET",
-            headers: getHeaders(),
-        });
-        
-        if (!dbResponse.ok) return [];
+        if (!CONFIG.NOTION_CONTEXT_DB_ID) {
+            console.warn("NOTION_CONTEXT_DB_ID manquant");
+            return [];
+        }
 
-        const dbData = await dbResponse.json();
-        const dataSourceId = dbData.data_sources?.[0]?.id;
-        
-        if (!dataSourceId) return [];
+        const dataSourceId = await getDataSourceId(
+            CONFIG.NOTION_CONTEXT_DB_ID,
+            "contexts",
+            "fetchContexts"
+        );
 
-        const response = await fetch(getUrl(`/data_sources/${dataSourceId}/query`), {
-            method: "POST",
-            headers: getHeaders(),
-            body: JSON.stringify({})
-        });
+        const queryBody: Record<string, unknown> = {};
+        if (since) {
+            queryBody.filter = {
+                timestamp: "last_edited_time",
+                last_edited_time: { after: since }
+            };
+        }
 
-        if (!response.ok) return [];
-        
-        const data = await response.json();
-        return data.results.map(mapNotionPageToContext);
+        const results = await queryDataSourceAll(dataSourceId, queryBody, "fetchContexts Query");
+        return results
+            .filter((page: any) => !page.archived && !page.in_trash)
+            .map(mapNotionPageToContext);
     } catch (error) {
         console.error("Erreur fetchContexts:", error);
         return [];
@@ -445,16 +600,13 @@ export const fetchContexts = async (): Promise<ContextItem[]> => {
 };
 
 export const createContext = async (name: string, description: string): Promise<ContextItem> => {
-    const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_CONTEXT_DB_ID}`), {
-        method: "GET",
-        headers: getHeaders(),
-    });
-    const dbData = await handleNotionResponse(dbResponse, "createContext DB");
-    const dataSourceId = dbData.data_sources?.[0]?.id;
-    
-    if (!dataSourceId) throw new Error("Aucun data source trouvé pour Context DB");
+    const dataSourceId = await getDataSourceId(
+        CONFIG.NOTION_CONTEXT_DB_ID,
+        "contexts",
+        "createContext"
+    );
 
-    const response = await fetch(getUrl("/pages"), {
+    const response = await fetchWithRetry(getUrl("/pages"), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -476,7 +628,7 @@ export const createContext = async (name: string, description: string): Promise<
 };
 
 export const updateContext = async (context: ContextItem): Promise<void> => {
-    const response = await fetch(getUrl(`/pages/${context.id}`), {
+    const response = await fetchWithRetry(getUrl(`/pages/${context.id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -492,7 +644,7 @@ export const updateContext = async (context: ContextItem): Promise<void> => {
 };
 
 export const deleteContext = async (id: string): Promise<void> => {
-    const response = await fetch(getUrl(`/pages/${id}`), {
+    const response = await fetchWithRetry(getUrl(`/pages/${id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -504,35 +656,31 @@ export const deleteContext = async (id: string): Promise<void> => {
 
 // --- API CALLS (MODELS) ---
 
-export const fetchModels = async (): Promise<AIModel[]> => {
+export const fetchModels = async (since?: string): Promise<AIModel[]> => {
     if (!CONFIG.NOTION_MODELS_DB_ID) {
         console.warn("NOTION_MODELS_DB_ID manquant");
         return [];
     }
 
     try {
-        const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_MODELS_DB_ID}`), {
-            method: "GET",
-            headers: getHeaders(),
-        });
-        
-        if (!dbResponse.ok) return [];
+        const dataSourceId = await getDataSourceId(
+            CONFIG.NOTION_MODELS_DB_ID,
+            "models",
+            "fetchModels"
+        );
 
-        const dbData = await dbResponse.json();
-        const dataSourceId = dbData.data_sources?.[0]?.id;
-        
-        if (!dataSourceId) return [];
+        const queryBody: Record<string, unknown> = {};
+        if (since) {
+            queryBody.filter = {
+                timestamp: "last_edited_time",
+                last_edited_time: { after: since }
+            };
+        }
 
-        const response = await fetch(getUrl(`/data_sources/${dataSourceId}/query`), {
-            method: "POST",
-            headers: getHeaders(),
-            body: JSON.stringify({})
-        });
-
-        if (!response.ok) return [];
-        
-        const data = await response.json();
-        return data.results.map(mapNotionPageToModel);
+        const results = await queryDataSourceAll(dataSourceId, queryBody, "fetchModels Query");
+        return results
+            .filter((page: any) => !page.archived && !page.in_trash)
+            .map(mapNotionPageToModel);
     } catch (error) {
         console.error("Erreur fetchModels:", error);
         return [];
@@ -540,16 +688,13 @@ export const fetchModels = async (): Promise<AIModel[]> => {
 };
 
 export const createModel = async (model: Partial<AIModel>): Promise<AIModel> => {
-    const dbResponse = await fetch(getUrl(`/databases/${CONFIG.NOTION_MODELS_DB_ID}`), {
-        method: "GET",
-        headers: getHeaders(),
-    });
-    const dbData = await handleNotionResponse(dbResponse, "createModel DB");
-    const dataSourceId = dbData.data_sources?.[0]?.id;
-    
-    if (!dataSourceId) throw new Error("Aucun data source trouvé pour Models DB");
+    const dataSourceId = await getDataSourceId(
+        CONFIG.NOTION_MODELS_DB_ID,
+        "models",
+        "createModel"
+    );
 
-    const response = await fetch(getUrl("/pages"), {
+    const response = await fetchWithRetry(getUrl("/pages"), {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -575,7 +720,7 @@ export const createModel = async (model: Partial<AIModel>): Promise<AIModel> => 
 };
 
 export const updateModel = async (model: AIModel): Promise<void> => {
-    const response = await fetch(getUrl(`/pages/${model.id}`), {
+    const response = await fetchWithRetry(getUrl(`/pages/${model.id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({
@@ -595,7 +740,7 @@ export const updateModel = async (model: AIModel): Promise<void> => {
 };
 
 export const deleteModel = async (id: string): Promise<void> => {
-    const response = await fetch(getUrl(`/pages/${id}`), {
+    const response = await fetchWithRetry(getUrl(`/pages/${id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({

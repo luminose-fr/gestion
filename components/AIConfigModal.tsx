@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { MessageSquare, User, Cpu, Zap, DollarSign } from 'lucide-react';
-import { ContextItem, AIModel } from '../types';
+import { ContextItem, AIModel, ContextUsage } from '../types';
 import { INTERNAL_MODELS } from '../ai/config';
+import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface AIConfigModalProps {
     isOpen: boolean;
@@ -19,12 +20,30 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
     const [selectedContextId, setSelectedContextId] = useState<string>("");
     const [selectedModel, setSelectedModel] = useState<string>(INTERNAL_MODELS.FAST);
 
+    const requiredUsage: ContextUsage = useMemo(() => {
+        if (actionType === 'analyze') return ContextUsage.ANALYSTE;
+        if (actionType === 'interview') return ContextUsage.INTERVIEWER;
+        return ContextUsage.REDACTEUR;
+    }, [actionType]);
+
+    const filteredContexts = useMemo(() => {
+        return contexts.filter(ctx => ctx.usage === requiredUsage);
+    }, [contexts, requiredUsage]);
+
     // Initialisation par défaut
     useEffect(() => {
-        if (isOpen && contexts.length > 0 && !selectedContextId) {
-            setSelectedContextId(contexts[0].id);
+        if (!isOpen) return;
+        if (filteredContexts.length === 0) {
+            setSelectedContextId("");
+            return;
         }
-    }, [isOpen, contexts]);
+        const stillValid = filteredContexts.some(ctx => ctx.id === selectedContextId);
+        if (!selectedContextId || !stillValid) {
+            setSelectedContextId(filteredContexts[0].id);
+        }
+    }, [isOpen, filteredContexts, selectedContextId]);
+
+    useEscapeClose(isOpen, onClose);
 
     // Groupement des modèles (Logique extraite)
     const groupedModels = useMemo(() => {
@@ -101,7 +120,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                             </h4>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                            {contexts.map(ctx => (
+                            {filteredContexts.map(ctx => (
                                 <div 
                                     key={ctx.id}
                                     onClick={() => setSelectedContextId(ctx.id)}
@@ -118,9 +137,9 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                                     </div>
                                 </div>
                             ))}
-                            {contexts.length === 0 && (
+                            {filteredContexts.length === 0 && (
                                 <div className="text-center py-10 text-brand-main/40 dark:text-dark-text/40 text-sm">
-                                    Aucun persona configuré.
+                                    Aucun persona pour cet usage.
                                     <br/>
                                     <button onClick={() => { onClose(); onManageContexts(); }} className="text-brand-main underline mt-2">Créer un persona</button>
                                 </div>

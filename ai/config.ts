@@ -34,7 +34,7 @@ Pour chaque idée, tu dois répondre avec :
 1. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
 2. 'angle' : ton conseil stratégique (remplira le champ 'Angle stratégique').
 3. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
-
+4. 'format_cible': "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Prompt Image"
 Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu ni balises markdown (pas de \`\`\`json).
         `
     },
@@ -68,7 +68,7 @@ RÈGLES DE SORTIE (FIXE) :
         generationConfig: {
             responseMimeType: "application/json" as const
         },
-        getSystemInstruction: (contextDesc: string, platforms: string) => `
+        getSystemInstruction: (contextDesc: string, platforms: string, formatCible: string) => `
 
 ${contextDesc}
 
@@ -79,16 +79,19 @@ Tu vas recevoir un objet JSON contenant :
 - titre
 - angle_strategique
 - plateformes (liste)
+- format_cible
 - notes_initiales
 - reponses_interview (les réponses de l'utilisateur à tes questions précédentes)
 
 Ta mission est de rédiger le post final en te basant principalement sur les 'reponses_interview' et les 'notes_initiales'.
+Tu dois aussi respecter le format cible suivant : "${formatCible}".
 
 REGLÈS DE SORTIE (FIXE) :
 1. Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON.
 2. Le JSON doit contenir une clé unique "draft_final" (chaîne de caractères).
 3. Le texte dans "draft_final" doit être formaté en Markdown (utilisant #, ##, **, etc.).
 4. Si plusieurs plateformes sont demandées (${platforms}), adapte le ton si nécessaire ou sépare les versions dans le même champ "draft_final" par une ligne de démarcation claire (ex: ---).
+5. Limite stricte : "draft_final" doit faire au maximum 180000 caractères.
 5. Pas d'introduction, pas de conclusion, pas de \`\`\`json.
         `
     }
