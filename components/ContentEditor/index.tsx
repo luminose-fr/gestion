@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Trash2, Save } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict } from '../../types';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, isTargetFormat } from '../../types';
 import { STATUS_COLORS } from '../../constants';
 import * as GeminiService from '../../services/geminiService';
 import * as OneMinService from '../../services/oneMinService';
@@ -28,11 +28,147 @@ interface ContentEditorProps {
   onStepChange: (step: EditorStep) => void;
 }
 
+const extractJsonPayload = (responseText: string): string => {
+    if (!responseText) return "";
+    let cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
+    cleaned = cleaned.replace(/^json\s*/i, '').trim();
+
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+    return cleaned;
+};
+
+const formatDraftContent = (format: TargetFormat, data: any): string => {
+    const text = (value: any) => typeof value === 'string' ? value.trim() : "";
+    const out: string[] = [];
+
+    switch (format) {
+        case TargetFormat.POST_TEXTE_COURT: {
+            const hook = text(data.hook);
+            const corps = text(data.corps);
+            const baffe = text(data.baffe);
+            const cta = text(data.cta);
+            if (hook) out.push(`**Hook**\n${hook}`);
+            if (corps) out.push(`**Corps**\n${corps}`);
+            if (baffe) out.push(`**Baffe**\n${baffe}`);
+            if (cta) out.push(`**CTA**\n${cta}`);
+            return out.join("\n\n");
+        }
+        case TargetFormat.ARTICLE_LONG_SEO: {
+            const titre = text(data.titre_h1);
+            const intro = text(data.introduction);
+            if (titre) out.push(`# ${titre}`);
+            if (intro) out.push(intro);
+            const sections = Array.isArray(data.sections) ? data.sections : [];
+            sections.forEach((section: any) => {
+                const h2 = text(section?.sous_titre_h2 || section?.titre || section?.point);
+                const contenu = text(section?.contenu);
+                if (h2) out.push(`## ${h2}`);
+                if (contenu) out.push(contenu);
+            });
+            const conclusion = text(data.conclusion);
+            if (conclusion) out.push(`## Conclusion\n${conclusion}`);
+            const cta = text(data.cta);
+            if (cta) out.push(`**CTA**\n${cta}`);
+            return out.join("\n\n");
+        }
+        case TargetFormat.SCRIPT_VIDEO_REEL_SHORT: {
+            const contrainte = text(data.contrainte);
+            const hook = text(data.hook);
+            const corps = text(data.corps);
+            const cta = text(data.cta);
+            if (contrainte) out.push(`**Contrainte**\n${contrainte}`);
+            if (hook) out.push(`**Hook**\n${hook}`);
+            if (corps) out.push(`**Corps**\n${corps}`);
+            if (cta) out.push(`**CTA**\n${cta}`);
+            return out.join("\n\n");
+        }
+        case TargetFormat.SCRIPT_VIDEO_YOUTUBE: {
+            const intro = text(data.intro);
+            if (intro) out.push(`**Intro**\n${intro}`);
+            const dev = Array.isArray(data.developpement) ? data.developpement : [];
+            dev.forEach((section: any, idx: number) => {
+                const point = text(section?.point) || `Point ${idx + 1}`;
+                const contenu = text(section?.contenu);
+                out.push(`**${point}**`);
+                if (contenu) out.push(contenu);
+            });
+            const conclusion = text(data.conclusion);
+            if (conclusion) out.push(`**Conclusion**\n${conclusion}`);
+            return out.join("\n\n");
+        }
+        case TargetFormat.CARROUSEL_SLIDE: {
+            const slides = Array.isArray(data.slides) ? data.slides : [];
+            slides.forEach((slide: any, idx: number) => {
+                const numero = slide?.numero ?? idx + 1;
+                const titre = text(slide?.titre);
+                const texte = text(slide?.texte);
+                const visuel = text(slide?.visuel);
+                const header = titre ? `### Slide ${numero} — ${titre}` : `### Slide ${numero}`;
+                out.push(header);
+                if (texte) out.push(texte);
+                if (visuel) out.push(`*Visuel :* ${visuel}`);
+            });
+            const finale = data.slide_finale || {};
+            const finalTitre = text(finale.titre);
+            const finalTexte = text(finale.texte);
+            if (finalTitre || finalTexte) {
+                out.push(`### Slide finale${finalTitre ? ` — ${finalTitre}` : ""}`);
+                if (finalTexte) out.push(finalTexte);
+            }
+            return out.join("\n\n");
+        }
+        case TargetFormat.PROMPT_IMAGE: {
+            const prompt = text(data.prompt);
+            const legende = text(data.legende);
+            if (prompt) out.push(`**Prompt (EN)**\n${prompt}`);
+            if (legende) out.push(`**Légende**\n${legende}`);
+            return out.join("\n\n");
+        }
+        default:
+            return "";
+    }
+};
+
+const parseDraftResponse = (responseText: string): string => {
+    const cleaned = extractJsonPayload(responseText);
+    if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
+
+    let data: any;
+    try {
+        data = JSON.parse(cleaned);
+    } catch (e) {
+        throw new Error("La réponse IA n'est pas un JSON valide.");
+    }
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error("Format de réponse invalide (objet JSON attendu).");
+    }
+
+    const formatValue = data.format;
+    if (!isTargetFormat(formatValue)) {
+        throw new Error("Format de sortie invalide. Vérifie la valeur du champ 'format'.");
+    }
+
+    const formatted = formatDraftContent(formatValue, data);
+    if (!formatted) {
+        throw new Error("Impossible de formater la réponse IA.");
+    }
+    return formatted;
+};
+
 const parseAIResponse = (responseText: string, key: string): string => {
     if (!responseText) return "";
     let cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
     try {
         const data = JSON.parse(cleaned);
+        if (key === 'ROOT') {
+            if (typeof data === 'string') return data;
+            return JSON.stringify(data, null, 2);
+        }
         if (data[key]) {
             if (typeof data[key] === 'object') return JSON.stringify(data[key]);
             return String(data[key]);
@@ -193,26 +329,22 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       setIsGenerating(true);
       try {
           const contextItem = contexts.find(c => c.id === contextId) || contexts[0];
-          const platformsStr = editedItem?.platforms.length ? editedItem.platforms.join(", ") : "Réseaux Sociaux";
-          const formatCible = editedItem?.targetFormat || "Non défini";
           const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
           const systemInstruction = actionConfig.getSystemInstruction(
-              contextItem?.description || "Rédacteur.",
-              platformsStr,
-              formatCible
+              contextItem?.description || "Rédacteur."
           );
 
           const promptPayload = {
-              titre: editedItem?.title,
-              angle_strategique: editedItem?.strategicAngle || "Non défini",
-              plateformes: editedItem?.platforms || [],
+              titre: editedItem?.title || "Non défini",
               format_cible: editedItem?.targetFormat || "Non défini",
-              notes_initiales: editedItem?.notes || "",
-              reponses_interview: editedItem?.interviewAnswers || ""
+              cible_offre: editedItem?.targetOffer || "Non défini",
+              angle_strategique: editedItem?.strategicAngle || "Non défini",
+              metaphore_suggeree: editedItem?.suggestedMetaphor || "Non défini",
+              reponses_interview: editedItem?.interviewAnswers || "Non défini"
           };
 
           const responseText = await callAI(modelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
-          const finalContent = parseAIResponse(responseText, 'draft_final');
+          const finalContent = parseDraftResponse(responseText);
 
           const contextName = contextItem?.name || "Contexte par défaut";
           const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);

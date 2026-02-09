@@ -78,31 +78,93 @@ DISCIPLINE :
         generationConfig: {
             responseMimeType: "application/json" as const
         },
-        getSystemInstruction: (contextDesc: string, platforms: string, formatCible: string) => `
+        getSystemInstruction: (contextDesc: string) => `
 
 ${contextDesc}
 
 ---
 
-INSTRUCTIONS DE TÂCHE :
-Tu vas recevoir un objet JSON contenant : 
+Tu vas recevoir un objet JSON contenant :
 - titre
-- angle_strategique
-- plateformes (liste)
 - format_cible
-- notes_initiales
-- reponses_interview (les réponses de l'utilisateur à tes questions précédentes)
-
-Ta mission est de rédiger le post final en te basant principalement sur les 'reponses_interview' et les 'notes_initiales'.
-Tu dois aussi respecter le format cible suivant : "${formatCible}".
+- cible_offre
+- angle_strategique
+- metaphore_suggeree
+- reponses_interview
 
 REGLÈS DE SORTIE (FIXE) :
-1. Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON.
-2. Le JSON doit contenir une clé unique "draft_final" (chaîne de caractères).
-3. Le texte dans "draft_final" doit être formaté en Markdown (utilisant #, ##, **, etc.).
-4. Si plusieurs plateformes sont demandées (${platforms}), adapte le ton si nécessaire ou sépare les versions dans le même champ "draft_final" par une ligne de démarcation claire (ex: ---).
-5. Limite stricte : "draft_final" doit faire au maximum 180000 caractères.
-5. Pas d'introduction, pas de conclusion, pas de \`\`\`json.
+GRILLE DE PRODUCTION PAR FORMAT :
+1. Post Texte (Court) — LinkedIn, FB, Insta
+json{
+  "format": "Post Texte (Court)",
+  "hook": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc.",
+  "corps": "Paragraphes ultra-courts (1-2 phrases). Alternance prose/listes (→). Montée en tension. La métaphore filée structure le texte.",
+  "baffe": "Conclusion tranchante — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse.",
+  "cta": "Appel à l'action (question ouverte, invitation à commenter, lien vers offre). JAMAIS d'emoji."
+}
+Ton : Direct, oralisé, percutant. On entend la voix.
+Contrainte de longueur : 150 mots max pour le corps (hors hook et CTA). Si le texte dépasse, c'est qu'il y a du gras à couper. Un Post Texte n'est PAS un mini-article — c'est une pensée unique, dense, qui frappe et s'arrête.
+2. Article (Long/SEO) — Blog, Newsletter
+json{
+  "format": "Article (Long/SEO)",
+  "titre_h1": "Titre accrocheur incluant le mot-clé principal.",
+  "introduction": "Structure PAS (Problème → Agitation → Solution). 3-4 paragraphes. Pose la métaphore centrale dès l'intro.",
+  "sections": [
+    {
+      "sous_titre_h2": "Titre structurant",
+      "contenu": "Développement. Alterner rigueur clinique et images concrètes. Chaque section fait progresser vers le seuil."
+    }
+  ],
+  "conclusion": "Récapitulatif + angle de rupture. Pas de résumé plat — une ouverture qui laisse le lecteur face à son choix.",
+  "cta": "Bloc d'appel à l'action contextuel."
+}
+Ton : Expert, posé, pédagogique, mais garde la radicalité du Seuil et l'oralité de Florent.
+3. Script Vidéo (Reel/Short) — Insta, TikTok, Shorts
+json{
+  "format": "Script Vidéo (Reel/Short)",
+  "contrainte": "150 mots max (60 secondes)",
+  "hook": "[0-3s] Hook visuel ou verbal. La phrase qui arrête le scroll.",
+  "corps": "[3-50s] Corps rythmé. Style parlé. Intentions visuelles entre crochets : [Plan serré], [Texte à l'écran], [Changement d'angle].",
+  "cta": "[50-60s] CTA rapide. Question ou invitation."
+}
+Ton : Parlé, naturel, comme le transcript sur l'injustice. L'humour et le paradoxe sont les moteurs.
+4. Script Vidéo (Youtube)
+json{
+  "format": "Script Vidéo (Youtube)",
+  "intro": "Hook + Promesse claire. Pourquoi rester jusqu'au bout.",
+  "developpement": [
+    {
+      "point": "Titre du point",
+      "contenu": "Développement narratif. Métaphores filées. Anecdotes de cabinet."
+    }
+  ],
+  "conclusion": "Ouverture + angle de rupture. Pas de résumé mécanique."
+}
+Ton : Narratif, profond, utilisant des métaphores filées. Plus long, plus contemplatif, mais toujours incarné.
+5. Carrousel (Slide par Slide) — LinkedIn, Insta
+json{
+  "format": "Carrousel (Slide par Slide)",
+  "slides": [
+    {
+      "numero": 1,
+      "titre": "6 mots max",
+      "texte": "Texte court",
+      "visuel": "Description de l'image ou du schéma suggéré"
+    }
+  ],
+  "slide_finale": {
+    "titre": "Interaction",
+    "texte": "CTA : partage, commentaire, lien."
+  }
+}
+5 à 10 slides. Slide 1 = hook visuel. Dernière slide = interaction.
+6. Prompt Image (IA Générative)
+json{
+  "format": "Prompt Image",
+  "prompt": "Prompt détaillé et artistique en anglais pour Midjourney/DALL-E illustrant la métaphore centrale.",
+  "legende": "2 phrases max pour accompagner l'image sur les réseaux."
+}
+Interdiction absolue : Aucun autre texte.
         `
     }
 };
