@@ -28,6 +28,10 @@ Ajoutez les propriétés suivantes **exactement** comme indiqué (respectez les 
 | **Analysé** | Checkbox | - (Sera coché si analysé par l'IA) |
 | **Verdict** | Select | `Valide`, `Trop lisse`, `À revoir` |
 | **Angle stratégique** | Text | - (Sera rempli par l'IA) |
+| **Format cible** | Select | `Post Texte (Court)`, `Article (Long/SEO)`, `Script Vidéo (Reel/Short)`, `Script Vidéo (Youtube)`, `Carrousel (Slide par Slide)`, `Prompt Image` |
+| **Cible Offre** | Select | `Standard`, `Transverse`, `Seuil` |
+| **Justification** | Text | - (Sera rempli par l'IA) |
+| **Métaphore Suggérée** | Text | - (Sera rempli par l'IA) |
 | **Réponses interview** | Text | - (Pour stocker les réponses) |
 | **Questions interview** | Text | - (Pour stocker les questions) |
 
@@ -42,6 +46,7 @@ Créez une seconde base de données avec ces propriétés :
 | :--- | :--- | :--- |
 | **Nom** | Title | Le nom du contexte (ex: "Expert Tech") |
 | **Description** | Text | Le prompt système pour l'IA (ex: "Tu es un expert concis...") |
+| **Usage** | Select | `Rédacteur`, `Analyste`, `Interviewer` |
 
 *Note : Récupérez l'ID de cette base de données. Ce sera votre `VITE_NOTION_CONTEXT_DB_ID`.*
 

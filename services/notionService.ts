@@ -622,12 +622,23 @@ export const fetchContexts = async (since?: string): Promise<ContextItem[]> => {
     }
 };
 
-export const createContext = async (name: string, description: string): Promise<ContextItem> => {
+export const createContext = async (name: string, description: string, usage?: ContextUsage): Promise<ContextItem> => {
     const dataSourceId = await getDataSourceId(
         CONFIG.NOTION_CONTEXT_DB_ID,
         "contexts",
         "createContext"
     );
+
+    const properties: any = {
+        "Nom": { title: markdownToNotion(name) },
+        "Description": {
+            rich_text: markdownToNotion(description)
+        }
+    };
+
+    if (usage) {
+        properties["Usage"] = { select: { name: usage } };
+    }
 
     const response = await fetchWithRetry(getUrl("/pages"), {
         method: "POST",
@@ -637,12 +648,7 @@ export const createContext = async (name: string, description: string): Promise<
                 type: "data_source_id",
                 data_source_id: dataSourceId 
             },
-            properties: {
-                "Nom": { title: markdownToNotion(name) },
-                "Description": { 
-                    rich_text: markdownToNotion(description)
-                }
-            }
+            properties
         })
     });
     
@@ -651,16 +657,22 @@ export const createContext = async (name: string, description: string): Promise<
 };
 
 export const updateContext = async (context: ContextItem): Promise<void> => {
+    const properties: any = {
+        "Nom": { title: markdownToNotion(context.name) },
+        "Description": {
+            rich_text: markdownToNotion(context.description)
+        }
+    };
+
+    if (context.usage !== undefined) {
+        properties["Usage"] = context.usage ? { select: { name: context.usage } } : { select: null };
+    }
+
     const response = await fetchWithRetry(getUrl(`/pages/${context.id}`), {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({
-            properties: {
-                "Nom": { title: markdownToNotion(context.name) },
-                "Description": { 
-                    rich_text: markdownToNotion(context.description)
-                }
-            }
+            properties
         })
     });
     await handleNotionResponse(response, "updateContext");

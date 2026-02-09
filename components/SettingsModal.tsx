@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Settings, Loader2, Brain, Cpu, ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { ContextItem, AIModel } from '../types';
+import { ContextItem, AIModel, ContextUsage } from '../types';
 import * as NotionService from '../services/notionService';
 import { ConfirmModal } from './CommonModals';
 import { MarkdownToolbar } from './MarkdownToolbar';
@@ -36,6 +36,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // Context Edit State
   const [editCtxName, setEditCtxName] = useState("");
   const [editCtxDesc, setEditCtxDesc] = useState("");
+  const [editCtxUsage, setEditCtxUsage] = useState<ContextUsage>(ContextUsage.REDACTEUR);
 
   // Model Edit State
   const [editModel, setEditModel] = useState<Partial<AIModel>>({
@@ -73,6 +74,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setEditingId(ctx.id); 
     setEditCtxName(ctx.name); 
     setEditCtxDesc(ctx.description); 
+    setEditCtxUsage(ctx.usage || ContextUsage.REDACTEUR);
     setIsCreating(false);
   };
 
@@ -80,6 +82,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setEditingId(null); 
     setEditCtxName(""); 
     setEditCtxDesc(""); 
+    setEditCtxUsage(ContextUsage.REDACTEUR);
     setIsCreating(true);
   };
 
@@ -100,12 +103,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsSaving(true);
     try {
         if (isCreating) {
-            const newCtx = await NotionService.createContext(editCtxName, editCtxDesc);
+            const newCtx = await NotionService.createContext(editCtxName, editCtxDesc, editCtxUsage);
             onContextsChange([...contexts, newCtx]); 
             setEditingId(newCtx.id); // Select new item
             setIsCreating(false);
         } else if (editingId) {
-            const updatedCtx = { id: editingId, name: editCtxName, description: editCtxDesc };
+            const updatedCtx = { id: editingId, name: editCtxName, description: editCtxDesc, usage: editCtxUsage };
             await NotionService.updateContext(updatedCtx);
             onContextsChange(contexts.map(c => c.id === editingId ? updatedCtx : c));
         }
@@ -338,6 +341,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                             className="w-full text-xl font-bold border-b-2 border-brand-border dark:border-dark-sec-border py-2 bg-transparent focus:border-brand-main dark:focus:border-brand-light outline-none text-brand-main dark:text-white placeholder-brand-main/30" 
                                             placeholder="Ex: Rédacteur LinkedIn Pro" 
                                         />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Usage</label>
+                                        <select
+                                            value={editCtxUsage}
+                                            onChange={(e) => setEditCtxUsage(e.target.value as ContextUsage)}
+                                            className="w-full p-3 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg text-sm text-brand-main dark:text-white outline-none"
+                                        >
+                                            <option value={ContextUsage.REDACTEUR}>Rédacteur</option>
+                                            <option value={ContextUsage.ANALYSTE}>Analyste</option>
+                                            <option value={ContextUsage.INTERVIEWER}>Interviewer</option>
+                                        </select>
                                     </div>
                                     <div className="flex-1 flex flex-col">
                                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Prompt Système</label>
