@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage } from "../types";
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage, TargetOffer, isTargetOffer } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -342,6 +342,10 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   const verdict = (verdictValue as Verdict) || undefined;
   const targetFormatValue = props["Format cible"]?.select?.name;
   const targetFormat = (targetFormatValue as TargetFormat) || undefined;
+  const targetOfferValue = props["Cible Offre"]?.select?.name;
+  const targetOffer = isTargetOffer(targetOfferValue) ? (targetOfferValue as TargetOffer) : undefined;
+  const justification = notionToMarkdown(props["Justification"]);
+  const suggestedMetaphor = notionToMarkdown(props["Métaphore Suggérée"]);
   const strategicAngle = notionToMarkdown(props["Angle stratégique"]);
   const interviewAnswers = notionToMarkdown(props["Réponses interview"]);
   const interviewQuestions = notionToMarkdown(props["Questions interview"]);
@@ -358,6 +362,9 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     analyzed,
     verdict,
     targetFormat,
+    targetOffer,
+    justification,
+    suggestedMetaphor,
     strategicAngle,
     interviewAnswers,
     interviewQuestions
@@ -526,6 +533,22 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
 
     if (item.targetFormat !== undefined) {
         properties["Format cible"] = item.targetFormat ? { select: { name: item.targetFormat } } : { select: null };
+    }
+
+    if (item.targetOffer !== undefined) {
+        properties["Cible Offre"] = item.targetOffer ? { select: { name: item.targetOffer } } : { select: null };
+    }
+
+    if (item.justification !== undefined) {
+        properties["Justification"] = {
+            rich_text: markdownToNotion(item.justification || "")
+        };
+    }
+
+    if (item.suggestedMetaphor !== undefined) {
+        properties["Métaphore Suggérée"] = {
+            rich_text: markdownToNotion(item.suggestedMetaphor || "")
+        };
     }
     
     if (item.strategicAngle !== undefined) {

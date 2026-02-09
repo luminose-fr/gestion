@@ -48,6 +48,18 @@ export const isContextUsage = (value: unknown): value is ContextUsage => {
   return typeof value === "string" && CONTEXT_USAGE_VALUES.includes(value);
 };
 
+export enum TargetOffer {
+  STANDARD = "Standard",
+  TRANSVERSE = "Transverse",
+  SEUIL = "Seuil"
+}
+
+export const TARGET_OFFER_VALUES = Object.values(TargetOffer) as string[];
+
+export const isTargetOffer = (value: unknown): value is TargetOffer => {
+  return typeof value === "string" && TARGET_OFFER_VALUES.includes(value);
+};
+
 export interface AIModel {
   id: string;
   name: string;
@@ -73,6 +85,9 @@ export interface ContentItem {
   verdict?: Verdict;
   strategicAngle?: string;
   targetFormat?: TargetFormat | null;
+  targetOffer?: TargetOffer | null;
+  justification?: string;
+  suggestedMetaphor?: string;
   // Nouveaux champs Interview
   interviewAnswers?: string;
   interviewQuestions?: string;

@@ -33,9 +33,13 @@ Tu dois traiter la liste d'idées fournie.
 Pour chaque idée, tu dois répondre avec :
 1. 'id' : l'identifiant exact de l'idée tel que fourni dans l'entrée (OBLIGATOIRE, ne jamais l'omettre).
 2. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
-3. 'angle' : ton conseil stratégique (remplira le champ 'Angle stratégique').
+3. 'angle' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction.
 4. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
 5. 'format_cible': "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Prompt Image"
+6. 'justification': "2-3 phrases maximum expliquant le verdict."
+7. 'cible_offre': "Standard" | "Seuil" | "Transverse"
+8. 'metaphore_suggeree': "Si une piste métaphorique émerge, la noter ici. Sinon : null."
+9. 'titre': "Titre de travail proposé"
 Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu ni balises markdown (pas de \`\`\`json).
         `
     },
@@ -56,11 +60,16 @@ RÈGLES DE SORTIE (FIXE) :
 3. Le format JSON doit être le suivant :
 {
   "questions_interieures": [
-    { "angle": "Curieux/Naïf", "questions": ["q1", "q2", "q3"] },
-    { "angle": "Sceptique/Rationnel", "questions": ["q1", "q2", "q3"] },
-    { "angle": "Expert/Clinique", "questions": ["q1", "q2", "q3"] }
+    { "angle": "Axe cheval de troie", "questions": ["q1", "q2", "q3"] },
+    { "angle": "Axe gardien du seuil", "questions": ["q1", "q2", "q3"] },
+    { "angle": "Axe mecanique invisible", "questions": ["q1", "q2", "q3"] }
   ]
 }
+
+DISCIPLINE :
+- Chaque question est formulée au "tu", comme si tu parlais directement à Florent.
+- Chaque question est spécifique au sujet traité (pas de question générique réutilisable d'un sujet à l'autre).
+- Zéro bavardage. Pas de "Voici les questions...". Tu donnes directement le JSON.
         `
     },
 

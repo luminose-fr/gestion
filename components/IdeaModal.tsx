@@ -27,13 +27,27 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
     useEffect(() => {
         setLocalItem(prev => ({
             ...prev,
+            title: item.title,
             analyzed: item.analyzed,
             verdict: item.verdict,
             strategicAngle: item.strategicAngle,
             platforms: item.platforms,
             targetFormat: item.targetFormat,
+            targetOffer: item.targetOffer,
+            justification: item.justification,
+            suggestedMetaphor: item.suggestedMetaphor,
         }));
-    }, [item.analyzed, item.verdict, item.strategicAngle, item.targetFormat, item.platforms]);
+    }, [
+        item.title,
+        item.analyzed,
+        item.verdict,
+        item.strategicAngle,
+        item.targetFormat,
+        item.targetOffer,
+        item.justification,
+        item.suggestedMetaphor,
+        item.platforms
+    ]);
 
     useEscapeClose(true, onClose, isSaving || isReanalyzing || showDeleteConfirm);
 
@@ -166,11 +180,69 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                             </span>
                                         </div>
                                     )}
+                                    {(localItem.targetOffer || localItem.justification || localItem.suggestedMetaphor) && (
+                                        <div className="mt-4 space-y-3">
+                                            {localItem.targetOffer && (
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Cible Offre</p>
+                                                    <span className="inline-flex mt-1 text-[10px] px-2 py-1 rounded-full border font-bold bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700">
+                                                        {localItem.targetOffer}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {localItem.justification && (
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Justification</p>
+                                                    <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap">
+                                                        {localItem.justification}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {localItem.suggestedMetaphor && (
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Métaphore Suggérée</p>
+                                                    <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap">
+                                                        {localItem.suggestedMetaphor}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-center py-6 text-purple-800/40 dark:text-purple-200/40 text-sm italic">
-                                Cliquez sur "Lancer l'analyse" pour obtenir un avis stratégique et des suggestions de plateformes.
+                            <div className="space-y-4">
+                                <div className="text-center py-6 text-purple-800/40 dark:text-purple-200/40 text-sm italic">
+                                    Cliquez sur "Lancer l'analyse" pour obtenir un avis stratégique et des suggestions de plateformes.
+                                </div>
+                                {(localItem.targetOffer || localItem.justification || localItem.suggestedMetaphor) && (
+                                    <div className="rounded-xl border border-purple-200/60 dark:border-purple-800/50 bg-white/70 dark:bg-purple-900/10 p-4 space-y-3">
+                                        {localItem.targetOffer && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Cible Offre</p>
+                                                <span className="inline-flex mt-1 text-[10px] px-2 py-1 rounded-full border font-bold bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700">
+                                                    {localItem.targetOffer}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {localItem.justification && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Justification</p>
+                                                <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap">
+                                                    {localItem.justification}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {localItem.suggestedMetaphor && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Métaphore Suggérée</p>
+                                                <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap">
+                                                    {localItem.suggestedMetaphor}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

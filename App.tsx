@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat } from './types';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat, isTargetOffer } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import * as GeminiService from './services/geminiService';
@@ -436,6 +436,10 @@ function App() {
 
               const rawFormat = res.format_cible ?? res.format_suggere;
               const targetFormat = isTargetFormat(rawFormat) ? rawFormat : undefined;
+              const targetOffer = isTargetOffer(res.cible_offre) ? res.cible_offre : undefined;
+              const justification = typeof res.justification === 'string' ? res.justification : undefined;
+              const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
+              const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
 
               const contextName = contextItem?.name || "Contexte par défaut";
               const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
@@ -443,10 +447,14 @@ function App() {
 
               const updatedItem: ContentItem = {
                   ...itemToAnalyze,
+                  title: suggestedTitle || itemToAnalyze.title,
                   verdict: res.verdict,
                   strategicAngle: res.angle + signature,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
                   targetFormat,
+                  targetOffer: targetOffer || itemToAnalyze.targetOffer,
+                  justification: justification ?? itemToAnalyze.justification,
+                  suggestedMetaphor: suggestedMetaphor ?? itemToAnalyze.suggestedMetaphor,
                   analyzed: true,
               };
               await handleUpdateItem(updatedItem);
