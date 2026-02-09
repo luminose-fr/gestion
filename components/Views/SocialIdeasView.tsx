@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Loader2, Sparkles, ChevronRight } from 'lucide-react';
+import { Search, Plus, Loader2, Sparkles, ChevronRight, Globe } from 'lucide-react';
 import { ContentItem, Verdict } from '../../types';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
@@ -194,6 +194,25 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                                 </p>
                             )}
                         </div>
+                        {item.analyzed && (item.platforms.length > 0 || item.targetFormat) && (
+                            <div className="flex flex-row md:flex-col items-end md:items-end gap-2 flex-shrink-0">
+                                {item.platforms.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 justify-end">
+                                        {item.platforms.map((p, i) => (
+                                            <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-md text-[11px] font-medium border border-purple-200 dark:border-purple-800">
+                                                {i === 0 && <Globe className="w-3 h-3" />}
+                                                {p}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                {item.targetFormat && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700 whitespace-nowrap">
+                                        {item.targetFormat}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>

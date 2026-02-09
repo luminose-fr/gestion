@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Brain, RefreshCw, ArrowRight, Loader2, Trash2, Globe, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Brain, RefreshCw, ArrowRight, Loader2, Trash2, Globe, ArrowRightFromLine, Save } from 'lucide-react';
 import { ContentItem, ContentStatus, Verdict, Platform } from '../types';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
@@ -11,16 +11,29 @@ interface IdeaModalProps {
     onClose: () => void;
     onChange: (item: ContentItem) => Promise<void>;
     onDelete: (item: ContentItem) => Promise<void>;
+    onTransformToDraft: (item: ContentItem) => Promise<void>;
     onAnalyze: () => void; // Trigger analysis from parent
     isReanalyzing: boolean;
 }
 
-export const IdeaModal: React.FC<IdeaModalProps> = ({ 
-    item, onClose, onChange, onDelete, onAnalyze, isReanalyzing 
+export const IdeaModal: React.FC<IdeaModalProps> = ({
+    item, onClose, onChange, onDelete, onTransformToDraft, onAnalyze, isReanalyzing
 }) => {
     const [localItem, setLocalItem] = useState<ContentItem>(item);
     const [isSaving, setIsSaving] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+    // Synchroniser les champs d'analyse quand le parent met à jour l'item (ex: après ré-analyse IA)
+    useEffect(() => {
+        setLocalItem(prev => ({
+            ...prev,
+            analyzed: item.analyzed,
+            verdict: item.verdict,
+            strategicAngle: item.strategicAngle,
+            platforms: item.platforms,
+            targetFormat: item.targetFormat,
+        }));
+    }, [item.analyzed, item.verdict, item.strategicAngle, item.targetFormat, item.platforms]);
 
     useEscapeClose(true, onClose, isSaving || isReanalyzing || showDeleteConfirm);
 
@@ -33,9 +46,8 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
     const handleTransformToDraft = async () => {
         setIsSaving(true);
         const newItem = { ...localItem, status: ContentStatus.DRAFTING };
-        await onChange(newItem);
+        await onTransformToDraft(newItem);
         setIsSaving(false);
-        onClose(); // Close modal, App will redirect to Editor
     };
 
     const handleDelete = async () => {
@@ -144,10 +156,13 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                             <span className="text-xs text-purple-800/50 italic">Aucune</span>
                                         )}
                                     </div>
+                                    <p className="text-xs font-bold text-purple-900/50 dark:text-purple-100/50 uppercase flex items-center gap-1">
+                                        <ArrowRightFromLine className="w-3 h-3" /> Format cible
+                                    </p>
                                     {localItem.targetFormat && (
                                         <div className="mt-3">
-                                            <span className="text-[10px] px-2 py-1 rounded-full border font-bold bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700">
-                                                Format cible : {localItem.targetFormat}
+                                            <span className="px-2 py-1 font-medium text-xs rounded-md border font-bold bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700">
+                                                {localItem.targetFormat}
                                             </span>
                                         </div>
                                     )}

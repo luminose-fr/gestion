@@ -103,12 +103,16 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
       // 5. Mise à jour de Notion
       setProgress(`Mise à jour de Notion (0/${results.length})...`);
-      
+
       const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
       let updateCount = 0;
-      for (const res of results) {
-        const originalItem = itemsToAnalyze.find(i => i.id === res.id);
+      for (let idx = 0; idx < results.length; idx++) {
+        const res = results[idx];
+        // Match par id si disponible, sinon fallback par index (l'IA renvoie dans le même ordre)
+        const originalItem = res.id
+            ? itemsToAnalyze.find(i => i.id === res.id)
+            : itemsToAnalyze[idx];
         if (originalItem) {
           const rawPlatforms = Array.isArray(res.plateformes) ? res.plateformes : [];
           const mappedPlatforms: Platform[] = rawPlatforms
@@ -133,7 +137,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         }
       }
 
-      setProgress("Terminé !");
+      if (updateCount === 0) {
+        throw new Error(`Aucune idée n'a pu être mise à jour. L'IA a renvoyé ${results.length} résultats mais aucun n'a pu être associé aux idées d'origine.`);
+      }
+
+      setProgress(`Terminé ! ${updateCount}/${results.length} idées mises à jour.`);
       onAnalysisComplete();
       onClose();
 

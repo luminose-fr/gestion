@@ -19,12 +19,20 @@ const fetch1Min = async (endpoint: string, body: any) => {
         body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-        throw new Error(data.error || data.message || "Erreur 1min.AI");
+    const responseText = await response.text();
+
+    let data: any;
+    try {
+        data = JSON.parse(responseText);
+    } catch (e) {
+        console.error(`1min.AI ${endpoint}: réponse non-JSON:`, responseText.substring(0, 300));
+        throw new Error(`L'API 1min.AI a renvoyé une réponse invalide (${response.status}). Réessayez dans quelques instants.`);
     }
-    
+
+    if (!response.ok) {
+        throw new Error(data.error || data.message || `Erreur 1min.AI (${response.status})`);
+    }
+
     return data;
 };
 
@@ -79,7 +87,9 @@ export const generateContent = async (request: OneMinRequest): Promise<string> =
                          JSON.stringify(messageResponse);
         }
 
-        // Nettoyage des éventuels caractères d'échappement excessifs ou artefacts de stream
+        // Nettoyage markdown json si présent
+        rawContent = rawContent.replace(/```json\s?/g, '').replace(/```\s?/g, '');
+
         return rawContent.trim();
 
     } catch (error: any) {

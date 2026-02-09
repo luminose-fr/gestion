@@ -31,10 +31,11 @@ ${contextDesc}
 RÈGLES DE SORTIE (FIXE) :
 Tu dois traiter la liste d'idées fournie.
 Pour chaque idée, tu dois répondre avec :
-1. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
-2. 'angle' : ton conseil stratégique (remplira le champ 'Angle stratégique').
-3. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
-4. 'format_cible': "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Prompt Image"
+1. 'id' : l'identifiant exact de l'idée tel que fourni dans l'entrée (OBLIGATOIRE, ne jamais l'omettre).
+2. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
+3. 'angle' : ton conseil stratégique (remplira le champ 'Angle stratégique').
+4. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
+5. 'format_cible': "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Prompt Image"
 Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu ni balises markdown (pas de \`\`\`json).
         `
     },

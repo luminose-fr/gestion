@@ -332,8 +332,7 @@ function App() {
   };
 
   const handleUpdateItem = async (updatedItem: ContentItem): Promise<void> => {
-    const newItems = items.map(i => i.id === updatedItem.id ? updatedItem : i);
-    setItems(newItems);
+    setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
     StorageService.updateCachedItem(updatedItem).catch(console.error);
 
     try {
@@ -342,6 +341,13 @@ function App() {
       console.error("Erreur update Notion:", error);
       setError("Échec de la sauvegarde sur Notion. " + error.message);
     }
+  };
+
+  const handleTransformToDraft = async (updatedItem: ContentItem): Promise<void> => {
+    // Sauvegarder l'item avec le nouveau statut DRAFTING
+    await handleUpdateItem(updatedItem);
+    // Naviguer vers l'éditeur dans la vue brouillons
+    updateRoute('social', 'drafts', updatedItem.id, 'idea');
   };
 
   const handleDeleteItem = async (itemToDelete: ContentItem): Promise<void> => {
@@ -706,11 +712,12 @@ function App() {
                 )}
 
                 {editingItem && editingItem.status === ContentStatus.IDEA && (
-                    <IdeaModal 
-                        item={editingItem} 
+                    <IdeaModal
+                        item={editingItem}
                         onClose={handleCloseEditor}
                         onChange={handleUpdateItem}
                         onDelete={handleDeleteItem}
+                        onTransformToDraft={handleTransformToDraft}
                         onAnalyze={() => triggerSingleAnalysis(editingItem)}
                         isReanalyzing={isSingleAnalyzing}
                     />

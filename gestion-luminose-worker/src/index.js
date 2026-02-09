@@ -102,15 +102,31 @@ export default {
         // 2. Envoyer un message (Feature API)
         if (path === '/1min/send-message') {
           const body = await request.json();
-          
+
           const response = await fetch('https://api.1min.ai/api/features', { // Mode non-streaming pour simplifier le parsing JSON
             method: 'POST',
             headers: oneMinHeaders,
             body: JSON.stringify(body)
           });
 
-          const data = await response.json();
-          return new Response(JSON.stringify(data), {
+          const responseText = await response.text();
+
+          // Vérifier que la réponse est bien du JSON avant de la renvoyer
+          try {
+            JSON.parse(responseText);
+          } catch (e) {
+            console.error('1min.AI send-message: réponse non-JSON reçue (status ' + response.status + '):', responseText.substring(0, 500));
+            return new Response(JSON.stringify({
+              error: 'L\'API 1min.AI a renvoyé une réponse invalide (non-JSON).',
+              status: response.status,
+              preview: responseText.substring(0, 200)
+            }), {
+              status: 502,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          return new Response(responseText, {
             status: response.status,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
