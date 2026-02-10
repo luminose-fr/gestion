@@ -108,6 +108,8 @@ export interface ContentItem {
   interviewQuestions?: string;
   // Champ Slides Carrousel
   slides?: string;
+  // Champ Post Court (Post Texte formaté pour copier-coller)
+  postCourt?: string;
 }
 
 export interface ContextItem {

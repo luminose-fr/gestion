@@ -352,6 +352,7 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   const interviewAnswers = notionToMarkdown(props["Réponses interview"]);
   const interviewQuestions = notionToMarkdown(props["Questions interview"]);
   const slides = notionToMarkdown(props["Slides"]);
+  const postCourt = notionToMarkdown(props["Post Court"]);
 
   return {
     id: page.id,
@@ -372,7 +373,8 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     depth,
     interviewAnswers,
     interviewQuestions,
-    slides
+    slides,
+    postCourt
   };
 };
 
@@ -581,6 +583,12 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
     if (item.slides !== undefined) {
         properties["Slides"] = {
             rich_text: markdownToNotion(item.slides || "")
+        };
+    }
+
+    if (item.postCourt !== undefined) {
+        properties["Post Court"] = {
+            rich_text: markdownToNotion(item.postCourt || "")
         };
     }
 

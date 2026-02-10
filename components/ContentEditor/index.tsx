@@ -13,7 +13,7 @@ import { EditorLayout } from './EditorLayout';
 import { DraftView } from './DraftView';
 import { PreviewView } from './PreviewView';
 
-export type EditorStep = 'idea' | 'interview' | 'content' | 'slides';
+export type EditorStep = 'idea' | 'interview' | 'content' | 'slides' | 'postcourt';
 
 interface ContentEditorProps {
   item: ContentItem | null;
@@ -572,6 +572,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onLaunchDrafting={triggerDrafting}
                     onLaunchCarrouselSlides={triggerCarrouselSlides}
                     onChangeStatus={changeStatus}
+                    onSave={onSave}
                     isGenerating={isGenerating}
                     activeTab={activeStep}
                     onTabChange={onStepChange}

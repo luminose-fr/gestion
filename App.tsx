@@ -40,7 +40,7 @@ const getHashState = () => {
     const itemId = parts[2] && parts[2].trim() !== '' ? parts[2] : null;
     
     let step: EditorStep = 'idea';
-    if (parts[3] && ['idea', 'interview', 'content', 'slides'].includes(parts[3])) {
+    if (parts[3] && ['idea', 'interview', 'content', 'slides', 'postcourt'].includes(parts[3])) {
         step = parts[3] as EditorStep;
     }
 
