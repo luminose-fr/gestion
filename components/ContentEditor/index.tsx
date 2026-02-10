@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Trash2, Save } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, isTargetFormat } from '../../types';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, isTargetFormat, Profondeur } from '../../types';
 import { STATUS_COLORS } from '../../constants';
 import * as GeminiService from '../../services/geminiService';
 import * as OneMinService from '../../services/oneMinService';
@@ -13,7 +13,7 @@ import { EditorLayout } from './EditorLayout';
 import { DraftView } from './DraftView';
 import { PreviewView } from './PreviewView';
 
-export type EditorStep = 'idea' | 'interview' | 'content';
+export type EditorStep = 'idea' | 'interview' | 'content' | 'slides';
 
 interface ContentEditorProps {
   item: ContentItem | null;
@@ -133,6 +133,7 @@ const formatDraftContent = (format: TargetFormat, data: any): string => {
     }
 };
 
+// Retourne le JSON brut validé (string) — c'est ce qu'on stocke dans body
 const parseDraftResponse = (responseText: string): string => {
     const cleaned = extractJsonPayload(responseText);
     if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
@@ -149,15 +150,76 @@ const parseDraftResponse = (responseText: string): string => {
     }
 
     const formatValue = data.format;
-    if (!isTargetFormat(formatValue)) {
-        throw new Error("Format de sortie invalide. Vérifie la valeur du champ 'format'.");
+    // Accepte les clés longues (enum) ET les clés courtes retournées par le nouveau prompt
+    const SHORT_FORMAT_KEYS = ["Post Texte", "Article", "Script Reel", "Script Youtube", "Carrousel", "Prompt Image"];
+    if (!isTargetFormat(formatValue) && !SHORT_FORMAT_KEYS.includes(formatValue)) {
+        throw new Error(`Format de sortie invalide : "${formatValue}". Vérifie la valeur du champ 'format'.`);
     }
 
-    const formatted = formatDraftContent(formatValue, data);
-    if (!formatted) {
-        throw new Error("Impossible de formater la réponse IA.");
+    return cleaned;
+};
+
+// Extrait un texte lisible depuis un body JSON (pour recherche, ContentCard, contexte IA)
+export const bodyJsonToText = (body: string): string => {
+    if (!body) return "";
+    try {
+        const lastBrace = body.lastIndexOf('}');
+        const cleaned = lastBrace !== -1 ? body.slice(0, lastBrace + 1) : body;
+        const data = JSON.parse(cleaned);
+
+        // Si édition manuelle libre
+        if (data.edited_raw) return data.edited_raw;
+
+        const t = (v: any) => (typeof v === 'string' ? v.trim() : "");
+        const out: string[] = [];
+
+        const fmt = data.format;
+        const isPostTexte = fmt === TargetFormat.POST_TEXTE_COURT || fmt === "Post Texte";
+        const isArticle = fmt === TargetFormat.ARTICLE_LONG_SEO || fmt === "Article";
+        const isReelShort = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || fmt === "Script Reel";
+        const isYoutube = fmt === TargetFormat.SCRIPT_VIDEO_YOUTUBE || fmt === "Script Youtube";
+        const isCarrousel = fmt === TargetFormat.CARROUSEL_SLIDE || fmt === "Carrousel";
+        const isPromptImage = fmt === TargetFormat.PROMPT_IMAGE || fmt === "Prompt Image";
+
+        if (isPostTexte) {
+            if (data.hook) out.push(t(data.hook));
+            if (data.corps) out.push(t(data.corps));
+            if (data.baffe) out.push(t(data.baffe));
+            if (data.cta) out.push(t(data.cta));
+        } else if (isArticle) {
+            if (data.titre_h1) out.push(t(data.titre_h1));
+            if (data.introduction) out.push(t(data.introduction));
+            (data.sections || []).forEach((s: any) => {
+                if (s.sous_titre_h2) out.push(t(s.sous_titre_h2));
+                if (s.contenu) out.push(t(s.contenu));
+            });
+            if (data.conclusion) out.push(t(data.conclusion));
+        } else if (isReelShort) {
+            if (data.hook) out.push(t(data.hook));
+            if (data.corps) out.push(t(data.corps));
+            if (data.cta) out.push(t(data.cta));
+        } else if (isYoutube) {
+            if (data.intro) out.push(t(data.intro));
+            (data.developpement || []).forEach((s: any) => {
+                if (s.contenu) out.push(t(s.contenu));
+            });
+            if (data.conclusion) out.push(t(data.conclusion));
+        } else if (isCarrousel) {
+            (data.slides || []).forEach((s: any) => {
+                if (s.titre) out.push(t(s.titre));
+                if (s.texte) out.push(t(s.texte));
+            });
+        } else if (isPromptImage) {
+            if (data.prompt) out.push(t(data.prompt));
+            if (data.legende) out.push(t(data.legende));
+        } else {
+            return body;
+        }
+        return out.filter(Boolean).join(" ");
+    } catch {
+        // Pas du JSON → texte brut (ancien contenu ou édition manuelle)
+        return body;
     }
-    return formatted;
 };
 
 const parseAIResponse = (responseText: string, key: string): string => {
@@ -198,7 +260,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   
   // Navigation & AI State
   const [showContextSelector, setShowContextSelector] = useState(false);
-  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | null>(null);
+  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | null>(null);
 
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
@@ -275,6 +337,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       setShowContextSelector(false);
       if (pendingContextAction === 'interview') await executeInterview(contextId, modelId);
       else if (pendingContextAction === 'draft') await executeDrafting(contextId, modelId);
+      else if (pendingContextAction === 'carrousel') await executeCarrouselSlides(contextId, modelId);
   };
 
   // --- AI ACTIONS EXECUTORS ---
@@ -284,29 +347,51 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const contextItem = contexts.find(c => c.id === contextId);
           const actionConfig = AI_ACTIONS.GENERATE_INTERVIEW;
-          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description || "Journaliste.");
+          const profondeur = editedItem?.depth || Profondeur.COMPLETE;
+          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description || "Journaliste.", profondeur);
 
-          const promptPayload = [{
+          const promptPayload = {
               titre: editedItem?.title,
               notes: editedItem?.notes,
               angle_strategique: editedItem?.strategicAngle || "",
-              plateformes: editedItem?.platforms
-          }];
+              plateformes: editedItem?.platforms,
+              profondeur,
+          };
 
           const responseText = await callAI(modelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
-          
+
           const cleanedJson = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
           let formattedQuestions = "";
           try {
               const data = JSON.parse(cleanedJson);
-              const qList = data.questions_interieures;
-              if (Array.isArray(qList)) {
-                  formattedQuestions = qList.map((block: any) => {
+
+              // Cas Direct : skip
+              if (data.skip === true) {
+                  formattedQuestions = `_${data.raison || "Profondeur Direct : interview non nécessaire."}_`;
+              }
+              // Nouveau format : axe_cheval_de_troie / axe_gardien_du_seuil / axe_mecanique_invisible
+              else if (data.axe_cheval_de_troie || data.axe_gardien_du_seuil || data.axe_mecanique_invisible) {
+                  const axes = [
+                      { label: "Axe cheval de troie", key: "axe_cheval_de_troie" },
+                      { label: "Axe gardien du seuil", key: "axe_gardien_du_seuil" },
+                      { label: "Axe mécanique invisible", key: "axe_mecanique_invisible" },
+                  ];
+                  formattedQuestions = axes
+                      .filter(({ key }) => Array.isArray(data[key]) && data[key].length > 0)
+                      .map(({ label, key }) => {
+                          const questions = data[key].map((q: string) => `- ${q}`).join('\n');
+                          return `**${label}**\n${questions}`;
+                      })
+                      .join('\n\n');
+              }
+              // Ancien format (rétrocompatibilité)
+              else if (Array.isArray(data.questions_interieures)) {
+                  formattedQuestions = data.questions_interieures.map((block: any) => {
                       const questions = Array.isArray(block.questions) ? block.questions.map((q: string) => `- ${q}`).join('\n') : `- ${block.questions}`;
                       return `**Angle : ${block.angle || "Angle"}**\n${questions}`;
                   }).join('\n\n');
               } else {
-                  formattedQuestions = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+                  formattedQuestions = JSON.stringify(data, null, 2);
               }
           } catch (e) { formattedQuestions = cleanedJson; }
 
@@ -334,13 +419,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               contextItem?.description || "Rédacteur."
           );
 
+          const isDirect = editedItem?.depth === Profondeur.DIRECT;
           const promptPayload = {
               titre: editedItem?.title || "Non défini",
               format_cible: editedItem?.targetFormat || "Non défini",
               cible_offre: editedItem?.targetOffer || "Non défini",
               angle_strategique: editedItem?.strategicAngle || "Non défini",
               metaphore_suggeree: editedItem?.suggestedMetaphor || "Non défini",
-              reponses_interview: editedItem?.interviewAnswers || "Non défini"
+              contenu_source: isDirect
+                  ? (editedItem?.notes || "Non défini")
+                  : (editedItem?.interviewAnswers || editedItem?.notes || "Non défini"),
           };
 
           const responseText = await callAI(modelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
@@ -362,6 +450,38 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       }
   };
 
+  const executeCarrouselSlides = async (contextId: string, modelId: string) => {
+      setIsGenerating(true);
+      try {
+          const contextItem = contexts.find(c => c.id === contextId) || contexts[0];
+          const actionConfig = AI_ACTIONS.GENERATE_CARROUSEL_SLIDES;
+          const systemInstruction = actionConfig.getSystemInstruction(
+              contextItem?.description || "Directeur artistique.",
+              editedItem?.targetOffer || "Non défini",
+              editedItem?.suggestedMetaphor || "Non définie",
+              bodyJsonToText(editedItem?.body || "")  || "Non défini"
+          );
+
+          const responseText = await callAI(modelId, systemInstruction, "", actionConfig.generationConfig);
+
+          const cleaned = extractJsonPayload(responseText);
+          if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
+
+          const contextName = contextItem?.name || "Contexte par défaut";
+          const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
+          const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+
+          const newItem = { ...editedItem!, slides: cleaned + signature };
+          setEditedItem(newItem);
+          await onSave(newItem);
+      } catch (error: any) {
+          setAlertInfo({ isOpen: true, title: "Erreur Slides", message: error.message, type: "error" });
+      } finally {
+          setIsGenerating(false);
+          setPendingContextAction(null);
+      }
+  };
+
   // --- TRIGGER HANDLERS ---
 
   const triggerInterview = () => {
@@ -370,11 +490,17 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   };
 
   const triggerDrafting = () => {
-      if (!editedItem?.interviewAnswers) {
-          setAlertInfo({ isOpen: true, title: "Réponses manquantes", message: "Veuillez répondre aux questions.", type: "error" });
+      const isDirect = editedItem?.depth === Profondeur.DIRECT;
+      if (!isDirect && !editedItem?.interviewAnswers) {
+          setAlertInfo({ isOpen: true, title: "Réponses manquantes", message: "Veuillez répondre aux questions d'interview, ou passer en profondeur Direct.", type: "error" });
           return;
       }
       setPendingContextAction('draft');
+      setShowContextSelector(true);
+  };
+
+  const triggerCarrouselSlides = () => {
+      setPendingContextAction('carrousel');
       setShowContextSelector(true);
   };
 
@@ -439,11 +565,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       <>
         <EditorLayout onClose={onClose} headerContent={Header} footerContent={getFooterContent()}>
             {editedItem.status === ContentStatus.DRAFTING && (
-                <DraftView 
+                <DraftView
                     item={editedItem}
                     onChange={setEditedItem}
                     onLaunchInterview={triggerInterview}
                     onLaunchDrafting={triggerDrafting}
+                    onLaunchCarrouselSlides={triggerCarrouselSlides}
                     onChangeStatus={changeStatus}
                     isGenerating={isGenerating}
                     activeTab={activeStep}

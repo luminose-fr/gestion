@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat, isTargetOffer } from './types';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat, isTargetOffer, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import * as GeminiService from './services/geminiService';
@@ -8,7 +8,7 @@ import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from './ai/config';
 import * as OneMinService from './services/oneMinService';
 
 import SettingsModal from './components/SettingsModal';
-import ContentEditor, { EditorStep } from './components/ContentEditor'; 
+import ContentEditor, { EditorStep, bodyJsonToText } from './components/ContentEditor';
 import { IdeaModal } from './components/IdeaModal'; 
 import AnalysisModal from './components/AnalysisModal';
 import CalendarView from './components/CalendarView';
@@ -40,7 +40,7 @@ const getHashState = () => {
     const itemId = parts[2] && parts[2].trim() !== '' ? parts[2] : null;
     
     let step: EditorStep = 'idea';
-    if (parts[3] && ['idea', 'interview', 'content'].includes(parts[3])) {
+    if (parts[3] && ['idea', 'interview', 'content', 'slides'].includes(parts[3])) {
         step = parts[3] as EditorStep;
     }
 
@@ -440,6 +440,7 @@ function App() {
               const justification = typeof res.justification === 'string' ? res.justification : undefined;
               const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
               const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
+              const depth = isProfondeur(res.profondeur) ? res.profondeur : undefined;
 
               const contextName = contextItem?.name || "Contexte par défaut";
               const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
@@ -449,12 +450,13 @@ function App() {
                   ...itemToAnalyze,
                   title: suggestedTitle || itemToAnalyze.title,
                   verdict: res.verdict,
-                  strategicAngle: res.angle + signature,
+                  strategicAngle: (res.angle_strategique ?? res.angle ?? "") + signature,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
                   targetFormat,
                   targetOffer: targetOffer || itemToAnalyze.targetOffer,
                   justification: justification ?? itemToAnalyze.justification,
                   suggestedMetaphor: suggestedMetaphor ?? itemToAnalyze.suggestedMetaphor,
+                  depth: depth ?? itemToAnalyze.depth,
                   analyzed: true,
               };
               await handleUpdateItem(updatedItem);
@@ -487,7 +489,7 @@ function App() {
   // Filtrage Global par Search Query
   const filteredItems = items.filter(item => 
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.body.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bodyJsonToText(item.body).toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.notes.toLowerCase().includes(searchQuery.toLowerCase())
   );
 

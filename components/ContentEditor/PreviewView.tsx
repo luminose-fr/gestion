@@ -1,6 +1,7 @@
 import React from 'react';
-import { Eye, RotateCcw, CheckCircle2 } from 'lucide-react';
-import { ContentItem, ContentStatus } from '../../types';
+import { Eye, RotateCcw, CheckCircle2, Pencil } from 'lucide-react';
+import { ContentItem, ContentStatus, TargetFormat } from '../../types';
+import { bodyJsonToText } from './index';
 
 interface PreviewViewProps {
     item: ContentItem;
@@ -8,6 +9,22 @@ interface PreviewViewProps {
 }
 
 export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }) => {
+    const renderBody = (body: string) => {
+        const text = bodyJsonToText(body);
+        if (!text) return <span className="italic opacity-50">Pas de contenu rédigé.</span>;
+
+        // Texte brut / édition manuelle → rendu direct
+        try {
+            const lastBrace = body.lastIndexOf('}');
+            const cleaned = lastBrace !== -1 ? body.slice(0, lastBrace + 1) : body;
+            JSON.parse(cleaned);
+        } catch {
+            return <span className="whitespace-pre-wrap">{body}</span>;
+        }
+
+        return <span className="whitespace-pre-wrap leading-relaxed">{text}</span>;
+    };
+
     return (
         <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg p-4 md:p-8 flex justify-center">
             <div className="w-full max-w-4xl flex flex-col gap-8">
@@ -49,8 +66,8 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                         </div>
                     </div>
 
-                    <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed text-lg">
-                        {item.body || <span className="italic opacity-50">Pas de contenu rédigé.</span>}
+                    <div className="prose dark:prose-invert max-w-none leading-relaxed text-lg">
+                        {renderBody(item.body)}
                     </div>
                 </div>
             </div>

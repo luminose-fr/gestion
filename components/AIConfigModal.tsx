@@ -10,7 +10,7 @@ interface AIConfigModalProps {
     onConfirm: (contextId: string, modelId: string) => void;
     contexts: ContextItem[];
     aiModels: AIModel[];
-    actionType: 'interview' | 'draft' | 'analyze';
+    actionType: 'interview' | 'draft' | 'analyze' | 'carrousel';
     onManageContexts: () => void;
 }
 
@@ -23,6 +23,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
     const requiredUsage: ContextUsage = useMemo(() => {
         if (actionType === 'analyze') return ContextUsage.ANALYSTE;
         if (actionType === 'interview') return ContextUsage.INTERVIEWER;
+        if (actionType === 'carrousel') return ContextUsage.ARTISTE;
         return ContextUsage.REDACTEUR;
     }, [actionType]);
 
@@ -90,6 +91,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
             case 'interview': return "Configuration de l'Interview";
             case 'draft': return "Configuration de la Rédaction";
             case 'analyze': return "Configuration de l'Analyse";
+            case 'carrousel': return "Configuration des Slides Carrousel";
             default: return "Configuration IA";
         }
     };

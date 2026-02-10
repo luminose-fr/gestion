@@ -39,7 +39,8 @@ export const isTargetFormat = (value: unknown): value is TargetFormat => {
 export enum ContextUsage {
   REDACTEUR = "Rédacteur",
   ANALYSTE = "Analyste",
-  INTERVIEWER = "Interviewer"
+  INTERVIEWER = "Interviewer",
+  ARTISTE = "Artiste"
 }
 
 export const CONTEXT_USAGE_VALUES = Object.values(ContextUsage) as string[];
@@ -58,6 +59,18 @@ export const TARGET_OFFER_VALUES = Object.values(TargetOffer) as string[];
 
 export const isTargetOffer = (value: unknown): value is TargetOffer => {
   return typeof value === "string" && TARGET_OFFER_VALUES.includes(value);
+};
+
+export enum Profondeur {
+  DIRECT = "Direct",
+  LEGERE = "Légère",
+  COMPLETE = "Complète"
+}
+
+export const PROFONDEUR_VALUES = Object.values(Profondeur) as string[];
+
+export const isProfondeur = (value: unknown): value is Profondeur => {
+  return typeof value === "string" && PROFONDEUR_VALUES.includes(value);
 };
 
 export interface AIModel {
@@ -88,9 +101,13 @@ export interface ContentItem {
   targetOffer?: TargetOffer | null;
   justification?: string;
   suggestedMetaphor?: string;
+  // Profondeur de traitement
+  depth?: Profondeur;
   // Nouveaux champs Interview
   interviewAnswers?: string;
   interviewQuestions?: string;
+  // Champ Slides Carrousel
+  slides?: string;
 }
 
 export interface ContextItem {

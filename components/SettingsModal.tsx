@@ -352,6 +352,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                             <option value={ContextUsage.REDACTEUR}>Rédacteur</option>
                                             <option value={ContextUsage.ANALYSTE}>Analyste</option>
                                             <option value={ContextUsage.INTERVIEWER}>Interviewer</option>
+                                            <option value={ContextUsage.ARTISTE}>Artiste</option>
                                         </select>
                                     </div>
                                     <div className="flex-1 flex flex-col">

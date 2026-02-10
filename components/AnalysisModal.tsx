@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu, User } from 'lucide-react';
-import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetFormat, isTargetOffer } from '../types';
+import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetFormat, isTargetOffer, isProfondeur } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
@@ -129,17 +129,19 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           const justification = typeof res.justification === 'string' ? res.justification : undefined;
           const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
           const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
+          const depth = isProfondeur(res.profondeur) ? res.profondeur : undefined;
 
           const updatedItem: ContentItem = {
             ...originalItem,
             title: suggestedTitle || originalItem.title,
             verdict: res.verdict,
-            strategicAngle: res.angle + signature,
+            strategicAngle: (res.angle_strategique ?? res.angle ?? "") + signature,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
             targetFormat,
             targetOffer: targetOffer || originalItem.targetOffer,
             justification: justification ?? originalItem.justification,
             suggestedMetaphor: suggestedMetaphor ?? originalItem.suggestedMetaphor,
+            depth: depth ?? originalItem.depth,
             analyzed: true,
           };
 

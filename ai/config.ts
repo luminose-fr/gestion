@@ -30,16 +30,17 @@ ${contextDesc}
 
 RÈGLES DE SORTIE (FIXE) :
 Tu dois traiter la liste d'idées fournie.
-Pour chaque idée, tu dois répondre avec :
-1. 'id' : l'identifiant exact de l'idée tel que fourni dans l'entrée (OBLIGATOIRE, ne jamais l'omettre).
-2. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
-3. 'angle' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction.
-4. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
-5. 'format_cible': "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Prompt Image"
-6. 'justification': "2-3 phrases maximum expliquant le verdict."
-7. 'cible_offre': "Standard" | "Seuil" | "Transverse"
-8. 'metaphore_suggeree': "Si une piste métaphorique émerge, la noter ici. Sinon : null."
-9. 'titre': "Titre de travail proposé"
+Pour chaque idée, retourne un objet JSON avec exactement ces champs :
+1. 'id' : l'identifiant exact de l'idée tel que fourni dans l'entrée (OBLIGATOIRE).
+2. 'titre' : Titre de travail proposé.
+3. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
+4. 'justification' : 2-3 phrases maximum expliquant le verdict.
+5. 'cible_offre' : "Standard" | "Seuil" | "Transverse".
+6. 'format_cible' : "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Prompt Image".
+7. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
+8. 'angle_strategique' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction.
+9. 'metaphore_suggeree' : Si une piste métaphorique émerge, la noter ici. Sinon : null.
+10. 'profondeur' : "Direct" | "Légère" | "Complète". Direct = les notes sont suffisantes, pas besoin d'interview. Légère = 1 question par axe. Complète = 3 questions par axe.
 Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu ni balises markdown (pas de \`\`\`json).
         `
     },
@@ -49,27 +50,70 @@ Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu 
         generationConfig: {
             responseMimeType: "application/json" as const
         },
-        getSystemInstruction: (contextDesc: string) => `
+        getSystemInstruction: (contextDesc: string, profondeur: string) => `
 ${contextDesc}
 
 ---
 
 RÈGLES DE SORTIE (FIXE) :
-1. Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON. 
-2. Ne fais aucune introduction, aucune conclusion, aucune commentaire.
-3. Le format JSON doit être le suivant :
-{
-  "questions_interieures": [
-    { "angle": "Axe cheval de troie", "questions": ["q1", "q2", "q3"] },
-    { "angle": "Axe gardien du seuil", "questions": ["q1", "q2", "q3"] },
-    { "angle": "Axe mecanique invisible", "questions": ["q1", "q2", "q3"] }
-  ]
+Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON. Zéro bavardage. Tu donnes directement le JSON.
+
+La profondeur demandée est : "${profondeur}"
+
+Si profondeur = "Direct" :
+json{"skip": true, "raison": "Les notes sont suffisantes pour ce format."}
+
+Si profondeur = "Légère" (1 question par axe) :
+json{
+  "axe_cheval_de_troie": ["Question 1"],
+  "axe_gardien_du_seuil": ["Question 2"],
+  "axe_mecanique_invisible": ["Question 3"]
+}
+
+Si profondeur = "Complète" (3 questions par axe) :
+json{
+  "axe_cheval_de_troie": ["Question 1", "Question 2", "Question 3"],
+  "axe_gardien_du_seuil": ["Question 4", "Question 5", "Question 6"],
+  "axe_mecanique_invisible": ["Question 7", "Question 8", "Question 9"]
 }
 
 DISCIPLINE :
 - Chaque question est formulée au "tu", comme si tu parlais directement à Florent.
 - Chaque question est spécifique au sujet traité (pas de question générique réutilisable d'un sujet à l'autre).
-- Zéro bavardage. Pas de "Voici les questions...". Tu donnes directement le JSON.
+        `
+    },
+
+    GENERATE_CARROUSEL_SLIDES: {
+        model: INTERNAL_MODELS.FAST,
+        generationConfig: {
+            responseMimeType: "application/json" as const
+        },
+        getSystemInstruction: (contextDesc: string, targetOffer: string, metaphore: string, contenu: string) => `
+${contextDesc}
+Cible offre : ${targetOffer}
+Métaphore centrale : ${metaphore}
+Contenu carrousel : ${contenu}
+
+FORMAT DE SORTIE (STRICT) :
+json{
+  "direction_globale": {
+    "style": "Le style visuel unifié pour tout le carrousel.",
+    "palette": "Les 3-4 couleurs dominantes.",
+    "eclairage": "Le type de lumière constant.",
+    "ambiance": "Le ressenti émotionnel global en quelques mots."
+  },
+  "slides": [
+    {
+      "numero": 1,
+      "type": "ILLUSTRÉE ou TYPO",
+      "titre": "Le titre ou accroche à afficher sur la slide. 6 mots max.",
+      "texte": "Le corps de texte court à afficher sur la slide. 2-3 phrases max.",
+      "prompt_dzine": "Le prompt complet en anglais, prêt à coller dans Dzine. 50-80 mots max. Null si type TYPO.",
+      "indication_typo": "Si TYPO : couleur de fond suggérée et style de mise en page. Null si type ILLUSTRÉE.",
+      "note_composition": "Où placer le texte sur l'image (ex: espace libre en haut, tiers gauche dégagé)."
+    }
+  ]
+}
         `
     },
 
@@ -90,23 +134,23 @@ Tu vas recevoir un objet JSON contenant :
 - cible_offre
 - angle_strategique
 - metaphore_suggeree
-- reponses_interview
+- contenu_source (soit les réponses interview, soit les notes brutes si profondeur Direct)
 
-REGLÈS DE SORTIE (FIXE) :
+RÈGLES DE SORTIE (FIXE) :
 GRILLE DE PRODUCTION PAR FORMAT :
 1. Post Texte (Court) — LinkedIn, FB, Insta
 json{
-  "format": "Post Texte (Court)",
+  "format": "Post Texte",
   "hook": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc.",
   "corps": "Paragraphes ultra-courts (1-2 phrases). Alternance prose/listes (→). Montée en tension. La métaphore filée structure le texte.",
   "baffe": "Conclusion tranchante — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse.",
   "cta": "Appel à l'action (question ouverte, invitation à commenter, lien vers offre). JAMAIS d'emoji."
 }
 Ton : Direct, oralisé, percutant. On entend la voix.
-Contrainte de longueur : 150 mots max pour le corps (hors hook et CTA). Si le texte dépasse, c'est qu'il y a du gras à couper. Un Post Texte n'est PAS un mini-article — c'est une pensée unique, dense, qui frappe et s'arrête.
+Contrainte de longueur : 150 mots max pour le corps (hors hook et CTA).
 2. Article (Long/SEO) — Blog, Newsletter
 json{
-  "format": "Article (Long/SEO)",
+  "format": "Article",
   "titre_h1": "Titre accrocheur incluant le mot-clé principal.",
   "introduction": "Structure PAS (Problème → Agitation → Solution). 3-4 paragraphes. Pose la métaphore centrale dès l'intro.",
   "sections": [
@@ -121,7 +165,7 @@ json{
 Ton : Expert, posé, pédagogique, mais garde la radicalité du Seuil et l'oralité de Florent.
 3. Script Vidéo (Reel/Short) — Insta, TikTok, Shorts
 json{
-  "format": "Script Vidéo (Reel/Short)",
+  "format": "Script Reel",
   "contrainte": "150 mots max (60 secondes)",
   "hook": "[0-3s] Hook visuel ou verbal. La phrase qui arrête le scroll.",
   "corps": "[3-50s] Corps rythmé. Style parlé. Intentions visuelles entre crochets : [Plan serré], [Texte à l'écran], [Changement d'angle].",
@@ -130,7 +174,7 @@ json{
 Ton : Parlé, naturel, comme le transcript sur l'injustice. L'humour et le paradoxe sont les moteurs.
 4. Script Vidéo (Youtube)
 json{
-  "format": "Script Vidéo (Youtube)",
+  "format": "Script Youtube",
   "intro": "Hook + Promesse claire. Pourquoi rester jusqu'au bout.",
   "developpement": [
     {
@@ -143,7 +187,7 @@ json{
 Ton : Narratif, profond, utilisant des métaphores filées. Plus long, plus contemplatif, mais toujours incarné.
 5. Carrousel (Slide par Slide) — LinkedIn, Insta
 json{
-  "format": "Carrousel (Slide par Slide)",
+  "format": "Carrousel",
   "slides": [
     {
       "numero": 1,

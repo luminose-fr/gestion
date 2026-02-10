@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage, TargetOffer, isTargetOffer } from "../types";
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage, TargetOffer, isTargetOffer, Profondeur, isProfondeur } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -347,8 +347,11 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   const justification = notionToMarkdown(props["Justification"]);
   const suggestedMetaphor = notionToMarkdown(props["Métaphore Suggérée"]);
   const strategicAngle = notionToMarkdown(props["Angle stratégique"]);
+  const depthValue = props["Profondeur"]?.select?.name;
+  const depth = isProfondeur(depthValue) ? (depthValue as Profondeur) : undefined;
   const interviewAnswers = notionToMarkdown(props["Réponses interview"]);
   const interviewQuestions = notionToMarkdown(props["Questions interview"]);
+  const slides = notionToMarkdown(props["Slides"]);
 
   return {
     id: page.id,
@@ -366,8 +369,10 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     justification,
     suggestedMetaphor,
     strategicAngle,
+    depth,
     interviewAnswers,
-    interviewQuestions
+    interviewQuestions,
+    slides
   };
 };
 
@@ -564,8 +569,18 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
     }
 
     if (item.interviewQuestions !== undefined) {
-        properties["Questions interview"] = { 
+        properties["Questions interview"] = {
             rich_text: markdownToNotion(item.interviewQuestions || "")
+        };
+    }
+
+    if (item.depth !== undefined) {
+        properties["Profondeur"] = item.depth ? { select: { name: item.depth } } : { select: null };
+    }
+
+    if (item.slides !== undefined) {
+        properties["Slides"] = {
+            rich_text: markdownToNotion(item.slides || "")
         };
     }
 
