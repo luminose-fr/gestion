@@ -542,6 +542,11 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             {item.targetFormat}
                                         </span>
                                     )}
+                                    {item.depth && (
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${DEPTH_COLORS[item.depth] || ''}`}>
+                                            <Zap className="w-2.5 h-2.5 inline mr-1" />{item.depth}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {isEditingBody ? (
@@ -677,10 +682,17 @@ export const DraftView: React.FC<DraftViewProps> = ({
                 {activeTab === 'slides' && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 flex flex-col pb-10">
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-violet-500/20 overflow-hidden flex flex-col flex-1 min-h-[500px]">
-                            <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between">
-                                <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
-                                    <Images className="w-3 h-3" /> Direction artistique
-                                </p>
+                            <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                        <Images className="w-3 h-3" /> Direction artistique
+                                    </p>
+                                    {item.depth && (
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${DEPTH_COLORS[item.depth] || ''}`}>
+                                            <Zap className="w-2.5 h-2.5 inline mr-1" />{item.depth}
+                                        </span>
+                                    )}
+                                </div>
                                 <SecBtn
                                     onClick={onLaunchCarrouselSlides}
                                     disabled={isGenerating}

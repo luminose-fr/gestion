@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase } from 'lucide-react';
 import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat, isTargetOffer, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
@@ -446,11 +446,16 @@ function App() {
               const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
               const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
+              const rawAngle = (res.angle_strategique ?? res.angle ?? "");
+              const angleWithTitle = suggestedTitle
+                  ? `**Titre suggéré :** ${suggestedTitle}\n\n${rawAngle}`
+                  : rawAngle;
+
               const updatedItem: ContentItem = {
                   ...itemToAnalyze,
-                  title: suggestedTitle || itemToAnalyze.title,
+                  // Le titre initial n'est PAS remplacé — le titre suggéré est visible dans le bloc Analyse IA
                   verdict: res.verdict,
-                  strategicAngle: (res.angle_strategique ?? res.angle ?? "") + signature,
+                  strategicAngle: angleWithTitle + signature,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
                   targetFormat,
                   targetOffer: targetOffer || itemToAnalyze.targetOffer,
@@ -472,6 +477,42 @@ function App() {
       setIsContextManagerOpen(true);
   };
 
+  // ── Hooks dérivés — TOUJOURS avant tout return conditionnel ──────────────
+
+  const filteredItems = useMemo(() => items.filter(item =>
+    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bodyJsonToText(item.body).toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.notes.toLowerCase().includes(searchQuery.toLowerCase())
+  ), [items, searchQuery]);
+
+  const ideaItems    = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.IDEA),     [filteredItems]);
+  const draftingItems = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.DRAFTING), [filteredItems]);
+  const readyItems   = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.READY),    [filteredItems]);
+
+  const archiveItems = useMemo(() => {
+    const today = new Date();
+    return filteredItems
+      .filter(i => i.status === ContentStatus.PUBLISHED && !!i.scheduledDate && new Date(i.scheduledDate) < today)
+      .sort((a, b) => {
+        const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
+        const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0;
+        return dateB - dateA;
+      });
+  }, [filteredItems]);
+
+  const counts = useMemo(() => {
+    const today = new Date();
+    return {
+      ideas:    items.filter(i => i.status === ContentStatus.IDEA).length,
+      drafts:   items.filter(i => i.status === ContentStatus.DRAFTING).length,
+      ready:    items.filter(i => i.status === ContentStatus.READY).length,
+      calendar: items.filter(i => !!i.scheduledDate && new Date(i.scheduledDate) > today).length,
+      archive:  items.filter(i => i.status === ContentStatus.PUBLISHED && !!i.scheduledDate && new Date(i.scheduledDate) < today).length,
+    };
+  }, [items]);
+
+  // ── Returns conditionnels (après tous les hooks) ──────────────────────────
+
   if (checkingAuth) {
     return (
       <div className="h-screen flex items-center justify-center bg-brand-light dark:bg-dark-bg">
@@ -485,40 +526,6 @@ function App() {
   }
 
   const today = new Date();
-
-  // Filtrage Global par Search Query
-  const filteredItems = items.filter(item => 
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bodyJsonToText(item.body).toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.notes.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Segmentation
-  const ideaItems = filteredItems.filter(i => i.status === ContentStatus.IDEA);
-  const draftingItems = filteredItems.filter(i => i.status === ContentStatus.DRAFTING);
-  const readyItems = filteredItems.filter(i => i.status === ContentStatus.READY);
-  
-  const archiveItems = filteredItems.filter(i => {
-    if (i.status !== ContentStatus.PUBLISHED) return false;
-    if (!i.scheduledDate) return false;
-    return new Date(i.scheduledDate) < today;
-  }).sort((a, b) => {
-    const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
-    const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0;
-    return dateB - dateA;
-  });
-
-  const futureScheduledCount = items.filter(i => 
-    i.scheduledDate && new Date(i.scheduledDate) > today
-  ).length;
-
-  const counts = {
-      ideas: items.filter(i => i.status === ContentStatus.IDEA).length,
-      drafts: items.filter(i => i.status === ContentStatus.DRAFTING).length,
-      ready: items.filter(i => i.status === ContentStatus.READY).length,
-      calendar: futureScheduledCount,
-      archive: items.filter(i => i.status === ContentStatus.PUBLISHED && i.scheduledDate && new Date(i.scheduledDate) < today).length
-  };
 
   return (
     <div className="h-screen bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans flex flex-col transition-colors duration-200 overflow-hidden">

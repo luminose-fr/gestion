@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu, User } from 'lucide-react';
 import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetFormat, isTargetOffer, isProfondeur } from '../types';
 import * as GeminiService from '../services/geminiService';
@@ -45,6 +45,13 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
   const [progress, setProgress] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
+  // Garde-fou : évite les setState sur composant démonté pendant l'analyse async
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+      isMountedRef.current = true;
+      return () => { isMountedRef.current = false; };
+  }, []);
+
   useEscapeClose(isOpen, onClose, isAnalyzing);
 
   if (!isOpen) return null;
@@ -53,6 +60,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
   const modelName = aiModels.find(m => m.apiCode === selectedModelId)?.name || selectedModelId;
 
   const handleStartAnalysis = async () => {
+    if (!isMountedRef.current) return;
     setIsAnalyzing(true);
     setError(null);
     setProgress("Préparation des données...");
@@ -72,7 +80,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         notes: item.notes
       }));
       
-      setProgress(`Interrogation de l'IA (${modelName})...`);
+      if (isMountedRef.current) setProgress(`Interrogation de l'IA (${modelName})...`);
       
       // 3. Appel API (Gemini ou 1min.AI)
       let responseText = "";
@@ -92,7 +100,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           });
       }
 
-      setProgress("Traitement des réponses...");
+      if (isMountedRef.current) setProgress("Traitement des réponses...");
 
       // 4. Parsing de la réponse
       let results: AnalysisResult[] = [];
@@ -106,7 +114,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       }
 
       // 5. Mise à jour de Notion
-      setProgress(`Mise à jour de Notion (0/${results.length})...`);
+      if (isMountedRef.current) setProgress(`Mise à jour de Notion (0/${results.length})...`);
 
       const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
@@ -131,11 +139,16 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
           const depth = isProfondeur(res.profondeur) ? res.profondeur : undefined;
 
+          const rawAngle = (res.angle_strategique ?? res.angle ?? "");
+          const angleWithTitle = suggestedTitle
+            ? `**Titre suggéré :** ${suggestedTitle}\n\n${rawAngle}`
+            : rawAngle;
+
           const updatedItem: ContentItem = {
             ...originalItem,
-            title: suggestedTitle || originalItem.title,
+            // Le titre initial n'est PAS remplacé — le titre suggéré est visible dans le bloc Analyse IA
             verdict: res.verdict,
-            strategicAngle: (res.angle_strategique ?? res.angle ?? "") + signature,
+            strategicAngle: angleWithTitle + signature,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
             targetFormat,
             targetOffer: targetOffer || originalItem.targetOffer,
@@ -147,7 +160,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
           await NotionService.updateContent(updatedItem);
           updateCount++;
-          setProgress(`Mise à jour de Notion (${updateCount}/${results.length})...`);
+          if (isMountedRef.current) setProgress(`Mise à jour de Notion (${updateCount}/${results.length})...`);
         }
       }
 
@@ -155,15 +168,16 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         throw new Error(`Aucune idée n'a pu être mise à jour. L'IA a renvoyé ${results.length} résultats mais aucun n'a pu être associé aux idées d'origine.`);
       }
 
-      setProgress(`Terminé ! ${updateCount}/${results.length} idées mises à jour.`);
-      onAnalysisComplete();
-      onClose();
-
+      if (isMountedRef.current) {
+        setProgress(`Terminé ! ${updateCount}/${results.length} idées mises à jour.`);
+        onAnalysisComplete();
+        onClose();
+      }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Une erreur est survenue pendant l'analyse.");
+      if (isMountedRef.current) setError(err.message || "Une erreur est survenue pendant l'analyse.");
     } finally {
-      setIsAnalyzing(false);
+      if (isMountedRef.current) setIsAnalyzing(false);
     }
   };
 

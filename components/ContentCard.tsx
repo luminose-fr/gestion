@@ -1,10 +1,16 @@
 import React from 'react';
-import { Calendar, FileText, CheckCircle2 } from 'lucide-react';
-import { ContentItem, Platform, ContentStatus } from '../types';
+import { Calendar, FileText, CheckCircle2, Zap } from 'lucide-react';
+import { ContentItem, Platform, ContentStatus, Profondeur } from '../types';
 import { bodyJsonToText } from './ContentEditor/index';
 import { STATUS_COLORS } from '../constants';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+
+const DEPTH_COLORS: Record<string, string> = {
+    [Profondeur.DIRECT]:   'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+    [Profondeur.LEGERE]:   'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+    [Profondeur.COMPLETE]: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+};
 
 interface ContentCardProps {
   item: ContentItem;
@@ -21,7 +27,8 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
   const getHighlightedText = (text: string, highlightTerm?: string) => {
     if (!highlightTerm || !highlightTerm.trim()) return text;
     
-    const parts = text.split(new RegExp(`(${highlightTerm})`, 'gi'));
+    const escaped = highlightTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return parts.map((part, i) => 
         part.toLowerCase() === highlightTerm.toLowerCase() ? (
             <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded px-0.5">{part}</span>
@@ -47,8 +54,8 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
         {getHighlightedText(bodyJsonToText(item.body) || "Pas de contenu...", highlight)}
       </p>
 
-      <div className="flex items-center justify-between mt-auto">
-        <div className="flex items-center gap-2 overflow-hidden">
+      <div className="flex items-center justify-between mt-auto gap-2">
+        <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
           {item.platforms.length > 0 ? (
              <div className="flex flex-wrap gap-1">
                  {item.platforms.slice(0, 2).map((p, i) => (
@@ -77,12 +84,19 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
           )}
         </div>
 
-        {formattedDate && (
-          <div className="flex items-center gap-1 text-xs text-brand-main/60 dark:text-dark-text/60 bg-brand-light dark:bg-dark-bg px-2 py-1 rounded-md">
-            <Calendar className="w-3 h-3" />
-            <span>{formattedDate}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {item.depth && (
+            <span className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${DEPTH_COLORS[item.depth] || 'bg-gray-100 text-gray-500'}`}>
+              <Zap className="w-2.5 h-2.5" />{item.depth}
+            </span>
+          )}
+          {formattedDate && (
+            <div className="flex items-center gap-1 text-xs text-brand-main/60 dark:text-dark-text/60 bg-brand-light dark:bg-dark-bg px-2 py-1 rounded-md">
+              <Calendar className="w-3 h-3" />
+              <span>{formattedDate}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

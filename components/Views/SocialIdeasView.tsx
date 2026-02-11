@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, Plus, Loader2, Sparkles, ChevronRight, Globe } from 'lucide-react';
 import { ContentItem, Verdict } from '../../types';
 import { MarkdownToolbar } from '../MarkdownToolbar';
@@ -45,11 +45,13 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
         return false;
     });
 
-    const countAll = items.length;
-    const countToAnalyze = items.filter(i => !i.analyzed).length;
-    const countValid = items.filter(i => i.verdict === Verdict.VALID).length;
-    const countBland = items.filter(i => i.verdict === Verdict.TOO_BLAND).length;
-    const countWork = items.filter(i => i.verdict === Verdict.NEEDS_WORK).length;
+    const { countAll, countToAnalyze, countValid, countBland, countWork } = useMemo(() => ({
+        countAll:       items.length,
+        countToAnalyze: items.filter(i => !i.analyzed).length,
+        countValid:     items.filter(i => i.verdict === Verdict.VALID).length,
+        countBland:     items.filter(i => i.verdict === Verdict.TOO_BLAND).length,
+        countWork:      items.filter(i => i.verdict === Verdict.NEEDS_WORK).length,
+    }), [items]);
 
     const getVerdictColor = (verdict?: Verdict) => {
         switch (verdict) {
@@ -62,7 +64,8 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
 
     const HighlightText = ({ text, highlight }: { text: string, highlight: string }) => {
         if (!highlight || !highlight.trim()) return <>{text}</>;
-        const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+        const escaped = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
         return (
             <>
                 {parts.map((part, i) => 

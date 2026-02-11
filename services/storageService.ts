@@ -32,75 +32,77 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
-export const getCachedContent = async (): Promise<ContentItem[]> => {
+/**
+ * Ouvre la DB, exécute une opération, puis ferme la connexion.
+ * Garantit qu'on ne laisse jamais de connexion ouverte indéfiniment.
+ */
+const withDB = async <T>(operation: (db: IDBDatabase) => Promise<T>): Promise<T> => {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
+  try {
+    return await operation(db);
+  } finally {
+    db.close();
+  }
+};
+
+export const getCachedContent = (): Promise<ContentItem[]> =>
+  withDB(db => new Promise((resolve, reject) => {
     try {
       const transaction = db.transaction(STORE_CONTENT, "readonly");
       const store = transaction.objectStore(STORE_CONTENT);
       const request = store.getAll();
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
-    } catch (e) {
+    } catch {
       // Fallback si le store n'existe pas encore (cas rare après upgrade)
       resolve([]);
     }
-  });
-};
+  }));
 
-export const setCachedContent = async (items: ContentItem[]): Promise<void> => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
+export const setCachedContent = (items: ContentItem[]): Promise<void> =>
+  withDB(db => new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_CONTENT, "readwrite");
     const store = transaction.objectStore(STORE_CONTENT);
     store.clear();
     items.forEach(item => store.put(item));
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
-  });
-};
+  }));
 
-export const updateCachedItem = async (item: ContentItem): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_CONTENT, "readwrite");
-        const store = transaction.objectStore(STORE_CONTENT);
-        store.put(item);
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-    });
-};
+export const updateCachedItem = (item: ContentItem): Promise<void> =>
+  withDB(db => new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_CONTENT, "readwrite");
+    const store = transaction.objectStore(STORE_CONTENT);
+    store.put(item);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  }));
 
-export const getCachedContexts = async (): Promise<ContextItem[]> => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
+export const getCachedContexts = (): Promise<ContextItem[]> =>
+  withDB(db => new Promise((resolve, reject) => {
     try {
       const transaction = db.transaction(STORE_CONTEXTS, "readonly");
       const store = transaction.objectStore(STORE_CONTEXTS);
       const request = store.getAll();
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
-    } catch (e) {
+    } catch {
       resolve([]);
     }
-  });
-};
+  }));
 
-export const setCachedContexts = async (contexts: ContextItem[]): Promise<void> => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
+export const setCachedContexts = (contexts: ContextItem[]): Promise<void> =>
+  withDB(db => new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_CONTEXTS, "readwrite");
     const store = transaction.objectStore(STORE_CONTEXTS);
     store.clear();
     contexts.forEach(ctx => store.put(ctx));
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
-  });
-};
+  }));
 
-export const getCachedModels = async (): Promise<AIModel[]> => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
+export const getCachedModels = (): Promise<AIModel[]> =>
+  withDB(db => new Promise((resolve, reject) => {
     try {
       const transaction = db.transaction(STORE_MODELS, "readonly");
       const store = transaction.objectStore(STORE_MODELS);
@@ -112,20 +114,17 @@ export const getCachedModels = async (): Promise<AIModel[]> => {
       console.warn("Store models introuvable, retour tableau vide", e);
       resolve([]);
     }
-  });
-};
+  }));
 
-export const setCachedModels = async (models: AIModel[]): Promise<void> => {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
+export const setCachedModels = (models: AIModel[]): Promise<void> =>
+  withDB(db => new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_MODELS, "readwrite");
     const store = transaction.objectStore(STORE_MODELS);
     store.clear();
     models.forEach(m => store.put(m));
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
-  });
-};
+  }));
 
 const safeGetLocalStorage = (key: string): string | null => {
   try {

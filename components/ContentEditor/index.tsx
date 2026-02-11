@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2, Trash2, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Loader2, Trash2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, isTargetFormat, Profondeur } from '../../types';
 import { STATUS_COLORS } from '../../constants';
 import * as GeminiService from '../../services/geminiService';
@@ -247,16 +247,30 @@ const parseAIResponse = (responseText: string, key: string): string => {
     return cleaned;
 };
 
-const ContentEditor: React.FC<ContentEditorProps> = ({ 
+const ContentEditor: React.FC<ContentEditorProps> = ({
     item, contexts, aiModels = [], onClose, onSave, onDelete, onManageContexts,
     activeStep, onStepChange
 }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
-  
+
   // Status Flags
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Timer ref pour auto-reset du saveStatus
+  const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Garde-fou : évite les setState sur composant démonté pendant les appels IA async
+  const isMountedRef = React.useRef(true);
+  React.useEffect(() => {
+      isMountedRef.current = true;
+      return () => {
+          isMountedRef.current = false;
+          if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+      };
+  }, []);
   
   // Navigation & AI State
   const [showContextSelector, setShowContextSelector] = useState(false);
@@ -287,24 +301,49 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
     }
   }, [item, activeStep]); 
 
+  // isDirty : vrai si editedItem diffère du item Notion source
+  const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
+
   if (!editedItem) return null;
+
+  // --- HELPERS SAVE STATUS ---
+
+  const triggerSaveStatus = (status: 'saved' | 'error') => {
+      if (!isMountedRef.current) return;
+      setSaveStatus(status);
+      if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+      saveStatusTimerRef.current = setTimeout(() => {
+          if (isMountedRef.current) setSaveStatus('idle');
+      }, 2500);
+  };
+
+  const saveWithStatus = async (itemToSave: ContentItem) => {
+      if (!isMountedRef.current) return;
+      setSaveStatus('saving');
+      setIsSaving(true);
+      try {
+          await onSave(itemToSave);
+          triggerSaveStatus('saved');
+      } catch (e) {
+          triggerSaveStatus('error');
+          throw e;
+      } finally {
+          if (isMountedRef.current) setIsSaving(false);
+      }
+  };
 
   // --- ACTIONS ---
 
   const handleManualSave = async () => {
       if (isSaving || !editedItem) return;
-      setIsSaving(true);
-      await onSave(editedItem);
-      setIsSaving(false);
+      await saveWithStatus(editedItem);
   };
 
   const changeStatus = async (newStatus: ContentStatus) => {
       if (isSaving || !editedItem) return;
-      setIsSaving(true);
       const newItem = { ...editedItem, status: newStatus };
       setEditedItem(newItem);
-      await onSave(newItem);
-      setIsSaving(false);
+      await saveWithStatus(newItem);
   };
 
   const handleDelete = async () => {
@@ -343,6 +382,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   // --- AI ACTIONS EXECUTORS ---
 
   const executeInterview = async (contextId: string, modelId: string) => {
+      if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
           const contextItem = contexts.find(c => c.id === contextId);
@@ -400,17 +440,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           const newItem = { ...editedItem!, interviewQuestions: formattedQuestions + signature };
-          setEditedItem(newItem);
-          await onSave(newItem);
+          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
       } catch (error: any) {
-          setAlertInfo({ isOpen: true, title: "Erreur IA", message: error.message, type: "error" });
+          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur IA", message: error.message, type: "error" });
       } finally {
-          setIsGenerating(false);
-          setPendingContextAction(null);
+          if (isMountedRef.current) { setIsGenerating(false); setPendingContextAction(null); }
       }
   };
 
   const executeDrafting = async (contextId: string, modelId: string) => {
+      if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
           const contextItem = contexts.find(c => c.id === contextId) || contexts[0];
@@ -439,18 +478,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           const newItem = { ...editedItem!, body: finalContent + signature };
-          setEditedItem(newItem);
-          await onSave(newItem);
-          onStepChange('content'); 
+          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); onStepChange('content'); }
       } catch (error: any) {
-          setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
+          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
       } finally {
-          setIsGenerating(false);
-          setPendingContextAction(null);
+          if (isMountedRef.current) { setIsGenerating(false); setPendingContextAction(null); }
       }
   };
 
   const executeCarrouselSlides = async (contextId: string, modelId: string) => {
+      if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
           const contextItem = contexts.find(c => c.id === contextId) || contexts[0];
@@ -472,13 +509,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           const newItem = { ...editedItem!, slides: cleaned + signature };
-          setEditedItem(newItem);
-          await onSave(newItem);
+          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
       } catch (error: any) {
-          setAlertInfo({ isOpen: true, title: "Erreur Slides", message: error.message, type: "error" });
+          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Slides", message: error.message, type: "error" });
       } finally {
-          setIsGenerating(false);
-          setPendingContextAction(null);
+          if (isMountedRef.current) { setIsGenerating(false); setPendingContextAction(null); }
       }
   };
 
@@ -515,11 +550,33 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       }
   };
 
+  const SaveIndicator = () => {
+      if (saveStatus === 'saving') return (
+          <span className="flex items-center gap-1.5 text-xs text-brand-main/60 dark:text-dark-text/60 animate-pulse">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Sauvegarde…
+          </span>
+      );
+      if (saveStatus === 'saved') return (
+          <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Enregistré
+          </span>
+      );
+      if (saveStatus === 'error') return (
+          <span className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Erreur sauvegarde
+          </span>
+      );
+      return null;
+  };
+
   const Header = (
       <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
           {editedItem.status === ContentStatus.DRAFTING ? (
-              <input 
-                  type="text" 
+              <input
+                  type="text"
                   value={editedItem.title}
                   onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
                   className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-none w-full md:max-w-2xl"
@@ -530,7 +587,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   <span className="truncate">{editedItem.title}</span>
               </h2>
           )}
-          <div className="flex items-center gap-2 md:ml-auto">
+          <div className="flex items-center gap-3 md:ml-auto">
+              <SaveIndicator />
               {editedItem.verdict && (
                   <div className={`hidden md:block px-3 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${getVerdictColor(editedItem.verdict)}`}>
                       {editedItem.verdict}
@@ -544,19 +602,25 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   );
 
   const getFooterContent = () => {
+      const canSave = isDirty && !isSaving;
       return (
           <>
-                <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-sm font-medium mr-auto">
-                    <Trash2 className="w-4 h-4" /> Supprimer
-                </button>
-                <button 
-                    onClick={handleManualSave}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-2 text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-bg rounded-lg transition-colors font-medium text-sm"
-                >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Enregistrer
-                </button>
+              <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-sm font-medium mr-auto">
+                  <Trash2 className="w-4 h-4" /> Supprimer
+              </button>
+              <button
+                  onClick={handleManualSave}
+                  disabled={!canSave}
+                  title={!isDirty ? "Aucune modification à enregistrer" : undefined}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${
+                      canSave
+                          ? 'text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-bg cursor-pointer'
+                          : 'text-brand-main/30 dark:text-dark-text/30 cursor-not-allowed'
+                  }`}
+              >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Enregistrer
+              </button>
           </>
       );
   };
