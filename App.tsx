@@ -555,7 +555,7 @@ function App() {
                     `}
                 >
                     <Briefcase className="w-4 h-4" />
-                    SocialFlows
+                    Contenus
                 </button>
                 <button
                     onClick={() => updateRoute('clients', 'ideas')}

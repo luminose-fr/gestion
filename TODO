@@ -1,1 +1,4 @@
-Paramétrer des settings par défaut (préselection d'un modèle + contexte pour tel cas)
+0. Pour les slides : en passant du texte à la forme Slides, l'IA altère le texte. Est-ce pertinent de la laisser faire ?
+1. Plus de clarté du ce qui est envoyé à l'IA et ce qui est récupéré : éventuellement, préselection modifiable 
+2. ET possibilité de modifier les données transmises à l'IA
+3. Renommer "Social Flows" en "Contenus" et découper entre "Idées" / "Travail des idées" / "Publication (=publer // github à terme)"

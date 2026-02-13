@@ -118,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     onClick={() => { onNavigate('social', currentSocialTab); onMobileClose(); }}
                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-white"
                                 >
-                                    <Briefcase className="w-5 h-5" /> SocialFlows
+                                    <Briefcase className="w-5 h-5" /> Contenus
                                 </button>
                                 <button
                                     onClick={() => { onNavigate('clients', 'ideas'); onMobileClose(); }}
@@ -153,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     onClick={() => { onNavigate('social', 'ideas'); onMobileClose(); }}
                                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brand-main/70 dark:text-dark-text/70"
                                 >
-                                    <Briefcase className="w-5 h-5" /> SocialFlows
+                                    <Briefcase className="w-5 h-5" /> Contenus
                                 </button>
                                 <button
                                     onClick={() => { onNavigate('clients', 'ideas'); onMobileClose(); }}
