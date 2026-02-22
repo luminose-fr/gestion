@@ -13,7 +13,7 @@ import { EditorLayout } from './EditorLayout';
 import { DraftView } from './DraftView';
 import { PreviewView } from './PreviewView';
 
-export type EditorStep = 'idea' | 'interview' | 'content' | 'slides' | 'postcourt';
+export type EditorStep = 'idea' | 'interview' | 'content' | 'slides' | 'postcourt' | 'script';
 
 interface ContentEditorProps {
   item: ContentItem | null;
@@ -394,6 +394,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               titre: editedItem?.title,
               notes: editedItem?.notes,
               angle_strategique: editedItem?.strategicAngle || "",
+              metaphore_suggeree: editedItem?.suggestedMetaphor || "",
+              justification: editedItem?.justification || "",
               plateformes: editedItem?.platforms,
               profondeur,
           };
@@ -402,36 +404,22 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const cleanedJson = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
           let formattedQuestions = "";
+          let draftZero: string | undefined;
+
           try {
               const data = JSON.parse(cleanedJson);
 
-              // Cas Direct : skip
               if (data.skip === true) {
+                  // ── Mode Passe-plat (Direct) ──
                   formattedQuestions = `_${data.raison || "Profondeur Direct : interview non nécessaire."}_`;
-              }
-              // Nouveau format : axe_cheval_de_troie / axe_gardien_du_seuil / axe_mecanique_invisible
-              else if (data.axe_cheval_de_troie || data.axe_gardien_du_seuil || data.axe_mecanique_invisible) {
-                  const axes = [
-                      { label: "Axe cheval de troie", key: "axe_cheval_de_troie" },
-                      { label: "Axe gardien du seuil", key: "axe_gardien_du_seuil" },
-                      { label: "Axe mécanique invisible", key: "axe_mecanique_invisible" },
-                  ];
-                  formattedQuestions = axes
-                      .filter(({ key }) => Array.isArray(data[key]) && data[key].length > 0)
-                      .map(({ label, key }) => {
-                          const questions = data[key].map((q: string) => `- ${q}`).join('\n');
-                          return `**${label}**\n${questions}`;
-                      })
-                      .join('\n\n');
-              }
-              // Ancien format (rétrocompatibilité)
-              else if (Array.isArray(data.questions_interieures)) {
-                  formattedQuestions = data.questions_interieures.map((block: any) => {
-                      const questions = Array.isArray(block.questions) ? block.questions.map((q: string) => `- ${q}`).join('\n') : `- ${block.questions}`;
-                      return `**Angle : ${block.angle || "Angle"}**\n${questions}`;
-                  }).join('\n\n');
               } else {
-                  formattedQuestions = JSON.stringify(data, null, 2);
+                  // ── Mode Maïeutique réactionnelle ──
+                  if (typeof data.draft_zero === 'string' && data.draft_zero.trim()) {
+                      draftZero = data.draft_zero.trim();
+                  }
+                  if (Array.isArray(data.questions) && data.questions.length > 0) {
+                      formattedQuestions = data.questions.map((q: string, i: number) => `**Question ${i + 1}**\n${q}`).join('\n\n');
+                  }
               }
           } catch (e) { formattedQuestions = cleanedJson; }
 
@@ -439,7 +427,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
           const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
-          const newItem = { ...editedItem!, interviewQuestions: formattedQuestions + signature };
+          const newItem = {
+              ...editedItem!,
+              interviewQuestions: formattedQuestions + signature,
+              ...(draftZero ? { body: draftZero + signature } : {}),
+          };
           if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur IA", message: error.message, type: "error" });
@@ -459,16 +451,32 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const isDirect = editedItem?.depth === Profondeur.DIRECT;
-          const promptPayload = {
+
+          // Extraire draft_zero depuis le body (texte brut stocké par executeInterview)
+          let draftZero = "";
+          if (!isDirect && editedItem?.body) {
+              const bodyData = (() => { try { return JSON.parse(editedItem.body); } catch { return null; } })();
+              if (!bodyData?.format) {
+                  // Texte brut = draft_zero stocké par l'intervieweur
+                  draftZero = editedItem.body;
+              }
+          }
+
+          const promptPayload: Record<string, string> = {
               titre: editedItem?.title || "Non défini",
               format_cible: editedItem?.targetFormat || "Non défini",
               cible_offre: editedItem?.targetOffer || "Non défini",
               angle_strategique: editedItem?.strategicAngle || "Non défini",
               metaphore_suggeree: editedItem?.suggestedMetaphor || "Non défini",
-              contenu_source: isDirect
-                  ? (editedItem?.notes || "Non défini")
-                  : (editedItem?.interviewAnswers || editedItem?.notes || "Non défini"),
+              profondeur: editedItem?.depth || "Non défini",
+              notes: editedItem?.notes || "",
           };
+
+          if (!isDirect) {
+              if (draftZero) promptPayload.draft_zero = draftZero;
+              if (editedItem?.interviewQuestions) promptPayload.questions_interview = editedItem.interviewQuestions;
+              if (editedItem?.interviewAnswers) promptPayload.reponses_interview = editedItem.interviewAnswers;
+          }
 
           const responseText = await callAI(modelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
           const finalContent = parseDraftResponse(responseText);
@@ -477,8 +485,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
           const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
-          const newItem = { ...editedItem!, body: finalContent + signature };
-          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); onStepChange('content'); }
+          // Router le résultat : scriptVideo pour les formats vidéo, body sinon
+          const isVideoFormat = editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
+              || editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+
+          const newItem = isVideoFormat
+              ? { ...editedItem!, scriptVideo: finalContent + signature }
+              : { ...editedItem!, body: finalContent + signature };
+
+          const targetTab: EditorStep = isVideoFormat ? 'script' : 'content';
+          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); onStepChange(targetTab); }
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
       } finally {
@@ -669,7 +685,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             confirmLabel="Supprimer"
         />
 
-        <AIConfigModal 
+        <AIConfigModal
             isOpen={showContextSelector}
             onClose={() => setShowContextSelector(false)}
             onConfirm={handleContextConfirm}
@@ -677,6 +693,32 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             aiModels={aiModels}
             actionType={pendingContextAction || 'draft'}
             onManageContexts={onManageContexts}
+            dataSummary={(() => {
+                if (!editedItem) return [];
+                const action = pendingContextAction;
+                if (action === 'interview') {
+                    const labels = ['Titre', 'Notes', 'Profondeur'];
+                    if (editedItem.strategicAngle) labels.push('Angle stratégique');
+                    if (editedItem.suggestedMetaphor) labels.push('Métaphore suggérée');
+                    if (editedItem.justification) labels.push('Justification');
+                    if (editedItem.platforms.length > 0) labels.push('Plateformes');
+                    return labels;
+                }
+                if (action === 'draft') {
+                    const isDirect = editedItem.depth === Profondeur.DIRECT;
+                    const labels = ['Titre', 'Format cible', 'Offre cible', 'Angle stratégique', 'Métaphore suggérée', 'Profondeur', 'Notes'];
+                    if (!isDirect) {
+                        if (editedItem.body) labels.push('Draft 0');
+                        if (editedItem.interviewQuestions) labels.push('Questions interview');
+                        if (editedItem.interviewAnswers) labels.push('Réponses interview');
+                    }
+                    return labels;
+                }
+                if (action === 'carrousel') {
+                    return ['Offre cible', 'Métaphore suggérée', 'Contenu rédigé'];
+                }
+                return [];
+            })()}
         />
       </>
   );

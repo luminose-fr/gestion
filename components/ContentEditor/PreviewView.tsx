@@ -67,7 +67,10 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                     </div>
 
                     <div className="prose dark:prose-invert max-w-none leading-relaxed text-lg">
-                        {renderBody(item.body)}
+                        {(item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE)
+                            ? renderBody(item.scriptVideo || item.body)
+                            : renderBody(item.body)
+                        }
                     </div>
                 </div>
             </div>

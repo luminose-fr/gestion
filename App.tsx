@@ -40,7 +40,7 @@ const getHashState = () => {
     const itemId = parts[2] && parts[2].trim() !== '' ? parts[2] : null;
     
     let step: EditorStep = 'idea';
-    if (parts[3] && ['idea', 'interview', 'content', 'slides', 'postcourt'].includes(parts[3])) {
+    if (parts[3] && ['idea', 'interview', 'content', 'slides', 'postcourt', 'script'].includes(parts[3])) {
         step = parts[3] as EditorStep;
     }
 
@@ -482,6 +482,7 @@ function App() {
   const filteredItems = useMemo(() => items.filter(item =>
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     bodyJsonToText(item.body).toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bodyJsonToText(item.scriptVideo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.notes.toLowerCase().includes(searchQuery.toLowerCase())
   ), [items, searchQuery]);
 
@@ -768,7 +769,7 @@ function App() {
                     type={alertInfo.type}
                 />
 
-                <AIConfigModal 
+                <AIConfigModal
                     isOpen={aiConfigState.isOpen}
                     onClose={() => setAiConfigState({ ...aiConfigState, isOpen: false })}
                     onConfirm={handleAIConfigConfirm}
@@ -776,6 +777,14 @@ function App() {
                     aiModels={aiModels}
                     actionType="analyze"
                     onManageContexts={handleOpenContextManagerFromEditor}
+                    dataSummary={(() => {
+                        const labels = ['Titre', 'Notes'];
+                        if (aiConfigState.mode === 'batch') {
+                            const count = items.filter(i => !i.analyzed && i.status === ContentStatus.IDEA).length;
+                            labels.push(`${count} idée${count > 1 ? 's' : ''} à analyser`);
+                        }
+                        return labels;
+                    })()}
                 />
             </main>
         )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, FileText, CheckCircle2, Zap } from 'lucide-react';
-import { ContentItem, Platform, ContentStatus, Profondeur } from '../types';
+import { ContentItem, Platform, ContentStatus, Profondeur, TargetFormat } from '../types';
 import { bodyJsonToText } from './ContentEditor/index';
 import { STATUS_COLORS } from '../constants';
 import { format, parseISO } from 'date-fns';
@@ -51,7 +51,11 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
       </div>
 
       <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mb-3 line-clamp-2 min-h-[1.5em]">
-        {getHighlightedText(bodyJsonToText(item.body) || "Pas de contenu...", highlight)}
+        {getHighlightedText(
+            ((item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE)
+                ? bodyJsonToText(item.scriptVideo || "") || bodyJsonToText(item.body)
+                : bodyJsonToText(item.body))
+            || "Pas de contenu...", highlight)}
       </p>
 
       <div className="flex items-center justify-between mt-auto gap-2">

@@ -110,6 +110,8 @@ export interface ContentItem {
   slides?: string;
   // Champ Post Court (Post Texte formaté pour copier-coller)
   postCourt?: string;
+  // Champ Script Vidéo (pour formats Reel/Short et Youtube)
+  scriptVideo?: string;
 }
 
 export interface ContextItem {

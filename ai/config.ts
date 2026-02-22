@@ -55,29 +55,22 @@ ${contextDesc}
 
 ---
 
-RÈGLES DE SORTIE (FIXE) :
-Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON. Zéro bavardage. Tu donnes directement le JSON.
+RÈGLES DE SORTIE (FORMAT JSON STRICT) :
+Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON valide. Aucun texte avant ou après le JSON.
 
 La profondeur demandée est : "${profondeur}"
 
-Si profondeur = "Direct" :
-json{"skip": true, "raison": "Les notes sont suffisantes pour ce format."}
+Si profondeur = "Direct" (Mode Passe-plat) :
+{"mode": "direct", "skip": true, "raison": "Les notes sont suffisantes pour ce format."}
 
-Si profondeur = "Légère" (1 question par axe) :
-json{
-  "axe_cheval_de_troie": ["Question 1"],
-  "axe_gardien_du_seuil": ["Question 2"],
-  "axe_mecanique_invisible": ["Question 3"]
-}
-
-Si profondeur = "Complète" (3 questions par axe) :
-json{
-  "axe_cheval_de_troie": ["Question 1", "Question 2", "Question 3"],
-  "axe_gardien_du_seuil": ["Question 4", "Question 5", "Question 6"],
-  "axe_mecanique_invisible": ["Question 7", "Question 8", "Question 9"]
-}
+Si profondeur = "Légère" ou "Complète" (Mode Maïeutique réactionnelle) :
+{"mode": "reactionnel", "skip": false, "draft_zero": "Ton paragraphe de 5-6 lignes (le Draft 0) qui tente de résumer l'idée avec audace, en incarnant la voix de Florent.", "questions": ["Question 1 (Vérité clinique)", "Question 2 (Incarnation)"]}
 
 DISCIPLINE :
+- Le champ "draft_zero" est un premier jet : imparfait mais vivant. Il utilise l'angle stratégique et tente la métaphore suggérée.
+- Le champ "questions" contient EXACTEMENT 2 chaînes de caractères.
+- Q1 cible la vérité clinique : ce qui est faux, imprécis ou trop théorique dans le Draft 0.
+- Q2 cible l'incarnation : une image, une sensation physique ou une anecdote anonymisée.
 - Chaque question est formulée au "tu", comme si tu parlais directement à Florent.
 - Chaque question est spécifique au sujet traité (pas de question générique réutilisable d'un sujet à l'autre).
         `
@@ -134,7 +127,15 @@ Tu vas recevoir un objet JSON contenant :
 - cible_offre
 - angle_strategique
 - metaphore_suggeree
-- contenu_source (soit les réponses interview, soit les notes brutes si profondeur Direct)
+- profondeur ("Direct", "Légère" ou "Complète")
+- notes (les notes brutes de Florent)
+- draft_zero (le Draft 0 généré par l'Intervieweur, si disponible — un premier jet provocateur à corriger)
+- questions_interview (les questions posées par l'Intervieweur, si disponible)
+- reponses_interview (les réponses de Florent aux questions, si disponible)
+
+LOGIQUE DE SOURCES :
+- Si profondeur = "Direct" : utilise uniquement les notes. Il n'y a ni draft_zero, ni questions, ni réponses.
+- Si profondeur = "Légère" ou "Complète" : le draft_zero est ton point de départ. Les réponses de Florent contiennent la vérité clinique et l'incarnation. Fusionne le tout pour produire un contenu qui sonne comme Florent.
 
 RÈGLES DE SORTIE (FIXE) :
 GRILLE DE PRODUCTION PAR FORMAT :

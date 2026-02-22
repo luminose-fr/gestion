@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote } from 'lucide-react';
+import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat, Profondeur } from '../../types';
 import { bodyJsonToText } from './index';
 import { MarkdownToolbar } from '../MarkdownToolbar';
@@ -19,8 +19,8 @@ interface DraftViewProps {
     isGenerating: boolean;
 
     // View State
-    activeTab: 'idea' | 'interview' | 'content' | 'slides' | 'postcourt';
-    onTabChange: (tab: 'idea' | 'interview' | 'content' | 'slides' | 'postcourt') => void;
+    activeTab: 'idea' | 'interview' | 'content' | 'slides' | 'postcourt' | 'script';
+    onTabChange: (tab: 'idea' | 'interview' | 'content' | 'slides' | 'postcourt' | 'script') => void;
 }
 
 // Convertit une chaîne en gras Unicode (Mathematical Sans-Serif Bold)
@@ -217,6 +217,54 @@ export const DraftView: React.FC<DraftViewProps> = ({
         return <div className="p-6 text-sm text-brand-main dark:text-dark-text whitespace-pre-wrap">{body}</div>;
     };
 
+    // Rendu structuré du script vidéo (Reel/Short ou Youtube)
+    const renderScriptVideo = (raw: string) => {
+        const data = parseBodyJson(raw);
+        const t = (v: any) => typeof v === 'string' ? v.trim() : "";
+        const Block = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
+            <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
+                <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{children}</div>
+            </div>
+        );
+
+        if (!data || !data.format) {
+            // Texte brut (fallback)
+            return (
+                <div className="p-6 whitespace-pre-wrap text-sm leading-relaxed text-brand-main dark:text-dark-text">
+                    {data?.edited_raw || raw}
+                </div>
+            );
+        }
+
+        const fmt = data.format;
+        const isReelShort = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || fmt === "Script Reel";
+        const isYoutube = fmt === TargetFormat.SCRIPT_VIDEO_YOUTUBE || fmt === "Script Youtube";
+
+        if (isReelShort) return (
+            <div className="p-6 space-y-4">
+                {data.contrainte && <p className="text-[10px] font-bold text-amber-600/60 dark:text-amber-400/60 uppercase">{t(data.contrainte)}</p>}
+                {data.hook  && <Block label="Hook [0–3s]"   color="border-amber-400">{t(data.hook)}</Block>}
+                {data.corps && <Block label="Corps [3–50s]" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
+                {data.cta   && <Block label="CTA [50–60s]"  color="border-green-400">{t(data.cta)}</Block>}
+            </div>
+        );
+        if (isYoutube) return (
+            <div className="p-6 space-y-4">
+                {data.intro && <Block label="Intro" color="border-amber-400">{t(data.intro)}</Block>}
+                {(data.developpement || []).map((s: any, i: number) => (
+                    <div key={i} className="space-y-2">
+                        {s.point  && <h3 className="text-sm font-bold text-brand-main dark:text-white">{t(s.point)}</h3>}
+                        {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{t(s.contenu)}</p>}
+                    </div>
+                ))}
+                {data.conclusion && <Block label="Conclusion" color="border-purple-400">{t(data.conclusion)}</Block>}
+            </div>
+        );
+        // Fallback
+        return <div className="p-6 text-sm text-brand-main dark:text-dark-text whitespace-pre-wrap">{raw}</div>;
+    };
+
     const parseSlidesJson = (raw: string): { direction_globale: any; slides: any[] } | null => {
         try {
             const lastBrace = raw.lastIndexOf('}');
@@ -254,6 +302,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
         onSave(updated);
     }, [activeTab, item.body]);
 
+    const isVideoFormat = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
+        || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+
     // Onglets dynamiques selon le format
     const steps = [
         { id: 'idea',      label: '1. Idée',      icon: Lightbulb,      disabled: false },
@@ -264,6 +315,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
             : []),
         ...(item.targetFormat === TargetFormat.CARROUSEL_SLIDE
             ? [{ id: 'slides',    label: '4. Slides',     icon: Images, disabled: false }]
+            : []),
+        ...(isVideoFormat
+            ? [{ id: 'script',    label: '4. Script',     icon: Video,  disabled: false }]
             : []),
     ];
 
@@ -795,6 +849,77 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     );
                                 })()}
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══════════════════════════════════════
+                    TAB 4c : SCRIPT VIDÉO
+                ════════════════════════════════════════ */}
+                {activeTab === 'script' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 flex flex-col gap-6 pb-10">
+                        <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-amber-500/20 overflow-hidden flex flex-col flex-1 min-h-[500px]">
+
+                            {/* Header */}
+                            <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                        <Video className="w-3 h-3" /> Script vidéo
+                                    </p>
+                                    {item.targetFormat && (
+                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                            {item.targetFormat}
+                                        </span>
+                                    )}
+                                    {item.depth && (
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${DEPTH_COLORS[item.depth] || ''}`}>
+                                            <Zap className="w-2.5 h-2.5 inline mr-1" />{item.depth}
+                                        </span>
+                                    )}
+                                </div>
+                                <SecBtn
+                                    onClick={onLaunchDrafting}
+                                    disabled={isGenerating}
+                                    icon={RefreshCw}
+                                    label={isGenerating ? '...' : 'Régénérer'}
+                                    color="pink"
+                                />
+                            </div>
+
+                            {/* Body */}
+                            <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
+                                {item.scriptVideo ? (
+                                    renderScriptVideo(item.scriptVideo)
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
+                                        <Video className="w-10 h-10 text-amber-300 dark:text-amber-700 opacity-60" />
+                                        <p className="text-sm text-brand-main/50 dark:text-dark-text/50 max-w-xs leading-relaxed">
+                                            {isDirect
+                                                ? 'Lance la génération du script depuis tes notes.'
+                                                : 'Réponds aux questions de l\'interview, puis génère le script.'}
+                                        </p>
+                                        <button
+                                            onClick={onLaunchDrafting}
+                                            disabled={isGenerating || (!isDirect && !item.interviewAnswers)}
+                                            className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50"
+                                        >
+                                            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                            Générer le script
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Action principale */}
+                        <div className="flex justify-end">
+                            <button
+                                onClick={() => onChangeStatus(ContentStatus.READY)}
+                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-green-600/20 transition-all hover:-translate-y-0.5"
+                            >
+                                <CheckCircle2 className="w-5 h-5" />
+                                Marquer comme Prêt
+                            </button>
                         </div>
                     </div>
                 )}

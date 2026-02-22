@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { MessageSquare, User, Cpu, Zap, DollarSign } from 'lucide-react';
+import { MessageSquare, User, Cpu, Zap, DollarSign, Send } from 'lucide-react';
 import { ContextItem, AIModel, ContextUsage } from '../types';
 import { INTERNAL_MODELS } from '../ai/config';
 import { useEscapeClose } from './hooks/useEscapeClose';
@@ -12,10 +12,12 @@ interface AIConfigModalProps {
     aiModels: AIModel[];
     actionType: 'interview' | 'draft' | 'analyze' | 'carrousel';
     onManageContexts: () => void;
+    /** Labels résumant les données qui seront envoyées à l'IA */
+    dataSummary?: string[];
 }
 
 export const AIConfigModal: React.FC<AIConfigModalProps> = ({
-    isOpen, onClose, onConfirm, contexts, aiModels, actionType, onManageContexts
+    isOpen, onClose, onConfirm, contexts, aiModels, actionType, onManageContexts, dataSummary
 }) => {
     const [selectedContextId, setSelectedContextId] = useState<string>("");
     const [selectedModel, setSelectedModel] = useState<string>(INTERNAL_MODELS.FAST);
@@ -101,7 +103,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
             <div className="bg-white dark:bg-dark-bg rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                 
                 {/* HEADER */}
-                <div className="p-6 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between bg-brand-light/50 dark:bg-dark-bg/50">
+                <div className="p-6 border-b border-brand-border dark:border-dark-sec-border bg-brand-light/50 dark:bg-dark-bg/50 space-y-3">
                     <div>
                         <h3 className="text-xl font-bold text-brand-main dark:text-white flex items-center gap-3">
                             <MessageSquare className="w-6 h-6" />
@@ -109,6 +111,19 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                         </h3>
                         <p className="text-sm text-brand-main/60 dark:text-dark-text/60 mt-1">Sélectionnez le persona et le moteur d'intelligence artificielle.</p>
                     </div>
+                    {dataSummary && dataSummary.length > 0 && (
+                        <div className="flex items-start gap-2 bg-white dark:bg-dark-surface rounded-lg border border-brand-border dark:border-dark-sec-border px-4 py-2.5">
+                            <Send className="w-3.5 h-3.5 text-brand-main/40 dark:text-dark-text/40 mt-0.5 flex-shrink-0" />
+                            <div className="flex flex-wrap gap-1.5">
+                                <span className="text-[10px] font-bold text-brand-main/40 dark:text-dark-text/40 uppercase mr-1 self-center">Données envoyées :</span>
+                                {dataSummary.map((label, i) => (
+                                    <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-brand-light dark:bg-dark-bg text-brand-main/70 dark:text-dark-text/70 border border-brand-border dark:border-dark-sec-border">
+                                        {label}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* BODY */}
