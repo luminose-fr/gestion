@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { MessageSquare, User, Cpu, Zap, DollarSign, Send } from 'lucide-react';
 import { ContextItem, AIModel, ContextUsage } from '../types';
-import { INTERNAL_MODELS } from '../ai/config';
+import { INTERNAL_MODELS } from '../ai/actions';
 import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface AIConfigModalProps {
@@ -33,16 +33,16 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
         return contexts.filter(ctx => ctx.usage === requiredUsage);
     }, [contexts, requiredUsage]);
 
-    // Initialisation par défaut
+    // Initialisation par défaut : "aucun contexte" par défaut (les personas sont hardcodés)
     useEffect(() => {
         if (!isOpen) return;
-        if (filteredContexts.length === 0) {
-            setSelectedContextId("");
-            return;
+        // Si le contexte sélectionné n'existe plus dans la liste filtrée, reset
+        if (selectedContextId && selectedContextId !== "__none__" && !filteredContexts.some(ctx => ctx.id === selectedContextId)) {
+            setSelectedContextId("__none__");
         }
-        const stillValid = filteredContexts.some(ctx => ctx.id === selectedContextId);
-        if (!selectedContextId || !stillValid) {
-            setSelectedContextId(filteredContexts[0].id);
+        // Par défaut, pas de contexte additionnel
+        if (!selectedContextId) {
+            setSelectedContextId("__none__");
         }
     }, [isOpen, filteredContexts, selectedContextId]);
 
@@ -109,7 +109,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                             <MessageSquare className="w-6 h-6" />
                             {getTitle()}
                         </h3>
-                        <p className="text-sm text-brand-main/60 dark:text-dark-text/60 mt-1">Sélectionnez le persona et le moteur d'intelligence artificielle.</p>
+                        <p className="text-sm text-brand-main/60 dark:text-dark-text/60 mt-1">Le persona principal est intégré. Ajoutez un contexte complémentaire si nécessaire, puis choisissez le moteur IA.</p>
                     </div>
                     {dataSummary && dataSummary.length > 0 && (
                         <div className="flex items-start gap-2 bg-white dark:bg-dark-surface rounded-lg border border-brand-border dark:border-dark-sec-border px-4 py-2.5">
@@ -129,22 +129,37 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                 {/* BODY */}
                 <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-brand-border dark:divide-dark-sec-border">
                     
-                    {/* LEFT: CONTEXTS */}
+                    {/* LEFT: CONTEXTS (optionnel — le persona principal est hardcodé) */}
                     <div className="flex flex-col h-full overflow-hidden">
                         <div className="p-4 bg-gray-50 dark:bg-dark-surface border-b border-brand-border dark:border-dark-sec-border">
                             <h4 className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest flex items-center gap-2">
-                                <User className="w-4 h-4" /> Choisir un Persona
+                                <User className="w-4 h-4" /> Contexte additionnel (optionnel)
                             </h4>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+                            {/* Option par défaut : pas de contexte additionnel */}
+                            <div
+                                onClick={() => setSelectedContextId("__none__")}
+                                className={`
+                                    p-4 rounded-xl cursor-pointer transition-all border
+                                    ${selectedContextId === "__none__"
+                                        ? 'bg-brand-main text-white border-brand-main shadow-md transform scale-[1.02]'
+                                        : 'bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border text-brand-main dark:text-white hover:bg-brand-light dark:hover:bg-dark-sec-bg'}
+                                `}
+                            >
+                                <div className="font-bold text-sm mb-1">Aucun contexte additionnel</div>
+                                <div className={`text-xs ${selectedContextId === "__none__" ? 'text-white/80' : 'text-brand-main/60 dark:text-dark-text/60'}`}>
+                                    Utiliser uniquement le persona intégré (recommandé).
+                                </div>
+                            </div>
                             {filteredContexts.map(ctx => (
-                                <div 
+                                <div
                                     key={ctx.id}
                                     onClick={() => setSelectedContextId(ctx.id)}
                                     className={`
                                         p-4 rounded-xl cursor-pointer transition-all border
-                                        ${selectedContextId === ctx.id 
-                                            ? 'bg-brand-main text-white border-brand-main shadow-md transform scale-[1.02]' 
+                                        ${selectedContextId === ctx.id
+                                            ? 'bg-brand-main text-white border-brand-main shadow-md transform scale-[1.02]'
                                             : 'bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border text-brand-main dark:text-white hover:bg-brand-light dark:hover:bg-dark-sec-bg'}
                                     `}
                                 >
@@ -155,10 +170,10 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                                 </div>
                             ))}
                             {filteredContexts.length === 0 && (
-                                <div className="text-center py-10 text-brand-main/40 dark:text-dark-text/40 text-sm">
-                                    Aucun persona pour cet usage.
+                                <div className="text-center py-4 text-brand-main/40 dark:text-dark-text/40 text-xs">
+                                    Pas de contextes complémentaires disponibles.
                                     <br/>
-                                    <button onClick={() => { onClose(); onManageContexts(); }} className="text-brand-main underline mt-2">Créer un persona</button>
+                                    <button onClick={() => { onClose(); onManageContexts(); }} className="text-brand-main underline mt-1">En créer un</button>
                                 </div>
                             )}
                         </div>
@@ -214,10 +229,9 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                     >
                         Annuler
                     </button>
-                    <button 
-                        onClick={() => onConfirm(selectedContextId, selectedModel)}
-                        disabled={!selectedContextId} 
-                        className="px-8 py-2.5 text-sm font-bold bg-brand-main text-white rounded-lg hover:bg-brand-hover disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-main/20 transition-all hover:-translate-y-0.5"
+                    <button
+                        onClick={() => onConfirm(selectedContextId === "__none__" ? "" : selectedContextId, selectedModel)}
+                        className="px-8 py-2.5 text-sm font-bold bg-brand-main text-white rounded-lg hover:bg-brand-hover shadow-lg shadow-brand-main/20 transition-all hover:-translate-y-0.5"
                     >
                         Valider & Lancer
                     </button>

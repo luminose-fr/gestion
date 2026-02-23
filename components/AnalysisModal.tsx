@@ -4,7 +4,7 @@ import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetFormat, i
 import * as GeminiService from '../services/geminiService';
 import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
-import { AI_ACTIONS, isOneMinModel } from '../ai/config';
+import { AI_ACTIONS, isOneMinModel } from '../ai/actions';
 import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface AnalysisModalProps {
@@ -68,10 +68,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     try {
       // 1. Préparation du System Prompt
       const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
-      const selectedContext = contexts.find(c => c.id === selectedContextId);
-      const contextDesc = selectedContext ? selectedContext.description : "Analyse marketing standard.";
-      
-      const systemInstruction = actionConfig.getSystemInstruction(contextDesc);
+      const selectedContext = selectedContextId ? contexts.find(c => c.id === selectedContextId) : undefined;
+      const systemInstruction = actionConfig.getSystemInstruction(selectedContext?.description);
 
       // 2. Préparation du User Prompt
       const contentPayload = itemsToAnalyze.map(item => ({

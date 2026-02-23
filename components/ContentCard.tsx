@@ -1,7 +1,7 @@
 import React from 'react';
 import { Calendar, FileText, CheckCircle2, Zap } from 'lucide-react';
 import { ContentItem, Platform, ContentStatus, Profondeur, TargetFormat } from '../types';
-import { bodyJsonToText } from './ContentEditor/index';
+import { bodyJsonToText } from '../ai/formats';
 import { STATUS_COLORS } from '../constants';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';

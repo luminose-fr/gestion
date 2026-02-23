@@ -5,7 +5,8 @@ import { STATUS_COLORS } from '../../constants';
 import * as GeminiService from '../../services/geminiService';
 import * as OneMinService from '../../services/oneMinService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
-import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../../ai/config';
+import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../../ai/actions';
+import { bodyJsonToText } from '../../ai/formats';
 import { AIConfigModal } from '../AIConfigModal';
 
 // Sub-components
@@ -159,68 +160,9 @@ const parseDraftResponse = (responseText: string): string => {
     return cleaned;
 };
 
-// Extrait un texte lisible depuis un body JSON (pour recherche, ContentCard, contexte IA)
-export const bodyJsonToText = (body: string): string => {
-    if (!body) return "";
-    try {
-        const lastBrace = body.lastIndexOf('}');
-        const cleaned = lastBrace !== -1 ? body.slice(0, lastBrace + 1) : body;
-        const data = JSON.parse(cleaned);
-
-        // Si édition manuelle libre
-        if (data.edited_raw) return data.edited_raw;
-
-        const t = (v: any) => (typeof v === 'string' ? v.trim() : "");
-        const out: string[] = [];
-
-        const fmt = data.format;
-        const isPostTexte = fmt === TargetFormat.POST_TEXTE_COURT || fmt === "Post Texte";
-        const isArticle = fmt === TargetFormat.ARTICLE_LONG_SEO || fmt === "Article";
-        const isReelShort = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || fmt === "Script Reel";
-        const isYoutube = fmt === TargetFormat.SCRIPT_VIDEO_YOUTUBE || fmt === "Script Youtube";
-        const isCarrousel = fmt === TargetFormat.CARROUSEL_SLIDE || fmt === "Carrousel";
-        const isPromptImage = fmt === TargetFormat.PROMPT_IMAGE || fmt === "Prompt Image";
-
-        if (isPostTexte) {
-            if (data.hook) out.push(t(data.hook));
-            if (data.corps) out.push(t(data.corps));
-            if (data.baffe) out.push(t(data.baffe));
-            if (data.cta) out.push(t(data.cta));
-        } else if (isArticle) {
-            if (data.titre_h1) out.push(t(data.titre_h1));
-            if (data.introduction) out.push(t(data.introduction));
-            (data.sections || []).forEach((s: any) => {
-                if (s.sous_titre_h2) out.push(t(s.sous_titre_h2));
-                if (s.contenu) out.push(t(s.contenu));
-            });
-            if (data.conclusion) out.push(t(data.conclusion));
-        } else if (isReelShort) {
-            if (data.hook) out.push(t(data.hook));
-            if (data.corps) out.push(t(data.corps));
-            if (data.cta) out.push(t(data.cta));
-        } else if (isYoutube) {
-            if (data.intro) out.push(t(data.intro));
-            (data.developpement || []).forEach((s: any) => {
-                if (s.contenu) out.push(t(s.contenu));
-            });
-            if (data.conclusion) out.push(t(data.conclusion));
-        } else if (isCarrousel) {
-            (data.slides || []).forEach((s: any) => {
-                if (s.titre) out.push(t(s.titre));
-                if (s.texte) out.push(t(s.texte));
-            });
-        } else if (isPromptImage) {
-            if (data.prompt) out.push(t(data.prompt));
-            if (data.legende) out.push(t(data.legende));
-        } else {
-            return body;
-        }
-        return out.filter(Boolean).join(" ");
-    } catch {
-        // Pas du JSON → texte brut (ancien contenu ou édition manuelle)
-        return body;
-    }
-};
+// bodyJsonToText est maintenant centralisé dans ai/formats.ts
+// Ré-exporté ici pour backward compat avec les anciens imports
+export { bodyJsonToText } from '../../ai/formats';
 
 const parseAIResponse = (responseText: string, key: string): string => {
     if (!responseText) return "";
@@ -275,6 +217,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   // Navigation & AI State
   const [showContextSelector, setShowContextSelector] = useState(false);
   const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | null>(null);
+  const [pendingAdjustmentText, setPendingAdjustmentText] = useState<string>("");
 
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
@@ -385,10 +328,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
-          const contextItem = contexts.find(c => c.id === contextId);
+          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const actionConfig = AI_ACTIONS.GENERATE_INTERVIEW;
           const profondeur = editedItem?.depth || Profondeur.COMPLETE;
-          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description || "Journaliste.", profondeur);
+          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description, profondeur);
 
           const promptPayload = {
               titre: editedItem?.title,
@@ -444,10 +387,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
-          const contextItem = contexts.find(c => c.id === contextId) || contexts[0];
+          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
           const systemInstruction = actionConfig.getSystemInstruction(
-              contextItem?.description || "Rédacteur."
+              contextItem?.description,
+              editedItem?.targetFormat || undefined
           );
 
           const isDirect = editedItem?.depth === Profondeur.DIRECT;
@@ -506,13 +450,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
-          const contextItem = contexts.find(c => c.id === contextId) || contexts[0];
+          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const actionConfig = AI_ACTIONS.GENERATE_CARROUSEL_SLIDES;
           const systemInstruction = actionConfig.getSystemInstruction(
-              contextItem?.description || "Directeur artistique.",
+              contextItem?.description,
               editedItem?.targetOffer || "Non défini",
               editedItem?.suggestedMetaphor || "Non définie",
-              bodyJsonToText(editedItem?.body || "")  || "Non défini"
+              bodyJsonToText(editedItem?.body || "") || "Non défini"
           );
 
           const responseText = await callAI(modelId, systemInstruction, "", actionConfig.generationConfig);
@@ -530,6 +474,53 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Slides", message: error.message, type: "error" });
       } finally {
           if (isMountedRef.current) { setIsGenerating(false); setPendingContextAction(null); }
+      }
+  };
+
+  // --- ADJUSTMENT (Refinement Loop) ---
+
+  const executeAdjustment = async (adjustmentText: string) => {
+      if (!isMountedRef.current || !adjustmentText.trim()) return;
+      setIsGenerating(true);
+      try {
+          const actionConfig = AI_ACTIONS.ADJUST_CONTENT;
+          // Determine which field contains the current content
+          const isVideoFormat = editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
+              || editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+          const currentContent = isVideoFormat
+              ? (editedItem?.scriptVideo || "")
+              : (editedItem?.body || "");
+
+          const systemInstruction = actionConfig.getSystemInstruction(
+              undefined, // pas de contexte Notion additionnel
+              currentContent,
+              adjustmentText
+          );
+
+          const responseText = await callAI(
+              INTERNAL_MODELS.FAST,
+              systemInstruction,
+              "", // le contenu est déjà dans le system prompt
+              actionConfig.generationConfig
+          );
+
+          const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
+          const modelName = "Gemini Flash";
+          const signature = `\n\n_Ajusté par : ${modelName} — le ${new Date().toLocaleString('fr-FR')}_`;
+          const finalContent = cleaned + signature;
+
+          const newItem = isVideoFormat
+              ? { ...editedItem!, scriptVideo: finalContent }
+              : { ...editedItem!, body: finalContent };
+
+          if (isMountedRef.current) {
+              setEditedItem(newItem);
+              await saveWithStatus(newItem);
+          }
+      } catch (error: any) {
+          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Ajustement", message: error.message, type: "error" });
+      } finally {
+          if (isMountedRef.current) setIsGenerating(false);
       }
   };
 
@@ -651,6 +642,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onLaunchInterview={triggerInterview}
                     onLaunchDrafting={triggerDrafting}
                     onLaunchCarrouselSlides={triggerCarrouselSlides}
+                    onLaunchAdjustment={executeAdjustment}
                     onChangeStatus={changeStatus}
                     onSave={onSave}
                     isGenerating={isGenerating}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Eye, RotateCcw, CheckCircle2, Pencil } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat } from '../../types';
-import { bodyJsonToText } from './index';
+import { bodyJsonToText } from '../../ai/formats';
 
 interface PreviewViewProps {
     item: ContentItem;

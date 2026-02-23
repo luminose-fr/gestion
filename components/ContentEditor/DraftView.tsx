@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video } from 'lucide-react';
+import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat, Profondeur } from '../../types';
-import { bodyJsonToText } from './index';
+import { bodyJsonToText } from '../../ai/formats';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
 
@@ -13,6 +13,7 @@ interface DraftViewProps {
     onLaunchInterview: () => void;
     onLaunchDrafting: () => void;
     onLaunchCarrouselSlides: () => void;
+    onLaunchAdjustment: (adjustmentText: string) => void;
     onChangeStatus: (status: ContentStatus) => Promise<void>;
     onSave: (item: ContentItem) => Promise<void>;
 
@@ -69,7 +70,7 @@ const DEPTH_COLORS: Record<string, string> = {
 
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
-    onLaunchInterview, onLaunchDrafting, onLaunchCarrouselSlides, onChangeStatus, onSave, isGenerating,
+    onLaunchInterview, onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onChangeStatus, onSave, isGenerating,
     activeTab, onTabChange
 }) => {
 
@@ -77,6 +78,8 @@ export const DraftView: React.FC<DraftViewProps> = ({
     const [editBodyText, setEditBodyText] = useState("");
     const [copied, setCopied] = useState(false);
     const postCourtSavedRef = useRef<string | null>(null);
+    const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
+    const [adjustmentText, setAdjustmentText] = useState("");
 
     const parseBodyJson = (raw: string): any | null => {
         if (!raw) return null;
@@ -616,6 +619,15 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     ) : (
                                         item.body && <SecBtn onClick={() => startEditBody(item.body)} icon={Pencil} label="Modifier" />
                                     )}
+                                    {item.body && (
+                                        <SecBtn
+                                            onClick={() => { setShowAdjustmentForm(!showAdjustmentForm); if (showAdjustmentForm) setAdjustmentText(""); }}
+                                            disabled={isGenerating}
+                                            icon={MessageSquare}
+                                            label={showAdjustmentForm ? 'Annuler' : 'Ajuster'}
+                                            color="blue"
+                                        />
+                                    )}
                                     <SecBtn
                                         onClick={onLaunchDrafting}
                                         disabled={isGenerating}
@@ -625,6 +637,46 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     />
                                 </div>
                             </div>
+
+                            {/* Adjustment form */}
+                            {showAdjustmentForm && (
+                                <div className="px-4 py-3 border-b border-brand-border dark:border-dark-sec-border bg-blue-50 dark:bg-blue-900/10 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <MessageSquare className="w-3 h-3" /> Demande d'ajustement
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <textarea
+                                            value={adjustmentText}
+                                            onChange={(e) => setAdjustmentText(e.target.value)}
+                                            placeholder="Raccourcis l'intro, insiste plus sur la métaphore du miroir..."
+                                            className="flex-1 text-sm p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text placeholder-brand-main/30 dark:placeholder-dark-text/30 outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                                            rows={2}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && adjustmentText.trim()) {
+                                                    onLaunchAdjustment(adjustmentText.trim());
+                                                    setAdjustmentText("");
+                                                    setShowAdjustmentForm(false);
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                if (adjustmentText.trim()) {
+                                                    onLaunchAdjustment(adjustmentText.trim());
+                                                    setAdjustmentText("");
+                                                    setShowAdjustmentForm(false);
+                                                }
+                                            }}
+                                            disabled={!adjustmentText.trim() || isGenerating}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                                        >
+                                            {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                            Envoyer
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1.5">⌘+Entrée pour envoyer</p>
+                                </div>
+                            )}
 
                             {/* Body */}
                             <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
@@ -877,6 +929,15 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                         </span>
                                     )}
                                 </div>
+                                {item.scriptVideo && (
+                                    <SecBtn
+                                        onClick={() => { setShowAdjustmentForm(!showAdjustmentForm); if (showAdjustmentForm) setAdjustmentText(""); }}
+                                        disabled={isGenerating}
+                                        icon={MessageSquare}
+                                        label={showAdjustmentForm ? 'Annuler' : 'Ajuster'}
+                                        color="blue"
+                                    />
+                                )}
                                 <SecBtn
                                     onClick={onLaunchDrafting}
                                     disabled={isGenerating}
@@ -885,6 +946,46 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     color="pink"
                                 />
                             </div>
+
+                            {/* Adjustment form */}
+                            {showAdjustmentForm && (
+                                <div className="px-4 py-3 border-b border-brand-border dark:border-dark-sec-border bg-blue-50 dark:bg-blue-900/10 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <MessageSquare className="w-3 h-3" /> Demande d'ajustement
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <textarea
+                                            value={adjustmentText}
+                                            onChange={(e) => setAdjustmentText(e.target.value)}
+                                            placeholder="Rends le hook plus percutant, ajoute une transition avant le CTA..."
+                                            className="flex-1 text-sm p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text placeholder-brand-main/30 dark:placeholder-dark-text/30 outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                                            rows={2}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && adjustmentText.trim()) {
+                                                    onLaunchAdjustment(adjustmentText.trim());
+                                                    setAdjustmentText("");
+                                                    setShowAdjustmentForm(false);
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                if (adjustmentText.trim()) {
+                                                    onLaunchAdjustment(adjustmentText.trim());
+                                                    setAdjustmentText("");
+                                                    setShowAdjustmentForm(false);
+                                                }
+                                            }}
+                                            disabled={!adjustmentText.trim() || isGenerating}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                                        >
+                                            {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                            Envoyer
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1.5">⌘+Entrée pour envoyer</p>
+                                </div>
+                            )}
 
                             {/* Body */}
                             <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">

@@ -4,11 +4,12 @@ import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, is
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import * as GeminiService from './services/geminiService';
-import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from './ai/config';
+import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from './ai/actions';
 import * as OneMinService from './services/oneMinService';
 
 import SettingsModal from './components/SettingsModal';
-import ContentEditor, { EditorStep, bodyJsonToText } from './components/ContentEditor';
+import ContentEditor, { EditorStep } from './components/ContentEditor';
+import { bodyJsonToText } from './ai/formats';
 import { IdeaModal } from './components/IdeaModal'; 
 import AnalysisModal from './components/AnalysisModal';
 import CalendarView from './components/CalendarView';
@@ -397,8 +398,8 @@ function App() {
       setIsSingleAnalyzing(true);
       try {
           const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
-          const contextItem = contexts.find(c => c.id === contextId);
-          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description || "Expert Marketing.");
+          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
+          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description);
 
           const contentPayload = [{ id: itemToAnalyze.id, titre: itemToAnalyze.title, notes: itemToAnalyze.notes }];
           
