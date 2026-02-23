@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Trash2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, isTargetFormat, Profondeur } from '../../types';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, Profondeur } from '../../types';
 import { STATUS_COLORS } from '../../constants';
 import * as GeminiService from '../../services/geminiService';
 import * as OneMinService from '../../services/oneMinService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
 import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../../ai/actions';
 import { bodyJsonToText } from '../../ai/formats';
+import { extractJsonPayload, parseDraftResponse, parseAIResponse } from '../../ai/executors';
 import { AIConfigModal } from '../AIConfigModal';
 
 // Sub-components
@@ -29,165 +30,13 @@ interface ContentEditorProps {
   onStepChange: (step: EditorStep) => void;
 }
 
-const extractJsonPayload = (responseText: string): string => {
-    if (!responseText) return "";
-    let cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
-    cleaned = cleaned.replace(/^json\s*/i, '').trim();
-
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-    }
-    return cleaned;
-};
-
-const formatDraftContent = (format: TargetFormat, data: any): string => {
-    const text = (value: any) => typeof value === 'string' ? value.trim() : "";
-    const out: string[] = [];
-
-    switch (format) {
-        case TargetFormat.POST_TEXTE_COURT: {
-            const hook = text(data.hook);
-            const corps = text(data.corps);
-            const baffe = text(data.baffe);
-            const cta = text(data.cta);
-            if (hook) out.push(`**Hook**\n${hook}`);
-            if (corps) out.push(`**Corps**\n${corps}`);
-            if (baffe) out.push(`**Baffe**\n${baffe}`);
-            if (cta) out.push(`**CTA**\n${cta}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.ARTICLE_LONG_SEO: {
-            const titre = text(data.titre_h1);
-            const intro = text(data.introduction);
-            if (titre) out.push(`# ${titre}`);
-            if (intro) out.push(intro);
-            const sections = Array.isArray(data.sections) ? data.sections : [];
-            sections.forEach((section: any) => {
-                const h2 = text(section?.sous_titre_h2 || section?.titre || section?.point);
-                const contenu = text(section?.contenu);
-                if (h2) out.push(`## ${h2}`);
-                if (contenu) out.push(contenu);
-            });
-            const conclusion = text(data.conclusion);
-            if (conclusion) out.push(`## Conclusion\n${conclusion}`);
-            const cta = text(data.cta);
-            if (cta) out.push(`**CTA**\n${cta}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.SCRIPT_VIDEO_REEL_SHORT: {
-            const contrainte = text(data.contrainte);
-            const hook = text(data.hook);
-            const corps = text(data.corps);
-            const cta = text(data.cta);
-            if (contrainte) out.push(`**Contrainte**\n${contrainte}`);
-            if (hook) out.push(`**Hook**\n${hook}`);
-            if (corps) out.push(`**Corps**\n${corps}`);
-            if (cta) out.push(`**CTA**\n${cta}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.SCRIPT_VIDEO_YOUTUBE: {
-            const intro = text(data.intro);
-            if (intro) out.push(`**Intro**\n${intro}`);
-            const dev = Array.isArray(data.developpement) ? data.developpement : [];
-            dev.forEach((section: any, idx: number) => {
-                const point = text(section?.point) || `Point ${idx + 1}`;
-                const contenu = text(section?.contenu);
-                out.push(`**${point}**`);
-                if (contenu) out.push(contenu);
-            });
-            const conclusion = text(data.conclusion);
-            if (conclusion) out.push(`**Conclusion**\n${conclusion}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.CARROUSEL_SLIDE: {
-            const slides = Array.isArray(data.slides) ? data.slides : [];
-            slides.forEach((slide: any, idx: number) => {
-                const numero = slide?.numero ?? idx + 1;
-                const titre = text(slide?.titre);
-                const texte = text(slide?.texte);
-                const visuel = text(slide?.visuel);
-                const header = titre ? `### Slide ${numero} — ${titre}` : `### Slide ${numero}`;
-                out.push(header);
-                if (texte) out.push(texte);
-                if (visuel) out.push(`*Visuel :* ${visuel}`);
-            });
-            const finale = data.slide_finale || {};
-            const finalTitre = text(finale.titre);
-            const finalTexte = text(finale.texte);
-            if (finalTitre || finalTexte) {
-                out.push(`### Slide finale${finalTitre ? ` — ${finalTitre}` : ""}`);
-                if (finalTexte) out.push(finalTexte);
-            }
-            return out.join("\n\n");
-        }
-        case TargetFormat.PROMPT_IMAGE: {
-            const prompt = text(data.prompt);
-            const legende = text(data.legende);
-            if (prompt) out.push(`**Prompt (EN)**\n${prompt}`);
-            if (legende) out.push(`**Légende**\n${legende}`);
-            return out.join("\n\n");
-        }
-        default:
-            return "";
-    }
-};
-
-// Retourne le JSON brut validé (string) — c'est ce qu'on stocke dans body
-const parseDraftResponse = (responseText: string): string => {
-    const cleaned = extractJsonPayload(responseText);
-    if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
-
-    let data: any;
-    try {
-        data = JSON.parse(cleaned);
-    } catch (e) {
-        throw new Error("La réponse IA n'est pas un JSON valide.");
-    }
-
-    if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        throw new Error("Format de réponse invalide (objet JSON attendu).");
-    }
-
-    const formatValue = data.format;
-    // Accepte les clés longues (enum) ET les clés courtes retournées par le nouveau prompt
-    const SHORT_FORMAT_KEYS = ["Post Texte", "Article", "Script Reel", "Script Youtube", "Carrousel", "Prompt Image"];
-    if (!isTargetFormat(formatValue) && !SHORT_FORMAT_KEYS.includes(formatValue)) {
-        throw new Error(`Format de sortie invalide : "${formatValue}". Vérifie la valeur du champ 'format'.`);
-    }
-
-    return cleaned;
-};
+// extractJsonPayload, parseDraftResponse, parseAIResponse → ai/executors.ts
 
 // bodyJsonToText est maintenant centralisé dans ai/formats.ts
 // Ré-exporté ici pour backward compat avec les anciens imports
 export { bodyJsonToText } from '../../ai/formats';
 
-const parseAIResponse = (responseText: string, key: string): string => {
-    if (!responseText) return "";
-    let cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
-    try {
-        const data = JSON.parse(cleaned);
-        if (key === 'ROOT') {
-            if (typeof data === 'string') return data;
-            return JSON.stringify(data, null, 2);
-        }
-        if (data[key]) {
-            if (typeof data[key] === 'object') return JSON.stringify(data[key]);
-            return String(data[key]);
-        }
-        if (Array.isArray(data) && key === 'ROOT') return JSON.stringify(data);
-        
-    } catch (e) {
-        const regex = new RegExp(`"${key}"\\s*:\\s*"([\\s\\S]*?)"\\s*[,}]`);
-        const match = cleaned.match(regex);
-        if (match && match[1]) {
-            return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-        }
-    }
-    return cleaned;
-};
+// parseAIResponse → ai/executors.ts
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
     item, contexts, aiModels = [], onClose, onSave, onDelete, onManageContexts,

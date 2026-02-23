@@ -4,6 +4,10 @@ import { ContentItem, ContentStatus, TargetFormat, Profondeur } from '../../type
 import { bodyJsonToText } from '../../ai/formats';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
+import { BodyRenderer } from './renderers/BodyRenderer';
+import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
+import { SlidesRenderer } from './renderers/SlidesRenderer';
+import { parseBodyJson, renderMdText, DEPTH_COLORS } from './renderers/shared';
 
 interface DraftViewProps {
     item: ContentItem;
@@ -61,13 +65,6 @@ const buildPostCourtText = (body: string): string => {
     }
 };
 
-// Couleur par profondeur
-const DEPTH_COLORS: Record<string, string> = {
-    [Profondeur.DIRECT]:   'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-    [Profondeur.LEGERE]:   'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-    [Profondeur.COMPLETE]: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-};
-
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
     onLaunchInterview, onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onChangeStatus, onSave, isGenerating,
@@ -80,17 +77,6 @@ export const DraftView: React.FC<DraftViewProps> = ({
     const postCourtSavedRef = useRef<string | null>(null);
     const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
     const [adjustmentText, setAdjustmentText] = useState("");
-
-    const parseBodyJson = (raw: string): any | null => {
-        if (!raw) return null;
-        try {
-            const lastBrace = raw.lastIndexOf('}');
-            const cleaned = lastBrace !== -1 ? raw.slice(0, lastBrace + 1) : raw;
-            return JSON.parse(cleaned);
-        } catch {
-            return null;
-        }
-    };
 
     const startEditBody = (body: string) => {
         setEditBodyText(bodyJsonToText(body));
@@ -107,187 +93,6 @@ export const DraftView: React.FC<DraftViewProps> = ({
         }
         onChange({ ...item, body: newBody });
         setIsEditingBody(false);
-    };
-
-    const renderBodyStructured = (body: string) => {
-        const data = parseBodyJson(body);
-
-        if (!data || !data.format) {
-            return (
-                <div className="p-6 whitespace-pre-wrap text-sm leading-relaxed text-brand-main dark:text-dark-text">
-                    {data?.edited_raw || body}
-                </div>
-            );
-        }
-
-        if (data.edited_raw) {
-            return (
-                <div className="p-6 space-y-3">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">
-                        <Pencil className="w-3 h-3" /> Contenu édité manuellement
-                    </div>
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed text-brand-main dark:text-dark-text">
-                        {data.edited_raw}
-                    </div>
-                </div>
-            );
-        }
-
-        const t = (v: any) => typeof v === 'string' ? v.trim() : "";
-        const Block = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
-            <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
-                <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{children}</div>
-            </div>
-        );
-
-        const fmt = data.format;
-        const isPostTexte  = fmt === TargetFormat.POST_TEXTE_COURT || fmt === "Post Texte";
-        const isArticle    = fmt === TargetFormat.ARTICLE_LONG_SEO || fmt === "Article";
-        const isReelShort  = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || fmt === "Script Reel";
-        const isYoutube    = fmt === TargetFormat.SCRIPT_VIDEO_YOUTUBE || fmt === "Script Youtube";
-        const isCarrousel  = fmt === TargetFormat.CARROUSEL_SLIDE || fmt === "Carrousel";
-        const isPromptImage = fmt === TargetFormat.PROMPT_IMAGE || fmt === "Prompt Image";
-
-        if (isPostTexte) return (
-            <div className="p-6 space-y-4">
-                {data.hook  && <Block label="Hook"  color="border-pink-400">{t(data.hook)}</Block>}
-                {data.corps && <Block label="Corps" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
-                {data.baffe && <Block label="Baffe" color="border-purple-400">{t(data.baffe)}</Block>}
-                {data.cta   && <Block label="CTA"   color="border-green-400">{t(data.cta)}</Block>}
-            </div>
-        );
-        if (isArticle) return (
-            <div className="p-6 space-y-4">
-                {data.titre_h1    && <h2 className="text-xl font-bold text-brand-main dark:text-white">{t(data.titre_h1)}</h2>}
-                {data.introduction && <Block label="Introduction" color="border-blue-400">{t(data.introduction)}</Block>}
-                {(data.sections || []).map((s: any, i: number) => (
-                    <div key={i} className="space-y-2">
-                        {s.sous_titre_h2 && <h3 className="text-base font-bold text-brand-main dark:text-white">{t(s.sous_titre_h2)}</h3>}
-                        {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{t(s.contenu)}</p>}
-                    </div>
-                ))}
-                {data.conclusion && <Block label="Conclusion" color="border-purple-400">{t(data.conclusion)}</Block>}
-                {data.cta        && <Block label="CTA"        color="border-green-400">{t(data.cta)}</Block>}
-            </div>
-        );
-        if (isReelShort) return (
-            <div className="p-6 space-y-4">
-                {data.contrainte && <p className="text-[10px] font-bold text-brand-main/40 dark:text-dark-text/40 uppercase">{t(data.contrainte)}</p>}
-                {data.hook  && <Block label="Hook [0–3s]"   color="border-pink-400">{t(data.hook)}</Block>}
-                {data.corps && <Block label="Corps [3–50s]" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
-                {data.cta   && <Block label="CTA [50–60s]"  color="border-green-400">{t(data.cta)}</Block>}
-            </div>
-        );
-        if (isYoutube) return (
-            <div className="p-6 space-y-4">
-                {data.intro && <Block label="Intro" color="border-pink-400">{t(data.intro)}</Block>}
-                {(data.developpement || []).map((s: any, i: number) => (
-                    <div key={i} className="space-y-2">
-                        {s.point  && <h3 className="text-sm font-bold text-brand-main dark:text-white">{t(s.point)}</h3>}
-                        {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{t(s.contenu)}</p>}
-                    </div>
-                ))}
-                {data.conclusion && <Block label="Conclusion" color="border-purple-400">{t(data.conclusion)}</Block>}
-            </div>
-        );
-        if (isCarrousel) return (
-            <div className="p-6 space-y-3">
-                {(data.slides || []).map((s: any, i: number) => (
-                    <div key={i} className="bg-brand-light dark:bg-dark-bg rounded-lg p-3 border border-brand-border dark:border-dark-sec-border">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
-                            {s.titre && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.titre)}</span>}
-                        </div>
-                        {s.texte && <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{t(s.texte)}</p>}
-                    </div>
-                ))}
-                {data.slide_finale && (
-                    <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                        <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase mb-1">Slide finale</p>
-                        {data.slide_finale.titre && <p className="text-sm font-bold text-brand-main dark:text-white">{t(data.slide_finale.titre)}</p>}
-                        {data.slide_finale.texte && <p className="text-sm text-brand-main dark:text-dark-text">{t(data.slide_finale.texte)}</p>}
-                    </div>
-                )}
-            </div>
-        );
-        if (isPromptImage) return (
-            <div className="p-6 space-y-4">
-                {data.prompt  && <Block label="Prompt (EN)" color="border-amber-400">{t(data.prompt)}</Block>}
-                {data.legende && <Block label="Légende"     color="border-blue-400">{t(data.legende)}</Block>}
-            </div>
-        );
-        return <div className="p-6 text-sm text-brand-main dark:text-dark-text whitespace-pre-wrap">{body}</div>;
-    };
-
-    // Rendu structuré du script vidéo (Reel/Short ou Youtube)
-    const renderScriptVideo = (raw: string) => {
-        const data = parseBodyJson(raw);
-        const t = (v: any) => typeof v === 'string' ? v.trim() : "";
-        const Block = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
-            <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
-                <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{children}</div>
-            </div>
-        );
-
-        if (!data || !data.format) {
-            // Texte brut (fallback)
-            return (
-                <div className="p-6 whitespace-pre-wrap text-sm leading-relaxed text-brand-main dark:text-dark-text">
-                    {data?.edited_raw || raw}
-                </div>
-            );
-        }
-
-        const fmt = data.format;
-        const isReelShort = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || fmt === "Script Reel";
-        const isYoutube = fmt === TargetFormat.SCRIPT_VIDEO_YOUTUBE || fmt === "Script Youtube";
-
-        if (isReelShort) return (
-            <div className="p-6 space-y-4">
-                {data.contrainte && <p className="text-[10px] font-bold text-amber-600/60 dark:text-amber-400/60 uppercase">{t(data.contrainte)}</p>}
-                {data.hook  && <Block label="Hook [0–3s]"   color="border-amber-400">{t(data.hook)}</Block>}
-                {data.corps && <Block label="Corps [3–50s]" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
-                {data.cta   && <Block label="CTA [50–60s]"  color="border-green-400">{t(data.cta)}</Block>}
-            </div>
-        );
-        if (isYoutube) return (
-            <div className="p-6 space-y-4">
-                {data.intro && <Block label="Intro" color="border-amber-400">{t(data.intro)}</Block>}
-                {(data.developpement || []).map((s: any, i: number) => (
-                    <div key={i} className="space-y-2">
-                        {s.point  && <h3 className="text-sm font-bold text-brand-main dark:text-white">{t(s.point)}</h3>}
-                        {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{t(s.contenu)}</p>}
-                    </div>
-                ))}
-                {data.conclusion && <Block label="Conclusion" color="border-purple-400">{t(data.conclusion)}</Block>}
-            </div>
-        );
-        // Fallback
-        return <div className="p-6 text-sm text-brand-main dark:text-dark-text whitespace-pre-wrap">{raw}</div>;
-    };
-
-    const parseSlidesJson = (raw: string): { direction_globale: any; slides: any[] } | null => {
-        try {
-            const lastBrace = raw.lastIndexOf('}');
-            const cleaned = lastBrace !== -1 ? raw.slice(0, lastBrace + 1) : raw;
-            return JSON.parse(cleaned);
-        } catch {
-            return null;
-        }
-    };
-
-    // Rendu d'un texte markdown **gras** inline
-    const renderMdText = (text: string) => {
-        if (!text) return null;
-        const parts = text.split(/(\*\*.*?\*\*)/g);
-        return parts.map((part, index) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={index} className="font-bold">{part.slice(2, -2)}</strong>;
-            }
-            return <React.Fragment key={index}>{part}</React.Fragment>;
-        });
     };
 
     const isDirect = item.depth === Profondeur.DIRECT;
@@ -688,7 +493,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                         placeholder="Éditez le contenu..."
                                     />
                                 ) : item.body ? (
-                                    renderBodyStructured(item.body)
+                                    <BodyRenderer body={item.body} />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
                                         <LayoutTemplate className="w-10 h-10 text-pink-300 dark:text-pink-700 opacity-60" />
@@ -824,82 +629,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             Générer les slides
                                         </button>
                                     </div>
-                                ) : (() => {
-                                    const parsed = parseSlidesJson(item.slides!);
-                                    if (!parsed) return (
-                                        <pre className="p-6 text-sm font-mono text-brand-main dark:text-dark-text whitespace-pre-wrap leading-relaxed">
-                                            {item.slides}
-                                        </pre>
-                                    );
-                                    const { direction_globale: dg, slides: slideList } = parsed;
-                                    return (
-                                        <div className="p-6 space-y-8">
-                                            {dg && (
-                                                <div className="bg-violet-50 dark:bg-violet-900/10 rounded-xl border border-violet-200 dark:border-violet-800/50 p-5">
-                                                    <h3 className="text-xs font-bold text-violet-700 dark:text-violet-300 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                        <Images className="w-3.5 h-3.5" /> Direction globale
-                                                    </h3>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        {[
-                                                            { label: 'Style',     value: dg.style },
-                                                            { label: 'Palette',   value: dg.palette },
-                                                            { label: 'Éclairage', value: dg.eclairage },
-                                                            { label: 'Ambiance',  value: dg.ambiance },
-                                                        ].map(({ label, value }) => value && (
-                                                            <div key={label} className="bg-white dark:bg-dark-surface rounded-lg p-3 border border-violet-100 dark:border-violet-900/40">
-                                                                <p className="text-[10px] font-bold text-violet-500 dark:text-violet-400 uppercase mb-1">{label}</p>
-                                                                <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{value}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div className="space-y-4">
-                                                {Array.isArray(slideList) && slideList.map((slide: any) => (
-                                                    <div key={slide.numero} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
-                                                        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
-                                                            <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-                                                                {slide.numero}
-                                                            </span>
-                                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${slide.type === 'ILLUSTRÉE' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}`}>
-                                                                {slide.type}
-                                                            </span>
-                                                            {slide.titre && (
-                                                                <span className="text-sm font-bold text-brand-main dark:text-white truncate">{slide.titre}</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="p-4 space-y-3">
-                                                            {slide.texte && (
-                                                                <div className="bg-brand-light dark:bg-dark-bg rounded-lg p-3 border-l-4 border-violet-400">
-                                                                    <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase mb-1">Texte slide</p>
-                                                                    <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{slide.texte}</p>
-                                                                </div>
-                                                            )}
-                                                            {slide.prompt_dzine && (
-                                                                <div>
-                                                                    <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-1">Prompt Dzine</p>
-                                                                    <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed italic">{slide.prompt_dzine}</p>
-                                                                </div>
-                                                            )}
-                                                            {slide.indication_typo && (
-                                                                <div>
-                                                                    <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">Indication Typo</p>
-                                                                    <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{slide.indication_typo}</p>
-                                                                </div>
-                                                            )}
-                                                            {slide.note_composition && (
-                                                                <div className="border-t border-brand-border dark:border-dark-sec-border pt-3">
-                                                                    <p className="text-[10px] font-bold text-brand-main/40 dark:text-dark-text/40 uppercase mb-1">Composition</p>
-                                                                    <p className="text-sm text-brand-main/70 dark:text-dark-text/70 leading-relaxed">{slide.note_composition}</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
+                                ) : (
+                                    <SlidesRenderer slidesRaw={item.slides!} />
+                                )}
                             </div>
                         </div>
                     </div>
@@ -990,7 +722,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             {/* Body */}
                             <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
                                 {item.scriptVideo ? (
-                                    renderScriptVideo(item.scriptVideo)
+                                    <ScriptVideoRenderer raw={item.scriptVideo} />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
                                         <Video className="w-10 h-10 text-amber-300 dark:text-amber-700 opacity-60" />
