@@ -41,8 +41,15 @@ const getHashState = () => {
     const itemId = parts[2] && parts[2].trim() !== '' ? parts[2] : null;
     
     let step: EditorStep = 'idea';
-    if (parts[3] && ['idea', 'interview', 'content', 'slides', 'postcourt', 'script'].includes(parts[3])) {
-        step = parts[3] as EditorStep;
+    const LEGACY_STEP_MAP: Record<string, EditorStep> = {
+        'interview': 'atelier', 'content': 'atelier', 'script': 'atelier',
+    };
+    if (parts[3]) {
+        if (['idea', 'atelier', 'slides', 'postcourt'].includes(parts[3])) {
+            step = parts[3] as EditorStep;
+        } else if (LEGACY_STEP_MAP[parts[3]]) {
+            step = LEGACY_STEP_MAP[parts[3]];
+        }
     }
 
     return { space, tab, itemId, step };

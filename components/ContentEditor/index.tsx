@@ -15,7 +15,7 @@ import { EditorLayout } from './EditorLayout';
 import { DraftView } from './DraftView';
 import { PreviewView } from './PreviewView';
 
-export type EditorStep = 'idea' | 'interview' | 'content' | 'slides' | 'postcourt' | 'script';
+export type EditorStep = 'idea' | 'atelier' | 'slides' | 'postcourt';
 
 interface ContentEditorProps {
   item: ContentItem | null;
@@ -81,10 +81,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             setShowContextSelector(false);
 
             if (activeStep === 'idea') {
-                if (item.body && item.body.trim().length > 0) {
-                    onStepChange('content');
-                } else if (item.interviewAnswers && item.interviewAnswers.length > 0) {
-                    onStepChange('interview');
+                const isVideo = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
+                    || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+                const hasContent = isVideo
+                    ? (item.scriptVideo && item.scriptVideo.trim().length > 0)
+                    : (item.body && item.body.trim().length > 0);
+                if (hasContent || (item.interviewAnswers && item.interviewAnswers.length > 0)) {
+                    onStepChange('atelier');
                 }
             }
         } else {
@@ -286,8 +289,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               ? { ...editedItem!, scriptVideo: finalContent + signature }
               : { ...editedItem!, body: finalContent + signature };
 
-          const targetTab: EditorStep = isVideoFormat ? 'script' : 'content';
-          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); onStepChange(targetTab); }
+          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
       } finally {

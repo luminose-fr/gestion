@@ -14,7 +14,7 @@ import { TargetFormat } from '../types';
 // ── Types ────────────────────────────────────────────────────────────
 
 export type StorageField = 'body' | 'scriptVideo' | 'slides';
-export type EditorTab = 'content' | 'script' | 'slides' | 'postcourt';
+export type EditorTab = 'atelier' | 'slides' | 'postcourt';
 
 export interface FormatDefinition {
     /** Valeur exacte du TargetFormat enum */
@@ -41,7 +41,7 @@ const POST_TEXTE: FormatDefinition = {
     key: TargetFormat.POST_TEXTE_COURT,
     shortKey: 'Post Texte',
     storageField: 'body',
-    editorTab: 'content',
+    editorTab: 'atelier',
     promptTemplate: `
 GRILLE DE PRODUCTION — Post Texte (Court) — LinkedIn, FB, Insta
 {
@@ -68,7 +68,7 @@ const ARTICLE: FormatDefinition = {
     key: TargetFormat.ARTICLE_LONG_SEO,
     shortKey: 'Article',
     storageField: 'body',
-    editorTab: 'content',
+    editorTab: 'atelier',
     promptTemplate: `
 GRILLE DE PRODUCTION — Article (Long/SEO) — Blog, Newsletter
 {
@@ -103,7 +103,7 @@ const SCRIPT_REEL: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_REEL_SHORT,
     shortKey: 'Script Reel',
     storageField: 'scriptVideo',
-    editorTab: 'script',
+    editorTab: 'atelier',
     promptTemplate: `
 GRILLE DE PRODUCTION — Script Vidéo (Reel/Short) — Insta, TikTok, Shorts
 {
@@ -128,7 +128,7 @@ const SCRIPT_YOUTUBE: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_YOUTUBE,
     shortKey: 'Script Youtube',
     storageField: 'scriptVideo',
-    editorTab: 'script',
+    editorTab: 'atelier',
     promptTemplate: `
 GRILLE DE PRODUCTION — Script Vidéo (Youtube)
 {
@@ -159,7 +159,7 @@ const CARROUSEL: FormatDefinition = {
     key: TargetFormat.CARROUSEL_SLIDE,
     shortKey: 'Carrousel',
     storageField: 'body',
-    editorTab: 'content',
+    editorTab: 'atelier',
     promptTemplate: `
 GRILLE DE PRODUCTION — Carrousel (Slide par Slide) — LinkedIn, Insta
 STRUCTURE FIXE DU CARROUSEL (7 slides obligatoires) :
@@ -200,7 +200,7 @@ const PROMPT_IMAGE: FormatDefinition = {
     key: TargetFormat.PROMPT_IMAGE,
     shortKey: 'Prompt Image',
     storageField: 'body',
-    editorTab: 'content',
+    editorTab: 'atelier',
     promptTemplate: `
 GRILLE DE PRODUCTION — Prompt Image (IA Générative)
 {
