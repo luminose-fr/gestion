@@ -181,7 +181,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
   return (
     <div 
-        className="fixed inset-0 z-[60] flex items-center justify-center bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
+        className="fixed inset-0 z-60 flex items-center justify-center bg-brand-main/20 dark:bg-black/50 backdrop-blur-xs p-4 animate-fade-in"
         onClick={isAnalyzing ? undefined : onClose}
     >
       <div 
@@ -241,7 +241,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
                     {error && (
                         <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <AlertCircle className="w-4 h-4 shrink-0" />
                             {error}
                         </div>
                     )}

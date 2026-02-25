@@ -127,7 +127,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
         };
         return (
             <button onClick={onClick} disabled={disabled}
-                className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded border shadow-sm transition-colors disabled:opacity-50 ${colors[color]}`}
+                className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs transition-colors disabled:opacity-50 ${colors[color]}`}
             >
                 <Icon className={`w-3 h-3 ${disabled && label === '...' ? 'animate-spin' : ''}`} />
                 {label}
@@ -139,7 +139,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
         <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg flex flex-col h-full relative scroll-smooth">
 
             {/* ── Sticky Tabs ── */}
-            <div className="sticky top-0 z-10 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur border-b border-brand-border dark:border-dark-sec-border px-6 md:px-10 flex-shrink-0">
+            <div className="sticky top-0 z-10 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-brand-border dark:border-dark-sec-border px-6 md:px-10 shrink-0">
                 <div className="max-w-6xl mx-auto w-full flex gap-6 overflow-x-auto scrollbar-hide">
                     {steps.map((step) => {
                         const isActive = activeTab === step.id;
@@ -204,7 +204,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     {item.platforms.length > 0 && (
                                         <div className="flex gap-1 flex-wrap">
                                             {item.platforms.map(p => (
-                                                <span key={p} className="text-[10px] px-1.5 py-0.5 bg-white dark:bg-purple-800/50 rounded border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-100">
+                                                <span key={p} className="text-[10px] px-1.5 py-0.5 bg-white dark:bg-purple-800/50 rounded-sm border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-100">
                                                     {p}
                                                 </span>
                                             ))}
@@ -437,7 +437,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 <SecBtn onClick={() => setIsEditingBody(false)} icon={X} label="Annuler" />
                                                 <button
                                                     onClick={saveEditBody}
-                                                    className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded border shadow-sm bg-green-600 hover:bg-green-700 text-white border-green-700 transition-colors"
+                                                    className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs bg-green-600 hover:bg-green-700 text-white border-green-700 transition-colors"
                                                 >
                                                     <Save className="w-3 h-3" /> Enregistrer
                                                 </button>
@@ -473,7 +473,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 value={adjustmentText}
                                                 onChange={(e) => setAdjustmentText(e.target.value)}
                                                 placeholder="Raccourcis l'intro, insiste plus sur la métaphore du miroir..."
-                                                className="flex-1 text-sm p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text placeholder-brand-main/30 dark:placeholder-dark-text/30 outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+                                                className="flex-1 text-sm p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text placeholder-brand-main/30 dark:placeholder-dark-text/30 outline-hidden focus:ring-2 focus:ring-blue-400 resize-none"
                                                 rows={2}
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && adjustmentText.trim()) {
@@ -492,7 +492,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                     }
                                                 }}
                                                 disabled={!adjustmentText.trim() || isGenerating}
-                                                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                                                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
                                             >
                                                 {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                                                 Envoyer
@@ -508,7 +508,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                         <textarea
                                             value={editBodyText}
                                             onChange={(e) => setEditBodyText(e.target.value)}
-                                            className="flex-1 w-full p-6 text-sm leading-relaxed bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text outline-none resize-none font-mono"
+                                            className="flex-1 w-full p-6 text-sm leading-relaxed bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text outline-hidden resize-none font-mono"
                                             placeholder="Éditez le contenu..."
                                         />
                                     ) : isVideoFormat ? (
@@ -633,7 +633,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     <button
                                         onClick={handleCopy}
                                         disabled={!postText}
-                                        className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded border shadow-sm transition-colors disabled:opacity-40 ${
+                                        className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded border shadow-xs transition-colors disabled:opacity-40 ${
                                             copied
                                                 ? 'bg-emerald-600 text-white border-emerald-700'
                                                 : 'bg-white dark:bg-emerald-900/30 hover:bg-emerald-50 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'

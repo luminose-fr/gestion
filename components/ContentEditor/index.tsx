@@ -437,11 +437,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   type="text"
                   value={editedItem.title}
                   onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
-                  className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-none w-full md:max-w-2xl"
+                  className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-hidden w-full md:max-w-2xl font-display italic"
                   placeholder="Titre..."
               />
           ) : (
-              <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white w-full md:max-w-2xl min-w-0 truncate">
+              <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white w-full md:max-w-2xl min-w-0 truncate font-display italic">
                   {editedItem.title}
               </h2>
           )}
@@ -463,7 +463,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       const canSave = isDirty && !isSaving;
       return (
           <>
-              <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-sm font-medium mr-auto">
+              <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-sm font-medium mr-auto">
                   <Trash2 className="w-4 h-4" /> Supprimer
               </button>
               <button

@@ -7,7 +7,13 @@
       "Bash(npx tsc:*)",
       "Bash(npx vite:*)",
       "Bash(echo:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm view:*)",
+      "Bash(node -e:*)",
+      "Bash(npm install:*)",
+      "Bash(npx @tailwindcss/upgrade:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

@@ -59,7 +59,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw }) => 
                 {Array.isArray(slideList) && slideList.map((slide: any) => (
                     <div key={slide.numero} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                         <div className="flex items-center gap-3 px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
-                            <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                            <span className="w-6 h-6 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                                 {slide.numero}
                             </span>
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${slide.type === 'ILLUSTRÉE' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'}`}>

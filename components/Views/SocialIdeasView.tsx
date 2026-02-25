@@ -70,7 +70,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
             <>
                 {parts.map((part, i) => 
                     part.toLowerCase() === highlight.toLowerCase() ? (
-                        <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded px-0.5">{part}</span>
+                        <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded-sm px-0.5">{part}</span>
                     ) : part
                 )}
             </>
@@ -80,7 +80,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
     return (
         <div className="space-y-6 animate-fade-in">
             {/* QUICK ADD FORM */}
-            <div className="bg-white dark:bg-dark-surface shadow-sm rounded-xl p-6 border border-brand-border dark:border-dark-sec-border">
+            <div className="bg-white dark:bg-dark-surface shadow-xs rounded-xl p-6 border border-brand-border dark:border-dark-sec-border">
                 <h3 className="text-sm font-semibold text-brand-main dark:text-white mb-3">Ajout rapide</h3>
                 <form onSubmit={handleAdd} className="space-y-3">
                     <input 
@@ -88,7 +88,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                         value={newIdeaTitle}
                         onChange={(e) => setNewIdeaTitle(e.target.value)}
                         placeholder="Titre de l'idée..."
-                        className="w-full px-4 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg outline-none focus:border-brand-main dark:focus:border-brand-light text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 font-bold"
+                        className="w-full px-4 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg outline-hidden focus:border-brand-main dark:focus:border-brand-light text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 font-bold"
                     />
                     
                     <div className="flex-1 flex flex-col w-full border border-brand-border dark:border-dark-sec-border rounded-lg bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main dark:focus:ring-brand-light overflow-hidden transition-shadow">
@@ -110,7 +110,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                         <button 
                             type="submit" 
                             disabled={!newIdeaTitle.trim() || isSyncing}
-                            className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                            className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-xs"
                         >
                             {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                             Ajouter
@@ -122,14 +122,14 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
             {/* TOOLBAR */}
             <div className="flex flex-col xl:flex-row items-center justify-between gap-4 pt-4">
                 
-                <div className="relative group w-full xl:w-72 flex-shrink-0 animate-in fade-in slide-in-from-left-4 duration-300">
+                <div className="relative group w-full xl:w-72 shrink-0 animate-in fade-in slide-in-from-left-4 duration-300">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-brand-main/50 dark:text-dark-text/50 group-focus-within:text-brand-main transition-colors" />
                     <input 
                         type="text" 
                         placeholder="Rechercher..." 
                         value={searchQuery}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-brand-light rounded-lg text-sm outline-none transition-all shadow-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40"
+                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-brand-light rounded-lg text-sm outline-hidden transition-all shadow-xs text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40"
                     />
                 </div>
 
@@ -153,7 +153,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
 
                 <button 
                     onClick={onGlobalAnalyze}
-                    className="w-full xl:w-auto flex items-center gap-2 text-xs sm:text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-lg font-medium transition-colors border border-purple-200 dark:border-purple-800 shadow-sm whitespace-nowrap justify-center animate-in fade-in slide-in-from-right-4 duration-300"
+                    className="w-full xl:w-auto flex items-center gap-2 text-xs sm:text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-lg font-medium transition-colors border border-purple-200 dark:border-purple-800 shadow-xs whitespace-nowrap justify-center animate-in fade-in slide-in-from-right-4 duration-300"
                     title="Analyser toutes les nouvelles idées avec l'IA"
                 >
                     <Sparkles className="w-4 h-4" />
@@ -182,7 +182,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                                     </span>
                                 )}
                             </div>
-                            <h4 className="font-medium text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors whitespace-normal break-words leading-snug">
+                            <h4 className="font-medium text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors whitespace-normal wrap-break-word leading-snug">
                                 <HighlightText text={item.title || "Idée sans titre"} highlight={searchQuery} />
                             </h4>
                             
@@ -198,7 +198,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                             )}
                         </div>
                         {item.analyzed && (item.platforms.length > 0 || item.targetFormat) && (
-                            <div className="flex flex-row md:flex-col items-end md:items-end gap-2 flex-shrink-0">
+                            <div className="flex flex-row md:flex-col items-end md:items-end gap-2 shrink-0">
                                 {item.platforms.length > 0 && (
                                     <div className="flex flex-wrap gap-1 justify-end">
                                         {item.platforms.map((p, i) => (

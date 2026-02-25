@@ -25,7 +25,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return parts.map((part, i) => 
         part.toLowerCase() === highlightTerm.toLowerCase() ? (
-            <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded px-0.5">{part}</span>
+            <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded-sm px-0.5">{part}</span>
         ) : part
     );
   };
@@ -34,7 +34,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
     <div 
       onClick={() => onClick(item)}
       className={`
-        bg-white dark:bg-dark-surface rounded-lg p-4 shadow-sm border border-brand-border dark:border-dark-sec-border cursor-pointer 
+        bg-white dark:bg-dark-surface rounded-lg p-4 shadow-xs border border-brand-border dark:border-dark-sec-border cursor-pointer 
         hover:shadow-md hover:border-brand-main dark:hover:border-white transition-all duration-200 group
       `}
     >
@@ -57,7 +57,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
           {item.platforms.length > 0 ? (
              <div className="flex flex-wrap gap-1">
                  {item.platforms.slice(0, 2).map((p, i) => (
-                    <span key={i} className="text-[10px] uppercase font-bold text-brand-main/50 dark:text-dark-text/50 bg-brand-light dark:bg-dark-bg px-1.5 py-0.5 rounded">
+                    <span key={i} className="text-[10px] uppercase font-bold text-brand-main/50 dark:text-dark-text/50 bg-brand-light dark:bg-dark-bg px-1.5 py-0.5 rounded-sm">
                         {p}
                     </span>
                  ))}
@@ -82,9 +82,9 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {item.targetFormat && (
-            <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300">
+            <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300">
               <LayoutTemplate className="w-2.5 h-2.5" />{item.targetFormat}
             </span>
           )}

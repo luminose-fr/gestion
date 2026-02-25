@@ -539,7 +539,7 @@ function App() {
   return (
     <div className="h-screen bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans flex flex-col transition-colors duration-200 overflow-hidden">
       
-      <header className="bg-white dark:bg-dark-surface border-b border-brand-border dark:border-dark-sec-border flex-shrink-0 z-30">
+      <header className="bg-white dark:bg-dark-surface border-b border-brand-border dark:border-dark-sec-border shrink-0 z-30">
         <div className="h-14 px-4 flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-8">
             <button 
@@ -549,7 +549,7 @@ function App() {
                 <Menu className="w-6 h-6" />
             </button>
 
-            <div className="w-8 h-8 bg-gradient-to-tr from-brand-main to-brand-hover rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md flex-shrink-0">
+            <div className="w-8 h-8 bg-linear-to-tr from-brand-main to-brand-hover rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0">
               L
             </div>
 
@@ -602,7 +602,7 @@ function App() {
       </header>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 p-2 text-center text-xs flex-shrink-0 animate-fade-in">
+        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 p-2 text-center text-xs shrink-0 animate-fade-in">
             <span className="text-red-700 dark:text-red-300 flex items-center justify-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4" />
@@ -642,7 +642,7 @@ function App() {
 
         {currentSpace === 'clients' && (
             <div className="flex-1 flex flex-col items-center justify-center text-brand-main/50 dark:text-dark-text/50 relative overflow-y-auto">
-                <div className="bg-white dark:bg-dark-surface p-12 rounded-2xl shadow-sm border border-brand-border dark:border-dark-sec-border text-center max-w-md mx-4">
+                <div className="bg-white dark:bg-dark-surface p-12 rounded-2xl shadow-xs border border-brand-border dark:border-dark-sec-border text-center max-w-md mx-4">
                     <Users className="w-16 h-16 mx-auto mb-6 text-brand-200 dark:text-dark-text/30" />
                     <h2 className="text-xl font-bold text-brand-main dark:text-white mb-2">Espace Clients</h2>
                     <p className="text-sm">Cet espace est en cours de construction. Bientôt, vous pourrez gérer vos CRM et vos projets clients ici.</p>
@@ -668,8 +668,8 @@ function App() {
                 ) : (
                     <div className="flex-1 overflow-y-auto">
                         
-                        <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur z-10 px-4 md:px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
-                             <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2">
+                        <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm z-10 px-4 md:px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
+                             <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2 font-display italic">
                                  {currentSocialTab === 'drafts' && 'Brouillons en cours'}
                                  {currentSocialTab === 'ready' && 'Prêts pour publication'}
                                  {currentSocialTab === 'ideas' && 'Idées & Inspiration'}

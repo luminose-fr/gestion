@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <>
             {isMobileOpen && (
                 <div 
-                    className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm"
+                    className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-xs"
                     onClick={onMobileClose}
                 />
             )}

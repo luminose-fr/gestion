@@ -18,7 +18,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({ className = ""
                 e.preventDefault(); // Empêche la perte de focus de l'éditeur
                 applyFormat(command, value);
             }}
-            className="p-1.5 rounded hover:bg-brand-border dark:hover:bg-dark-sec-border text-brand-main dark:text-dark-text transition-colors"
+            className="p-1.5 rounded-sm hover:bg-brand-border dark:hover:bg-dark-sec-border text-brand-main dark:text-dark-text transition-colors"
             title={title}
         >
             <Icon className="w-4 h-4" />

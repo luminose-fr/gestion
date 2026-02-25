@@ -57,7 +57,7 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
         <div className="space-y-6 animate-fade-in">
             {!isInitializing && items.length === 0 ? (
                 <div className="text-center py-20">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border shadow-sm ${currentConfig.iconBg} ${currentConfig.iconBorder}`}>
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border shadow-xs ${currentConfig.iconBg} ${currentConfig.iconBorder}`}>
                         <Icon className={`w-8 h-8 ${currentConfig.iconColor}`} />
                     </div>
                     <h3 className="text-lg font-medium text-brand-main dark:text-white">{currentConfig.emptyTitle}</h3>

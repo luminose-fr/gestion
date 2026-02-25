@@ -79,11 +79,11 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
         if (c.includes('high') || c.includes('elevé')) level = 3;
         if (c.includes('very_high') || c.includes('très')) level = 4;
 
-        if (level <= 1) return <span className="text-green-500 text-[10px] font-bold flex gap-0.5 items-center bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded"><DollarSign className="w-3 h-3"/> Eco</span>;
+        if (level <= 1) return <span className="text-green-500 text-[10px] font-bold flex gap-0.5 items-center bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded-sm"><DollarSign className="w-3 h-3"/> Eco</span>;
         if (level <= 1.5) return <span className="text-teal-500 text-[10px] font-bold flex gap-0.5 items-center"><DollarSign className="w-3 h-3"/>+</span>;
         if (level === 2) return <span className="text-yellow-600 dark:text-yellow-400 text-[10px] font-bold flex gap-0.5 items-center"><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/></span>;
         if (level === 3) return <span className="text-orange-500 text-[10px] font-bold flex gap-0.5 items-center"><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/></span>;
-        return <span className="text-red-500 text-[10px] font-bold flex gap-0.5 items-center bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded"><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/></span>;
+        return <span className="text-red-500 text-[10px] font-bold flex gap-0.5 items-center bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded-sm"><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/><DollarSign className="w-3 h-3"/></span>;
     };
 
     if (!isOpen) return null;
@@ -99,7 +99,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[80] bg-white/90 dark:bg-dark-surface/90 flex items-center justify-center animate-in fade-in zoom-in duration-200 p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-80 bg-white/90 dark:bg-dark-surface/90 flex items-center justify-center animate-in fade-in zoom-in duration-200 p-4" onClick={onClose}>
             <div className="bg-white dark:bg-dark-bg rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                 
                 {/* HEADER */}
@@ -113,7 +113,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                     </div>
                     {dataSummary && dataSummary.length > 0 && (
                         <div className="flex items-start gap-2 bg-white dark:bg-dark-surface rounded-lg border border-brand-border dark:border-dark-sec-border px-4 py-2.5">
-                            <Send className="w-3.5 h-3.5 text-brand-main/40 dark:text-dark-text/40 mt-0.5 flex-shrink-0" />
+                            <Send className="w-3.5 h-3.5 text-brand-main/40 dark:text-dark-text/40 mt-0.5 shrink-0" />
                             <div className="flex flex-wrap gap-1.5">
                                 <span className="text-[10px] font-bold text-brand-main/40 dark:text-dark-text/40 uppercase mr-1 self-center">Données envoyées :</span>
                                 {dataSummary.map((label, i) => (
@@ -198,7 +198,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                                                 className={`
                                                     flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border
                                                     ${selectedModel === model.apiCode
-                                                        ? 'bg-white dark:bg-dark-surface border-brand-main shadow-sm ring-1 ring-brand-main'
+                                                        ? 'bg-white dark:bg-dark-surface border-brand-main shadow-xs ring-1 ring-brand-main'
                                                         : 'bg-white/50 dark:bg-dark-surface/50 border-transparent hover:bg-white dark:hover:bg-dark-surface'}
                                                 `}
                                             >
@@ -206,7 +206,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
                                                     {model.isInternal ? <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" /> : <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700"></div>}
                                                     <div>
                                                         <div className="text-sm font-semibold text-brand-main dark:text-white">{model.name}</div>
-                                                        {model.isInternal && <span className="text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded">Recommandé</span>}
+                                                        {model.isInternal && <span className="text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded-sm">Recommandé</span>}
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-col items-end">

@@ -151,7 +151,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-brand-main/20 dark:bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-brand-main/20 dark:bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200" onClick={onClose}>
       
       {/* MAIN CONTAINER: Hauteur fixe relative au device */}
       <div 
@@ -160,7 +160,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       >
         
         {/* HEADER */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border dark:border-dark-sec-border flex-shrink-0 bg-white dark:bg-dark-surface z-10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border dark:border-dark-sec-border shrink-0 bg-white dark:bg-dark-surface z-10">
           <div className="flex items-center gap-3">
              <div className="bg-brand-light dark:bg-dark-sec-bg p-2 rounded-xl">
                 <Settings className="w-5 h-5 text-brand-main dark:text-white" />
@@ -193,7 +193,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         
                         <button 
                             onClick={() => handleCategorySelect('contexts')}
-                            className="w-full flex items-center justify-between p-4 bg-white dark:bg-dark-surface hover:bg-white/80 dark:hover:bg-dark-surface/80 rounded-xl shadow-sm border border-brand-border dark:border-dark-sec-border transition-all group"
+                            className="w-full flex items-center justify-between p-4 bg-white dark:bg-dark-surface hover:bg-white/80 dark:hover:bg-dark-surface/80 rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border transition-all group"
                         >
                             <div className="flex items-center gap-3">
                                 <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600 dark:text-blue-300">
@@ -209,7 +209,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         <button 
                             onClick={() => handleCategorySelect('models')}
-                            className="w-full flex items-center justify-between p-4 bg-white dark:bg-dark-surface hover:bg-white/80 dark:hover:bg-dark-surface/80 rounded-xl shadow-sm border border-brand-border dark:border-dark-sec-border transition-all group"
+                            className="w-full flex items-center justify-between p-4 bg-white dark:bg-dark-surface hover:bg-white/80 dark:hover:bg-dark-surface/80 rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border transition-all group"
                         >
                             <div className="flex items-center gap-3">
                                 <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg text-purple-600 dark:text-purple-300">
@@ -227,7 +227,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* LEVEL 1: LIST VIEW */}
                     <div className="w-1/2 h-full flex flex-col bg-brand-light dark:bg-dark-bg">
                         {/* List Header with Back & Add */}
-                        <div className="p-4 border-b border-brand-border dark:border-dark-sec-border flex items-center gap-3 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm z-10 sticky top-0">
+                        <div className="p-4 border-b border-brand-border dark:border-dark-sec-border flex items-center gap-3 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-xs z-10 sticky top-0">
                             <button 
                                 onClick={handleBackToMenu}
                                 className="flex items-center gap-1 text-sm font-medium text-brand-main/60 hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white transition-colors"
@@ -338,7 +338,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                             type="text" 
                                             value={editCtxName} 
                                             onChange={(e) => setEditCtxName(e.target.value)} 
-                                            className="w-full text-xl font-bold border-b-2 border-brand-border dark:border-dark-sec-border py-2 bg-transparent focus:border-brand-main dark:focus:border-brand-light outline-none text-brand-main dark:text-white placeholder-brand-main/30" 
+                                            className="w-full text-xl font-bold border-b-2 border-brand-border dark:border-dark-sec-border py-2 bg-transparent focus:border-brand-main dark:focus:border-brand-light outline-hidden text-brand-main dark:text-white placeholder-brand-main/30" 
                                             placeholder="Ex: Rédacteur LinkedIn Pro" 
                                         />
                                     </div>
@@ -347,7 +347,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                         <select
                                             value={editCtxUsage}
                                             onChange={(e) => setEditCtxUsage(e.target.value as ContextUsage)}
-                                            className="w-full p-3 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg text-sm text-brand-main dark:text-white outline-none"
+                                            className="w-full p-3 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg text-sm text-brand-main dark:text-white outline-hidden"
                                         >
                                             <option value={ContextUsage.REDACTEUR}>Rédacteur</option>
                                             <option value={ContextUsage.ANALYSTE}>Analyste</option>
@@ -372,7 +372,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="md:col-span-2">
                                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Nom commercial</label>
-                                        <input type="text" value={editModel.name} onChange={(e) => setEditModel({...editModel, name: e.target.value})} className="w-full text-xl font-bold border-b-2 border-brand-border dark:border-dark-sec-border py-2 bg-transparent focus:border-brand-main outline-none text-brand-main dark:text-white" placeholder="Ex: GPT-5.2 Pro" />
+                                        <input type="text" value={editModel.name} onChange={(e) => setEditModel({...editModel, name: e.target.value})} className="w-full text-xl font-bold border-b-2 border-brand-border dark:border-dark-sec-border py-2 bg-transparent focus:border-brand-main outline-hidden text-brand-main dark:text-white" placeholder="Ex: GPT-5.2 Pro" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase mb-2">Code API 1min.AI</label>
@@ -384,7 +384,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase mb-2">Coût / Crédits</label>
-                                        <select value={editModel.cost} onChange={(e) => setEditModel({...editModel, cost: e.target.value as any})} className="w-full p-3 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg text-sm text-brand-main dark:text-white outline-none">
+                                        <select value={editModel.cost} onChange={(e) => setEditModel({...editModel, cost: e.target.value as any})} className="w-full p-3 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg text-sm text-brand-main dark:text-white outline-hidden">
                                             <option value="low">Faible</option>
                                             <option value="low_medium">Moyen-Faible</option>
                                             <option value="medium">Moyen</option>
@@ -396,7 +396,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                         <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase mb-2">Qualité Rédaction (1-5)</label>
                                         <div className="flex gap-2 p-3 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg">
                                             {[1,2,3,4,5].map(v => (
-                                                <button key={v} onClick={() => setEditModel({...editModel, textQuality: v})} className={`w-8 h-8 rounded flex items-center justify-center transition-all font-bold ${editModel.textQuality === v ? 'bg-brand-main text-white' : 'hover:bg-brand-border dark:hover:bg-white/10 text-brand-main dark:text-white'}`}>{v}</button>
+                                                <button key={v} onClick={() => setEditModel({...editModel, textQuality: v})} className={`w-8 h-8 rounded-sm flex items-center justify-center transition-all font-bold ${editModel.textQuality === v ? 'bg-brand-main text-white' : 'hover:bg-brand-border dark:hover:bg-white/10 text-brand-main dark:text-white'}`}>{v}</button>
                                             ))}
                                         </div>
                                     </div>

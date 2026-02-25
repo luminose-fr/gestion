@@ -27,12 +27,12 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-light dark:bg-dark-bg">
       <div className="bg-white dark:bg-dark-surface p-8 rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border max-w-md w-full">
-        <h1 className="text-2xl font-bold mb-6 text-center text-brand-main dark:text-white">
+        <h1 className="text-2xl font-bold mb-6 text-center text-brand-main dark:text-white font-display italic">
           🔐 Gestion Luminose
         </h1>
         
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-sm mb-4">
             {error}
           </div>
         )}
@@ -46,7 +46,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white rounded-lg focus:outline-none focus:border-brand-main dark:focus:border-brand-light"
+              className="w-full px-3 py-2 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white rounded-lg focus:outline-hidden focus:border-brand-main dark:focus:border-brand-light"
               required
               autoComplete="username"
               disabled={loading}
@@ -61,7 +61,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white rounded-lg focus:outline-none focus:border-brand-main dark:focus:border-brand-light"
+              className="w-full px-3 py-2 border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white rounded-lg focus:outline-hidden focus:border-brand-main dark:focus:border-brand-light"
               required
               autoComplete="current-password"
               disabled={loading}

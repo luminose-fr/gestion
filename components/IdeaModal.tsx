@@ -141,7 +141,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-brand-main/20 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200" onClick={onClose}>
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-brand-main/20 dark:bg-black/60 backdrop-blur-xs p-4 animate-in fade-in zoom-in duration-200" onClick={onClose}>
             <div
                 className="bg-white dark:bg-dark-surface w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
                 onClick={e => e.stopPropagation()}
@@ -149,18 +149,18 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface z-10">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-xl text-yellow-600 dark:text-yellow-400 flex-shrink-0">
+                        <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-xl text-yellow-600 dark:text-yellow-400 shrink-0">
                             <Brain className="w-5 h-5" />
                         </div>
                         <input
                             type="text"
                             value={localItem.title}
                             onChange={(e) => setLocalItem({...localItem, title: e.target.value})}
-                            className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-none w-full placeholder-brand-main/30"
+                            className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-hidden w-full placeholder-brand-main/30"
                             placeholder="Titre de l'idée..."
                         />
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
                         <SaveIndicator />
                         <button onClick={onClose} className="p-2 hover:bg-brand-light dark:hover:bg-dark-sec-bg rounded-full transition-colors text-brand-main dark:text-white">
                             <X className="w-5 h-5" />
@@ -210,7 +210,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                             <button
                                 onClick={onAnalyze}
                                 disabled={isReanalyzing}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-white dark:bg-purple-900/40 hover:bg-purple-100 dark:hover:bg-purple-800 text-purple-700 dark:text-purple-200 transition-colors border border-purple-200 dark:border-purple-700 shadow-sm disabled:opacity-50 flex-shrink-0"
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm bg-white dark:bg-purple-900/40 hover:bg-purple-100 dark:hover:bg-purple-800 text-purple-700 dark:text-purple-200 transition-colors border border-purple-200 dark:border-purple-700 shadow-xs disabled:opacity-50 shrink-0"
                             >
                                 <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
                                 {isReanalyzing ? 'Analyse en cours...' : (localItem.analyzed ? 'Ré-analyser' : 'Lancer l\'analyse')}

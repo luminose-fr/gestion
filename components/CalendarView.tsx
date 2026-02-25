@@ -31,8 +31,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-dark-surface rounded-xl shadow-sm border border-brand-border dark:border-dark-sec-border transition-colors">
-      <div className="flex items-center justify-between p-4 border-b border-brand-border dark:border-dark-sec-border flex-shrink-0">
+    <div className="h-full flex flex-col bg-white dark:bg-dark-surface rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border transition-colors">
+      <div className="flex items-center justify-between p-4 border-b border-brand-border dark:border-dark-sec-border shrink-0">
         <h2 className="text-lg font-bold text-brand-main dark:text-white capitalize">
           {format(currentMonth, 'MMMM yyyy', { locale: fr })}
         </h2>

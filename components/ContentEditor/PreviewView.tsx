@@ -68,7 +68,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                                 </button>
                                 <button
                                     onClick={() => onChangeStatus(ContentStatus.PUBLISHED)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-xs transition-colors"
                                 >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     Marquer publié
@@ -112,7 +112,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                             </p>
                             <button
                                 onClick={handleCopy}
-                                className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded border shadow-sm transition-colors ${
+                                className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded border shadow-xs transition-colors ${
                                     copied
                                         ? 'bg-emerald-600 text-white border-emerald-700'
                                         : 'bg-white dark:bg-emerald-900/30 hover:bg-emerald-50 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
