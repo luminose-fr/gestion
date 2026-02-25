@@ -6,16 +6,6 @@ import { STATUS_COLORS } from '../constants';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-/** Labels courts pour les formats dans les cartes */
-const FORMAT_SHORT_LABELS: Partial<Record<TargetFormat, string>> = {
-    [TargetFormat.POST_TEXTE_COURT]:        'Post',
-    [TargetFormat.ARTICLE_LONG_SEO]:        'Article',
-    [TargetFormat.SCRIPT_VIDEO_REEL_SHORT]: 'Reel',
-    [TargetFormat.SCRIPT_VIDEO_YOUTUBE]:    'YouTube',
-    [TargetFormat.CARROUSEL_SLIDE]:         'Carrousel',
-    [TargetFormat.PROMPT_IMAGE]:            'Image',
-};
-
 interface ContentCardProps {
   item: ContentItem;
   onClick: (item: ContentItem) => void;
@@ -95,7 +85,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {item.targetFormat && (
             <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300">
-              <LayoutTemplate className="w-2.5 h-2.5" />{FORMAT_SHORT_LABELS[item.targetFormat] || item.targetFormat}
+              <LayoutTemplate className="w-2.5 h-2.5" />{item.targetFormat}
             </span>
           )}
           {formattedDate && (

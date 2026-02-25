@@ -441,8 +441,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   placeholder="Titre..."
               />
           ) : (
-              <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white flex items-center gap-2 truncate">
-                  <span className="truncate">{editedItem.title}</span>
+              <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white w-full md:max-w-2xl min-w-0 truncate">
+                  {editedItem.title}
               </h2>
           )}
           <div className="flex items-center gap-3 md:ml-auto">
