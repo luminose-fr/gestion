@@ -1,0 +1,69 @@
+/* ── Fonts Luminose ── */
+
+@import 'tailwindcss';
+
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@theme {
+  --font-sans: 'Futura LT', Futura, Century Gothic, sans-serif;
+  --font-display: 'Abril Display', Georgia, serif;
+
+  --color-brand-main: #6163a5;
+  --color-brand-hover: #60407f;
+  --color-brand-light: #f9f5ff;
+  --color-brand-border: #e8def6;
+  --color-dark-bg: #20122e;
+  --color-dark-surface: #3f2258;
+  --color-dark-text: #bb95dd;
+  --color-dark-sec-border: #613f7f;
+  --color-dark-sec-bg: rgba(63, 34, 88, 0.5);
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@layer base {
+  @font-face {
+    font-family: 'Abril Display';
+    font-style: italic;
+    src: url('/fonts/5197317/0a5d5485-b415-4692-bc4d-bf1f30dcf946.eot?#iefix');
+    src:
+      url('/fonts/5197317/0a5d5485-b415-4692-bc4d-bf1f30dcf946.eot?#iefix')
+        format('eot'),
+      url('/fonts/5197317/e95ab4d7-0b64-43c7-88ec-c70de2273848.woff2')
+        format('woff2'),
+      url('/fonts/5197317/65d70e48-ef4e-48c6-90b9-3cb9f247dcfd.woff')
+        format('woff'),
+      url('/fonts/5197317/6be7e520-0945-476a-8ac2-10c029effcfe.ttf')
+        format('truetype');
+  }
+
+  @font-face {
+    font-family: 'Futura LT';
+    src: url('/fonts/5313918/a411c21e-f439-48c1-bddb-887ec08b5224.eot?#iefix');
+    src:
+      url('/fonts/5313918/a411c21e-f439-48c1-bddb-887ec08b5224.eot?#iefix')
+        format('eot'),
+      url('/fonts/5313918/7a337894-f253-4a5d-a63e-0d8275cedec5.woff2')
+        format('woff2'),
+      url('/fonts/5313918/55e6a203-1f50-4971-89d0-17ca0150f29d.woff')
+        format('woff'),
+      url('/fonts/5313918/feaf9b77-0958-45fa-96c3-1afc445987ef.ttf')
+        format('truetype');
+  }
+}
