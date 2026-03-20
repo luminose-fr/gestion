@@ -43,22 +43,21 @@ const POST_TEXTE: FormatDefinition = {
     storageField: 'body',
     editorTab: 'atelier',
     promptTemplate: `
-GRILLE DE PRODUCTION — Post Texte (Court) — LinkedIn, FB, Insta
+GRILLE DE PRODUCTION — Post "Punchline" (Texte + Image fixe) — LinkedIn, Facebook
+Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un visuel fort et un texte court qui bouscule une idée reçue.
 {
   "format": "Post Texte",
-  "hook": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc.",
-  "corps": "Paragraphes ultra-courts (1-2 phrases). Alternance prose/listes (→). Montée en tension. La métaphore filée structure le texte.",
-  "baffe": "Conclusion tranchante — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse.",
-  "cta": "Appel à l'action (question ouverte, invitation à commenter, lien vers offre). JAMAIS d'emoji."
+  "accroche": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc. C'est le hook qui arrête le scroll.",
+  "corps": "Développement de la métaphore filée + explication clinique. 10-15 lignes. Paragraphes courts (2-3 phrases). Alternance prose/listes (→). Montée en tension. La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse.",
+  "cta": "Question pour engager la discussion ou invitation à lire l'article complet / s'inscrire. JAMAIS d'emoji.",
+  "visuel": "Description de l'image suggérée (format 1:1 ou 4:5), métaphorique, avec un titre court à incruster sur l'image."
 }
 Ton : Direct, oralisé, percutant. On entend la voix.
-Contrainte de longueur : 150 mots max pour le corps (hors hook et CTA).
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
-        if (data.hook) out.push(t(data.hook));
+        if (data.accroche) out.push(t(data.accroche));
         if (data.corps) out.push(t(data.corps));
-        if (data.baffe) out.push(t(data.baffe));
         if (data.cta) out.push(t(data.cta));
         return out.filter(Boolean).join(' ');
     }
@@ -70,7 +69,7 @@ const ARTICLE: FormatDefinition = {
     storageField: 'body',
     editorTab: 'atelier',
     promptTemplate: `
-GRILLE DE PRODUCTION — Article (Long/SEO) — Blog, Newsletter
+GRILLE DE PRODUCTION — Article (Long/SEO) — Blog
 {
   "format": "Article",
   "titre_h1": "Titre accrocheur incluant le mot-clé principal.",
@@ -105,21 +104,26 @@ const SCRIPT_REEL: FormatDefinition = {
     storageField: 'scriptVideo',
     editorTab: 'atelier',
     promptTemplate: `
-GRILLE DE PRODUCTION — Script Vidéo (Reel/Short) — Insta, TikTok, Shorts
+GRILLE DE PRODUCTION — Script "Vidéo Courte" (Reel/Short) — Insta, TikTok, Shorts
+Ce format mise sur l'incarnation. Il utilise la matière des réponses vocales pour créer un script naturel de moins de 60 secondes.
 {
   "format": "Script Reel",
-  "contrainte": "150 mots max (60 secondes)",
-  "hook": "[0-3s] Hook visuel ou verbal. La phrase qui arrête le scroll.",
-  "corps": "[3-50s] Corps rythmé. Style parlé. Intentions visuelles entre crochets : [Plan serré], [Texte à l'écran], [Changement d'angle].",
-  "cta": "[50-60s] CTA rapide. Question ou invitation."
+  "contrainte": "60 secondes max",
+  "sections": [
+    { "timing": "[0-3s]",   "role": "Accroche",   "texte": "L'accroche visuelle et verbale (le 'Quoi'). La phrase qui arrête le scroll.", "intention": "Note de rythme, ton, regard caméra, etc." },
+    { "timing": "[3-15s]",  "role": "Constat",     "texte": "Empathie avec la douleur du client. On nomme ce qu'il vit.", "intention": "Note de rythme, pause, ton empathique, etc." },
+    { "timing": "[15-45s]", "role": "Bascule",     "texte": "L'apport de l'expertise via une image forte. La métaphore qui éclaire.", "intention": "Note de rythme, changement de ton, montée en intensité, etc." },
+    { "timing": "[45-60s]", "role": "Ouverture",   "texte": "Une réflexion qui reste en tête. Pas de résumé — une ouverture.", "intention": "Note de rythme, regard, silence final, etc." }
+  ]
 }
 Ton : Parlé, naturel, comme le transcript sur l'injustice. L'humour et le paradoxe sont les moteurs.
+Le script inclut des notes de rythme et d'intentions (pauses, ton) dans le champ "intention" de chaque section.
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
-        if (data.hook) out.push(t(data.hook));
-        if (data.corps) out.push(t(data.corps));
-        if (data.cta) out.push(t(data.cta));
+        (data.sections || []).forEach((s: any) => {
+            if (s.texte) out.push(t(s.texte));
+        });
         return out.filter(Boolean).join(' ');
     }
 };
@@ -161,37 +165,70 @@ const CARROUSEL: FormatDefinition = {
     storageField: 'body',
     editorTab: 'atelier',
     promptTemplate: `
-GRILLE DE PRODUCTION — Carrousel (Slide par Slide) — LinkedIn, Insta
+GRILLE DE PRODUCTION — Carrousel "Épuré" (7 Slides) — Instagram, LinkedIn
+Format pédagogique par excellence. Structure fixe pour copier-coller rapide dans un template Canva.
 STRUCTURE FIXE DU CARROUSEL (7 slides obligatoires) :
-Slide 1 — Accroche : type IMAGE. Titre court (6 mots max). Texte accrocheur. L'image doit capturer le regard et poser la métaphore.
-Slide 2 — Le Problème / Le Vécu : type TYPO. Fond coloré. Le lecteur se reconnaît dans la douleur décrite.
-Slide 3 — La Métaphore : type IMAGE. L'image centrale du contenu, incarnée visuellement.
-Slide 4 — L'Explication Clinique : type TYPO. Le mécanisme psychique nommé et traduit en vécu.
-Slide 5 — Le Basculement : type TYPO. Le moment où le choix se pose : continuer ou traverser.
-Slide 6 — Synthèse : type IMAGE. L'image qui cristallise la transformation.
-Slide 7 — CTA : type TYPO. Appel à l'action direct, sans emoji. Question ouverte ou invitation.
+Slide 1 — Accroche : type TEXTE. Texte seul, gros impact. L'accroche pure qui donne envie de swiper.
+Slide 2 — Le Problème / Le Ressenti : type TEXTE. Le problème ou le ressenti du client. Il se reconnaît dans la douleur décrite.
+Slide 3 — L'Image Centrale : type IMAGE. Le seul visuel du carrousel, illustrant la métaphore. Courte légende accompagnant l'image.
+Slide 4 — L'Explication / La Mécanique : type TEXTE. L'explication psychique, la mécanique invisible nommée et traduite en vécu.
+Slide 5 — Le Basculement : type TEXTE. Le moment où le choix se pose : continuer ou traverser. L'approche thérapeutique.
+Slide 6 — La Pépite / Synthèse : type TEXTE. La pépite à retenir, la synthèse qui cristallise le propos.
+Slide 7 — CTA Luminose : type TEXTE. Appel à l'action fixe, direct, sans emoji. Question ouverte ou invitation.
 
 FORMAT JSON ATTENDU :
 {
   "format": "Carrousel",
   "slides": [
-    { "numero": 1, "role": "Accroche",             "type": "IMAGE", "titre": "6 mots max", "texte": "...", "visuel": "Description de l'image suggérée" },
-    { "numero": 2, "role": "Le Problème / Le Vécu", "type": "TYPO",  "titre": "...", "texte": "...", "indication_typo": "Couleur de fond et style" },
-    { "numero": 3, "role": "La Métaphore",          "type": "IMAGE", "titre": "...", "texte": "...", "visuel": "Description de l'image suggérée" },
-    { "numero": 4, "role": "L'Explication Clinique", "type": "TYPO",  "titre": "...", "texte": "...", "indication_typo": "Couleur de fond et style" },
-    { "numero": 5, "role": "Le Basculement",        "type": "TYPO",  "titre": "...", "texte": "...", "indication_typo": "Couleur de fond et style" },
-    { "numero": 6, "role": "Synthèse",              "type": "IMAGE", "titre": "...", "texte": "...", "visuel": "Description de l'image suggérée" },
-    { "numero": 7, "role": "CTA",                   "type": "TYPO",  "titre": "...", "texte": "...", "indication_typo": "Couleur de fond et style" }
+    { "numero": 1, "role": "Accroche",                    "type": "TEXTE", "texte": "Texte à gros impact, accroche pure." },
+    { "numero": 2, "role": "Le Problème / Le Ressenti",   "type": "TEXTE", "texte": "Le problème ou le ressenti du client." },
+    { "numero": 3, "role": "L'Image Centrale",            "type": "IMAGE", "texte": "Courte légende accompagnant l'image.", "visuel": "Description de l'image illustrant la métaphore." },
+    { "numero": 4, "role": "L'Explication / La Mécanique", "type": "TEXTE", "texte": "L'explication psychique, la mécanique invisible." },
+    { "numero": 5, "role": "Le Basculement",              "type": "TEXTE", "texte": "Le basculement, l'approche thérapeutique." },
+    { "numero": 6, "role": "La Pépite / Synthèse",        "type": "TEXTE", "texte": "La pépite à retenir, la synthèse." },
+    { "numero": 7, "role": "CTA Luminose",                "type": "TEXTE", "texte": "Appel à l'action fixe. Sans emoji." }
   ]
 }
-IMPORTANT : Toujours exactement 7 slides. Pas de slide_finale séparée.
+IMPORTANT : Toujours exactement 7 slides. Pas de slide_finale séparée. Seule la slide 3 est de type IMAGE.
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
         (data.slides || []).forEach((s: any) => {
-            if (s.titre) out.push(t(s.titre));
             if (s.texte) out.push(t(s.texte));
         });
+        return out.filter(Boolean).join(' ');
+    }
+};
+
+const NEWSLETTER: FormatDefinition = {
+    key: TargetFormat.NEWSLETTER,
+    shortKey: 'Newsletter',
+    storageField: 'body',
+    editorTab: 'atelier',
+    promptTemplate: `
+GRILLE DE PRODUCTION — Newsletter — Mailing-list
+Contenu pour la newsletter de Florent. Ton personnel et chaleureux. Vouvoiement obligatoire (jamais de tutoiement).
+On sent la relation directe praticien → abonné.
+{
+  "format": "Newsletter",
+  "objet": "Objet de l'email : court, intrigant, qui donne envie d'ouvrir.",
+  "accroche": "Les premières phrases qui captent l'attention : citations, questions rhétoriques, images choc. Elles posent le décor émotionnel.",
+  "corps": "Développement en paragraphes. Vouvoiement. Explication du pourquoi, proposition concrète (date, lieu, contexte). Alterner prose et listes à puces (•) pour les détails pratiques. Chaque paragraphe fait progresser vers l'action.",
+  "repositionnement": "Paragraphe qui requalifie la pratique ou l'offre — ce que c'est vraiment vs. ce qu'on croit. La phrase qui recadre.",
+  "baffe": "Phrase finale percutante — la vérité que le lecteur ne voulait pas entendre.",
+  "cta": "Appel à l'action avec lien. Utiliser le format : 👉 __Texte du lien__"
+}
+Ton : Personnel, chaleureux, vouvoiement. Direct mais bienveillant.
+Contrainte de longueur : 300-500 mots.
+Ne PAS inclure de salutation (Bonjour) ni de signature (Chaleureusement, Florent Jaouali) — ils sont ajoutés automatiquement par l'outil d'envoi.
+    `.trim(),
+    toPlainText: (data: any): string => {
+        const out: string[] = [];
+        if (data.accroche) out.push(t(data.accroche));
+        if (data.corps) out.push(t(data.corps));
+        if (data.repositionnement) out.push(t(data.repositionnement));
+        if (data.baffe) out.push(t(data.baffe));
+        if (data.cta) out.push(t(data.cta));
         return out.filter(Boolean).join(' ');
     }
 };
@@ -227,6 +264,7 @@ export const FORMAT_REGISTRY: Record<TargetFormat, FormatDefinition> = {
     [TargetFormat.SCRIPT_VIDEO_YOUTUBE]: SCRIPT_YOUTUBE,
     [TargetFormat.CARROUSEL_SLIDE]: CARROUSEL,
     [TargetFormat.PROMPT_IMAGE]: PROMPT_IMAGE,
+    [TargetFormat.NEWSLETTER]: NEWSLETTER,
 };
 
 // ── Lookup helpers ───────────────────────────────────────────────────

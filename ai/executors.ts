@@ -25,7 +25,7 @@ export const extractJsonPayload = (responseText: string): string => {
 
 // ── Clés courtes acceptées (retournées par le nouveau prompt) ──
 
-const SHORT_FORMAT_KEYS = ["Post Texte", "Article", "Script Reel", "Script Youtube", "Carrousel", "Prompt Image"];
+const SHORT_FORMAT_KEYS = ["Post Texte", "Article", "Script Reel", "Script Youtube", "Carrousel", "Prompt Image", "Newsletter"];
 
 /**
  * Parse et valide la réponse IA de rédaction (draft).
@@ -95,10 +95,10 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
 
     switch (format) {
         case TargetFormat.POST_TEXTE_COURT: {
-            if (data.hook)  out.push(`**Hook**\n${text(data.hook)}`);
+            if (data.accroche) out.push(`**Accroche**\n${text(data.accroche)}`);
             if (data.corps) out.push(`**Corps**\n${text(data.corps)}`);
-            if (data.baffe) out.push(`**Baffe**\n${text(data.baffe)}`);
             if (data.cta)   out.push(`**CTA**\n${text(data.cta)}`);
+            if (data.visuel) out.push(`**Visuel**\n${text(data.visuel)}`);
             return out.join("\n\n");
         }
         case TargetFormat.ARTICLE_LONG_SEO: {
@@ -117,9 +117,11 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
         }
         case TargetFormat.SCRIPT_VIDEO_REEL_SHORT: {
             if (data.contrainte) out.push(`**Contrainte**\n${text(data.contrainte)}`);
-            if (data.hook)  out.push(`**Hook**\n${text(data.hook)}`);
-            if (data.corps) out.push(`**Corps**\n${text(data.corps)}`);
-            if (data.cta)   out.push(`**CTA**\n${text(data.cta)}`);
+            (data.sections || []).forEach((s: any) => {
+                const label = `${text(s.timing)} ${text(s.role)}`;
+                out.push(`**${label}**\n${text(s.texte)}`);
+                if (s.intention) out.push(`_${text(s.intention)}_`);
+            });
             return out.join("\n\n");
         }
         case TargetFormat.SCRIPT_VIDEO_YOUTUBE: {
@@ -153,6 +155,15 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
                 out.push(`### Slide finale${finalTitre ? ` — ${finalTitre}` : ""}`);
                 if (finalTexte) out.push(finalTexte);
             }
+            return out.join("\n\n");
+        }
+        case TargetFormat.NEWSLETTER: {
+            if (data.objet) out.push(`**Objet**\n${text(data.objet)}`);
+            if (data.accroche) out.push(`**Accroche**\n${text(data.accroche)}`);
+            if (data.corps) out.push(`**Corps**\n${text(data.corps)}`);
+            if (data.repositionnement) out.push(`**Repositionnement**\n${text(data.repositionnement)}`);
+            if (data.baffe) out.push(`**Baffe**\n${text(data.baffe)}`);
+            if (data.cta) out.push(`**CTA**\n${text(data.cta)}`);
             return out.join("\n\n");
         }
         case TargetFormat.PROMPT_IMAGE: {
