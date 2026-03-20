@@ -46,6 +46,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
     const isVideoFormat = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
         || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
     const hasContent = isVideoFormat ? !!item.scriptVideo : !!item.body;
+    const hasInterviewAnswers = !!item.interviewAnswers?.trim();
 
     // Draft 0 : brouillon intermédiaire généré par l'intervieweur (texte brut dans body)
     // Visible quand le contenu final n'existe pas encore mais qu'un draft 0 est stocké dans body
@@ -59,17 +60,25 @@ export const DraftView: React.FC<DraftViewProps> = ({
         }
     })();
 
-    // Accordéon Q&A : replié par défaut quand le contenu existe
-    const [isQAExpanded, setIsQAExpanded] = useState(!hasContent);
+    // Accordéon Interview : ouvert tant que les réponses sont vides
+    const [isQAExpanded, setIsQAExpanded] = useState(!hasInterviewAnswers);
 
-    // Auto-replier quand le contenu apparaît (génération terminée)
+    useEffect(() => {
+        if (!hasInterviewAnswers) {
+            setIsQAExpanded(true);
+        }
+    }, [hasInterviewAnswers]);
+
+    // Scroll vers le brouillon après génération, et replier l'interview si elle est déjà remplie
     useEffect(() => {
         if (hasContent) {
-            setIsQAExpanded(false);
+            if (hasInterviewAnswers) {
+                setIsQAExpanded(false);
+            }
             // Scroll vers le brouillon après génération
             setTimeout(() => contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
         }
-    }, [hasContent]);
+    }, [hasContent, hasInterviewAnswers]);
 
     const startEditBody = (body: string) => {
         setEditBodyText(bodyJsonToText(body));
@@ -170,7 +179,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                     TAB : IDÉE
                 ════════════════════════════════════════ */}
                 {activeTab === 'idea' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 flex flex-col gap-6">
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 flex flex-col gap-6 pb-10">
 
                         {/* Bloc Analyse IA — badges + angle + métaphore + justification */}
                         {(item.analyzed || item.verdict || item.targetFormat || item.targetOffer || item.depth) && (
@@ -257,6 +266,17 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 placeholder="Tes notes brutes, idées, références..."
                             />
                         </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                onClick={onLaunchInterview}
+                                disabled={isGenerating}
+                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                                Générer une première version
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -268,7 +288,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                         {/* ── 1. Barre contexte ── */}
                         {(item.strategicAngle || item.suggestedMetaphor || item.targetFormat || item.depth) && (
-                            <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 flex flex-col gap-3">
+                            <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 flex flex-col gap-3 order-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase flex items-center gap-1">
                                         <Brain className="w-3 h-3" /> Contexte
@@ -299,10 +319,14 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                         {/* ── 2. Accordéon Interview (masqué si Direct) ── */}
                         {!isDirect && (
-                            <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/50 overflow-hidden">
+                            <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/50 overflow-hidden order-3">
                                 {/* Header accordéon */}
                                 <button
-                                    onClick={() => setIsQAExpanded(!isQAExpanded)}
+                                    onClick={() => {
+                                        if (hasInterviewAnswers) {
+                                            setIsQAExpanded(!isQAExpanded);
+                                        }
+                                    }}
                                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-100/50 dark:hover:bg-blue-900/20 transition-colors"
                                 >
                                     <span className="flex items-center gap-2">
@@ -313,7 +337,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 <Zap className="w-2.5 h-2.5 inline mr-1" />{item.depth}
                                             </span>
                                         )}
-                                        {item.interviewQuestions && item.interviewAnswers && (
+                                        {item.interviewQuestions && hasInterviewAnswers && (
                                             <span className="text-[10px] text-blue-500 dark:text-blue-400">
                                                 — questions et réponses fournies
                                             </span>
@@ -393,7 +417,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                         {/* ── 2b. Draft 0 (brouillon intermédiaire de l'intervieweur) ── */}
                         {hasDraftZero && (
-                            <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/50 overflow-hidden">
+                            <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/50 overflow-hidden order-2">
                                 <div className="px-4 py-2.5 border-b border-amber-200 dark:border-amber-900/50 flex items-center gap-2">
                                     <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                     <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase">Draft 0</span>
@@ -407,11 +431,11 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                         {/* ── 3. CTA Générer le brouillon (visible quand pas de contenu final) ── */}
                         {!hasContent && (
-                            <button
-                                onClick={onLaunchDrafting}
-                                disabled={isGenerating || (!isDirect && !item.interviewAnswers)}
-                                className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold shadow-lg shadow-pink-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 w-full justify-center"
-                            >
+                                <button
+                                    onClick={onLaunchDrafting}
+                                    disabled={isGenerating || (!isDirect && !hasInterviewAnswers)}
+                                    className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold shadow-lg shadow-pink-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 w-full justify-center order-2"
+                                >
                                 {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
                                 Générer le brouillon
                             </button>
@@ -419,7 +443,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                         {/* ── 4. Section Brouillon (visible quand contenu existe) ── */}
                         {hasContent && (
-                            <div ref={contentRef} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-pink-500/20 overflow-hidden flex flex-col flex-1 min-h-[400px]">
+                            <div ref={contentRef} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-pink-500/20 overflow-hidden flex flex-col flex-1 min-h-[400px] order-2">
 
                                 {/* Header brouillon */}
                                 <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
@@ -526,7 +550,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 || item.targetFormat === TargetFormat.CARROUSEL_SLIDE;
 
                             if (item.targetFormat === TargetFormat.POST_TEXTE_COURT) return (
-                                <div className="flex justify-end">
+                                <div className="flex justify-end order-4">
                                     <button
                                         onClick={() => onTabChange('postcourt')}
                                         className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-emerald-600/20 transition-all hover:-translate-y-0.5"
@@ -539,7 +563,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             );
 
                             if (item.targetFormat === TargetFormat.CARROUSEL_SLIDE) return (
-                                <div className="flex justify-end">
+                                <div className="flex justify-end order-4">
                                     <button
                                         onClick={() => onTabChange('slides')}
                                         className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-violet-600/20 transition-all hover:-translate-y-0.5"
@@ -553,7 +577,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                             // Formats sans tab d'export → action finale directe
                             return (
-                                <div className="flex justify-end">
+                                <div className="flex justify-end order-4">
                                     <button
                                         onClick={() => onChangeStatus(ContentStatus.READY)}
                                         className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-green-600/20 transition-all hover:-translate-y-0.5"

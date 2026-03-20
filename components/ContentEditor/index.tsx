@@ -227,7 +227,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               interviewQuestions: formattedQuestions + signature,
               ...(draftZero ? { body: draftZero + signature } : {}),
           };
-          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
+          if (isMountedRef.current) {
+              setEditedItem(newItem);
+              await saveWithStatus(newItem);
+              onStepChange('atelier');
+          }
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur IA", message: error.message, type: "error" });
       } finally {
