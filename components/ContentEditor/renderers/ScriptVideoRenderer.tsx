@@ -29,9 +29,16 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw })
     if (isReelShort) return (
         <div className="p-6 space-y-4">
             {data.contrainte && <p className="text-[10px] font-bold text-amber-600/60 dark:text-amber-400/60 uppercase">{t(data.contrainte)}</p>}
-            {data.hook  && <BlockPre label="Hook [0–3s]"   color="border-amber-400">{t(data.hook)}</BlockPre>}
-            {data.corps && <BlockPre label="Corps [3–50s]" color="border-brand-main dark:border-white">{t(data.corps)}</BlockPre>}
-            {data.cta   && <BlockPre label="CTA [50–60s]"  color="border-green-400">{t(data.cta)}</BlockPre>}
+            {(data.sections || []).map((s: any, i: number) => (
+                <BlockPre key={i} label={`${t(s.timing)} ${t(s.role)}`} color={
+                    i === 0 ? "border-amber-400" :
+                    i === (data.sections?.length ?? 0) - 1 ? "border-green-400" :
+                    "border-brand-main dark:border-white"
+                }>
+                    {t(s.texte)}
+                    {s.intention && <p className="mt-2 text-xs italic opacity-60">{t(s.intention)}</p>}
+                </BlockPre>
+            ))}
         </div>
     );
 

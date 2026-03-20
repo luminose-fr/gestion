@@ -44,7 +44,7 @@ Pour chaque idée, retourne un objet JSON avec exactement ces champs :
 3. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
 4. 'justification' : 2-3 phrases maximum expliquant le verdict.
 5. 'cible_offre' : "Standard" | "Seuil" | "Transverse".
-6. 'format_cible' : "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Prompt Image".
+6. 'format_cible' : "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Newsletter" | "Prompt Image".
 7. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
 8. 'angle_strategique' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction.
 9. 'metaphore_suggeree' : Si une piste métaphorique émerge, la noter ici. Sinon : null.

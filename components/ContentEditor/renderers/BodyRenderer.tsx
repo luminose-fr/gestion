@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pencil } from 'lucide-react';
 import { TargetFormat } from '../../../types';
-import { parseBodyJson, t, Block } from './shared';
+import { parseBodyJson, t, Block, BlockPre } from './shared';
 
 interface BodyRendererProps {
     body: string;
@@ -43,13 +43,14 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
     const isYoutube     = fmt === TargetFormat.SCRIPT_VIDEO_YOUTUBE || fmt === "Script Youtube";
     const isCarrousel   = fmt === TargetFormat.CARROUSEL_SLIDE || fmt === "Carrousel";
     const isPromptImage = fmt === TargetFormat.PROMPT_IMAGE || fmt === "Prompt Image";
+    const isNewsletter  = fmt === TargetFormat.NEWSLETTER || fmt === "Newsletter";
 
     if (isPostTexte) return (
         <div className="p-6 space-y-4">
-            {data.hook  && <Block label="Hook"  color="border-pink-400">{t(data.hook)}</Block>}
+            {data.accroche && <Block label="Accroche" color="border-pink-400">{t(data.accroche)}</Block>}
             {data.corps && <Block label="Corps" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
-            {data.baffe && <Block label="Baffe" color="border-purple-400">{t(data.baffe)}</Block>}
             {data.cta   && <Block label="CTA"   color="border-green-400">{t(data.cta)}</Block>}
+            {data.visuel && <Block label="Visuel suggéré" color="border-amber-400">{t(data.visuel)}</Block>}
         </div>
     );
 
@@ -71,9 +72,16 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
     if (isReelShort) return (
         <div className="p-6 space-y-4">
             {data.contrainte && <p className="text-[10px] font-bold text-brand-main/40 dark:text-dark-text/40 uppercase">{t(data.contrainte)}</p>}
-            {data.hook  && <Block label="Hook [0–3s]"   color="border-pink-400">{t(data.hook)}</Block>}
-            {data.corps && <Block label="Corps [3–50s]" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
-            {data.cta   && <Block label="CTA [50–60s]"  color="border-green-400">{t(data.cta)}</Block>}
+            {(data.sections || []).map((s: any, i: number) => (
+                <BlockPre key={i} label={`${t(s.timing)} ${t(s.role)}`} color={
+                    i === 0 ? "border-pink-400" :
+                    i === (data.sections?.length ?? 0) - 1 ? "border-green-400" :
+                    "border-brand-main dark:border-white"
+                }>
+                    {t(s.texte)}
+                    {s.intention && <p className="mt-2 text-xs italic opacity-60">{t(s.intention)}</p>}
+                </BlockPre>
+            ))}
         </div>
     );
 
@@ -93,21 +101,16 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
     if (isCarrousel) return (
         <div className="p-6 space-y-3">
             {(data.slides || []).map((s: any, i: number) => (
-                <div key={i} className="bg-brand-light dark:bg-dark-bg rounded-lg p-3 border border-brand-border dark:border-dark-sec-border">
+                <div key={i} className={`bg-brand-light dark:bg-dark-bg rounded-lg p-3 border ${s.type === 'IMAGE' ? 'border-amber-300 dark:border-amber-700' : 'border-brand-border dark:border-dark-sec-border'}`}>
                     <div className="flex items-center gap-2 mb-2">
                         <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
-                        {s.titre && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.titre)}</span>}
+                        {(s.role || s.titre) && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.role || s.titre)}</span>}
+                        {s.type && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-brand-border/50 dark:bg-dark-sec-border/50">{t(s.type)}</span>}
                     </div>
                     {s.texte && <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{t(s.texte)}</p>}
+                    {s.visuel && <p className="mt-1 text-xs italic text-amber-600 dark:text-amber-400">{t(s.visuel)}</p>}
                 </div>
             ))}
-            {data.slide_finale && (
-                <div className="bg-green-50 dark:bg-green-900/10 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                    <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase mb-1">Slide finale</p>
-                    {data.slide_finale.titre && <p className="text-sm font-bold text-brand-main dark:text-white">{t(data.slide_finale.titre)}</p>}
-                    {data.slide_finale.texte && <p className="text-sm text-brand-main dark:text-dark-text">{t(data.slide_finale.texte)}</p>}
-                </div>
-            )}
         </div>
     );
 
@@ -115,6 +118,17 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
         <div className="p-6 space-y-4">
             {data.prompt  && <Block label="Prompt (EN)" color="border-amber-400">{t(data.prompt)}</Block>}
             {data.legende && <Block label="Légende"     color="border-blue-400">{t(data.legende)}</Block>}
+        </div>
+    );
+
+    if (isNewsletter) return (
+        <div className="p-6 space-y-4">
+            {data.objet && <Block label="Objet" color="border-blue-400">{t(data.objet)}</Block>}
+            {data.accroche && <Block label="Accroche" color="border-pink-400">{t(data.accroche)}</Block>}
+            {data.corps && <Block label="Corps" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
+            {data.repositionnement && <Block label="Repositionnement" color="border-purple-400">{t(data.repositionnement)}</Block>}
+            {data.baffe && <Block label="Baffe" color="border-pink-400">{t(data.baffe)}</Block>}
+            {data.cta && <Block label="CTA" color="border-green-400">{t(data.cta)}</Block>}
         </div>
     );
 

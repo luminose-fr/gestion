@@ -66,7 +66,7 @@ const BOLD_MAP: Record<string, string> = {
 const toBoldUnicode = (text: string): string =>
     text.split('').map(c => BOLD_MAP[c] ?? c).join('');
 
-/** Construit le texte « prêt à copier » d'un Post Court (hook/baffe/cta en bold Unicode) */
+/** Construit le texte « prêt à copier » d'un Post Court (accroche/cta en bold Unicode) */
 export const buildPostCourtText = (body: string): string => {
     if (!body) return "";
     try {
@@ -79,10 +79,33 @@ export const buildPostCourtText = (body: string): string => {
         if (!isPostTexte) return "";
         const v = (val: any) => (typeof val === 'string' ? val.trim() : "");
         const parts: string[] = [];
-        if (data.hook)  parts.push(toBoldUnicode(v(data.hook)));
+        if (data.accroche) parts.push(toBoldUnicode(v(data.accroche)));
         if (data.corps) parts.push(v(data.corps));
-        if (data.baffe) parts.push(toBoldUnicode(v(data.baffe)));
         if (data.cta)   parts.push(toBoldUnicode(v(data.cta)));
+        return parts.filter(Boolean).join("\n\n");
+    } catch {
+        return body;
+    }
+};
+
+/** Construit le texte « prêt à copier » d'une Newsletter */
+export const buildNewsletterText = (body: string): string => {
+    if (!body) return "";
+    try {
+        const lastBrace = body.lastIndexOf('}');
+        const cleaned = lastBrace !== -1 ? body.slice(0, lastBrace + 1) : body;
+        const data = JSON.parse(cleaned);
+        if (data.edited_raw) return data.edited_raw;
+        const fmt = data.format;
+        const isNewsletter = fmt === TargetFormat.NEWSLETTER || fmt === "Newsletter";
+        if (!isNewsletter) return "";
+        const v = (val: any) => (typeof val === 'string' ? val.trim() : "");
+        const parts: string[] = [];
+        if (data.accroche) parts.push(v(data.accroche));
+        if (data.corps) parts.push(v(data.corps));
+        if (data.repositionnement) parts.push(v(data.repositionnement));
+        if (data.baffe) parts.push(v(data.baffe));
+        if (data.cta) parts.push(v(data.cta));
         return parts.filter(Boolean).join("\n\n");
     } catch {
         return body;

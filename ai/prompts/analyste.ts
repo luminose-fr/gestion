@@ -41,12 +41,16 @@ Filtre 5 — Différenciation : Ce contenu pourrait-il être publié par n'impor
 
 CHOIX DU FORMAT :
 Analyse la nature de l'idée et sélectionne le format le plus impactant :
-• Article (Long/SEO) → Sujet clinique dense, exploration théorique, guide profond. Permet la rigueur ET la métaphore filée.
-• Post Texte (Court) → Prise de position rapide, pensée percutante, retournement paradoxal. L'idée tient en une "claque".
-• Script Vidéo (Reel/Short) → Métaphore humoristique, punchline, interpellation face caméra. Le type de contenu du transcript sur l'injustice.
+• Newsletter → Contenu pour la mailing-list. Vouvoiement obligatoire, ton personnel et chaleureux, développement plus long qu'un post (300-500 mots). Idéal pour les annonces d'événements, partages de réflexion en profondeur, invitations personnelles.
+• Post Texte (Court) → Post "Punchline" pour LinkedIn/Facebook. Accroche percutante + métaphore filée en 10-15 lignes + CTA engageant + description d'image métaphorique. Prise de position rapide, retournement paradoxal.
+• Carrousel (Slide par Slide) → 7 slides épurées pour Instagram/LinkedIn. 1 seule image (slide 3), le reste en texte pur. Format pédagogique : processus étape par étape, concept décomposable.
+• Script Vidéo (Reel/Short) → Script < 60 secondes avec 4 sections temporisées (accroche 0-3s / constat 3-15s / bascule 15-45s / ouverture 45-60s). Notes d'intention (rythme, pauses, ton) incluses.
+• Article (Long/SEO) → Sujet clinique dense, exploration théorique, guide profond. Permet la rigueur ET la métaphore filée. Pour Blog uniquement.
 • Script Vidéo (Youtube) → Masterclass, récit clinique long, exploration philosophique avec narration.
-• Carrousel (Slide par Slide) → Processus étape par étape, concept décomposable visuellement, liste structurée.
 • Prompt Image → Idée purement métaphorique résumable en une seule claque visuelle (+ courte légende).
+
+RÈGLE NEWSLETTER vs POST TEXTE :
+Si Newsletter est parmi les plateformes cibles et que le contenu nécessite plus de développement qu'un simple post (événement à détailler, réflexion à approfondir, invitation avec informations pratiques) → utiliser le format Newsletter. Le format Post Texte (Court) ne convient PAS pour la newsletter car il est trop court.
 
 Guide du champ profondeur :
 • Direct → Les notes de Florent contiennent déjà toute la matière nécessaire (événement vécu, métaphore trouvée, message clair). Pas besoin d'interview. L'Éditeur travaille directement avec les notes. Cas typiques : remerciement post-événement, partage d'une citation commentée, annonce simple.

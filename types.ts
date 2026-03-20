@@ -27,7 +27,8 @@ export enum TargetFormat {
   SCRIPT_VIDEO_REEL_SHORT = "Script Vidéo (Reel/Short)",
   SCRIPT_VIDEO_YOUTUBE = "Script Vidéo (Youtube)",
   CARROUSEL_SLIDE = "Carrousel (Slide par Slide)",
-  PROMPT_IMAGE = "Prompt Image"
+  PROMPT_IMAGE = "Prompt Image",
+  NEWSLETTER = "Newsletter"
 }
 
 export const TARGET_FORMAT_VALUES = Object.values(TargetFormat) as string[];
