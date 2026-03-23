@@ -7,7 +7,7 @@ import * as OneMinService from '../../services/oneMinService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
 import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../../ai/actions';
 import { bodyJsonToText } from '../../ai/formats';
-import { extractJsonPayload, parseDraftResponse, parseAIResponse } from '../../ai/executors';
+import { parseDraftResponse, parseAIResponse, sanitizeSlidesResponse } from '../../ai/executors';
 import { AIConfigModal } from '../AIConfigModal';
 
 // Sub-components
@@ -15,7 +15,7 @@ import { EditorLayout } from './EditorLayout';
 import { DraftView } from './DraftView';
 import { PreviewView } from './PreviewView';
 
-export type EditorStep = 'idea' | 'atelier' | 'slides' | 'postcourt';
+export type EditorStep = 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script';
 
 interface ContentEditorProps {
   item: ContentItem | null;
@@ -316,8 +316,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const responseText = await callAI(modelId, systemInstruction, "", actionConfig.generationConfig);
 
-          const cleaned = extractJsonPayload(responseText);
-          if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
+          const cleaned = sanitizeSlidesResponse(responseText);
 
           const contextName = contextItem?.name || "Contexte par défaut";
           const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);

@@ -82,6 +82,37 @@ export const parseAIResponse = (responseText: string, key: string): string => {
     return cleaned;
 };
 
+/**
+ * Nettoie la réponse IA des slides carrousel avant stockage.
+ * Supprime les blocs de DA globaux et les notes de mise en page par slide.
+ */
+export const sanitizeSlidesResponse = (responseText: string): string => {
+    const cleaned = extractJsonPayload(responseText);
+    if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
+
+    let data: any;
+    try {
+        data = JSON.parse(cleaned);
+    } catch {
+        throw new Error("La réponse IA des slides n'est pas un JSON valide.");
+    }
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error("Format de réponse slides invalide (objet JSON attendu).");
+    }
+
+    const { direction_globale, ...rest } = data;
+    const sanitizedSlides = Array.isArray(rest.slides)
+        ? rest.slides.map((slide: any) => {
+            if (!slide || typeof slide !== 'object' || Array.isArray(slide)) return slide;
+            const { indication_typo, note_composition, composition, ...slideRest } = slide;
+            return slideRest;
+        })
+        : rest.slides;
+
+    return JSON.stringify({ ...rest, slides: sanitizedSlides }, null, 2);
+};
+
 // ── Formatage texte (pour preview plain-text) ──
 
 const text = (value: any): string => (typeof value === 'string' ? value.trim() : "");

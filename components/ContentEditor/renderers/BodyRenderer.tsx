@@ -51,6 +51,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
             {data.corps && <Block label="Corps" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
             {data.cta   && <Block label="CTA"   color="border-green-400">{t(data.cta)}</Block>}
             {data.visuel && <Block label="Visuel suggéré" color="border-amber-400">{t(data.visuel)}</Block>}
+            {data.prompt_dzine && <Block label="Prompt Dzine" color="border-violet-400">{t(data.prompt_dzine)}</Block>}
         </div>
     );
 

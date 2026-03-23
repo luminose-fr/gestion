@@ -18,6 +18,37 @@ export const parseBodyJson = (raw: string): any | null => {
 /** Raccourci pour trimmer une valeur quelconque en string */
 export const t = (v: any): string => (typeof v === 'string' ? v.trim() : "");
 
+/** Copie du texte avec fallback pour les environnements où Clipboard API échoue. */
+export const copyTextToClipboard = async (text: string): Promise<boolean> => {
+    if (!text) return false;
+
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    } catch {
+        // Fallback ci-dessous.
+    }
+
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return copied;
+    } catch {
+        return false;
+    }
+};
+
 /** Bloc structuré avec border-left colorée — utilisé par tous les renderers */
 export const Block = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
     <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
@@ -85,6 +116,38 @@ export const buildPostCourtText = (body: string): string => {
         return parts.filter(Boolean).join("\n\n");
     } catch {
         return body;
+    }
+};
+
+/** Extrait le prompt Dzine d'un Post Texte structuré. */
+export const getPostCourtDzinePrompt = (body: string): string => {
+    if (!body) return "";
+    try {
+        const lastBrace = body.lastIndexOf('}');
+        const cleaned = lastBrace !== -1 ? body.slice(0, lastBrace + 1) : body;
+        const data = JSON.parse(cleaned);
+        const fmt = data.format;
+        const isPostTexte = fmt === TargetFormat.POST_TEXTE_COURT || fmt === "Post Texte";
+        if (!isPostTexte) return "";
+        return t(data.prompt_dzine);
+    } catch {
+        return "";
+    }
+};
+
+/** Extrait le visuel suggéré d'un Post Texte structuré. */
+export const getPostCourtSuggestedVisual = (body: string): string => {
+    if (!body) return "";
+    try {
+        const lastBrace = body.lastIndexOf('}');
+        const cleaned = lastBrace !== -1 ? body.slice(0, lastBrace + 1) : body;
+        const data = JSON.parse(cleaned);
+        const fmt = data.format;
+        const isPostTexte = fmt === TargetFormat.POST_TEXTE_COURT || fmt === "Post Texte";
+        if (!isPostTexte) return "";
+        return t(data.visuel);
+    } catch {
+        return "";
     }
 };
 

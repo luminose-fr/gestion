@@ -108,21 +108,13 @@ Retourne le JSON complet modifié, dans le même format exact que l'original.
 
 FORMAT DE SORTIE (STRICT) :
 {
-  "direction_globale": {
-    "style": "Le style visuel unifié pour tout le carrousel.",
-    "palette": "Les 3-4 couleurs dominantes.",
-    "eclairage": "Le type de lumière constant.",
-    "ambiance": "Le ressenti émotionnel global en quelques mots."
-  },
   "slides": [
     {
       "numero": 1,
       "type": "ILLUSTRÉE ou TYPO",
       "titre": "Le titre ou accroche à afficher sur la slide. 6 mots max.",
       "texte": "Le corps de texte court à afficher sur la slide. 2-3 phrases max.",
-      "prompt_dzine": "Le prompt complet en anglais, prêt à coller dans Dzine. 50-80 mots max. Null si type TYPO.",
-      "indication_typo": "Si TYPO : couleur de fond suggérée et style de mise en page. Null si type ILLUSTRÉE.",
-      "note_composition": "Où placer le texte sur l'image (ex: espace libre en haut, tiers gauche dégagé)."
+      "prompt_dzine": "Le prompt complet en anglais, prêt à coller dans Dzine. 50-80 mots max. Null si type TYPO."
     }
   ]
 }

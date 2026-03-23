@@ -4,7 +4,7 @@ import { ContentItem, ContentStatus, TargetFormat } from '../../types';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
-import { DEPTH_COLORS, buildPostCourtText } from './renderers/shared';
+import { DEPTH_COLORS, buildPostCourtText, copyTextToClipboard } from './renderers/shared';
 
 interface PreviewViewProps {
     item: ContentItem;
@@ -22,8 +22,9 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
     const [copied, setCopied] = useState(false);
     const postCourtText = isPostCourt ? buildPostCourtText(item.body || "") : "";
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(postCourtText);
+    const handleCopy = async () => {
+        const copied = await copyTextToClipboard(postCourtText);
+        if (!copied) return;
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };

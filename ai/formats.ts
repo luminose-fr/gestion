@@ -50,7 +50,8 @@ Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un 
   "accroche": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc. C'est le hook qui arrête le scroll.",
   "corps": "Développement de la métaphore filée + explication clinique. 10-15 lignes. Paragraphes courts (2-3 phrases). Alternance prose/listes (→). Montée en tension. La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse.",
   "cta": "Question pour engager la discussion ou invitation à lire l'article complet / s'inscrire. JAMAIS d'emoji.",
-  "visuel": "Description de l'image suggérée (format 1:1 ou 4:5), métaphorique, avec un titre court à incruster sur l'image."
+  "visuel": "Description de l'image suggérée (format 1:1 ou 4:5), métaphorique, avec un titre court à incruster sur l'image.",
+  "prompt_dzine": "Prompt détaillé en anglais, prêt à coller dans Dzine. 50-80 mots. Cohérent avec le visuel suggéré et sans texte à générer dans l'image."
 }
 Ton : Direct, oralisé, percutant. On entend la voix.
     `.trim(),
