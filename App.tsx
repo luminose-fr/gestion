@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase, Video } from 'lucide-react';
+import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase, Video, Sparkles } from 'lucide-react';
 import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat, isTargetOffer, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
@@ -18,14 +18,20 @@ import { isAuthenticated, logout } from './auth';
 import { AlertModal } from './components/CommonModals';
 import { AIConfigModal } from './components/AIConfigModal';
 import SubtitleConverter from './components/SubtitleConverter';
+import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 
 // Components refactorisés
 import { Sidebar } from './components/Layout/Sidebar';
 import { SocialIdeasView } from './components/Views/SocialIdeasView';
 import { SocialGridView } from './components/Views/SocialGridView';
 
-type SpaceView = 'social' | 'clients' | 'videos';
+type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'calendar' | 'archive';
+
+const getSpaceHash = (space: SpaceView) => {
+    if (space === 'psychedelics') return 'psychedeliques';
+    return space;
+};
 
 const getHashState = () => {
     const hash = window.location.hash.replace('#', '');
@@ -34,6 +40,7 @@ const getHashState = () => {
     let space: SpaceView = 'social';
     if (parts[0] === 'clients') space = 'clients';
     if (parts[0] === 'videos') space = 'videos';
+    if (parts[0] === 'psychedelics' || parts[0] === 'psychedeliques') space = 'psychedelics';
     
     let tab: SocialTab = 'ideas'; 
     if (parts[1] && ['drafts', 'ready', 'ideas', 'calendar', 'archive'].includes(parts[1])) {
@@ -132,7 +139,7 @@ function App() {
   }, []);
 
   const updateRoute = (space: SpaceView, tab: SocialTab, itemId: string | null = null, step: EditorStep = 'idea') => {
-      let hash = `${space}`;
+      let hash = `${getSpaceHash(space)}`;
       if (space === 'social') {
           hash += `/${tab}`;
           if (itemId) {
@@ -592,6 +599,18 @@ function App() {
                     <Video className="w-4 h-4" />
                     Vidéos
                 </button>
+                <button
+                    onClick={() => updateRoute('psychedelics', 'ideas')}
+                    className={`
+                        px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2
+                        ${currentSpace === 'psychedelics'
+                            ? 'bg-brand-light text-brand-main dark:bg-dark-sec-bg dark:text-white border-2 border-brand-border dark:border-dark-sec-border'
+                            : 'text-gray-500 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-sec-bg border-2 border-transparent'}
+                    `}
+                >
+                    <Sparkles className="w-4 h-4" />
+                    Psychédéliques
+                </button>
             </div>
           </div>
           
@@ -676,6 +695,22 @@ function App() {
                 </div>
                 <div className="px-4 md:px-6 pb-12 mt-4 md:mt-0">
                     <SubtitleConverter aiModels={aiModels} />
+                </div>
+            </main>
+        )}
+
+        {currentSpace === 'psychedelics' && (
+            <main className="flex-1 overflow-y-auto">
+                <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm z-10 px-4 md:px-6 py-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
+                    <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2 font-display italic">
+                        Psychédéliques
+                    </h2>
+                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-1">
+                        Calculateur de repères de dosage et aide à la réduction des risques
+                    </p>
+                </div>
+                <div className="px-4 md:px-6 pb-12 mt-4 md:mt-0">
+                    <PsychedelicsCalculator />
                 </div>
             </main>
         )}

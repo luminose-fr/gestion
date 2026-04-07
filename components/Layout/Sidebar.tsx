@@ -1,7 +1,7 @@
 import React from 'react';
-import { Lightbulb, Calendar as CalendarIcon, Archive, Users, Settings, Briefcase, CheckCircle2, PenLine, X, Video, Subtitles } from 'lucide-react';
+import { Lightbulb, Calendar as CalendarIcon, Archive, Users, Settings, Briefcase, CheckCircle2, PenLine, X, Video, Subtitles, Sparkles, Calculator } from 'lucide-react';
 
-type SpaceView = 'social' | 'clients' | 'videos';
+type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'calendar' | 'archive';
 
 interface SidebarProps {
@@ -68,6 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {mobileSpaceBtn('social', Briefcase, 'Contenus', currentSocialTab)}
             {mobileSpaceBtn('clients', Users, 'Clients')}
             {mobileSpaceBtn('videos', Video, 'Vidéos')}
+            {mobileSpaceBtn('psychedelics', Sparkles, 'Psychédéliques')}
         </div>
     );
 
@@ -158,6 +159,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <div className="px-3 py-2 text-sm text-brand-main/50 dark:text-dark-text/50 italic">
                                 Modules à venir...
                             </div>
+                            {renderMobileSpaces()}
+                        </div>
+                    </>
+                ) : currentSpace === 'psychedelics' ? (
+                    <>
+                        <div className="p-4 flex-1 overflow-y-auto space-y-1">
+                            <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3 mt-2">Outils</div>
+                            <SidebarItem
+                                active={true}
+                                onClick={() => {}}
+                                icon={Calculator}
+                                label="Calculateur"
+                            />
                             {renderMobileSpaces()}
                         </div>
                     </>
