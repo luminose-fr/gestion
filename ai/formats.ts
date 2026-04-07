@@ -48,12 +48,12 @@ Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un 
 {
   "format": "Post Texte",
   "accroche": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc. C'est le hook qui arrête le scroll.",
-  "corps": "Développement de la métaphore filée + explication clinique. 10-15 lignes. Paragraphes courts (2-3 phrases). Alternance prose/listes (→). Montée en tension. La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse.",
-  "cta": "Question pour engager la discussion ou invitation à lire l'article complet / s'inscrire. JAMAIS d'emoji.",
-  "visuel": "Description de l'image suggérée (format 1:1 ou 4:5), métaphorique, avec un titre court à incruster sur l'image.",
-  "prompt_dzine": "Prompt détaillé en anglais, prêt à coller dans Dzine. 50-80 mots. Cohérent avec le visuel suggéré et sans texte à générer dans l'image."
+  "corps": "Court et tendu : 8-12 lignes MAX. Chaque phrase doit faire avancer le propos — aucun paragraphe explicatif, aucune glose. Ne DIS PAS au lecteur ce qu'il ressent ou pourquoi ça marche (pas de 'Le truc, c'est que...', 'Ce n'est même pas confortable', 'Et le connu, ça rassure'). Montre par l'image et la scène, le lecteur comprend tout seul. Paragraphes de 1-2 phrases. Alternance prose/listes (→). Montée en tension rapide vers un moment de bascule (une phrase lâchée en séance, un silence, un aveu). La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse. Coupe tout ce qui ralentit : si une phrase n'ajoute pas de tension ou d'image nouvelle, elle n'a rien à faire là.",
+  "cta": "Question courte et tranchante pour engager la discussion. JAMAIS d'emoji.",
+  "visuel": "Description de l'image suggérée (format 1:1 ou 4:5). Préfère une scène avec un personnage plutôt qu'un détail abstrait isolé. L'accroche à incruster sur l'image gagne à reprendre la métaphore centrale du texte plutôt qu'un concept détaché.",
+  "prompt_dzine": "Prompt détaillé en anglais, prêt à coller dans Dzine. 50-80 mots. Composition épurée, éclairage dramatique, mood émotionnel et introspectif. Évite les références à des peintres classiques (pas de 'Caravaggio', 'Rembrandt'...). Pas de texte à générer dans l'image. Cohérent avec le visuel suggéré."
 }
-Ton : Direct, oralisé, percutant. On entend la voix.
+Ton : Direct, oralisé, percutant. On entend la voix. Fluide — le texte doit se lire d'une traite, sans qu'on ait envie de sauter un paragraphe.
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
