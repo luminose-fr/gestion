@@ -65,7 +65,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   
   // Navigation & AI State
   const [showContextSelector, setShowContextSelector] = useState(false);
-  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | null>(null);
+  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | 'adjust' | null>(null);
   const [pendingAdjustmentText, setPendingAdjustmentText] = useState<string>("");
 
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
@@ -172,6 +172,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       if (pendingContextAction === 'interview') await executeInterview(contextId, modelId);
       else if (pendingContextAction === 'draft') await executeDrafting(contextId, modelId);
       else if (pendingContextAction === 'carrousel') await executeCarrouselSlides(contextId, modelId);
+      else if (pendingContextAction === 'adjust' && pendingAdjustmentText) await executeAdjustment(pendingAdjustmentText, modelId);
   };
 
   // --- AI ACTIONS EXECUTORS ---
@@ -333,7 +334,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- ADJUSTMENT (Refinement Loop) ---
 
-  const executeAdjustment = async (adjustmentText: string) => {
+  const launchAdjustment = (adjustmentText: string) => {
+      setPendingAdjustmentText(adjustmentText);
+      setPendingContextAction('adjust');
+      setShowContextSelector(true);
+  };
+
+  const executeAdjustment = async (adjustmentText: string, modelId: string) => {
       if (!isMountedRef.current || !adjustmentText.trim()) return;
       setIsGenerating(true);
       try {
@@ -352,14 +359,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const responseText = await callAI(
-              INTERNAL_MODELS.FAST,
+              modelId,
               systemInstruction,
               "", // le contenu est déjà dans le system prompt
               actionConfig.generationConfig
           );
 
           const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
-          const modelName = "Gemini Flash";
+          // Resolve model name for signature
+          const modelObj = aiModels.find(m => m.apiCode === modelId);
+          const modelName = modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : (modelObj?.name || modelId);
           const signature = `\n\n_Ajusté par : ${modelName} — le ${new Date().toLocaleString('fr-FR')}_`;
           const finalContent = cleaned + signature;
 
@@ -496,7 +505,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onLaunchInterview={triggerInterview}
                     onLaunchDrafting={triggerDrafting}
                     onLaunchCarrouselSlides={triggerCarrouselSlides}
-                    onLaunchAdjustment={executeAdjustment}
+                    onLaunchAdjustment={launchAdjustment}
                     onChangeStatus={changeStatus}
                     onSave={onSave}
                     isGenerating={isGenerating}
@@ -562,6 +571,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                 }
                 if (action === 'carrousel') {
                     return ['Offre cible', 'Métaphore suggérée', 'Contenu rédigé'];
+                }
+                if (action === 'adjust') {
+                    return ['Contenu actuel', 'Instruction d\'ajustement'];
                 }
                 return [];
             })()}

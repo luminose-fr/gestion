@@ -10,7 +10,7 @@ interface AIConfigModalProps {
     onConfirm: (contextId: string, modelId: string) => void;
     contexts: ContextItem[];
     aiModels: AIModel[];
-    actionType: 'interview' | 'draft' | 'analyze' | 'carrousel';
+    actionType: 'interview' | 'draft' | 'analyze' | 'carrousel' | 'adjust';
     onManageContexts: () => void;
     /** Labels résumant les données qui seront envoyées à l'IA */
     dataSummary?: string[];
@@ -94,6 +94,7 @@ export const AIConfigModal: React.FC<AIConfigModalProps> = ({
             case 'draft': return "Configuration de la Rédaction";
             case 'analyze': return "Configuration de l'Analyse";
             case 'carrousel': return "Configuration des Slides Carrousel";
+            case 'adjust': return "Configuration de l'Ajustement";
             default: return "Configuration IA";
         }
     };
