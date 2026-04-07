@@ -39,7 +39,10 @@
       "WebFetch(domain:www.simonsaysai.com)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\")",
-      "WebFetch(domain:docs.1min.ai)"
+      "WebFetch(domain:docs.1min.ai)",
+      "WebFetch(domain:fcp.co)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:www.google.com)"
     ]
   }
 }

@@ -214,10 +214,13 @@ function shadowToFcpAttrs(shadow: ShadowStyle): string {
     if (!shadow.enabled) return '';
     const alpha = shadow.opacity / 100;
     const shadowColor = hexToFcpColor(shadow.color, alpha);
-    // Convert distance + angle to X/Y offset (FCP Y-up coordinate system)
+    // FCP angle convention: 315° = bottom-right shadow
+    // FCP shadowOffset = "X Y" where positive Y = downward
+    // Standard trig: cos(angle) = X, sin(angle) = Y
+    // FCP inverts Y from trig (positive Y = down), so we negate sin
     const angleRad = shadow.angle * Math.PI / 180;
     const offsetX = (shadow.distance * Math.cos(angleRad)).toFixed(2);
-    const offsetY = (shadow.distance * Math.sin(angleRad)).toFixed(2);
+    const offsetY = (-shadow.distance * Math.sin(angleRad)).toFixed(2);
     return ` shadowColor="${shadowColor}" shadowOffset="${offsetX} ${offsetY}" shadowBlurRadius="${shadow.blur}"`;
 }
 
