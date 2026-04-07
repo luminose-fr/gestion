@@ -38,41 +38,33 @@ const fetch1Min = async (endpoint: string, body: any) => {
 
 export const generateContent = async (request: OneMinRequest): Promise<string> => {
     try {
-        // 1. Concaténer System Instruction et Prompt
-        const fullPrompt = request.systemInstruction 
+        // Concaténer System Instruction et Prompt
+        const fullPrompt = request.systemInstruction
             ? `${request.systemInstruction}\n\n---\n\n${request.prompt}`
             : request.prompt;
 
-        // 2. Créer la conversation
-        const conversationData = await fetch1Min('create-conversation', {
-            type: "CHAT_WITH_AI",
-            title: `Generation ${new Date().toISOString()}`,
-            model: request.model
-        });
-
-        const conversationId = conversationData.conversation?.uuid;
-        if (!conversationId) {
-            throw new Error("Impossible de créer une conversation 1min.AI");
-        }
-
-        // 3. Envoyer le message
-        const messageResponse = await fetch1Min('send-message', {
-            type: "CHAT_WITH_AI",
-            conversationId: conversationId,
+        // Appel direct à l'API Chat with AI (UNIFY_CHAT_WITH_AI)
+        const messageResponse = await fetch1Min('chat', {
+            type: "UNIFY_CHAT_WITH_AI",
             model: request.model,
             promptObject: {
                 prompt: fullPrompt,
-                isMixed: false,
-                webSearch: false
+                settings: {
+                    webSearchSettings: {
+                        webSearch: false,
+                    },
+                    historySettings: {
+                        isMixed: false,
+                        historyMessageLimit: 1,
+                    },
+                    withMemories: false,
+                },
             }
         });
 
-        // 4. Extraction robuste du résultat
-        // L'API peut renvoyer la réponse dans aiRecord.aiRecordDetail.resultObject (tableau de strings)
-        // ou directement dans response / text selon le model/feature.
-        
+        // Extraction robuste du résultat
         let rawContent = "";
-        
+
         const aiRecord = messageResponse.aiRecord;
         const resultObject = aiRecord?.aiRecordDetail?.resultObject;
 
@@ -80,9 +72,9 @@ export const generateContent = async (request: OneMinRequest): Promise<string> =
             rawContent = resultObject[0];
         } else {
             // Fallbacks selon les différentes versions de l'API constatées
-            rawContent = messageResponse.response || 
-                         messageResponse.text || 
-                         messageResponse.output || 
+            rawContent = messageResponse.response ||
+                         messageResponse.text ||
+                         messageResponse.output ||
                          aiRecord?.response ||
                          JSON.stringify(messageResponse);
         }

@@ -80,18 +80,17 @@ export default {
       };
 
       try {
-        // 1. Créer une conversation
+        // 1. Créer une conversation (optionnel, pour multi-turn)
         if (path === '/1min/create-conversation') {
           const body = await request.json();
-          // Force le type si non présent
-          if (!body.type) body.type = "CHAT_WITH_AI";
-          
+          if (!body.type) body.type = "UNIFY_CHAT_WITH_AI";
+
           const response = await fetch('https://api.1min.ai/api/conversations', {
             method: 'POST',
             headers: oneMinHeaders,
             body: JSON.stringify(body)
           });
-          
+
           const data = await response.json();
           return new Response(JSON.stringify(data), {
             status: response.status,
@@ -99,11 +98,11 @@ export default {
           });
         }
 
-        // 2. Envoyer un message (Feature API)
-        if (path === '/1min/send-message') {
+        // 2. Chat with AI (nouvelle API unifiée)
+        if (path === '/1min/chat' || path === '/1min/send-message') {
           const body = await request.json();
 
-          const response = await fetch('https://api.1min.ai/api/features', { // Mode non-streaming pour simplifier le parsing JSON
+          const response = await fetch('https://api.1min.ai/api/chat-with-ai', {
             method: 'POST',
             headers: oneMinHeaders,
             body: JSON.stringify(body)
@@ -115,7 +114,7 @@ export default {
           try {
             JSON.parse(responseText);
           } catch (e) {
-            console.error('1min.AI send-message: réponse non-JSON reçue (status ' + response.status + '):', responseText.substring(0, 500));
+            console.error('1min.AI chat: réponse non-JSON reçue (status ' + response.status + '):', responseText.substring(0, 500));
             return new Response(JSON.stringify({
               error: 'L\'API 1min.AI a renvoyé une réponse invalide (non-JSON).',
               status: response.status,

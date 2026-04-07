@@ -1,7 +1,7 @@
 import React from 'react';
-import { Lightbulb, Calendar as CalendarIcon, Archive, Users, Settings, Briefcase, CheckCircle2, PenLine, X } from 'lucide-react';
+import { Lightbulb, Calendar as CalendarIcon, Archive, Users, Settings, Briefcase, CheckCircle2, PenLine, X, Video, Subtitles } from 'lucide-react';
 
-type SpaceView = 'social' | 'clients';
+type SpaceView = 'social' | 'clients' | 'videos';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'calendar' | 'archive';
 
 interface SidebarProps {
@@ -45,6 +45,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
     currentSpace, currentSocialTab, onNavigate, counts, 
     isMobileOpen, onMobileClose, onOpenSettings 
 }) => {
+    const mobileSpaceBtn = (space: SpaceView, icon: any, label: string, tab: SocialTab = 'ideas') => {
+        const isActive = currentSpace === space;
+        const Icon = icon;
+        return (
+            <button
+                onClick={() => { onNavigate(space, tab); onMobileClose(); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
+                    isActive
+                        ? 'bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-white'
+                        : 'text-brand-main/70 dark:text-dark-text/70'
+                }`}
+            >
+                <Icon className="w-5 h-5" /> {label}
+            </button>
+        );
+    };
+
+    const renderMobileSpaces = () => (
+        <div className="md:hidden pt-4 mt-4 border-t border-brand-light dark:border-dark-sec-border">
+            <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3">Espaces</div>
+            {mobileSpaceBtn('social', Briefcase, 'Contenus', currentSocialTab)}
+            {mobileSpaceBtn('clients', Users, 'Clients')}
+            {mobileSpaceBtn('videos', Video, 'Vidéos')}
+        </div>
+    );
+
     return (
         <>
             {isMobileOpen && (
@@ -112,25 +138,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 count={counts.archive}
                              />
                              
-                             <div className="md:hidden pt-4 mt-4 border-t border-brand-light dark:border-dark-sec-border">
-                                <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3">Espaces</div>
-                                <button
-                                    onClick={() => { onNavigate('social', currentSocialTab); onMobileClose(); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-white"
-                                >
-                                    <Briefcase className="w-5 h-5" /> Contenus
-                                </button>
-                                <button
-                                    onClick={() => { onNavigate('clients', 'ideas'); onMobileClose(); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brand-main/70 dark:text-dark-text/70"
-                                >
-                                    <Users className="w-5 h-5" /> Clients
-                                </button>
-                             </div>
+                             {renderMobileSpaces()}
                         </div>
 
                         <div className="p-4 border-t border-brand-border dark:border-dark-sec-border">
-                            <button 
+                            <button
                                 onClick={() => { onOpenSettings(); onMobileClose(); }}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg rounded-lg transition-colors group"
                             >
@@ -139,29 +151,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </button>
                         </div>
                     </>
-                ) : (
+                ) : currentSpace === 'clients' ? (
                     <>
                         <div className="p-4 flex-1 overflow-y-auto space-y-1">
                             <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3 mt-2">Menu Clients</div>
                             <div className="px-3 py-2 text-sm text-brand-main/50 dark:text-dark-text/50 italic">
                                 Modules à venir...
                             </div>
-
-                             <div className="md:hidden pt-4 mt-4 border-t border-brand-light dark:border-dark-sec-border">
-                                <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3">Espaces</div>
-                                <button
-                                    onClick={() => { onNavigate('social', 'ideas'); onMobileClose(); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-brand-main/70 dark:text-dark-text/70"
-                                >
-                                    <Briefcase className="w-5 h-5" /> Contenus
-                                </button>
-                                <button
-                                    onClick={() => { onNavigate('clients', 'ideas'); onMobileClose(); }}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-white"
-                                >
-                                    <Users className="w-5 h-5" /> Clients
-                                </button>
-                             </div>
+                            {renderMobileSpaces()}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="p-4 flex-1 overflow-y-auto space-y-1">
+                            <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider mb-3 px-3 mt-2">Outils</div>
+                            <SidebarItem
+                                active={true}
+                                onClick={() => {}}
+                                icon={Subtitles}
+                                label="Sous-titres"
+                            />
+                            {renderMobileSpaces()}
                         </div>
                     </>
                 )}
