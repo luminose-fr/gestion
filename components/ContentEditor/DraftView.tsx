@@ -18,7 +18,7 @@ interface DraftViewProps {
     onLaunchDrafting: () => void;
     onLaunchCarrouselSlides: () => void;
     onLaunchAdjustment: (adjustmentText: string) => void;
-    onChangeStatus: (status: ContentStatus) => Promise<void>;
+    onChangeStatus: (status: ContentStatus, scheduledDate?: string) => Promise<void>;
     onSave: (item: ContentItem) => Promise<void>;
 
     isGenerating: boolean;

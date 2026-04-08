@@ -134,9 +134,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       await saveWithStatus(editedItem);
   };
 
-  const changeStatus = async (newStatus: ContentStatus) => {
+  const changeStatus = async (newStatus: ContentStatus, scheduledDate?: string) => {
       if (isSaving || !editedItem) return;
       const newItem = { ...editedItem, status: newStatus };
+      if (scheduledDate !== undefined) {
+          newItem.scheduledDate = scheduledDate;
+      }
       setEditedItem(newItem);
       await saveWithStatus(newItem);
   };

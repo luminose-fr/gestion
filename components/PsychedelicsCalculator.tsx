@@ -43,22 +43,23 @@ type MushroomVariant = {
   type: MushroomType;
 };
 
-const TRUFFLE_FRESH_TO_DRY_DOSE_RATIO = 10.9 / 7.1;
+// Truffes (sclérotes) : ~65-70% d'eau → ratio frais/sec ≈ 3
+const TRUFFLE_FRESH_TO_DRY_RATIO = 3;
 
 const TRUFFLE_FRESH_FACTORS: Record<DoseLevel, number> = {
-  'Micro-dose': 0.07,
-  Faible: 0.13,
-  Normal: 0.2,
-  Fort: 0.35,
-  'Héroïque': 0.6,
+  'Micro-dose': 0.01,    // 70 kg → 0.7 g
+  Faible: 0.09,          // 70 kg → 6.3 g
+  Normal: 0.18,          // 70 kg → 12.6 g
+  Fort: 0.30,            // 70 kg → 21 g
+  'Héroïque': 0.50,      // 70 kg → 35 g
 };
 
 const TRUFFLE_DRY_FACTORS: Record<DoseLevel, number> = {
-  'Micro-dose': TRUFFLE_FRESH_FACTORS['Micro-dose'] / TRUFFLE_FRESH_TO_DRY_DOSE_RATIO,
-  Faible: TRUFFLE_FRESH_FACTORS.Faible / TRUFFLE_FRESH_TO_DRY_DOSE_RATIO,
-  Normal: TRUFFLE_FRESH_FACTORS.Normal / TRUFFLE_FRESH_TO_DRY_DOSE_RATIO,
-  Fort: TRUFFLE_FRESH_FACTORS.Fort / TRUFFLE_FRESH_TO_DRY_DOSE_RATIO,
-  'Héroïque': TRUFFLE_FRESH_FACTORS['Héroïque'] / TRUFFLE_FRESH_TO_DRY_DOSE_RATIO,
+  'Micro-dose': TRUFFLE_FRESH_FACTORS['Micro-dose'] / TRUFFLE_FRESH_TO_DRY_RATIO,
+  Faible: TRUFFLE_FRESH_FACTORS.Faible / TRUFFLE_FRESH_TO_DRY_RATIO,
+  Normal: TRUFFLE_FRESH_FACTORS.Normal / TRUFFLE_FRESH_TO_DRY_RATIO,
+  Fort: TRUFFLE_FRESH_FACTORS.Fort / TRUFFLE_FRESH_TO_DRY_RATIO,
+  'Héroïque': TRUFFLE_FRESH_FACTORS['Héroïque'] / TRUFFLE_FRESH_TO_DRY_RATIO,
 };
 
 const MUSHROOM_FACTORS: Record<MushroomType, Record<DoseLevel, number>> = {
@@ -78,19 +79,20 @@ const MUSHROOM_FACTORS: Record<MushroomType, Record<DoseLevel, number>> = {
   },
   'Truffes Magiques (Fraîches)': TRUFFLE_FRESH_FACTORS,
   'Truffes Magiques (Secs)': TRUFFLE_DRY_FACTORS,
+  // Copelandia : 2-3x plus puissant que cubensis
   'Copelandia Cyanescens (Frais)': {
-    'Micro-dose': 0.01,
-    Faible: 0.05,
-    Normal: 0.1,
-    Fort: 0.18,
-    'Héroïque': 0.25,
+    'Micro-dose': 0.01,    // 70 kg → 0.7 g
+    Faible: 0.08,          // 70 kg → 5.6 g
+    Normal: 0.15,          // 70 kg → 10.5 g
+    Fort: 0.25,            // 70 kg → 17.5 g
+    'Héroïque': 0.35,      // 70 kg → 24.5 g
   },
   'Copelandia Cyanescens (Secs)': {
-    'Micro-dose': 0.001,
-    Faible: 0.005,
-    Normal: 0.01,
-    Fort: 0.018,
-    'Héroïque': 0.025,
+    'Micro-dose': 0.001,   // 70 kg → 0.07 g
+    Faible: 0.008,         // 70 kg → 0.56 g
+    Normal: 0.015,         // 70 kg → 1.05 g
+    Fort: 0.025,           // 70 kg → 1.75 g
+    'Héroïque': 0.035,     // 70 kg → 2.45 g
   },
 };
 
@@ -453,6 +455,11 @@ export default function PsychedelicsCalculator() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h4 className="text-lg font-bold text-brand-main dark:text-white">Paliers estimatifs</h4>
+              <p className="mt-1 text-sm text-brand-main/50 dark:text-dark-text/50">
+                {activeTab === 'Champignons' && `${selectedMushroomVariant.label}, ${weight} kg`}
+                {activeTab === 'LSD' && 'Doses fixes (indépendantes du poids)'}
+                {activeTab === 'MDMA' && `Règle 1,5 mg/kg, ${weight} kg`}
+              </p>
             </div>
             <div className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${theme.soft}`}>{activeTab}</div>
           </div>

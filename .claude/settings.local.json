@@ -42,7 +42,11 @@
       "WebFetch(domain:docs.1min.ai)",
       "WebFetch(domain:fcp.co)",
       "WebFetch(domain:stackoverflow.com)",
-      "WebFetch(domain:www.google.com)"
+      "WebFetch(domain:www.google.com)",
+      "WebFetch(domain:tangerineretreat.com)",
+      "WebFetch(domain:www.zamnesia.com)",
+      "WebFetch(domain:www.miraculix-lab.de)",
+      "WebFetch(domain:evolute-institute.com)"
     ]
   }
 }

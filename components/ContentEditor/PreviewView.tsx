@@ -1,14 +1,67 @@
-import React, { useState } from 'react';
-import { Eye, RotateCcw, CheckCircle2, Target, Zap, Images, Copy, Check, FileText, Video } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Eye, RotateCcw, CheckCircle2, Target, Zap, Images, Copy, Check, FileText, Video, Calendar } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat } from '../../types';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
 import { DEPTH_COLORS, buildPostCourtText, copyTextToClipboard, getPostCourtDzinePrompt, getPostCourtSuggestedVisual } from './renderers/shared';
 
+// ── Publish button with date picker popover ────────────────────────
+
+const PublishButton: React.FC<{ onPublish: (date: string) => void; currentDate: string | null }> = ({ onPublish, currentDate }) => {
+    const [open, setOpen] = useState(false);
+    const [date, setDate] = useState(() => {
+        if (currentDate) return currentDate.slice(0, 10);
+        return new Date().toISOString().slice(0, 10);
+    });
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                onClick={() => setOpen(!open)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-xs transition-colors"
+            >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Marquer publié
+            </button>
+            {open && (
+                <div className="absolute right-0 top-full mt-2 z-50 bg-white dark:bg-dark-bg rounded-xl border border-brand-border dark:border-dark-sec-border shadow-xl p-4 space-y-3 min-w-[220px]">
+                    <label className="text-xs font-medium text-brand-main/60 dark:text-dark-text/60 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        Date de publication
+                    </label>
+                    <input
+                        type="date"
+                        value={date}
+                        onChange={e => setDate(e.target.value)}
+                        className="w-full text-sm bg-brand-light dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg px-3 py-2 text-brand-main dark:text-white"
+                    />
+                    <button
+                        onClick={() => { onPublish(date); setOpen(false); }}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                    >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Confirmer
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 interface PreviewViewProps {
     item: ContentItem;
-    onChangeStatus: (status: ContentStatus) => Promise<void>;
+    onChangeStatus: (status: ContentStatus, scheduledDate?: string) => Promise<void>;
 }
 
 export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }) => {
@@ -120,22 +173,16 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
 
                     <div className="flex items-center gap-2">
                         {item.status === ContentStatus.READY && (
-                            <>
-                                <button
-                                    onClick={() => onChangeStatus(ContentStatus.DRAFTING)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-main/60 hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white bg-white dark:bg-dark-surface hover:bg-brand-light dark:hover:bg-dark-bg rounded-lg border border-brand-border dark:border-dark-sec-border transition-colors"
-                                >
-                                    <RotateCcw className="w-3.5 h-3.5" />
-                                    Retour brouillon
-                                </button>
-                                <button
-                                    onClick={() => onChangeStatus(ContentStatus.PUBLISHED)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-xs transition-colors"
-                                >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    Marquer publié
-                                </button>
-                            </>
+                            <PublishButton onPublish={(date) => onChangeStatus(ContentStatus.PUBLISHED, date)} currentDate={item.scheduledDate} />
+                        )}
+                        {item.status === ContentStatus.READY && (
+                            <button
+                                onClick={() => onChangeStatus(ContentStatus.DRAFTING)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-main/60 hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white bg-white dark:bg-dark-surface hover:bg-brand-light dark:hover:bg-dark-bg rounded-lg border border-brand-border dark:border-dark-sec-border transition-colors"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Retour brouillon
+                            </button>
                         )}
                         {item.status === ContentStatus.PUBLISHED && (
                             <span className="flex items-center gap-1.5 text-xs font-bold text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800">

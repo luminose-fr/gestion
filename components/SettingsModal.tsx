@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save, Settings, Loader2, Brain, Cpu, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { X, Plus, Trash2, Save, Settings, Loader2, Brain, Cpu, ChevronLeft, ChevronRight, Search, User, Eye } from 'lucide-react';
 import { ContextItem, AIModel, ContextUsage } from '../types';
 import * as NotionService from '../services/notionService';
 import { ConfirmModal } from './CommonModals';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
 import { useEscapeClose } from './hooks/useEscapeClose';
+import { ANALYSTE_PERSONA, INTERVIEWER_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '../ai/prompts';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -16,7 +17,14 @@ interface SettingsModalProps {
   onModelsChange: (models: AIModel[]) => void;
 }
 
-type MenuCategory = 'contexts' | 'models' | null;
+type MenuCategory = 'personas' | 'contexts' | 'models' | null;
+
+const HARDCODED_PERSONAS = [
+    { id: 'analyste', name: 'Rédacteur en Chef Stratégique', usage: 'Analyste', prompt: ANALYSTE_PERSONA },
+    { id: 'interviewer', name: 'Super-Interviewer', usage: 'Interviewer', prompt: INTERVIEWER_PERSONA },
+    { id: 'redacteur', name: 'Éditeur Littéraire & Scénariste', usage: 'Rédacteur', prompt: REDACTEUR_PERSONA },
+    { id: 'artiste', name: 'Directeur Artistique', usage: 'Artiste', prompt: ARTISTE_PERSONA },
+];
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
     isOpen, onClose, contexts, onContextsChange, aiModels = [], onModelsChange 
@@ -27,6 +35,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // Selection / Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   
   // Operations State
   const [isSaving, setIsSaving] = useState(false);
@@ -49,6 +58,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           setActiveCategory(null);
           setEditingId(null);
           setIsCreating(false);
+          setSelectedPersonaId(null);
       }
   }, [isOpen]);
 
@@ -61,12 +71,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       setActiveCategory(category);
       setEditingId(null);
       setIsCreating(false);
+      setSelectedPersonaId(null);
   };
 
   const handleBackToMenu = () => {
       setActiveCategory(null);
       setEditingId(null);
       setIsCreating(false);
+      setSelectedPersonaId(null);
   };
 
   // --- ITEM SELECTION HANDLERS ---
@@ -191,7 +203,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="w-1/2 h-full p-4 space-y-2 overflow-y-auto">
                         <div className="text-xs font-bold text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest px-2 mb-2">Menu Principal</div>
                         
-                        <button 
+                        <button
+                            onClick={() => handleCategorySelect('personas')}
+                            className="w-full flex items-center justify-between p-4 bg-white dark:bg-dark-surface hover:bg-white/80 dark:hover:bg-dark-surface/80 rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border transition-all group"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg text-indigo-600 dark:text-indigo-300">
+                                    <User className="w-5 h-5" />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block font-bold text-brand-main dark:text-white">Personas</span>
+                                    <span className="text-xs text-brand-main/50 dark:text-dark-text/50">Rôles IA intégrés</span>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-brand-main/30 group-hover:text-brand-main/60 transition-colors" />
+                        </button>
+
+                        <button
                             onClick={() => handleCategorySelect('contexts')}
                             className="w-full flex items-center justify-between p-4 bg-white dark:bg-dark-surface hover:bg-white/80 dark:hover:bg-dark-surface/80 rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border transition-all group"
                         >
@@ -200,14 +228,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     <Brain className="w-5 h-5" />
                                 </div>
                                 <div className="text-left">
-                                    <span className="block font-bold text-brand-main dark:text-white">Contextes</span>
-                                    <span className="text-xs text-brand-main/50 dark:text-dark-text/50">Personas & Voix</span>
+                                    <span className="block font-bold text-brand-main dark:text-white">Contextes additionnels</span>
+                                    <span className="text-xs text-brand-main/50 dark:text-dark-text/50">Compléments optionnels</span>
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-brand-main/30 group-hover:text-brand-main/60 transition-colors" />
                         </button>
 
-                        <button 
+                        <button
                             onClick={() => handleCategorySelect('models')}
                             className="w-full flex items-center justify-between p-4 bg-white dark:bg-dark-surface hover:bg-white/80 dark:hover:bg-dark-surface/80 rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border transition-all group"
                         >
@@ -235,36 +263,56 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <ChevronLeft className="w-4 h-4" /> Retour
                             </button>
                             <div className="flex-1 text-center font-bold text-brand-main dark:text-white">
-                                {activeCategory === 'contexts' ? 'Contextes' : 'Modèles'}
+                                {activeCategory === 'personas' ? 'Personas' : activeCategory === 'contexts' ? 'Contextes additionnels' : 'Modèles'}
                             </div>
                             <div className="w-16"></div> {/* Spacer for balance if needed, or actions */}
                         </div>
 
-                        {/* ADD BUTTON (At the top of the list area) */}
+                        {/* ADD BUTTON (At the top of the list area) — hidden for personas (read-only) */}
+                        {activeCategory !== 'personas' && (
                         <div className="p-4 pb-2">
-                            <button 
+                            <button
                                 onClick={activeCategory === 'contexts' ? handleCreateContext : handleCreateModel}
                                 className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed font-bold transition-all
-                                    ${isCreating 
-                                        ? 'border-brand-main bg-brand-main/5 text-brand-main' 
+                                    ${isCreating
+                                        ? 'border-brand-main bg-brand-main/5 text-brand-main'
                                         : 'border-brand-border dark:border-dark-sec-border text-brand-main/60 hover:border-brand-main hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white'}
                                 `}
                             >
-                                <Plus className="w-4 h-4" /> 
-                                {activeCategory === 'contexts' ? 'Créer un Persona' : 'Ajouter un Modèle'}
+                                <Plus className="w-4 h-4" />
+                                {activeCategory === 'contexts' ? 'Créer un Contexte' : 'Ajouter un Modèle'}
                             </button>
                         </div>
+                        )}
 
                         {/* SCROLLABLE LIST */}
                         <div className="flex-1 overflow-y-auto p-4 pt-0 space-y-2">
-                            {activeCategory === 'contexts' ? (
+                            {activeCategory === 'personas' ? (
+                                HARDCODED_PERSONAS.map(p => (
+                                    <div
+                                        key={p.id}
+                                        onClick={() => setSelectedPersonaId(p.id)}
+                                        className={`p-3 rounded-lg cursor-pointer transition-all border relative
+                                            ${selectedPersonaId === p.id
+                                                ? 'bg-white dark:bg-dark-surface border-indigo-500 shadow-md'
+                                                : 'bg-white/50 dark:bg-dark-surface/50 border-transparent hover:bg-white dark:hover:bg-dark-surface'}
+                                        `}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <h3 className="font-semibold text-sm truncate text-brand-main dark:text-white">{p.name}</h3>
+                                            <span className="text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 rounded-full font-bold">{p.usage}</span>
+                                        </div>
+                                        {selectedPersonaId === p.id && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-500"></div>}
+                                    </div>
+                                ))
+                            ) : activeCategory === 'contexts' ? (
                                 (contexts || []).map(ctx => (
-                                    <div 
-                                        key={ctx.id} 
-                                        onClick={() => handleEditContext(ctx)} 
+                                    <div
+                                        key={ctx.id}
+                                        onClick={() => handleEditContext(ctx)}
                                         className={`p-3 rounded-lg cursor-pointer transition-all border relative
                                             ${editingId === ctx.id && !isCreating
-                                                ? 'bg-white dark:bg-dark-surface border-brand-main shadow-md' 
+                                                ? 'bg-white dark:bg-dark-surface border-brand-main shadow-md'
                                                 : 'bg-white/50 dark:bg-dark-surface/50 border-transparent hover:bg-white dark:hover:bg-dark-surface'}
                                         `}
                                     >
@@ -275,12 +323,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 ))
                             ) : (
                                 (aiModels || []).map(m => (
-                                    <div 
-                                        key={m.id} 
-                                        onClick={() => handleEditModel(m)} 
+                                    <div
+                                        key={m.id}
+                                        onClick={() => handleEditModel(m)}
                                         className={`p-3 rounded-lg cursor-pointer transition-all border relative
                                             ${editingId === m.id && !isCreating
-                                                ? 'bg-white dark:bg-dark-surface border-brand-main shadow-md' 
+                                                ? 'bg-white dark:bg-dark-surface border-brand-main shadow-md'
                                                 : 'bg-white/50 dark:bg-dark-surface/50 border-transparent hover:bg-white dark:hover:bg-dark-surface'}
                                         `}
                                     >
@@ -307,19 +355,43 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {/* RIGHT EDITOR (Main Content) */}
             <div className="flex-1 flex flex-col bg-white dark:bg-dark-surface overflow-hidden">
-                {isCreating || editingId ? (
+                {/* PERSONA READ-ONLY VIEW */}
+                {activeCategory === 'personas' && selectedPersonaId ? (() => {
+                    const persona = HARDCODED_PERSONAS.find(p => p.id === selectedPersonaId);
+                    if (!persona) return null;
+                    return (
+                        <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="px-8 py-6 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-bold text-brand-main dark:text-white">{persona.name}</h3>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className="text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-full font-bold">{persona.usage}</span>
+                                        <span className="flex items-center gap-1 text-xs text-brand-main/40 dark:text-dark-text/40">
+                                            <Eye className="w-3 h-3" /> Lecture seule
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-8">
+                                <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-3">Prompt Système</label>
+                                <pre className="whitespace-pre-wrap text-sm text-brand-main dark:text-dark-text leading-relaxed font-sans bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-xl p-6">{persona.prompt}</pre>
+                            </div>
+                        </div>
+                    );
+                })()
+                : isCreating || editingId ? (
                     <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300">
                         {/* Editor Header */}
                         <div className="px-8 py-6 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between">
                             <h3 className="text-xl font-bold text-brand-main dark:text-white">
-                                {isCreating 
-                                    ? (activeCategory === 'contexts' ? 'Nouveau Persona' : 'Nouveau Modèle') 
-                                    : (activeCategory === 'contexts' ? 'Modifier Persona' : 'Modifier Modèle')
+                                {isCreating
+                                    ? (activeCategory === 'contexts' ? 'Nouveau Contexte' : 'Nouveau Modèle')
+                                    : (activeCategory === 'contexts' ? 'Modifier Contexte' : 'Modifier Modèle')
                                 }
                             </h3>
                             {editingId && (
-                                <button 
-                                    onClick={() => setDeleteId(editingId)} 
+                                <button
+                                    onClick={() => setDeleteId(editingId)}
                                     className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors"
                                     title="Supprimer"
                                 >
@@ -333,17 +405,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             {activeCategory === 'contexts' ? (
                                 <>
                                     <div>
-                                        <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Nom du Persona</label>
-                                        <input 
-                                            type="text" 
-                                            value={editCtxName} 
-                                            onChange={(e) => setEditCtxName(e.target.value)} 
-                                            className="w-full text-xl font-bold border-b-2 border-brand-border dark:border-dark-sec-border py-2 bg-transparent focus:border-brand-main dark:focus:border-brand-light outline-hidden text-brand-main dark:text-white placeholder-brand-main/30" 
-                                            placeholder="Ex: Rédacteur LinkedIn Pro" 
+                                        <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Nom du Contexte</label>
+                                        <input
+                                            type="text"
+                                            value={editCtxName}
+                                            onChange={(e) => setEditCtxName(e.target.value)}
+                                            className="w-full text-xl font-bold border-b-2 border-brand-border dark:border-dark-sec-border py-2 bg-transparent focus:border-brand-main dark:focus:border-brand-light outline-hidden text-brand-main dark:text-white placeholder-brand-main/30"
+                                            placeholder="Ex: Contexte LinkedIn Pro"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Usage</label>
+                                        <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Rattaché au Persona</label>
                                         <select
                                             value={editCtxUsage}
                                             onChange={(e) => setEditCtxUsage(e.target.value as ContextUsage)}
@@ -356,14 +428,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                         </select>
                                     </div>
                                     <div className="flex-1 flex flex-col">
-                                        <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Prompt Système</label>
+                                        <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-widest mb-2">Contenu du Contexte</label>
                                         <div className="flex-1 border border-brand-border dark:border-dark-sec-border rounded-xl bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main overflow-hidden flex flex-col min-h-[300px]">
                                             <MarkdownToolbar />
-                                            <RichTextarea 
-                                                value={editCtxDesc} 
-                                                onChange={setEditCtxDesc} 
-                                                className="w-full flex-1 p-6" 
-                                                placeholder="Décrivez comment l'IA doit se comporter, son ton, son style..." 
+                                            <RichTextarea
+                                                value={editCtxDesc}
+                                                onChange={setEditCtxDesc}
+                                                className="w-full flex-1 p-6"
+                                                placeholder="Informations complémentaires à injecter dans le prompt..."
                                             />
                                         </div>
                                     </div>
@@ -410,9 +482,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         {/* Editor Footer */}
                         <div className="p-6 border-t border-brand-border dark:border-dark-sec-border flex justify-end bg-brand-light/30 dark:bg-dark-bg/30">
-                            <button 
-                                onClick={activeCategory === 'contexts' ? handleSaveContext : handleSaveModel} 
-                                disabled={isSaving} 
+                            <button
+                                onClick={activeCategory === 'contexts' ? handleSaveContext : handleSaveModel}
+                                disabled={isSaving}
                                 className="flex items-center gap-2 bg-brand-main hover:bg-brand-hover text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-brand-main/20 transition-all disabled:opacity-50"
                             >
                                 {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
@@ -423,7 +495,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 ) : (
                     // EMPTY STATE (Right Pane)
                     <div className="flex-1 flex flex-col items-center justify-center text-brand-main/30 dark:text-dark-text/30 space-y-6 animate-in fade-in zoom-in duration-300">
-                        {activeCategory === 'contexts' ? (
+                        {activeCategory === 'personas' ? (
+                            <div className="w-24 h-24 rounded-full bg-brand-light dark:bg-dark-bg flex items-center justify-center">
+                                <User className="w-12 h-12 opacity-50" />
+                            </div>
+                        ) : activeCategory === 'contexts' ? (
                             <div className="w-24 h-24 rounded-full bg-brand-light dark:bg-dark-bg flex items-center justify-center">
                                 <Brain className="w-12 h-12 opacity-50" />
                             </div>
@@ -441,8 +517,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {!activeCategory ? "Bienvenue dans les paramètres" : "Sélectionnez un élément"}
                             </p>
                             <p className="text-sm opacity-70 mt-1 max-w-xs mx-auto">
-                                {!activeCategory 
-                                    ? "Choisissez une catégorie dans le menu de gauche pour commencer." 
+                                {!activeCategory
+                                    ? "Choisissez une catégorie dans le menu de gauche pour commencer."
+                                    : activeCategory === 'personas'
+                                    ? "Cliquez sur un persona pour consulter ses instructions."
                                     : "Cliquez sur un élément de la liste pour le modifier ou utilisez le bouton 'Ajouter'."}
                             </p>
                         </div>
