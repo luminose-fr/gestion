@@ -1,10 +1,17 @@
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
+import type { ChatMessage } from "./oneMinService";
 
 interface GeminiRequest {
   model?: string;
   prompt: string;
   systemInstruction?: string;
+  /**
+   * Historique multi-tour optionnel. Concaténé côté client pour
+   * rester compatible avec le worker actuel (qui n'accepte qu'un prompt).
+   * Quand le worker supportera `contents[]` natif, on pourra basculer.
+   */
+  history?: ChatMessage[];
   generationConfig?: {
     temperature?: number;
     topK?: number;
@@ -14,7 +21,23 @@ interface GeminiRequest {
   };
 }
 
+/** Concatène l'historique + le prompt final en un seul bloc texte. */
+const buildConversationPrompt = (history: ChatMessage[], latestPrompt: string): string => {
+    if (!history || history.length === 0) return latestPrompt;
+    const transcript = history.map(m => {
+        const label = m.role === 'assistant' ? 'COACH' : 'FLORENT';
+        return `[${label}]\n${m.content}`;
+    }).join('\n\n');
+    return `HISTORIQUE DE LA CONVERSATION JUSQU'ICI :\n\n${transcript}\n\n---\n\nMESSAGE ACTUEL DE FLORENT :\n${latestPrompt}\n\n---\n\nRÉPONDS MAINTENANT en tenant compte de tout l'historique.`;
+};
+
 export const generateContent = async (request: GeminiRequest): Promise<string> => {
+  // Si un historique est fourni, on l'injecte dans le prompt avant l'envoi
+  const effectivePrompt = request.history && request.history.length > 0
+    ? buildConversationPrompt(request.history, request.prompt)
+    : request.prompt;
+  const effectiveRequest = { ...request, prompt: effectivePrompt, history: undefined };
+  request = effectiveRequest;
   const sessionToken = getSessionToken();
   
   const response = await fetch(`${WORKER_URL}/gemini/generate-content`, {

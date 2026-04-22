@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
+import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight, MessageCircle, Play } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat, Profondeur } from '../../types';
 import { bodyJsonToText } from '../../ai/formats';
 import { MarkdownToolbar } from '../MarkdownToolbar';
@@ -49,37 +49,29 @@ export const DraftView: React.FC<DraftViewProps> = ({
     const hasContent = isVideoFormat ? !!item.scriptVideo : !!item.body;
     const hasInterviewAnswers = !!item.interviewAnswers?.trim();
 
-    // Draft 0 : brouillon intermédiaire généré par l'intervieweur (texte brut dans body)
-    // Visible quand le contenu final n'existe pas encore mais qu'un draft 0 est stocké dans body
-    const hasDraftZero = (() => {
-        if (!item.body || hasContent) return false;
-        try {
-            const data = JSON.parse(item.body.slice(0, item.body.lastIndexOf('}') + 1));
-            return !data.format; // Si pas de champ 'format' → c'est du texte brut (draft 0)
-        } catch {
-            return true; // Pas du JSON → texte brut = draft 0
-        }
-    })();
+    // ── Session Coach (nouveau flow) ──
+    const coachSession = item.coachSession || null;
+    const coachMessagesCount = coachSession?.messages?.filter(m => m.role === 'user' || m.role === 'assistant').length || 0;
+    const hasCoachSession = coachMessagesCount > 0;
+    const coachSessionValidated = coachSession?.status === 'validated';
+    const coachLastAssistant = coachSession?.messages
+        ? [...coachSession.messages].reverse().find(m => m.role === 'assistant')
+        : null;
+    const coachState: 'empty' | 'in_progress' | 'validated' =
+        coachSessionValidated ? 'validated'
+        : hasCoachSession ? 'in_progress'
+        : 'empty';
 
-    // Accordéon Interview : ouvert tant que les réponses sont vides
-    const [isQAExpanded, setIsQAExpanded] = useState(!hasInterviewAnswers);
+    // Pour l'étape "Générer le brouillon" : on a besoin soit du mode Direct,
+    // soit d'une session Coach validée, soit (fallback) des vieilles réponses d'interview.
+    const canLaunchDrafting = isDirect || coachSessionValidated || hasInterviewAnswers;
 
-    useEffect(() => {
-        if (!hasInterviewAnswers) {
-            setIsQAExpanded(true);
-        }
-    }, [hasInterviewAnswers]);
-
-    // Scroll vers le brouillon après génération, et replier l'interview si elle est déjà remplie
+    // Scroll vers le brouillon après génération
     useEffect(() => {
         if (hasContent) {
-            if (hasInterviewAnswers) {
-                setIsQAExpanded(false);
-            }
-            // Scroll vers le brouillon après génération
             setTimeout(() => contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
         }
-    }, [hasContent, hasInterviewAnswers]);
+    }, [hasContent]);
 
     const startEditBody = (body: string) => {
         setEditBodyText(bodyJsonToText(body));
@@ -312,16 +304,6 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             />
                         </div>
 
-                        <div className="flex justify-end">
-                            <button
-                                onClick={onLaunchInterview}
-                                disabled={isGenerating}
-                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-blue-600/20 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                                Générer une première version
-                            </button>
-                        </div>
                     </div>
                 )}
 
@@ -362,97 +344,73 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             </div>
                         )}
 
-                        {/* ── 2. Accordéon Interview (masqué si Direct) ── */}
+                        {/* ── 2. Session Coach (nouveau flow — remplace l'ancienne Interview) ── */}
                         {!isDirect && (
                             <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/50 overflow-hidden order-3">
-                                {/* Header accordéon */}
-                                <button
-                                    onClick={() => {
-                                        if (hasInterviewAnswers) {
-                                            setIsQAExpanded(!isQAExpanded);
+                                <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <MessageCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                        <span className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase">Session Coach</span>
+                                        {coachState === 'empty' && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                Non démarrée
+                                            </span>
+                                        )}
+                                        {coachState === 'in_progress' && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                                En cours · {coachMessagesCount} échange{coachMessagesCount > 1 ? 's' : ''}
+                                            </span>
+                                        )}
+                                        {coachState === 'validated' && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3" /> Validée · {coachMessagesCount} échanges
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={onLaunchInterview}
+                                        disabled={isGenerating}
+                                        className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all disabled:opacity-50"
+                                        title={
+                                            coachState === 'empty' ? 'Démarrer la session Coach'
+                                            : coachState === 'in_progress' ? 'Reprendre la conversation avec le Coach'
+                                            : 'Rouvrir la session validée'
                                         }
-                                    }}
-                                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-100/50 dark:hover:bg-blue-900/20 transition-colors"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                        <span className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase">Interview</span>
-                                        {item.depth && (
-                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${DEPTH_COLORS[item.depth] || ''}`}>
-                                                <Zap className="w-2.5 h-2.5 inline mr-1" />{item.depth}
-                                            </span>
-                                        )}
-                                        {item.interviewQuestions && hasInterviewAnswers && (
-                                            <span className="text-[10px] text-blue-500 dark:text-blue-400">
-                                                — questions et réponses fournies
-                                            </span>
-                                        )}
-                                    </span>
-                                    <ChevronDown className={`w-4 h-4 text-blue-500 transition-transform duration-200 ${isQAExpanded ? 'rotate-180' : ''}`} />
-                                </button>
+                                    >
+                                        {coachState === 'empty' && (<><Play className="w-3.5 h-3.5" /> Démarrer la session</>)}
+                                        {coachState === 'in_progress' && (<><ArrowRight className="w-3.5 h-3.5" /> Reprendre la session</>)}
+                                        {coachState === 'validated' && (<><MessageCircle className="w-3.5 h-3.5" /> Revoir la session</>)}
+                                    </button>
+                                </div>
 
-                                {/* Contenu accordéon */}
-                                {isQAExpanded && (
-                                    <div className="p-4 border-t border-blue-100 dark:border-blue-900/50 space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                                            {/* Colonne gauche : Questions */}
-                                            <div className="bg-white dark:bg-dark-surface rounded-xl border border-blue-200 dark:border-blue-900/40 p-4 flex flex-col min-h-[300px]">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <h3 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase flex items-center gap-2">
-                                                        <MessageSquare className="w-3.5 h-3.5" /> Questions
-                                                    </h3>
-                                                    {item.interviewQuestions && (
-                                                        <SecBtn
-                                                            onClick={onLaunchInterview}
-                                                            disabled={isGenerating}
-                                                            icon={RefreshCw}
-                                                            label={isGenerating ? '...' : 'Régénérer'}
-                                                            color="blue"
-                                                        />
-                                                    )}
-                                                </div>
-                                                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                                    {!item.interviewQuestions ? (
-                                                        <div className="flex flex-col items-center justify-center h-full text-center gap-4">
-                                                            <p className="text-blue-900/60 dark:text-blue-100/60 text-sm max-w-xs leading-relaxed">
-                                                                L'IA génère des questions ciblées pour enrichir ton contenu.
-                                                            </p>
-                                                            <button
-                                                                onClick={onLaunchInterview}
-                                                                disabled={isGenerating}
-                                                                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50"
-                                                            >
-                                                                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                                                Générer les questions
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="prose prose-sm dark:prose-invert max-w-none text-blue-900 dark:text-blue-100 whitespace-pre-wrap leading-relaxed">
-                                                            {renderMdText(item.interviewQuestions)}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                {/* Aperçu : dernier message du Coach si on a déjà échangé */}
+                                {coachLastAssistant && (
+                                    <div className="px-4 pb-4 pt-0">
+                                        <div className="bg-white dark:bg-dark-surface border border-blue-200 dark:border-blue-900/40 rounded-lg p-3">
+                                            <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase mb-1.5 flex items-center gap-1">
+                                                <Quote className="w-2.5 h-2.5" /> Dernière proposition du Coach
+                                            </p>
+                                            <div className="text-xs text-brand-main dark:text-dark-text leading-relaxed whitespace-pre-wrap max-h-[120px] overflow-y-auto custom-scrollbar">
+                                                {coachLastAssistant.content.split('\n').slice(0, 6).map((line, li) => (
+                                                    <React.Fragment key={li}>
+                                                        {renderMdText(line)}
+                                                        <br />
+                                                    </React.Fragment>
+                                                ))}
                                             </div>
+                                        </div>
+                                    </div>
+                                )}
 
-                                            {/* Colonne droite : Réponses */}
-                                            <div className="flex flex-col min-h-[300px]">
-                                                <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-pink-500 transition-shadow flex flex-col flex-1">
-                                                    <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border">
-                                                        <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
-                                                            <FileText className="w-3 h-3" /> Réponses
-                                                        </p>
-                                                    </div>
-                                                    <div className="bg-brand-light/30 dark:bg-dark-bg/30 p-2 border-b border-brand-border dark:border-dark-sec-border">
-                                                        <MarkdownToolbar />
-                                                    </div>
-                                                    <RichTextarea
-                                                        value={item.interviewAnswers || ""}
-                                                        onChange={(val) => onChange({ ...item, interviewAnswers: val })}
-                                                        className="w-full flex-1 p-4 text-sm"
-                                                        placeholder="Réponds aux questions pour guider la rédaction..."
-                                                    />
-                                                </div>
+                                {/* Legacy : anciennes réponses d'interview (lecture seule) */}
+                                {!hasCoachSession && hasInterviewAnswers && (
+                                    <div className="px-4 pb-4 pt-0">
+                                        <div className="bg-white dark:bg-dark-surface border border-amber-200 dark:border-amber-900/40 rounded-lg p-3">
+                                            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-1.5">
+                                                Ancien flow — données d'interview conservées
+                                            </p>
+                                            <div className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed whitespace-pre-wrap max-h-[120px] overflow-y-auto custom-scrollbar">
+                                                {item.interviewAnswers}
                                             </div>
                                         </div>
                                     </div>
@@ -460,30 +418,23 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             </div>
                         )}
 
-                        {/* ── 2b. Draft 0 (brouillon intermédiaire de l'intervieweur) ── */}
-                        {hasDraftZero && (
-                            <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/50 overflow-hidden order-2">
-                                <div className="px-4 py-2.5 border-b border-amber-200 dark:border-amber-900/50 flex items-center gap-2">
-                                    <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase">Draft 0</span>
-                                    <span className="text-[10px] text-amber-500 dark:text-amber-400">— premier jet de l'intervieweur</span>
-                                </div>
-                                <div className="p-4 text-sm text-brand-main dark:text-dark-text leading-relaxed whitespace-pre-wrap max-h-[200px] overflow-y-auto custom-scrollbar">
-                                    {item.body}
-                                </div>
-                            </div>
-                        )}
-
                         {/* ── 3. CTA Générer le brouillon (visible quand pas de contenu final) ── */}
                         {!hasContent && (
+                            <div className="flex flex-col gap-2 order-2">
                                 <button
                                     onClick={onLaunchDrafting}
-                                    disabled={isGenerating || (!isDirect && !hasInterviewAnswers)}
-                                    className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold shadow-lg shadow-pink-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 w-full justify-center order-2"
+                                    disabled={isGenerating || !canLaunchDrafting}
+                                    className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold shadow-lg shadow-pink-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 w-full justify-center"
                                 >
-                                {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                                Générer le brouillon
-                            </button>
+                                    {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                                    Générer le brouillon
+                                </button>
+                                {!canLaunchDrafting && (
+                                    <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 text-center italic">
+                                        Validez d'abord la session Coach ci-dessus pour lancer l'Éditeur.
+                                    </p>
+                                )}
+                            </div>
                         )}
 
                         {/* ── 4. Section Brouillon (visible quand contenu existe) ── */}

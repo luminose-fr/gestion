@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu, User } from 'lucide-react';
-import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetFormat, isTargetOffer, isProfondeur } from '../types';
+import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetOffer, isProfondeur } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
@@ -23,8 +23,6 @@ interface AnalysisResult {
   verdict: Verdict;
   angle: string;
   plateformes: string[];
-  format_cible?: string;
-  format_suggere?: string;
   justification?: string;
   cible_offre?: string;
   metaphore_suggeree?: string | null;
@@ -75,7 +73,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       const contentPayload = itemsToAnalyze.map(item => ({
         id: item.id,
         titre: item.title,
-        notes: item.notes
+        notes: item.notes,
+        format_cible: item.targetFormat || "Non précisé",
       }));
       
       if (isMountedRef.current) setProgress(`Interrogation de l'IA (${modelName})...`);
@@ -129,8 +128,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             .map(p => p as Platform)
             .filter(p => Object.values(Platform).includes(p));
 
-          const rawFormat = res.format_cible ?? res.format_suggere;
-          const targetFormat = isTargetFormat(rawFormat) ? rawFormat : undefined;
+          // Le format cible est choisi par l'utilisateur et ne doit pas être écrasé par l'IA
           const targetOffer = isTargetOffer(res.cible_offre) ? res.cible_offre : undefined;
           const justification = typeof res.justification === 'string' ? res.justification : undefined;
           const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
@@ -148,7 +146,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             verdict: res.verdict,
             strategicAngle: angleWithTitle + signature,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
-            targetFormat,
+            // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
             targetOffer: targetOffer || originalItem.targetOffer,
             justification: justification ?? originalItem.justification,
             suggestedMetaphor: suggestedMetaphor ?? originalItem.suggestedMetaphor,

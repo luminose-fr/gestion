@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Loader2, Sparkles, ChevronRight, Globe } from 'lucide-react';
-import { ContentItem, Verdict } from '../../types';
+import { Search, Plus, Loader2, Sparkles, ChevronRight, Globe, ArrowRightFromLine } from 'lucide-react';
+import { ContentItem, Verdict, TargetFormat, TARGET_FORMAT_VALUES } from '../../types';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
 import { CharCounter } from '../CommonModals';
@@ -10,7 +10,7 @@ interface SocialIdeasViewProps {
     searchQuery: string;
     onSearchChange: (query: string) => void;
     onEdit: (item: ContentItem) => void;
-    onQuickAdd: (title: string, notes: string) => Promise<void>;
+    onQuickAdd: (title: string, notes: string, targetFormat?: TargetFormat | null) => Promise<void>;
     onGlobalAnalyze: () => void;
     isSyncing: boolean;
     isInitializing: boolean;
@@ -23,16 +23,18 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
     // Local State for Quick Add
     const [newIdeaTitle, setNewIdeaTitle] = useState("");
     const [newIdeaNotes, setNewIdeaNotes] = useState("");
-    
+    const [newIdeaFormat, setNewIdeaFormat] = useState<TargetFormat | ''>('');
+
     // Local State for Filters
     const [verdictFilter, setVerdictFilter] = useState<Verdict | 'ALL' | 'TO_ANALYZE'>('ALL');
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newIdeaTitle.trim()) return;
-        await onQuickAdd(newIdeaTitle, newIdeaNotes);
+        await onQuickAdd(newIdeaTitle, newIdeaNotes, newIdeaFormat || null);
         setNewIdeaTitle("");
         setNewIdeaNotes("");
+        setNewIdeaFormat('');
     };
 
     // Filter Logic
@@ -106,11 +108,27 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                         )}
                     </div>
                     
-                    <div className="flex justify-end">
-                        <button 
-                            type="submit" 
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <label className="flex items-center gap-1.5 text-[11px] font-bold text-brand-main/60 dark:text-dark-text/60 uppercase tracking-wider shrink-0">
+                                <ArrowRightFromLine className="w-3.5 h-3.5" />
+                                Format
+                            </label>
+                            <select
+                                value={newIdeaFormat}
+                                onChange={(e) => setNewIdeaFormat((e.target.value || '') as TargetFormat | '')}
+                                className="flex-1 min-w-0 px-3 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg text-sm text-brand-main dark:text-white outline-hidden focus:ring-2 focus:ring-brand-main"
+                            >
+                                <option value="">— Choisir un format —</option>
+                                {TARGET_FORMAT_VALUES.map(f => (
+                                    <option key={f} value={f}>{f}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <button
+                            type="submit"
                             disabled={!newIdeaTitle.trim() || isSyncing}
-                            className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-xs"
+                            className="bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-xs shrink-0"
                         >
                             {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                             Ajouter

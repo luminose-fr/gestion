@@ -6,7 +6,8 @@ import { ConfirmModal } from './CommonModals';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
 import { useEscapeClose } from './hooks/useEscapeClose';
-import { ANALYSTE_PERSONA, INTERVIEWER_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '../ai/prompts';
+import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '../ai/prompts';
+import { VOICE_RULES } from '../ai/voice';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -20,10 +21,11 @@ interface SettingsModalProps {
 type MenuCategory = 'personas' | 'contexts' | 'models' | null;
 
 const HARDCODED_PERSONAS = [
-    { id: 'analyste', name: 'Rédacteur en Chef Stratégique', usage: 'Analyste', prompt: ANALYSTE_PERSONA },
-    { id: 'interviewer', name: 'Super-Interviewer', usage: 'Interviewer', prompt: INTERVIEWER_PERSONA },
-    { id: 'redacteur', name: 'Éditeur Littéraire & Scénariste', usage: 'Rédacteur', prompt: REDACTEUR_PERSONA },
-    { id: 'artiste', name: 'Directeur Artistique', usage: 'Artiste', prompt: ARTISTE_PERSONA },
+    { id: 'voice', name: 'Règles de voix (transverses)', usage: 'Partagé', prompt: VOICE_RULES },
+    { id: 'stratege', name: 'Stratège (ex-Rédacteur en Chef)', usage: 'Analyse', prompt: ANALYSTE_PERSONA },
+    { id: 'coach', name: 'Coach (sparring-partner éditorial)', usage: 'Session chat', prompt: COACH_PERSONA },
+    { id: 'editeur', name: 'Éditeur Littéraire & Scénariste', usage: 'Rédaction finale', prompt: REDACTEUR_PERSONA },
+    { id: 'artiste', name: 'Directeur Artistique', usage: 'Prompts image', prompt: ARTISTE_PERSONA },
 ];
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 

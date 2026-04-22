@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage, TargetOffer, isTargetOffer, Profondeur, isProfondeur } from "../types";
+import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage, TargetOffer, isTargetOffer, Profondeur, isProfondeur, CoachSession } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -260,6 +260,18 @@ const createRawTextObject = (content: string) => ({
     text: { content }
 });
 
+/**
+ * Sérialise un texte brut (typiquement du JSON) en Rich Text Notion
+ * sans interpréter les marqueurs markdown. Utilisé pour Coach Session
+ * où on veut stocker du JSON pur sans que `**` ou `_` soient convertis
+ * en gras/italique au round-trip.
+ */
+const rawTextToNotion = (text: string): any[] => {
+    if (!text) return [];
+    const chunks = splitChunksToLimit([createRawTextObject(text)]);
+    return enforceRichTextLimit(chunks);
+};
+
 const createStyledTextObject = (content: string, annotations: any) => ({
     type: "text",
     text: { content },
@@ -355,6 +367,21 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   const postCourt = notionToMarkdown(props["Post Court"]);
   const scriptVideo = notionToMarkdown(props["Script vidéo"]);
 
+  // Coach Session : stockée en JSON sérialisé dans un Rich Text
+  const coachSessionRaw = notionToMarkdown(props["Coach Session"]);
+  let coachSession: CoachSession | null = null;
+  if (coachSessionRaw && coachSessionRaw.trim()) {
+    try {
+      const parsed = JSON.parse(coachSessionRaw);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.messages)) {
+        coachSession = parsed as CoachSession;
+      }
+    } catch {
+      // JSON corrompu → on ignore, on laisse null (Florent pourra redémarrer une session)
+      coachSession = null;
+    }
+  }
+
   return {
     id: page.id,
     title,
@@ -372,6 +399,7 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     suggestedMetaphor,
     strategicAngle,
     depth,
+    coachSession,
     interviewAnswers,
     interviewQuestions,
     slides,
@@ -458,7 +486,7 @@ export const fetchContent = async (since?: string): Promise<ContentItem[]> => {
   }
 };
 
-export const createContent = async (title: string, notes?: string): Promise<ContentItem> => {
+export const createContent = async (title: string, notes?: string, targetFormat?: string | null): Promise<ContentItem> => {
     try {
         const dataSourceId = await getDataSourceId(
             CONFIG.NOTION_CONTENT_DB_ID,
@@ -479,6 +507,10 @@ export const createContent = async (title: string, notes?: string): Promise<Cont
             properties["Notes"] = {
                 rich_text: markdownToNotion(notes)
             };
+        }
+
+        if (targetFormat) {
+            properties["Format cible"] = { select: { name: targetFormat } };
         }
 
         const response = await fetchWithRetry(getUrl("/pages"), {
@@ -567,7 +599,7 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
     }
 
     if (item.interviewAnswers !== undefined) {
-        properties["Réponses interview"] = { 
+        properties["Réponses interview"] = {
             rich_text: markdownToNotion(item.interviewAnswers || "")
         };
     }
@@ -575,6 +607,13 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
     if (item.interviewQuestions !== undefined) {
         properties["Questions interview"] = {
             rich_text: markdownToNotion(item.interviewQuestions || "")
+        };
+    }
+
+    if (item.coachSession !== undefined) {
+        const serialized = item.coachSession ? JSON.stringify(item.coachSession) : "";
+        properties["Coach Session"] = {
+            rich_text: rawTextToNotion(serialized)
         };
     }
 

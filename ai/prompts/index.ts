@@ -9,6 +9,7 @@
 
 import { ANALYSTE_PERSONA } from './analyste';
 import { INTERVIEWER_PERSONA } from './interviewer';
+import { COACH_PERSONA } from './coach';
 import { REDACTEUR_PERSONA, REDACTEUR_ADJUSTMENT_INTRO } from './redacteur';
 import { ARTISTE_PERSONA } from './artiste';
 
@@ -17,6 +18,7 @@ import { ARTISTE_PERSONA } from './artiste';
 export type AIAction =
     | 'ANALYZE_BATCH'
     | 'GENERATE_INTERVIEW'
+    | 'COACH_CHAT'
     | 'DRAFT_CONTENT'
     | 'ADJUST_CONTENT'
     | 'GENERATE_CARROUSEL_SLIDES';
@@ -26,6 +28,7 @@ export type AIAction =
 const PERSONA_PROMPTS: Record<string, string> = {
     ANALYZE_BATCH: ANALYSTE_PERSONA,
     GENERATE_INTERVIEW: INTERVIEWER_PERSONA,
+    COACH_CHAT: COACH_PERSONA,
     DRAFT_CONTENT: REDACTEUR_PERSONA,
     ADJUST_CONTENT: REDACTEUR_PERSONA,
     GENERATE_CARROUSEL_SLIDES: ARTISTE_PERSONA,
@@ -37,18 +40,17 @@ const OUTPUT_RULES: Record<string, string> = {
 
     ANALYZE_BATCH: `
 RÈGLES DE SORTIE (FIXE) :
-Tu dois traiter la liste d'idées fournie.
+Tu dois traiter la liste d'idées fournie. Chaque idée inclut un champ 'format_cible' déjà choisi par Florent : tu dois en tenir compte (densité, profondeur, ton attendu) mais tu ne le renvoies PAS.
 Pour chaque idée, retourne un objet JSON avec exactement ces champs :
 1. 'id' : l'identifiant exact de l'idée tel que fourni dans l'entrée (OBLIGATOIRE).
 2. 'titre' : Titre de travail proposé.
 3. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
 4. 'justification' : 2-3 phrases maximum expliquant le verdict.
 5. 'cible_offre' : "Standard" | "Seuil" | "Transverse".
-6. 'format_cible' : "Post Texte (Court)" | "Carrousel (Slide par Slide)" | "Script Vidéo (Reel/Short)" | "Script Vidéo (Youtube)" | "Article (Long/SEO)" | "Newsletter" | "Prompt Image".
-7. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
-8. 'angle_strategique' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction.
-9. 'metaphore_suggeree' : Si une piste métaphorique émerge, la noter ici. Sinon : null.
-10. 'profondeur' : "Direct" | "Légère" | "Complète". Direct = les notes sont suffisantes, pas besoin d'interview. Légère = 1 question par axe. Complète = 3 questions par axe.
+6. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
+7. 'angle_strategique' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction, en cohérence avec le format_cible fourni.
+8. 'metaphore_suggeree' : Si une piste métaphorique émerge, la noter ici. Sinon : null.
+9. 'profondeur' : "Direct" | "Légère" | "Complète". Direct = les notes sont suffisantes, pas besoin d'interview. Légère = 1 question par axe. Complète = 3 questions par axe. Calibre la profondeur en fonction du format_cible (un Reel court ne justifie pas une profondeur Complète, un article long la demande).
 Tu dois retourner UNIQUEMENT un tableau JSON d'objets sans aucun texte superflu ni balises markdown (pas de \`\`\`json).
     `.trim(),
 
@@ -73,6 +75,24 @@ DISCIPLINE :
 - Chaque question est spécifique au sujet traité (pas de question générique réutilisable d'un sujet à l'autre).
     `.trim(),
 
+    COACH_CHAT: `
+RÈGLES DE SORTIE (FORMAT JSON STRICT) :
+Tu dois répondre EXCLUSIVEMENT sous la forme d'un objet JSON valide. Aucun texte avant ou après le JSON.
+
+Structure exacte :
+{
+  "message": "Ton message à Florent, en markdown libre. C'est là que tu poses ta proposition, ta question, ton commentaire. Sois concret, entre direct dans la matière. Respecte les règles de voix (vouvoiement, zéro emoji).",
+  "quick_replies": ["Réponse type 1 (formulée comme si c'était Florent qui parle)", "Réponse type 2", "..."],
+  "ready_for_editor": false
+}
+
+RÈGLES :
+- "message" est toujours présent et non vide.
+- "quick_replies" contient 2 à 4 entrées courtes (max 60 caractères), à la première personne (c'est Florent qui les énoncera). Ces réponses seront pré-remplies dans le champ de saisie de Florent, qui pourra les éditer avant d'envoyer.
+- "ready_for_editor" : true uniquement quand tu estimes avoir une direction solide et validable pour l'Éditeur (et dans ce cas, inclus "Go, passe à l'Éditeur" dans les quick_replies). Sinon false.
+- Tu peux utiliser du markdown léger dans "message" (gras, listes). Pas de code fence, pas de JSON imbriqué dans ce champ.
+    `.trim(),
+
     DRAFT_CONTENT: `
 Tu vas recevoir un objet JSON contenant :
 - titre
@@ -80,15 +100,13 @@ Tu vas recevoir un objet JSON contenant :
 - cible_offre
 - angle_strategique
 - metaphore_suggeree
-- profondeur ("Direct", "Légère" ou "Complète")
 - notes (les notes brutes de Florent)
-- draft_zero (le Draft 0 généré par l'Intervieweur, si disponible — un premier jet provocateur à corriger)
-- questions_interview (les questions posées par l'Intervieweur, si disponible)
-- reponses_interview (les réponses de Florent aux questions, si disponible)
+- coach_session (l'historique complet de la conversation Coach ↔ Florent : tableau d'objets {role, content}) — ta matière première principale quand disponible
+- coach_final_direction (résumé en une phrase de la direction validée par Florent à la fin de la session — si disponible)
 
 LOGIQUE DE SOURCES :
-- Si profondeur = "Direct" : utilise uniquement les notes. Il n'y a ni draft_zero, ni questions, ni réponses.
-- Si profondeur = "Légère" ou "Complète" : le draft_zero est ton point de départ. Les réponses de Florent contiennent la vérité clinique et l'incarnation. Fusionne le tout pour produire un contenu qui sonne comme Florent.
+- Si coach_session est présent : extrais-en la direction validée par Florent (dernière proposition du Coach validée + corrections apportées par Florent). C'est ton point de départ. Les réponses de Florent dans la session contiennent la vérité clinique et l'incarnation.
+- Si coach_session est absent (mode direct) : utilise uniquement les notes.
 
 RÈGLES DE SORTIE (FIXE) :
 %%FORMAT_TEMPLATE%%
@@ -178,5 +196,6 @@ export function buildSystemPrompt(options: BuildOptions): string {
 // Ré-exporter les personas pour accès direct si besoin
 export { ANALYSTE_PERSONA } from './analyste';
 export { INTERVIEWER_PERSONA } from './interviewer';
+export { COACH_PERSONA } from './coach';
 export { REDACTEUR_PERSONA, REDACTEUR_ADJUSTMENT_INTRO } from './redacteur';
 export { ARTISTE_PERSONA } from './artiste';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase, Video, Sparkles } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetFormat, isTargetOffer, isProfondeur } from './types';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetOffer, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import * as GeminiService from './services/geminiService';
@@ -82,6 +82,7 @@ function App() {
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [currentEditorStep, setCurrentEditorStep] = useState<EditorStep>('idea');
+  const [pendingEditorAction, setPendingEditorAction] = useState<'interview' | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -296,10 +297,10 @@ function App() {
       StorageService.setCachedModels(newModels);
   };
 
-  const handleQuickAddIdea = async (title: string, notes: string) => {
+  const handleQuickAddIdea = async (title: string, notes: string, targetFormat?: string | null) => {
     setIsSyncing(true);
     try {
-        const newItem = await NotionService.createContent(title, notes);
+        const newItem = await NotionService.createContent(title, notes, targetFormat ?? null);
         const newItems = [newItem, ...items];
         setItems(newItems);
         await StorageService.setCachedContent(newItems);
@@ -360,9 +361,16 @@ function App() {
     }
   };
 
-  const handleTransformToDraft = async (updatedItem: ContentItem): Promise<void> => {
+  const handleTransformToDraft = async (
+    updatedItem: ContentItem,
+    options?: { launchInterview?: boolean }
+  ): Promise<void> => {
     // Sauvegarder l'item avec le nouveau statut DRAFTING
     await handleUpdateItem(updatedItem);
+    // Indiquer à ContentEditor qu'il doit lancer l'interview dès l'ouverture
+    if (options?.launchInterview) {
+        setPendingEditorAction('interview');
+    }
     // Naviguer vers l'éditeur dans la vue brouillons
     updateRoute('social', 'drafts', updatedItem.id, 'idea');
   };
@@ -417,7 +425,12 @@ function App() {
           const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description);
 
-          const contentPayload = [{ id: itemToAnalyze.id, titre: itemToAnalyze.title, notes: itemToAnalyze.notes }];
+          const contentPayload = [{
+              id: itemToAnalyze.id,
+              titre: itemToAnalyze.title,
+              notes: itemToAnalyze.notes,
+              format_cible: itemToAnalyze.targetFormat || "Non précisé",
+          }];
           
           let responseText = "";
           
@@ -451,8 +464,7 @@ function App() {
                 .map((p: string) => p as Platform)
                 .filter((p: any) => Object.values(Platform).includes(p));
 
-              const rawFormat = res.format_cible ?? res.format_suggere;
-              const targetFormat = isTargetFormat(rawFormat) ? rawFormat : undefined;
+              // Le format cible est choisi par l'utilisateur et ne doit pas être écrasé par l'IA
               const targetOffer = isTargetOffer(res.cible_offre) ? res.cible_offre : undefined;
               const justification = typeof res.justification === 'string' ? res.justification : undefined;
               const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
@@ -474,7 +486,7 @@ function App() {
                   verdict: res.verdict,
                   strategicAngle: angleWithTitle + signature,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
-                  targetFormat,
+                  // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
                   targetOffer: targetOffer || itemToAnalyze.targetOffer,
                   justification: justification ?? itemToAnalyze.justification,
                   suggestedMetaphor: suggestedMetaphor ?? itemToAnalyze.suggestedMetaphor,
@@ -719,8 +731,8 @@ function App() {
             <main className="flex-1 overflow-hidden relative flex flex-col">
                 
                 {editingItem && editingItem.status !== ContentStatus.IDEA ? (
-                    <ContentEditor 
-                        item={editingItem} 
+                    <ContentEditor
+                        item={editingItem}
                         contexts={contexts}
                         aiModels={aiModels}
                         onClose={handleCloseEditor}
@@ -729,6 +741,8 @@ function App() {
                         onManageContexts={handleOpenContextManagerFromEditor}
                         activeStep={currentEditorStep}
                         onStepChange={handleStepChange}
+                        initialAction={pendingEditorAction}
+                        onInitialActionConsumed={() => setPendingEditorAction(null)}
                     />
                 ) : (
                     <div className="flex-1 overflow-y-auto">

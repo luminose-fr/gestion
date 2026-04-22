@@ -85,6 +85,31 @@ export interface AIModel {
   textQuality: number;
 }
 
+// ── Coach Chat Session (nouvelle architecture) ───────────────────────
+
+export interface CoachMessage {
+  /** "user" = Florent, "assistant" = Coach, "system" = instruction initiale (non affichée) */
+  role: 'system' | 'user' | 'assistant';
+  /** Contenu texte. Pour l'assistant, c'est le champ "message" extrait du JSON ; le JSON complet est dans raw. */
+  content: string;
+  /** JSON brut complet retourné par l'IA (pour l'assistant) — permet de retrouver quick_replies, ready_for_editor, etc. */
+  raw?: string;
+  /** Quick replies proposées par le Coach à ce tour (pour l'assistant uniquement) */
+  quickReplies?: string[];
+  /** Le Coach estime que la matière est prête pour l'Éditeur (pour l'assistant uniquement) */
+  readyForEditor?: boolean;
+  /** ISO timestamp */
+  timestamp: string;
+}
+
+export interface CoachSession {
+  version: 1;
+  formatCible: TargetFormat | null;
+  messages: CoachMessage[];
+  status: 'in_progress' | 'validated';
+  validatedAt: string | null;
+}
+
 export interface ContentItem {
   id: string;
   title: string;
@@ -104,7 +129,9 @@ export interface ContentItem {
   suggestedMetaphor?: string;
   // Profondeur de traitement
   depth?: Profondeur;
-  // Nouveaux champs Interview
+  // Session de chat avec le Coach (nouvelle architecture)
+  coachSession?: CoachSession | null;
+  // Ancien flow interview (conservé pour compat legacy / migration)
   interviewAnswers?: string;
   interviewQuestions?: string;
   // Champ Slides Carrousel

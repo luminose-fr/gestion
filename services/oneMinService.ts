@@ -1,10 +1,22 @@
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
 
+/** Message multi-tour — utilisé pour le chat Coach */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface OneMinRequest {
   model: string;
   prompt: string;
   systemInstruction?: string;
+  /**
+   * Historique multi-tour. Si fourni, il est concaténé côté client
+   * dans un seul prompt pour rester compatible avec le worker existant.
+   * Le plus récent message user est ajouté en dernier (= `prompt`).
+   */
+  history?: ChatMessage[];
 }
 
 // Helper pour les appels fetch
@@ -36,12 +48,35 @@ const fetch1Min = async (endpoint: string, body: any) => {
     return data;
 };
 
+/**
+ * Concatène l'historique + le prompt final en un seul bloc texte.
+ * Choix d'implémentation : on simule le multi-tour côté client en
+ * injectant l'historique dans le prompt. Avantage : pas besoin de
+ * changer le worker tout de suite. Inconvénient : pas de cache
+ * serveur de conversation (acceptable pour une v1).
+ */
+const buildConversationPrompt = (history: ChatMessage[], latestPrompt: string): string => {
+    if (!history || history.length === 0) return latestPrompt;
+
+    const transcript = history.map(m => {
+        const label = m.role === 'assistant' ? 'COACH' : 'FLORENT';
+        return `[${label}]\n${m.content}`;
+    }).join('\n\n');
+
+    return `HISTORIQUE DE LA CONVERSATION JUSQU'ICI :\n\n${transcript}\n\n---\n\nMESSAGE ACTUEL DE FLORENT :\n${latestPrompt}\n\n---\n\nRÉPONDS MAINTENANT en tenant compte de tout l'historique.`;
+};
+
 export const generateContent = async (request: OneMinRequest): Promise<string> => {
     try {
+        // Construction du prompt final avec historique éventuel
+        const promptWithHistory = request.history && request.history.length > 0
+            ? buildConversationPrompt(request.history, request.prompt)
+            : request.prompt;
+
         // Concaténer System Instruction et Prompt
         const fullPrompt = request.systemInstruction
-            ? `${request.systemInstruction}\n\n---\n\n${request.prompt}`
-            : request.prompt;
+            ? `${request.systemInstruction}\n\n---\n\n${promptWithHistory}`
+            : promptWithHistory;
 
         // Appel direct à l'API Chat with AI (UNIFY_CHAT_WITH_AI)
         const messageResponse = await fetch1Min('chat', {

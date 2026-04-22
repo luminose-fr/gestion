@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Trash2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, Profondeur } from '../../types';
+import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, Profondeur, CoachSession } from '../../types';
 import { STATUS_COLORS } from '../../constants';
 import * as GeminiService from '../../services/geminiService';
 import * as OneMinService from '../../services/oneMinService';
@@ -9,6 +9,7 @@ import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../../ai/actions';
 import { bodyJsonToText } from '../../ai/formats';
 import { parseDraftResponse, parseAIResponse, sanitizeSlidesResponse } from '../../ai/executors';
 import { AIConfigModal } from '../AIConfigModal';
+import { CoachChat } from '../CoachChat';
 
 // Sub-components
 import { EditorLayout } from './EditorLayout';
@@ -28,6 +29,10 @@ interface ContentEditorProps {
   // Navigation Props
   activeStep: EditorStep;
   onStepChange: (step: EditorStep) => void;
+  /** Action à déclencher automatiquement à l'ouverture (ex: 'interview' après "Travailler cette idée"). */
+  initialAction?: 'interview' | null;
+  /** Appelé une fois l'action initiale consommée, pour éviter qu'elle ne se rejoue. */
+  onInitialActionConsumed?: () => void;
 }
 
 // extractJsonPayload, parseDraftResponse, parseAIResponse → ai/executors.ts
@@ -40,7 +45,8 @@ export { bodyJsonToText } from '../../ai/formats';
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
     item, contexts, aiModels = [], onClose, onSave, onDelete, onManageContexts,
-    activeStep, onStepChange
+    activeStep, onStepChange,
+    initialAction = null, onInitialActionConsumed
 }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
 
@@ -68,6 +74,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | 'adjust' | null>(null);
   const [pendingAdjustmentText, setPendingAdjustmentText] = useState<string>("");
 
+  // Session Coach (nouveau flow — remplace l'ancien Interviewer/Draft 0)
+  const [showCoachChat, setShowCoachChat] = useState(false);
+
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
   });
@@ -86,7 +95,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                 const hasContent = isVideo
                     ? (item.scriptVideo && item.scriptVideo.trim().length > 0)
                     : (item.body && item.body.trim().length > 0);
-                if (hasContent || (item.interviewAnswers && item.interviewAnswers.length > 0)) {
+                const hasCoachSession = !!item.coachSession && item.coachSession.messages && item.coachSession.messages.length > 0;
+                if (hasContent || hasCoachSession || (item.interviewAnswers && item.interviewAnswers.length > 0)) {
                     onStepChange('atelier');
                 }
             }
@@ -95,6 +105,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
         }
     }
   }, [item, activeStep]); 
+
+  // Auto-lancement du Coach lorsqu'on arrive via "Travailler cette idée".
+  // Nouveau flow : on ouvre directement le chat Coach (plus d'AIConfigModal pour l'interview).
+  useEffect(() => {
+      if (initialAction === 'interview' && editedItem && editedItem.status === ContentStatus.DRAFTING) {
+          setShowCoachChat(true);
+          onInitialActionConsumed?.();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAction, editedItem?.id, editedItem?.status]);
 
   // isDirty : vrai si editedItem diffère du item Notion source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
@@ -172,76 +192,33 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   const handleContextConfirm = async (contextId: string, modelId: string) => {
       setShowContextSelector(false);
-      if (pendingContextAction === 'interview') await executeInterview(contextId, modelId);
-      else if (pendingContextAction === 'draft') await executeDrafting(contextId, modelId);
+      if (pendingContextAction === 'draft') await executeDrafting(contextId, modelId);
       else if (pendingContextAction === 'carrousel') await executeCarrouselSlides(contextId, modelId);
       else if (pendingContextAction === 'adjust' && pendingAdjustmentText) await executeAdjustment(pendingAdjustmentText, modelId);
   };
 
-  // --- AI ACTIONS EXECUTORS ---
+  // --- COACH SESSION HANDLERS (nouveau flow) ---
 
-  const executeInterview = async (contextId: string, modelId: string) => {
-      if (!isMountedRef.current) return;
-      setIsGenerating(true);
-      try {
-          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
-          const actionConfig = AI_ACTIONS.GENERATE_INTERVIEW;
-          const profondeur = editedItem?.depth || Profondeur.COMPLETE;
-          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description, profondeur);
-
-          const promptPayload = {
-              titre: editedItem?.title,
-              notes: editedItem?.notes,
-              angle_strategique: editedItem?.strategicAngle || "",
-              metaphore_suggeree: editedItem?.suggestedMetaphor || "",
-              justification: editedItem?.justification || "",
-              plateformes: editedItem?.platforms,
-              profondeur,
-          };
-
-          const responseText = await callAI(modelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
-
-          const cleanedJson = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
-          let formattedQuestions = "";
-          let draftZero: string | undefined;
-
-          try {
-              const data = JSON.parse(cleanedJson);
-
-              if (data.skip === true) {
-                  // ── Mode Passe-plat (Direct) ──
-                  formattedQuestions = `_${data.raison || "Profondeur Direct : interview non nécessaire."}_`;
-              } else {
-                  // ── Mode Maïeutique réactionnelle ──
-                  if (typeof data.draft_zero === 'string' && data.draft_zero.trim()) {
-                      draftZero = data.draft_zero.trim();
-                  }
-                  if (Array.isArray(data.questions) && data.questions.length > 0) {
-                      formattedQuestions = data.questions.map((q: string, i: number) => `**Question ${i + 1}**\n${q}`).join('\n\n');
-                  }
-              }
-          } catch (e) { formattedQuestions = cleanedJson; }
-
-          const contextName = contextItem?.name || "Contexte par défaut";
-          const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
-          const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
-
-          const newItem = {
-              ...editedItem!,
-              interviewQuestions: formattedQuestions + signature,
-              ...(draftZero ? { body: draftZero + signature } : {}),
-          };
-          if (isMountedRef.current) {
-              setEditedItem(newItem);
-              await saveWithStatus(newItem);
-              onStepChange('atelier');
-          }
-      } catch (error: any) {
-          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur IA", message: error.message, type: "error" });
-      } finally {
-          if (isMountedRef.current) { setIsGenerating(false); setPendingContextAction(null); }
-      }
+  /** Persiste la session Coach après chaque tour (user + assistant). */
+  const handleCoachSessionChange = async (session: CoachSession) => {
+      if (!isMountedRef.current || !editedItem) return;
+      const newItem = { ...editedItem, coachSession: session };
+      setEditedItem(newItem);
+      await saveWithStatus(newItem);
   };
+
+  /** Florent clique "Go Éditeur" : session validée → on ouvre AIConfigModal pour choisir le modèle de l'Éditeur. */
+  const handleCoachValidate = async (session: CoachSession) => {
+      if (!isMountedRef.current || !editedItem) return;
+      const newItem = { ...editedItem, coachSession: session };
+      setEditedItem(newItem);
+      await saveWithStatus(newItem);
+      setShowCoachChat(false);
+      setPendingContextAction('draft');
+      setShowContextSelector(true);
+  };
+
+  // --- AI ACTIONS EXECUTORS ---
 
   const executeDrafting = async (contextId: string, modelId: string) => {
       if (!isMountedRef.current) return;
@@ -254,32 +231,29 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               editedItem?.targetFormat || undefined
           );
 
-          const isDirect = editedItem?.depth === Profondeur.DIRECT;
+          // Session Coach : passée intégralement à l'Éditeur si disponible (et validée de préférence).
+          const coachSession = editedItem?.coachSession || null;
+          const coachMessagesForPayload = coachSession?.messages
+              ?.filter(m => m.role === 'user' || m.role === 'assistant')
+              .map(m => ({ role: m.role, content: m.content }));
+          // La dernière proposition assistant = matière la plus aboutie pour l'Éditeur
+          const lastAssistantMsg = coachSession?.messages
+              ?.filter(m => m.role === 'assistant')
+              .slice(-1)[0]?.content;
 
-          // Extraire draft_zero depuis le body (texte brut stocké par executeInterview)
-          let draftZero = "";
-          if (!isDirect && editedItem?.body) {
-              const bodyData = (() => { try { return JSON.parse(editedItem.body); } catch { return null; } })();
-              if (!bodyData?.format) {
-                  // Texte brut = draft_zero stocké par l'intervieweur
-                  draftZero = editedItem.body;
-              }
-          }
-
-          const promptPayload: Record<string, string> = {
+          const promptPayload: Record<string, unknown> = {
               titre: editedItem?.title || "Non défini",
               format_cible: editedItem?.targetFormat || "Non défini",
               cible_offre: editedItem?.targetOffer || "Non défini",
               angle_strategique: editedItem?.strategicAngle || "Non défini",
               metaphore_suggeree: editedItem?.suggestedMetaphor || "Non défini",
-              profondeur: editedItem?.depth || "Non défini",
               notes: editedItem?.notes || "",
           };
 
-          if (!isDirect) {
-              if (draftZero) promptPayload.draft_zero = draftZero;
-              if (editedItem?.interviewQuestions) promptPayload.questions_interview = editedItem.interviewQuestions;
-              if (editedItem?.interviewAnswers) promptPayload.reponses_interview = editedItem.interviewAnswers;
+          if (coachMessagesForPayload && coachMessagesForPayload.length > 0) {
+              promptPayload.coach_session = coachMessagesForPayload;
+              promptPayload.coach_session_status = coachSession?.status || "in_progress";
+              if (lastAssistantMsg) promptPayload.coach_final_direction = lastAssistantMsg;
           }
 
           const responseText = await callAI(modelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
@@ -392,17 +366,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- TRIGGER HANDLERS ---
 
+  /** Nouveau flow : ouvre directement le chat Coach (plus d'AIConfigModal ici). */
   const triggerInterview = () => {
-      setPendingContextAction('interview');
-      setShowContextSelector(true);
+      setShowCoachChat(true);
   };
 
   const triggerDrafting = () => {
-      const isDirect = editedItem?.depth === Profondeur.DIRECT;
-      if (!isDirect && !editedItem?.interviewAnswers) {
-          setAlertInfo({ isOpen: true, title: "Réponses manquantes", message: "Veuillez répondre aux questions d'interview, ou passer en profondeur Direct.", type: "error" });
-          return;
-      }
       setPendingContextAction('draft');
       setShowContextSelector(true);
   };
@@ -554,21 +523,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             dataSummary={(() => {
                 if (!editedItem) return [];
                 const action = pendingContextAction;
-                if (action === 'interview') {
-                    const labels = ['Titre', 'Notes', 'Profondeur'];
-                    if (editedItem.strategicAngle) labels.push('Angle stratégique');
-                    if (editedItem.suggestedMetaphor) labels.push('Métaphore suggérée');
-                    if (editedItem.justification) labels.push('Justification');
-                    if (editedItem.platforms.length > 0) labels.push('Plateformes');
-                    return labels;
-                }
                 if (action === 'draft') {
-                    const isDirect = editedItem.depth === Profondeur.DIRECT;
-                    const labels = ['Titre', 'Format cible', 'Offre cible', 'Angle stratégique', 'Métaphore suggérée', 'Profondeur', 'Notes'];
-                    if (!isDirect) {
-                        if (editedItem.body) labels.push('Draft 0');
-                        if (editedItem.interviewQuestions) labels.push('Questions interview');
-                        if (editedItem.interviewAnswers) labels.push('Réponses interview');
+                    const labels = ['Titre', 'Format cible', 'Offre cible', 'Angle stratégique', 'Métaphore suggérée', 'Notes'];
+                    const session = editedItem.coachSession;
+                    if (session && session.messages && session.messages.length > 0) {
+                        labels.push(session.status === 'validated' ? 'Session Coach (validée)' : 'Session Coach');
                     }
                     return labels;
                 }
@@ -581,6 +540,33 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                 return [];
             })()}
         />
+
+        {/* Coach Chat overlay (nouveau flow — remplace l'ancienne interview à questions fermées) */}
+        {showCoachChat && editedItem && (
+            <div
+                className="fixed inset-0 z-70 bg-white/90 dark:bg-dark-surface/90 flex items-center justify-center animate-in fade-in duration-200 p-4"
+                onClick={() => setShowCoachChat(false)}
+            >
+                <div
+                    className="relative w-full max-w-3xl h-[85vh] bg-white dark:bg-dark-bg rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <button
+                        onClick={() => setShowCoachChat(false)}
+                        className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/80 dark:bg-dark-bg/80 border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg"
+                        title="Fermer (la session est sauvegardée automatiquement)"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    <CoachChat
+                        item={editedItem}
+                        aiModels={aiModels}
+                        onSessionChange={handleCoachSessionChange}
+                        onValidate={handleCoachValidate}
+                    />
+                </div>
+            </div>
+        )}
       </>
   );
 };

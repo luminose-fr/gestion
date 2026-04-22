@@ -66,6 +66,21 @@ export const AI_ACTIONS = {
             }),
     },
 
+    COACH_CHAT: {
+        model: INTERNAL_MODELS.FAST,
+        generationConfig: {
+            responseMimeType: "application/json" as const
+        },
+        /**
+         * @param notionContext - Description du contexte Notion complémentaire (optionnel)
+         */
+        getSystemInstruction: (notionContext?: string) =>
+            buildSystemPrompt({
+                action: 'COACH_CHAT',
+                notionContext: notionContext || undefined,
+            }),
+    },
+
     GENERATE_CARROUSEL_SLIDES: {
         model: INTERNAL_MODELS.FAST,
         generationConfig: {
