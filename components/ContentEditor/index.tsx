@@ -285,11 +285,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const actionConfig = AI_ACTIONS.GENERATE_CARROUSEL_SLIDES;
+          // On passe le JSON brouillon brut (non aplati) pour que l'Artiste
+          // préserve la trame : titre, texte, type, role, intention_visuelle.
           const systemInstruction = actionConfig.getSystemInstruction(
               contextItem?.description,
               editedItem?.targetOffer || "Non défini",
               editedItem?.suggestedMetaphor || "Non définie",
-              bodyJsonToText(editedItem?.body || "") || "Non défini"
+              editedItem?.body || "Non défini"
           );
 
           const responseText = await callAI(modelId, systemInstruction, "", actionConfig.generationConfig);

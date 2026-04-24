@@ -101,17 +101,29 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
 
     if (isCarrousel) return (
         <div className="p-6 space-y-3">
-            {(data.slides || []).map((s: any, i: number) => (
-                <div key={i} className={`bg-brand-light dark:bg-dark-bg rounded-lg p-3 border ${s.type === 'IMAGE' ? 'border-amber-300 dark:border-amber-700' : 'border-brand-border dark:border-dark-sec-border'}`}>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
-                        {(s.role || s.titre) && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.role || s.titre)}</span>}
-                        {s.type && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-brand-border/50 dark:bg-dark-sec-border/50">{t(s.type)}</span>}
+            {(data.slides || []).map((s: any, i: number) => {
+                const isIllustree = s.type === 'ILLUSTRÉE' || s.type === 'IMAGE'; // IMAGE = rétrocompat ancienne trame
+                const intention = s.intention_visuelle || s.visuel; // visuel = rétrocompat
+                return (
+                    <div key={i} className={`bg-brand-light dark:bg-dark-bg rounded-lg p-3 border ${isIllustree ? 'border-amber-300 dark:border-amber-700' : 'border-brand-border dark:border-dark-sec-border'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
+                            {s.titre && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.titre)}</span>}
+                            {s.type && (
+                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${isIllustree ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-brand-border/50 dark:bg-dark-sec-border/50 text-brand-main/70 dark:text-dark-text/70'}`}>
+                                    {isIllustree ? 'Illustrée' : 'Typo'}
+                                </span>
+                            )}
+                        </div>
+                        {s.texte && <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{t(s.texte)}</p>}
+                        {intention && isIllustree && (
+                            <p className="mt-2 text-xs italic text-amber-600 dark:text-amber-400 border-l-2 border-amber-300 dark:border-amber-700 pl-2">
+                                Intention visuelle : {t(intention)}
+                            </p>
+                        )}
                     </div>
-                    {s.texte && <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{t(s.texte)}</p>}
-                    {s.visuel && <p className="mt-1 text-xs italic text-amber-600 dark:text-amber-400">{t(s.visuel)}</p>}
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 

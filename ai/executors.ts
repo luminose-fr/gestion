@@ -173,19 +173,13 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
                 const numero = slide?.numero ?? idx + 1;
                 const titre = text(slide?.titre);
                 const texte = text(slide?.texte);
-                const visuel = text(slide?.visuel);
+                // intention_visuelle (nouvelle trame) avec fallback vers visuel (ancienne)
+                const intention = text(slide?.intention_visuelle || slide?.visuel);
                 const header = titre ? `### Slide ${numero} — ${titre}` : `### Slide ${numero}`;
                 out.push(header);
                 if (texte) out.push(texte);
-                if (visuel) out.push(`*Visuel :* ${visuel}`);
+                if (intention) out.push(`*Intention visuelle :* ${intention}`);
             });
-            const finale = data.slide_finale || {};
-            const finalTitre = text(finale.titre);
-            const finalTexte = text(finale.texte);
-            if (finalTitre || finalTexte) {
-                out.push(`### Slide finale${finalTitre ? ` — ${finalTitre}` : ""}`);
-                if (finalTexte) out.push(finalTexte);
-            }
             return out.join("\n\n");
         }
         case TargetFormat.NEWSLETTER: {

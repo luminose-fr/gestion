@@ -124,18 +124,39 @@ Retourne le JSON complet modifié, dans le même format exact que l'original.
     GENERATE_CARROUSEL_SLIDES: `
 %%CARROUSEL_PARAMS%%
 
+RÈGLES DE SORTIE (FORMAT JSON STRICT) :
+Tu reçois le JSON brouillon complet du carrousel (cf. "Contenu carrousel" ci-dessus). Tu dois produire EXACTEMENT le même JSON, augmenté d'un champ "prompt_dzine" sur chaque slide :
+- "prompt_dzine" est une string en anglais (50-80 mots) pour les slides de type "ILLUSTRÉE".
+- "prompt_dzine" est null pour les slides de type "TYPO".
+
+Tu ne touches à AUCUN autre champ : "numero", "role", "type", "titre", "texte", "intention_visuelle" sont recopiés à l'identique. Tu ne supprimes ni n'ajoutes de slide.
+
 FORMAT DE SORTIE (STRICT) :
 {
+  "format": "Carrousel",
   "slides": [
     {
       "numero": 1,
-      "type": "ILLUSTRÉE ou TYPO",
-      "titre": "Le titre ou accroche à afficher sur la slide. 6 mots max.",
-      "texte": "Le corps de texte court à afficher sur la slide. 2-3 phrases max.",
-      "prompt_dzine": "Le prompt complet en anglais, prêt à coller dans Dzine. 50-80 mots max. Null si type TYPO."
+      "role": "Accroche",
+      "type": "TYPO",
+      "titre": "…",
+      "texte": "…",
+      "intention_visuelle": null,
+      "prompt_dzine": null
+    },
+    {
+      "numero": 3,
+      "role": "L'Image Centrale",
+      "type": "ILLUSTRÉE",
+      "titre": "…",
+      "texte": "…",
+      "intention_visuelle": "Description FR reçue (recopiée telle quelle)",
+      "prompt_dzine": "English prompt, 50-80 words, ready for Dzine."
     }
   ]
 }
+
+Retourne UNIQUEMENT le JSON. Zéro texte avant, zéro texte après, zéro bloc markdown.
     `.trim(),
 };
 

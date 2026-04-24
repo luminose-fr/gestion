@@ -166,35 +166,65 @@ const CARROUSEL: FormatDefinition = {
     storageField: 'body',
     editorTab: 'atelier',
     promptTemplate: `
-GRILLE DE PRODUCTION — Carrousel "Épuré" (7 Slides) — Instagram, LinkedIn
-Format pédagogique par excellence. Structure fixe pour copier-coller rapide dans un template Canva.
-STRUCTURE FIXE DU CARROUSEL (7 slides obligatoires) :
-Slide 1 — Accroche : type TEXTE. Texte seul, gros impact. L'accroche pure qui donne envie de swiper.
-Slide 2 — Le Problème / Le Ressenti : type TEXTE. Le problème ou le ressenti du client. Il se reconnaît dans la douleur décrite.
-Slide 3 — L'Image Centrale : type IMAGE. Le seul visuel du carrousel, illustrant la métaphore. Courte légende accompagnant l'image.
-Slide 4 — L'Explication / La Mécanique : type TEXTE. L'explication psychique, la mécanique invisible nommée et traduite en vécu.
-Slide 5 — Le Basculement : type TEXTE. Le moment où le choix se pose : continuer ou traverser. L'approche thérapeutique.
-Slide 6 — La Pépite / Synthèse : type TEXTE. La pépite à retenir, la synthèse qui cristallise le propos.
-Slide 7 — CTA Luminose : type TEXTE. Appel à l'action fixe, direct, sans emoji. Question ouverte ou invitation.
+GRILLE DE PRODUCTION — Carrousel — Instagram, LinkedIn
+Format pédagogique. Ta production alimente directement la trame finale : zéro champ à réécrire après coup, tout est calibré pour Canva.
+
+LONGUEUR ET TRAME (souple mais disciplinée) :
+- Entre 5 et 10 slides. Vise 7 par défaut (standard qui marche sur les réseaux) — ajuste à la densité du propos.
+- Au moins 1 slide ILLUSTRÉE pour porter la métaphore centrale. Tu peux en faire jusqu'à 3 si la matière s'y prête, mais pas plus (sinon le carrousel perd en lisibilité).
+- Une slide TYPO a un fond texturé/coloré simple : le texte fait tout le travail. Utilise-la pour les transitions, les listes, le CTA.
+- Une slide ILLUSTRÉE a un visuel IA en arrière-plan. Utilise-la pour la couverture, les moments à forte charge métaphorique, la clôture.
+
+RÔLES ÉDITORIAUX (colonne vertébrale — reste interne, n'apparaît pas dans la slide finale) :
+Pour chaque slide, choisis un "role" parmi :
+- "Accroche" : donne envie de swiper. 1re slide en général.
+- "Le Problème / Le Ressenti" : le client se reconnaît dans la douleur décrite.
+- "L'Image Centrale" : la métaphore visualisée. Typiquement ILLUSTRÉE.
+- "L'Explication / La Mécanique" : la mécanique psychique nommée et traduite en vécu.
+- "Le Basculement" : le moment où le choix se pose. L'approche thérapeutique.
+- "La Pépite / Synthèse" : la phrase à retenir, qui cristallise le propos.
+- "CTA Luminose" : appel à l'action, question ouverte ou invitation. Sans emoji.
+Tu n'es pas obligé d'utiliser tous ces rôles ni de les mettre dans cet ordre — sers la logique du propos. Mais chaque slide doit avoir un rôle explicite.
+
+DENSITÉ (NON NÉGOCIABLE — l'œil lit en 2 secondes sur un réseau social) :
+- "titre" : 6 mots MAXIMUM. Court, percutant, lisible en miniature.
+- "texte" : 25 mots MAXIMUM (soit ~2 phrases courtes). Si ça dépasse, c'est trop.
+- Si tu ne sais pas comment dire plus court : coupe plutôt que d'allonger.
 
 FORMAT JSON ATTENDU :
 {
   "format": "Carrousel",
   "slides": [
-    { "numero": 1, "role": "Accroche",                    "type": "TEXTE", "texte": "Texte à gros impact, accroche pure." },
-    { "numero": 2, "role": "Le Problème / Le Ressenti",   "type": "TEXTE", "texte": "Le problème ou le ressenti du client." },
-    { "numero": 3, "role": "L'Image Centrale",            "type": "IMAGE", "texte": "Courte légende accompagnant l'image.", "visuel": "Description de l'image illustrant la métaphore." },
-    { "numero": 4, "role": "L'Explication / La Mécanique", "type": "TEXTE", "texte": "L'explication psychique, la mécanique invisible." },
-    { "numero": 5, "role": "Le Basculement",              "type": "TEXTE", "texte": "Le basculement, l'approche thérapeutique." },
-    { "numero": 6, "role": "La Pépite / Synthèse",        "type": "TEXTE", "texte": "La pépite à retenir, la synthèse." },
-    { "numero": 7, "role": "CTA Luminose",                "type": "TEXTE", "texte": "Appel à l'action fixe. Sans emoji." }
+    {
+      "numero": 1,
+      "role": "Accroche",
+      "type": "TYPO",
+      "titre": "Titre accrocheur (≤ 6 mots)",
+      "texte": "Phrase d'appel, 1-2 phrases courtes. ≤ 25 mots.",
+      "intention_visuelle": null
+    },
+    {
+      "numero": 3,
+      "role": "L'Image Centrale",
+      "type": "ILLUSTRÉE",
+      "titre": "Légende courte (≤ 6 mots)",
+      "texte": "Une phrase qui accompagne l'image. ≤ 25 mots.",
+      "intention_visuelle": "Description FR de ce que l'image doit montrer concrètement (la métaphore visualisée, pas un concept abstrait). 2-3 phrases, en français. Sera traduite en prompt Dzine par le Directeur Artistique."
+    }
+    // ... autres slides selon la logique du propos
   ]
 }
-IMPORTANT : Toujours exactement 7 slides. Pas de slide_finale séparée. Seule la slide 3 est de type IMAGE.
+
+RÈGLES STRICTES :
+- "intention_visuelle" est OBLIGATOIRE pour chaque slide de type ILLUSTRÉE, et DOIT être null pour TYPO.
+- "intention_visuelle" est rédigée en français, c'est une direction éditoriale (ce qu'on veut voir), pas un prompt technique.
+- Pas de champ "visuel" ni de champ "contenu" : utilise exactement les champs nommés ci-dessus.
+- Retourne UNIQUEMENT le JSON, sans balises markdown ni texte d'intro.
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
         (data.slides || []).forEach((s: any) => {
+            if (s.titre) out.push(t(s.titre));
             if (s.texte) out.push(t(s.texte));
         });
         return out.filter(Boolean).join(' ');
