@@ -1,4 +1,4 @@
-import { ContentItem, ContextItem, AIModel } from "../types";
+import { ContentItem, ContextItem, AIModel, AppSettings, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from "../types";
 
 const DB_NAME = "LuminoseDB";
 const DB_VERSION = 3; // Incrémenté pour forcer la mise à jour du schéma (création de 'models')
@@ -7,6 +7,7 @@ const STORE_CONTEXTS = "contexts";
 const STORE_MODELS = "models";
 const SYNC_PREFIX = "luminose_sync_";
 const FULL_SYNC_PREFIX = "luminose_full_sync_";
+const APP_SETTINGS_KEY = "luminose_app_settings";
 
 export type SyncScope = "content" | "contexts" | "models";
 
@@ -157,4 +158,31 @@ export const getLastFullSync = (scope: SyncScope): string | null => {
 
 export const setLastFullSync = (scope: SyncScope, isoDate: string): void => {
   safeSetLocalStorage(`${FULL_SYNC_PREFIX}${scope}`, isoDate);
+};
+
+export const getAppSettings = (): AppSettings => {
+  const raw = safeGetLocalStorage(APP_SETTINGS_KEY);
+  if (!raw) return { displayPrefs: { ...DEFAULT_DISPLAY_PREFS } };
+  try {
+    const parsed = JSON.parse(raw) as AppSettings;
+    return {
+      ...parsed,
+      displayPrefs: { ...DEFAULT_DISPLAY_PREFS, ...(parsed.displayPrefs || {}) },
+    };
+  } catch {
+    return { displayPrefs: { ...DEFAULT_DISPLAY_PREFS } };
+  }
+};
+
+export const setAppSettings = (settings: AppSettings): void => {
+  safeSetLocalStorage(APP_SETTINGS_KEY, JSON.stringify(settings));
+};
+
+export const getDisplayPrefs = (): DisplayPrefs => {
+  return getAppSettings().displayPrefs || { ...DEFAULT_DISPLAY_PREFS };
+};
+
+export const setDisplayPrefs = (prefs: DisplayPrefs): void => {
+  const current = getAppSettings();
+  setAppSettings({ ...current, displayPrefs: prefs });
 };

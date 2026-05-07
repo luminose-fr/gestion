@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight, MessageCircle, Play } from 'lucide-react';
-import { ContentItem, ContentStatus, TargetFormat, Profondeur } from '../../types';
+import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
+import { ContentItem, ContentStatus, TargetFormat, Profondeur, CoachSession, AIModel } from '../../types';
 import { bodyJsonToText } from '../../ai/formats';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
+import { CoachChat } from '../CoachChat';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
@@ -14,7 +15,6 @@ interface DraftViewProps {
     onChange: (item: ContentItem) => void;
 
     // AI Handlers
-    onLaunchInterview: () => void;
     onLaunchDrafting: () => void;
     onLaunchCarrouselSlides: () => void;
     onLaunchAdjustment: (adjustmentText: string) => void;
@@ -23,6 +23,12 @@ interface DraftViewProps {
 
     isGenerating: boolean;
 
+    // Coach session (inline)
+    aiModels: AIModel[];
+    onCoachSessionChange: (session: CoachSession) => void | Promise<void>;
+    onCoachValidate: (session: CoachSession) => void | Promise<void>;
+    coachAutoStart?: boolean;
+
     // View State
     activeTab: 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script';
     onTabChange: (tab: 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script') => void;
@@ -30,7 +36,8 @@ interface DraftViewProps {
 
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
-    onLaunchInterview, onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onChangeStatus, onSave, isGenerating,
+    onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onChangeStatus, onSave, isGenerating,
+    aiModels, onCoachSessionChange, onCoachValidate, coachAutoStart,
     activeTab, onTabChange
 }) => {
 
@@ -183,31 +190,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
     return (
         <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg flex flex-col h-full relative scroll-smooth">
-
-            {/* ── Sticky Tabs ── */}
-            <div className="sticky top-0 z-10 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm border-b border-brand-border dark:border-dark-sec-border px-6 md:px-10 shrink-0">
-                <div className="max-w-6xl mx-auto w-full flex gap-6 overflow-x-auto scrollbar-hide">
-                    {steps.map((step) => {
-                        const isActive = activeTab === step.id;
-                        const Icon = step.icon;
-                        return (
-                            <button
-                                key={step.id}
-                                onClick={() => onTabChange(step.id as any)}
-                                className={`
-                                    flex items-center gap-2 pb-3 pt-5 text-sm font-bold border-b-2 transition-all whitespace-nowrap
-                                    ${isActive
-                                        ? 'border-brand-main text-brand-main dark:text-white dark:border-white'
-                                        : 'border-transparent text-brand-main/40 dark:text-dark-text/40 hover:text-brand-main/70'}
-                                `}
-                            >
-                                <Icon className={`w-4 h-4 ${isActive ? 'fill-current' : ''}`} />
-                                <span>{step.label}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
+            {/* Onglets remontés dans EditorLayout (header desktop + sous-bandeau mobile). */}
 
             {/* ── Content Area ── */}
             <div className="p-6 md:p-10 max-w-6xl mx-auto w-full flex-1 flex flex-col gap-6">
@@ -344,77 +327,43 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             </div>
                         )}
 
-                        {/* ── 2. Session Coach (nouveau flow — remplace l'ancienne Interview) ── */}
+                        {/* ── 2. Session Coach inline (nouveau flow — remplace la modale overlay) ── */}
                         {!isDirect && (
-                            <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/50 overflow-hidden order-3">
-                                <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <MessageCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                        <span className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase">Session Coach</span>
-                                        {coachState === 'empty' && (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                                                Non démarrée
-                                            </span>
-                                        )}
-                                        {coachState === 'in_progress' && (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                                En cours · {coachMessagesCount} échange{coachMessagesCount > 1 ? 's' : ''}
-                                            </span>
-                                        )}
-                                        {coachState === 'validated' && (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 flex items-center gap-1">
-                                                <CheckCircle2 className="w-3 h-3" /> Validée · {coachMessagesCount} échanges
-                                            </span>
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={onLaunchInterview}
-                                        disabled={isGenerating}
-                                        className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all disabled:opacity-50"
-                                        title={
-                                            coachState === 'empty' ? 'Démarrer la session Coach'
-                                            : coachState === 'in_progress' ? 'Reprendre la conversation avec le Coach'
-                                            : 'Rouvrir la session validée'
-                                        }
-                                    >
-                                        {coachState === 'empty' && (<><Play className="w-3.5 h-3.5" /> Démarrer la session</>)}
-                                        {coachState === 'in_progress' && (<><ArrowRight className="w-3.5 h-3.5" /> Reprendre la session</>)}
-                                        {coachState === 'validated' && (<><MessageCircle className="w-3.5 h-3.5" /> Revoir la session</>)}
-                                    </button>
+                            <div className="order-3 h-[60vh] min-h-[480px] flex flex-col">
+                                <CoachChat
+                                    item={item}
+                                    aiModels={aiModels}
+                                    onSessionChange={onCoachSessionChange}
+                                    onValidate={onCoachValidate}
+                                    autoStart={coachAutoStart}
+                                />
+                            </div>
+                        )}
+
+                        {/* Mode Direct — pas de Coach, message d'info */}
+                        {isDirect && (
+                            <div className="order-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/50 p-4 flex items-start gap-3">
+                                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                                <div>
+                                    <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase mb-1">
+                                        Mode direct activé
+                                    </p>
+                                    <p className="text-xs text-emerald-700/80 dark:text-emerald-400/70 leading-relaxed">
+                                        Cette idée est marquée comme « Direct » : pas de session Coach nécessaire, vous pouvez générer le brouillon directement.
+                                    </p>
                                 </div>
+                            </div>
+                        )}
 
-                                {/* Aperçu : dernier message du Coach si on a déjà échangé */}
-                                {coachLastAssistant && (
-                                    <div className="px-4 pb-4 pt-0">
-                                        <div className="bg-white dark:bg-dark-surface border border-blue-200 dark:border-blue-900/40 rounded-lg p-3">
-                                            <p className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase mb-1.5 flex items-center gap-1">
-                                                <Quote className="w-2.5 h-2.5" /> Dernière proposition du Coach
-                                            </p>
-                                            <div className="text-xs text-brand-main dark:text-dark-text leading-relaxed whitespace-pre-wrap max-h-[120px] overflow-y-auto custom-scrollbar">
-                                                {coachLastAssistant.content.split('\n').slice(0, 6).map((line, li) => (
-                                                    <React.Fragment key={li}>
-                                                        {renderMdText(line)}
-                                                        <br />
-                                                    </React.Fragment>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Legacy : anciennes réponses d'interview (lecture seule) */}
-                                {!hasCoachSession && hasInterviewAnswers && (
-                                    <div className="px-4 pb-4 pt-0">
-                                        <div className="bg-white dark:bg-dark-surface border border-amber-200 dark:border-amber-900/40 rounded-lg p-3">
-                                            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-1.5">
-                                                Ancien flow — données d'interview conservées
-                                            </p>
-                                            <div className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed whitespace-pre-wrap max-h-[120px] overflow-y-auto custom-scrollbar">
-                                                {item.interviewAnswers}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                        {/* Legacy : anciennes réponses d'interview (lecture seule, hors Coach) */}
+                        {!isDirect && !hasCoachSession && hasInterviewAnswers && (
+                            <div className="order-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/40 p-4">
+                                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-2">
+                                    Ancien flow — données d'interview conservées
+                                </p>
+                                <div className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed whitespace-pre-wrap max-h-[160px] overflow-y-auto custom-scrollbar">
+                                    {item.interviewAnswers}
+                                </div>
                             </div>
                         )}
 

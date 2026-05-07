@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images } from 'lucide-react';
 import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, Profondeur, CoachSession } from '../../types';
 import { STATUS_COLORS } from '../../constants';
 import * as GeminiService from '../../services/geminiService';
@@ -9,7 +9,6 @@ import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../../ai/actions';
 import { bodyJsonToText } from '../../ai/formats';
 import { parseDraftResponse, parseAIResponse, sanitizeSlidesResponse } from '../../ai/executors';
 import { AIConfigModal } from '../AIConfigModal';
-import { CoachChat } from '../CoachChat';
 
 // Sub-components
 import { EditorLayout } from './EditorLayout';
@@ -74,8 +73,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | 'adjust' | null>(null);
   const [pendingAdjustmentText, setPendingAdjustmentText] = useState<string>("");
 
-  // Session Coach (nouveau flow — remplace l'ancien Interviewer/Draft 0)
-  const [showCoachChat, setShowCoachChat] = useState(false);
+  // Session Coach inline (Atelier tab) — autoStart pour le flow "Travailler cette idée"
+  const [coachAutoStart, setCoachAutoStart] = useState(false);
 
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
@@ -107,14 +106,22 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   }, [item, activeStep]); 
 
   // Auto-lancement du Coach lorsqu'on arrive via "Travailler cette idée".
-  // Nouveau flow : on ouvre directement le chat Coach (plus d'AIConfigModal pour l'interview).
+  // Nouveau flow inline : on navigue vers Atelier et on déclenche autoStart sur le CoachChat inline.
   useEffect(() => {
       if (initialAction === 'interview' && editedItem && editedItem.status === ContentStatus.DRAFTING) {
-          setShowCoachChat(true);
+          onStepChange('atelier');
+          setCoachAutoStart(true);
           onInitialActionConsumed?.();
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAction, editedItem?.id, editedItem?.status]);
+
+  // Reset autoStart dès que la session a démarré (évite la relance si on remount)
+  useEffect(() => {
+      if (coachAutoStart && (editedItem?.coachSession?.messages?.length ?? 0) > 0) {
+          setCoachAutoStart(false);
+      }
+  }, [coachAutoStart, editedItem?.coachSession?.messages?.length]);
 
   // isDirty : vrai si editedItem diffère du item Notion source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
@@ -213,7 +220,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       const newItem = { ...editedItem, coachSession: session };
       setEditedItem(newItem);
       await saveWithStatus(newItem);
-      setShowCoachChat(false);
       setPendingContextAction('draft');
       setShowContextSelector(true);
   };
@@ -368,11 +374,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- TRIGGER HANDLERS ---
 
-  /** Nouveau flow : ouvre directement le chat Coach (plus d'AIConfigModal ici). */
-  const triggerInterview = () => {
-      setShowCoachChat(true);
-  };
-
   const triggerDrafting = () => {
       setPendingContextAction('draft');
       setShowContextSelector(true);
@@ -416,29 +417,117 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       return null;
   };
 
+  // ── Onglets dynamiques (miroir de DraftView, reflète la même logique) ──
+  const steps: Array<{ id: EditorStep; label: string; icon: React.ComponentType<{ className?: string }> }> = editedItem.status === ContentStatus.DRAFTING
+      ? [
+          { id: 'idea',    label: 'Idée',    icon: Lightbulb },
+          { id: 'atelier', label: 'Atelier', icon: Pencil    },
+          ...(editedItem.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT && editedItem.scriptVideo
+              ? [{ id: 'script' as EditorStep, label: 'Script', icon: Video }]
+              : []),
+          ...(editedItem.targetFormat === TargetFormat.POST_TEXTE_COURT && editedItem.body
+              ? [{ id: 'postcourt' as EditorStep, label: 'Copie', icon: Copy }]
+              : []),
+          ...(editedItem.targetFormat === TargetFormat.CARROUSEL_SLIDE_PAR_SLIDE && editedItem.body
+              ? [{ id: 'slides' as EditorStep, label: 'Slides', icon: Images }]
+              : []),
+      ]
+      : [];
+
+  const showStepTabs = steps.length > 1;
+
+  const StepTabsDesktop = showStepTabs ? (
+      <div className="hidden md:inline-flex items-center gap-1 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-xl p-1">
+          {steps.map(step => {
+              const isActive = activeStep === step.id;
+              const Icon = step.icon;
+              return (
+                  <button
+                      key={step.id}
+                      onClick={() => onStepChange(step.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                          isActive
+                              ? 'bg-white dark:bg-dark-surface text-brand-main dark:text-white shadow-sm'
+                              : 'text-brand-main/50 dark:text-dark-text/50 hover:text-brand-main dark:hover:text-white'
+                      }`}
+                  >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{step.label}</span>
+                  </button>
+              );
+          })}
+      </div>
+  ) : null;
+
+  const StepTabsMobile = showStepTabs ? (
+      <div
+          className="md:hidden flex items-center gap-1 px-3 py-2 bg-white dark:bg-dark-surface border-b border-brand-border dark:border-dark-sec-border overflow-x-auto scrollbar-hide"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+      >
+          {steps.map(step => {
+              const isActive = activeStep === step.id;
+              const Icon = step.icon;
+              return (
+                  <button
+                      key={step.id}
+                      onClick={() => onStepChange(step.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+                          isActive
+                              ? 'bg-brand-main text-white shadow-sm dark:bg-white dark:text-brand-main'
+                              : 'text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg'
+                      }`}
+                  >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{step.label}</span>
+                  </button>
+              );
+          })}
+      </div>
+  ) : null;
+
   const Header = (
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
-          {editedItem.status === ContentStatus.DRAFTING ? (
-              <input
-                  type="text"
-                  value={editedItem.title}
-                  onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
-                  className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-hidden w-full md:max-w-2xl font-display italic"
-                  placeholder="Titre..."
-              />
-          ) : (
-              <h2 className="text-lg md:text-xl font-bold text-brand-main dark:text-white w-full md:max-w-2xl min-w-0 truncate font-display italic">
-                  {editedItem.title}
-              </h2>
-          )}
-          <div className="flex items-center gap-3 md:ml-auto">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex-1 min-w-0">
+              {editedItem.status === ContentStatus.DRAFTING ? (
+                  <input
+                      type="text"
+                      value={editedItem.title}
+                      onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
+                      className="font-semibold text-sm text-brand-main dark:text-white bg-transparent outline-hidden w-full truncate"
+                      placeholder="Titre..."
+                  />
+              ) : (
+                  <p className="font-semibold text-sm text-brand-main dark:text-white truncate">
+                      {editedItem.title}
+                  </p>
+              )}
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  {editedItem.platforms?.slice(0, 2).map(p => (
+                      <span
+                          key={p}
+                          className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
+                      >
+                          {p}
+                      </span>
+                  ))}
+                  {editedItem.targetFormat && (
+                      <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
+                          {editedItem.targetFormat}
+                      </span>
+                  )}
+              </div>
+          </div>
+
+          {StepTabsDesktop}
+
+          <div className="flex items-center gap-2 shrink-0">
               <SaveIndicator />
               {editedItem.verdict && (
-                  <div className={`hidden md:block px-3 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${getVerdictColor(editedItem.verdict)}`}>
+                  <div className={`hidden lg:block px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getVerdictColor(editedItem.verdict)}`}>
                       {editedItem.verdict}
                   </div>
               )}
-              <div className={`hidden md:block px-3 py-1 rounded-full border text-sm font-medium ${STATUS_COLORS[editedItem.status]}`}>
+              <div className={`hidden lg:block px-2.5 py-0.5 rounded-full border text-xs font-medium ${STATUS_COLORS[editedItem.status]}`}>
                   {editedItem.status}
               </div>
           </div>
@@ -471,18 +560,26 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   return (
       <>
-        <EditorLayout onClose={onClose} headerContent={Header} footerContent={getFooterContent()}>
+        <EditorLayout
+            onClose={onClose}
+            headerContent={Header}
+            subHeaderContent={StepTabsMobile}
+            footerContent={getFooterContent()}
+        >
             {editedItem.status === ContentStatus.DRAFTING && (
                 <DraftView
                     item={editedItem}
                     onChange={setEditedItem}
-                    onLaunchInterview={triggerInterview}
                     onLaunchDrafting={triggerDrafting}
                     onLaunchCarrouselSlides={triggerCarrouselSlides}
                     onLaunchAdjustment={launchAdjustment}
                     onChangeStatus={changeStatus}
                     onSave={onSave}
                     isGenerating={isGenerating}
+                    aiModels={aiModels}
+                    onCoachSessionChange={handleCoachSessionChange}
+                    onCoachValidate={handleCoachValidate}
+                    coachAutoStart={coachAutoStart}
                     activeTab={activeStep}
                     onTabChange={onStepChange}
                 />
@@ -543,32 +640,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             })()}
         />
 
-        {/* Coach Chat overlay (nouveau flow — remplace l'ancienne interview à questions fermées) */}
-        {showCoachChat && editedItem && (
-            <div
-                className="fixed inset-0 z-70 bg-white/90 dark:bg-dark-surface/90 flex items-center justify-center animate-in fade-in duration-200 p-4"
-                onClick={() => setShowCoachChat(false)}
-            >
-                <div
-                    className="relative w-full max-w-3xl h-[85vh] bg-white dark:bg-dark-bg rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border overflow-hidden"
-                    onClick={e => e.stopPropagation()}
-                >
-                    <button
-                        onClick={() => setShowCoachChat(false)}
-                        className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-white/80 dark:bg-dark-bg/80 border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg"
-                        title="Fermer (la session est sauvegardée automatiquement)"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                    <CoachChat
-                        item={editedItem}
-                        aiModels={aiModels}
-                        onSessionChange={handleCoachSessionChange}
-                        onValidate={handleCoachValidate}
-                    />
-                </div>
-            </div>
-        )}
       </>
   );
 };

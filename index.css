@@ -35,6 +35,17 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentcolor);
   }
+
+  /* Reset explicite — empêche tout marge/padding par défaut sur le viewport */
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+  }
 }
 
 @layer base {

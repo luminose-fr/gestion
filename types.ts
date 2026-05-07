@@ -149,6 +149,25 @@ export interface ContextItem {
   usage?: ContextUsage;
 }
 
+export type DisplayDensity = 'compact' | 'normal' | 'airy';
+
+export interface DisplayPrefs {
+  density: DisplayDensity;
+  showVerdictStripe: boolean;
+  showPlatforms: boolean;
+  showDepth: boolean;
+  showOffer: boolean;
+}
+
+export const DEFAULT_DISPLAY_PREFS: DisplayPrefs = {
+  density: 'normal',
+  showVerdictStripe: true,
+  showPlatforms: true,
+  showDepth: true,
+  showOffer: false,
+};
+
 export interface AppSettings {
   lastUsedContextId?: string;
+  displayPrefs?: DisplayPrefs;
 }

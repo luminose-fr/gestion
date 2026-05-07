@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luminose — Gestion de Contenu (Redesign)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Lora:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: ['selector', '[data-theme="dark"]'],
+  theme: {
+    extend: {
+      colors: {
+        primary: 'var(--c-primary)',
+      }
+    }
+  }
+}
+</script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+/* ── Design Tokens ──────────────────────────────────────────────────────── */
+:root {
+  --sidebar-w: 240px;
+  --header-h: 52px;
+  --radius: 12px;
+
+  /* Light mode */
+  --c-bg:           #f4f0fb;
+  --c-surface:      #ffffff;
+  --c-surface-2:    #f0ebf9;
+  --c-border:       #e3d8f4;
+  --c-primary:      #5b5da8;
+  --c-primary-hover:#4a3e89;
+  --c-primary-bg:   #eeebff;
+  --c-text:         #1e1640;
+  --c-text-2:       #5c5079;
+  --c-text-3:       #9d8db8;
+}
+
+[data-theme="dark"] {
+  --c-bg:           #100c21;
+  --c-surface:      #1b1132;
+  --c-surface-2:    #261645;
+  --c-border:       #3a2260;
+  --c-primary:      #9b8fd4;
+  --c-primary-hover:#b4a8e8;
+  --c-primary-bg:   rgba(155,143,212,0.14);
+  --c-text:         #ede5ff;
+  --c-text-2:       #c4a8e6;
+  --c-text-3:       #7356a0;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%; width: 100%; overflow: hidden;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--c-primary-bg); color: var(--c-primary); }
+
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+textarea { resize: vertical; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-text-3); }
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes lmFadeIn  { from { opacity:0 } to { opacity:1 } }
+@keyframes lmSlideIn { from { transform:translateX(100%) } to { transform:translateX(0) } }
+@keyframes lmZoomIn  { from { opacity:0; transform:scale(0.97) } to { opacity:1; transform:scale(1) } }
+
+.animate-in { animation: lmZoomIn 0.2s ease-out; }
+
+/* ── Utility ─────────────────────────────────────────────────────────────── */
+.line-clamp-1 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
+.line-clamp-2 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.line-clamp-3 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+
+/* Tailwind-like utils used in JSX */
+.shrink-0   { flex-shrink: 0; }
+.flex-1     { flex: 1 1 0%; }
+.min-w-0    { min-width: 0; }
+.overflow-hidden { overflow: hidden; }
+.overflow-y-auto { overflow-y: auto; }
+.overflow-x-auto { overflow-x: auto; }
+
+/* ── Login page styles ───────────────────────────────────────────────────── */
+.login-bg {
+  background: var(--c-bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(91,93,168,0.15), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(155,143,212,0.1), transparent);
+}
+
+[data-theme="dark"] .login-bg {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(155,143,212,0.2), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(91,93,168,0.15), transparent);
+}
+
+/* ── Tweaks panel anchor ─────────────────────────────────────────────────── */
+#tweaks-root { position: fixed; bottom: 80px; right: 20px; z-index: 100; }
+@media (min-width: 768px) { #tweaks-root { bottom: 20px; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="tweaks-root"></div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+    <rect width="120" height="80" fill="#1b1132"/>
+    <rect x="0" y="0" width="28" height="80" fill="#261645"/>
+    <circle cx="14" cy="12" r="5" fill="#9b8fd4"/>
+    <rect x="4" y="24" width="20" height="3" rx="1.5" fill="#9b8fd4" opacity=".7"/>
+    <rect x="4" y="31" width="16" height="2.5" rx="1.25" fill="#7356a0" opacity=".5"/>
+    <rect x="4" y="37" width="18" height="2.5" rx="1.25" fill="#7356a0" opacity=".5"/>
+    <rect x="32" y="8" width="80" height="12" rx="3" fill="#261645" opacity=".5"/>
+    <rect x="32" y="26" width="80" height="10" rx="3" fill="#261645"/>
+    <rect x="32" y="40" width="80" height="10" rx="3" fill="#261645"/>
+    <rect x="32" y="54" width="80" height="10" rx="3" fill="#261645"/>
+    <rect x="32" y="26" width="3" height="10" rx="1.5" fill="#10b981"/>
+    <rect x="32" y="40" width="3" height="10" rx="1.5" fill="#f59e0b"/>
+    <rect x="32" y="54" width="3" height="10" rx="1.5" fill="#9b8fd4"/>
+  </svg>
+</template>
+
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+// ─────────────────────────────────────────────────────────────────────────────
+// MOCK DATA
+// ─────────────────────────────────────────────────────────────────────────────
+const IDEAS = [
+  {
+    id:'1', title:"Les 3 erreurs qui ruinent ta présence LinkedIn",
+    status:'IDEA', verdict:'Valide', platforms:['LinkedIn'], targetFormat:'Post Texte (Court)',
+    analyzed:true, notes:"Partager les erreurs les plus communes et comment les éviter. Approche par la négative.",
+    strategicAngle:"**Titre suggéré :** Les 3 erreurs qui détruisent silencieusement ta crédibilité LinkedIn\n\nLa tension par la négative fonctionne très bien. Angle ultra-actionnable, fort potentiel viral.",
+    depth:'Légère', targetOffer:'Standard', justification:"Sujet evergreen à fort engagement sur LinkedIn.",
+    suggestedMetaphor:"La mauvaise réputation d'un restaurant — une seule mauvaise table suffit."
+  },
+  {
+    id:'2', title:"Pourquoi j'ai arrêté de courir après les clients parfaits",
+    status:'IDEA', verdict:'Trop lisse', platforms:['Instagram','LinkedIn'], targetFormat:'Script Vidéo (Reel/Short)',
+    analyzed:true, notes:"",
+    strategicAngle:"Le sujet est trop attendu. Il faut trouver un angle plus tranchant — une provocation ou une révélation inattendue.",
+    depth:'Complète', targetOffer:'Seuil', justification:"Trop de contenu similaire en circulation.",
+    suggestedMetaphor:null
+  },
+  {
+    id:'3', title:"Mon rituel du matin pour une créativité maximale",
+    status:'IDEA', verdict:'À revoir', platforms:[], targetFormat:'',
+    analyzed:true, notes:"Méditer, écrire, pas de réseaux sociaux avant 10h...",
+    strategicAngle:"Sujet saturé. Il faut un angle différenciant fort — quelle est la vraie surprise ici ?",
+    depth:null, targetOffer:null, justification:null, suggestedMetaphor:null
+  },
+  {
+    id:'4', title:"La méthode pour facturer sans négocier",
+    status:'IDEA', verdict:null, platforms:[], targetFormat:'Newsletter',
+    analyzed:false, notes:"Idée en cours de réflexion — lien avec l'offre Seuil. Positionnement prix.",
+    strategicAngle:'', depth:null, targetOffer:null, justification:null, suggestedMetaphor:null
+  },
+  {
+    id:'5', title:"Ce que la méditation m'a appris sur le business",
+    status:'IDEA', verdict:'Valide', platforms:['LinkedIn','Newsletter'], targetFormat:'Article (Long/SEO)',
+    analyzed:true, notes:"",
+    strategicAngle:"Angle spiritualité-business original et vraiment différenciant. Fort potentiel pour l'offre Seuil et la cible transformation personnelle.",
+    depth:'Complète', targetOffer:'Seuil', justification:"Créneau peu exploité, positionnement premium.",
+    suggestedMetaphor:"La méditation comme entraînement du muscle décisionnaire."
+  },
+  {
+    id:'6', title:"Construire une offre irrésistible en 3 étapes",
+    status:'IDEA', verdict:null, platforms:[], targetFormat:'',
+    analyzed:false, notes:'', strategicAngle:'', depth:null, targetOffer:null, justification:null, suggestedMetaphor:null
+  },
+];
+
+const DRAFTS = [
+  {
+    id:'d1', title:"Les 3 erreurs qui ruinent ta présence LinkedIn",
+    status:'DRAFTING', platforms:['LinkedIn'], targetFormat:'Post Texte (Court)',
+    body:"Il y a 2 ans, je faisais ces erreurs sans le savoir. Et j'ai payé le prix fort en termes de crédibilité...",
+    lastEdited:'2024-01-15'
+  },
+  {
+    id:'d2', title:"Mon histoire avec l'anxiété de performance",
+    status:'DRAFTING', platforms:['Instagram'], targetFormat:'Script Vidéo (Reel/Short)',
+    body:"Hook : « Tu te réveilles à 3h du matin en pensant à ton business ? » Pendant des années, c'était ma réalité quotidienne.",
+    lastEdited:'2024-01-12'
+  },
+  {
+    id:'d3', title:"Guide complet de la prospection LinkedIn sans être lourd",
+    status:'DRAFTING', platforms:['LinkedIn','Newsletter'], targetFormat:'Article (Long/SEO)',
+    body:"La prospection LinkedIn a mauvaise réputation. Et souvent, à raison. Voici comment faire autrement — et obtenir de meilleurs résultats.",
+    lastEdited:'2024-01-10'
+  },
+];
+
+const READY = [
+  {
+    id:'r1', title:"Arrête de vendre, commence à servir",
+    status:'READY', platforms:['LinkedIn','Instagram'], targetFormat:'Post Texte (Court)',
+    targetOffer:'Standard', scheduledDate:'2024-02-01'
+  },
+  {
+    id:'r2', title:"La vérité sur le syndrome de l'imposteur",
+    status:'READY', platforms:['LinkedIn'], targetFormat:'Carrousel (Slide par Slide)',
+    targetOffer:'Seuil', scheduledDate:'2024-02-05'
+  },
+  {
+    id:'r3', title:"Comment j'ai doublé mon CA en 6 mois sans travailler plus",
+    status:'READY', platforms:['YouTube'], targetFormat:'Script Vidéo (Youtube)',
+    targetOffer:'Transverse', scheduledDate:null
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TWEAKS DEFAULTS
+// ─────────────────────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "primaryColor": "#3e00b3",
+  "darkMode": false,
+  "density": "airy",
+  "showPlatforms": true,
+  "showDepth": true,
+  "showOffer": true,
+  "showStripe": true
+}/*EDITMODE-END*/;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
+const LoginPage = ({ onLogin }) => {
+  const [user, setUser] = React.useState('');
+  const [pass, setPass] = React.useState('');
+  const [err, setErr] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [showPass, setShowPass] = React.useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr('');
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 700));
+    setLoading(false);
+    if (user === 'demo' && pass === 'demo') {
+      onLogin();
+    } else {
+      setErr('Identifiants incorrects. Essayez demo / demo');
+      setPass('');
+    }
+  };
+
+  return (
+    <div className="login-bg min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="animate-in w-full max-w-sm">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--c-primary)] to-violet-400 flex items-center justify-center shadow-lg shadow-[var(--c-primary)]/30 mx-auto mb-4">
+            <span className="text-white font-bold text-2xl" style={{fontFamily:"'Lora',Georgia,serif",fontStyle:'italic'}}>L</span>
+          </div>
+          <h1 className="text-2xl font-bold text-[var(--c-text)]" style={{fontFamily:"'Lora',Georgia,serif",fontStyle:'italic'}}>
+            Luminose Studio
+          </h1>
+          <p className="text-sm text-[var(--c-text-3)] mt-1">Gestion de contenu & stratégie</p>
+        </div>
+
+        <div className="bg-[var(--c-surface)] rounded-2xl border border-[var(--c-border)] shadow-xl shadow-black/5 p-7">
+          {err && (
+            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300 text-xs px-3 py-2.5 rounded-lg mb-5">
+              <i className="fa-solid fa-circle-exclamation shrink-0" />
+              {err}
+            </div>
+          )}
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-[var(--c-text-2)] mb-1.5 uppercase tracking-wider">Identifiant</label>
+              <input type="text" value={user} onChange={e => setUser(e.target.value)}
+                autoComplete="username" required disabled={loading}
+                className="w-full px-3.5 py-2.5 bg-[var(--c-bg)] border border-[var(--c-border)] focus:border-[var(--c-primary)] rounded-xl text-sm text-[var(--c-text)] placeholder-[var(--c-text-3)] outline-none transition-colors"
+                placeholder="Votre identifiant"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-[var(--c-text-2)] mb-1.5 uppercase tracking-wider">Mot de passe</label>
+              <div className="relative">
+                <input type={showPass ? 'text' : 'password'} value={pass} onChange={e => setPass(e.target.value)}
+                  autoComplete="current-password" required disabled={loading}
+                  className="w-full px-3.5 py-2.5 pr-10 bg-[var(--c-bg)] border border-[var(--c-border)] focus:border-[var(--c-primary)] rounded-xl text-sm text-[var(--c-text)] placeholder-[var(--c-text-3)] outline-none transition-colors"
+                  placeholder="••••••••"
+                />
+                <button type="button" onClick={() => setShowPass(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--c-text-3)] hover:text-[var(--c-text)] transition-colors"
+                >
+                  <i className={`fa-solid fa-eye${showPass ? '-slash' : ''} text-xs`} />
+                </button>
+              </div>
+            </div>
+            <button type="submit" disabled={loading || !user || !pass}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[var(--c-primary)] hover:bg-[var(--c-primary-hover)] text-white font-semibold rounded-xl transition-all shadow-sm shadow-[var(--c-primary)]/30 disabled:opacity-50 mt-2"
+            >
+              {loading ? (
+                <><i className="fa-solid fa-spinner fa-spin" />Connexion…</>
+              ) : (
+                <>Se connecter <i className="fa-solid fa-arrow-right text-xs" /></>
+              )}
+            </button>
+          </form>
+          <p className="text-xs text-center text-[var(--c-text-3)] mt-4">
+            Démo : <span className="font-mono text-[var(--c-primary)]">demo</span> / <span className="font-mono text-[var(--c-primary)]">demo</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TAB_TITLES = {
+  ideas:    'Boîte à idées',
+  drafts:   'En cours',
+  ready:    'Prêts à publier',
+  calendar: 'Calendrier',
+  archive:  'Archives',
+};
+
+const App = () => {
+  // ── Tweaks ──
+  const { tweaks, TweaksUI } = window.useTweaks(TWEAK_DEFAULTS);
+
+  // ── State ──
+  const [page, setPage] = React.useState('login');
+  const [space, setSpace] = React.useState('social');
+  const [tab, setTab] = React.useState('ideas');
+  const [selectedItem, setSelectedItem] = React.useState(null);
+  const [ideas, setIdeas] = React.useState(IDEAS);
+  const [drafts, setDrafts] = React.useState(DRAFTS);
+  const [ready] = React.useState(READY);
+  const [editingDraft, setEditingDraft] = React.useState(null);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [isReanalyzing, setIsReanalyzing] = React.useState(false);
+
+  // ── Apply tweaks ──
+  React.useEffect(() => {
+    const root = document.documentElement;
+    // Primary color
+    const p = tweaks.primaryColor;
+    root.style.setProperty('--c-primary', p);
+    root.style.setProperty('--c-primary-bg', p + '22');
+    // dark mode
+    root.setAttribute('data-theme', tweaks.darkMode ? 'dark' : 'light');
+    // density
+    const gap = tweaks.density === 'compact' ? '4px' : tweaks.density === 'airy' ? '10px' : '6px';
+    root.style.setProperty('--row-gap', gap);
+  }, [tweaks]);
+
+  const navigate = (s, t) => { setSpace(s); setTab(t || 'ideas'); setSelectedItem(null); };
+
+  const counts = React.useMemo(() => ({
+    ideas:    ideas.length,
+    drafts:   drafts.length,
+    ready:    ready.length,
+    calendar: 3,
+    archive:  7,
+  }), [ideas, drafts, ready]);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    await new Promise(r => setTimeout(r, 1800));
+    setIsSyncing(false);
+  };
+
+  const handleAdd = async (title, notes) => {
+    const newItem = {
+      id: Date.now().toString(), title, status:'IDEA', verdict:null,
+      platforms:[], targetFormat:'', analyzed:false, notes,
+      strategicAngle:'', depth:null, targetOffer:null, justification:null, suggestedMetaphor:null
+    };
+    setIdeas(prev => [newItem, ...prev]);
+  };
+
+  const handleSaveItem = async (item) => {
+    setIdeas(prev => prev.map(i => i.id === item.id ? item : i));
+    if (selectedItem?.id === item.id) setSelectedItem(item);
+  };
+
+  const handleDeleteItem = async (item) => {
+    setIdeas(prev => prev.filter(i => i.id !== item.id));
+    setSelectedItem(null);
+  };
+
+  const handleTransformItem = (item) => {
+    setIdeas(prev => prev.map(i => i.id === item.id ? { ...item, status:'DRAFTING' } : i));
+    setSelectedItem(null);
+    setTab('drafts');
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedItem) return;
+    setIsReanalyzing(true);
+    await new Promise(r => setTimeout(r, 1500));
+    const updated = {
+      ...selectedItem,
+      analyzed: true,
+      verdict: 'Valide',
+      strategicAngle: "**Analyse IA simulée**\n\nAngle fort détecté — sujet à fort potentiel de différenciation. Recommandation : approche personnelle + données concrètes.",
+      platforms: ['LinkedIn', 'Newsletter'],
+      depth: 'Légère',
+    };
+    setIdeas(prev => prev.map(i => i.id === updated.id ? updated : i));
+    setSelectedItem(updated);
+    setIsReanalyzing(false);
+  };
+
+  // ── Header title ──
+  const headerTitle = React.useMemo(() => {
+    if (space === 'clients') return 'Espace Clients';
+    if (space === 'videos') return 'Vidéos & Sous-titres';
+    if (space === 'psychedelics') return 'Psychédéliques';
+    return TAB_TITLES[tab] || 'Contenus';
+  }, [space, tab]);
+
+  if (page === 'login') {
+    return (
+      <>
+        <LoginPage onLogin={() => setPage('app')} />
+        {TweaksUI}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div style={{
+        display:'flex', flexDirection:'column', height:'100vh', width:'100%',
+        background:'var(--c-bg)', color:'var(--c-text)', overflow:'hidden',
+      }}>
+        {/* ── Shell ── */}
+        <div style={{display:'flex', flex:1, overflow:'hidden', position:'relative'}}>
+
+          {/* Sidebar (desktop) */}
+          <Sidebar
+            space={space} tab={tab} counts={counts}
+            onNavigate={navigate}
+            onOpenSettings={() => setSettingsOpen(true)}
+            darkMode={tweaks.darkMode}
+            onToggleDark={() => window.parent?.postMessage({type:'__edit_mode_set_keys', edits:{darkMode:!tweaks.darkMode}},'*') || (TWEAK_DEFAULTS.darkMode = !tweaks.darkMode)}
+            isMobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
+
+          {/* Main */}
+          <div style={{flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0}}>
+            <Header
+              title={headerTitle}
+              isSyncing={isSyncing}
+              onSync={handleSync}
+              onLogout={() => setPage('login')}
+              onMenuOpen={() => setMobileMenuOpen(true)}
+            />
+            {space === 'social' && <MobileSubTabs tab={tab} counts={counts} onNavigate={navigate} />}
+
+            {/* Sync overlay */}
+            {isSyncing && (
+              <div style={{
+                position:'absolute',inset:0,zIndex:60,
+                display:'flex',alignItems:'center',justifyContent:'center',
+                background:'rgba(var(--c-bg-rgb,255,255,255),0.5)',backdropFilter:'blur(2px)',
+              }}>
+                <div style={{
+                  background:'var(--c-surface)',borderRadius:16,border:'1px solid var(--c-border)',
+                  padding:'24px 32px',display:'flex',flexDirection:'column',alignItems:'center',gap:12,
+                  boxShadow:'0 20px 60px rgba(0,0,0,0.12)',
+                }}>
+                  <i className="fa-solid fa-arrows-rotate fa-spin text-2xl" style={{color:'var(--c-primary)'}} />
+                  <p style={{fontSize:13,fontWeight:600,color:'var(--c-text)'}}>Synchronisation Notion…</p>
+                </div>
+              </div>
+            )}
+
+            {/* Content area */}
+            {editingDraft ? (
+              <DraftEditor
+                item={editingDraft}
+                onClose={() => setEditingDraft(null)}
+                onSave={(updated) => setDrafts(prev => prev.map(d => d.id === updated.id ? updated : d))}
+                onMarkReady={(item) => setDrafts(prev => prev.filter(d => d.id !== item.id))}
+              />
+            ) : (
+            <main style={{flex:1, overflowY:'auto', padding:'24px 24px'}} className="mobile-main">
+              <div style={{maxWidth:900, margin:'0 auto'}}>
+
+                {space === 'social' && tab === 'ideas' && (
+                  <IdeasView
+                    items={ideas}
+                    onEdit={item => setSelectedItem(item)}
+                    onAdd={handleAdd}
+                    onGlobalAnalyze={() => alert('Analyse batch — à connecter à l\'IA')}
+                    isSyncing={isSyncing}
+                    prefs={t}
+                  />
+                )}
+
+                {space === 'social' && tab === 'drafts' && (
+                  <DraftsView items={drafts} onEdit={item => setEditingDraft(item)} prefs={t} />
+                )}
+
+                {space === 'social' && tab === 'ready' && (
+                  <ReadyTable items={ready} onEdit={item => alert('Ouvrir : ' + item.title)} prefs={t} />
+                )}
+
+                {space === 'social' && tab === 'calendar' && (
+                  <div className="animate-in">
+                    <EmptyState
+                      icon="calendar"
+                      title="Calendrier éditorial"
+                      desc="La vue calendrier s'affichera ici avec vos publications planifiées."
+                    />
+                  </div>
+                )}
+
+                {space === 'social' && tab === 'archive' && (
+                  <div className="animate-in">
+                    <EmptyState
+                      icon="box-archive"
+                      title="Archives"
+                      desc="Vos publications passées apparaîtront ici."
+                    />
+                  </div>
+                )}
+
+                {space === 'clients' && (
+                  <ComingSoon
+                    icon="users"
+                    title="Espace Clients"
+                    desc="Gérez votre CRM et vos projets clients ici. Cet espace est en cours de construction."
+                  />
+                )}
+
+                {space === 'videos' && (
+                  <ComingSoon
+                    icon="film"
+                    title="Vidéos & Sous-titres"
+                    desc="Convertissez vos fichiers .srt en titres Final Cut Pro (.fcpxml)."
+                  />
+                )}
+
+                {space === 'psychedelics' && (
+                  <ComingSoon
+                    icon="wand-sparkles"
+                    title="Psychédéliques"
+                    desc="Calculateur de repères de dosage et aide à la réduction des risques."
+                  />
+                )}
+
+              </div>
+            </main>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Idea Panel */}
+        <IdeaPanel
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onSave={handleSaveItem}
+          onDelete={handleDeleteItem}
+          onTransform={handleTransformItem}
+          onAnalyze={handleAnalyze}
+          isReanalyzing={isReanalyzing}
+        />
+      )}
+
+      {/* Tweaks panel */}
+      {TweaksUI && (
+        <div id="tweaks-portal">
+          {TweaksUI}
+        </div>
+      )}
+    </>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROOT APP
+// ─────────────────────────────────────────────────────────────────────────────
+const RootApp = () => {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  // System dark mode
+  React.useEffect(() => {
+    const apply = () => {
+      const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    };
+    apply();
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
+  // App state
+  const [page, setPage] = React.useState('login');
+  const [space, setSpace] = React.useState('social');
+  const [tab, setTab] = React.useState('ideas');
+  const [selectedItem, setSelectedItem] = React.useState(null);
+  const [ideas, setIdeas] = React.useState(IDEAS);
+  const [editingDraft, setEditingDraft] = React.useState(null);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [isReanalyzing, setIsReanalyzing] = React.useState(false);
+
+  const navigate = (s, tb) => { setSpace(s); setTab(tb || 'ideas'); setSelectedItem(null); };
+
+  const counts = React.useMemo(() => ({
+    ideas: ideas.length, drafts: DRAFTS.length, ready: READY.length, calendar: 3, archive: 7,
+  }), [ideas]);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    await new Promise(r => setTimeout(r, 1600));
+    setIsSyncing(false);
+  };
+
+  const handleAdd = async (title) => {
+    setIdeas(prev => [{
+      id: Date.now().toString(), title, status:'IDEA', verdict:null,
+      platforms:[], targetFormat:'', analyzed:false, notes:'',
+      strategicAngle:'', depth:null, targetOffer:null, justification:null, suggestedMetaphor:null,
+    }, ...prev]);
+  };
+
+  const handleSave = async (item) => {
+    setIdeas(prev => prev.map(i => i.id === item.id ? item : i));
+    setSelectedItem(item);
+  };
+
+  const handleDelete = async (item) => {
+    setIdeas(prev => prev.filter(i => i.id !== item.id));
+    setSelectedItem(null);
+  };
+
+  const handleTransform = (item) => {
+    setIdeas(prev => prev.map(i => i.id === item.id ? { ...item, status:'DRAFTING' } : i));
+    setSelectedItem(null);
+    navigate('social', 'drafts');
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedItem) return;
+    setIsReanalyzing(true);
+    await new Promise(r => setTimeout(r, 1500));
+    const updated = {
+      ...selectedItem, analyzed:true, verdict:'Valide',
+      strategicAngle:"Analyse IA (simulation)\n\nAngle fort détecté — fort potentiel de différenciation. Recommandation : approche personnelle + données concrètes pour maximiser l'engagement.",
+      platforms:['LinkedIn', 'Newsletter'], depth:'Légère',
+    };
+    setIdeas(prev => prev.map(i => i.id === updated.id ? updated : i));
+    setSelectedItem(updated);
+    setIsReanalyzing(false);
+  };
+
+  const headerTitle = React.useMemo(() => {
+    if (space === 'clients') return 'Espace Clients';
+    if (space === 'videos') return 'Vidéos & Sous-titres';
+    if (space === 'psychedelics') return 'Psychédéliques';
+    return TAB_TITLES[tab] || 'Contenus';
+  }, [space, tab]);
+
+  if (page === 'login') {
+    return (
+      <>
+        <LoginPage onLogin={() => setPage('app')} />
+        <TweaksPanel>
+          <TweakSection label="Apparence" />
+          <TweakColor label="Couleur principale" value={t.primaryColor} onChange={v => setTweak('primaryColor', v)} />
+          <TweakToggle label="Mode sombre" value={t.darkMode} onChange={v => setTweak('darkMode', v)} />
+        </TweaksPanel>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div style={{display:'flex',flexDirection:'column',height:'100vh',background:'var(--c-bg)',overflow:'hidden'}}>
+        <div style={{display:'flex',flex:1,overflow:'hidden',position:'relative'}}>
+
+          <Sidebar
+            space={space} tab={tab} counts={counts}
+            onNavigate={navigate}
+            onOpenSettings={() => setSettingsOpen(true)}
+            darkMode={false}
+            onToggleDark={() => {}}
+            isMobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
+
+          <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+            <Header
+              title={headerTitle} isSyncing={isSyncing}
+              onSync={handleSync} onLogout={() => setPage('login')}
+              onMenuOpen={() => setMobileMenuOpen(true)}
+            />
+            {space === 'social' && <MobileSubTabs tab={tab} counts={counts} onNavigate={navigate} />}
+
+            {isSyncing && (
+              <div style={{position:'absolute',inset:0,zIndex:60,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.12)',backdropFilter:'blur(2px)'}}>
+                <div style={{background:'var(--c-surface)',borderRadius:16,border:'1px solid var(--c-border)',padding:'24px 32px',display:'flex',flexDirection:'column',alignItems:'center',gap:12,boxShadow:'0 24px 60px rgba(0,0,0,0.15)'}}>
+                  <i className="fa-solid fa-arrows-rotate fa-spin" style={{fontSize:24,color:'var(--c-primary)'}} />
+                  <p style={{fontSize:13,fontWeight:600,color:'var(--c-text)'}}>Synchronisation Notion…</p>
+                </div>
+              </div>
+            )}
+
+            {editingDraft ? (
+              <DraftEditor
+                item={editingDraft}
+                onClose={() => setEditingDraft(null)}
+                onSave={(updated) => setDrafts ? setDrafts(prev => prev.map(d => d.id===updated.id ? updated : d)) : null}
+                onMarkReady={() => setEditingDraft(null)}
+              />
+            ) : (
+            <main style={{flex:1,overflowY:'auto',padding:'20px 24px'}} className="mobile-main">
+              <div style={{maxWidth:880,margin:'0 auto'}}>
+                {space === 'social' && tab === 'ideas'    && <IdeasView items={ideas} onEdit={setSelectedItem} onAdd={handleAdd} onGlobalAnalyze={() => {}} isSyncing={isSyncing} prefs={t} />}
+                {space === 'social' && tab === 'drafts'   && <DraftsView items={DRAFTS} onEdit={item => setEditingDraft(item)} prefs={t} />}
+                {space === 'social' && tab === 'ready'    && <ReadyTable items={READY} onEdit={() => {}} prefs={t} />}
+                {space === 'social' && tab === 'calendar' && <EmptyState icon="calendar" title="Calendrier éditorial" desc="Vos publications planifiées apparaîtront ici." />}
+                {space === 'social' && tab === 'archive'  && <EmptyState icon="box-archive" title="Archives" desc="Vos publications passées apparaîtront ici." />}
+                {space === 'clients'     && <ComingSoon icon="users" title="Espace Clients" desc="Gérez votre CRM et vos projets clients ici. En cours de construction." />}
+                {space === 'videos'      && <ComingSoon icon="film" title="Vidéos & Sous-titres" desc="Convertissez vos .srt en titres Final Cut Pro (.fcpxml)." />}
+                {space === 'psychedelics'&& <ComingSoon icon="wand-sparkles" title="Psychédéliques" desc="Calculateur de dosage et aide à la réduction des risques." />}
+              </div>
+            </main>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {selectedItem && (
+        <IdeaPanel
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onTransform={handleTransform}
+          onAnalyze={handleAnalyze}
+          isReanalyzing={isReanalyzing}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsPanel
+          prefs={t}
+          onPrefsChange={newPrefs => Object.keys(newPrefs).forEach(k => setTweak(k, newPrefs[k]))}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+    </>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────────────────────
+ReactDOM.createRoot(document.getElementById('root')).render(<RootApp />);
+</script>
+</body>
+</html>

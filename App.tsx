@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Briefcase, Video, Sparkles } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, isTargetOffer, isProfondeur } from './types';
+import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu } from 'lucide-react';
+import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, DisplayPrefs, isTargetOffer, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import * as GeminiService from './services/geminiService';
 import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from './ai/actions';
 import * as OneMinService from './services/oneMinService';
 
-import SettingsModal from './components/SettingsModal';
+import SettingsPanel from './components/SettingsPanel';
 import ContentEditor, { EditorStep } from './components/ContentEditor';
 import { bodyJsonToText } from './ai/formats';
 import { IdeaModal } from './components/IdeaModal'; 
@@ -22,6 +22,7 @@ import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 
 // Components refactorisés
 import { Sidebar } from './components/Layout/Sidebar';
+import { MobileSubTabs } from './components/Layout/MobileSubTabs';
 import { SocialIdeasView } from './components/Views/SocialIdeasView';
 import { SocialGridView } from './components/Views/SocialGridView';
 
@@ -87,7 +88,15 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isContextManagerOpen, setIsContextManagerOpen] = useState(false);
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+  const [settingsPanelInitialTab, setSettingsPanelInitialTab] = useState<'display' | 'models' | 'contexts'>('display');
+
+  const [displayPrefs, setDisplayPrefsState] = useState<DisplayPrefs>(() => StorageService.getDisplayPrefs());
+
+  const handleDisplayPrefsChange = (prefs: DisplayPrefs) => {
+      setDisplayPrefsState(prefs);
+      StorageService.setDisplayPrefs(prefs);
+  };
   
   // New state for AI Configuration Flow
   const [aiConfigState, setAiConfigState] = useState<{
@@ -503,7 +512,13 @@ function App() {
   };
 
   const handleOpenContextManagerFromEditor = () => {
-      setIsContextManagerOpen(true);
+      setSettingsPanelInitialTab('contexts');
+      setIsSettingsPanelOpen(true);
+  };
+
+  const openSettingsFromSidebar = () => {
+      setSettingsPanelInitialTab('display');
+      setIsSettingsPanelOpen(true);
   };
 
   // ── Hooks dérivés — TOUJOURS avant tout return conditionnel ──────────────
@@ -557,109 +572,23 @@ function App() {
 
   const today = new Date();
 
+  const isEditorTakeover = currentSpace === 'social' && !!editingItem && editingItem.status !== ContentStatus.IDEA;
+
   return (
-    <div className="h-screen bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans flex flex-col transition-colors duration-200 overflow-hidden">
-      
-      <header className="bg-white dark:bg-dark-surface border-b border-brand-border dark:border-dark-sec-border shrink-0 z-30">
-        <div className="h-14 px-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 md:gap-8">
-            <button 
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 text-brand-main dark:text-white"
-            >
-                <Menu className="w-6 h-6" />
-            </button>
+    <div className="flex h-screen bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans transition-colors duration-200 overflow-hidden">
 
-            <div className="w-8 h-8 bg-linear-to-tr from-brand-main to-brand-hover rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0">
-              L
-            </div>
+      <Sidebar
+          currentSpace={currentSpace}
+          currentSocialTab={currentSocialTab}
+          onNavigate={(space, tab) => updateRoute(space, tab)}
+          counts={counts}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={() => setIsMobileMenuOpen(false)}
+          onOpenSettings={openSettingsFromSidebar}
+      />
 
-            <div className="hidden md:flex space-x-2">
-                <button
-                    onClick={() => updateRoute('social', currentSocialTab)}
-                    className={`
-                        px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2
-                        ${currentSpace === 'social' 
-                            ? 'bg-brand-light text-brand-main dark:bg-dark-sec-bg dark:text-white border-2 border-brand-border dark:border-dark-sec-border' 
-                            : 'text-gray-500 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-sec-bg border-2 border-transparent'}
-                    `}
-                >
-                    <Briefcase className="w-4 h-4" />
-                    Contenus
-                </button>
-                <button
-                    onClick={() => updateRoute('clients', 'ideas')}
-                    className={`
-                        px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2
-                        ${currentSpace === 'clients'
-                            ? 'bg-brand-light text-brand-main dark:bg-dark-sec-bg dark:text-white border-2 border-brand-border dark:border-dark-sec-border'
-                            : 'text-gray-500 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-sec-bg border-2 border-transparent'}
-                    `}
-                >
-                    <Users className="w-4 h-4" />
-                    Clients
-                </button>
-                <button
-                    onClick={() => updateRoute('videos', 'ideas')}
-                    className={`
-                        px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2
-                        ${currentSpace === 'videos'
-                            ? 'bg-brand-light text-brand-main dark:bg-dark-sec-bg dark:text-white border-2 border-brand-border dark:border-dark-sec-border'
-                            : 'text-gray-500 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-sec-bg border-2 border-transparent'}
-                    `}
-                >
-                    <Video className="w-4 h-4" />
-                    Vidéos
-                </button>
-                <button
-                    onClick={() => updateRoute('psychedelics', 'ideas')}
-                    className={`
-                        px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2
-                        ${currentSpace === 'psychedelics'
-                            ? 'bg-brand-light text-brand-main dark:bg-dark-sec-bg dark:text-white border-2 border-brand-border dark:border-dark-sec-border'
-                            : 'text-gray-500 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-sec-bg border-2 border-transparent'}
-                    `}
-                >
-                    <Sparkles className="w-4 h-4" />
-                    Psychédéliques
-                </button>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-               <button 
-                  onClick={() => syncWithNotion(true)}
-                  disabled={isSyncing}
-                  className="p-2 text-brand-main/70 hover:text-brand-main dark:text-dark-text/70 dark:hover:text-white transition-colors rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg disabled:opacity-50 disabled:animate-spin"
-                  title="Synchroniser avec Notion"
-               >
-                   <RefreshCw className="w-4 h-4" />
-               </button>
-               <button
-                  onClick={handleLogout}
-                  className="p-2 text-brand-main/70 hover:text-red-600 dark:text-dark-text/70 dark:hover:text-red-400 transition-colors rounded-full hover:bg-brand-light dark:hover:bg-dark-sec-bg"
-                  title="Déconnexion"
-               >
-                   <LogOut className="w-4 h-4" />
-               </button>
-          </div>
-        </div>
-      </header>
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 p-2 text-center text-xs shrink-0 animate-fade-in">
-            <span className="text-red-700 dark:text-red-300 flex items-center justify-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    {error}
-                </div>
-                <button onClick={syncWithNotion} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
-            </span>
-        </div>
-      )}
-
-      <div className="flex-1 flex overflow-hidden relative">
-        
         {(isSyncing) && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 dark:bg-dark-bg/60 backdrop-blur-[1px]">
                 <div className="flex flex-col items-center justify-center p-6 bg-white dark:bg-dark-surface rounded-2xl shadow-xl border border-brand-border dark:border-dark-sec-border animate-in fade-in zoom-in duration-200">
@@ -675,15 +604,65 @@ function App() {
             </div>
         )}
 
-        <Sidebar 
-            currentSpace={currentSpace}
-            currentSocialTab={currentSocialTab}
-            onNavigate={(space, tab) => updateRoute(space, tab)}
-            counts={counts}
-            isMobileOpen={isMobileMenuOpen}
-            onMobileClose={() => setIsMobileMenuOpen(false)}
-            onOpenSettings={() => setIsContextManagerOpen(true)}
-        />
+        <header className="h-[52px] px-4 md:px-6 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="md:hidden p-2 -ml-1 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors"
+              >
+                  <Menu className="w-5 h-5" />
+              </button>
+
+              <h1 className="font-bold text-sm text-brand-main dark:text-white truncate">
+                  {currentSpace === 'social' && currentSocialTab === 'ideas' && 'Boîte à idées'}
+                  {currentSpace === 'social' && currentSocialTab === 'drafts' && 'En cours'}
+                  {currentSpace === 'social' && currentSocialTab === 'ready' && 'Prêts à publier'}
+                  {currentSpace === 'social' && currentSocialTab === 'calendar' && 'Calendrier'}
+                  {currentSpace === 'social' && currentSocialTab === 'archive' && 'Archives'}
+                  {currentSpace === 'clients' && 'Clients'}
+                  {currentSpace === 'videos' && 'Sous-titres'}
+                  {currentSpace === 'psychedelics' && 'Psychédéliques'}
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-0.5">
+                 <button
+                    onClick={() => syncWithNotion(true)}
+                    disabled={isSyncing}
+                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-40 disabled:animate-spin"
+                    title="Synchroniser avec Notion"
+                 >
+                     <RefreshCw className="w-[14px] h-[14px]" />
+                 </button>
+                 <button
+                    onClick={handleLogout}
+                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                    title="Déconnexion"
+                 >
+                     <LogOut className="w-[14px] h-[14px]" />
+                 </button>
+            </div>
+        </header>
+
+        {currentSpace === 'social' && !isEditorTakeover && (
+          <MobileSubTabs
+              currentTab={currentSocialTab}
+              onNavigate={(tab) => updateRoute('social', tab)}
+              counts={counts}
+          />
+        )}
+
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 p-2 text-center text-xs shrink-0 animate-fade-in">
+              <span className="text-red-700 dark:text-red-300 flex items-center justify-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4" />
+                      {error}
+                  </div>
+                  <button onClick={syncWithNotion} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
+              </span>
+          </div>
+        )}
 
         {currentSpace === 'clients' && (
             <div className="flex-1 flex flex-col items-center justify-center text-brand-main/50 dark:text-dark-text/50 relative overflow-y-auto">
@@ -697,15 +676,10 @@ function App() {
 
         {currentSpace === 'videos' && (
             <main className="flex-1 overflow-y-auto">
-                <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm z-10 px-4 md:px-6 py-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
-                    <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2 font-display italic">
-                        Sous-titres
-                    </h2>
-                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-1">
+                <div className="px-4 md:px-6 py-5">
+                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">
                         Convertissez un fichier .srt en titres Final Cut Pro (.fcpxml)
                     </p>
-                </div>
-                <div className="px-4 md:px-6 pb-12 mt-4 md:mt-0">
                     <SubtitleConverter aiModels={aiModels} />
                 </div>
             </main>
@@ -713,15 +687,10 @@ function App() {
 
         {currentSpace === 'psychedelics' && (
             <main className="flex-1 overflow-y-auto">
-                <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm z-10 px-4 md:px-6 py-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
-                    <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2 font-display italic">
-                        Psychédéliques
-                    </h2>
-                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-1">
+                <div className="px-4 md:px-6 py-5">
+                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">
                         Calculateur de repères de dosage et aide à la réduction des risques
                     </p>
-                </div>
-                <div className="px-4 md:px-6 pb-12 mt-4 md:mt-0">
                     <PsychedelicsCalculator />
                 </div>
             </main>
@@ -729,7 +698,7 @@ function App() {
 
         {currentSpace === 'social' && (
             <main className="flex-1 overflow-hidden relative flex flex-col">
-                
+
                 {editingItem && editingItem.status !== ContentStatus.IDEA ? (
                     <ContentEditor
                         item={editingItem}
@@ -746,21 +715,10 @@ function App() {
                     />
                 ) : (
                     <div className="flex-1 overflow-y-auto">
-                        
-                        <div className="sticky top-0 bg-brand-light/95 dark:bg-dark-bg/95 backdrop-blur-sm z-10 px-4 md:px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b md:border-none border-brand-border dark:border-dark-sec-border">
-                             <h2 className="text-xl md:text-2xl font-bold text-brand-main dark:text-white flex items-center gap-2 font-display italic">
-                                 {currentSocialTab === 'drafts' && 'Brouillons en cours'}
-                                 {currentSocialTab === 'ready' && 'Prêts pour publication'}
-                                 {currentSocialTab === 'ideas' && 'Idées & Inspiration'}
-                                 {currentSocialTab === 'calendar' && 'Planning'}
-                                 {currentSocialTab === 'archive' && 'Archives'}
-                             </h2>
-                        </div>
+                        <div className="px-4 md:px-6 py-5 max-w-6xl mx-auto">
 
-                        <div className="px-4 md:px-6 pb-12 max-w-6xl mx-auto mt-4 md:mt-0">
-                            
                             {currentSocialTab === 'ideas' && (
-                                <SocialIdeasView 
+                                <SocialIdeasView
                                     items={ideaItems}
                                     searchQuery={searchQuery}
                                     onSearchChange={setSearchQuery}
@@ -769,40 +727,44 @@ function App() {
                                     onGlobalAnalyze={handleGlobalAnalysis}
                                     isSyncing={isSyncing}
                                     isInitializing={isInitializing}
-                                    onNavigateToIdeas={() => {}} 
+                                    onNavigateToIdeas={() => {}}
+                                    displayPrefs={displayPrefs}
                                 />
                             )}
 
                             {currentSocialTab === 'drafts' && (
-                                <SocialGridView 
-                                    items={draftingItems} 
-                                    type="drafts" 
-                                    searchQuery={searchQuery} 
-                                    isInitializing={isInitializing} 
-                                    onEdit={handleEditItem} 
-                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')} 
+                                <SocialGridView
+                                    items={draftingItems}
+                                    type="drafts"
+                                    searchQuery={searchQuery}
+                                    isInitializing={isInitializing}
+                                    onEdit={handleEditItem}
+                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')}
+                                    displayPrefs={displayPrefs}
                                 />
                             )}
 
                             {currentSocialTab === 'ready' && (
-                                <SocialGridView 
-                                    items={readyItems} 
-                                    type="ready" 
-                                    searchQuery={searchQuery} 
-                                    isInitializing={isInitializing} 
-                                    onEdit={handleEditItem} 
-                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')} 
+                                <SocialGridView
+                                    items={readyItems}
+                                    type="ready"
+                                    searchQuery={searchQuery}
+                                    isInitializing={isInitializing}
+                                    onEdit={handleEditItem}
+                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')}
+                                    displayPrefs={displayPrefs}
                                 />
                             )}
 
                             {currentSocialTab === 'archive' && (
-                                <SocialGridView 
-                                    items={archiveItems} 
-                                    type="archive" 
-                                    searchQuery={searchQuery} 
-                                    isInitializing={isInitializing} 
-                                    onEdit={handleEditItem} 
-                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')} 
+                                <SocialGridView
+                                    items={archiveItems}
+                                    type="archive"
+                                    searchQuery={searchQuery}
+                                    isInitializing={isInitializing}
+                                    onEdit={handleEditItem}
+                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')}
+                                    displayPrefs={displayPrefs}
                                 />
                             )}
 
@@ -828,16 +790,7 @@ function App() {
                     />
                 )}
 
-                <SettingsModal 
-                    isOpen={isContextManagerOpen}
-                    onClose={() => setIsContextManagerOpen(false)}
-                    contexts={contexts}
-                    onContextsChange={handleContextsChange}
-                    aiModels={aiModels}
-                    onModelsChange={handleModelsChange}
-                />
-
-                <AnalysisModal 
+                <AnalysisModal
                     isOpen={batchAnalysisState.isOpen}
                     onClose={() => setBatchAnalysisState({ ...batchAnalysisState, isOpen: false })}
                     itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed)}
@@ -876,6 +829,18 @@ function App() {
             </main>
         )}
       </div>
+
+      <SettingsPanel
+          isOpen={isSettingsPanelOpen}
+          onClose={() => setIsSettingsPanelOpen(false)}
+          displayPrefs={displayPrefs}
+          onDisplayPrefsChange={handleDisplayPrefsChange}
+          contexts={contexts}
+          onContextsChange={handleContextsChange}
+          aiModels={aiModels}
+          onModelsChange={handleModelsChange}
+          initialTab={settingsPanelInitialTab}
+      />
     </div>
   );
 }

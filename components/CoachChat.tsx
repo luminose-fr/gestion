@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Send, Loader2, CheckCircle2, Sparkles, RefreshCw, AlertCircle, MessageCircle, ArrowRight } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, Sparkles, RefreshCw, AlertCircle, MessageCircle, ArrowRight, Brain } from 'lucide-react';
 import { ContentItem, AIModel, CoachSession, CoachMessage } from '../types';
 import { INTERNAL_MODELS } from '../ai/actions';
 import {
@@ -20,10 +20,12 @@ interface CoachChatProps {
     onSessionChange: (session: CoachSession) => void | Promise<void>;
     /** Appelé quand Florent clique "Go Éditeur" — la session est marquée validated avant appel */
     onValidate: (session: CoachSession) => void | Promise<void>;
+    /** Si true et que la session est vide, démarre automatiquement la conversation au mount (court-circuite le sas "Prêt à démarrer ?"). */
+    autoStart?: boolean;
 }
 
 export const CoachChat: React.FC<CoachChatProps> = ({
-    item, aiModels, notionContext, onSessionChange, onValidate,
+    item, aiModels, notionContext, onSessionChange, onValidate, autoStart,
 }) => {
     const initialSession: CoachSession = useMemo(
         () => item.coachSession || createEmptySession(item.targetFormat || null),
@@ -36,9 +38,11 @@ export const CoachChat: React.FC<CoachChatProps> = ({
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [modelId, setModelId] = useState<string>(INTERNAL_MODELS.FAST);
-    // Sas de démarrage : true si on reprend une session existante, false sinon.
-    // Bloque le bootstrap auto tant que Florent n'a pas confirmé le modèle.
-    const [hasStarted, setHasStarted] = useState<boolean>(() => initialSession.messages.length > 0);
+    // Sas de démarrage : true si on reprend une session existante OU si autoStart est demandé,
+    // false sinon. Bloque le bootstrap auto tant que Florent n'a pas confirmé le modèle (sauf autoStart).
+    const [hasStarted, setHasStarted] = useState<boolean>(
+        () => initialSession.messages.length > 0 || !!autoStart
+    );
     const scrollRef = useRef<HTMLDivElement>(null);
     const didAutoBootstrap = useRef(false);
 
@@ -183,7 +187,8 @@ export const CoachChat: React.FC<CoachChatProps> = ({
             </div>
 
             {/* MESSAGES */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+                <div className="max-w-2xl mx-auto space-y-3">
                 {/* SAS DE DÉMARRAGE — choix du modèle avant le premier appel IA */}
                 {!hasStarted && (
                     <div className="h-full flex items-center justify-center py-8">
@@ -227,14 +232,19 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                 {visibleMessages.map((msg, idx) => (
                     <div
                         key={idx}
-                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
                     >
+                        {msg.role === 'assistant' && (
+                            <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
+                                <Brain className="w-3 h-3 text-violet-600 dark:text-violet-300" />
+                            </div>
+                        )}
                         <div
                             className={`
-                                max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed
+                                max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed
                                 ${msg.role === 'user'
-                                    ? 'bg-brand-main text-white rounded-br-sm'
-                                    : 'bg-white dark:bg-dark-surface text-brand-main dark:text-white border border-brand-border dark:border-dark-sec-border rounded-bl-sm'
+                                    ? 'bg-brand-main text-white rounded-tr-sm'
+                                    : 'bg-white dark:bg-dark-surface text-brand-main dark:text-white border border-brand-border dark:border-dark-sec-border rounded-tl-sm'
                                 }
                             `}
                         >
@@ -255,22 +265,28 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                 ))}
 
                 {isSending && (
-                    <div className="flex justify-start">
-                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2 text-xs text-brand-main/60 dark:text-dark-text/60">
+                    <div className="flex gap-3">
+                        <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
+                            <Brain className="w-3 h-3 text-violet-600 dark:text-violet-300" />
+                        </div>
+                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 text-xs text-brand-main/60 dark:text-dark-text/60">
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            Le Coach réfléchit...
+                            Le Coach réfléchit…
                         </div>
                     </div>
                 )}
 
                 {error && (
-                    <div className="flex justify-start">
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl rounded-bl-sm px-4 py-3 flex items-start gap-2 text-xs text-red-700 dark:text-red-300">
-                            <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <div className="flex gap-3">
+                        <div className="w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0 mt-0.5">
+                            <AlertCircle className="w-3 h-3 text-red-600 dark:text-red-300" />
+                        </div>
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl rounded-tl-sm px-4 py-3 flex items-start gap-2 text-xs text-red-700 dark:text-red-300">
                             <span>{error}</span>
                         </div>
                     </div>
                 )}
+                </div>
             </div>
 
             {/* GO ÉDITEUR (visible si ready ou toujours cliquable par Florent) */}

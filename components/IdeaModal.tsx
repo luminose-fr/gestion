@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Brain, RefreshCw, ArrowRight, Loader2, Trash2, Globe, ArrowRightFromLine, Save, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
-import { ContentItem, ContentStatus, Verdict, Platform, Profondeur, TargetFormat, TARGET_FORMAT_VALUES } from '../types';
+import { X, Brain, RefreshCw, ArrowRight, Loader2, Trash2, ArrowRightFromLine, Save, CheckCircle2, AlertCircle, Zap, Lightbulb, NotebookPen } from 'lucide-react';
+import { ContentItem, ContentStatus, Verdict, Profondeur, TargetFormat, TARGET_FORMAT_VALUES } from '../types';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
 import { CharCounter, ConfirmModal } from './CommonModals';
@@ -119,64 +119,47 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
         }
     };
 
-    const SaveIndicator = () => {
-        if (saveStatus === 'saving') return (
-            <span className="flex items-center gap-1.5 text-xs text-brand-main/60 dark:text-dark-text/60 animate-pulse">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Sauvegarde…
-            </span>
-        );
-        if (saveStatus === 'saved') return (
-            <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Enregistré
-            </span>
-        );
-        if (saveStatus === 'error') return (
-            <span className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400">
-                <AlertCircle className="w-3.5 h-3.5" />
-                Erreur sauvegarde
-            </span>
-        );
-        return null;
-    };
-
     return (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-brand-main/20 dark:bg-black/60 backdrop-blur-xs p-4 animate-in fade-in zoom-in duration-200" onClick={onClose}>
+        <>
+            {/* Backdrop */}
             <div
-                className="bg-white dark:bg-dark-surface w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
-                onClick={e => e.stopPropagation()}
+                className="fixed inset-0 z-40 bg-brand-main/20 dark:bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
+                onClick={onClose}
+            />
+
+            {/* Drawer latéral droit */}
+            <aside
+                className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-[480px] bg-white dark:bg-dark-surface border-l border-brand-border dark:border-dark-sec-border flex flex-col shadow-2xl shadow-black/20 animate-in slide-in-from-right duration-300"
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface z-10">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded-xl text-yellow-600 dark:text-yellow-400 shrink-0">
-                            <Brain className="w-5 h-5" />
-                        </div>
-                        <input
-                            type="text"
-                            value={localItem.title}
-                            onChange={(e) => setLocalItem({...localItem, title: e.target.value})}
-                            className="text-lg md:text-xl font-bold text-brand-main dark:text-white bg-transparent outline-hidden w-full placeholder-brand-main/30"
-                            placeholder="Titre de l'idée..."
-                        />
+                <div className="flex items-start gap-3 px-5 py-4 border-b border-brand-border dark:border-dark-sec-border shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                        <Lightbulb className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                     </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-3">
-                        <SaveIndicator />
-                        <button onClick={onClose} className="p-2 hover:bg-brand-light dark:hover:bg-dark-sec-bg rounded-full transition-colors text-brand-main dark:text-white">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
+                    <input
+                        type="text"
+                        value={localItem.title}
+                        onChange={(e) => setLocalItem({...localItem, title: e.target.value})}
+                        className="flex-1 text-base font-bold text-brand-main dark:text-white bg-transparent outline-hidden placeholder-brand-main/30 dark:placeholder-dark-text/30 min-w-0"
+                        placeholder="Titre de l'idée…"
+                    />
+                    <button
+                        onClick={onClose}
+                        className="p-1.5 rounded-lg hover:bg-brand-light dark:hover:bg-dark-bg text-brand-main/50 dark:text-dark-text/50 hover:text-brand-main dark:hover:text-white transition-colors shrink-0 mt-0.5"
+                        title="Fermer (Échap)"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
 
-                {/* Body (Scrollable) */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
-                    {/* Format cible (choisi par l'utilisateur) */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl px-4 py-3">
-                        <label className="flex items-center gap-2 text-xs font-bold text-brand-main/60 dark:text-dark-text/60 uppercase tracking-wider shrink-0">
-                            <ArrowRightFromLine className="w-3.5 h-3.5" />
-                            Format cible
+                    {/* Format cible */}
+                    <div className="flex items-center gap-3 bg-brand-light dark:bg-dark-bg rounded-xl px-4 py-3">
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider whitespace-nowrap shrink-0">
+                            <ArrowRightFromLine className="w-3 h-3" />
+                            Format
                         </label>
                         <select
                             value={localItem.targetFormat || ''}
@@ -187,7 +170,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                     targetFormat: value ? (value as TargetFormat) : null,
                                 });
                             }}
-                            className="flex-1 px-3 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg text-sm text-brand-main dark:text-white outline-hidden focus:ring-2 focus:ring-brand-main"
+                            className="flex-1 bg-transparent border-none text-sm text-brand-main dark:text-white outline-hidden cursor-pointer min-w-0"
                         >
                             <option value="">— Choisir un format —</option>
                             {TARGET_FORMAT_VALUES.map(f => (
@@ -196,179 +179,187 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                         </select>
                     </div>
 
-                    {/* Notes Editor */}
-                    <div className="flex flex-col border border-brand-border dark:border-dark-sec-border rounded-xl overflow-hidden bg-brand-light dark:bg-dark-bg focus-within:ring-2 focus-within:ring-brand-main transition-shadow min-h-[200px]">
-                        <div className="bg-brand-light dark:bg-dark-bg p-2 flex justify-between items-center border-b border-brand-border dark:border-dark-sec-border">
-                            <label className="block text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase px-2">Notes & Inspiration</label>
+                    {/* Notes & Inspiration */}
+                    <div className="rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
+                        <div className="px-4 py-2.5 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 flex items-center gap-1.5">
+                                <NotebookPen className="w-3 h-3" />
+                                Notes & Inspiration
+                            </p>
                             <MarkdownToolbar className="border-none bg-transparent p-0" />
                         </div>
                         <RichTextarea
                             value={localItem.notes}
                             onChange={(val) => setLocalItem({...localItem, notes: val})}
-                            className="w-full flex-1 p-4"
-                            placeholder="Détaillez votre idée, vos sources, vos inspirations..."
+                            className="w-full p-4 min-h-[140px] text-sm leading-relaxed bg-white dark:bg-dark-surface"
+                            placeholder="Détaillez votre idée, vos sources, vos inspirations…"
                         />
-                        <div className="p-2 flex justify-end border-t border-brand-border/50 dark:border-dark-sec-border/50">
+                        <div className="px-3 py-1 flex justify-end border-t border-brand-border/50 dark:border-dark-sec-border/50 bg-white dark:bg-dark-surface">
                             <CharCounter current={localItem.notes.length} max={5000} />
                         </div>
                     </div>
 
-                    {/* Analyse IA Section */}
-                    <div className="bg-purple-50 dark:bg-purple-900/10 p-5 rounded-xl border border-purple-100 dark:border-purple-900/30 space-y-4">
-                        <div className="flex items-center justify-between pb-2 border-b border-purple-200 dark:border-purple-800/50">
+                    {/* Bloc Analyse IA */}
+                    <div className="rounded-xl border border-violet-200/60 dark:border-violet-800/40 overflow-hidden">
+                        <div className="flex items-center justify-between gap-2 px-4 py-3 bg-violet-50 dark:bg-violet-900/15 border-b border-violet-200/60 dark:border-violet-800/40 flex-wrap">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-bold text-purple-800 dark:text-purple-300 uppercase flex items-center gap-2">
-                                    <Brain className="w-4 h-4" />
-                                    {localItem.analyzed ? "Analyse Stratégique" : "Analyser avec l'IA"}
+                                <span className="text-xs font-bold text-violet-800 dark:text-violet-200 flex items-center gap-1.5">
+                                    <Brain className="w-3.5 h-3.5" />
+                                    {localItem.analyzed ? 'Analyse Stratégique' : "Analyser avec l'IA"}
                                 </span>
                                 {localItem.verdict && (
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${getVerdictColor(localItem.verdict)}`}>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${getVerdictColor(localItem.verdict)}`}>
                                         {localItem.verdict}
                                     </span>
                                 )}
                                 {localItem.depth && (
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${DEPTH_COLORS[localItem.depth] || ''}`}>
-                                        <Zap className="w-2.5 h-2.5" />{localItem.depth}
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${DEPTH_COLORS[localItem.depth] || ''}`}>
+                                        <Zap className="w-2.5 h-2.5" />
+                                        {localItem.depth}
                                     </span>
                                 )}
                             </div>
                             <button
                                 onClick={onAnalyze}
                                 disabled={isReanalyzing}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm bg-white dark:bg-purple-900/40 hover:bg-purple-100 dark:hover:bg-purple-800 text-purple-700 dark:text-purple-200 transition-colors border border-purple-200 dark:border-purple-700 shadow-xs disabled:opacity-50 shrink-0"
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white dark:bg-violet-900/40 hover:bg-violet-50 dark:hover:bg-violet-800/40 text-violet-700 dark:text-violet-200 border border-violet-200 dark:border-violet-700 transition-colors disabled:opacity-50 whitespace-nowrap shadow-sm"
                             >
                                 <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
-                                {isReanalyzing ? 'Analyse en cours...' : (localItem.analyzed ? 'Ré-analyser' : 'Lancer l\'analyse')}
+                                {isReanalyzing ? 'Analyse…' : (localItem.analyzed ? 'Ré-analyser' : 'Analyser')}
                             </button>
                         </div>
 
-                        {localItem.analyzed ? (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-2">
-                                <div className="md:col-span-2 space-y-2">
-                                    <p className="text-xs font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Angle Recommandé</p>
-                                    <div className="text-sm leading-relaxed text-purple-900 dark:text-purple-100 whitespace-pre-wrap">
-                                        {localItem.strategicAngle}
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
+                        <div className="p-4 bg-white dark:bg-dark-surface">
+                            {localItem.analyzed && localItem.strategicAngle ? (
+                                <div className="space-y-4 animate-in fade-in duration-200">
                                     <div>
-                                        <p className="text-xs font-bold text-purple-900/50 dark:text-purple-100/50 uppercase flex items-center gap-1 mb-2">
-                                            <Globe className="w-3 h-3" /> Plateformes
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                            Angle recommandé
                                         </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {localItem.platforms.length > 0 ? (
-                                                localItem.platforms.map((p, i) => (
-                                                    <span key={i} className="px-2 py-1 bg-white dark:bg-purple-800/30 text-purple-800 dark:text-purple-200 rounded-md text-xs font-medium border border-purple-200 dark:border-purple-700">
+                                        <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
+                                            {localItem.strategicAngle.replace(/\*\*/g, '')}
+                                        </p>
+                                    </div>
+
+                                    {(localItem.platforms?.length || 0) > 0 && (
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                                Plateformes
+                                            </p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {localItem.platforms.map(p => (
+                                                    <span
+                                                        key={p}
+                                                        className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
+                                                    >
                                                         {p}
                                                     </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-xs text-purple-800/50 italic">Aucune</span>
-                                            )}
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                    {(localItem.targetOffer || localItem.justification || localItem.suggestedMetaphor) && (
-                                        <div className="space-y-3 pt-1">
-                                            {localItem.targetOffer && (
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Cible Offre</p>
-                                                    <span className="inline-flex mt-1 text-[10px] px-2 py-1 rounded-full border font-bold bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700">
-                                                        {localItem.targetOffer}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            {localItem.justification && (
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Justification</p>
-                                                    <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap">
-                                                        {localItem.justification}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {localItem.suggestedMetaphor && (
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Métaphore Suggérée</p>
-                                                    <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap italic">
-                                                        {localItem.suggestedMetaphor}
-                                                    </div>
-                                                </div>
-                                            )}
+                                    )}
+
+                                    {localItem.targetOffer && (
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                                Cible offre
+                                            </p>
+                                            <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded-full border font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/50">
+                                                {localItem.targetOffer}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {localItem.justification && (
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                                Justification
+                                            </p>
+                                            <p className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed whitespace-pre-wrap">
+                                                {localItem.justification}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {localItem.suggestedMetaphor && (
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                                Métaphore suggérée
+                                            </p>
+                                            <p className="text-xs text-brand-main/70 dark:text-dark-text/70 italic leading-relaxed">
+                                                « {localItem.suggestedMetaphor} »
+                                            </p>
                                         </div>
                                     )}
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="text-center py-6 text-purple-800/40 dark:text-purple-200/40 text-sm italic">
-                                    Cliquez sur "Lancer l'analyse" pour obtenir un avis stratégique et des suggestions de plateformes.
-                                </div>
-                                {(localItem.targetOffer || localItem.justification || localItem.suggestedMetaphor) && (
-                                    <div className="rounded-xl border border-purple-200/60 dark:border-purple-800/50 bg-white/70 dark:bg-purple-900/10 p-4 space-y-3">
-                                        {localItem.targetOffer && (
-                                            <div>
-                                                <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Cible Offre</p>
-                                                <span className="inline-flex mt-1 text-[10px] px-2 py-1 rounded-full border font-bold bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700">
-                                                    {localItem.targetOffer}
-                                                </span>
-                                            </div>
-                                        )}
-                                        {localItem.justification && (
-                                            <div>
-                                                <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Justification</p>
-                                                <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap">
-                                                    {localItem.justification}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {localItem.suggestedMetaphor && (
-                                            <div>
-                                                <p className="text-[10px] font-bold text-purple-900/50 dark:text-purple-100/50 uppercase">Métaphore Suggérée</p>
-                                                <div className="text-xs text-purple-900/80 dark:text-purple-100/80 whitespace-pre-wrap italic">
-                                                    {localItem.suggestedMetaphor}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                            ) : (
+                                <p className="text-sm text-brand-main/50 dark:text-dark-text/50 italic text-center py-6">
+                                    Cliquez sur « Analyser » pour obtenir un avis stratégique et des suggestions de plateformes.
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="p-4 px-6 bg-brand-light/50 dark:bg-dark-bg/50 border-t border-brand-border dark:border-dark-sec-border flex justify-between items-center">
+                {/* Footer */}
+                <div className="px-5 py-4 border-t border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/60 flex items-center justify-between gap-3 shrink-0">
                     <button
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors"
-                        title="Supprimer l'idée"
+                        className="p-2.5 rounded-lg text-brand-main/50 dark:text-dark-text/50 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                        title="Supprimer cette idée"
                     >
-                        <Trash2 className="w-5 h-5" />
+                        <Trash2 className="w-4 h-4" />
                     </button>
-                    <div className="flex gap-3 items-center">
+                    <div className="flex items-center gap-2">
+                        {saveStatus === 'saving' && (
+                            <span className="flex items-center gap-1 text-xs text-brand-main/60 dark:text-dark-text/60 animate-pulse">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Sauvegarde…
+                            </span>
+                        )}
+                        {saveStatus === 'saved' && (
+                            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Enregistré
+                            </span>
+                        )}
+                        {saveStatus === 'error' && (
+                            <span className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400">
+                                <AlertCircle className="w-3 h-3" />
+                                Erreur
+                            </span>
+                        )}
                         <button
                             onClick={handleSave}
                             disabled={!isDirty || isSaving}
                             title={!isDirty ? "Aucune modification à enregistrer" : undefined}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                                 isDirty && !isSaving
-                                    ? 'text-brand-main dark:text-dark-text hover:bg-brand-border/50 dark:hover:bg-dark-sec-border/50 cursor-pointer'
+                                    ? 'text-brand-main dark:text-white hover:bg-brand-border/50 dark:hover:bg-dark-sec-border/50 cursor-pointer'
                                     : 'text-brand-main/30 dark:text-dark-text/30 cursor-not-allowed'
                             }`}
                         >
-                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                             Enregistrer
                         </button>
                         <button
                             onClick={handleTransformToDraft}
                             disabled={isSaving || !localItem.analyzed}
                             title={!localItem.analyzed ? "Lancez d'abord l'analyse IA pour débloquer cette action." : undefined}
-                            className="flex items-center gap-2 px-6 py-2 bg-brand-main hover:bg-brand-hover text-white rounded-lg font-bold shadow-lg shadow-brand-main/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-main"
+                            className="flex items-center gap-2 px-4 py-2 bg-brand-main hover:bg-brand-hover text-white text-sm font-semibold rounded-lg shadow-sm shadow-brand-main/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Travailler cette idée <ArrowRight className="w-4 h-4" /></>}
+                            {isSaving ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <>
+                                    Travailler cette idée
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
-            </div>
+            </aside>
 
             <ConfirmModal
                 isOpen={showDeleteConfirm}
@@ -378,6 +369,6 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                 message="Elle sera archivée dans Notion."
                 isDestructive={true}
             />
-        </div>
+        </>
     );
 };

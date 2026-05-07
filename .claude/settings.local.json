@@ -46,7 +46,11 @@
       "WebFetch(domain:tangerineretreat.com)",
       "WebFetch(domain:www.zamnesia.com)",
       "WebFetch(domain:www.miraculix-lab.de)",
-      "WebFetch(domain:evolute-institute.com)"
+      "WebFetch(domain:evolute-institute.com)",
+      "Bash(cp \"/Users/flornet/Downloads/Luminose Gestion.html\" /Users/flornet/Sites/gestion.luminose.fr/redesign/)",
+      "Bash(cp /Users/flornet/Downloads/components.jsx /Users/flornet/Sites/gestion.luminose.fr/redesign/)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173)"
     ]
   }
 }
