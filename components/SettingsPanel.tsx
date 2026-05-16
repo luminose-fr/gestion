@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-    X, SlidersHorizontal, Cpu, Brain, Minimize2, Minus, Maximize2,
+    X, SlidersHorizontal, Cpu, Brain,
     Plus, Trash2, Save, Loader2, ChevronLeft, ChevronRight, User, Eye
 } from 'lucide-react';
-import { ContextItem, AIModel, ContextUsage, DisplayPrefs, DisplayDensity, DEFAULT_DISPLAY_PREFS } from '../types';
+import { ContextItem, AIModel, ContextUsage, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as NotionService from '../services/notionService';
 import { ConfirmModal } from './CommonModals';
 import { MarkdownToolbar } from './MarkdownToolbar';
@@ -71,41 +71,7 @@ const ToggleSwitch: React.FC<{
     </div>
 );
 
-const DensitySelector: React.FC<{
-    value: DisplayDensity;
-    onChange: (value: DisplayDensity) => void;
-}> = ({ value, onChange }) => {
-    const opts: Array<{ id: DisplayDensity; icon: React.ComponentType<{ className?: string }>; label: string }> = [
-        { id: 'compact', icon: Minimize2, label: 'Compacte' },
-        { id: 'normal',  icon: Minus,     label: 'Normale'  },
-        { id: 'airy',    icon: Maximize2, label: 'Aérée'    },
-    ];
-    return (
-        <div className="py-3 border-b border-brand-border/60 dark:border-dark-sec-border/60">
-            <p className="text-sm font-medium text-brand-main dark:text-white mb-2">Densité des listes</p>
-            <div className="flex gap-2">
-                {opts.map(o => {
-                    const Icon = o.icon;
-                    const active = value === o.id;
-                    return (
-                        <button
-                            key={o.id}
-                            onClick={() => onChange(o.id)}
-                            className={`flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl border text-xs font-semibold transition-all ${
-                                active
-                                    ? 'bg-brand-light border-brand-main text-brand-main dark:bg-dark-sec-bg dark:border-white dark:text-white'
-                                    : 'bg-brand-light/40 border-brand-border text-brand-main/60 hover:text-brand-main dark:bg-dark-bg dark:border-dark-sec-border dark:text-dark-text/60 dark:hover:text-white'
-                            }`}
-                        >
-                            <Icon className="w-4 h-4" />
-                            {o.label}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
+// DensitySelector retiré — l'affichage est fixé en mode compact
 
 const SectionTitle: React.FC<{ icon: React.ComponentType<{ className?: string }>; label: string; count?: number }> = ({ icon: Icon, label, count }) => (
     <div className="flex items-center justify-between mb-2 px-1">
@@ -380,10 +346,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             <p className="text-[10px] font-black uppercase tracking-widest text-brand-main/40 dark:text-dark-text/40 mb-3">
                                 Espace Contenus
                             </p>
-                            <DensitySelector
-                                value={prefs.density}
-                                onChange={v => setPref('density', v)}
-                            />
                             <ToggleSwitch
                                 label="Bande verdict colorée"
                                 description="Trait coloré à gauche de chaque idée"

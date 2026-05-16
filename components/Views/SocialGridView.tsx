@@ -1,5 +1,5 @@
-import React from 'react';
-import { PenLine, CheckCircle2, Archive, ChevronRight, Sparkles } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { PenLine, CheckCircle2, Archive, ChevronRight, Sparkles, MinusCircle, XCircle, HelpCircle, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { bodyJsonToText } from '../../ai/formats';
@@ -11,6 +11,28 @@ const VERDICT_STRIPE: Record<Verdict, string> = {
     [Verdict.NEEDS_WORK]:  'bg-red-500',
 };
 
+const VERDICT_BADGE_CFG: Record<Verdict, { Icon: React.ComponentType<{ className?: string }>; cls: string }> = {
+    [Verdict.VALID]:      { Icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50' },
+    [Verdict.TOO_BLAND]:  { Icon: MinusCircle,  cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/50' },
+    [Verdict.NEEDS_WORK]: { Icon: XCircle,      cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/50' },
+};
+
+// Ordre logique pour le tri "Statut" : Valide → Trop lisse → À revoir → À analyser → (rien)
+// asc = du plus positif vers le moins positif
+const VERDICT_SORT_ORDER: Record<Verdict, number> = {
+    [Verdict.VALID]:      1,
+    [Verdict.TOO_BLAND]:  2,
+    [Verdict.NEEDS_WORK]: 3,
+};
+const getStatutKey = (item: ContentItem): number => {
+    if (item.verdict && VERDICT_SORT_ORDER[item.verdict]) return VERDICT_SORT_ORDER[item.verdict];
+    if (item.analyzed === false) return 4; // À analyser
+    return 5; // pas d'info
+};
+
+type SortColumn = 'statut' | 'contenu' | 'format';
+type SortDirection = 'asc' | 'desc';
+
 interface SocialGridViewProps {
     items: ContentItem[];
     type: 'drafts' | 'ready' | 'archive';
@@ -21,7 +43,7 @@ interface SocialGridViewProps {
     displayPrefs?: DisplayPrefs;
 }
 
-const getHighlightedText = (text: string, highlightTerm?: string): React.ReactNode => {
+export const getHighlightedText = (text: string, highlightTerm?: string): React.ReactNode => {
     if (!highlightTerm || !highlightTerm.trim()) return text;
     const escaped = highlightTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
@@ -34,7 +56,7 @@ const getHighlightedText = (text: string, highlightTerm?: string): React.ReactNo
     );
 };
 
-const getPreviewText = (item: ContentItem): string => {
+export const getPreviewText = (item: ContentItem): string => {
     const rawText = (
         item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT ||
         item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE
@@ -53,91 +75,88 @@ const formatScheduledDate = (scheduledDate: string | null): string => {
     }
 };
 
-// ───────────────────────── Draft Card ─────────────────────────
+// ───────────────────────── VerdictBadge ─────────────────────────
 
-const DraftCard: React.FC<{
-    item: ContentItem;
-    onClick: (item: ContentItem) => void;
-    highlight: string;
-    prefs: DisplayPrefs;
-}> = ({ item, onClick, highlight, prefs }) => {
-    const stripeColor = item.verdict ? VERDICT_STRIPE[item.verdict] : 'bg-brand-border dark:bg-dark-sec-border';
-    const showStripe  = prefs.showVerdictStripe && !!item.verdict;
-
-    return (
-        <div
-            onClick={() => onClick(item)}
-            className="group relative bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border hover:border-brand-main/40 hover:shadow-lg hover:shadow-brand-main/5 cursor-pointer transition-all duration-150 flex overflow-hidden"
-        >
-            {/* Verdict stripe */}
-            {showStripe && (
-                <div className={`w-1 shrink-0 ${stripeColor}`} aria-hidden="true" />
-            )}
-
-            <div className="flex-1 p-4 flex flex-col min-w-0">
-                {/* Title */}
-                <h4 className="font-semibold text-brand-main dark:text-white leading-snug line-clamp-2 mb-1.5">
-                    {getHighlightedText(item.title || 'Brouillon sans titre', highlight)}
-                </h4>
-
-                {/* Strategic angle (if analyzed) */}
-                {item.strategicAngle && (
-                    <p className="flex items-start gap-1.5 text-xs text-brand-main/80 dark:text-brand-light/80 italic leading-relaxed mb-2 line-clamp-2">
-                        <Sparkles className="w-3 h-3 mt-0.5 shrink-0 not-italic" />
-                        <span>{item.strategicAngle}</span>
-                    </p>
-                )}
-
-                {/* Body preview */}
-                <p className="text-xs text-brand-main/60 dark:text-dark-text/60 line-clamp-3 flex-1 mb-3 leading-relaxed">
-                    {getHighlightedText(getPreviewText(item), highlight)}
-                </p>
-
-                {/* Meta row */}
-                <div className="flex items-center justify-between gap-2 flex-wrap mt-auto">
-                    <div className="flex gap-1.5 flex-wrap">
-                        {prefs.showPlatforms && (item.platforms || []).slice(0, 2).map(p => (
-                            <span
-                                key={p}
-                                className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
-                            >
-                                {p}
-                            </span>
-                        ))}
-                    </div>
-                    <div className="flex gap-1.5 flex-wrap">
-                        {prefs.showDepth && item.depth && (
-                            <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/50">
-                                {item.depth}
-                            </span>
-                        )}
-                        {item.targetFormat && (
-                            <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
-                                {item.targetFormat}
-                            </span>
-                        )}
-                        {prefs.showOffer && item.targetOffer && (
-                            <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                {item.targetOffer}
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+const VerdictBadgeCell: React.FC<{ verdict?: Verdict; analyzed?: boolean }> = ({ verdict, analyzed }) => {
+    if (verdict && VERDICT_BADGE_CFG[verdict]) {
+        const { Icon, cls } = VERDICT_BADGE_CFG[verdict];
+        return (
+            <span className={`inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold whitespace-nowrap ${cls}`}>
+                <Icon className="w-2.5 h-2.5" />
+                {verdict}
+            </span>
+        );
+    }
+    if (analyzed === false) {
+        return (
+            <span className="inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold whitespace-nowrap bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
+                <HelpCircle className="w-2.5 h-2.5" />
+                À analyser
+            </span>
+        );
+    }
+    return <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>;
 };
 
-// ───────────────────────── Ready Table ─────────────────────────
+// ───────────────────────── Content Table (unifié) ─────────────────────────
 
-const ReadyTable: React.FC<{
+/**
+ * Tableau unifié pour Idées / En cours / Prêts / Archives.
+ * Colonnes affichées selon les flags ; bande verdict à gauche selon prefs.showVerdictStripe.
+ * Tri cliquable sur Statut / Contenu / Format (défaut : Contenu ascendant).
+ */
+export const ContentTable: React.FC<{
     items: ContentItem[];
     searchQuery: string;
     onEdit: (item: ContentItem) => void;
     prefs: DisplayPrefs;
-}> = ({ items, searchQuery, onEdit, prefs }) => {
-    const showPlatforms = prefs.showPlatforms;
-    const showOffer     = prefs.showOffer;
+    /** Affiche la colonne Statut (verdict) */
+    showStatut: boolean;
+    /** Affiche la colonne Publication (date planifiée) */
+    showPublication: boolean;
+    /** Affiche le strategicAngle sous le titre */
+    showStrategicAngle: boolean;
+}> = ({ items, searchQuery, onEdit, prefs, showStatut, showPublication, showStrategicAngle }) => {
+    const { showPlatforms, showOffer, showVerdictStripe } = prefs;
+
+    // Cellules en mode compact (densité fixée)
+    const cellCls = 'px-4 py-2 align-top';
+
+    const [sortColumn, setSortColumn] = useState<SortColumn>('contenu');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+    const handleSortClick = (column: SortColumn) => {
+        if (sortColumn === column) {
+            setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortColumn(column);
+            setSortDirection('asc');
+        }
+    };
+
+    const sortedItems = useMemo(() => {
+        const collator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
+        const dir = sortDirection === 'asc' ? 1 : -1;
+        const arr = [...items];
+        arr.sort((a, b) => {
+            let cmp = 0;
+            if (sortColumn === 'statut') {
+                cmp = getStatutKey(a) - getStatutKey(b);
+                if (cmp === 0) cmp = collator.compare(a.title || '', b.title || '');
+            } else if (sortColumn === 'format') {
+                const fa = a.targetFormat || '';
+                const fb = b.targetFormat || '';
+                if (!fa && fb) cmp = 1;
+                else if (fa && !fb) cmp = -1;
+                else cmp = collator.compare(fa, fb);
+                if (cmp === 0) cmp = collator.compare(a.title || '', b.title || '');
+            } else {
+                cmp = collator.compare(a.title || '', b.title || '');
+            }
+            return cmp * dir;
+        });
+        return arr;
+    }, [items, sortColumn, sortDirection]);
 
     const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>, item: ContentItem) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -146,18 +165,47 @@ const ReadyTable: React.FC<{
         }
     };
 
+    const SortableTh: React.FC<{
+        column: SortColumn;
+        label: string;
+        className?: string;
+    }> = ({ column, label, className = '' }) => {
+        const active = sortColumn === column;
+        const Icon = !active ? ChevronsUpDown : (sortDirection === 'asc' ? ChevronUp : ChevronDown);
+        return (
+            <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 ${className}`}>
+                <button
+                    type="button"
+                    onClick={() => handleSortClick(column)}
+                    className={`inline-flex items-center gap-1 group transition-colors ${
+                        active
+                            ? 'text-brand-main dark:text-white'
+                            : 'hover:text-brand-main dark:hover:text-white'
+                    }`}
+                    title={active ? `Tri : ${sortDirection === 'asc' ? 'croissant' : 'décroissant'} (clic pour inverser)` : `Trier par ${label}`}
+                    aria-sort={active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                    {label}
+                    <Icon className={`w-3 h-3 ${active ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'} transition-opacity`} />
+                </button>
+            </th>
+        );
+    };
+
     return (
         <div className="overflow-hidden rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-sm">
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
                         <tr>
-                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[18rem]">
-                                Contenu
-                            </th>
-                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
-                                Format
-                            </th>
+                            {showVerdictStripe && (
+                                <th className="w-1 p-0" aria-hidden="true" />
+                            )}
+                            {showStatut && (
+                                <SortableTh column="statut" label="Statut" className="whitespace-nowrap" />
+                            )}
+                            <SortableTh column="contenu" label="Contenu" className="min-w-[18rem]" />
+                            <SortableTh column="format" label="Format" className="whitespace-nowrap" />
                             {showOffer && (
                                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
                                     Offre
@@ -168,71 +216,98 @@ const ReadyTable: React.FC<{
                                     Plateformes
                                 </th>
                             )}
-                            <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
-                                Publication
-                            </th>
+                            {showPublication && (
+                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
+                                    Publication
+                                </th>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
-                        {items.map(item => (
-                            <tr
-                                key={item.id}
-                                tabIndex={0}
-                                onClick={() => onEdit(item)}
-                                onKeyDown={event => handleRowKeyDown(event, item)}
-                                className="cursor-pointer transition-colors hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 focus-visible:outline-none focus-visible:bg-brand-light/40 dark:focus-visible:bg-dark-bg/40 group"
-                            >
-                                <td className="px-4 py-4 align-top">
-                                    <div className="font-semibold text-brand-main dark:text-white leading-tight group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors">
-                                        {getHighlightedText(item.title || 'Nouvelle idée', searchQuery)}
-                                    </div>
-                                    <div className="mt-1 max-w-2xl text-xs leading-5 text-brand-main/60 dark:text-dark-text/60 line-clamp-2">
-                                        {getHighlightedText(getPreviewText(item), searchQuery)}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-4 align-top whitespace-nowrap">
-                                    {item.targetFormat ? (
-                                        <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
-                                            {item.targetFormat}
-                                        </span>
-                                    ) : (
-                                        <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
+                        {sortedItems.map(item => {
+                            const stripeColor = item.verdict ? VERDICT_STRIPE[item.verdict] : 'bg-brand-border dark:bg-dark-sec-border';
+                            return (
+                                <tr
+                                    key={item.id}
+                                    tabIndex={0}
+                                    onClick={() => onEdit(item)}
+                                    onKeyDown={event => handleRowKeyDown(event, item)}
+                                    className="cursor-pointer transition-colors hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 focus-visible:outline-none focus-visible:bg-brand-light/40 dark:focus-visible:bg-dark-bg/40 group"
+                                >
+                                    {showVerdictStripe && (
+                                        <td className={`w-1 p-0 ${stripeColor}`} aria-hidden="true" />
                                     )}
-                                </td>
-                                {showOffer && (
-                                    <td className="px-4 py-4 align-top whitespace-nowrap">
-                                        {item.targetOffer ? (
-                                            <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                {item.targetOffer}
+
+                                    {showStatut && (
+                                        <td className={cellCls}>
+                                            <VerdictBadgeCell verdict={item.verdict} analyzed={item.analyzed} />
+                                        </td>
+                                    )}
+
+                                    <td className={cellCls}>
+                                        <div className="font-semibold text-brand-main dark:text-white leading-tight group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors">
+                                            {getHighlightedText(item.title || 'Nouvelle idée', searchQuery)}
+                                        </div>
+                                        {showStrategicAngle && item.strategicAngle && (
+                                            <div className="mt-1 flex items-start gap-1.5 text-xs text-brand-main/70 dark:text-brand-light/70 italic leading-snug max-w-2xl line-clamp-1">
+                                                <Sparkles className="w-3 h-3 mt-0.5 shrink-0 not-italic" />
+                                                <span>{item.strategicAngle.replace(/\*\*/g, '').split('\n')[0]}</span>
+                                            </div>
+                                        )}
+                                        <div className="mt-1 max-w-2xl text-xs leading-5 text-brand-main/60 dark:text-dark-text/60 line-clamp-2">
+                                            {getHighlightedText(getPreviewText(item), searchQuery)}
+                                        </div>
+                                    </td>
+
+                                    <td className={`${cellCls} whitespace-nowrap`}>
+                                        {item.targetFormat ? (
+                                            <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
+                                                {item.targetFormat}
                                             </span>
                                         ) : (
                                             <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
                                         )}
                                     </td>
-                                )}
-                                {showPlatforms && (
-                                    <td className="px-4 py-4 align-top">
-                                        {item.platforms.length > 0 ? (
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {item.platforms.map(p => (
-                                                    <span
-                                                        key={`${item.id}-${p}`}
-                                                        className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
-                                                    >
-                                                        {p}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
-                                        )}
-                                    </td>
-                                )}
-                                <td className="px-4 py-4 align-top whitespace-nowrap text-sm text-brand-main/70 dark:text-dark-text/70">
-                                    {formatScheduledDate(item.scheduledDate)}
-                                </td>
-                            </tr>
-                        ))}
+
+                                    {showOffer && (
+                                        <td className={`${cellCls} whitespace-nowrap`}>
+                                            {item.targetOffer ? (
+                                                <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
+                                                    {item.targetOffer}
+                                                </span>
+                                            ) : (
+                                                <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
+                                            )}
+                                        </td>
+                                    )}
+
+                                    {showPlatforms && (
+                                        <td className={cellCls}>
+                                            {item.platforms.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {item.platforms.map(p => (
+                                                        <span
+                                                            key={`${item.id}-${p}`}
+                                                            className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
+                                                        >
+                                                            {p}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
+                                            )}
+                                        </td>
+                                    )}
+
+                                    {showPublication && (
+                                        <td className={`${cellCls} whitespace-nowrap text-sm text-brand-main/70 dark:text-dark-text/70`}>
+                                            {formatScheduledDate(item.scheduledDate)}
+                                        </td>
+                                    )}
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -256,7 +331,10 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
             showIdeaButton: true,
             iconBg: 'bg-white dark:bg-dark-surface',
             iconColor: 'text-brand-main/50 dark:text-dark-text/50',
-            iconBorder: 'border-brand-border dark:border-dark-sec-border'
+            iconBorder: 'border-brand-border dark:border-dark-sec-border',
+            showStatut: true,
+            showPublication: false,
+            showStrategicAngle: true,
         },
         ready: {
             icon: CheckCircle2,
@@ -266,7 +344,10 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
             showIdeaButton: false,
             iconBg: 'bg-emerald-50 dark:bg-emerald-900/20',
             iconColor: 'text-emerald-500 dark:text-emerald-400',
-            iconBorder: 'border-emerald-200 dark:border-emerald-800/50'
+            iconBorder: 'border-emerald-200 dark:border-emerald-800/50',
+            showStatut: false,
+            showPublication: true,
+            showStrategicAngle: false,
         },
         archive: {
             icon: Archive,
@@ -276,7 +357,10 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
             showIdeaButton: false,
             iconBg: 'bg-white dark:bg-dark-surface',
             iconColor: 'text-brand-main/50 dark:text-dark-text/50',
-            iconBorder: 'border-brand-border dark:border-dark-sec-border'
+            iconBorder: 'border-brand-border dark:border-dark-sec-border',
+            showStatut: false,
+            showPublication: true,
+            showStrategicAngle: false,
         }
     } as const;
 
@@ -303,20 +387,16 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
                         </button>
                     )}
                 </div>
-            ) : type === 'ready' ? (
-                <ReadyTable items={items} searchQuery={searchQuery} onEdit={onEdit} prefs={prefs} />
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {items.map(item => (
-                        <DraftCard
-                            key={item.id}
-                            item={item}
-                            onClick={onEdit}
-                            highlight={searchQuery}
-                            prefs={prefs}
-                        />
-                    ))}
-                </div>
+                <ContentTable
+                    items={items}
+                    searchQuery={searchQuery}
+                    onEdit={onEdit}
+                    prefs={prefs}
+                    showStatut={currentConfig.showStatut}
+                    showPublication={currentConfig.showPublication}
+                    showStrategicAngle={currentConfig.showStrategicAngle}
+                />
             )}
         </div>
     );

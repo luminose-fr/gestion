@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-    Search, Plus, Loader2, Sparkles, ArrowRightFromLine, ChevronRight, Globe,
-    CheckCircle2, MinusCircle, XCircle, HelpCircle, Bolt, Tag, Lightbulb
+    Search, Plus, Loader2, Sparkles, ArrowRightFromLine, Lightbulb
 } from 'lucide-react';
 import {
     ContentItem, Verdict, TargetFormat, TARGET_FORMAT_VALUES,
@@ -10,6 +9,7 @@ import {
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
 import { CharCounter } from '../CommonModals';
+import { ContentTable } from './SocialGridView';
 
 interface SocialIdeasViewProps {
     items: ContentItem[];
@@ -23,43 +23,6 @@ interface SocialIdeasViewProps {
     onNavigateToIdeas: () => void;
     displayPrefs?: DisplayPrefs;
 }
-
-const VERDICT_STRIPE_COLOR: Record<Verdict, string> = {
-    [Verdict.VALID]:      '#10b981',
-    [Verdict.TOO_BLAND]:  '#f59e0b',
-    [Verdict.NEEDS_WORK]: '#ef4444',
-};
-
-const HighlightText: React.FC<{ text: string; highlight?: string }> = ({ text, highlight }) => {
-    if (!highlight || !highlight.trim()) return <>{text}</>;
-    const escaped = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
-    return (
-        <>
-            {parts.map((part, i) =>
-                part.toLowerCase() === highlight.toLowerCase() ? (
-                    <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded-sm px-0.5">{part}</span>
-                ) : part
-            )}
-        </>
-    );
-};
-
-const VerdictBadge: React.FC<{ verdict?: Verdict }> = ({ verdict }) => {
-    if (!verdict) return null;
-    const cfg: Record<Verdict, { Icon: React.ComponentType<{ className?: string }>; cls: string }> = {
-        [Verdict.VALID]:      { Icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50' },
-        [Verdict.TOO_BLAND]:  { Icon: MinusCircle,  cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/50' },
-        [Verdict.NEEDS_WORK]: { Icon: XCircle,      cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/50' },
-    };
-    const { Icon, cls } = cfg[verdict];
-    return (
-        <span className={`inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold ${cls}`}>
-            <Icon className="w-2.5 h-2.5" />
-            {verdict}
-        </span>
-    );
-};
 
 type FilterId = 'ALL' | 'TO_ANALYZE' | 'VALID' | 'TOO_BLAND' | 'NEEDS_WORK';
 
@@ -123,9 +86,6 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
         TOO_BLAND:  items.filter(i => i.verdict === Verdict.TOO_BLAND).length,
         NEEDS_WORK: items.filter(i => i.verdict === Verdict.NEEDS_WORK).length,
     }), [items]);
-
-    const densityPad = prefs.density === 'compact' ? 'py-2' : prefs.density === 'airy' ? 'py-5' : 'py-3.5';
-    const listGap    = prefs.density === 'compact' ? 'space-y-1.5' : prefs.density === 'airy' ? 'space-y-3' : 'space-y-2';
 
     return (
         <div className="space-y-4 animate-fade-in">
@@ -251,92 +211,25 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                 </button>
             </div>
 
-            {/* LIST */}
-            <div className={listGap}>
-                {!isInitializing && filteredItems.length === 0 && (
-                    <div className="py-16 text-center">
-                        <Lightbulb className="w-12 h-12 mx-auto mb-4 text-brand-border dark:text-dark-sec-border" />
-                        <p className="text-sm text-brand-main/50 dark:text-dark-text/50">
-                            {searchQuery ? 'Aucune idée pour cette recherche.' : 'La boîte à idées est vide pour ce filtre.'}
-                        </p>
-                    </div>
-                )}
-
-                {filteredItems.map(item => (
-                    <div
-                        key={item.id}
-                        onClick={() => onEdit(item)}
-                        className="group flex bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border hover:border-brand-main/40 dark:hover:border-white/40 hover:shadow-md hover:shadow-brand-main/5 cursor-pointer transition-all duration-150 overflow-hidden"
-                    >
-                        {prefs.showVerdictStripe && (
-                            <div
-                                className="w-[3px] shrink-0 transition-colors duration-150"
-                                style={{
-                                    backgroundColor: item.verdict
-                                        ? VERDICT_STRIPE_COLOR[item.verdict]
-                                        : 'var(--color-brand-border)'
-                                }}
-                            />
-                        )}
-
-                        <div className={`flex-1 px-4 ${densityPad} flex flex-col sm:flex-row sm:items-center gap-3 min-w-0`}>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                                    <VerdictBadge verdict={item.verdict} />
-                                    {prefs.showDepth && item.depth && (
-                                        <span className="inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                            <Bolt className="w-2.5 h-2.5" />
-                                            {item.depth}
-                                        </span>
-                                    )}
-                                    {prefs.showOffer && item.targetOffer && (
-                                        <span className="inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                            <Tag className="w-2.5 h-2.5" />
-                                            {item.targetOffer}
-                                        </span>
-                                    )}
-                                    {!item.analyzed && (
-                                        <span className="inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                            <HelpCircle className="w-2.5 h-2.5" />
-                                            À analyser
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="font-semibold text-brand-main dark:text-white leading-snug group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors line-clamp-1">
-                                    <HighlightText text={item.title || 'Idée sans titre'} highlight={searchQuery} />
-                                </p>
-                                {item.strategicAngle ? (
-                                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-0.5 line-clamp-1 italic">
-                                        {item.strategicAngle.replace(/\*\*/g, '').split('\n')[0]}
-                                    </p>
-                                ) : item.notes ? (
-                                    <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mt-0.5 line-clamp-1">
-                                        <HighlightText text={item.notes} highlight={searchQuery} />
-                                    </p>
-                                ) : null}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                                {item.targetFormat && (
-                                    <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
-                                        {item.targetFormat}
-                                    </span>
-                                )}
-                                {prefs.showPlatforms && (item.platforms || []).slice(0, 2).map(p => (
-                                    <span key={p} className="inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                        <Globe className="w-2.5 h-2.5" />
-                                        {p}
-                                    </span>
-                                ))}
-                                {prefs.showPlatforms && (item.platforms || []).length > 2 && (
-                                    <span className="text-[10px] text-brand-main/40 dark:text-dark-text/40">+{item.platforms.length - 2}</span>
-                                )}
-                                <ChevronRight className="w-3 h-3 text-brand-main/30 dark:text-dark-text/30 group-hover:text-brand-main dark:group-hover:text-white transition-colors ml-1" />
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            {/* LIST — table unifié (même rendu que "Prêts" + Statut + stripe verdict) */}
+            {!isInitializing && filteredItems.length === 0 ? (
+                <div className="py-16 text-center">
+                    <Lightbulb className="w-12 h-12 mx-auto mb-4 text-brand-border dark:text-dark-sec-border" />
+                    <p className="text-sm text-brand-main/50 dark:text-dark-text/50">
+                        {searchQuery ? 'Aucune idée pour cette recherche.' : 'La boîte à idées est vide pour ce filtre.'}
+                    </p>
+                </div>
+            ) : (
+                <ContentTable
+                    items={filteredItems}
+                    searchQuery={searchQuery}
+                    onEdit={onEdit}
+                    prefs={prefs}
+                    showStatut
+                    showPublication={false}
+                    showStrategicAngle
+                />
+            )}
         </div>
     );
 };
