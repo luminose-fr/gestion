@@ -135,4 +135,27 @@ export const AI_ACTIONS = {
                 adjustmentRequest,
             }),
     },
+
+    ADJUST_DZINE_PROMPTS: {
+        model: INTERNAL_MODELS.FAST,
+        generationConfig: {
+            responseMimeType: "application/json" as const
+        },
+        /**
+         * @param notionContext - Contexte Notion complémentaire (optionnel — peut affiner le style des prompts)
+         * @param slidesJson - JSON courant du carrousel (avec prompts_dzine déjà générés)
+         * @param promptInstruction - L'instruction d'ajustement de Florent (FR)
+         * @param slideNumero - Cible : numéro de slide à ajuster, ou null pour toutes
+         */
+        getSystemInstruction: (notionContext: string | undefined, slidesJson: string, promptInstruction: string, slideNumero: number | null) =>
+            buildSystemPrompt({
+                action: 'ADJUST_DZINE_PROMPTS',
+                notionContext: notionContext || undefined,
+                slidesJson,
+                promptInstruction,
+                promptTarget: slideNumero === null
+                    ? 'TOUTES les slides illustrées (slide_numero: null)'
+                    : `UNIQUEMENT la slide ${slideNumero} (slide_numero: ${slideNumero})`,
+            }),
+    },
 };

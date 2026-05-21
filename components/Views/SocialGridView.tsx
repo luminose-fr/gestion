@@ -30,7 +30,7 @@ const getStatutKey = (item: ContentItem): number => {
     return 5; // pas d'info
 };
 
-type SortColumn = 'statut' | 'contenu' | 'format';
+type SortColumn = 'statut' | 'contenu' | 'format' | 'createdAt';
 type SortDirection = 'asc' | 'desc';
 
 interface SocialGridViewProps {
@@ -75,6 +75,15 @@ const formatScheduledDate = (scheduledDate: string | null): string => {
     }
 };
 
+const formatCreatedAt = (iso: string | undefined): string => {
+    if (!iso) return '—';
+    try {
+        return format(parseISO(iso), 'd MMM yyyy', { locale: fr });
+    } catch {
+        return '—';
+    }
+};
+
 // ───────────────────────── VerdictBadge ─────────────────────────
 
 const VerdictBadgeCell: React.FC<{ verdict?: Verdict; analyzed?: boolean }> = ({ verdict, analyzed }) => {
@@ -116,7 +125,9 @@ export const ContentTable: React.FC<{
     showPublication: boolean;
     /** Affiche le strategicAngle sous le titre */
     showStrategicAngle: boolean;
-}> = ({ items, searchQuery, onEdit, prefs, showStatut, showPublication, showStrategicAngle }) => {
+    /** Affiche la colonne "Créé le" (date de création) */
+    showCreatedAt?: boolean;
+}> = ({ items, searchQuery, onEdit, prefs, showStatut, showPublication, showStrategicAngle, showCreatedAt = false }) => {
     const { showPlatforms, showOffer, showVerdictStripe } = prefs;
 
     // Cellules en mode compact (densité fixée)
@@ -138,6 +149,11 @@ export const ContentTable: React.FC<{
         const collator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
         const dir = sortDirection === 'asc' ? 1 : -1;
         const arr = [...items];
+        const tsOf = (s: string | undefined): number => {
+            if (!s) return 0;
+            const t = Date.parse(s);
+            return Number.isNaN(t) ? 0 : t;
+        };
         arr.sort((a, b) => {
             let cmp = 0;
             if (sortColumn === 'statut') {
@@ -149,6 +165,9 @@ export const ContentTable: React.FC<{
                 if (!fa && fb) cmp = 1;
                 else if (fa && !fb) cmp = -1;
                 else cmp = collator.compare(fa, fb);
+                if (cmp === 0) cmp = collator.compare(a.title || '', b.title || '');
+            } else if (sortColumn === 'createdAt') {
+                cmp = tsOf(a.createdAt) - tsOf(b.createdAt);
                 if (cmp === 0) cmp = collator.compare(a.title || '', b.title || '');
             } else {
                 cmp = collator.compare(a.title || '', b.title || '');
@@ -215,6 +234,9 @@ export const ContentTable: React.FC<{
                                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">
                                     Plateformes
                                 </th>
+                            )}
+                            {showCreatedAt && (
+                                <SortableTh column="createdAt" label="Créé le" className="whitespace-nowrap" />
                             )}
                             {showPublication && (
                                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
@@ -300,6 +322,11 @@ export const ContentTable: React.FC<{
                                         </td>
                                     )}
 
+                                    {showCreatedAt && (
+                                        <td className={`${cellCls} whitespace-nowrap text-sm text-brand-main/70 dark:text-dark-text/70`}>
+                                            {formatCreatedAt(item.createdAt)}
+                                        </td>
+                                    )}
                                     {showPublication && (
                                         <td className={`${cellCls} whitespace-nowrap text-sm text-brand-main/70 dark:text-dark-text/70`}>
                                             {formatScheduledDate(item.scheduledDate)}

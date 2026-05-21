@@ -391,6 +391,7 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     scheduledDate,
     notes,
     lastEdited: page.last_edited_time,
+    createdAt: page.created_time || page.last_edited_time,
     analyzed,
     verdict,
     targetFormat,

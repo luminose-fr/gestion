@@ -18,6 +18,7 @@ interface DraftViewProps {
     onLaunchDrafting: () => void;
     onLaunchCarrouselSlides: () => void;
     onLaunchAdjustment: (adjustmentText: string) => void;
+    onLaunchPromptsAdjustment: (instruction: string, slideNumero: number | null) => void;
     onChangeStatus: (status: ContentStatus, scheduledDate?: string) => Promise<void>;
     onSave: (item: ContentItem) => Promise<void>;
 
@@ -27,7 +28,6 @@ interface DraftViewProps {
     aiModels: AIModel[];
     onCoachSessionChange: (session: CoachSession) => void | Promise<void>;
     onCoachValidate: (session: CoachSession) => void | Promise<void>;
-    coachAutoStart?: boolean;
 
     // View State
     activeTab: 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script';
@@ -36,8 +36,8 @@ interface DraftViewProps {
 
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
-    onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onChangeStatus, onSave, isGenerating,
-    aiModels, onCoachSessionChange, onCoachValidate, coachAutoStart,
+    onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, onChangeStatus, onSave, isGenerating,
+    aiModels, onCoachSessionChange, onCoachValidate,
     activeTab, onTabChange
 }) => {
 
@@ -110,21 +110,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
         onSave(updated);
     }, [activeTab, item.body]);
 
-    // ── Onglets dynamiques ──
-
-    const steps = [
-        { id: 'idea',    label: 'Idée',    icon: Lightbulb },
-        { id: 'atelier', label: 'Atelier', icon: Pencil    },
-        ...(item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT && item.scriptVideo
-            ? [{ id: 'script', label: 'Script', icon: Video }]
-            : []),
-        ...(item.targetFormat === TargetFormat.POST_TEXTE_COURT && item.body
-            ? [{ id: 'postcourt', label: 'Copie',  icon: Copy }]
-            : []),
-        ...(item.targetFormat === TargetFormat.CARROUSEL_SLIDE
-            ? [{ id: 'slides',    label: 'Slides', icon: Images }]
-            : []),
-    ];
+    // Les onglets sont calculés et rendus par EditorLayout/index.tsx — pas besoin ici.
 
     // ── Bouton secondaire réutilisable ──
 
@@ -188,6 +174,35 @@ export const DraftView: React.FC<DraftViewProps> = ({
         </div>
     );
 
+    // L'onglet Atelier prend toute la hauteur sans scroll de page : on l'extrait du conteneur paddé.
+    if (activeTab === 'atelier') {
+        return (
+            <div className="flex-1 bg-brand-light dark:bg-dark-bg flex flex-col h-full min-h-0 relative">
+                {!isDirect && (
+                    <CoachChat
+                        item={item}
+                        aiModels={aiModels}
+                        onSessionChange={onCoachSessionChange}
+                        onValidate={onCoachValidate}
+                    />
+                )}
+                {isDirect && (
+                    <div className="m-6 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/50 p-4 flex items-start gap-3 max-w-2xl">
+                        <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                        <div>
+                            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase mb-1">
+                                Mode direct activé
+                            </p>
+                            <p className="text-xs text-emerald-700/80 dark:text-emerald-400/70 leading-relaxed">
+                                Cette idée est marquée comme « Direct » : la session Coach n'est pas nécessaire. Naviguez vers les autres onglets pour rédiger directement.
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="flex-1 overflow-y-auto bg-brand-light dark:bg-dark-bg flex flex-col h-full relative scroll-smooth">
             {/* Onglets remontés dans EditorLayout (header desktop + sous-bandeau mobile). */}
@@ -196,12 +211,27 @@ export const DraftView: React.FC<DraftViewProps> = ({
             <div className="p-6 md:p-10 max-w-6xl mx-auto w-full flex-1 flex flex-col gap-6">
 
                 {/* ═══════════════════════════════════════
-                    TAB : IDÉE
+                    TAB : IDÉE — 1. Notes initiales, 2. Analyse IA
                 ════════════════════════════════════════ */}
                 {activeTab === 'idea' && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 flex flex-col gap-6 pb-10">
 
-                        {/* Bloc Analyse IA — badges + angle + métaphore + justification */}
+                        {/* 1. Notes initiales */}
+                        <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-main transition-shadow flex flex-col min-h-[200px]">
+                            <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border">
+                                <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                    <FileText className="w-3 h-3" /> Notes initiales
+                                </p>
+                            </div>
+                            <RichTextarea
+                                value={item.notes}
+                                onChange={(val) => onChange({ ...item, notes: val })}
+                                className="w-full flex-1 p-4 text-sm"
+                                placeholder="Tes notes brutes, idées, références..."
+                            />
+                        </div>
+
+                        {/* 2. Analyse IA — badges + angle + métaphore + justification */}
                         {(item.analyzed || item.verdict || item.targetFormat || item.targetOffer || item.depth) && (
                             <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 space-y-3">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -272,117 +302,55 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             </div>
                         )}
 
-                        {/* Notes */}
-                        <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-main transition-shadow flex flex-col flex-1 min-h-[200px]">
-                            <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border">
-                                <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
-                                    <FileText className="w-3 h-3" /> Notes
-                                </p>
-                            </div>
-                            <RichTextarea
-                                value={item.notes}
-                                onChange={(val) => onChange({ ...item, notes: val })}
-                                className="w-full flex-1 p-4 text-sm"
-                                placeholder="Tes notes brutes, idées, références..."
-                            />
-                        </div>
-
                     </div>
                 )}
 
                 {/* ═══════════════════════════════════════
-                    TAB : ATELIER (Interview + Brouillon fusionnés)
+                    TAB : BROUILLON — trame textuelle (relecture / édition avant export final)
                 ════════════════════════════════════════ */}
-                {activeTab === 'atelier' && (
+                {activeTab === 'brouillon' && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 flex flex-col gap-6 pb-10">
 
-                        {/* ── 1. Barre contexte ── */}
-                        {(item.strategicAngle || item.suggestedMetaphor || item.targetFormat || item.depth) && (
-                            <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 flex flex-col gap-3 order-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase flex items-center gap-1">
-                                        <Brain className="w-3 h-3" /> Contexte
-                                    </span>
-                                    {item.targetFormat && (
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800">
-                                            {item.targetFormat}
-                                        </span>
-                                    )}
-                                    {item.depth && (
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${DEPTH_COLORS[item.depth] || ''}`}>
-                                            <Zap className="w-2.5 h-2.5 inline mr-1" />{item.depth}
-                                        </span>
-                                    )}
-                                </div>
-                                {item.strategicAngle && (
-                                    <p className="text-sm text-purple-900 dark:text-purple-100/80 leading-relaxed">
-                                        {renderMdText(item.strategicAngle)}
-                                    </p>
-                                )}
-                                {item.suggestedMetaphor && (
-                                    <p className="text-xs text-purple-700 dark:text-purple-300 italic border-t border-purple-200 dark:border-purple-800/50 pt-2">
-                                        <Quote className="w-3 h-3 inline mr-1 opacity-60" />{item.suggestedMetaphor}
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
-                        {/* ── 2. Session Coach inline (nouveau flow — remplace la modale overlay) ── */}
-                        {!isDirect && (
-                            <div className="order-3 h-[60vh] min-h-[480px] flex flex-col">
-                                <CoachChat
-                                    item={item}
-                                    aiModels={aiModels}
-                                    onSessionChange={onCoachSessionChange}
-                                    onValidate={onCoachValidate}
-                                    autoStart={coachAutoStart}
-                                />
-                            </div>
-                        )}
-
-                        {/* Mode Direct — pas de Coach, message d'info */}
-                        {isDirect && (
-                            <div className="order-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-100 dark:border-emerald-900/50 p-4 flex items-start gap-3">
-                                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-                                <div>
-                                    <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase mb-1">
-                                        Mode direct activé
-                                    </p>
-                                    <p className="text-xs text-emerald-700/80 dark:text-emerald-400/70 leading-relaxed">
-                                        Cette idée est marquée comme « Direct » : pas de session Coach nécessaire, vous pouvez générer le brouillon directement.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Legacy : anciennes réponses d'interview (lecture seule, hors Coach) */}
-                        {!isDirect && !hasCoachSession && hasInterviewAnswers && (
-                            <div className="order-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/40 p-4">
-                                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-2">
-                                    Ancien flow — données d'interview conservées
-                                </p>
-                                <div className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed whitespace-pre-wrap max-h-[160px] overflow-y-auto custom-scrollbar">
-                                    {item.interviewAnswers}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ── 3. CTA Générer le brouillon (visible quand pas de contenu final) ── */}
+                        {/* Empty state : brouillon pas encore généré */}
                         {!hasContent && (
-                            <div className="flex flex-col gap-2 order-2">
-                                <button
-                                    onClick={onLaunchDrafting}
-                                    disabled={isGenerating || !canLaunchDrafting}
-                                    className="flex items-center gap-2 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold shadow-lg shadow-pink-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 w-full justify-center"
-                                >
-                                    {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                                    Générer le brouillon
-                                </button>
-                                {!canLaunchDrafting && (
-                                    <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 text-center italic">
-                                        Validez d'abord la session Coach ci-dessus pour lancer l'Éditeur.
+                            <div className="bg-white dark:bg-dark-surface rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-8 text-center flex flex-col items-center gap-3">
+                                <div className="w-14 h-14 rounded-full bg-brand-light dark:bg-dark-bg flex items-center justify-center">
+                                    <Pencil className="w-6 h-6 text-brand-main/50 dark:text-dark-text/50" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-brand-main dark:text-white">Brouillon pas encore généré</p>
+                                    <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mt-1 max-w-md">
+                                        Démarrez la session Coach (onglet Atelier) puis validez avec « Go Éditeur » pour générer la trame textuelle.
                                     </p>
-                                )}
+                                </div>
+                                <button
+                                    onClick={() => onTabChange('atelier')}
+                                    className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand-main dark:text-white hover:underline"
+                                >
+                                    Aller à l'Atelier <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* CTA Générer les Slides — uniquement pour Carrousel, quand body existe mais pas encore de slides */}
+                        {hasContent && item.targetFormat === TargetFormat.CARROUSEL_SLIDE && !item.slides && (
+                            <div className="bg-violet-50 dark:bg-violet-900/10 rounded-xl border border-violet-200 dark:border-violet-800/50 p-4 flex items-start gap-3 order-1">
+                                <Images className="w-5 h-5 text-violet-600 dark:text-violet-300 mt-0.5 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-violet-800 dark:text-violet-200 uppercase mb-1">Étape suivante</p>
+                                    <p className="text-xs text-violet-700 dark:text-violet-300 leading-relaxed">
+                                        Relisez et corrigez la trame ci-dessous si nécessaire. Une fois prête, transformez-la en slides structurées.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={onLaunchCarrouselSlides}
+                                    disabled={isGenerating}
+                                    className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg shadow-sm shadow-violet-600/20 transition-all disabled:opacity-50 whitespace-nowrap"
+                                >
+                                    {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Images className="w-3.5 h-3.5" />}
+                                    Générer les Slides
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
                             </div>
                         )}
 
@@ -517,18 +485,23 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 </div>
                             );
 
-                            if (item.targetFormat === TargetFormat.CARROUSEL_SLIDE) return (
-                                <div className="flex justify-end order-4">
-                                    <button
-                                        onClick={() => onTabChange('slides')}
-                                        className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-violet-600/20 transition-all hover:-translate-y-0.5"
-                                    >
-                                        <Images className="w-5 h-5" />
-                                        {item.slides ? 'Voir les slides' : 'Passer aux slides'}
-                                        <ArrowRight className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            );
+                            // Carrousel : si slides existent, CTA "Voir les slides" en bas du brouillon.
+                            // Si pas encore générées, le bandeau violet du haut affiche déjà le CTA "Générer les Slides".
+                            if (item.targetFormat === TargetFormat.CARROUSEL_SLIDE) {
+                                if (!item.slides) return null;
+                                return (
+                                    <div className="flex justify-end order-4">
+                                        <button
+                                            onClick={() => onTabChange('slides')}
+                                            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-8 py-3 rounded-xl text-base font-bold shadow-lg shadow-violet-600/20 transition-all hover:-translate-y-0.5"
+                                        >
+                                            <Images className="w-5 h-5" />
+                                            Voir les slides
+                                            <ArrowRight className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                );
+                            }
 
                             // Formats sans tab d'export → action finale directe
                             return (
@@ -573,9 +546,20 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 {item.scriptVideo ? (
                                     <ScriptVideoRenderer raw={item.scriptVideo} variant="table" />
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8 opacity-50 min-h-[240px]">
-                                        <Video className="w-8 h-8" />
-                                        <p className="text-sm">Génère d'abord le script dans l'onglet Atelier.</p>
+                                    <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8 min-h-[240px]">
+                                        <Video className="w-10 h-10 text-amber-300 dark:text-amber-600" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-brand-main dark:text-white">Script pas encore généré</p>
+                                            <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mt-1 max-w-md">
+                                                Démarrez la session Coach dans l'onglet Atelier puis validez avec « Go Éditeur ».
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => onTabChange('atelier')}
+                                            className="flex items-center gap-1.5 text-xs font-semibold text-brand-main dark:text-white hover:underline"
+                                        >
+                                            Aller à l'Atelier <ArrowRight className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -669,9 +653,20 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                     {renderPostCourt(postText)}
                                                 </div>
                                             ) : (
-                                                <div className="flex flex-col items-center justify-center text-center gap-3 opacity-50 py-8">
-                                                    <Copy className="w-8 h-8" />
-                                                    <p className="text-sm">Génère d'abord le contenu dans l'onglet Atelier.</p>
+                                                <div className="flex flex-col items-center justify-center text-center gap-3 py-8">
+                                                    <Copy className="w-10 h-10 text-emerald-300 dark:text-emerald-600" />
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-brand-main dark:text-white">Copie pas encore générée</p>
+                                                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mt-1 max-w-md">
+                                                            Démarrez la session Coach (onglet Atelier) puis validez avec « Go Éditeur ».
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => onTabChange('atelier')}
+                                                        className="flex items-center gap-1.5 text-xs font-semibold text-brand-main dark:text-white hover:underline"
+                                                    >
+                                                        Aller à l'Atelier <ArrowRight className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -766,22 +761,52 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
                                 {!item.slides ? (
-                                    <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
-                                        <Images className="w-10 h-10 text-violet-300 dark:text-violet-600" />
-                                        <p className="text-sm text-brand-main/50 dark:text-dark-text/50 max-w-xs leading-relaxed">
-                                            Génère la direction artistique et les prompts Dzine pour chaque slide.
-                                        </p>
-                                        <button
-                                            onClick={onLaunchCarrouselSlides}
-                                            disabled={isGenerating}
-                                            className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50"
-                                        >
-                                            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                            Générer les slides
-                                        </button>
-                                    </div>
+                                    !item.body ? (
+                                        // Pas de brouillon textuel → rediriger vers Brouillon
+                                        <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
+                                            <Images className="w-10 h-10 text-violet-300 dark:text-violet-600" />
+                                            <div>
+                                                <p className="text-sm font-semibold text-brand-main dark:text-white">Brouillon textuel requis</p>
+                                                <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mt-1 max-w-md">
+                                                    Les slides sont construites à partir du brouillon narratif. Démarrez par l'onglet Atelier puis relisez la trame sur Brouillon.
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => onTabChange('atelier')}
+                                                className="flex items-center gap-1.5 text-xs font-semibold text-brand-main dark:text-white hover:underline mt-1"
+                                            >
+                                                Aller à l'Atelier <ArrowRight className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        // Brouillon existant mais slides pas encore générées
+                                        <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
+                                            <Images className="w-10 h-10 text-violet-300 dark:text-violet-600" />
+                                            <p className="text-sm text-brand-main/50 dark:text-dark-text/50 max-w-xs leading-relaxed">
+                                                Transformez la trame textuelle en slides structurées (titre, texte, intention visuelle par slide).
+                                            </p>
+                                            <button
+                                                onClick={onLaunchCarrouselSlides}
+                                                disabled={isGenerating}
+                                                className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50"
+                                            >
+                                                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                                Générer les slides
+                                            </button>
+                                            <button
+                                                onClick={() => onTabChange('brouillon')}
+                                                className="text-[11px] text-brand-main/50 dark:text-dark-text/50 hover:underline"
+                                            >
+                                                ← Relire le brouillon textuel
+                                            </button>
+                                        </div>
+                                    )
                                 ) : (
-                                    <SlidesRenderer slidesRaw={item.slides!} />
+                                    <SlidesRenderer
+                                        slidesRaw={item.slides!}
+                                        onAdjustPrompts={onLaunchPromptsAdjustment}
+                                        isAdjusting={isGenerating}
+                                    />
                                 )}
                             </div>
                         </div>

@@ -50,7 +50,8 @@
       "Bash(cp \"/Users/flornet/Downloads/Luminose Gestion.html\" /Users/flornet/Sites/gestion.luminose.fr/redesign/)",
       "Bash(cp /Users/flornet/Downloads/components.jsx /Users/flornet/Sites/gestion.luminose.fr/redesign/)",
       "Bash(npm run *)",
-      "Bash(curl -s http://localhost:5173)"
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(grep -nA 15 \"TargetFormat\" /Users/flornet/Sites/gestion.luminose.fr/types.ts)"
     ]
   }
 }

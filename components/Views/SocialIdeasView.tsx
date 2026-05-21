@@ -228,6 +228,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                     showStatut
                     showPublication={false}
                     showStrategicAngle
+                    showCreatedAt
                 />
             )}
         </div>

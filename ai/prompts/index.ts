@@ -21,7 +21,8 @@ export type AIAction =
     | 'COACH_CHAT'
     | 'DRAFT_CONTENT'
     | 'ADJUST_CONTENT'
-    | 'GENERATE_CARROUSEL_SLIDES';
+    | 'GENERATE_CARROUSEL_SLIDES'
+    | 'ADJUST_DZINE_PROMPTS';
 
 // ── Personas (base fixe) ─────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ const PERSONA_PROMPTS: Record<string, string> = {
     DRAFT_CONTENT: REDACTEUR_PERSONA,
     ADJUST_CONTENT: REDACTEUR_PERSONA,
     GENERATE_CARROUSEL_SLIDES: ARTISTE_PERSONA,
+    ADJUST_DZINE_PROMPTS: ARTISTE_PERSONA,
 };
 
 // ── Règles de sortie par action ──────────────────────────────────────
@@ -158,6 +160,34 @@ FORMAT DE SORTIE (STRICT) :
 
 Retourne UNIQUEMENT le JSON. Zéro texte avant, zéro texte après, zéro bloc markdown.
     `.trim(),
+
+    ADJUST_DZINE_PROMPTS: `
+Tu reçois :
+1. Le JSON complet d'un carrousel — les prompts Dzine en anglais y sont déjà présents sur les slides ILLUSTRÉE.
+2. Une instruction d'ajustement en français de Florent (esthétique, style, palette, format, etc.).
+3. Une cible :
+   - "slide_numero" est un nombre → tu ajustes UNIQUEMENT le prompt_dzine de cette slide.
+   - "slide_numero" est null → tu ajustes TOUS les prompts_dzine des slides illustrées du carrousel.
+
+CIBLE COURANTE :
+%%PROMPT_TARGET%%
+
+INSTRUCTION DE FLORENT :
+%%PROMPT_INSTRUCTION%%
+
+JSON COURANT DU CARROUSEL :
+%%SLIDES_JSON%%
+
+RÈGLES STRICTES :
+- Tu modifies UNIQUEMENT le(s) champ(s) "prompt_dzine" ciblé(s) par la cible.
+- Pour les slides type="TYPO", "prompt_dzine" reste null (jamais d'image).
+- Tous les autres champs (numero, role, type, titre, texte, intention_visuelle) sont RECOPIÉS À L'IDENTIQUE.
+- Le nombre de slides reste identique. Aucune slide ajoutée ni supprimée.
+- Les prompts ajustés restent en anglais, 50-80 mots, prêts pour Dzine.
+- Les autres prompts_dzine (non ciblés) ne changent pas — recopie-les à l'identique.
+
+Retourne UNIQUEMENT le JSON complet modifié, dans le même format exact que l'original. Zéro texte avant, zéro texte après, zéro bloc markdown.
+    `.trim(),
 };
 
 // ── Builder de prompts ───────────────────────────────────────────────
@@ -177,10 +207,16 @@ interface BuildOptions {
     currentContent?: string;
     /** Demande d'ajustement — injectée dans %%ADJUSTMENT_REQUEST%% pour ADJUST_CONTENT */
     adjustmentRequest?: string;
+    /** JSON courant des slides — injecté dans %%SLIDES_JSON%% pour ADJUST_DZINE_PROMPTS */
+    slidesJson?: string;
+    /** Cible humaine de l'ajustement (slide N ou tous) — injectée dans %%PROMPT_TARGET%% */
+    promptTarget?: string;
+    /** Instruction Florent — injectée dans %%PROMPT_INSTRUCTION%% pour ADJUST_DZINE_PROMPTS */
+    promptInstruction?: string;
 }
 
 export function buildSystemPrompt(options: BuildOptions): string {
-    const { action, notionContext, formatTemplate, profondeur, carrouselParams, currentContent, adjustmentRequest } = options;
+    const { action, notionContext, formatTemplate, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
 
     // 1. BASE FIXE : le persona complet (hardcodé)
     const persona = PERSONA_PROMPTS[action] || '';
@@ -209,6 +245,12 @@ export function buildSystemPrompt(options: BuildOptions): string {
             .replace('%%CURRENT_CONTENT%%', currentContent || '')
             .replace('%%ADJUSTMENT_REQUEST%%', adjustmentRequest || '');
         return `${adjustPersona}${contextSection}\n\n---\n${outputRules}`;
+    }
+    if (action === 'ADJUST_DZINE_PROMPTS') {
+        outputRules = outputRules
+            .replace('%%PROMPT_TARGET%%', promptTarget || 'Toutes les slides illustrées (slide_numero: null)')
+            .replace('%%PROMPT_INSTRUCTION%%', promptInstruction || '')
+            .replace('%%SLIDES_JSON%%', slidesJson || '');
     }
 
     return `${persona}${contextSection}\n\n---\n${outputRules}`;

@@ -55,7 +55,7 @@ const getHashState = () => {
         'interview': 'atelier', 'content': 'atelier',
     };
     if (parts[3]) {
-        if (['idea', 'atelier', 'slides', 'postcourt', 'script'].includes(parts[3])) {
+        if (['idea', 'atelier', 'brouillon', 'slides', 'postcourt', 'script'].includes(parts[3])) {
             step = parts[3] as EditorStep;
         } else if (LEGACY_STEP_MAP[parts[3]]) {
             step = LEGACY_STEP_MAP[parts[3]];

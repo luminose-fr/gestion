@@ -119,6 +119,7 @@ export interface ContentItem {
   scheduledDate: string | null; // ISO string
   notes: string; // AI Context or prompt notes
   lastEdited: string;
+  createdAt: string; // ISO string — date de création de la page Notion
   // Champs Analyse IA
   analyzed?: boolean;
   verdict?: Verdict;

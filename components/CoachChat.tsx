@@ -20,12 +20,10 @@ interface CoachChatProps {
     onSessionChange: (session: CoachSession) => void | Promise<void>;
     /** Appelé quand Florent clique "Go Éditeur" — la session est marquée validated avant appel */
     onValidate: (session: CoachSession) => void | Promise<void>;
-    /** Si true et que la session est vide, démarre automatiquement la conversation au mount (court-circuite le sas "Prêt à démarrer ?"). */
-    autoStart?: boolean;
 }
 
 export const CoachChat: React.FC<CoachChatProps> = ({
-    item, aiModels, notionContext, onSessionChange, onValidate, autoStart,
+    item, aiModels, notionContext, onSessionChange, onValidate,
 }) => {
     const initialSession: CoachSession = useMemo(
         () => item.coachSession || createEmptySession(item.targetFormat || null),
@@ -38,10 +36,10 @@ export const CoachChat: React.FC<CoachChatProps> = ({
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [modelId, setModelId] = useState<string>(INTERNAL_MODELS.FAST);
-    // Sas de démarrage : true si on reprend une session existante OU si autoStart est demandé,
-    // false sinon. Bloque le bootstrap auto tant que Florent n'a pas confirmé le modèle (sauf autoStart).
+    // Sas de démarrage : true UNIQUEMENT si on reprend une session existante (messages déjà présents).
+    // Sinon, on bloque le bootstrap tant que Florent n'a pas confirmé le modèle.
     const [hasStarted, setHasStarted] = useState<boolean>(
-        () => initialSession.messages.length > 0 || !!autoStart
+        () => initialSession.messages.length > 0
     );
     const scrollRef = useRef<HTMLDivElement>(null);
     const didAutoBootstrap = useRef(false);
@@ -153,7 +151,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
     }, [session.messages]);
 
     return (
-        <div className="flex flex-col h-full bg-brand-light/30 dark:bg-dark-bg/30 rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
+        <div className="flex flex-col h-full bg-brand-light/30 dark:bg-dark-bg/30 overflow-hidden">
             {/* HEADER */}
             <div className="p-4 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">

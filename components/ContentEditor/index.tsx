@@ -15,7 +15,7 @@ import { EditorLayout } from './EditorLayout';
 import { DraftView } from './DraftView';
 import { PreviewView } from './PreviewView';
 
-export type EditorStep = 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script';
+export type EditorStep = 'idea' | 'atelier' | 'brouillon' | 'slides' | 'postcourt' | 'script';
 
 interface ContentEditorProps {
   item: ContentItem | null;
@@ -70,11 +70,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   
   // Navigation & AI State
   const [showContextSelector, setShowContextSelector] = useState(false);
-  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | 'adjust' | null>(null);
+  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | 'adjust' | 'adjust_prompts' | null>(null);
   const [pendingAdjustmentText, setPendingAdjustmentText] = useState<string>("");
-
-  // Session Coach inline (Atelier tab) — autoStart pour le flow "Travailler cette idée"
-  const [coachAutoStart, setCoachAutoStart] = useState(false);
+  const [pendingPromptAdjustment, setPendingPromptAdjustment] = useState<{ instruction: string; slideNumero: number | null } | null>(null);
 
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
@@ -105,23 +103,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
     }
   }, [item, activeStep]); 
 
-  // Auto-lancement du Coach lorsqu'on arrive via "Travailler cette idée".
-  // Nouveau flow inline : on navigue vers Atelier et on déclenche autoStart sur le CoachChat inline.
+  // Navigation auto vers l'Atelier lorsqu'on arrive via "Travailler cette idée".
+  // Le Coach affichera son sas "Prêt à démarrer ?" pour que Florent confirme le modèle AVANT tout appel IA.
   useEffect(() => {
       if (initialAction === 'interview' && editedItem && editedItem.status === ContentStatus.DRAFTING) {
           onStepChange('atelier');
-          setCoachAutoStart(true);
           onInitialActionConsumed?.();
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAction, editedItem?.id, editedItem?.status]);
-
-  // Reset autoStart dès que la session a démarré (évite la relance si on remount)
-  useEffect(() => {
-      if (coachAutoStart && (editedItem?.coachSession?.messages?.length ?? 0) > 0) {
-          setCoachAutoStart(false);
-      }
-  }, [coachAutoStart, editedItem?.coachSession?.messages?.length]);
 
   // isDirty : vrai si editedItem diffère du item Notion source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
@@ -202,6 +192,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       if (pendingContextAction === 'draft') await executeDrafting(contextId, modelId);
       else if (pendingContextAction === 'carrousel') await executeCarrouselSlides(contextId, modelId);
       else if (pendingContextAction === 'adjust' && pendingAdjustmentText) await executeAdjustment(pendingAdjustmentText, modelId);
+      else if (pendingContextAction === 'adjust_prompts' && pendingPromptAdjustment) await executePromptsAdjustment(contextId, modelId);
   };
 
   // --- COACH SESSION HANDLERS (nouveau flow) ---
@@ -277,7 +268,20 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               ? { ...editedItem!, scriptVideo: finalContent + signature }
               : { ...editedItem!, body: finalContent + signature };
 
-          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
+          if (isMountedRef.current) {
+              setEditedItem(newItem);
+              await saveWithStatus(newItem);
+              // Auto-navigation post-rédaction :
+              // - Vidéo → Script (affichage rendu)
+              // - PostTexteCourt → Copie (texte formaté pour copier-coller)
+              // - Carrousel → Brouillon (relecture de la trame avant de cliquer "Générer les Slides")
+              // - Autres → Brouillon
+              const nextStep: EditorStep =
+                  isVideoFormat   ? 'script'
+                  : editedItem?.targetFormat === TargetFormat.POST_TEXTE_COURT ? 'postcourt'
+                                  : 'brouillon';
+              onStepChange(nextStep);
+          }
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
       } finally {
@@ -372,6 +376,59 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       }
   };
 
+  // --- ADJUSTMENT DES PROMPTS DZINE (Slides) ---
+
+  /** Ouvre l'AIConfigModal pour choisir le contexte/modèle, puis ajuste les prompts Dzine via executePromptsAdjustment. */
+  const launchPromptsAdjustment = (instruction: string, slideNumero: number | null) => {
+      if (!instruction.trim()) return;
+      setPendingPromptAdjustment({ instruction: instruction.trim(), slideNumero });
+      setPendingContextAction('adjust_prompts');
+      setShowContextSelector(true);
+  };
+
+  const executePromptsAdjustment = async (contextId: string, modelId: string) => {
+      if (!isMountedRef.current || !pendingPromptAdjustment || !editedItem?.slides) return;
+      setIsGenerating(true);
+      try {
+          const { instruction, slideNumero } = pendingPromptAdjustment;
+          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
+          const actionConfig = AI_ACTIONS.ADJUST_DZINE_PROMPTS;
+          const systemInstruction = actionConfig.getSystemInstruction(
+              contextItem?.description,
+              editedItem.slides,
+              instruction,
+              slideNumero
+          );
+
+          const responseText = await callAI(
+              modelId,
+              systemInstruction,
+              "", // les inputs sont déjà dans le system prompt
+              actionConfig.generationConfig
+          );
+
+          const cleaned = sanitizeSlidesResponse(responseText);
+          const contextName = contextItem?.name || "Contexte par défaut";
+          const modelObj = aiModels.find(m => m.apiCode === modelId);
+          const modelName = modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : (modelObj?.name || modelId);
+          const signature = `\n\n_Prompts ajustés (${slideNumero === null ? 'tous' : `slide ${slideNumero}`}) par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+
+          const newItem = { ...editedItem, slides: cleaned + signature };
+          if (isMountedRef.current) {
+              setEditedItem(newItem);
+              await saveWithStatus(newItem);
+          }
+      } catch (error: any) {
+          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Ajustement Prompts", message: error.message, type: "error" });
+      } finally {
+          if (isMountedRef.current) {
+              setIsGenerating(false);
+              setPendingPromptAdjustment(null);
+              setPendingContextAction(null);
+          }
+      }
+  };
+
   // --- TRIGGER HANDLERS ---
 
   const triggerDrafting = () => {
@@ -417,18 +474,29 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       return null;
   };
 
-  // ── Onglets dynamiques (miroir de DraftView, reflète la même logique) ──
+  // ── Onglets dynamiques — TOUJOURS visibles selon le format (pas de gating sur le contenu) ──
+  const _isVideoFmt = editedItem.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
+      || editedItem.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+  const _isPostCourt = editedItem.targetFormat === TargetFormat.POST_TEXTE_COURT;
+  const _isCarrousel = editedItem.targetFormat === TargetFormat.CARROUSEL_SLIDE;
+  // Brouillon (trame textuelle) : pour tous les formats sauf vidéo (le Script affiche déjà la trame).
+  // Pour Carrousel : le Brouillon est l'étape narrative intermédiaire avant la génération des Slides.
+  const _showBrouillon = !!editedItem.targetFormat && !_isVideoFmt;
+
   const steps: Array<{ id: EditorStep; label: string; icon: React.ComponentType<{ className?: string }> }> = editedItem.status === ContentStatus.DRAFTING
       ? [
           { id: 'idea',    label: 'Idée',    icon: Lightbulb },
           { id: 'atelier', label: 'Atelier', icon: Pencil    },
-          ...(editedItem.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT && editedItem.scriptVideo
+          ...(_showBrouillon
+              ? [{ id: 'brouillon' as EditorStep, label: 'Brouillon', icon: Pencil }]
+              : []),
+          ...(_isVideoFmt
               ? [{ id: 'script' as EditorStep, label: 'Script', icon: Video }]
               : []),
-          ...(editedItem.targetFormat === TargetFormat.POST_TEXTE_COURT && editedItem.body
+          ...(_isPostCourt
               ? [{ id: 'postcourt' as EditorStep, label: 'Copie', icon: Copy }]
               : []),
-          ...(editedItem.targetFormat === TargetFormat.CARROUSEL_SLIDE_PAR_SLIDE && editedItem.body
+          ...(_isCarrousel
               ? [{ id: 'slides' as EditorStep, label: 'Slides', icon: Images }]
               : []),
       ]
@@ -573,13 +641,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onLaunchDrafting={triggerDrafting}
                     onLaunchCarrouselSlides={triggerCarrouselSlides}
                     onLaunchAdjustment={launchAdjustment}
+                    onLaunchPromptsAdjustment={launchPromptsAdjustment}
                     onChangeStatus={changeStatus}
                     onSave={onSave}
                     isGenerating={isGenerating}
                     aiModels={aiModels}
                     onCoachSessionChange={handleCoachSessionChange}
                     onCoachValidate={handleCoachValidate}
-                    coachAutoStart={coachAutoStart}
                     activeTab={activeStep}
                     onTabChange={onStepChange}
                 />
@@ -635,6 +703,14 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                 }
                 if (action === 'adjust') {
                     return ['Contenu actuel', 'Instruction d\'ajustement'];
+                }
+                if (action === 'adjust_prompts') {
+                    const target = pendingPromptAdjustment?.slideNumero;
+                    return [
+                        'JSON courant du carrousel',
+                        target === null || target === undefined ? 'Cible : tous les prompts illustrés' : `Cible : slide ${target}`,
+                        'Instruction d\'ajustement',
+                    ];
                 }
                 return [];
             })()}

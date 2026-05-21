@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Wand2, X, Loader2, Send } from 'lucide-react';
 import { copyTextToClipboard } from './shared';
 
 interface SlidesRendererProps {
     slidesRaw: string;
+    /** Si fourni, ajoute la possibilité d'ajuster les prompts (globaux ou par slide). */
+    onAdjustPrompts?: (instruction: string, slideNumero: number | null) => void;
+    /** Désactive les boutons "Ajuster" pendant un appel IA en cours. */
+    isAdjusting?: boolean;
 }
 
 const parseSlidesJson = (raw: string): { slides: any[] } | null => {
@@ -19,10 +23,15 @@ const parseSlidesJson = (raw: string): { slides: any[] } | null => {
 /**
  * Rendu structuré des slides carrousel.
  * Affiche chaque slide avec son texte et son prompt Dzine.
+ * Permet l'ajustement des prompts via IA, en global ou pour une slide précise.
  */
-export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw }) => {
+export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdjustPrompts, isAdjusting }) => {
     const parsed = parseSlidesJson(slidesRaw);
     const [copiedSlide, setCopiedSlide] = useState<number | null>(null);
+
+    // ── Form d'ajustement (état local) ──
+    const [adjustTarget, setAdjustTarget] = useState<number | 'all' | null>(null);
+    const [adjustText, setAdjustText] = useState('');
 
     const handleCopyPrompt = async (slideNumber: number, prompt: string) => {
         const copied = await copyTextToClipboard(prompt);
@@ -34,6 +43,18 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw }) => 
         }
     };
 
+    const closeAdjustForm = () => {
+        setAdjustTarget(null);
+        setAdjustText('');
+    };
+
+    const submitAdjustment = () => {
+        if (!onAdjustPrompts || !adjustText.trim() || adjustTarget === null) return;
+        const slideNumero = adjustTarget === 'all' ? null : adjustTarget;
+        onAdjustPrompts(adjustText.trim(), slideNumero);
+        closeAdjustForm();
+    };
+
     if (!parsed) {
         return (
             <pre className="p-6 text-sm font-mono text-brand-main dark:text-dark-text whitespace-pre-wrap leading-relaxed">
@@ -43,9 +64,81 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw }) => 
     }
 
     const { slides: slideList } = parsed;
+    const canAdjust = !!onAdjustPrompts;
+    const adjustOpen = adjustTarget !== null;
 
     return (
-        <div className="p-6 space-y-8">
+        <div className="p-6 space-y-6">
+
+            {/* ── Toolbar : bouton global "Ajuster les prompts" ── */}
+            {canAdjust && (
+                <div className="flex justify-end">
+                    <button
+                        onClick={() => { setAdjustTarget('all'); setAdjustText(''); }}
+                        disabled={isAdjusting}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-semibold transition-colors disabled:opacity-50"
+                        title="Ajuster tous les prompts d'image en une seule passe IA"
+                    >
+                        <Wand2 className="w-3.5 h-3.5" />
+                        Ajuster tous les prompts
+                    </button>
+                </div>
+            )}
+
+            {/* ── Form d'ajustement (sticky, visible si adjustOpen) ── */}
+            {adjustOpen && (
+                <div className="sticky top-0 z-10 -mx-2 px-2">
+                    <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/95 dark:bg-amber-900/20 backdrop-blur-sm p-4 shadow-md animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="flex items-center justify-between gap-3 mb-2.5">
+                            <div className="flex items-center gap-2">
+                                <Wand2 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-300" />
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
+                                    Ajuster {adjustTarget === 'all' ? 'tous les prompts' : `le prompt de la slide ${adjustTarget}`}
+                                </p>
+                            </div>
+                            <button
+                                onClick={closeAdjustForm}
+                                className="p-1 rounded-md text-amber-700/60 dark:text-amber-300/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                                title="Annuler"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+                            <textarea
+                                value={adjustText}
+                                onChange={(e) => setAdjustText(e.target.value)}
+                                placeholder={adjustTarget === 'all'
+                                    ? "Ex : palette plus chaude, style éditorial photo argentique, supprime les visages…"
+                                    : "Ex : plus épuré, composition centrée, moins de personnages…"}
+                                className="flex-1 text-sm p-2.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text placeholder-brand-main/30 dark:placeholder-dark-text/30 outline-hidden focus:ring-2 focus:ring-amber-400 resize-none leading-relaxed"
+                                rows={2}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && adjustText.trim()) {
+                                        submitAdjustment();
+                                    }
+                                    if (e.key === 'Escape') closeAdjustForm();
+                                }}
+                                autoFocus
+                                disabled={isAdjusting}
+                            />
+                            <button
+                                onClick={submitAdjustment}
+                                disabled={!adjustText.trim() || isAdjusting}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end sm:self-stretch shrink-0"
+                            >
+                                {isAdjusting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                Envoyer
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-amber-700/70 dark:text-amber-300/70 mt-1.5">
+                            ⌘+Entrée pour envoyer · Échap pour annuler
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Slides ── */}
             <div className="space-y-8">
                 {Array.isArray(slideList) && slideList.map((slide: any) => (
                     <div key={slide.numero} className="flex flex-col xl:flex-row gap-6 items-start">
@@ -114,7 +207,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw }) => 
                         {slide.type === 'ILLUSTRÉE' && slide.prompt_dzine ? (
                             <div className="w-full xl:flex-1 min-w-0">
                                 <div className="h-full rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/70 dark:bg-amber-900/10 p-5">
-                                    <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
                                         <div>
                                             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
                                                 Prompt Dzine
@@ -123,17 +216,30 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw }) => 
                                                 Slide illustrée
                                             </p>
                                         </div>
-                                        <button
-                                            onClick={() => handleCopyPrompt(slide.numero, slide.prompt_dzine)}
-                                            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                                                copiedSlide === slide.numero
-                                                    ? 'border-emerald-700 bg-emerald-600 text-white'
-                                                    : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/30'
-                                            }`}
-                                        >
-                                            {copiedSlide === slide.numero ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                                            {copiedSlide === slide.numero ? 'Copié' : 'Copier'}
-                                        </button>
+                                        <div className="flex items-center gap-1.5">
+                                            {canAdjust && (
+                                                <button
+                                                    onClick={() => { setAdjustTarget(slide.numero); setAdjustText(''); }}
+                                                    disabled={isAdjusting}
+                                                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/30 px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50"
+                                                    title={`Ajuster le prompt de la slide ${slide.numero}`}
+                                                >
+                                                    <Wand2 className="h-3.5 w-3.5" />
+                                                    Ajuster
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleCopyPrompt(slide.numero, slide.prompt_dzine)}
+                                                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                                                    copiedSlide === slide.numero
+                                                        ? 'border-emerald-700 bg-emerald-600 text-white'
+                                                        : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/30'
+                                                }`}
+                                            >
+                                                {copiedSlide === slide.numero ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                                {copiedSlide === slide.numero ? 'Copié' : 'Copier'}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="mt-4 rounded-xl border border-amber-100 dark:border-amber-900/30 bg-white/80 dark:bg-dark-surface/50 p-4">
                                         <p className="font-sans text-[13px] leading-[1.6] text-brand-main dark:text-dark-text whitespace-pre-wrap">
