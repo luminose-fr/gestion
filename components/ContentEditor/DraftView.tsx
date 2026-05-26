@@ -26,6 +26,7 @@ interface DraftViewProps {
 
     // Coach session (inline)
     aiModels: AIModel[];
+    activeModelId: string;
     onCoachSessionChange: (session: CoachSession) => void | Promise<void>;
     onCoachValidate: (session: CoachSession) => void | Promise<void>;
 
@@ -37,7 +38,7 @@ interface DraftViewProps {
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
     onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, onChangeStatus, onSave, isGenerating,
-    aiModels, onCoachSessionChange, onCoachValidate,
+    aiModels, activeModelId, onCoachSessionChange, onCoachValidate,
     activeTab, onTabChange
 }) => {
 
@@ -182,6 +183,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                     <CoachChat
                         item={item}
                         aiModels={aiModels}
+                        modelId={activeModelId}
                         onSessionChange={onCoachSessionChange}
                         onValidate={onCoachValidate}
                     />

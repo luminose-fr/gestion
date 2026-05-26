@@ -11,31 +11,16 @@
  * Les templates de format sont dans ai/formats.ts (FORMAT_REGISTRY).
  */
 
-import { AIModel } from "../types";
 import { buildSystemPrompt } from "./prompts";
 import { getFormatPromptTemplate } from "./formats";
 
-// ── Modèles internes fixes (Gemini de base) ──────────────────────────
-
-export const INTERNAL_MODELS = {
-    FAST: "gemini-3-flash-preview",
-};
-
-// ── Détection 1min.AI vs Gemini direct ───────────────────────────────
-
-export const isOneMinModel = (apiCode: string, dynamicModels: AIModel[] = []) => {
-    if (apiCode === INTERNAL_MODELS.FAST) {
-        return false;
-    }
-    return dynamicModels.some(m => m.apiCode === apiCode) || true;
-};
+// Tous les modèles passent désormais par l'API 1min.AI (plus de modèle interne Gemini).
 
 // ── Actions IA ───────────────────────────────────────────────────────
 
 export const AI_ACTIONS = {
 
     ANALYZE_BATCH: {
-        model: INTERNAL_MODELS.FAST,
         generationConfig: {
             responseMimeType: "application/json" as const
         },
@@ -50,7 +35,6 @@ export const AI_ACTIONS = {
     },
 
     GENERATE_INTERVIEW: {
-        model: INTERNAL_MODELS.FAST,
         generationConfig: {
             responseMimeType: "application/json" as const
         },
@@ -67,7 +51,6 @@ export const AI_ACTIONS = {
     },
 
     COACH_CHAT: {
-        model: INTERNAL_MODELS.FAST,
         generationConfig: {
             responseMimeType: "application/json" as const
         },
@@ -82,7 +65,6 @@ export const AI_ACTIONS = {
     },
 
     GENERATE_CARROUSEL_SLIDES: {
-        model: INTERNAL_MODELS.FAST,
         generationConfig: {
             responseMimeType: "application/json" as const
         },
@@ -101,7 +83,6 @@ export const AI_ACTIONS = {
     },
 
     DRAFT_CONTENT: {
-        model: INTERNAL_MODELS.FAST,
         generationConfig: {
             responseMimeType: "application/json" as const
         },
@@ -118,7 +99,6 @@ export const AI_ACTIONS = {
     },
 
     ADJUST_CONTENT: {
-        model: INTERNAL_MODELS.FAST,
         generationConfig: {
             responseMimeType: "application/json" as const
         },
@@ -137,7 +117,6 @@ export const AI_ACTIONS = {
     },
 
     ADJUST_DZINE_PROMPTS: {
-        model: INTERNAL_MODELS.FAST,
         generationConfig: {
             responseMimeType: "application/json" as const
         },

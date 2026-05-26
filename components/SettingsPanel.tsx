@@ -1,13 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
-    X, SlidersHorizontal, Cpu, Brain,
-    Plus, Trash2, Save, Loader2, ChevronLeft, ChevronRight, User, Eye
+    X, SlidersHorizontal, Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2
 } from 'lucide-react';
-import { ContextItem, AIModel, ContextUsage, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
+import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as NotionService from '../services/notionService';
 import { ConfirmModal } from './CommonModals';
-import { MarkdownToolbar } from './MarkdownToolbar';
-import { RichTextarea } from './RichTextarea';
 import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '../ai/prompts';
 import { VOICE_RULES } from '../ai/voice';
 
@@ -16,28 +13,30 @@ interface SettingsPanelProps {
     onClose: () => void;
     displayPrefs: DisplayPrefs;
     onDisplayPrefsChange: (prefs: DisplayPrefs) => void;
-    contexts: ContextItem[];
-    onContextsChange: (contexts: ContextItem[]) => void;
     aiModels: AIModel[];
     onModelsChange: (models: AIModel[]) => void;
+    /** Modèle IA actif global. */
+    activeModelId: string;
+    /** Changer le modèle actif/par défaut. */
+    onActiveModelChange: (modelId: string) => void;
     /** Onglet à afficher à l'ouverture. Défaut : 'display'. */
-    initialTab?: 'display' | 'models' | 'contexts';
+    initialTab?: 'display' | 'models' | 'personas';
 }
 
 const HARDCODED_PERSONAS = [
-    { id: 'voice',    name: 'Règles de voix (transverses)',    usage: 'Partagé',          prompt: VOICE_RULES         },
-    { id: 'stratege', name: 'Stratège (ex-Rédacteur en Chef)', usage: 'Analyse',          prompt: ANALYSTE_PERSONA    },
-    { id: 'coach',    name: 'Coach (sparring-partner)',         usage: 'Session chat',     prompt: COACH_PERSONA       },
-    { id: 'editeur',  name: 'Éditeur Littéraire & Scénariste',  usage: 'Rédaction finale', prompt: REDACTEUR_PERSONA   },
-    { id: 'artiste',  name: 'Directeur Artistique',             usage: 'Prompts image',    prompt: ARTISTE_PERSONA     },
+    { id: 'voice',    name: 'Règles de voix (transverses)',    usage: 'Partagé',          prompt: VOICE_RULES       },
+    { id: 'stratege', name: 'Stratège (ex-Rédacteur en Chef)', usage: 'Analyse',          prompt: ANALYSTE_PERSONA  },
+    { id: 'coach',    name: 'Coach (sparring-partner)',         usage: 'Session chat',     prompt: COACH_PERSONA     },
+    { id: 'editeur',  name: 'Éditeur Littéraire & Scénariste',  usage: 'Rédaction finale', prompt: REDACTEUR_PERSONA },
+    { id: 'artiste',  name: 'Directeur Artistique',             usage: 'Prompts image',    prompt: ARTISTE_PERSONA   },
 ];
 
-type Tab = 'display' | 'models' | 'contexts';
+type Tab = 'display' | 'models' | 'personas';
 
 const TAB_LABEL: Record<Tab, string> = {
     display:  'Affichage',
     models:   'Modèles IA',
-    contexts: 'Contextes IA',
+    personas: 'Personas',
 };
 
 // ─── Atoms ────────────────────────────────────────────────────────────────
@@ -71,8 +70,6 @@ const ToggleSwitch: React.FC<{
     </div>
 );
 
-// DensitySelector retiré — l'affichage est fixé en mode compact
-
 const SectionTitle: React.FC<{ icon: React.ComponentType<{ className?: string }>; label: string; count?: number }> = ({ icon: Icon, label, count }) => (
     <div className="flex items-center justify-between mb-2 px-1">
         <p className="text-[10px] font-black uppercase tracking-widest text-brand-main/40 dark:text-dark-text/40 flex items-center gap-1.5">
@@ -89,18 +86,17 @@ const SectionTitle: React.FC<{ icon: React.ComponentType<{ className?: string }>
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     isOpen, onClose, displayPrefs, onDisplayPrefsChange,
-    contexts, onContextsChange,
-    aiModels, onModelsChange,
+    aiModels, onModelsChange, activeModelId, onActiveModelChange,
     initialTab = 'display',
 }) => {
     const [activeTab, setActiveTab] = useState<Tab>(initialTab);
 
-    // Reset active tab when panel opens to honor `initialTab` (callers may switch from one trigger to another).
+    // Reset active tab when panel opens to honor `initialTab`.
     useEffect(() => {
         if (isOpen) setActiveTab(initialTab);
     }, [isOpen, initialTab]);
 
-    // ── Edition state (sub-views inside Modèles / Contextes tabs)
+    // ── Sub-view state
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
@@ -108,11 +104,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-
-    // Context edit state
-    const [editCtxName, setEditCtxName] = useState('');
-    const [editCtxDesc, setEditCtxDesc] = useState('');
-    const [editCtxUsage, setEditCtxUsage] = useState<ContextUsage>(ContextUsage.REDACTEUR);
 
     // Model edit state
     const [editModel, setEditModel] = useState<Partial<AIModel>>({
@@ -134,7 +125,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }, [isOpen]);
 
     useEffect(() => {
-        // Switching tabs always returns to root list
         setEditingId(null);
         setIsCreating(false);
         setSelectedPersonaId(null);
@@ -146,7 +136,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         const handler = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             if (isSaving || isDeleting || deleteId) return;
-            // First press: back to list ; second press: close panel
             if (editingId || isCreating || selectedPersonaId) {
                 setEditingId(null);
                 setIsCreating(false);
@@ -162,24 +151,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     if (!isOpen) return null;
 
     // ── Handlers
-    const handleEditContext = (ctx: ContextItem) => {
-        setEditingId(ctx.id);
-        setEditCtxName(ctx.name);
-        setEditCtxDesc(ctx.description);
-        setEditCtxUsage(ctx.usage || ContextUsage.REDACTEUR);
-        setIsCreating(false);
-        setSelectedPersonaId(null);
-    };
-
-    const handleCreateContext = () => {
-        setEditingId(null);
-        setEditCtxName('');
-        setEditCtxDesc('');
-        setEditCtxUsage(ContextUsage.REDACTEUR);
-        setIsCreating(true);
-        setSelectedPersonaId(null);
-    };
-
     const handleEditModel = (model: AIModel) => {
         setEditingId(model.id);
         setEditModel(model);
@@ -196,22 +167,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setEditingId(null);
         setIsCreating(false);
         setSelectedPersonaId(null);
-    };
-
-    const handleSaveContext = async () => {
-        setIsSaving(true);
-        try {
-            if (isCreating) {
-                const newCtx = await NotionService.createContext(editCtxName, editCtxDesc, editCtxUsage);
-                onContextsChange([...contexts, newCtx]);
-                setEditingId(newCtx.id);
-                setIsCreating(false);
-            } else if (editingId) {
-                const updatedCtx = { id: editingId, name: editCtxName, description: editCtxDesc, usage: editCtxUsage };
-                await NotionService.updateContext(updatedCtx);
-                onContextsChange(contexts.map(c => c.id === editingId ? updatedCtx : c));
-            }
-        } catch (e) { console.error(e); } finally { setIsSaving(false); }
     };
 
     const handleSaveModel = async () => {
@@ -234,30 +189,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         if (!deleteId) return;
         setIsDeleting(true);
         try {
-            if (activeTab === 'contexts') {
-                await NotionService.deleteContext(deleteId);
-                onContextsChange(contexts.filter(c => c.id !== deleteId));
-            } else if (activeTab === 'models') {
-                await NotionService.deleteModel(deleteId);
-                onModelsChange(aiModels.filter(m => m.id !== deleteId));
-            }
+            await NotionService.deleteModel(deleteId);
+            onModelsChange(aiModels.filter(m => m.id !== deleteId));
             if (editingId === deleteId) backToList();
         } catch (e) { console.error(e); } finally { setIsDeleting(false); setDeleteId(null); }
     };
 
     // ── Sub-view computation
-    const isInModelEditor   = activeTab === 'models'   && (isCreating || !!editingId);
-    const isInContextEditor = activeTab === 'contexts' && (isCreating || !!editingId);
-    const isInPersonaView   = activeTab === 'contexts' && !!selectedPersonaId;
-    const isInSubView       = isInModelEditor || isInContextEditor || isInPersonaView;
+    const isInModelEditor = activeTab === 'models' && (isCreating || !!editingId);
+    const isInPersonaView = activeTab === 'personas' && !!selectedPersonaId;
+    const isInSubView     = isInModelEditor || isInPersonaView;
 
-    // Breadcrumb sub-title
     const getBreadcrumbLabel = (): string => {
         if (isInPersonaView) {
             return HARDCODED_PERSONAS.find(p => p.id === selectedPersonaId)?.name || 'Persona';
-        }
-        if (isInContextEditor) {
-            return isCreating ? 'Nouveau contexte' : 'Modifier le contexte';
         }
         if (isInModelEditor) {
             return isCreating ? 'Nouveau modèle' : 'Modifier le modèle';
@@ -266,9 +211,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     };
 
     const TABS: Array<{ id: Tab; icon: React.ComponentType<{ className?: string }>; label: string }> = [
-        { id: 'display',  icon: SlidersHorizontal, label: 'Affichage'    },
-        { id: 'models',   icon: Cpu,               label: 'Modèles IA'   },
-        { id: 'contexts', icon: Brain,             label: 'Contextes IA' },
+        { id: 'display',  icon: SlidersHorizontal, label: 'Affichage'  },
+        { id: 'models',   icon: Cpu,               label: 'Modèles IA' },
+        { id: 'personas', icon: User,              label: 'Personas'   },
     ];
 
     return (
@@ -295,7 +240,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     </button>
                 </div>
 
-                {/* TABS — always visible */}
+                {/* TABS */}
                 <div className="flex gap-1 px-4 pt-3 shrink-0">
                     {TABS.map(tab => {
                         const Icon = tab.icon;
@@ -386,28 +331,59 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 Ajouter un modèle
                             </button>
 
+                            <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 leading-relaxed px-1">
+                                Le modèle marqué <strong>« Défaut »</strong> est utilisé par toutes les actions IA. Modifiable aussi depuis le sélecteur en haut de l'app.
+                            </p>
+
                             {aiModels.length === 0 ? (
                                 <p className="text-center py-8 text-brand-main/40 dark:text-dark-text/40 text-xs italic">
                                     Aucun modèle. Cliquez ci-dessus pour en créer un.
                                 </p>
                             ) : (
-                                aiModels.map(m => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => handleEditModel(m)}
-                                        className="w-full text-left p-3 rounded-xl bg-white dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border hover:border-brand-main/40 hover:shadow-sm transition-all"
-                                    >
-                                        <div className="flex items-center justify-between gap-2 mb-1">
-                                            <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{m.name}</h3>
-                                            {m.provider && (
-                                                <span className="shrink-0 text-[10px] bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
-                                                    {m.provider}
-                                                </span>
-                                            )}
+                                aiModels.map(m => {
+                                    const isActive = m.apiCode === activeModelId;
+                                    return (
+                                        <div
+                                            key={m.id}
+                                            className={`p-3 rounded-xl border transition-all ${
+                                                isActive
+                                                    ? 'bg-brand-light dark:bg-dark-bg border-brand-main dark:border-white'
+                                                    : 'bg-white dark:bg-dark-bg border-brand-border dark:border-dark-sec-border'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{m.name}</h3>
+                                                {m.provider && (
+                                                    <span className="shrink-0 text-[10px] bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
+                                                        {m.provider}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-brand-main/60 dark:text-dark-text/60 font-mono truncate opacity-70 mb-2">{m.apiCode}</p>
+                                            <div className="flex items-center gap-2">
+                                                {isActive ? (
+                                                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg bg-brand-main text-white dark:bg-white dark:text-brand-main">
+                                                        <CheckCircle2 className="w-3 h-3" />
+                                                        Défaut
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => onActiveModelChange(m.apiCode)}
+                                                        className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:border-brand-main hover:text-brand-main dark:hover:text-white transition-colors"
+                                                    >
+                                                        Définir par défaut
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleEditModel(m)}
+                                                    className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:border-brand-main hover:text-brand-main dark:hover:text-white transition-colors ml-auto"
+                                                >
+                                                    Modifier
+                                                </button>
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60 font-mono truncate opacity-70">{m.apiCode}</p>
-                                    </button>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     )}
@@ -506,74 +482,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         </div>
                     )}
 
-                    {/* ─── CONTEXTS TAB ─── */}
-                    {activeTab === 'contexts' && !isInSubView && (
-                        <div className="p-5 animate-in fade-in duration-200 space-y-6">
-
-                            {/* Section Personas (read-only) */}
-                            <section>
-                                <SectionTitle icon={User} label="Personas (lecture seule)" count={HARDCODED_PERSONAS.length} />
-                                <div className="space-y-2">
-                                    {HARDCODED_PERSONAS.map(p => (
-                                        <button
-                                            key={p.id}
-                                            onClick={() => setSelectedPersonaId(p.id)}
-                                            className="w-full text-left p-3 rounded-xl bg-white dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm transition-all"
-                                        >
-                                            <div className="flex items-center justify-between gap-2 mb-0.5">
-                                                <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{p.name}</h3>
-                                                <span className="shrink-0 text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
-                                                    {p.usage}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-brand-main/50 dark:text-dark-text/50 flex items-center gap-1">
-                                                <Eye className="w-3 h-3" /> Lecture seule
-                                            </p>
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {/* Section Contextes additionnels (CRUD) */}
-                            <section>
-                                <SectionTitle icon={Brain} label="Contextes additionnels" count={contexts.length} />
-
-                                <button
-                                    onClick={handleCreateContext}
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main/60 dark:text-dark-text/60 hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-all mb-3"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    Créer un contexte
-                                </button>
-
-                                {contexts.length === 0 ? (
-                                    <p className="text-center py-6 text-brand-main/40 dark:text-dark-text/40 text-xs italic">
-                                        Aucun contexte additionnel.
-                                    </p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {contexts.map(ctx => (
-                                            <button
-                                                key={ctx.id}
-                                                onClick={() => handleEditContext(ctx)}
-                                                className="w-full text-left p-3 rounded-xl bg-white dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border hover:border-brand-main/40 hover:shadow-sm transition-all"
-                                            >
-                                                <div className="flex items-center justify-between gap-2 mb-1">
-                                                    <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{ctx.name}</h3>
-                                                    {ctx.usage && (
-                                                        <span className="shrink-0 text-[10px] bg-brand-main/10 text-brand-main dark:bg-white/10 dark:text-white px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
-                                                            {ctx.usage}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {ctx.description && (
-                                                    <p className="text-xs text-brand-main/60 dark:text-dark-text/60 line-clamp-2 leading-relaxed">{ctx.description}</p>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
+                    {/* ─── PERSONAS TAB (lecture seule) ─── */}
+                    {activeTab === 'personas' && !isInPersonaView && (
+                        <div className="p-5 animate-in fade-in duration-200">
+                            <SectionTitle icon={User} label="Personas (lecture seule)" count={HARDCODED_PERSONAS.length} />
+                            <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 leading-relaxed px-1 mb-3">
+                                Les personas sont les rôles IA intégrés à l'app (prompts système hardcodés). Consultables, non modifiables.
+                            </p>
+                            <div className="space-y-2">
+                                {HARDCODED_PERSONAS.map(p => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => setSelectedPersonaId(p.id)}
+                                        className="w-full text-left p-3 rounded-xl bg-white dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm transition-all"
+                                    >
+                                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                                            <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{p.name}</h3>
+                                            <span className="shrink-0 text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
+                                                {p.usage}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-brand-main/50 dark:text-dark-text/50 flex items-center gap-1">
+                                            <Eye className="w-3 h-3" /> Lecture seule
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -600,69 +534,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             </div>
                         );
                     })()}
-
-                    {/* ─── CONTEXT EDITOR ─── */}
-                    {isInContextEditor && (
-                        <div className="p-5 animate-in fade-in duration-200 space-y-4">
-                            {editingId && (
-                                <div className="flex justify-end">
-                                    <button
-                                        onClick={() => setDeleteId(editingId)}
-                                        className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                        Supprimer
-                                    </button>
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Nom du contexte</label>
-                                <input
-                                    type="text"
-                                    value={editCtxName}
-                                    onChange={(e) => setEditCtxName(e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg text-sm font-semibold text-brand-main dark:text-white outline-hidden placeholder-brand-main/30 transition-colors"
-                                    placeholder="Ex : Contexte LinkedIn Pro"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Rattaché au persona</label>
-                                <select
-                                    value={editCtxUsage}
-                                    onChange={(e) => setEditCtxUsage(e.target.value as ContextUsage)}
-                                    className="w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg text-sm text-brand-main dark:text-white outline-hidden cursor-pointer transition-colors"
-                                >
-                                    <option value={ContextUsage.REDACTEUR}>Rédacteur</option>
-                                    <option value={ContextUsage.ANALYSTE}>Analyste</option>
-                                    <option value={ContextUsage.INTERVIEWER}>Interviewer</option>
-                                    <option value={ContextUsage.ARTISTE}>Artiste</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Contenu du contexte</label>
-                                <div className="border border-brand-border dark:border-dark-sec-border rounded-xl bg-brand-light dark:bg-dark-bg focus-within:border-brand-main overflow-hidden flex flex-col min-h-[260px] transition-colors">
-                                    <MarkdownToolbar />
-                                    <RichTextarea
-                                        value={editCtxDesc}
-                                        onChange={setEditCtxDesc}
-                                        className="w-full flex-1 p-4 text-sm leading-relaxed"
-                                        placeholder="Informations complémentaires à injecter dans le prompt…"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                {/* FOOTER — save button only in editor sub-views */}
-                {(isInModelEditor || isInContextEditor) && (
+                {/* FOOTER — save button only in model editor */}
+                {isInModelEditor && (
                     <div className="px-5 py-4 border-t border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/60 flex justify-end shrink-0">
                         <button
-                            onClick={isInModelEditor ? handleSaveModel : handleSaveContext}
-                            disabled={isSaving || (isInModelEditor ? !(editModel.name || '').trim() : !editCtxName.trim())}
+                            onClick={handleSaveModel}
+                            disabled={isSaving || !(editModel.name || '').trim()}
                             className="flex items-center gap-2 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm shadow-brand-main/25 transition-colors disabled:opacity-40"
                         >
                             {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}

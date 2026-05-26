@@ -1,19 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu, User } from 'lucide-react';
-import { ContentItem, ContextItem, Verdict, Platform, AIModel, isTargetOffer, isProfondeur } from '../types';
-import * as GeminiService from '../services/geminiService';
+import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu } from 'lucide-react';
+import { ContentItem, Verdict, Platform, AIModel, isTargetOffer, isProfondeur } from '../types';
 import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
-import { AI_ACTIONS, isOneMinModel } from '../ai/actions';
+import { AI_ACTIONS } from '../ai/actions';
 import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface AnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
   itemsToAnalyze: ContentItem[];
-  contexts: ContextItem[];
   aiModels: AIModel[];
-  selectedContextId: string;
   selectedModelId: string;
   onAnalysisComplete: () => void;
 }
@@ -29,13 +26,11 @@ interface AnalysisResult {
   titre?: string;
 }
 
-const AnalysisModal: React.FC<AnalysisModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  itemsToAnalyze, 
-  contexts,
+const AnalysisModal: React.FC<AnalysisModalProps> = ({
+  isOpen,
+  onClose,
+  itemsToAnalyze,
   aiModels,
-  selectedContextId,
   selectedModelId,
   onAnalysisComplete
 }) => {
@@ -54,7 +49,6 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
   if (!isOpen) return null;
 
-  const contextName = contexts.find(c => c.id === selectedContextId)?.name || "Contexte par défaut";
   const modelName = aiModels.find(m => m.apiCode === selectedModelId)?.name || selectedModelId;
 
   const handleStartAnalysis = async () => {
@@ -66,8 +60,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     try {
       // 1. Préparation du System Prompt
       const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
-      const selectedContext = selectedContextId ? contexts.find(c => c.id === selectedContextId) : undefined;
-      const systemInstruction = actionConfig.getSystemInstruction(selectedContext?.description);
+      const systemInstruction = actionConfig.getSystemInstruction(undefined);
 
       // 2. Préparation du User Prompt
       const contentPayload = itemsToAnalyze.map(item => ({
@@ -78,24 +71,13 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       }));
       
       if (isMountedRef.current) setProgress(`Interrogation de l'IA (${modelName})...`);
-      
-      // 3. Appel API (Gemini ou 1min.AI)
-      let responseText = "";
-      
-      if (isOneMinModel(selectedModelId, aiModels)) {
-          responseText = await OneMinService.generateContent({
-              model: selectedModelId,
-              systemInstruction: systemInstruction,
-              prompt: JSON.stringify(contentPayload)
-          });
-      } else {
-          responseText = await GeminiService.generateContent({
-              model: selectedModelId,
-              systemInstruction: systemInstruction,
-              prompt: JSON.stringify(contentPayload),
-              generationConfig: actionConfig.generationConfig
-          });
-      }
+
+      // 3. Appel API 1min.AI
+      const responseText = await OneMinService.generateContent({
+          model: selectedModelId,
+          systemInstruction: systemInstruction,
+          prompt: JSON.stringify(contentPayload)
+      });
 
       if (isMountedRef.current) setProgress("Traitement des réponses...");
 
@@ -113,7 +95,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       // 5. Mise à jour de Notion
       if (isMountedRef.current) setProgress(`Mise à jour de Notion (0/${results.length})...`);
 
-      const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+      const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
       let updateCount = 0;
       for (let idx = 0; idx < results.length; idx++) {
@@ -218,15 +200,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg">
-                            <div className="flex items-center gap-2 mb-1 text-brand-main/50 dark:text-dark-text/50 text-[10px] uppercase font-bold">
-                                <User className="w-3 h-3" /> Persona
-                            </div>
-                            <div className="text-sm font-semibold text-brand-main dark:text-white truncate" title={contextName}>
-                                {contextName}
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-1 gap-4">
                         <div className="p-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg">
                             <div className="flex items-center gap-2 mb-1 text-brand-main/50 dark:text-dark-text/50 text-[10px] uppercase font-bold">
                                 <Cpu className="w-3 h-3" /> Modèle

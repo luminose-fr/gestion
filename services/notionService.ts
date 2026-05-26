@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, ContextItem, Verdict, AIModel, TargetFormat, ContextUsage, isContextUsage, TargetOffer, isTargetOffer, Profondeur, isProfondeur, CoachSession } from "../types";
+import { ContentItem, ContentStatus, Platform, Verdict, AIModel, TargetFormat, TargetOffer, isTargetOffer, Profondeur, isProfondeur, CoachSession } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -409,17 +409,6 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   };
 };
 
-const mapNotionPageToContext = (page: any): ContextItem => {
-  const props = page.properties;
-  const usageValue = props["Usage"]?.select?.name;
-  const usage = isContextUsage(usageValue) ? (usageValue as ContextUsage) : undefined;
-  return {
-    id: page.id,
-    name: notionToMarkdown(props["Nom"]) || "Contexte sans nom",
-    description: notionToMarkdown(props["Description"]) || "",
-    usage,
-  };
-};
 
 const mapNotionPageToModel = (page: any): AIModel => {
     const props = page.properties;
@@ -437,7 +426,8 @@ const mapNotionPageToModel = (page: any): AIModel => {
         cost: costValue as any,
         strengths: notionToMarkdown(props["Forces"]) || "",
         bestUseCases: notionToMarkdown(props["Cas d'usage"]) || "",
-        textQuality: props["Qualité Rédaction"]?.number || 3
+        textQuality: props["Qualité Rédaction"]?.number || 3,
+        isDefault: props["Défaut"]?.checkbox === true,
     };
 };
 
@@ -660,106 +650,6 @@ export const deleteContent = async (id: string): Promise<void> => {
     await handleNotionResponse(response, "deleteContent");
 };
 
-// --- API CALLS (CONTEXT) ---
-
-export const fetchContexts = async (since?: string): Promise<ContextItem[]> => {
-    try {
-        if (!CONFIG.NOTION_CONTEXT_DB_ID) {
-            console.warn("NOTION_CONTEXT_DB_ID manquant");
-            return [];
-        }
-
-        const dataSourceId = await getDataSourceId(
-            CONFIG.NOTION_CONTEXT_DB_ID,
-            "contexts",
-            "fetchContexts"
-        );
-
-        const queryBody: Record<string, unknown> = {};
-        if (since) {
-            queryBody.filter = {
-                timestamp: "last_edited_time",
-                last_edited_time: { after: since }
-            };
-        }
-
-        const results = await queryDataSourceAll(dataSourceId, queryBody, "fetchContexts Query");
-        return results
-            .filter((page: any) => !page.archived && !page.in_trash)
-            .map(mapNotionPageToContext);
-    } catch (error) {
-        console.error("Erreur fetchContexts:", error);
-        return [];
-    }
-};
-
-export const createContext = async (name: string, description: string, usage?: ContextUsage): Promise<ContextItem> => {
-    const dataSourceId = await getDataSourceId(
-        CONFIG.NOTION_CONTEXT_DB_ID,
-        "contexts",
-        "createContext"
-    );
-
-    const properties: any = {
-        "Nom": { title: markdownToNotion(name) },
-        "Description": {
-            rich_text: markdownToNotion(description)
-        }
-    };
-
-    if (usage) {
-        properties["Usage"] = { select: { name: usage } };
-    }
-
-    const response = await fetchWithRetry(getUrl("/pages"), {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify({
-            parent: { 
-                type: "data_source_id",
-                data_source_id: dataSourceId 
-            },
-            properties
-        })
-    });
-    
-    const page = await handleNotionResponse(response, "createContext Page");
-    return mapNotionPageToContext(page);
-};
-
-export const updateContext = async (context: ContextItem): Promise<void> => {
-    const properties: any = {
-        "Nom": { title: markdownToNotion(context.name) },
-        "Description": {
-            rich_text: markdownToNotion(context.description)
-        }
-    };
-
-    if (context.usage !== undefined) {
-        properties["Usage"] = context.usage ? { select: { name: context.usage } } : { select: null };
-    }
-
-    const response = await fetchWithRetry(getUrl(`/pages/${context.id}`), {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-            properties
-        })
-    });
-    await handleNotionResponse(response, "updateContext");
-};
-
-export const deleteContext = async (id: string): Promise<void> => {
-    const response = await fetchWithRetry(getUrl(`/pages/${id}`), {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-            archived: true
-        })
-    });
-    await handleNotionResponse(response, "deleteContext");
-};
-
 // --- API CALLS (MODELS) ---
 
 export const fetchModels = async (since?: string): Promise<AIModel[]> => {
@@ -843,6 +733,20 @@ export const updateModel = async (model: AIModel): Promise<void> => {
         })
     });
     await handleNotionResponse(response, "updateModel");
+};
+
+/** Met à jour uniquement la case « Défaut » d'un modèle. */
+export const setModelDefault = async (pageId: string, isDefault: boolean): Promise<void> => {
+    const response = await fetchWithRetry(getUrl(`/pages/${pageId}`), {
+        method: "PATCH",
+        headers: getHeaders(),
+        body: JSON.stringify({
+            properties: {
+                "Défaut": { checkbox: isDefault }
+            }
+        })
+    });
+    await handleNotionResponse(response, "setModelDefault");
 };
 
 export const deleteModel = async (id: string): Promise<void> => {

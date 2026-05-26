@@ -37,19 +37,6 @@ export const isTargetFormat = (value: unknown): value is TargetFormat => {
   return typeof value === "string" && TARGET_FORMAT_VALUES.includes(value);
 };
 
-export enum ContextUsage {
-  REDACTEUR = "Rédacteur",
-  ANALYSTE = "Analyste",
-  INTERVIEWER = "Interviewer",
-  ARTISTE = "Artiste"
-}
-
-export const CONTEXT_USAGE_VALUES = Object.values(ContextUsage) as string[];
-
-export const isContextUsage = (value: unknown): value is ContextUsage => {
-  return typeof value === "string" && CONTEXT_USAGE_VALUES.includes(value);
-};
-
 export enum TargetOffer {
   STANDARD = "Standard",
   TRANSVERSE = "Transverse",
@@ -83,6 +70,8 @@ export interface AIModel {
   provider: string;
   bestUseCases: string;
   textQuality: number;
+  /** Modèle marqué « Défaut » dans Notion — sert de valeur initiale au sélecteur global. */
+  isDefault?: boolean;
 }
 
 // ── Coach Chat Session (nouvelle architecture) ───────────────────────
@@ -143,13 +132,6 @@ export interface ContentItem {
   scriptVideo?: string;
 }
 
-export interface ContextItem {
-  id: string;
-  name: string; // e.g., "LinkedIn Professionnel"
-  description: string; // The actual prompt context
-  usage?: ContextUsage;
-}
-
 export interface DisplayPrefs {
   showVerdictStripe: boolean;
   showPlatforms: boolean;
@@ -167,4 +149,6 @@ export const DEFAULT_DISPLAY_PREFS: DisplayPrefs = {
 export interface AppSettings {
   lastUsedContextId?: string;
   displayPrefs?: DisplayPrefs;
+  /** Modèle IA actif/par défaut (apiCode ou modèle interne). */
+  activeModelId?: string;
 }

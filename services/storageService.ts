@@ -1,15 +1,14 @@
-import { ContentItem, ContextItem, AIModel, AppSettings, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from "../types";
+import { ContentItem, AIModel, AppSettings, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from "../types";
 
 const DB_NAME = "LuminoseDB";
 const DB_VERSION = 3; // Incrémenté pour forcer la mise à jour du schéma (création de 'models')
 const STORE_CONTENT = "content";
-const STORE_CONTEXTS = "contexts";
 const STORE_MODELS = "models";
 const SYNC_PREFIX = "luminose_sync_";
 const FULL_SYNC_PREFIX = "luminose_full_sync_";
 const APP_SETTINGS_KEY = "luminose_app_settings";
 
-export type SyncScope = "content" | "contexts" | "models";
+export type SyncScope = "content" | "models";
 
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -19,9 +18,6 @@ const openDB = (): Promise<IDBDatabase> => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_CONTENT)) {
         db.createObjectStore(STORE_CONTENT, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(STORE_CONTEXTS)) {
-        db.createObjectStore(STORE_CONTEXTS, { keyPath: "id" });
       }
       if (!db.objectStoreNames.contains(STORE_MODELS)) {
         db.createObjectStore(STORE_MODELS, { keyPath: "id" });
@@ -75,29 +71,6 @@ export const updateCachedItem = (item: ContentItem): Promise<void> =>
     const transaction = db.transaction(STORE_CONTENT, "readwrite");
     const store = transaction.objectStore(STORE_CONTENT);
     store.put(item);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  }));
-
-export const getCachedContexts = (): Promise<ContextItem[]> =>
-  withDB(db => new Promise((resolve, reject) => {
-    try {
-      const transaction = db.transaction(STORE_CONTEXTS, "readonly");
-      const store = transaction.objectStore(STORE_CONTEXTS);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    } catch {
-      resolve([]);
-    }
-  }));
-
-export const setCachedContexts = (contexts: ContextItem[]): Promise<void> =>
-  withDB(db => new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_CONTEXTS, "readwrite");
-    const store = transaction.objectStore(STORE_CONTEXTS);
-    store.clear();
-    contexts.forEach(ctx => store.put(ctx));
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   }));
@@ -185,4 +158,14 @@ export const getDisplayPrefs = (): DisplayPrefs => {
 export const setDisplayPrefs = (prefs: DisplayPrefs): void => {
   const current = getAppSettings();
   setAppSettings({ ...current, displayPrefs: prefs });
+};
+
+/** Modèle IA actif (vérité runtime côté app). undefined = pas encore choisi → seed depuis Notion. */
+export const getActiveModelId = (): string | undefined => {
+  return getAppSettings().activeModelId;
+};
+
+export const setActiveModelId = (modelId: string): void => {
+  const current = getAppSettings();
+  setAppSettings({ ...current, activeModelId: modelId });
 };

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Send, Loader2, CheckCircle2, Sparkles, RefreshCw, AlertCircle, MessageCircle, ArrowRight, Brain } from 'lucide-react';
 import { ContentItem, AIModel, CoachSession, CoachMessage } from '../types';
-import { INTERNAL_MODELS } from '../ai/actions';
 import {
     sendCoachMessage,
     createEmptySession,
@@ -15,6 +14,8 @@ import { renderMdText } from './ContentEditor/renderers/shared';
 interface CoachChatProps {
     item: ContentItem;
     aiModels: AIModel[];
+    /** Modèle IA actif global — utilisé pour tous les tours du Coach. */
+    modelId: string;
     notionContext?: string;
     /** Appelé après chaque tour (user + assistant) — le parent doit persister côté Notion */
     onSessionChange: (session: CoachSession) => void | Promise<void>;
@@ -23,7 +24,7 @@ interface CoachChatProps {
 }
 
 export const CoachChat: React.FC<CoachChatProps> = ({
-    item, aiModels, notionContext, onSessionChange, onValidate,
+    item, aiModels, modelId, notionContext, onSessionChange, onValidate,
 }) => {
     const initialSession: CoachSession = useMemo(
         () => item.coachSession || createEmptySession(item.targetFormat || null),
@@ -35,7 +36,6 @@ export const CoachChat: React.FC<CoachChatProps> = ({
     const [input, setInput] = useState('');
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [modelId, setModelId] = useState<string>(INTERNAL_MODELS.FAST);
     // Sas de démarrage : true UNIQUEMENT si on reprend une session existante (messages déjà présents).
     // Sinon, on bloque le bootstrap tant que Florent n'a pas confirmé le modèle.
     const [hasStarted, setHasStarted] = useState<boolean>(
@@ -168,20 +168,9 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-2">
-                    <select
-                        value={modelId}
-                        onChange={e => setModelId(e.target.value)}
-                        className="text-xs bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-md px-2 py-1 text-brand-main dark:text-dark-text"
-                        disabled={isSending}
-                        title="Modèle IA utilisé pour le Coach"
-                    >
-                        <option value={INTERNAL_MODELS.FAST}>Gemini Flash (défaut)</option>
-                        {aiModels.map(m => (
-                            <option key={m.apiCode} value={m.apiCode}>{m.name}</option>
-                        ))}
-                    </select>
-                </div>
+                <span className="text-[10px] font-medium text-brand-main/50 dark:text-dark-text/50 whitespace-nowrap">
+                    {aiModels.find(m => m.apiCode === modelId)?.name || modelId}
+                </span>
             </div>
 
             {/* MESSAGES */}
@@ -196,17 +185,16 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                             </div>
                             <h3 className="text-base font-bold text-brand-main dark:text-white mb-2">Prêt à démarrer ?</h3>
                             <p className="text-xs text-brand-main/70 dark:text-dark-text/70 mb-5 leading-relaxed">
-                                Choisissez le modèle IA dans l'en-tête ci-dessus, puis lancez la session.
+                                Lancez la session quand vous le souhaitez.
                                 {item.targetFormat && (
                                     <> Le Coach vous proposera une première direction calibrée au format <strong>{item.targetFormat}</strong>.</>
                                 )}
                             </p>
                             <div className="text-[11px] text-brand-main/50 dark:text-dark-text/50 mb-4 px-4 py-2 rounded-md bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border inline-block">
-                                Modèle choisi : <strong className="text-brand-main dark:text-dark-text">
-                                    {modelId === INTERNAL_MODELS.FAST
-                                        ? 'Gemini Flash (défaut)'
-                                        : (aiModels.find(m => m.apiCode === modelId)?.name || modelId)}
+                                Modèle : <strong className="text-brand-main dark:text-dark-text">
+                                    {aiModels.find(m => m.apiCode === modelId)?.name || modelId}
                                 </strong>
+                                <span className="text-brand-main/40 dark:text-dark-text/40"> · modifiable en haut de l'app</span>
                             </div>
                             <div>
                                 <button

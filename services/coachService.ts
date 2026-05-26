@@ -2,13 +2,12 @@
  * coachService — orchestre l'envoi de messages au Coach (chat itératif)
  * et le parsing de sa réponse JSON structurée (message + quick_replies).
  *
- * Dispatche vers 1min.AI ou Gemini selon le modèle choisi,
+ * Tous les appels passent par l'API 1min.AI,
  * en s'appuyant sur l'historique CoachSession côté client.
  */
 
-import { AI_ACTIONS, isOneMinModel } from '../ai/actions';
+import { AI_ACTIONS } from '../ai/actions';
 import * as OneMinService from './oneMinService';
-import * as GeminiService from './geminiService';
 import type { CoachMessage, CoachSession, AIModel, ContentItem, TargetFormat } from '../types';
 
 export interface CoachAIReply {
@@ -105,23 +104,12 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
             content: m.content,
         }));
 
-    let responseText: string;
-    if (isOneMinModel(modelId, aiModels)) {
-        responseText = await OneMinService.generateContent({
-            model: modelId,
-            prompt: userMessage,
-            systemInstruction,
-            history,
-        });
-    } else {
-        responseText = await GeminiService.generateContent({
-            model: modelId,
-            prompt: userMessage,
-            systemInstruction,
-            history,
-            generationConfig: { response_mime_type: 'application/json' },
-        });
-    }
+    const responseText = await OneMinService.generateContent({
+        model: modelId,
+        prompt: userMessage,
+        systemInstruction,
+        history,
+    });
 
     return parseCoachReply(responseText);
 };

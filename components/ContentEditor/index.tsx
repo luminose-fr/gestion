@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, TargetFormat, Profondeur, CoachSession } from '../../types';
+import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession } from '../../types';
 import { STATUS_COLORS } from '../../constants';
-import * as GeminiService from '../../services/geminiService';
 import * as OneMinService from '../../services/oneMinService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
-import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from '../../ai/actions';
+import { AI_ACTIONS } from '../../ai/actions';
 import { bodyJsonToText } from '../../ai/formats';
 import { parseDraftResponse, parseAIResponse, sanitizeSlidesResponse } from '../../ai/executors';
-import { AIConfigModal } from '../AIConfigModal';
 
 // Sub-components
 import { EditorLayout } from './EditorLayout';
@@ -19,12 +17,12 @@ export type EditorStep = 'idea' | 'atelier' | 'brouillon' | 'slides' | 'postcour
 
 interface ContentEditorProps {
   item: ContentItem | null;
-  contexts: ContextItem[];
   aiModels: AIModel[];
+  /** Modèle IA actif global — utilisé par toutes les actions (plus de modale de choix). */
+  activeModelId: string;
   onClose: () => void;
   onSave: (item: ContentItem) => Promise<void>;
   onDelete?: (item: ContentItem) => Promise<void>;
-  onManageContexts: () => void;
   // Navigation Props
   activeStep: EditorStep;
   onStepChange: (step: EditorStep) => void;
@@ -43,7 +41,7 @@ export { bodyJsonToText } from '../../ai/formats';
 // parseAIResponse → ai/executors.ts
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
-    item, contexts, aiModels = [], onClose, onSave, onDelete, onManageContexts,
+    item, aiModels = [], activeModelId, onClose, onSave, onDelete,
     activeStep, onStepChange,
     initialAction = null, onInitialActionConsumed
 }) => {
@@ -68,12 +66,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       };
   }, []);
   
-  // Navigation & AI State
-  const [showContextSelector, setShowContextSelector] = useState(false);
-  const [pendingContextAction, setPendingContextAction] = useState<'interview' | 'draft' | 'analyze' | 'carrousel' | 'adjust' | 'adjust_prompts' | null>(null);
-  const [pendingAdjustmentText, setPendingAdjustmentText] = useState<string>("");
-  const [pendingPromptAdjustment, setPendingPromptAdjustment] = useState<{ instruction: string; slideNumero: number | null } | null>(null);
-
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
   });
@@ -84,7 +76,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
         if (!editedItem || item.id !== editedItem.id) {
             setEditedItem({ ...item });
             setIsGenerating(false);
-            setShowContextSelector(false);
 
             if (activeStep === 'idea') {
                 const isVideo = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
@@ -170,29 +161,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- AI LOGIC HELPERS ---
 
-  const callAI = async (model: string, systemInstruction: string, prompt: string, config: any) => {
-      if (isOneMinModel(model, aiModels)) {
-          return await OneMinService.generateContent({
-              model: model,
-              systemInstruction: systemInstruction,
-              prompt: prompt
-          });
-      } else {
-          return await GeminiService.generateContent({
-              model: model,
-              systemInstruction: systemInstruction,
-              prompt: prompt,
-              generationConfig: config
-          });
-      }
-  };
-
-  const handleContextConfirm = async (contextId: string, modelId: string) => {
-      setShowContextSelector(false);
-      if (pendingContextAction === 'draft') await executeDrafting(contextId, modelId);
-      else if (pendingContextAction === 'carrousel') await executeCarrouselSlides(contextId, modelId);
-      else if (pendingContextAction === 'adjust' && pendingAdjustmentText) await executeAdjustment(pendingAdjustmentText, modelId);
-      else if (pendingContextAction === 'adjust_prompts' && pendingPromptAdjustment) await executePromptsAdjustment(contextId, modelId);
+  const callAI = async (model: string, systemInstruction: string, prompt: string, _config?: any) => {
+      return await OneMinService.generateContent({
+          model: model,
+          systemInstruction: systemInstruction,
+          prompt: prompt
+      });
   };
 
   // --- COACH SESSION HANDLERS (nouveau flow) ---
@@ -205,26 +179,24 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       await saveWithStatus(newItem);
   };
 
-  /** Florent clique "Go Éditeur" : session validée → on ouvre AIConfigModal pour choisir le modèle de l'Éditeur. */
+  /** Florent clique "Go Éditeur" : session validée → on lance directement la rédaction avec le modèle actif. */
   const handleCoachValidate = async (session: CoachSession) => {
       if (!isMountedRef.current || !editedItem) return;
       const newItem = { ...editedItem, coachSession: session };
       setEditedItem(newItem);
       await saveWithStatus(newItem);
-      setPendingContextAction('draft');
-      setShowContextSelector(true);
+      await executeDrafting();
   };
 
-  // --- AI ACTIONS EXECUTORS ---
+  // --- AI ACTIONS EXECUTORS (modèle actif global, plus de contexte) ---
 
-  const executeDrafting = async (contextId: string, modelId: string) => {
+  const executeDrafting = async () => {
       if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
-          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
           const systemInstruction = actionConfig.getSystemInstruction(
-              contextItem?.description,
+              undefined,
               editedItem?.targetFormat || undefined
           );
 
@@ -253,12 +225,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               if (lastAssistantMsg) promptPayload.coach_final_direction = lastAssistantMsg;
           }
 
-          const responseText = await callAI(modelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
+          const responseText = await callAI(activeModelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
           const finalContent = parseDraftResponse(responseText);
 
-          const contextName = contextItem?.name || "Contexte par défaut";
-          const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
-          const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+          const modelName = aiModels.find(m => m.apiCode === activeModelId)?.name || activeModelId;
+          const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           // Router le résultat : scriptVideo pour les formats vidéo, body sinon
           const isVideoFormat = editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
@@ -285,51 +256,47 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
       } finally {
-          if (isMountedRef.current) { setIsGenerating(false); setPendingContextAction(null); }
+          if (isMountedRef.current) setIsGenerating(false);
       }
   };
 
-  const executeCarrouselSlides = async (contextId: string, modelId: string) => {
+  const executeCarrouselSlides = async () => {
       if (!isMountedRef.current) return;
       setIsGenerating(true);
       try {
-          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const actionConfig = AI_ACTIONS.GENERATE_CARROUSEL_SLIDES;
           // On passe le JSON brouillon brut (non aplati) pour que l'Artiste
           // préserve la trame : titre, texte, type, role, intention_visuelle.
           const systemInstruction = actionConfig.getSystemInstruction(
-              contextItem?.description,
+              undefined,
               editedItem?.targetOffer || "Non défini",
               editedItem?.suggestedMetaphor || "Non définie",
               editedItem?.body || "Non défini"
           );
 
-          const responseText = await callAI(modelId, systemInstruction, "", actionConfig.generationConfig);
+          const responseText = await callAI(activeModelId, systemInstruction, "", actionConfig.generationConfig);
 
           const cleaned = sanitizeSlidesResponse(responseText);
 
-          const contextName = contextItem?.name || "Contexte par défaut";
-          const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
-          const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+          const modelName = aiModels.find(m => m.apiCode === activeModelId)?.name || activeModelId;
+          const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           const newItem = { ...editedItem!, slides: cleaned + signature };
           if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Slides", message: error.message, type: "error" });
       } finally {
-          if (isMountedRef.current) { setIsGenerating(false); setPendingContextAction(null); }
+          if (isMountedRef.current) setIsGenerating(false);
       }
   };
 
   // --- ADJUSTMENT (Refinement Loop) ---
 
   const launchAdjustment = (adjustmentText: string) => {
-      setPendingAdjustmentText(adjustmentText);
-      setPendingContextAction('adjust');
-      setShowContextSelector(true);
+      void executeAdjustment(adjustmentText);
   };
 
-  const executeAdjustment = async (adjustmentText: string, modelId: string) => {
+  const executeAdjustment = async (adjustmentText: string) => {
       if (!isMountedRef.current || !adjustmentText.trim()) return;
       setIsGenerating(true);
       try {
@@ -348,7 +315,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const responseText = await callAI(
-              modelId,
+              activeModelId,
               systemInstruction,
               "", // le contenu est déjà dans le system prompt
               actionConfig.generationConfig
@@ -356,8 +323,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
           // Resolve model name for signature
-          const modelObj = aiModels.find(m => m.apiCode === modelId);
-          const modelName = modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : (modelObj?.name || modelId);
+          const modelObj = aiModels.find(m => m.apiCode === activeModelId);
+          const modelName = modelObj?.name || activeModelId;
           const signature = `\n\n_Ajusté par : ${modelName} — le ${new Date().toLocaleString('fr-FR')}_`;
           const finalContent = cleaned + signature;
 
@@ -378,40 +345,34 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- ADJUSTMENT DES PROMPTS DZINE (Slides) ---
 
-  /** Ouvre l'AIConfigModal pour choisir le contexte/modèle, puis ajuste les prompts Dzine via executePromptsAdjustment. */
   const launchPromptsAdjustment = (instruction: string, slideNumero: number | null) => {
       if (!instruction.trim()) return;
-      setPendingPromptAdjustment({ instruction: instruction.trim(), slideNumero });
-      setPendingContextAction('adjust_prompts');
-      setShowContextSelector(true);
+      void executePromptsAdjustment(instruction.trim(), slideNumero);
   };
 
-  const executePromptsAdjustment = async (contextId: string, modelId: string) => {
-      if (!isMountedRef.current || !pendingPromptAdjustment || !editedItem?.slides) return;
+  const executePromptsAdjustment = async (instruction: string, slideNumero: number | null) => {
+      if (!isMountedRef.current || !editedItem?.slides) return;
       setIsGenerating(true);
       try {
-          const { instruction, slideNumero } = pendingPromptAdjustment;
-          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
           const actionConfig = AI_ACTIONS.ADJUST_DZINE_PROMPTS;
           const systemInstruction = actionConfig.getSystemInstruction(
-              contextItem?.description,
+              undefined,
               editedItem.slides,
               instruction,
               slideNumero
           );
 
           const responseText = await callAI(
-              modelId,
+              activeModelId,
               systemInstruction,
               "", // les inputs sont déjà dans le system prompt
               actionConfig.generationConfig
           );
 
           const cleaned = sanitizeSlidesResponse(responseText);
-          const contextName = contextItem?.name || "Contexte par défaut";
-          const modelObj = aiModels.find(m => m.apiCode === modelId);
-          const modelName = modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : (modelObj?.name || modelId);
-          const signature = `\n\n_Prompts ajustés (${slideNumero === null ? 'tous' : `slide ${slideNumero}`}) par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+          const modelObj = aiModels.find(m => m.apiCode === activeModelId);
+          const modelName = modelObj?.name || activeModelId;
+          const signature = `\n\n_Prompts ajustés (${slideNumero === null ? 'tous' : `slide ${slideNumero}`}) par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           const newItem = { ...editedItem, slides: cleaned + signature };
           if (isMountedRef.current) {
@@ -421,25 +382,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Ajustement Prompts", message: error.message, type: "error" });
       } finally {
-          if (isMountedRef.current) {
-              setIsGenerating(false);
-              setPendingPromptAdjustment(null);
-              setPendingContextAction(null);
-          }
+          if (isMountedRef.current) setIsGenerating(false);
       }
   };
 
-  // --- TRIGGER HANDLERS ---
+  // --- TRIGGER HANDLERS (exécution directe avec le modèle actif) ---
 
-  const triggerDrafting = () => {
-      setPendingContextAction('draft');
-      setShowContextSelector(true);
-  };
+  const triggerDrafting = () => { void executeDrafting(); };
 
-  const triggerCarrouselSlides = () => {
-      setPendingContextAction('carrousel');
-      setShowContextSelector(true);
-  };
+  const triggerCarrouselSlides = () => { void executeCarrouselSlides(); };
 
   // --- UI HELPERS ---
 
@@ -646,6 +597,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onSave={onSave}
                     isGenerating={isGenerating}
                     aiModels={aiModels}
+                    activeModelId={activeModelId}
                     onCoachSessionChange={handleCoachSessionChange}
                     onCoachValidate={handleCoachValidate}
                     activeTab={activeStep}
@@ -678,44 +630,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             isDestructive={true}
             confirmLabel="Supprimer"
         />
-
-        <AIConfigModal
-            isOpen={showContextSelector}
-            onClose={() => setShowContextSelector(false)}
-            onConfirm={handleContextConfirm}
-            contexts={contexts}
-            aiModels={aiModels}
-            actionType={pendingContextAction || 'draft'}
-            onManageContexts={onManageContexts}
-            dataSummary={(() => {
-                if (!editedItem) return [];
-                const action = pendingContextAction;
-                if (action === 'draft') {
-                    const labels = ['Titre', 'Format cible', 'Offre cible', 'Angle stratégique', 'Métaphore suggérée', 'Notes'];
-                    const session = editedItem.coachSession;
-                    if (session && session.messages && session.messages.length > 0) {
-                        labels.push(session.status === 'validated' ? 'Session Coach (validée)' : 'Session Coach');
-                    }
-                    return labels;
-                }
-                if (action === 'carrousel') {
-                    return ['Offre cible', 'Métaphore suggérée', 'Contenu rédigé'];
-                }
-                if (action === 'adjust') {
-                    return ['Contenu actuel', 'Instruction d\'ajustement'];
-                }
-                if (action === 'adjust_prompts') {
-                    const target = pendingPromptAdjustment?.slideNumero;
-                    return [
-                        'JSON courant du carrousel',
-                        target === null || target === undefined ? 'Cible : tous les prompts illustrés' : `Cible : slide ${target}`,
-                        'Instruction d\'ajustement',
-                    ];
-                }
-                return [];
-            })()}
-        />
-
       </>
   );
 };

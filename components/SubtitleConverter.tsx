@@ -1,13 +1,11 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Upload, Download, FileText, Eye, ChevronDown, ChevronUp, Scissors, Merge, RotateCcw, Sparkles, Cpu, Zap, DollarSign, X, Loader2 } from 'lucide-react';
+import { Upload, Download, FileText, Eye, ChevronDown, ChevronUp, Scissors, Merge, RotateCcw, Sparkles, Cpu, DollarSign, X, Loader2 } from 'lucide-react';
 import {
     parseSrt, regroupSubtitles, generateFcpxml, wrapText,
     DEFAULT_STYLE, VIDEO_FORMATS,
     type SrtBlock, type SubtitleBlock, type SubtitleStyle, type ShadowStyle, type VideoFormat,
 } from '../services/subtitleService';
 import { AIModel } from '../types';
-import { INTERNAL_MODELS, isOneMinModel } from '../ai/actions';
-import * as GeminiService from '../services/geminiService';
 import * as OneMinService from '../services/oneMinService';
 
 const FONT_OPTIONS = [
@@ -142,7 +140,7 @@ const SubtitleConverter: React.FC<SubtitleConverterProps> = ({ aiModels = [] }) 
     const [isDragging, setIsDragging] = useState(false);
     const [previewIndex, setPreviewIndex] = useState(0);
     const [showAIModal, setShowAIModal] = useState(false);
-    const [aiSelectedModel, setAiSelectedModel] = useState(INTERNAL_MODELS.FAST);
+    const [aiSelectedModel, setAiSelectedModel] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
     const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
     const dragCounter = useRef(0);
@@ -186,10 +184,8 @@ const SubtitleConverter: React.FC<SubtitleConverterProps> = ({ aiModels = [] }) 
 
     // ── AI Smart Splitting ─────────────────────────────────────────
     const aiGroupedModels = useMemo(() => {
-        const internal = { id: 'internal-fast', name: 'Gemini Flash', apiCode: INTERNAL_MODELS.FAST, provider: 'Google (Interne)', cost: 'low' as const, isInternal: true };
-        const all: any[] = [internal, ...aiModels];
         const groups: Record<string, any[]> = {};
-        all.forEach(m => { const p = m.provider?.trim() || 'Autres'; if (!groups[p]) groups[p] = []; groups[p].push(m); });
+        aiModels.forEach(m => { const p = m.provider?.trim() || 'Autres'; if (!groups[p]) groups[p] = []; groups[p].push(m); });
         return groups;
     }, [aiModels]);
 
@@ -219,16 +215,7 @@ Réponds UNIQUEMENT avec un JSON valide au format suivant (tableau de strings) :
 
 Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs doit redonner le texte original complet.`;
 
-            let responseText: string;
-            if (isOneMinModel(aiSelectedModel, aiModels)) {
-                responseText = await OneMinService.generateContent({ model: aiSelectedModel, prompt });
-            } else {
-                responseText = await GeminiService.generateContent({
-                    model: aiSelectedModel,
-                    prompt,
-                    generationConfig: { response_mime_type: 'application/json' },
-                });
-            }
+            const responseText = await OneMinService.generateContent({ model: aiSelectedModel, prompt });
 
             // Parse the JSON array
             const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
@@ -613,10 +600,9 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-2.5">
-                                                    {model.isInternal ? <Zap className="w-4 h-4 text-yellow-500 fill-yellow-500" /> : <Cpu className="w-4 h-4 text-brand-main/30 dark:text-dark-text/30" />}
+                                                    <Cpu className="w-4 h-4 text-brand-main/30 dark:text-dark-text/30" />
                                                     <div>
                                                         <div className="text-sm font-semibold text-brand-main dark:text-white">{model.name}</div>
-                                                        {model.isInternal && <span className="text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded-sm">Recommandé</span>}
                                                     </div>
                                                 </div>
                                                 {model.cost && (() => {

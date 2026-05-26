@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu } from 'lucide-react';
-import { ContentItem, ContentStatus, ContextItem, AIModel, Verdict, Platform, DisplayPrefs, isTargetOffer, isProfondeur } from './types';
+import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
+import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, isTargetOffer, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
-import * as GeminiService from './services/geminiService';
-import { AI_ACTIONS, INTERNAL_MODELS, isOneMinModel } from './ai/actions';
+import { AI_ACTIONS } from './ai/actions';
 import * as OneMinService from './services/oneMinService';
 
 import SettingsPanel from './components/SettingsPanel';
@@ -16,7 +15,6 @@ import CalendarView from './components/CalendarView';
 import { LoginPage } from './components/LoginPage';
 import { isAuthenticated, logout } from './auth';
 import { AlertModal } from './components/CommonModals';
-import { AIConfigModal } from './components/AIConfigModal';
 import SubtitleConverter from './components/SubtitleConverter';
 import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 
@@ -70,7 +68,6 @@ function App() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [items, setItems] = useState<ContentItem[]>([]);
-  const [contexts, setContexts] = useState<ContextItem[]>([]);
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   
   const [isInitializing, setIsInitializing] = useState(true);
@@ -89,7 +86,7 @@ function App() {
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [settingsPanelInitialTab, setSettingsPanelInitialTab] = useState<'display' | 'models' | 'contexts'>('display');
+  const [settingsPanelInitialTab, setSettingsPanelInitialTab] = useState<'display' | 'models' | 'personas'>('display');
 
   const [displayPrefs, setDisplayPrefsState] = useState<DisplayPrefs>(() => StorageService.getDisplayPrefs());
 
@@ -97,20 +94,17 @@ function App() {
       setDisplayPrefsState(prefs);
       StorageService.setDisplayPrefs(prefs);
   };
-  
-  // New state for AI Configuration Flow
-  const [aiConfigState, setAiConfigState] = useState<{
-      isOpen: boolean;
-      mode: 'single' | 'batch';
-      itemId?: string;
-  }>({ isOpen: false, mode: 'single' });
+
+  // Modèle IA actif — vérité runtime localStorage, seedé depuis le modèle Notion « Défaut ».
+  const [activeModelId, setActiveModelIdState] = useState<string>(
+      () => StorageService.getActiveModelId() || ''
+  );
 
   // State for Batch Analysis Execution Modal
   const [batchAnalysisState, setBatchAnalysisState] = useState<{
       isOpen: boolean;
-      contextId: string;
       modelId: string;
-  }>({ isOpen: false, contextId: '', modelId: '' });
+  }>({ isOpen: false, modelId: '' });
 
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
@@ -171,30 +165,27 @@ function App() {
 
   const initData = async () => {
       let cachedItems: ContentItem[] = [];
-      let cachedContexts: ContextItem[] = [];
       let cachedModels: AIModel[] = [];
       try {
-          [cachedItems, cachedContexts, cachedModels] = await Promise.all([
+          [cachedItems, cachedModels] = await Promise.all([
               StorageService.getCachedContent(),
-              StorageService.getCachedContexts(),
               StorageService.getCachedModels()
           ]);
-          
+
           if (cachedItems.length > 0) setItems(cachedItems);
-          if (cachedContexts.length > 0) setContexts(cachedContexts);
           if (cachedModels.length > 0) setAiModels(cachedModels);
-          
+
       } catch (e) {
           console.error("Erreur lecture cache:", e);
       } finally {
           setIsInitializing(false);
-          syncWithNotion(false, { items: cachedItems, contexts: cachedContexts, models: cachedModels });
+          syncWithNotion(false, { items: cachedItems, models: cachedModels });
       }
   };
 
   const syncWithNotion = async (
       forceFullSync = false,
-      baseCache?: { items?: ContentItem[]; contexts?: ContextItem[]; models?: AIModel[] }
+      baseCache?: { items?: ContentItem[]; models?: AIModel[] }
   ) => {
     if (isSyncing) return;
     setIsSyncing(true);
@@ -205,11 +196,9 @@ function App() {
         const fullSyncThresholdMs = 24 * 60 * 60 * 1000;
 
         const lastContentSync = StorageService.getLastSync("content");
-        const lastContextsSync = StorageService.getLastSync("contexts");
         const lastModelsSync = StorageService.getLastSync("models");
 
         const lastContentFullSync = StorageService.getLastFullSync("content");
-        const lastContextsFullSync = StorageService.getLastFullSync("contexts");
         const lastModelsFullSync = StorageService.getLastFullSync("models");
 
         const shouldFullSync = (lastFullSync: string | null) => {
@@ -222,45 +211,35 @@ function App() {
         const contentSince = forceFullSync
             ? undefined
             : (shouldFullSync(lastContentFullSync) ? undefined : lastContentSync || undefined);
-        const contextsSince = forceFullSync
-            ? undefined
-            : (shouldFullSync(lastContextsFullSync) ? undefined : lastContextsSync || undefined);
         const modelsSince = forceFullSync
             ? undefined
             : (shouldFullSync(lastModelsFullSync) ? undefined : lastModelsSync || undefined);
 
-        const [fetchedContent, fetchedContexts, fetchedModels] = await Promise.all([
+        const [fetchedContent, fetchedModels] = await Promise.all([
             NotionService.fetchContent(contentSince),
-            NotionService.fetchContexts(contextsSince),
             NotionService.fetchModels(modelsSince)
         ]);
 
         const baseItems = contentSince ? (baseCache?.items ?? items) : [];
-        const baseContexts = contextsSince ? (baseCache?.contexts ?? contexts) : [];
         const baseModels = modelsSince ? (baseCache?.models ?? aiModels) : [];
 
         const nextItems = sortByLastEditedDesc(
             contentSince ? mergeById(baseItems, fetchedContent) : fetchedContent
         );
-        const nextContexts = contextsSince ? mergeById(baseContexts, fetchedContexts) : fetchedContexts;
         const nextModels = modelsSince ? mergeById(baseModels, fetchedModels) : fetchedModels;
-        
+
         setItems(nextItems);
-        setContexts(nextContexts);
         setAiModels(nextModels);
 
         await Promise.all([
             StorageService.setCachedContent(nextItems),
-            StorageService.setCachedContexts(nextContexts),
             StorageService.setCachedModels(nextModels)
         ]);
 
         StorageService.setLastSync("content", nowIso);
-        StorageService.setLastSync("contexts", nowIso);
         StorageService.setLastSync("models", nowIso);
 
         if (!contentSince) StorageService.setLastFullSync("content", nowIso);
-        if (!contextsSince) StorageService.setLastFullSync("contexts", nowIso);
         if (!modelsSince) StorageService.setLastFullSync("models", nowIso);
 
     } catch (err: any) {
@@ -291,19 +270,32 @@ function App() {
     logout();
     setAuthenticated(false);
     setItems([]);
-    setContexts([]);
     setAiModels([]);
     setIsInitializing(true);
-  };
-
-  const handleContextsChange = (newContexts: ContextItem[]) => {
-      setContexts(newContexts);
-      StorageService.setCachedContexts(newContexts); 
   };
 
   const handleModelsChange = (newModels: AIModel[]) => {
       setAiModels(newModels);
       StorageService.setCachedModels(newModels);
+  };
+
+  // Seed du modèle actif depuis le « Défaut » Notion, tant que l'utilisateur n'a pas choisi explicitement.
+  useEffect(() => {
+      if (StorageService.getActiveModelId()) return; // choix explicite déjà fait
+      const def = aiModels.find(m => m.isDefault) || aiModels[0];
+      if (def) setActiveModelIdState(def.apiCode);
+  }, [aiModels]);
+
+  const handleActiveModelChange = (modelId: string) => {
+      setActiveModelIdState(modelId);
+      StorageService.setActiveModelId(modelId);
+      // Write-back Notion best-effort : la case « Défaut » suit le choix.
+      const chosen = aiModels.find(m => m.apiCode === modelId);
+      const previousDefaults = aiModels.filter(m => m.isDefault && m.apiCode !== modelId);
+      previousDefaults.forEach(m => NotionService.setModelDefault(m.id, false).catch(console.error));
+      if (chosen) NotionService.setModelDefault(chosen.id, true).catch(console.error);
+      // Reflète l'état localement
+      setAiModels(prev => prev.map(m => ({ ...m, isDefault: m.apiCode === modelId })));
   };
 
   const handleQuickAddIdea = async (title: string, notes: string, targetFormat?: string | null) => {
@@ -351,7 +343,9 @@ function App() {
           });
           return;
       }
-      setAiConfigState({ isOpen: true, mode: 'batch' });
+      // Plus de modale de config : on ouvre directement l'exécuteur batch avec le modèle actif.
+      // AnalysisModal a son propre écran de démarrage (confirmation + progression).
+      setBatchAnalysisState({ isOpen: true, modelId: activeModelId });
   };
 
   const handleAnalysisComplete = () => {
@@ -405,34 +399,20 @@ function App() {
       }
   };
 
-  // --- NEW AI ANALYSIS FLOW ---
+  // --- AI ANALYSIS FLOW (sans modale — modèle actif global) ---
 
   const triggerSingleAnalysis = (item: ContentItem) => {
-      setAiConfigState({ isOpen: true, mode: 'single', itemId: item.id });
+      void performSingleAnalysis(activeModelId, item.id);
   };
 
-  const handleAIConfigConfirm = async (contextId: string, modelId: string) => {
-      const mode = aiConfigState.mode;
-      const itemId = aiConfigState.itemId;
-      
-      setAiConfigState({ isOpen: false, mode: 'single' }); 
-
-      if (mode === 'single') {
-          await performSingleAnalysis(contextId, modelId, itemId);
-      } else {
-          setBatchAnalysisState({ isOpen: true, contextId, modelId });
-      }
-  };
-
-  const performSingleAnalysis = async (contextId: string, modelId: string, itemId?: string) => {
+  const performSingleAnalysis = async (modelId: string, itemId?: string) => {
       const itemToAnalyze = items.find(i => i.id === itemId);
       if (!itemToAnalyze) return;
 
       setIsSingleAnalyzing(true);
       try {
           const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
-          const contextItem = contextId ? contexts.find(c => c.id === contextId) : undefined;
-          const systemInstruction = actionConfig.getSystemInstruction(contextItem?.description);
+          const systemInstruction = actionConfig.getSystemInstruction(undefined);
 
           const contentPayload = [{
               id: itemToAnalyze.id,
@@ -441,23 +421,12 @@ function App() {
               format_cible: itemToAnalyze.targetFormat || "Non précisé",
           }];
           
-          let responseText = "";
-          
-          if (isOneMinModel(modelId, aiModels)) {
-              responseText = await OneMinService.generateContent({
-                  model: modelId,
-                  systemInstruction: systemInstruction,
-                  prompt: JSON.stringify(contentPayload)
-              });
-          } else {
-              responseText = await GeminiService.generateContent({
-                  model: modelId,
-                  systemInstruction: systemInstruction,
-                  prompt: JSON.stringify(contentPayload),
-                  generationConfig: actionConfig.generationConfig
-              });
-          }
-          
+          const responseText = await OneMinService.generateContent({
+              model: modelId,
+              systemInstruction: systemInstruction,
+              prompt: JSON.stringify(contentPayload)
+          });
+
           let results: any[] = [];
           try {
               results = JSON.parse(responseText);
@@ -480,9 +449,8 @@ function App() {
               const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
               const depth = isProfondeur(res.profondeur) ? res.profondeur : undefined;
 
-              const contextName = contextItem?.name || "Contexte par défaut";
-              const modelName = aiModels.find(m => m.apiCode === modelId)?.name || (modelId === INTERNAL_MODELS.FAST ? "Gemini Flash" : modelId);
-              const signature = `\n\n_Généré par : ${modelName} - ${contextName} - le ${new Date().toLocaleString('fr-FR')}_`;
+              const modelName = aiModels.find(m => m.apiCode === modelId)?.name || modelId;
+              const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
               const rawAngle = (res.angle_strategique ?? res.angle ?? "");
               const angleWithTitle = suggestedTitle
@@ -509,11 +477,6 @@ function App() {
       } finally {
           setIsSingleAnalyzing(false);
       }
-  };
-
-  const handleOpenContextManagerFromEditor = () => {
-      setSettingsPanelInitialTab('contexts');
-      setIsSettingsPanelOpen(true);
   };
 
   const openSettingsFromSidebar = () => {
@@ -625,7 +588,24 @@ function App() {
               </h1>
             </div>
 
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-1.5">
+                 {/* Sélecteur global du modèle IA — utilisé par toutes les actions */}
+                 <div className="relative flex items-center">
+                     <Cpu className="w-[13px] h-[13px] absolute left-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />
+                     <select
+                        value={activeModelId}
+                        onChange={(e) => handleActiveModelChange(e.target.value)}
+                        title="Modèle IA utilisé par toutes les actions"
+                        className="appearance-none pl-7 pr-7 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
+                     >
+                        {aiModels.length === 0 && <option value="">Aucun modèle configuré</option>}
+                        {aiModels.map(m => (
+                            <option key={m.id} value={m.apiCode}>{m.name}</option>
+                        ))}
+                     </select>
+                     <ChevronDown className="w-3 h-3 absolute right-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />
+                 </div>
+
                  <button
                     onClick={() => syncWithNotion(true)}
                     disabled={isSyncing}
@@ -702,12 +682,11 @@ function App() {
                 {editingItem && editingItem.status !== ContentStatus.IDEA ? (
                     <ContentEditor
                         item={editingItem}
-                        contexts={contexts}
                         aiModels={aiModels}
+                        activeModelId={activeModelId}
                         onClose={handleCloseEditor}
                         onSave={handleUpdateItem}
                         onDelete={handleDeleteItem}
-                        onManageContexts={handleOpenContextManagerFromEditor}
                         activeStep={currentEditorStep}
                         onStepChange={handleStepChange}
                         initialAction={pendingEditorAction}
@@ -794,37 +773,17 @@ function App() {
                     isOpen={batchAnalysisState.isOpen}
                     onClose={() => setBatchAnalysisState({ ...batchAnalysisState, isOpen: false })}
                     itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed)}
-                    contexts={contexts}
                     aiModels={aiModels}
-                    selectedContextId={batchAnalysisState.contextId}
                     selectedModelId={batchAnalysisState.modelId}
                     onAnalysisComplete={handleAnalysisComplete}
                 />
-                
-                <AlertModal 
+
+                <AlertModal
                     isOpen={alertInfo.isOpen}
                     onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
                     title={alertInfo.title}
                     message={alertInfo.message}
                     type={alertInfo.type}
-                />
-
-                <AIConfigModal
-                    isOpen={aiConfigState.isOpen}
-                    onClose={() => setAiConfigState({ ...aiConfigState, isOpen: false })}
-                    onConfirm={handleAIConfigConfirm}
-                    contexts={contexts}
-                    aiModels={aiModels}
-                    actionType="analyze"
-                    onManageContexts={handleOpenContextManagerFromEditor}
-                    dataSummary={(() => {
-                        const labels = ['Titre', 'Notes'];
-                        if (aiConfigState.mode === 'batch') {
-                            const count = items.filter(i => !i.analyzed && i.status === ContentStatus.IDEA).length;
-                            labels.push(`${count} idée${count > 1 ? 's' : ''} à analyser`);
-                        }
-                        return labels;
-                    })()}
                 />
             </main>
         )}
@@ -835,10 +794,10 @@ function App() {
           onClose={() => setIsSettingsPanelOpen(false)}
           displayPrefs={displayPrefs}
           onDisplayPrefsChange={handleDisplayPrefsChange}
-          contexts={contexts}
-          onContextsChange={handleContextsChange}
           aiModels={aiModels}
           onModelsChange={handleModelsChange}
+          activeModelId={activeModelId}
+          onActiveModelChange={handleActiveModelChange}
           initialTab={settingsPanelInitialTab}
       />
     </div>
