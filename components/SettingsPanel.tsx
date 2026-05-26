@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
-    X, SlidersHorizontal, Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2
+    X, SlidersHorizontal, Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2,
+    FlaskConical, AlertCircle, ChevronRight
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as NotionService from '../services/notionService';
+import * as OneMinService from '../services/oneMinService';
 import { ConfirmModal } from './CommonModals';
 import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '../ai/prompts';
 import { VOICE_RULES } from '../ai/voice';
@@ -110,6 +112,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         name: '', apiCode: '', cost: 'medium', provider: '', strengths: '', bestUseCases: '', textQuality: 3
     });
 
+    // Test model state
+    const [testApiCode, setTestApiCode] = useState('');
+    const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+    const [testResult, setTestResult] = useState<OneMinService.ModelTestResult | null>(null);
+
     const prefs = { ...DEFAULT_DISPLAY_PREFS, ...displayPrefs };
     const setPref = <K extends keyof DisplayPrefs>(key: K, value: DisplayPrefs[K]) => {
         onDisplayPrefsChange({ ...prefs, [key]: value });
@@ -161,6 +168,51 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setEditingId(null);
         setIsCreating(true);
         setEditModel({ name: '', apiCode: '', cost: 'medium', provider: '', strengths: '', bestUseCases: '', textQuality: 3 });
+    };
+
+    // Devine le fournisseur à partir du préfixe du code API.
+    const guessProvider = (apiCode: string): string => {
+        const c = apiCode.toLowerCase();
+        if (c.startsWith('claude') || c.includes('anthropic')) return 'Anthropic';
+        if (c.startsWith('gpt-') || c.startsWith('o1') || c.startsWith('o3') || c.startsWith('o4')) return 'OpenAI';
+        if (c.startsWith('gemini') || c.includes('google')) return 'Google';
+        if (c.startsWith('mistral') || c.startsWith('codestral')) return 'Mistral';
+        if (c.startsWith('deepseek')) return 'DeepSeek';
+        if (c.startsWith('grok')) return 'xAI';
+        if (c.startsWith('llama')) return 'Meta';
+        if (c.startsWith('command') || c.includes('cohere')) return 'Cohere';
+        if (c.startsWith('qwen')) return 'Alibaba';
+        return '';
+    };
+
+    const handleTestModel = async () => {
+        const code = testApiCode.trim();
+        if (!code || testStatus === 'testing') return;
+        setTestStatus('testing');
+        setTestResult(null);
+        const result = await OneMinService.testModel(code);
+        setTestResult(result);
+        setTestStatus(result.available ? 'success' : 'error');
+    };
+
+    const handlePrefillFromTest = () => {
+        const code = testApiCode.trim();
+        if (!code) return;
+        setEditModel({
+            name: code,
+            apiCode: code,
+            provider: guessProvider(code),
+            cost: 'medium',
+            textQuality: 3,
+            strengths: '',
+            bestUseCases: '',
+        });
+        setIsCreating(true);
+        setEditingId(null);
+        // Reset test state
+        setTestApiCode('');
+        setTestStatus('idle');
+        setTestResult(null);
     };
 
     const backToList = () => {
@@ -330,6 +382,94 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 <Plus className="w-3.5 h-3.5" />
                                 Ajouter un modèle
                             </button>
+
+                            {/* Panneau de test d'un code API */}
+                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/40 dark:bg-dark-bg/40 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-brand-main/40 dark:text-dark-text/40 flex items-center gap-1.5 mb-2">
+                                    <FlaskConical className="w-3 h-3" />
+                                    Tester un code API 1min.AI
+                                </p>
+                                <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 leading-relaxed mb-2">
+                                    Vérifie si un modèle (ex : <code className="font-mono">claude-opus-4-7</code>) répond. Requête mini, ~1 token de coût.
+                                </p>
+                                <div className="flex items-stretch gap-1.5">
+                                    <input
+                                        type="text"
+                                        value={testApiCode}
+                                        onChange={(e) => {
+                                            setTestApiCode(e.target.value);
+                                            if (testStatus !== 'idle' && testStatus !== 'testing') {
+                                                setTestStatus('idle');
+                                                setTestResult(null);
+                                            }
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && testApiCode.trim()) handleTestModel();
+                                        }}
+                                        placeholder="ex : claude-opus-4-7"
+                                        disabled={testStatus === 'testing'}
+                                        className="flex-1 min-w-0 px-3 py-1.5 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg font-mono text-xs text-brand-main dark:text-white outline-hidden placeholder-brand-main/30 transition-colors"
+                                    />
+                                    <button
+                                        onClick={handleTestModel}
+                                        disabled={!testApiCode.trim() || testStatus === 'testing'}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-xs font-bold rounded-lg shadow-sm transition-colors disabled:opacity-40 whitespace-nowrap"
+                                    >
+                                        {testStatus === 'testing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+                                        Tester
+                                    </button>
+                                </div>
+
+                                {/* Résultat du test */}
+                                {testStatus === 'success' && testResult && (
+                                    <div className="mt-2 rounded-lg border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 p-2.5">
+                                        <div className="flex items-start gap-2">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                                                    Disponible
+                                                    {typeof testResult.latencyMs === 'number' && (
+                                                        <span className="ml-1.5 font-normal opacity-70">· {testResult.latencyMs} ms</span>
+                                                    )}
+                                                </p>
+                                                {testResult.sample && (
+                                                    <p className="text-[11px] text-emerald-700/70 dark:text-emerald-300/70 mt-0.5 italic break-words">
+                                                        « {testResult.sample} »
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={handlePrefillFromTest}
+                                            className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                                        >
+                                            Pré-remplir et créer le modèle
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                )}
+
+                                {testStatus === 'error' && testResult && (
+                                    <div className="mt-2 rounded-lg border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/20 p-2.5">
+                                        <div className="flex items-start gap-2">
+                                            <AlertCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-red-700 dark:text-red-300">
+                                                    Indisponible
+                                                    {typeof testResult.latencyMs === 'number' && (
+                                                        <span className="ml-1.5 font-normal opacity-70">· {testResult.latencyMs} ms</span>
+                                                    )}
+                                                </p>
+                                                {testResult.error && (
+                                                    <p className="text-[11px] text-red-700/80 dark:text-red-300/80 mt-0.5 break-words">
+                                                        {testResult.error}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 leading-relaxed px-1">
                                 Le modèle marqué <strong>« Défaut »</strong> est utilisé par toutes les actions IA. Modifiable aussi depuis le sélecteur en haut de l'app.

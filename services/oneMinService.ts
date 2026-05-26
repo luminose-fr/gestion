@@ -66,6 +66,75 @@ const buildConversationPrompt = (history: ChatMessage[], latestPrompt: string): 
     return `HISTORIQUE DE LA CONVERSATION JUSQU'ICI :\n\n${transcript}\n\n---\n\nMESSAGE ACTUEL DE FLORENT :\n${latestPrompt}\n\n---\n\nRÉPONDS MAINTENANT en tenant compte de tout l'historique.`;
 };
 
+export interface ModelTestResult {
+    /** Le modèle est-il accepté par 1min.AI et a-t-il répondu ? */
+    available: boolean;
+    /** Message d'erreur en cas d'échec (modèle inconnu, API key, etc.) */
+    error?: string;
+    /** Début de la réponse du modèle (max 80 caractères) — preuve que ça marche. */
+    sample?: string;
+    /** Temps de réponse en ms. */
+    latencyMs?: number;
+}
+
+/**
+ * Teste si un code API 1min.AI est valide et répond, avec la requête la plus
+ * minimale possible (prompt "ping"). Coût attendu : 1-2 tokens — quelques fractions
+ * de centime même sur un modèle premium.
+ */
+export const testModel = async (apiCode: string): Promise<ModelTestResult> => {
+    const code = apiCode.trim();
+    if (!code) {
+        return { available: false, error: 'Code API vide.' };
+    }
+    const started = Date.now();
+    try {
+        const messageResponse = await fetch1Min('chat', {
+            type: "UNIFY_CHAT_WITH_AI",
+            model: code,
+            promptObject: {
+                prompt: 'ping',
+                settings: {
+                    webSearchSettings: { webSearch: false },
+                    historySettings: { isMixed: false, historyMessageLimit: 1 },
+                    withMemories: false,
+                },
+            }
+        });
+
+        // Extraction du résultat (même logique que generateContent)
+        const aiRecord = messageResponse?.aiRecord;
+        const resultObject = aiRecord?.aiRecordDetail?.resultObject;
+        let sample = '';
+        if (resultObject && Array.isArray(resultObject) && resultObject.length > 0) {
+            sample = String(resultObject[0] ?? '');
+        } else {
+            sample = String(messageResponse?.response || messageResponse?.text || messageResponse?.output || '');
+        }
+
+        if (!sample) {
+            // Réponse 2xx mais vide — bizarre, on considère disponible mais on signale
+            return {
+                available: true,
+                sample: '(réponse vide)',
+                latencyMs: Date.now() - started,
+            };
+        }
+
+        return {
+            available: true,
+            sample: sample.replace(/\s+/g, ' ').trim().slice(0, 80),
+            latencyMs: Date.now() - started,
+        };
+    } catch (e: any) {
+        return {
+            available: false,
+            error: e?.message || 'Erreur inconnue',
+            latencyMs: Date.now() - started,
+        };
+    }
+};
+
 export const generateContent = async (request: OneMinRequest): Promise<string> => {
     try {
         // Construction du prompt final avec historique éventuel
