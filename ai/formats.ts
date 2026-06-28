@@ -191,9 +191,20 @@ DENSITÉ (NON NÉGOCIABLE — l'œil lit en 2 secondes sur un réseau social) :
 - "texte" : 25 mots MAXIMUM (soit ~2 phrases courtes). Si ça dépasse, c'est trop.
 - Si tu ne sais pas comment dire plus court : coupe plutôt que d'allonger.
 
+LÉGENDE DE PUBLICATION (le texte qui accompagne les images sous le post) :
+Le carrousel ne se suffit pas à lui-même : sous les images, il y a la légende — le texte du post Instagram/LinkedIn. Tu la rédiges dans un objet "legende" au niveau racine du JSON (à côté de "slides"), avec :
+- "texte" : l'accroche + le corps de la légende. Une première ligne qui arrête le scroll (les réseaux coupent après ~125 caractères, donc l'essentiel passe au début), puis 2-4 courts paragraphes qui prolongent le propos du carrousel sans le répéter mot pour mot. C'est la voix de Florent, incarnée, avec sa métaphore filée. Sauts de ligne autorisés (\\n).
+- "cta" : une seule phrase d'appel à l'action, cohérente avec la cible offre (commenter, partager, écrire en DM, "lien en bio"…). Sans emoji.
+- "hashtags" : un tableau de 5 à 12 hashtags pertinents (string commençant par #, sans espace), mélangeant thématique psy/thérapie et niche de l'offre.
+
 FORMAT JSON ATTENDU :
 {
   "format": "Carrousel",
+  "legende": {
+    "texte": "Accroche forte en première ligne.\\n\\nPuis 2-4 paragraphes courts qui prolongent le propos, dans la voix de Florent.",
+    "cta": "Phrase d'appel à l'action, sans emoji.",
+    "hashtags": ["#therapie", "#psychologie", "#..."]
+  },
   "slides": [
     {
       "numero": 1,
@@ -218,6 +229,7 @@ FORMAT JSON ATTENDU :
 RÈGLES STRICTES :
 - "intention_visuelle" est OBLIGATOIRE pour chaque slide de type ILLUSTRÉE, et DOIT être null pour TYPO.
 - "intention_visuelle" est rédigée en français, c'est une direction éditoriale (ce qu'on veut voir), pas un prompt technique.
+- Le bloc "legende" (texte + cta + hashtags) est OBLIGATOIRE, au niveau racine, à côté de "slides".
 - Pas de champ "visuel" ni de champ "contenu" : utilise exactement les champs nommés ci-dessus.
 - Retourne UNIQUEMENT le JSON, sans balises markdown ni texte d'intro.
     `.trim(),
@@ -227,6 +239,8 @@ RÈGLES STRICTES :
             if (s.titre) out.push(t(s.titre));
             if (s.texte) out.push(t(s.texte));
         });
+        if (data.legende?.texte) out.push(t(data.legende.texte));
+        if (data.legende?.cta) out.push(t(data.legende.cta));
         return out.filter(Boolean).join(' ');
     }
 };

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Check, Copy } from 'lucide-react';
 import { Profondeur, TargetFormat } from '../../../types';
 
 // ── Helpers partagés entre les renderers ──
@@ -117,6 +118,92 @@ export const buildPostCourtText = (body: string): string => {
     } catch {
         return body;
     }
+};
+
+// ── Carrousel : légende de publication (texte qui accompagne les images) ──
+
+export interface LegendeCarrousel {
+    texte?: string;
+    cta?: string;
+    hashtags?: string[];
+}
+
+/** Construit la légende « prête à copier » d'un carrousel (texte + CTA + hashtags). */
+export const buildLegendeText = (legende?: LegendeCarrousel | null): string => {
+    if (!legende) return "";
+    const parts: string[] = [];
+    if (t(legende.texte)) parts.push(t(legende.texte));
+    if (t(legende.cta))   parts.push(t(legende.cta));
+    const tags = Array.isArray(legende.hashtags)
+        ? legende.hashtags.map(t).filter(Boolean)
+        : [];
+    if (tags.length) parts.push(tags.join(' '));
+    return parts.join("\n\n");
+};
+
+/**
+ * Affichage de la légende de publication d'un carrousel.
+ * Réutilisé dans le brouillon (BodyRenderer) et sur les slides (SlidesRenderer).
+ * Bouton « Copier » qui copie texte + CTA + hashtags d'un bloc.
+ */
+export const CarrouselLegende: React.FC<{ legende?: LegendeCarrousel | null }> = ({ legende }) => {
+    const [copied, setCopied] = useState(false);
+
+    const fullText = buildLegendeText(legende);
+    if (!fullText) return null;
+
+    const tags = Array.isArray(legende?.hashtags)
+        ? legende!.hashtags!.map(t).filter(Boolean)
+        : [];
+
+    const handleCopy = async () => {
+        const ok = await copyTextToClipboard(fullText);
+        if (ok) {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    return (
+        <div className="rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10 p-5">
+            <div className="flex items-center justify-between gap-2 mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">
+                    Légende de publication
+                </p>
+                <button
+                    onClick={handleCopy}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        copied
+                            ? 'border-emerald-700 bg-emerald-600 text-white'
+                            : 'border-blue-300 bg-white text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/30'
+                    }`}
+                    title="Copier la légende complète (texte + CTA + hashtags)"
+                >
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? 'Copié' : 'Copier'}
+                </button>
+            </div>
+            {t(legende?.texte) && (
+                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
+                    {t(legende!.texte)}
+                </p>
+            )}
+            {t(legende?.cta) && (
+                <p className="mt-3 text-sm font-semibold text-brand-main dark:text-white">
+                    {t(legende!.cta)}
+                </p>
+            )}
+            {tags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                    {tags.map((tag, i) => (
+                        <span key={i} className="text-xs font-medium text-blue-600 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/30 rounded-md px-2 py-0.5">
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 };
 
 /** Extrait le prompt Dzine d'un Post Texte structuré. */

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pencil } from 'lucide-react';
 import { TargetFormat } from '../../../types';
-import { parseBodyJson, t, Block, BlockPre } from './shared';
+import { parseBodyJson, t, Block, BlockPre, CarrouselLegende } from './shared';
 
 interface BodyRendererProps {
     body: string;
@@ -124,6 +124,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
                     </div>
                 );
             })}
+            <CarrouselLegende legende={data.legende} />
         </div>
     );
 

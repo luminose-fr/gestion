@@ -131,11 +131,12 @@ Tu reçois le JSON brouillon complet du carrousel (cf. "Contenu carrousel" ci-de
 - "prompt_dzine" est une string en anglais (50-80 mots) pour les slides de type "ILLUSTRÉE".
 - "prompt_dzine" est null pour les slides de type "TYPO".
 
-Tu ne touches à AUCUN autre champ : "numero", "role", "type", "titre", "texte", "intention_visuelle" sont recopiés à l'identique. Tu ne supprimes ni n'ajoutes de slide.
+Tu ne touches à AUCUN autre champ : "numero", "role", "type", "titre", "texte", "intention_visuelle" sont recopiés à l'identique. Le bloc racine "legende" (texte, cta, hashtags) est RECOPIÉ À L'IDENTIQUE — tu ne le réécris pas, tu ne le supprimes pas. Tu ne supprimes ni n'ajoutes de slide.
 
 FORMAT DE SORTIE (STRICT) :
 {
   "format": "Carrousel",
+  "legende": { "texte": "…recopié à l'identique…", "cta": "…recopié…", "hashtags": ["#…"] },
   "slides": [
     {
       "numero": 1,
@@ -182,6 +183,7 @@ RÈGLES STRICTES :
 - Tu modifies UNIQUEMENT le(s) champ(s) "prompt_dzine" ciblé(s) par la cible.
 - Pour les slides type="TYPO", "prompt_dzine" reste null (jamais d'image).
 - Tous les autres champs (numero, role, type, titre, texte, intention_visuelle) sont RECOPIÉS À L'IDENTIQUE.
+- Le bloc racine "legende" (texte, cta, hashtags), s'il est présent, est RECOPIÉ À L'IDENTIQUE.
 - Le nombre de slides reste identique. Aucune slide ajoutée ni supprimée.
 - Les prompts ajustés restent en anglais, 50-80 mots, prêts pour Dzine.
 - Les autres prompts_dzine (non ciblés) ne changent pas — recopie-les à l'identique.

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check, Copy, Wand2, X, Loader2, Send } from 'lucide-react';
-import { copyTextToClipboard } from './shared';
+import { copyTextToClipboard, CarrouselLegende } from './shared';
 
 interface SlidesRendererProps {
     slidesRaw: string;
@@ -10,7 +10,7 @@ interface SlidesRendererProps {
     isAdjusting?: boolean;
 }
 
-const parseSlidesJson = (raw: string): { slides: any[] } | null => {
+const parseSlidesJson = (raw: string): { slides: any[]; legende?: any } | null => {
     try {
         const lastBrace = raw.lastIndexOf('}');
         const cleaned = lastBrace !== -1 ? raw.slice(0, lastBrace + 1) : raw;
@@ -254,6 +254,9 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                     </div>
                 ))}
             </div>
+
+            {/* ── Légende de publication ── */}
+            <CarrouselLegende legende={parsed.legende} />
         </div>
     );
 };

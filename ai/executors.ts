@@ -180,6 +180,15 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
                 if (texte) out.push(texte);
                 if (intention) out.push(`*Intention visuelle :* ${intention}`);
             });
+            const legende = data.legende;
+            if (legende && typeof legende === 'object') {
+                const tags = Array.isArray(legende.hashtags) ? legende.hashtags.map(text).filter(Boolean) : [];
+                const legParts: string[] = [];
+                if (text(legende.texte)) legParts.push(text(legende.texte));
+                if (text(legende.cta))   legParts.push(text(legende.cta));
+                if (tags.length)         legParts.push(tags.join(' '));
+                if (legParts.length) out.push(`**Légende de publication**\n${legParts.join("\n\n")}`);
+            }
             return out.join("\n\n");
         }
         case TargetFormat.NEWSLETTER: {
