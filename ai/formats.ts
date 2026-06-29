@@ -10,6 +10,7 @@
  */
 
 import { TargetFormat } from '../types';
+import { SITE_URL } from '../constants';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -48,8 +49,9 @@ Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un 
 {
   "format": "Post Texte",
   "accroche": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc. C'est le hook qui arrête le scroll.",
-  "corps": "Court et tendu : 8-12 lignes MAX. Chaque phrase doit faire avancer le propos — aucun paragraphe explicatif, aucune glose. Ne DIS PAS au lecteur ce qu'il ressent ou pourquoi ça marche (pas de 'Le truc, c'est que...', 'Ce n'est même pas confortable', 'Et le connu, ça rassure'). Montre par l'image et la scène, le lecteur comprend tout seul. Paragraphes de 1-2 phrases. Alternance prose/listes (→). Montée en tension rapide vers un moment de bascule (une phrase lâchée en séance, un silence, un aveu). La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse. Coupe tout ce qui ralentit : si une phrase n'ajoute pas de tension ou d'image nouvelle, elle n'a rien à faire là.",
-  "cta": "Question courte et tranchante pour engager la discussion. JAMAIS d'emoji.",
+  "corps": "Court et tendu : 8-12 lignes MAX. Chaque phrase doit faire avancer le propos — aucun paragraphe explicatif, aucune glose. Ne DIS PAS au lecteur ce qu'il ressent ou pourquoi ça marche (pas de 'Le truc, c'est que...', 'Ce n'est même pas confortable', 'Et le connu, ça rassure'). Montre par l'image et la scène, le lecteur comprend tout seul. Paragraphes de 1-2 phrases. Alternance prose/listes (→). Montée en tension rapide vers un moment de bascule (une phrase lâchée en séance, un silence, un aveu). ANCRAGE CABINET (OBLIGATOIRE) : à un moment du corps, raccroche explicitement la métaphore à ta pratique de thérapeute en cabinet — une phrase qui montre que ça vient de ce que tu observes en séance ('En cabinet, je vois...', 'La semaine dernière, un patient...', 'Sur mon divan...'). Sans ça, la métaphore ne parle qu'à ceux qui te connaissent déjà : le lecteur de passage doit comprendre que tu es praticien et que ce propos est clinique, pas théorique. La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse. Coupe tout ce qui ralentit : si une phrase n'ajoute pas de tension ou d'image nouvelle, elle n'a rien à faire là.",
+  "cta": "OBLIGATOIRE, jamais vide. Une question courte et tranchante pour engager la discussion, suivie d'une invitation à poursuivre sur le site. Tisse naturellement le lien ${SITE_URL} dans la phrase (ex : 'On en parle en consultation ? → ${SITE_URL}'). Reprends l'URL EXACTEMENT, sans la modifier ni l'abréger. JAMAIS d'emoji.",
+  "hashtags": ["OBLIGATOIRE : 5 à 10 hashtags pertinents (string commençant par #, sans espace), mêlant thérapie/psychologie et la niche du sujet. Pas de # générique creux (#motivation, #life)."],
   "visuel": "Description de l'image suggérée (format 1:1 ou 4:5). Préfère une scène avec un personnage plutôt qu'un détail abstrait isolé. L'accroche à incruster sur l'image gagne à reprendre la métaphore centrale du texte plutôt qu'un concept détaché.",
   "prompt_dzine": "Prompt détaillé en anglais, prêt à coller dans Dzine. 50-80 mots. Composition épurée, éclairage dramatique, mood émotionnel et introspectif. Évite les références à des peintres classiques (pas de 'Caravaggio', 'Rembrandt'...). Pas de texte à générer dans l'image. Cohérent avec le visuel suggéré."
 }
@@ -113,18 +115,26 @@ Ce format mise sur l'incarnation. Il utilise la matière des réponses vocales p
   "sections": [
     { "timing": "[0-3s]",   "role": "Accroche",   "texte": "L'accroche visuelle et verbale (le 'Quoi'). La phrase qui arrête le scroll.", "intention": "Note de rythme, ton, regard caméra, etc." },
     { "timing": "[3-15s]",  "role": "Constat",     "texte": "Empathie avec la douleur du client. On nomme ce qu'il vit.", "intention": "Note de rythme, pause, ton empathique, etc." },
-    { "timing": "[15-45s]", "role": "Bascule",     "texte": "L'apport de l'expertise via une image forte. La métaphore qui éclaire.", "intention": "Note de rythme, changement de ton, montée en intensité, etc." },
+    { "timing": "[15-45s]", "role": "Bascule",     "texte": "L'apport de l'expertise via une image forte. La métaphore qui éclaire. ANCRAGE CABINET (OBLIGATOIRE) : dis face caméra que ça vient de ta pratique de thérapeute ('En cabinet, je vois…', 'Un patient me disait…') pour que l'inconnu qui tombe sur le Reel comprenne que tu es praticien et que le propos est clinique.", "intention": "Note de rythme, changement de ton, montée en intensité, etc." },
     { "timing": "[45-60s]", "role": "Ouverture",   "texte": "Une réflexion qui reste en tête. Pas de résumé — une ouverture.", "intention": "Note de rythme, regard, silence final, etc." }
-  ]
+  ],
+  "legende": {
+    "texte": "La description écrite du Reel (≠ texte parlé). Première ligne qui arrête le scroll, puis 1-3 phrases qui prolongent le propos. Voix de Florent, avec un ancrage cabinet.",
+    "cta": "Une phrase d'appel à l'action. Liens non cliquables sur Reels/TikTok : invite via 'lien en bio' en précisant l'adresse en clair (ex : 'Lien en bio → ${SITE_URL}'). Reprends l'URL exactement. Sans emoji.",
+    "hashtags": ["#therapie", "#psychologie", "#... 5 à 10 hashtags pertinents, sans espace, sans # générique creux"]
+  }
 }
 Ton : Parlé, naturel, comme le transcript sur l'injustice. L'humour et le paradoxe sont les moteurs.
 Le script inclut des notes de rythme et d'intentions (pauses, ton) dans le champ "intention" de chaque section.
+Le bloc "legende" est OBLIGATOIRE : c'est la description publiée sous la vidéo (algorithme + engagement), distincte du script parlé.
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
         (data.sections || []).forEach((s: any) => {
             if (s.texte) out.push(t(s.texte));
         });
+        if (data.legende?.texte) out.push(t(data.legende.texte));
+        if (data.legende?.cta) out.push(t(data.legende.cta));
         return out.filter(Boolean).join(' ');
     }
 };
@@ -193,8 +203,8 @@ DENSITÉ (NON NÉGOCIABLE — l'œil lit en 2 secondes sur un réseau social) :
 
 LÉGENDE DE PUBLICATION (le texte qui accompagne les images sous le post) :
 Le carrousel ne se suffit pas à lui-même : sous les images, il y a la légende — le texte du post Instagram/LinkedIn. Tu la rédiges dans un objet "legende" au niveau racine du JSON (à côté de "slides"), avec :
-- "texte" : l'accroche + le corps de la légende. Une première ligne qui arrête le scroll (les réseaux coupent après ~125 caractères, donc l'essentiel passe au début), puis 2-4 courts paragraphes qui prolongent le propos du carrousel sans le répéter mot pour mot. C'est la voix de Florent, incarnée, avec sa métaphore filée. Sauts de ligne autorisés (\\n).
-- "cta" : une seule phrase d'appel à l'action, cohérente avec la cible offre (commenter, partager, écrire en DM, "lien en bio"…). Sans emoji.
+- "texte" : l'accroche + le corps de la légende. Une première ligne qui arrête le scroll (les réseaux coupent après ~125 caractères, donc l'essentiel passe au début), puis 2-4 courts paragraphes qui prolongent le propos du carrousel sans le répéter mot pour mot. C'est la voix de Florent, incarnée, avec sa métaphore filée. ANCRAGE CABINET (OBLIGATOIRE) : à un moment, raccroche la métaphore à ta pratique de thérapeute en cabinet ("En séance, je vois…", "Un patient me disait…") pour que le lecteur de passage comprenne que c'est clinique, pas théorique — sinon l'image ne parle qu'à ceux qui te connaissent déjà. Sauts de ligne autorisés (\\n).
+- "cta" : une seule phrase d'appel à l'action, cohérente avec la cible offre (commenter, partager, écrire en DM…). Comme les liens ne sont pas cliquables sur Instagram, invite via "lien en bio" et précise l'adresse en clair (ex : "Tout est sur le site, lien en bio → ${SITE_URL}"). Reprends l'URL exactement. Sans emoji.
 - "hashtags" : un tableau de 5 à 12 hashtags pertinents (string commençant par #, sans espace), mélangeant thématique psy/thérapie et niche de l'offre.
 
 FORMAT JSON ATTENDU :
@@ -288,14 +298,23 @@ GRILLE DE PRODUCTION — Prompt Image (IA Générative)
 {
   "format": "Prompt Image",
   "prompt": "Prompt détaillé et artistique en anglais pour Midjourney/DALL-E illustrant la métaphore centrale.",
-  "legende": "2 phrases max pour accompagner l'image sur les réseaux."
+  "legende": {
+    "texte": "La légende qui accompagne l'image sur les réseaux. 2-4 phrases. Voix de Florent. ANCRAGE CABINET (OBLIGATOIRE) : raccroche la métaphore de l'image à ta pratique de thérapeute en cabinet ('En séance, je vois…') pour que l'inconnu comprenne que c'est clinique, pas une simple jolie image.",
+    "cta": "Une phrase d'appel à l'action. Liens non cliquables sur Instagram : invite via 'lien en bio' en précisant l'adresse en clair (ex : 'Lien en bio → ${SITE_URL}'). Reprends l'URL exactement. Sans emoji.",
+    "hashtags": ["#therapie", "#psychologie", "#... 5 à 10 hashtags pertinents, sans espace, sans # générique creux"]
+  }
 }
 Interdiction absolue : Aucun autre texte.
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
         if (data.prompt) out.push(t(data.prompt));
-        if (data.legende) out.push(t(data.legende));
+        // legende : objet {texte, cta, hashtags} (nouveau) ou string (ancienne trame)
+        if (typeof data.legende === 'string') out.push(t(data.legende));
+        else if (data.legende) {
+            if (data.legende.texte) out.push(t(data.legende.texte));
+            if (data.legende.cta) out.push(t(data.legende.cta));
+        }
         return out.filter(Boolean).join(' ');
     }
 };

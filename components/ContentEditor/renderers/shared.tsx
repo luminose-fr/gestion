@@ -114,6 +114,8 @@ export const buildPostCourtText = (body: string): string => {
         if (data.accroche) parts.push(toBoldUnicode(v(data.accroche)));
         if (data.corps) parts.push(v(data.corps));
         if (data.cta)   parts.push(toBoldUnicode(v(data.cta)));
+        const tags = Array.isArray(data.hashtags) ? data.hashtags.map(v).filter(Boolean) : [];
+        if (tags.length) parts.push(tags.join(' '));
         return parts.filter(Boolean).join("\n\n");
     } catch {
         return body;

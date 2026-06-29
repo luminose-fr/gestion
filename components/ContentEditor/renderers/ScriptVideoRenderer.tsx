@@ -1,6 +1,6 @@
 import React from 'react';
 import { TargetFormat } from '../../../types';
-import { parseBodyJson, t, BlockPre } from './shared';
+import { parseBodyJson, t, BlockPre, CarrouselLegende } from './shared';
 
 interface ScriptVideoRendererProps {
     raw: string;
@@ -48,6 +48,7 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
                                 </div>
                             </div>
                         ))}
+                        <CarrouselLegende legende={data.legende} />
                     </div>
                 </div>
             );
@@ -66,6 +67,7 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
                         {s.intention && <p className="mt-2 text-xs italic opacity-60">{t(s.intention)}</p>}
                     </BlockPre>
                 ))}
+                <CarrouselLegende legende={data.legende} />
             </div>
         );
     }

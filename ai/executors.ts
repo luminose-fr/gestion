@@ -118,6 +118,21 @@ export const sanitizeSlidesResponse = (responseText: string): string => {
 const text = (value: any): string => (typeof value === 'string' ? value.trim() : "");
 
 /**
+ * Formate un bloc "legende" de publication (objet {texte, cta, hashtags} ou
+ * string ancienne trame) en markdown pour l'édition manuelle.
+ */
+const legendeToMarkdown = (legende: any): string => {
+    if (!legende) return "";
+    if (typeof legende === 'string') return text(legende);
+    const tags = Array.isArray(legende.hashtags) ? legende.hashtags.map(text).filter(Boolean) : [];
+    const parts: string[] = [];
+    if (text(legende.texte)) parts.push(text(legende.texte));
+    if (text(legende.cta))   parts.push(text(legende.cta));
+    if (tags.length)         parts.push(tags.join(' '));
+    return parts.join("\n\n");
+};
+
+/**
  * Convertit les données JSON d'un draft en texte lisible (markdown-ish).
  * Utilisé pour l'édition manuelle du body.
  */
@@ -129,6 +144,8 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
             if (data.accroche) out.push(`**Accroche**\n${text(data.accroche)}`);
             if (data.corps) out.push(`**Corps**\n${text(data.corps)}`);
             if (data.cta)   out.push(`**CTA**\n${text(data.cta)}`);
+            const postTags = Array.isArray(data.hashtags) ? data.hashtags.map(text).filter(Boolean) : [];
+            if (postTags.length) out.push(`**Hashtags**\n${postTags.join(' ')}`);
             if (data.visuel) out.push(`**Visuel**\n${text(data.visuel)}`);
             return out.join("\n\n");
         }
@@ -153,6 +170,8 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
                 out.push(`**${label}**\n${text(s.texte)}`);
                 if (s.intention) out.push(`_${text(s.intention)}_`);
             });
+            const reelLegende = legendeToMarkdown(data.legende);
+            if (reelLegende) out.push(`**Légende de publication**\n${reelLegende}`);
             return out.join("\n\n");
         }
         case TargetFormat.SCRIPT_VIDEO_YOUTUBE: {
@@ -180,15 +199,8 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
                 if (texte) out.push(texte);
                 if (intention) out.push(`*Intention visuelle :* ${intention}`);
             });
-            const legende = data.legende;
-            if (legende && typeof legende === 'object') {
-                const tags = Array.isArray(legende.hashtags) ? legende.hashtags.map(text).filter(Boolean) : [];
-                const legParts: string[] = [];
-                if (text(legende.texte)) legParts.push(text(legende.texte));
-                if (text(legende.cta))   legParts.push(text(legende.cta));
-                if (tags.length)         legParts.push(tags.join(' '));
-                if (legParts.length) out.push(`**Légende de publication**\n${legParts.join("\n\n")}`);
-            }
+            const carrouselLegende = legendeToMarkdown(data.legende);
+            if (carrouselLegende) out.push(`**Légende de publication**\n${carrouselLegende}`);
             return out.join("\n\n");
         }
         case TargetFormat.NEWSLETTER: {
@@ -202,7 +214,8 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
         }
         case TargetFormat.PROMPT_IMAGE: {
             if (data.prompt)  out.push(`**Prompt (EN)**\n${text(data.prompt)}`);
-            if (data.legende) out.push(`**Légende**\n${text(data.legende)}`);
+            const imgLegende = legendeToMarkdown(data.legende);
+            if (imgLegende) out.push(`**Légende**\n${imgLegende}`);
             return out.join("\n\n");
         }
         default:

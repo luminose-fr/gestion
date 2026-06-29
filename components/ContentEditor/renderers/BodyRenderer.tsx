@@ -50,6 +50,17 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
             {data.accroche && <Block label="Accroche" color="border-pink-400">{t(data.accroche)}</Block>}
             {data.corps && <Block label="Corps" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
             {data.cta   && <Block label="CTA"   color="border-green-400">{t(data.cta)}</Block>}
+            {Array.isArray(data.hashtags) && data.hashtags.filter(Boolean).length > 0 && (
+                <Block label="Hashtags" color="border-blue-400">
+                    <div className="flex flex-wrap gap-1.5">
+                        {data.hashtags.map(t).filter(Boolean).map((tag: string, i: number) => (
+                            <span key={i} className="text-xs font-medium text-blue-600 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/30 rounded-md px-2 py-0.5">
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                </Block>
+            )}
             {data.visuel && <Block label="Visuel suggéré" color="border-amber-400">{t(data.visuel)}</Block>}
             {data.prompt_dzine && <Block label="Prompt Dzine" color="border-violet-400">{t(data.prompt_dzine)}</Block>}
         </div>
@@ -131,7 +142,10 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
     if (isPromptImage) return (
         <div className="p-6 space-y-4">
             {data.prompt  && <Block label="Prompt (EN)" color="border-amber-400">{t(data.prompt)}</Block>}
-            {data.legende && <Block label="Légende"     color="border-blue-400">{t(data.legende)}</Block>}
+            {/* legende : objet {texte, cta, hashtags} (nouveau) ou string (ancienne trame) */}
+            {typeof data.legende === 'string'
+                ? data.legende && <Block label="Légende" color="border-blue-400">{t(data.legende)}</Block>
+                : <CarrouselLegende legende={data.legende} />}
         </div>
     );
 
