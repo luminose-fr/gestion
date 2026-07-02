@@ -116,10 +116,10 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-brand-main/45 dark:text-dark-text/45">Offre :</span>
-                {item.targetOffer ? (
+                <span className="text-xs font-bold text-brand-main/45 dark:text-dark-text/45">Objectif :</span>
+                {item.objectif ? (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border-brand-border dark:border-dark-sec-border">
-                        {item.targetOffer}
+                        {item.objectif}
                     </span>
                 ) : (
                     <span className="text-sm text-brand-main/45 dark:text-dark-text/45">-</span>
@@ -159,9 +159,9 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                                 {item.targetFormat}
                             </span>
                         )}
-                        {!usesWorkedLayout && item.targetOffer && (
+                        {!usesWorkedLayout && item.objectif && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border-brand-border dark:border-dark-sec-border">
-                                <Target className="w-2.5 h-2.5 inline mr-1" />{item.targetOffer}
+                                <Target className="w-2.5 h-2.5 inline mr-1" />{item.objectif}
                             </span>
                         )}
                         {!usesWorkedLayout && item.depth && (

@@ -49,8 +49,8 @@ Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un 
 {
   "format": "Post Texte",
   "accroche": "1 phrase isolée, percutante. Question, affirmation paradoxale ou image choc. C'est le hook qui arrête le scroll.",
-  "corps": "Court et tendu : 8-12 lignes MAX. Chaque phrase doit faire avancer le propos — aucun paragraphe explicatif, aucune glose. Ne DIS PAS au lecteur ce qu'il ressent ou pourquoi ça marche (pas de 'Le truc, c'est que...', 'Ce n'est même pas confortable', 'Et le connu, ça rassure'). Montre par l'image et la scène, le lecteur comprend tout seul. Paragraphes de 1-2 phrases. Alternance prose/listes (→). Montée en tension rapide vers un moment de bascule (une phrase lâchée en séance, un silence, un aveu). ANCRAGE CABINET (OBLIGATOIRE) : à un moment du corps, raccroche explicitement la métaphore à ta pratique de thérapeute en cabinet — une phrase qui montre que ça vient de ce que tu observes en séance ('En cabinet, je vois...', 'La semaine dernière, un patient...', 'Sur mon divan...'). Sans ça, la métaphore ne parle qu'à ceux qui te connaissent déjà : le lecteur de passage doit comprendre que tu es praticien et que ce propos est clinique, pas théorique. La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse. Coupe tout ce qui ralentit : si une phrase n'ajoute pas de tension ou d'image nouvelle, elle n'a rien à faire là.",
-  "cta": "OBLIGATOIRE, jamais vide. Une question courte et tranchante pour engager la discussion, suivie d'une invitation à poursuivre sur le site. Tisse naturellement le lien ${SITE_URL} dans la phrase (ex : 'On en parle en consultation ? → ${SITE_URL}'). Reprends l'URL EXACTEMENT, sans la modifier ni l'abréger. JAMAIS d'emoji.",
+  "corps": "Court et tendu : 8-12 lignes MAX. Chaque phrase doit faire avancer le propos — aucun paragraphe explicatif, aucune glose. SUJET RÉEL TÔT (OBLIGATOIRE) : dans les 3 premières lignes, un inconnu doit savoir de quoi parle le post pour LUI (le sujet réel nommé dans ses mots — rumination, perfectionnisme...), même si la métaphore ouvre. Ne DIS PAS au lecteur ce qu'il ressent ou pourquoi ça marche (pas de 'Le truc, c'est que...', 'Ce n'est même pas confortable', 'Et le connu, ça rassure'). Montre par l'image et la scène, le lecteur comprend tout seul. Paragraphes de 1-2 phrases. Alternance prose/listes (→). UNE SEULE BASCULE : un seul retournement par post — s'il y en a deux dans la matière, garde le plus fort. ANCRAGE CABINET (OBLIGATOIRE, DANS LE PREMIER TIERS) : dès le premier tiers du texte, raccroche explicitement la métaphore à ta pratique de thérapeute en cabinet — une phrase qui montre que ça vient de ce que tu observes en séance ('En cabinet, je vois...', 'La semaine dernière, un patient...', 'Sur mon divan...'). Sans ça, la métaphore ne parle qu'à ceux qui te connaissent déjà : le lecteur de passage doit comprendre tôt que tu es praticien et que ce propos est clinique, pas théorique. La conclusion percutante fait partie du corps — la vérité que le lecteur ne voulait pas entendre, dite avec tendresse. Coupe tout ce qui ralentit : si une phrase n'ajoute pas de tension ou d'image nouvelle, elle n'a rien à faire là.",
+  "cta": "OBLIGATOIRE, jamais vide. Aligné sur les règles CTA de l'objectif (fournies plus haut) : une seule action, le lecteur sait à qui ça s'adresse et quel est le pas concret suivant. Tisse naturellement le lien ${SITE_URL} dans la phrase (ex : 'On en parle en consultation ? → ${SITE_URL}'). Reprends l'URL EXACTEMENT, sans la modifier ni l'abréger. JAMAIS d'emoji.",
   "hashtags": ["OBLIGATOIRE : 5 à 10 hashtags pertinents (string commençant par #, sans espace), mêlant thérapie/psychologie et la niche du sujet. Pas de # générique creux (#motivation, #life)."],
   "visuel": "Description de l'image suggérée (format 1:1 ou 4:5). Préfère une scène avec un personnage plutôt qu'un détail abstrait isolé. L'accroche à incruster sur l'image gagne à reprendre la métaphore centrale du texte plutôt qu'un concept détaché.",
   "prompt_dzine": "Prompt détaillé en anglais, prêt à coller dans Dzine. 50-80 mots. Composition épurée, éclairage dramatique, mood émotionnel et introspectif. Évite les références à des peintres classiques (pas de 'Caravaggio', 'Rembrandt'...). Pas de texte à générer dans l'image. Cohérent avec le visuel suggéré."
@@ -86,7 +86,7 @@ GRILLE DE PRODUCTION — Article (Long/SEO) — Blog
   "conclusion": "Récapitulatif + angle de rupture. Pas de résumé plat — une ouverture qui laisse le lecteur face à son choix.",
   "cta": "Bloc d'appel à l'action contextuel."
 }
-Ton : Expert, posé, pédagogique, mais garde la radicalité du Seuil et l'oralité de Florent.
+Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix face auquel le lecteur est mis) et l'oralité de Florent.
     `.trim(),
     toPlainText: (data: any): string => {
         const out: string[] = [];
@@ -120,7 +120,7 @@ Ce format mise sur l'incarnation. Il utilise la matière des réponses vocales p
   ],
   "legende": {
     "texte": "La description écrite du Reel (≠ texte parlé). Première ligne qui arrête le scroll, puis 1-3 phrases qui prolongent le propos. Voix de Florent, avec un ancrage cabinet.",
-    "cta": "Une phrase d'appel à l'action. Liens non cliquables sur Reels/TikTok : invite via 'lien en bio' en précisant l'adresse en clair (ex : 'Lien en bio → ${SITE_URL}'). Reprends l'URL exactement. Sans emoji.",
+    "cta": "Une phrase d'appel à l'action, alignée sur les règles CTA de l'objectif (fournies plus haut). Liens non cliquables sur Reels/TikTok : invite via 'lien en bio' en précisant l'adresse en clair (ex : 'Lien en bio → ${SITE_URL}'). Reprends l'URL exactement. Sans emoji.",
     "hashtags": ["#therapie", "#psychologie", "#... 5 à 10 hashtags pertinents, sans espace, sans # générique creux"]
   }
 }
@@ -177,13 +177,19 @@ const CARROUSEL: FormatDefinition = {
     editorTab: 'atelier',
     promptTemplate: `
 GRILLE DE PRODUCTION — Carrousel — Instagram, LinkedIn
-Format pédagogique. Ta production alimente directement la trame finale : zéro champ à réécrire après coup, tout est calibré pour Canva.
+Format pédagogique. Ta production alimente directement la trame finale : zéro champ à réécrire après coup, tout est calibré pour le montage des slides dans Sketch (format 1:1 Instagram).
 
 LONGUEUR ET TRAME (souple mais disciplinée) :
 - Entre 5 et 10 slides. Vise 7 par défaut (standard qui marche sur les réseaux) — ajuste à la densité du propos.
 - Au moins 1 slide ILLUSTRÉE pour porter la métaphore centrale. Tu peux en faire jusqu'à 3 si la matière s'y prête, mais pas plus (sinon le carrousel perd en lisibilité).
 - Une slide TYPO a un fond texturé/coloré simple : le texte fait tout le travail. Utilise-la pour les transitions, les listes, le CTA.
 - Une slide ILLUSTRÉE a un visuel IA en arrière-plan. Utilise-la pour la couverture, les moments à forte charge métaphorique, la clôture.
+- N'ajoute PAS de slide de signature ou de présentation de Florent : elle est ajoutée automatiquement après ta génération.
+
+RÈGLES "LECTEUR D'ABORD" (NON NÉGOCIABLES — l'inconnu qui scrolle ne connaît pas Florent) :
+- Slide 1 : le lecteur doit s'y reconnaître — sa situation, ses mots, sa douleur. Une ouverture 100 % conte/parabole à la 3e personne, sans point de contact avec la vie du lecteur, est interdite. Si le contenu s'appuie sur une histoire, la slide 1 fait le pont (ex : "Vous ruminez à 3h du matin ? Un vieux conte parle exactement de ça.") — l'histoire commence slide 2.
+- Le sujet réel du post (rumination, perfectionnisme, insomnie...) est nommé au plus tard sur la slide 2, dans les mots du lecteur.
+- L'ancrage cabinet ("En séance, je vois...") apparaît au plus tard sur la slide 3 : l'inconnu doit comprendre tôt que l'auteur est praticien et que le propos est clinique.
 
 RÔLES ÉDITORIAUX (colonne vertébrale — reste interne, n'apparaît pas dans la slide finale) :
 Pour chaque slide, choisis un "role" parmi :
@@ -193,18 +199,18 @@ Pour chaque slide, choisis un "role" parmi :
 - "L'Explication / La Mécanique" : la mécanique psychique nommée et traduite en vécu.
 - "Le Basculement" : le moment où le choix se pose. L'approche thérapeutique.
 - "La Pépite / Synthèse" : la phrase à retenir, qui cristallise le propos.
-- "CTA Luminose" : appel à l'action, question ouverte ou invitation. Sans emoji.
+- "CTA Luminose" : appel à l'action aligné sur les règles CTA de l'objectif (fournies plus haut). Une seule action. Sans emoji.
 Tu n'es pas obligé d'utiliser tous ces rôles ni de les mettre dans cet ordre — sers la logique du propos. Mais chaque slide doit avoir un rôle explicite.
 
-DENSITÉ (NON NÉGOCIABLE — l'œil lit en 2 secondes sur un réseau social) :
-- "titre" : 6 mots MAXIMUM. Court, percutant, lisible en miniature.
-- "texte" : 25 mots MAXIMUM (soit ~2 phrases courtes). Si ça dépasse, c'est trop.
-- Si tu ne sais pas comment dire plus court : coupe plutôt que d'allonger.
+DENSITÉ (NON NÉGOCIABLE — l'œil lit en 2 secondes, et tout doit tenir sur une slide 1:1) :
+- "titre" : 35 caractères MAXIMUM, espaces compris. Court, percutant, lisible en miniature.
+- "texte" : 140 caractères MAXIMUM, espaces compris (soit ~2 phrases courtes). Compte avant de rendre.
+- Si tu ne sais pas comment dire plus court : coupe plutôt que d'allonger. Ces limites sont vérifiées automatiquement après ta génération — un dépassement déclenche une correction.
 
 LÉGENDE DE PUBLICATION (le texte qui accompagne les images sous le post) :
 Le carrousel ne se suffit pas à lui-même : sous les images, il y a la légende — le texte du post Instagram/LinkedIn. Tu la rédiges dans un objet "legende" au niveau racine du JSON (à côté de "slides"), avec :
-- "texte" : l'accroche + le corps de la légende. Une première ligne qui arrête le scroll (les réseaux coupent après ~125 caractères, donc l'essentiel passe au début), puis 2-4 courts paragraphes qui prolongent le propos du carrousel sans le répéter mot pour mot. C'est la voix de Florent, incarnée, avec sa métaphore filée. ANCRAGE CABINET (OBLIGATOIRE) : à un moment, raccroche la métaphore à ta pratique de thérapeute en cabinet ("En séance, je vois…", "Un patient me disait…") pour que le lecteur de passage comprenne que c'est clinique, pas théorique — sinon l'image ne parle qu'à ceux qui te connaissent déjà. Sauts de ligne autorisés (\\n).
-- "cta" : une seule phrase d'appel à l'action, cohérente avec la cible offre (commenter, partager, écrire en DM…). Comme les liens ne sont pas cliquables sur Instagram, invite via "lien en bio" et précise l'adresse en clair (ex : "Tout est sur le site, lien en bio → ${SITE_URL}"). Reprends l'URL exactement. Sans emoji.
+- "texte" : l'accroche + le corps de la légende. Une première ligne qui arrête le scroll ET qui parle de la situation du lecteur, pas seulement du conte ou de l'image (les réseaux coupent après ~125 caractères, donc l'essentiel passe au début), puis 2-4 courts paragraphes qui prolongent le propos du carrousel sans le répéter mot pour mot. C'est la voix de Florent, incarnée, avec sa métaphore filée. ANCRAGE CABINET (OBLIGATOIRE) : à un moment, raccroche la métaphore à ta pratique de thérapeute en cabinet ("En séance, je vois…", "Un patient me disait…") pour que le lecteur de passage comprenne que c'est clinique, pas théorique — sinon l'image ne parle qu'à ceux qui te connaissent déjà. Sauts de ligne autorisés (\\n).
+- "cta" : une seule phrase d'appel à l'action, alignée sur les règles CTA de l'objectif (fournies plus haut). Comme les liens ne sont pas cliquables sur Instagram, invite via "lien en bio" et précise l'adresse en clair (ex : "Tout est sur le site, lien en bio → ${SITE_URL}"). Reprends l'URL exactement. Sans emoji.
 - "hashtags" : un tableau de 5 à 12 hashtags pertinents (string commençant par #, sans espace), mélangeant thématique psy/thérapie et niche de l'offre.
 
 FORMAT JSON ATTENDU :

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
-import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, isTargetOffer, isProfondeur } from './types';
+import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
 import { AI_ACTIONS } from './ai/actions';
@@ -443,7 +443,7 @@ function App() {
                 .filter((p: any) => Object.values(Platform).includes(p));
 
               // Le format cible est choisi par l'utilisateur et ne doit pas être écrasé par l'IA
-              const targetOffer = isTargetOffer(res.cible_offre) ? res.cible_offre : undefined;
+              const objectif = isObjectif(res.objectif) ? res.objectif : undefined;
               const justification = typeof res.justification === 'string' ? res.justification : undefined;
               const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
               const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
@@ -464,7 +464,7 @@ function App() {
                   strategicAngle: angleWithTitle + signature,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
                   // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
-                  targetOffer: targetOffer || itemToAnalyze.targetOffer,
+                  objectif: objectif || itemToAnalyze.objectif,
                   justification: justification ?? itemToAnalyze.justification,
                   suggestedMetaphor: suggestedMetaphor ?? itemToAnalyze.suggestedMetaphor,
                   depth: depth ?? itemToAnalyze.depth,

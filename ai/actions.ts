@@ -13,6 +13,7 @@
 
 import { buildSystemPrompt } from "./prompts";
 import { getFormatPromptTemplate } from "./formats";
+import { getObjectifCtaRules } from "./objectives";
 
 // Tous les modèles passent désormais par l'API 1min.AI (plus de modèle interne Gemini).
 
@@ -64,21 +65,34 @@ export const AI_ACTIONS = {
             }),
     },
 
+    LOCK_BRIEF: {
+        generationConfig: {
+            responseMimeType: "application/json" as const
+        },
+        /**
+         * @param notionContext - Description du contexte Notion complémentaire (optionnel)
+         */
+        getSystemInstruction: (notionContext?: string) =>
+            buildSystemPrompt({
+                action: 'LOCK_BRIEF',
+                notionContext: notionContext || undefined,
+            }),
+    },
+
     GENERATE_CARROUSEL_SLIDES: {
         generationConfig: {
             responseMimeType: "application/json" as const
         },
         /**
          * @param notionContext - Description du contexte Notion complémentaire (optionnel)
-         * @param targetOffer - "Standard", "Seuil" ou "Transverse"
          * @param metaphore - La métaphore centrale du carrousel
          * @param contenu - Le contenu textuel des slides (JSON)
          */
-        getSystemInstruction: (notionContext?: string, targetOffer?: string, metaphore?: string, contenu?: string) =>
+        getSystemInstruction: (notionContext?: string, metaphore?: string, contenu?: string) =>
             buildSystemPrompt({
                 action: 'GENERATE_CARROUSEL_SLIDES',
                 notionContext: notionContext || undefined,
-                carrouselParams: `Cible offre : ${targetOffer || 'Transverse'}\nMétaphore centrale : ${metaphore || 'Non définie'}\nContenu carrousel : ${contenu || ''}`,
+                carrouselParams: `Métaphore centrale : ${metaphore || 'Non définie'}\nContenu carrousel : ${contenu || ''}`,
             }),
     },
 
@@ -89,12 +103,32 @@ export const AI_ACTIONS = {
         /**
          * @param notionContext - Description du contexte Notion complémentaire (optionnel)
          * @param targetFormat - Le format cible (TargetFormat enum value) — pour injecter le bon template
+         * @param objectif - L'objectif du post (Objectif enum value) — pour injecter les règles CTA
          */
-        getSystemInstruction: (notionContext?: string, targetFormat?: string) =>
+        getSystemInstruction: (notionContext?: string, targetFormat?: string, objectif?: string) =>
             buildSystemPrompt({
                 action: 'DRAFT_CONTENT',
                 notionContext: notionContext || undefined,
                 formatTemplate: getFormatPromptTemplate(targetFormat as any) || '',
+                objectifCta: getObjectifCtaRules(objectif),
+            }),
+    },
+
+    COLD_READ: {
+        generationConfig: {
+            responseMimeType: "application/json" as const
+        },
+        /**
+         * @param notionContext - Description du contexte Notion complémentaire (optionnel)
+         * @param format - Le format du contenu (pour contextualiser les contrôles)
+         * @param objectif - L'objectif du post (pour vérifier l'alignement du CTA)
+         * @param contenu - Le contenu final, tel qu'un inconnu le lirait (texte formaté)
+         */
+        getSystemInstruction: (notionContext: string | undefined, format: string, objectif: string, contenu: string) =>
+            buildSystemPrompt({
+                action: 'COLD_READ',
+                notionContext: notionContext || undefined,
+                coldReadParams: `FORMAT DU CONTENU : ${format}\nOBJECTIF DU POST : ${objectif}\n\nCONTENU À RELIRE (tel qu'un inconnu le découvrirait) :\n${contenu}`,
             }),
     },
 

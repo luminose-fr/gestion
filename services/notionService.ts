@@ -1,4 +1,4 @@
-import { ContentItem, ContentStatus, Platform, Verdict, AIModel, TargetFormat, TargetOffer, isTargetOffer, Profondeur, isProfondeur, CoachSession } from "../types";
+import { ContentItem, ContentStatus, Platform, Verdict, AIModel, TargetFormat, Objectif, isObjectif, Profondeur, isProfondeur, CoachSession } from "../types";
 import { CONFIG } from "../config";
 import { WORKER_URL } from "../constants";
 import { getSessionToken } from "../auth";
@@ -354,8 +354,8 @@ const mapNotionPageToItem = (page: any): ContentItem => {
   const verdict = (verdictValue as Verdict) || undefined;
   const targetFormatValue = props["Format cible"]?.select?.name;
   const targetFormat = (targetFormatValue as TargetFormat) || undefined;
-  const targetOfferValue = props["Cible Offre"]?.select?.name;
-  const targetOffer = isTargetOffer(targetOfferValue) ? (targetOfferValue as TargetOffer) : undefined;
+  const objectifValue = props["Objectif"]?.select?.name;
+  const objectif = isObjectif(objectifValue) ? (objectifValue as Objectif) : undefined;
   const justification = notionToMarkdown(props["Justification"]);
   const suggestedMetaphor = notionToMarkdown(props["Métaphore Suggérée"]);
   const strategicAngle = notionToMarkdown(props["Angle stratégique"]);
@@ -395,7 +395,7 @@ const mapNotionPageToItem = (page: any): ContentItem => {
     analyzed,
     verdict,
     targetFormat,
-    targetOffer,
+    objectif,
     justification,
     suggestedMetaphor,
     strategicAngle,
@@ -567,8 +567,9 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
         properties["Format cible"] = item.targetFormat ? { select: { name: item.targetFormat } } : { select: null };
     }
 
-    if (item.targetOffer !== undefined) {
-        properties["Cible Offre"] = item.targetOffer ? { select: { name: item.targetOffer } } : { select: null };
+    if (item.objectif !== undefined) {
+        // ⚠️ Nécessite une propriété "Objectif" (type Sélection) dans la base Notion.
+        properties["Objectif"] = item.objectif ? { select: { name: item.objectif } } : { select: null };
     }
 
     if (item.justification !== undefined) {

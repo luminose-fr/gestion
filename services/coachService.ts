@@ -27,7 +27,7 @@ export const buildCoachBrief = (item: ContentItem): string => {
     const parts: string[] = [];
     parts.push(`TITRE : ${item.title || '(sans titre)'}`);
     if (item.targetFormat) parts.push(`FORMAT CIBLE : ${item.targetFormat}`);
-    if (item.targetOffer) parts.push(`CIBLE OFFRE : ${item.targetOffer}`);
+    if (item.objectif) parts.push(`OBJECTIF DU POST : ${item.objectif}`);
     if (item.strategicAngle) parts.push(`ANGLE STRATÉGIQUE :\n${item.strategicAngle}`);
     if (item.suggestedMetaphor) parts.push(`MÉTAPHORE SUGGÉRÉE : ${item.suggestedMetaphor}`);
     if (item.justification) parts.push(`JUSTIFICATION DE L'ANALYSE :\n${item.justification}`);
@@ -112,6 +112,50 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
     });
 
     return parseCoachReply(responseText);
+};
+
+// ── Brief verrouillé (au "Go Éditeur") ─────────────────────────────────
+
+/**
+ * Condense la session Coach en un brief verrouillé (via l'action LOCK_BRIEF).
+ * Retourne le JSON sérialisé du brief — à stocker dans session.brief.
+ * Lance une erreur si la réponse IA n'est pas exploitable (l'appelant peut
+ * alors retomber sur le mode legacy : session brute transmise au Rédacteur).
+ */
+export const generateLockedBrief = async (opts: {
+    item: ContentItem;
+    session: CoachSession;
+    modelId: string;
+    notionContext?: string;
+}): Promise<string> => {
+    const { item, session, modelId, notionContext } = opts;
+
+    const systemInstruction = AI_ACTIONS.LOCK_BRIEF.getSystemInstruction(notionContext);
+
+    const payload = {
+        titre: item.title || '(sans titre)',
+        format_cible: item.targetFormat || 'Non défini',
+        objectif: item.objectif || 'Non défini',
+        angle_strategique: item.strategicAngle || '',
+        metaphore_suggeree: item.suggestedMetaphor || '',
+        notes: item.notes || '',
+        session: session.messages
+            .filter(m => m.role === 'user' || m.role === 'assistant')
+            .map(m => ({ role: m.role, content: m.content })),
+    };
+
+    const responseText = await OneMinService.generateContent({
+        model: modelId,
+        systemInstruction,
+        prompt: JSON.stringify(payload),
+    });
+
+    const cleaned = extractJson(responseText);
+    const parsed = JSON.parse(cleaned); // throw si invalide → fallback legacy côté appelant
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.structure)) {
+        throw new Error('Brief verrouillé invalide (structure manquante).');
+    }
+    return JSON.stringify(parsed);
 };
 
 // ── Helpers de session ─────────────────────────────────────────────────

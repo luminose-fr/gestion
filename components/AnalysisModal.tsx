@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu } from 'lucide-react';
-import { ContentItem, Verdict, Platform, AIModel, isTargetOffer, isProfondeur } from '../types';
+import { ContentItem, Verdict, Platform, AIModel, isObjectif, isProfondeur } from '../types';
 import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
 import { AI_ACTIONS } from '../ai/actions';
@@ -21,7 +21,7 @@ interface AnalysisResult {
   angle: string;
   plateformes: string[];
   justification?: string;
-  cible_offre?: string;
+  objectif?: string;
   metaphore_suggeree?: string | null;
   titre?: string;
 }
@@ -111,7 +111,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             .filter(p => Object.values(Platform).includes(p));
 
           // Le format cible est choisi par l'utilisateur et ne doit pas être écrasé par l'IA
-          const targetOffer = isTargetOffer(res.cible_offre) ? res.cible_offre : undefined;
+          const objectif = isObjectif(res.objectif) ? res.objectif : undefined;
           const justification = typeof res.justification === 'string' ? res.justification : undefined;
           const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
           const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
@@ -129,7 +129,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             strategicAngle: angleWithTitle + signature,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
             // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
-            targetOffer: targetOffer || originalItem.targetOffer,
+            objectif: objectif || originalItem.objectif,
             justification: justification ?? originalItem.justification,
             suggestedMetaphor: suggestedMetaphor ?? originalItem.suggestedMetaphor,
             depth: depth ?? originalItem.depth,

@@ -55,7 +55,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
             verdict: item.verdict,
             strategicAngle: item.strategicAngle,
             platforms: item.platforms,
-            targetOffer: item.targetOffer,
+            objectif: item.objectif,
             justification: item.justification,
             suggestedMetaphor: item.suggestedMetaphor,
             depth: item.depth,
@@ -65,7 +65,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
         item.analyzed,
         item.verdict,
         item.strategicAngle,
-        item.targetOffer,
+        item.objectif,
         item.justification,
         item.suggestedMetaphor,
         item.platforms,
@@ -259,13 +259,13 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                         </div>
                                     )}
 
-                                    {localItem.targetOffer && (
+                                    {localItem.objectif && (
                                         <div>
                                             <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
-                                                Cible offre
+                                                Objectif
                                             </p>
                                             <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded-full border font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/50">
-                                                {localItem.targetOffer}
+                                                {localItem.objectif}
                                             </span>
                                         </div>
                                     )}

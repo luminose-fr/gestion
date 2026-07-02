@@ -128,7 +128,7 @@ export const ContentTable: React.FC<{
     /** Affiche la colonne "Créé le" (date de création) */
     showCreatedAt?: boolean;
 }> = ({ items, searchQuery, onEdit, prefs, showStatut, showPublication, showStrategicAngle, showCreatedAt = false }) => {
-    const { showPlatforms, showOffer, showVerdictStripe } = prefs;
+    const { showPlatforms, showObjectif, showVerdictStripe } = prefs;
 
     // Cellules en mode compact (densité fixée)
     const cellCls = 'px-4 py-2 align-top';
@@ -225,9 +225,9 @@ export const ContentTable: React.FC<{
                             )}
                             <SortableTh column="contenu" label="Contenu" className="min-w-[18rem]" />
                             <SortableTh column="format" label="Format" className="whitespace-nowrap" />
-                            {showOffer && (
+                            {showObjectif && (
                                 <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
-                                    Offre
+                                    Objectif
                                 </th>
                             )}
                             {showPlatforms && (
@@ -291,11 +291,11 @@ export const ContentTable: React.FC<{
                                         )}
                                     </td>
 
-                                    {showOffer && (
+                                    {showObjectif && (
                                         <td className={`${cellCls} whitespace-nowrap`}>
-                                            {item.targetOffer ? (
+                                            {item.objectif ? (
                                                 <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                    {item.targetOffer}
+                                                    {item.objectif}
                                                 </span>
                                             ) : (
                                                 <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>

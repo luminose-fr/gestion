@@ -12,6 +12,8 @@ import { INTERVIEWER_PERSONA } from './interviewer';
 import { COACH_PERSONA } from './coach';
 import { REDACTEUR_PERSONA, REDACTEUR_ADJUSTMENT_INTRO } from './redacteur';
 import { ARTISTE_PERSONA } from './artiste';
+import { VERROUILLEUR_PERSONA } from './verrouilleur';
+import { LECTEUR_FROID_PERSONA } from './lecteurFroid';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -19,8 +21,10 @@ export type AIAction =
     | 'ANALYZE_BATCH'
     | 'GENERATE_INTERVIEW'
     | 'COACH_CHAT'
+    | 'LOCK_BRIEF'
     | 'DRAFT_CONTENT'
     | 'ADJUST_CONTENT'
+    | 'COLD_READ'
     | 'GENERATE_CARROUSEL_SLIDES'
     | 'ADJUST_DZINE_PROMPTS';
 
@@ -30,8 +34,10 @@ const PERSONA_PROMPTS: Record<string, string> = {
     ANALYZE_BATCH: ANALYSTE_PERSONA,
     GENERATE_INTERVIEW: INTERVIEWER_PERSONA,
     COACH_CHAT: COACH_PERSONA,
+    LOCK_BRIEF: VERROUILLEUR_PERSONA,
     DRAFT_CONTENT: REDACTEUR_PERSONA,
     ADJUST_CONTENT: REDACTEUR_PERSONA,
+    COLD_READ: LECTEUR_FROID_PERSONA,
     GENERATE_CARROUSEL_SLIDES: ARTISTE_PERSONA,
     ADJUST_DZINE_PROMPTS: ARTISTE_PERSONA,
 };
@@ -48,7 +54,7 @@ Pour chaque idée, retourne un objet JSON avec exactement ces champs :
 2. 'titre' : Titre de travail proposé.
 3. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
 4. 'justification' : 2-3 phrases maximum expliquant le verdict.
-5. 'cible_offre' : "Standard" | "Seuil" | "Transverse".
+5. 'objectif' : exactement une des valeurs suivantes : "Notoriété" | "Recadrage de croyance" | "Confiance / Preuve" | "Éducation pratique" | "Trafic contenu long" | "Conversion séance" | "Promotion événement". C'est l'objectif business du post (voir la liste des objectifs dans ton persona) — il dictera le CTA du Rédacteur. Choisis-en UN seul, celui qui sert le mieux l'idée.
 6. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
 7. 'angle_strategique' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction, en cohérence avec le format_cible fourni.
 8. 'metaphore_suggeree' : Si une piste métaphorique émerge, la noter ici. Sinon : null.
@@ -95,23 +101,77 @@ RÈGLES :
 - Tu peux utiliser du markdown léger dans "message" (gras, listes). Pas de code fence, pas de JSON imbriqué dans ce champ.
     `.trim(),
 
+    LOCK_BRIEF: `
+RÈGLES DE SORTIE (FORMAT JSON STRICT) :
+Tu reçois un objet JSON contenant : titre, format_cible, objectif, angle_strategique, metaphore_suggeree, notes, et session (l'historique complet de l'atelier Coach ↔ Florent : tableau d'objets {role, content} — "user" = Florent).
+
+Tu retournes EXCLUSIVEMENT un objet JSON valide, sans texte avant ou après :
+{
+  "sujet_reel": "Le sujet du contenu en une phrase, dans les mots du lecteur visé (pas dans la métaphore).",
+  "lecteur_vise": "Qui doit se reconnaître, et dans quelle douleur/situation concrète.",
+  "metaphore": {
+    "image": "La métaphore centrale retenue.",
+    "limites": "Ce que l'image ne doit PAS faire affirmer (les points où elle casse, les affirmations littéralement fausses à éviter)."
+  },
+  "structure": ["Élément par élément (slide par slide, ou blocs du post) : la version FINALE validée, avec la formulation la plus récente de chaque élément."],
+  "matiere_validee": ["Anecdotes, sensations, phrases exactes données ou validées par Florent pendant l'atelier."],
+  "interdits": ["EXHAUSTIF : chaque idée, angle ou formulation corrigé, remplacé ou écarté pendant l'atelier — avec sa raison en quelques mots. C'est la partie la plus importante du brief."],
+  "direction_cta": "La direction de fin validée, alignée sur l'objectif.",
+  "questions_ouvertes": ["Questions du Coach restées sans réponse — matière à NE PAS inventer."]
+}
+    `.trim(),
+
     DRAFT_CONTENT: `
 Tu vas recevoir un objet JSON contenant :
 - titre
 - format_cible
-- cible_offre
+- objectif (l'objectif business du post — ses règles CTA sont détaillées plus bas)
 - angle_strategique
 - metaphore_suggeree
 - notes (les notes brutes de Florent)
-- coach_session (l'historique complet de la conversation Coach ↔ Florent : tableau d'objets {role, content}) — ta matière première principale quand disponible
-- coach_final_direction (résumé en une phrase de la direction validée par Florent à la fin de la session — si disponible)
+- brief_verrouille (le brief final verrouillé à l'issue de l'atelier — ta matière première UNIQUE quand présent)
+- coach_session / coach_final_direction (legacy : historique brut de l'atelier, fourni seulement si aucun brief n'existe)
 
 LOGIQUE DE SOURCES :
-- Si coach_session est présent : extrais-en la direction validée par Florent (dernière proposition du Coach validée + corrections apportées par Florent). C'est ton point de départ. Les réponses de Florent dans la session contiennent la vérité clinique et l'incarnation.
-- Si coach_session est absent (mode direct) : utilise uniquement les notes.
+- Si brief_verrouille est présent : c'est ta seule matière, avec les notes. Respecte sa structure, sa matière validée et ses INTERDITS à la lettre — une idée listée dans les interdits n'apparaît nulle part, ni dans les slides, ni dans la légende, ni reformulée. N'utilise pas coach_session, même s'il est présent.
+- Sinon, si coach_session est présent : extrais-en la direction validée par Florent, en écartant tout ce qu'il a corrigé ou refusé en cours de route.
+- Sinon (mode direct) : utilise uniquement les notes.
+
+%%OBJECTIF_CTA%%
 
 RÈGLES DE SORTIE (FIXE) :
 %%FORMAT_TEMPLATE%%
+    `.trim(),
+
+    COLD_READ: `
+%%COLD_READ_PARAMS%%
+
+CONTRÔLES À EFFECTUER (rôle 2 — Contrôleur) :
+1. Sujet réel nommé tôt : dans les 3 premières lignes (ou les 2 premières slides), un inconnu sait "de quoi ça parle, pour moi".
+2. Ancrage praticien : on comprend que l'auteur est thérapeute au plus tard à la slide 3 (ou dans le premier tiers du texte).
+3. Une seule métaphore filée, un seul retournement — pas de deuxième bascule qui dilue.
+4. CTA : une seule action, concrète, alignée sur l'objectif fourni, avec l'identité de l'auteur visible (qui il est / où le trouver).
+5. Pour un carrousel : titres ≤ 35 caractères, textes ≤ 140 caractères (espaces compris, slide "Signature" exclue). Donne le décompte exact des dépassements.
+6. Légende de publication : la première ligne (~125 premiers caractères) parle de la situation du lecteur (pas seulement du conte/de l'image) ; la légende ne répète pas les slides mot pour mot.
+7. Zéro emoji, vouvoiement strict du lecteur.
+
+RÈGLES DE SORTIE (FORMAT JSON STRICT) — aucun texte avant ou après le JSON :
+{
+  "lecture_naive": {
+    "sujet": "Ce que je crois que ça raconte, en une phrase d'inconnu.",
+    "auteur": "Qui je crois que c'est / à quel moment précis j'ai compris son métier (ou 'jamais').",
+    "action": "Ce qu'on me demande de faire à la fin (ou 'rien de clair').",
+    "decrochage": "L'endroit où j'aurais arrêté de lire et pourquoi — ou null si je lis jusqu'au bout."
+  },
+  "controles": [
+    { "regle": "Nom court du contrôle", "statut": "OK" | "KO", "detail": "Fait précis (slide N, décompte...)" }
+  ],
+  "problemes": [
+    { "gravite": "Bloquant" | "Important" | "Détail", "localisation": "slide N / paragraphe N / légende / CTA", "probleme": "...", "correction_proposee": "Correction concrète et localisée." }
+  ],
+  "verdict": "Publiable" | "À retoucher" | "À revoir"
+}
+Verdict : "Publiable" si aucun problème Bloquant ou Important ; "À retoucher" si des corrections localisées suffisent ; "À revoir" si le problème est structurel (le contenu ne dit pas ce qu'il croit dire).
     `.trim(),
 
     ADJUST_CONTENT: `
@@ -201,6 +261,10 @@ interface BuildOptions {
     notionContext?: string;
     /** Template de format — injecté dans %%FORMAT_TEMPLATE%% pour DRAFT_CONTENT */
     formatTemplate?: string;
+    /** Règles CTA de l'objectif — injectées dans %%OBJECTIF_CTA%% pour DRAFT_CONTENT */
+    objectifCta?: string;
+    /** Paramètres lecture froide (format, objectif, contenu) — injectés dans %%COLD_READ_PARAMS%% pour COLD_READ */
+    coldReadParams?: string;
     /** Profondeur — injectée dans %%PROFONDEUR_INJECTION%% pour GENERATE_INTERVIEW */
     profondeur?: string;
     /** Paramètres carrousel — injectés dans %%CARROUSEL_PARAMS%% pour GENERATE_CARROUSEL_SLIDES */
@@ -218,7 +282,7 @@ interface BuildOptions {
 }
 
 export function buildSystemPrompt(options: BuildOptions): string {
-    const { action, notionContext, formatTemplate, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
+    const { action, notionContext, formatTemplate, objectifCta, coldReadParams, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
 
     // 1. BASE FIXE : le persona complet (hardcodé)
     const persona = PERSONA_PROMPTS[action] || '';
@@ -235,8 +299,14 @@ export function buildSystemPrompt(options: BuildOptions): string {
     if (action === 'GENERATE_INTERVIEW' && profondeur) {
         outputRules = outputRules.replace('%%PROFONDEUR_INJECTION%%', `La profondeur demandée est : "${profondeur}"`);
     }
-    if (action === 'DRAFT_CONTENT' && formatTemplate) {
-        outputRules = outputRules.replace('%%FORMAT_TEMPLATE%%', formatTemplate);
+    if (action === 'DRAFT_CONTENT') {
+        if (formatTemplate) {
+            outputRules = outputRules.replace('%%FORMAT_TEMPLATE%%', formatTemplate);
+        }
+        outputRules = outputRules.replace('%%OBJECTIF_CTA%%', objectifCta || 'OBJECTIF : non défini — un seul CTA, sobre et concret (une seule action, identité de l\'auteur visible).');
+    }
+    if (action === 'COLD_READ') {
+        outputRules = outputRules.replace('%%COLD_READ_PARAMS%%', coldReadParams || '');
     }
     if (action === 'GENERATE_CARROUSEL_SLIDES' && carrouselParams) {
         outputRules = outputRules.replace('%%CARROUSEL_PARAMS%%', carrouselParams);
@@ -264,3 +334,5 @@ export { INTERVIEWER_PERSONA } from './interviewer';
 export { COACH_PERSONA } from './coach';
 export { REDACTEUR_PERSONA, REDACTEUR_ADJUSTMENT_INTRO } from './redacteur';
 export { ARTISTE_PERSONA } from './artiste';
+export { VERROUILLEUR_PERSONA } from './verrouilleur';
+export { LECTEUR_FROID_PERSONA } from './lecteurFroid';

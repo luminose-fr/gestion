@@ -37,16 +37,24 @@ export const isTargetFormat = (value: unknown): value is TargetFormat => {
   return typeof value === "string" && TARGET_FORMAT_VALUES.includes(value);
 };
 
-export enum TargetOffer {
-  STANDARD = "Standard",
-  TRANSVERSE = "Transverse",
-  SEUIL = "Seuil"
+/**
+ * Objectif business d'une publication — chaque contenu en a exactement UN.
+ * C'est lui qui dicte la nature du CTA (voir ai/objectives.ts).
+ */
+export enum Objectif {
+  NOTORIETE = "Notoriété",
+  RECADRAGE = "Recadrage de croyance",
+  CONFIANCE = "Confiance / Preuve",
+  EDUCATION = "Éducation pratique",
+  TRAFIC = "Trafic contenu long",
+  CONVERSION = "Conversion séance",
+  EVENEMENT = "Promotion événement"
 }
 
-export const TARGET_OFFER_VALUES = Object.values(TargetOffer) as string[];
+export const OBJECTIF_VALUES = Object.values(Objectif) as string[];
 
-export const isTargetOffer = (value: unknown): value is TargetOffer => {
-  return typeof value === "string" && TARGET_OFFER_VALUES.includes(value);
+export const isObjectif = (value: unknown): value is Objectif => {
+  return typeof value === "string" && OBJECTIF_VALUES.includes(value);
 };
 
 export enum Profondeur {
@@ -97,6 +105,12 @@ export interface CoachSession {
   messages: CoachMessage[];
   status: 'in_progress' | 'validated';
   validatedAt: string | null;
+  /**
+   * Brief verrouillé (JSON sérialisé), généré au "Go Éditeur" par le Verrouilleur.
+   * C'est la matière UNIQUE du Rédacteur quand il est présent — la session brute
+   * ne lui est alors plus transmise (les idées écartées ne ressuscitent plus).
+   */
+  brief?: string | null;
 }
 
 export interface ContentItem {
@@ -114,7 +128,7 @@ export interface ContentItem {
   verdict?: Verdict;
   strategicAngle?: string;
   targetFormat?: TargetFormat | null;
-  targetOffer?: TargetOffer | null;
+  objectif?: Objectif | null;
   justification?: string;
   suggestedMetaphor?: string;
   // Profondeur de traitement
@@ -136,14 +150,14 @@ export interface DisplayPrefs {
   showVerdictStripe: boolean;
   showPlatforms: boolean;
   showDepth: boolean;
-  showOffer: boolean;
+  showObjectif: boolean;
 }
 
 export const DEFAULT_DISPLAY_PREFS: DisplayPrefs = {
   showVerdictStripe: true,
   showPlatforms: true,
   showDepth: true,
-  showOffer: false,
+  showObjectif: true,
 };
 
 export interface AppSettings {

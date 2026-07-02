@@ -6,6 +6,7 @@
  */
 
 import { TargetFormat, isTargetFormat } from '../types';
+import { parseBodyJson } from './formats';
 
 // ── Extraction JSON ──
 
@@ -111,6 +112,67 @@ export const sanitizeSlidesResponse = (responseText: string): string => {
         : rest.slides;
 
     return JSON.stringify({ ...rest, slides: sanitizedSlides }, null, 2);
+};
+
+// ── Contraintes carrousel (vérifiées côté code, pas côté prompt) ──
+
+/** Limites de densité des slides — calibrées pour le montage 1:1 dans Sketch. */
+export const SLIDE_TITLE_MAX = 35;
+export const SLIDE_TEXT_MAX = 140;
+
+export interface SlideLengthIssue {
+    numero: number | string;
+    champ: 'titre' | 'texte';
+    longueur: number;
+    max: number;
+}
+
+/**
+ * Vérifie les longueurs titre/texte de chaque slide d'un body carrousel.
+ * La slide "Signature" (texte fixe ajouté par le code) est exclue du contrôle.
+ */
+export const findSlideLengthIssues = (bodyRaw: string): SlideLengthIssue[] => {
+    const data = parseBodyJson(bodyRaw);
+    if (!data || !Array.isArray(data.slides)) return [];
+    const issues: SlideLengthIssue[] = [];
+    data.slides.forEach((slide: any, idx: number) => {
+        if (!slide || typeof slide !== 'object') return;
+        if (slide.role === 'Signature') return;
+        const numero = slide.numero ?? idx + 1;
+        const titre = typeof slide.titre === 'string' ? slide.titre.trim() : '';
+        const texte = typeof slide.texte === 'string' ? slide.texte.trim() : '';
+        if (titre.length > SLIDE_TITLE_MAX) {
+            issues.push({ numero, champ: 'titre', longueur: titre.length, max: SLIDE_TITLE_MAX });
+        }
+        if (texte.length > SLIDE_TEXT_MAX) {
+            issues.push({ numero, champ: 'texte', longueur: texte.length, max: SLIDE_TEXT_MAX });
+        }
+    });
+    return issues;
+};
+
+/**
+ * Ajoute la slide "Signature" (texte fixe, jamais générée par l'IA) en fin de
+ * carrousel. Idempotent : ne fait rien si une slide Signature existe déjà.
+ */
+export const appendSignatureSlide = (bodyRaw: string, signature: { titre: string; texte: string }): string => {
+    const data = parseBodyJson(bodyRaw);
+    if (!data || !Array.isArray(data.slides) || data.slides.length === 0) return bodyRaw;
+    const alreadyThere = data.slides.some((s: any) => s && s.role === 'Signature');
+    if (alreadyThere) return bodyRaw;
+    const maxNumero = data.slides.reduce((max: number, s: any) => {
+        const n = typeof s?.numero === 'number' ? s.numero : 0;
+        return n > max ? n : max;
+    }, 0);
+    data.slides.push({
+        numero: (maxNumero || data.slides.length) + 1,
+        role: 'Signature',
+        type: 'TYPO',
+        titre: signature.titre,
+        texte: signature.texte,
+        intention_visuelle: null,
+    });
+    return JSON.stringify(data, null, 2);
 };
 
 // ── Formatage texte (pour preview plain-text) ──

@@ -10,6 +10,20 @@ import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
 import { parseBodyJson, renderMdText, DEPTH_COLORS, buildPostCourtText, copyTextToClipboard, getPostCourtDzinePrompt, getPostCourtSuggestedVisual } from './renderers/shared';
 
+// ── Rapport du Lecteur Froid (relecture "yeux d'un inconnu") ──
+
+export interface ColdReadReport {
+    lecture_naive: {
+        sujet?: string;
+        auteur?: string;
+        action?: string;
+        decrochage?: string | null;
+    };
+    controles?: Array<{ regle: string; statut: 'OK' | 'KO'; detail?: string }>;
+    problemes?: Array<{ gravite: 'Bloquant' | 'Important' | 'Détail'; localisation?: string; probleme: string; correction_proposee?: string }>;
+    verdict?: 'Publiable' | 'À retoucher' | 'À revoir' | string;
+}
+
 interface DraftViewProps {
     item: ContentItem;
     onChange: (item: ContentItem) => void;
@@ -30,6 +44,11 @@ interface DraftViewProps {
     onCoachSessionChange: (session: CoachSession) => void | Promise<void>;
     onCoachValidate: (session: CoachSession) => void | Promise<void>;
 
+    // Lecteur Froid
+    coldRead: ColdReadReport | null;
+    onDismissColdRead: () => void;
+    onRunColdRead: () => void;
+
     // View State
     activeTab: 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script';
     onTabChange: (tab: 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script') => void;
@@ -39,6 +58,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
     onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, onChangeStatus, onSave, isGenerating,
     aiModels, activeModelId, onCoachSessionChange, onCoachValidate,
+    coldRead, onDismissColdRead, onRunColdRead,
     activeTab, onTabChange
 }) => {
 
@@ -134,6 +154,103 @@ export const DraftView: React.FC<DraftViewProps> = ({
         );
     };
 
+    // ── Panneau Lecteur Froid : relecture du contenu avec les yeux d'un inconnu ──
+    const ColdReadPanel = () => {
+        if (!coldRead) return null;
+        const verdict = coldRead.verdict || 'À retoucher';
+        const verdictColor =
+            verdict === 'Publiable'   ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+            : verdict === 'À revoir'  ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+                                      : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
+        const problemes = coldRead.problemes || [];
+        const controlesKo = (coldRead.controles || []).filter(c => c.statut === 'KO');
+        const graviteColor = (g: string) =>
+            g === 'Bloquant'  ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+            : g === 'Important' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
+                                : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
+
+        const applyCorrections = () => {
+            const corrections = problemes
+                .filter(p => p.correction_proposee)
+                .map(p => `${p.localisation ? `[${p.localisation}] ` : ''}${p.correction_proposee}`)
+                .join('\n');
+            if (corrections.trim()) {
+                onLaunchAdjustment(`Applique ces corrections issues d'une relecture à froid, sans rien changer d'autre :\n${corrections}`);
+            }
+            onDismissColdRead();
+        };
+
+        return (
+            <div className="bg-cyan-50 dark:bg-cyan-900/10 rounded-xl border border-cyan-200 dark:border-cyan-800/50 p-4 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wider">
+                        <Brain className="w-3 h-3" /> Lecteur froid — ce qu'un inconnu comprend
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${verdictColor}`}>{verdict}</span>
+                    <button onClick={onDismissColdRead} className="ml-auto text-cyan-700/60 dark:text-cyan-300/60 hover:text-cyan-700 dark:hover:text-cyan-300">
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-cyan-900 dark:text-cyan-100/80">
+                    {coldRead.lecture_naive?.sujet && (
+                        <p><span className="font-bold">Sujet perçu :</span> {coldRead.lecture_naive.sujet}</p>
+                    )}
+                    {coldRead.lecture_naive?.auteur && (
+                        <p><span className="font-bold">Auteur perçu :</span> {coldRead.lecture_naive.auteur}</p>
+                    )}
+                    {coldRead.lecture_naive?.action && (
+                        <p><span className="font-bold">Action perçue :</span> {coldRead.lecture_naive.action}</p>
+                    )}
+                    {coldRead.lecture_naive?.decrochage && (
+                        <p><span className="font-bold">Décrochage :</span> {coldRead.lecture_naive.decrochage}</p>
+                    )}
+                </div>
+
+                {(problemes.length > 0 || controlesKo.length > 0) && (
+                    <div className="space-y-1.5 border-t border-cyan-200 dark:border-cyan-800/50 pt-2.5">
+                        {problemes.map((p, i) => (
+                            <div key={`p-${i}`} className="flex items-start gap-2 text-xs">
+                                <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${graviteColor(p.gravite)}`}>{p.gravite}</span>
+                                <p className="text-cyan-900 dark:text-cyan-100/80 leading-relaxed">
+                                    {p.localisation && <span className="font-semibold">{p.localisation} — </span>}
+                                    {p.probleme}
+                                    {p.correction_proposee && <span className="italic"> → {p.correction_proposee}</span>}
+                                </p>
+                            </div>
+                        ))}
+                        {controlesKo.map((c, i) => (
+                            <div key={`c-${i}`} className="flex items-start gap-2 text-xs">
+                                <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">KO</span>
+                                <p className="text-cyan-900 dark:text-cyan-100/80 leading-relaxed">
+                                    <span className="font-semibold">{c.regle}</span>{c.detail ? ` — ${c.detail}` : ''}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-1">
+                    {problemes.some(p => p.correction_proposee) && (
+                        <button
+                            onClick={applyCorrections}
+                            disabled={isGenerating}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            <Sparkles className="w-3 h-3" /> Appliquer les corrections
+                        </button>
+                    )}
+                    <button
+                        onClick={onDismissColdRead}
+                        className="px-3 py-1.5 text-[11px] font-medium text-cyan-700 dark:text-cyan-300 hover:underline"
+                    >
+                        Ignorer
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     const FinalTabHeader = () => (
         <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -148,10 +265,10 @@ export const DraftView: React.FC<DraftViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-brand-main/45 dark:text-dark-text/45">Offre :</span>
-                {item.targetOffer ? (
+                <span className="text-xs font-bold text-brand-main/45 dark:text-dark-text/45">Objectif :</span>
+                {item.objectif ? (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border-brand-border dark:border-dark-sec-border">
-                        {item.targetOffer}
+                        {item.objectif}
                     </span>
                 ) : (
                     <span className="text-sm text-brand-main/45 dark:text-dark-text/45">-</span>
@@ -234,7 +351,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         </div>
 
                         {/* 2. Analyse IA — badges + angle + métaphore + justification */}
-                        {(item.analyzed || item.verdict || item.targetFormat || item.targetOffer || item.depth) && (
+                        {(item.analyzed || item.verdict || item.targetFormat || item.objectif || item.depth) && (
                             <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 space-y-3">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="flex items-center gap-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
@@ -247,9 +364,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
                                         }`}>{item.verdict}</span>
                                     )}
-                                    {item.targetOffer && (
+                                    {item.objectif && (
                                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border-brand-border dark:border-dark-sec-border">
-                                            <Target className="w-2.5 h-2.5 inline mr-1" />{item.targetOffer}
+                                            <Target className="w-2.5 h-2.5 inline mr-1" />{item.objectif}
                                         </span>
                                     )}
                                     {item.targetFormat && (
@@ -356,6 +473,13 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             </div>
                         )}
 
+                        {/* ── Relecture Lecteur Froid (yeux d'un inconnu) ── */}
+                        {hasContent && coldRead && (
+                            <div className="order-1">
+                                <ColdReadPanel />
+                            </div>
+                        )}
+
                         {/* ── 4. Section Brouillon (visible quand contenu existe) ── */}
                         {hasContent && (
                             <div ref={contentRef} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-pink-500/20 overflow-hidden flex flex-col flex-1 min-h-[400px] order-2">
@@ -383,6 +507,14 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             </>
                                         ) : (
                                             !isVideoFormat && item.body && <SecBtn onClick={() => startEditBody(item.body)} icon={Pencil} label="Modifier" />
+                                        )}
+                                        {!isVideoFormat && (
+                                            <SecBtn
+                                                onClick={onRunColdRead}
+                                                disabled={isGenerating}
+                                                icon={Brain}
+                                                label="Lecture froide"
+                                            />
                                         )}
                                         <SecBtn
                                             onClick={() => { setShowAdjustmentForm(!showAdjustmentForm); if (showAdjustmentForm) setAdjustmentText(""); }}
@@ -527,6 +659,8 @@ export const DraftView: React.FC<DraftViewProps> = ({
                 {activeTab === 'script' && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex-1 flex flex-col gap-6 pb-10">
                         <FinalTabHeader />
+
+                        {coldRead && <ColdReadPanel />}
 
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-md ring-1 ring-amber-500/20 overflow-hidden flex flex-col">
                             <div className="bg-brand-light dark:bg-dark-bg px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">

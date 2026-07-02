@@ -54,7 +54,14 @@
       "Bash(grep -nA 15 \"TargetFormat\" /Users/flornet/Sites/gestion.luminose.fr/types.ts)",
       "Bash(perl -0pi -e 's/        model: INTERNAL_MODELS\\\\.FAST,\\\\n//g' ai/actions.ts)",
       "Bash(perl -0pi -e 's/aiModels\\\\.find\\\\\\(m => m\\\\.apiCode === activeModelId\\\\\\)\\\\?\\\\.name \\\\|\\\\| \\\\\\(activeModelId === INTERNAL_MODELS\\\\.FAST \\\\? \"Gemini Flash\" : activeModelId\\\\\\)/aiModels.find\\(m => m.apiCode === activeModelId\\)?.name || activeModelId/g; s/activeModelId === INTERNAL_MODELS\\\\.FAST \\\\? \"Gemini Flash\" : \\\\\\(modelObj\\\\?\\\\.name \\\\|\\\\| activeModelId\\\\\\)/modelObj?.name || activeModelId/g' components/ContentEditor/index.tsx)",
-      "Bash(perl -0pi -e 's|// --- API CALLS \\\\\\(CONTEXT\\\\\\) ---.*?// --- API CALLS \\\\\\(MODELS\\\\\\) ---|// --- API CALLS \\(MODELS\\) ---|s' services/notionService.ts)"
+      "Bash(perl -0pi -e 's|// --- API CALLS \\\\\\(CONTEXT\\\\\\) ---.*?// --- API CALLS \\\\\\(MODELS\\\\\\) ---|// --- API CALLS \\(MODELS\\) ---|s' services/notionService.ts)",
+      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr stash list)",
+      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr log --oneline -1)",
+      "Bash(npx tsx *)",
+      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr status --short)",
+      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr status --short -- gestion-luminose-worker/)",
+      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr check-ignore gestion-luminose-worker/src/index.js)",
+      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr diff --stat package-lock.json package.json)"
     ]
   }
 }

@@ -362,10 +362,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 onChange={v => setPref('showDepth', v)}
                             />
                             <ToggleSwitch
-                                label="Offre cible"
-                                description="Standard, Seuil, Transverse"
-                                value={prefs.showOffer}
-                                onChange={v => setPref('showOffer', v)}
+                                label="Objectif"
+                                description="Notoriété, Recadrage, Conversion..."
+                                value={prefs.showObjectif}
+                                onChange={v => setPref('showObjectif', v)}
                             />
                         </div>
                     )}
