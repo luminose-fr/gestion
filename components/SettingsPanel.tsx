@@ -159,6 +159,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         return () => window.removeEventListener('keydown', handler);
     }, [isOpen, onClose, editingId, isCreating, selectedPersonaId, isSaving, isDeleting, deleteId]);
 
+    // Le badge « Enregistré » s'efface tout seul.
+    // Doit rester au-dessus du `return null` : un hook déclaré après un retour
+    // anticipé change le nombre de hooks entre deux rendus et fait planter React.
+    useEffect(() => {
+        if (!saveSuccess) return;
+        const timer = setTimeout(() => setSaveSuccess(false), 2500);
+        return () => clearTimeout(timer);
+    }, [saveSuccess]);
+
     if (!isOpen) return null;
 
     // ── Handlers
@@ -226,13 +235,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setSaveError(null);
         setSaveSuccess(false);
     };
-
-    // Le badge « Enregistré » s'efface tout seul
-    useEffect(() => {
-        if (!saveSuccess) return;
-        const timer = setTimeout(() => setSaveSuccess(false), 2500);
-        return () => clearTimeout(timer);
-    }, [saveSuccess]);
 
     const describeError = (e: unknown) =>
         e instanceof Error ? e.message : typeof e === 'string' ? e : 'Erreur inconnue';
