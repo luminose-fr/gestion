@@ -106,6 +106,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    // Sans ça, un refus de Notion ne laissait qu'un console.error : le bouton
+    // semblait ne rien faire et Florent croyait le modèle enregistré.
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveSuccess, setSaveSuccess] = useState(false);
 
     // Model edit state
     const [editModel, setEditModel] = useState<Partial<AIModel>>({
@@ -219,10 +223,29 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setEditingId(null);
         setIsCreating(false);
         setSelectedPersonaId(null);
+        setSaveError(null);
+        setSaveSuccess(false);
     };
 
+    // Le badge « Enregistré » s'efface tout seul
+    useEffect(() => {
+        if (!saveSuccess) return;
+        const timer = setTimeout(() => setSaveSuccess(false), 2500);
+        return () => clearTimeout(timer);
+    }, [saveSuccess]);
+
+    const describeError = (e: unknown) =>
+        e instanceof Error ? e.message : typeof e === 'string' ? e : 'Erreur inconnue';
+
     const handleSaveModel = async () => {
+        if (!(editModel.apiCode || '').trim()) {
+            setSaveError("Le code API 1min.AI est obligatoire (sans lui le modèle est inutilisable).");
+            return;
+        }
+
         setIsSaving(true);
+        setSaveError(null);
+        setSaveSuccess(false);
         try {
             if (isCreating) {
                 const newModel = await NotionService.createModel(editModel);
@@ -234,17 +257,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 await NotionService.updateModel(updatedModel);
                 onModelsChange(aiModels.map(m => m.id === editingId ? updatedModel : m));
             }
-        } catch (e) { console.error(e); } finally { setIsSaving(false); }
+            setSaveSuccess(true);
+        } catch (e) {
+            console.error(e);
+            setSaveError(describeError(e));
+        } finally { setIsSaving(false); }
     };
 
     const handleConfirmDelete = async () => {
         if (!deleteId) return;
         setIsDeleting(true);
+        setSaveError(null);
         try {
             await NotionService.deleteModel(deleteId);
             onModelsChange(aiModels.filter(m => m.id !== deleteId));
             if (editingId === deleteId) backToList();
-        } catch (e) { console.error(e); } finally { setIsDeleting(false); setDeleteId(null); }
+        } catch (e) {
+            console.error(e);
+            setSaveError(describeError(e));
+        } finally { setIsDeleting(false); setDeleteId(null); }
     };
 
     // ── Sub-view computation
@@ -678,7 +709,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                 {/* FOOTER — save button only in model editor */}
                 {isInModelEditor && (
-                    <div className="px-5 py-4 border-t border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/60 flex justify-end shrink-0">
+                    <div className="px-5 py-4 border-t border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/60 flex items-center justify-end gap-3 shrink-0">
+                        {saveError && (
+                            <div className="flex items-start gap-2 flex-1 min-w-0 text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span className="min-w-0 break-words">
+                                    <strong className="font-bold">Échec de l'enregistrement.</strong> {saveError}
+                                </span>
+                            </div>
+                        )}
+                        {!saveError && saveSuccess && (
+                            <div className="flex items-center gap-2 flex-1 min-w-0 text-xs text-green-700 dark:text-green-300">
+                                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                <span>Enregistré dans Notion.</span>
+                            </div>
+                        )}
                         <button
                             onClick={handleSaveModel}
                             disabled={isSaving || !(editModel.name || '').trim()}

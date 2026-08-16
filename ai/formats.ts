@@ -420,9 +420,9 @@ export function getStorageField(format: TargetFormat | null | undefined): Storag
  * Utile pour naviguer vers le bon tab après génération.
  */
 export function getEditorTab(format: TargetFormat | null | undefined): EditorTab {
-    if (!format) return 'content';
+    if (!format) return 'atelier';
     const def = FORMAT_REGISTRY[format];
-    return def?.editorTab || 'content';
+    return def?.editorTab || 'atelier';
 }
 
 /**

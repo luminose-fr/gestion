@@ -75,7 +75,7 @@ const fetchWithRetry = async (
 };
 
 const dataSourceCache: Record<string, string | undefined> = {};
-const dataSourceInFlight: Record<string, Promise<string>> = {};
+const dataSourceInFlight: Record<string, Promise<string> | undefined> = {};
 
 const getDataSourceId = async (dbId: string, cacheKey: string, context: string): Promise<string> => {
     if (!dbId) {
@@ -83,9 +83,11 @@ const getDataSourceId = async (dbId: string, cacheKey: string, context: string):
     }
     const cached = dataSourceCache[cacheKey];
     if (cached) return cached;
-    if (dataSourceInFlight[cacheKey]) return dataSourceInFlight[cacheKey];
 
-    dataSourceInFlight[cacheKey] = (async () => {
+    const inFlight = dataSourceInFlight[cacheKey];
+    if (inFlight) return inFlight;
+
+    const pending = (async () => {
         const response = await fetchWithRetry(
             getUrl(`/databases/${dbId}`),
             { method: "GET", headers: getHeaders() },
@@ -100,8 +102,9 @@ const getDataSourceId = async (dbId: string, cacheKey: string, context: string):
         return dataSourceId;
     })();
 
+    dataSourceInFlight[cacheKey] = pending;
     try {
-        return await dataSourceInFlight[cacheKey];
+        return await pending;
     } finally {
         delete dataSourceInFlight[cacheKey];
     }
@@ -337,6 +340,217 @@ const enforceRichTextLimit = (chunks: any[]) => {
 };
 
 
+// --- INTROSPECTION DU SCHÉMA NOTION ---
+
+/**
+ * Normalise un nom de propriété Notion pour comparer de façon tolérante.
+ * Accents, apostrophes (droite ou typographique), espaces, casse et
+ * ponctuation sont ignorés : "Coût / Crédits", "Cout" et "cout credits"
+ * donnent la même clé. Évite les écarts silencieux entre le code et Notion.
+ */
+const normalizePropName = (name: string): string =>
+  name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+interface ResolvedProp {
+  /** Nom exact tel qu'il existe dans Notion */
+  name: string;
+  type: string;
+  /** Objet brut : définition de schéma (data source) ou valeur (page) */
+  raw: any;
+}
+
+/**
+ * Retrouve une propriété dans un objet `properties` (schéma de data source
+ * OU propriétés d'une page) à partir d'une liste d'alias.
+ */
+const findProp = (
+  properties: Record<string, any> | undefined,
+  aliases: string[]
+): ResolvedProp | undefined => {
+  if (!properties) return undefined;
+
+  // Notion indexe `properties` par nom de colonne, mais chaque entrée porte
+  // aussi son `name` : on indexe les deux par sécurité.
+  const index = new Map<string, { key: string; raw: any }>();
+  for (const [key, raw] of Object.entries(properties)) {
+    index.set(normalizePropName(key), { key, raw });
+    const declaredName = (raw as any)?.name;
+    if (typeof declaredName === "string" && declaredName) {
+      index.set(normalizePropName(declaredName), { key: declaredName, raw });
+    }
+  }
+
+  for (const alias of aliases) {
+    const hit = index.get(normalizePropName(alias));
+    if (hit) {
+      return { name: hit.key, type: hit.raw?.type, raw: hit.raw };
+    }
+  }
+  return undefined;
+};
+
+const schemaCache: Record<string, Record<string, any>> = {};
+const schemaInFlight: Record<string, Promise<Record<string, any>> | undefined> = {};
+
+/**
+ * Récupère (et met en cache) le schéma des propriétés d'un data source.
+ * Depuis l'API 2025-09-03, les propriétés vivent sur le data source,
+ * plus sur la database.
+ */
+const getDataSourceProperties = async (
+  dataSourceId: string,
+  cacheKey: string,
+  context: string
+): Promise<Record<string, any>> => {
+  const cached = schemaCache[cacheKey];
+  if (cached) return cached;
+
+  const inFlight = schemaInFlight[cacheKey];
+  if (inFlight) return inFlight;
+
+  const pending = (async () => {
+    const response = await fetchWithRetry(
+      getUrl(`/data_sources/${dataSourceId}`),
+      { method: "GET", headers: getHeaders() },
+      `${context} Schema`
+    );
+    const data = await handleNotionResponse(response, `${context} Schema`);
+    const properties = data.properties || {};
+    schemaCache[cacheKey] = properties;
+    return properties;
+  })();
+
+  schemaInFlight[cacheKey] = pending;
+  try {
+    return await pending;
+  } finally {
+    delete schemaInFlight[cacheKey];
+  }
+};
+
+/**
+ * Sérialise une valeur applicative selon le TYPE RÉEL de la propriété Notion.
+ * Notion rejette la requête entière (400) dès qu'un type ne correspond pas :
+ * on s'aligne donc sur le schéma au lieu de deviner (select vs rich_text…).
+ * Retourne `undefined` si la propriété n'est pas inscriptible.
+ */
+const buildPropertyValue = (prop: ResolvedProp, value: unknown): any | undefined => {
+  const asText = value === null || value === undefined ? "" : String(value);
+
+  const matchOption = (options: any[]): string | undefined => {
+    const target = normalizePropName(asText);
+    return options.find((o: any) => normalizePropName(o?.name || "") === target)?.name;
+  };
+
+  switch (prop.type) {
+    case "title":
+      return { title: markdownToNotion(asText) };
+    case "rich_text":
+      return { rich_text: markdownToNotion(asText) };
+    case "select":
+      // Notion crée l'option à la volée si elle n'existe pas encore
+      return asText
+        ? { select: { name: matchOption(prop.raw?.select?.options || []) || asText } }
+        : { select: null };
+    case "status": {
+      // Contrairement à select, une option de status ne peut pas être créée via l'API
+      if (!asText) return undefined;
+      const existing = matchOption(prop.raw?.status?.options || []);
+      if (!existing) {
+        console.warn(`Option de statut inconnue pour "${prop.name}": ${asText} (ignorée)`);
+        return undefined;
+      }
+      return { status: { name: existing } };
+    }
+    case "multi_select":
+      return {
+        multi_select: asText
+          ? [{ name: matchOption(prop.raw?.multi_select?.options || []) || asText }]
+          : []
+      };
+    case "number": {
+      const num = typeof value === "number" ? value : Number(asText);
+      return { number: Number.isFinite(num) && asText !== "" ? num : null };
+    }
+    case "url":
+      return { url: asText || null };
+    case "checkbox":
+      return { checkbox: Boolean(value) };
+    default:
+      // formula, rollup, created_time, etc. : non inscriptibles
+      return undefined;
+  }
+};
+
+/**
+ * Construit un payload `properties` en ne conservant que les champs
+ * réellement présents dans le schéma Notion. Une colonne absente est
+ * ignorée (avec un warning) au lieu de faire échouer toute la requête.
+ */
+const buildPropertiesFromSchema = (
+  schema: Record<string, any>,
+  fields: Array<{ aliases: string[]; value: unknown }>,
+  context: string
+): Record<string, any> => {
+  const properties: Record<string, any> = {};
+
+  for (const field of fields) {
+    const prop = findProp(schema, field.aliases);
+    if (!prop) {
+      console.warn(`[${context}] Colonne Notion introuvable, ignorée : "${field.aliases[0]}"`);
+      continue;
+    }
+
+    const payload = buildPropertyValue(prop, field.value);
+    if (payload === undefined) {
+      console.warn(`[${context}] Colonne "${prop.name}" non inscriptible (${prop.type}), ignorée`);
+      continue;
+    }
+
+    properties[prop.name] = payload;
+  }
+
+  return properties;
+};
+
+/** Lit une propriété de page Notion en texte, quel que soit son type. */
+const propToText = (prop: any): string => {
+  if (!prop) return "";
+  switch (prop.type) {
+    case "title":
+    case "rich_text":
+      return notionToMarkdown(prop);
+    case "select":
+      return prop.select?.name || "";
+    case "status":
+      return prop.status?.name || "";
+    case "multi_select":
+      return (prop.multi_select || []).map((o: any) => o?.name).filter(Boolean).join(", ");
+    case "number":
+      return prop.number === null || prop.number === undefined ? "" : String(prop.number);
+    case "url":
+      return prop.url || "";
+    case "formula":
+      return prop.formula?.string ?? (typeof prop.formula?.number === "number" ? String(prop.formula.number) : "");
+    default:
+      return notionToMarkdown(prop);
+  }
+};
+
+/** Lit une propriété de page Notion en nombre, quel que soit son type. */
+const propToNumber = (prop: any): number | undefined => {
+  if (!prop) return undefined;
+  if (typeof prop.number === "number") return prop.number;
+  const text = propToText(prop);
+  if (!text) return undefined;
+  const num = Number(text);
+  return Number.isFinite(num) ? num : undefined;
+};
+
 // --- MAPPERS BASE DE DONNÉES ---
 
 const mapNotionPageToItem = (page: any): ContentItem => {
@@ -410,24 +624,37 @@ const mapNotionPageToItem = (page: any): ContentItem => {
 };
 
 
+/**
+ * Colonnes de la base Notion « Modèles IA ».
+ * Plusieurs alias par champ : le nom exact (accent, apostrophe typographique,
+ * variante FR/EN) est résolu au runtime contre le schéma réel, ce qui évite
+ * les échecs silencieux quand la colonne a été renommée dans Notion.
+ */
+const MODEL_FIELDS = {
+    name: ["Nom", "Name", "Modèle", "Model", "Titre"],
+    apiCode: ["Code API", "Code API 1min.AI", "API Code", "Code", "Modèle API"],
+    provider: ["Fournisseur", "Provider", "Éditeur"],
+    cost: ["Cout", "Coût", "Coût / Crédits", "Cost", "Crédits"],
+    strengths: ["Forces", "Strengths", "Points forts"],
+    bestUseCases: ["Cas d'usage", "Use cases", "Best use cases"],
+    textQuality: ["Qualité Rédaction", "Qualité", "Text quality"],
+    isDefault: ["Défaut", "Par défaut", "Default"],
+};
+
 const mapNotionPageToModel = (page: any): AIModel => {
-    const props = page.properties;
-    
-    // Mapping strict sur la propriété "Cout"
-    // Si la propriété est vide dans Notion, select est null, on fallback sur "medium"
-    const costValue = props["Cout"]?.select?.name || "medium";
+    const read = (aliases: string[]) => findProp(page.properties, aliases)?.raw;
 
     return {
         id: page.id,
-        name: notionToMarkdown(props["Nom"]) || "Modèle sans nom",
-        apiCode: notionToMarkdown(props["Code API"]) || "",
-        // Fournisseur est un champ Rich Text (Texte)
-        provider: notionToMarkdown(props["Fournisseur"]) || "", 
-        cost: costValue as any,
-        strengths: notionToMarkdown(props["Forces"]) || "",
-        bestUseCases: notionToMarkdown(props["Cas d'usage"]) || "",
-        textQuality: props["Qualité Rédaction"]?.number || 3,
-        isDefault: props["Défaut"]?.checkbox === true,
+        name: propToText(read(MODEL_FIELDS.name)) || "Modèle sans nom",
+        apiCode: propToText(read(MODEL_FIELDS.apiCode)),
+        provider: propToText(read(MODEL_FIELDS.provider)),
+        // Colonne vide côté Notion → fallback "medium"
+        cost: (propToText(read(MODEL_FIELDS.cost)) || "medium") as AIModel["cost"],
+        strengths: propToText(read(MODEL_FIELDS.strengths)),
+        bestUseCases: propToText(read(MODEL_FIELDS.bestUseCases)),
+        textQuality: propToNumber(read(MODEL_FIELDS.textQuality)) ?? 3,
+        isDefault: read(MODEL_FIELDS.isDefault)?.checkbox === true,
     };
 };
 
@@ -514,7 +741,7 @@ export const createContent = async (title: string, notes?: string, targetFormat?
                 },
                 properties: properties
             })
-        });
+        }, "createContent Page");
 
         const page = await handleNotionResponse(response, "createContent Page");
         return mapNotionPageToItem(page);
@@ -635,7 +862,7 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({ properties })
-    });
+    }, "updateContent");
 
     await handleNotionResponse(response, "updateContent");
 };
@@ -647,7 +874,7 @@ export const deleteContent = async (id: string): Promise<void> => {
         body: JSON.stringify({
             archived: true
         })
-    });
+    }, "deleteContent");
     await handleNotionResponse(response, "deleteContent");
 };
 
@@ -684,69 +911,91 @@ export const fetchModels = async (since?: string): Promise<AIModel[]> => {
     }
 };
 
+/**
+ * Construit le payload `properties` d'un modèle à partir du schéma réel
+ * de la base Notion (noms ET types des colonnes lus au runtime).
+ */
+const buildModelProperties = async (
+    model: Partial<AIModel>,
+    context: string,
+    fields?: Array<{ aliases: string[]; value: unknown }>
+) => {
+    const dataSourceId = await getDataSourceId(CONFIG.NOTION_MODELS_DB_ID, "models", context);
+    const schema = await getDataSourceProperties(dataSourceId, "models", context);
+
+    const properties = buildPropertiesFromSchema(schema, fields ?? [
+        { aliases: MODEL_FIELDS.name, value: model.name || "" },
+        { aliases: MODEL_FIELDS.apiCode, value: model.apiCode || "" },
+        { aliases: MODEL_FIELDS.provider, value: model.provider || "" },
+        { aliases: MODEL_FIELDS.cost, value: model.cost || "medium" },
+        { aliases: MODEL_FIELDS.strengths, value: model.strengths || "" },
+        { aliases: MODEL_FIELDS.bestUseCases, value: model.bestUseCases || "" },
+        { aliases: MODEL_FIELDS.textQuality, value: model.textQuality ?? 3 },
+    ], context);
+
+    if (Object.keys(properties).length === 0) {
+        throw new Error(
+            "Aucune colonne reconnue dans la base Notion « Modèles IA ». " +
+            "Vérifiez les noms de colonnes (Nom, Code API, Fournisseur, Cout, Forces, Cas d'usage, Qualité Rédaction)."
+        );
+    }
+
+    return { dataSourceId, properties };
+};
+
 export const createModel = async (model: Partial<AIModel>): Promise<AIModel> => {
-    const dataSourceId = await getDataSourceId(
-        CONFIG.NOTION_MODELS_DB_ID,
-        "models",
-        "createModel"
+    const { dataSourceId, properties } = await buildModelProperties(model, "createModel");
+
+    const response = await fetchWithRetry(
+        getUrl("/pages"),
+        {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+                parent: {
+                    type: "data_source_id",
+                    data_source_id: dataSourceId
+                },
+                properties
+            })
+        },
+        "createModel Page"
     );
 
-    const response = await fetchWithRetry(getUrl("/pages"), {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify({
-            parent: { 
-                type: "data_source_id",
-                data_source_id: dataSourceId 
-            },
-            properties: {
-                "Nom": { title: markdownToNotion(model.name || "") },
-                "Code API": { rich_text: markdownToNotion(model.apiCode || "") },
-                // Fournisseur est un champ Rich Text (Texte)
-                "Fournisseur": { rich_text: markdownToNotion(model.provider || "Autre") },
-                "Cout": { select: { name: model.cost || "medium" } },
-                "Forces": { rich_text: markdownToNotion(model.strengths || "") },
-                "Cas d'usage": { rich_text: markdownToNotion(model.bestUseCases || "") },
-                "Qualité Rédaction": { number: model.textQuality || 3 }
-            }
-        })
-    });
-    
     const page = await handleNotionResponse(response, "createModel Page");
     return mapNotionPageToModel(page);
 };
 
 export const updateModel = async (model: AIModel): Promise<void> => {
-    const response = await fetchWithRetry(getUrl(`/pages/${model.id}`), {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-            properties: {
-                "Nom": { title: markdownToNotion(model.name) },
-                "Code API": { rich_text: markdownToNotion(model.apiCode) },
-                // Fournisseur est un champ Rich Text (Texte)
-                "Fournisseur": { rich_text: markdownToNotion(model.provider) },
-                "Cout": { select: { name: model.cost } },
-                "Forces": { rich_text: markdownToNotion(model.strengths) },
-                "Cas d'usage": { rich_text: markdownToNotion(model.bestUseCases) },
-                "Qualité Rédaction": { number: model.textQuality }
-            }
-        })
-    });
+    const { properties } = await buildModelProperties(model, "updateModel");
+
+    const response = await fetchWithRetry(
+        getUrl(`/pages/${model.id}`),
+        {
+            method: "PATCH",
+            headers: getHeaders(),
+            body: JSON.stringify({ properties })
+        },
+        "updateModel"
+    );
     await handleNotionResponse(response, "updateModel");
 };
 
 /** Met à jour uniquement la case « Défaut » d'un modèle. */
 export const setModelDefault = async (pageId: string, isDefault: boolean): Promise<void> => {
-    const response = await fetchWithRetry(getUrl(`/pages/${pageId}`), {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-            properties: {
-                "Défaut": { checkbox: isDefault }
-            }
-        })
-    });
+    const { properties } = await buildModelProperties({}, "setModelDefault", [
+        { aliases: MODEL_FIELDS.isDefault, value: isDefault },
+    ]);
+
+    const response = await fetchWithRetry(
+        getUrl(`/pages/${pageId}`),
+        {
+            method: "PATCH",
+            headers: getHeaders(),
+            body: JSON.stringify({ properties })
+        },
+        "setModelDefault"
+    );
     await handleNotionResponse(response, "setModelDefault");
 };
 
@@ -757,6 +1006,6 @@ export const deleteModel = async (id: string): Promise<void> => {
         body: JSON.stringify({
             archived: true
         })
-    });
+    }, "deleteModel");
     await handleNotionResponse(response, "deleteModel");
 };

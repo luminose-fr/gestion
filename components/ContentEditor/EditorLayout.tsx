@@ -6,11 +6,13 @@ interface EditorLayoutProps {
     headerContent: React.ReactNode;
     /** Sous-bandeau optionnel rendu juste sous le header (utilisé pour la barre d'onglets mobile). */
     subHeaderContent?: React.ReactNode;
+    /** Bandeaux d'alerte affichés sous l'en-tête, au-dessus du contenu */
+    bannerContent?: React.ReactNode;
     footerContent?: React.ReactNode;
     children: React.ReactNode;
 }
 
-export const EditorLayout: React.FC<EditorLayoutProps> = ({ onClose, headerContent, subHeaderContent, footerContent, children }) => {
+export const EditorLayout: React.FC<EditorLayoutProps> = ({ onClose, headerContent, subHeaderContent, bannerContent, footerContent, children }) => {
     return (
         <div className="w-full h-full flex flex-col bg-brand-light dark:bg-dark-bg animate-in fade-in slide-in-from-right-4 duration-300">
             {/* HEADER FIXE */}
@@ -31,6 +33,13 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({ onClose, headerConte
             {subHeaderContent && (
                 <div className="shrink-0 z-10">
                     {subHeaderContent}
+                </div>
+            )}
+
+            {/* BANDEAUX D'ALERTE */}
+            {bannerContent && (
+                <div className="shrink-0 z-10 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {bannerContent}
                 </div>
             )}
 

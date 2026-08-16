@@ -15,15 +15,19 @@ interface AnalysisModalProps {
   onAnalysisComplete: () => void;
 }
 
+/** Objet renvoyé par le Stratège — cf. OUTPUT_RULES.ANALYZE_BATCH */
 interface AnalysisResult {
   id: string;
   verdict: Verdict;
-  angle: string;
+  angle_strategique?: string;
+  /** Ancien nom du champ, encore accepté en lecture */
+  angle?: string;
   plateformes: string[];
   justification?: string;
   objectif?: string;
   metaphore_suggeree?: string | null;
   titre?: string;
+  profondeur?: string;
 }
 
 const AnalysisModal: React.FC<AnalysisModalProps> = ({

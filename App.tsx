@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
@@ -109,6 +109,32 @@ function App() {
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
   });
+
+  // Contenus dont l'écriture Notion a échoué : ils n'existent qu'en local.
+  // Le ref porte la version à réémettre (toujours à jour, même dans une closure
+  // de sync périmée) ; le state ne sert qu'à l'affichage du bandeau.
+  const unsavedItemsRef = useRef<Map<string, ContentItem>>(new Map());
+  const [unsavedIds, setUnsavedIds] = useState<string[]>([]);
+  const [isRetryingUnsaved, setIsRetryingUnsaved] = useState(false);
+
+  const syncUnsavedState = () => setUnsavedIds(Array.from(unsavedItemsRef.current.keys()));
+
+  const markItemSaved = (id: string) => {
+      if (unsavedItemsRef.current.delete(id)) syncUnsavedState();
+  };
+
+  const markItemUnsaved = (item: ContentItem) => {
+      unsavedItemsRef.current.set(item.id, item);
+      syncUnsavedState();
+  };
+
+  // Garde-fou navigateur : on ne quitte pas la page sur du travail non enregistré
+  useEffect(() => {
+      if (unsavedIds.length === 0) return;
+      const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+      window.addEventListener('beforeunload', handler);
+      return () => window.removeEventListener('beforeunload', handler);
+  }, [unsavedIds.length]);
 
   const mergeById = <T extends { id: string }>(current: T[], updates: T[]): T[] => {
       if (updates.length === 0) return current;
@@ -223,9 +249,13 @@ function App() {
         const baseItems = contentSince ? (baseCache?.items ?? items) : [];
         const baseModels = modelsSince ? (baseCache?.models ?? aiModels) : [];
 
-        const nextItems = sortByLastEditedDesc(
-            contentSince ? mergeById(baseItems, fetchedContent) : fetchedContent
-        );
+        // Un contenu non enregistré porte du travail qui n'existe nulle part
+        // ailleurs : la version Notion ne doit jamais l'écraser.
+        const unsaved = unsavedItemsRef.current;
+        const mergedContent = (contentSince ? mergeById(baseItems, fetchedContent) : fetchedContent)
+            .map(item => unsaved.get(item.id) ?? item);
+
+        const nextItems = sortByLastEditedDesc(mergedContent);
         const nextModels = modelsSince ? mergeById(baseModels, fetchedModels) : fetchedModels;
 
         setItems(nextItems);
@@ -352,15 +382,61 @@ function App() {
       syncWithNotion(); 
   };
 
+  /**
+   * Écriture optimiste : l'UI et le cache passent en premier, Notion ensuite.
+   * En cas d'échec on NE revient PAS en arrière (ce serait effacer la frappe
+   * de Florent) : l'item est marqué non sauvegardé, ce qui le protège de la
+   * synchronisation et déclenche le bandeau de rattrapage.
+   *
+   * L'erreur est propagée : c'est ce qui permet à l'éditeur d'afficher
+   * "Erreur sauvegarde" au lieu d'un "Enregistré" mensonger.
+   */
   const handleUpdateItem = async (updatedItem: ContentItem): Promise<void> => {
     setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
     StorageService.updateCachedItem(updatedItem).catch(console.error);
 
     try {
       await NotionService.updateContent(updatedItem);
+      markItemSaved(updatedItem.id);
     } catch (error: any) {
       console.error("Erreur update Notion:", error);
-      setError("Échec de la sauvegarde sur Notion. " + error.message);
+      markItemUnsaved(updatedItem);
+      throw error;
+    }
+  };
+
+  /** Réémet vers Notion tous les contenus restés en échec. */
+  const retryUnsavedItems = async () => {
+    if (isRetryingUnsaved) return;
+    setIsRetryingUnsaved(true);
+    let lastError: string | null = null;
+
+    for (const item of Array.from(unsavedItemsRef.current.values())) {
+        try {
+            await NotionService.updateContent(item);
+            unsavedItemsRef.current.delete(item.id);
+        } catch (e: any) {
+            lastError = e?.message || "Erreur inconnue";
+        }
+    }
+
+    syncUnsavedState();
+    setIsRetryingUnsaved(false);
+
+    if (unsavedItemsRef.current.size === 0) {
+        setAlertInfo({
+            isOpen: true,
+            title: "Sauvegarde réussie",
+            message: "Tous les contenus en attente ont été enregistrés dans Notion.",
+            type: 'success'
+        });
+    } else if (lastError) {
+        setAlertInfo({
+            isOpen: true,
+            title: "Notion refuse toujours l'enregistrement",
+            message: lastError,
+            type: 'error'
+        });
     }
   };
 
@@ -368,8 +444,13 @@ function App() {
     updatedItem: ContentItem,
     options?: { launchInterview?: boolean }
   ): Promise<void> => {
-    // Sauvegarder l'item avec le nouveau statut DRAFTING
-    await handleUpdateItem(updatedItem);
+    // Sauvegarder l'item avec le nouveau statut DRAFTING.
+    // Si Notion refuse, on reste sur place : le bandeau explique pourquoi.
+    try {
+        await handleUpdateItem(updatedItem);
+    } catch {
+        return;
+    }
     // Indiquer à ContentEditor qu'il doit lancer l'interview dès l'ouverture
     if (options?.launchInterview) {
         setPendingEditorAction('interview');
@@ -639,8 +720,29 @@ function App() {
                       <AlertCircle className="w-4 h-4" />
                       {error}
                   </div>
-                  <button onClick={syncWithNotion} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
+                  <button onClick={() => syncWithNotion()} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
               </span>
+          </div>
+        )}
+
+        {/* Travail non enregistré : bandeau persistant tant que Notion n'a pas accepté */}
+        {unsavedIds.length > 0 && (
+          <div className="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-300 dark:border-amber-700 px-4 py-2 text-xs shrink-0 animate-fade-in">
+              <div className="text-amber-800 dark:text-amber-200 flex items-center justify-center gap-3 flex-wrap">
+                  <span className="flex items-center gap-2 font-medium">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      {unsavedIds.length === 1
+                          ? "1 contenu n'a pas pu être enregistré dans Notion — il n'existe que sur cet appareil."
+                          : `${unsavedIds.length} contenus n'ont pas pu être enregistrés dans Notion — ils n'existent que sur cet appareil.`}
+                  </span>
+                  <button
+                      onClick={retryUnsavedItems}
+                      disabled={isRetryingUnsaved}
+                      className="underline font-bold hover:text-amber-950 dark:hover:text-white disabled:opacity-50 disabled:no-underline"
+                  >
+                      {isRetryingUnsaved ? "Enregistrement…" : "Réessayer maintenant"}
+                  </button>
+              </div>
           </div>
         )}
 

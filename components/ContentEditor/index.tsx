@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images } from 'lucide-react';
+import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession } from '../../types';
 import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
 import * as OneMinService from '../../services/oneMinService';
@@ -57,6 +57,20 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Dernière génération IA : permet de revenir à la version précédente.
+  // Une génération écrase intégralement le champ cible — sans ça, un
+  // ajustement raté fait disparaître définitivement le texte d'avant.
+  const [lastGeneration, setLastGeneration] = useState<{
+      field: 'body' | 'scriptVideo' | 'slides';
+      previousValue: string;
+      label: string;
+  } | null>(null);
+
+  // Le brouillon a été régénéré/ajusté après la production des slides :
+  // ce qui s'affiche dans l'onglet Slides ne correspond plus au texte courant.
+  const [slidesStale, setSlidesStale] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Rapport du Lecteur Froid (relecture "yeux d'un inconnu") — éphémère, non persisté
@@ -86,6 +100,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             setEditedItem({ ...item });
             setIsGenerating(false);
             setColdRead(null);
+            setLastGeneration(null);
+            setSlidesStale(false);
+            setSaveError(null);
 
             if (activeStep === 'idea') {
                 const isVideo = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
@@ -121,28 +138,54 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- HELPERS SAVE STATUS ---
 
+  /**
+   * "Enregistré" s'efface après quelques secondes ; une erreur reste
+   * affichée jusqu'à la prochaine tentative — sinon elle passe inaperçue
+   * et Florent croit son travail sauvegardé.
+   */
   const triggerSaveStatus = (status: 'saved' | 'error') => {
       if (!isMountedRef.current) return;
       setSaveStatus(status);
       if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
-      saveStatusTimerRef.current = setTimeout(() => {
-          if (isMountedRef.current) setSaveStatus('idle');
-      }, 2500);
+      if (status === 'saved') {
+          saveStatusTimerRef.current = setTimeout(() => {
+              if (isMountedRef.current) setSaveStatus('idle');
+          }, 2500);
+      }
   };
 
-  const saveWithStatus = async (itemToSave: ContentItem) => {
-      if (!isMountedRef.current) return;
+  /** Retourne true si Notion a bien accepté l'écriture. Ne lève jamais. */
+  const saveWithStatus = async (itemToSave: ContentItem): Promise<boolean> => {
+      if (!isMountedRef.current) return false;
       setSaveStatus('saving');
+      setSaveError(null);
       setIsSaving(true);
       try {
           await onSave(itemToSave);
           triggerSaveStatus('saved');
-      } catch (e) {
+          return true;
+      } catch (e: any) {
+          if (isMountedRef.current) setSaveError(e?.message || "Notion a refusé l'enregistrement.");
           triggerSaveStatus('error');
-          throw e;
+          return false;
       } finally {
           if (isMountedRef.current) setIsSaving(false);
       }
+  };
+
+  /** Rejoue la dernière sauvegarde en échec. */
+  const retrySave = async () => {
+      if (isSaving || !editedItem) return;
+      await saveWithStatus(editedItem);
+  };
+
+  /** Restaure la version qui précédait la dernière génération IA. */
+  const undoLastGeneration = async () => {
+      if (!lastGeneration || !editedItem || isGenerating || isSaving) return;
+      const restored = { ...editedItem, [lastGeneration.field]: lastGeneration.previousValue };
+      setEditedItem(restored);
+      setLastGeneration(null);
+      await saveWithStatus(restored);
   };
 
   // --- ACTIONS ---
@@ -352,12 +395,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const isVideoFormat = base.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
               || base.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
 
-          const newItem = isVideoFormat
-              ? { ...base, scriptVideo: finalContent + signature }
-              : { ...base, body: finalContent + signature };
+          const draftField: 'body' | 'scriptVideo' = isVideoFormat ? 'scriptVideo' : 'body';
+          const previousValue = base[draftField] || "";
+          const newItem = { ...base, [draftField]: finalContent + signature };
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
+              if (previousValue) setLastGeneration({ field: draftField, previousValue, label: 'Rédaction régénérée' });
+              // Le brouillon a changé : les slides déjà produites ne collent plus
+              if (base.slides) setSlidesStale(true);
               await saveWithStatus(newItem);
               // Auto-navigation post-rédaction :
               // - Vidéo → Script (affichage rendu)
@@ -400,13 +446,31 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const modelName = aiModels.find(m => m.apiCode === activeModelId)?.name || activeModelId;
           const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
+          const previousValue = editedItem?.slides || "";
           const newItem = { ...editedItem!, slides: cleaned + signature };
-          if (isMountedRef.current) { setEditedItem(newItem); await saveWithStatus(newItem); }
+          if (isMountedRef.current) {
+              setEditedItem(newItem);
+              if (previousValue) setLastGeneration({ field: 'slides', previousValue, label: 'Slides régénérées' });
+              setSlidesStale(false);
+              await saveWithStatus(newItem);
+          }
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Slides", message: error.message, type: "error" });
       } finally {
           if (isMountedRef.current) setIsGenerating(false);
       }
+  };
+
+  /**
+   * Champ réellement affiché dans l'onglet courant — c'est celui que
+   * "Ajuster" doit modifier. Sans ce routage, ajuster un carrousel
+   * réécrivait le brouillon et laissait les slides inchangées.
+   */
+  const getAdjustmentField = (): 'body' | 'scriptVideo' | 'slides' => {
+      if (activeStep === 'slides' && editedItem?.slides) return 'slides';
+      const isVideo = editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
+          || editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+      return isVideo ? 'scriptVideo' : 'body';
   };
 
   // --- ADJUSTMENT (Refinement Loop) ---
@@ -420,12 +484,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       setIsGenerating(true);
       try {
           const actionConfig = AI_ACTIONS.ADJUST_CONTENT;
-          // Determine which field contains the current content
-          const isVideoFormat = editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
-              || editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
-          const currentContent = isVideoFormat
-              ? (editedItem?.scriptVideo || "")
-              : (editedItem?.body || "");
+          // On ajuste ce que Florent a sous les yeux, pas un champ deviné :
+          // l'onglet Slides affiche `slides`, pas `body`.
+          const targetField = getAdjustmentField();
+          const currentContent = editedItem?.[targetField] || "";
 
           const systemInstruction = actionConfig.getSystemInstruction(
               undefined, // pas de contexte Notion additionnel
@@ -440,19 +502,26 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               actionConfig.generationConfig
           );
 
-          const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
-          // Resolve model name for signature
+          // Sur les slides on valide la structure : plutôt lever une erreur que
+          // remplacer un carrousel correct par une réponse illisible.
+          const cleaned = targetField === 'slides'
+              ? sanitizeSlidesResponse(responseText)
+              : responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
+
           const modelObj = aiModels.find(m => m.apiCode === activeModelId);
           const modelName = modelObj?.name || activeModelId;
           const signature = `\n\n_Ajusté par : ${modelName} — le ${new Date().toLocaleString('fr-FR')}_`;
           const finalContent = cleaned + signature;
 
-          const newItem = isVideoFormat
-              ? { ...editedItem!, scriptVideo: finalContent }
-              : { ...editedItem!, body: finalContent };
+          const previousValue = currentContent;
+          const newItem = { ...editedItem!, [targetField]: finalContent };
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
+              if (previousValue) setLastGeneration({ field: targetField, previousValue, label: 'Ajustement appliqué' });
+              // Ajuster le brouillon périme les slides ; ajuster les slides les remet à jour
+              if (targetField === 'slides') setSlidesStale(false);
+              else if (editedItem?.slides) setSlidesStale(true);
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
@@ -536,13 +605,62 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           </span>
       );
       if (saveStatus === 'error') return (
-          <span className="flex items-center gap-1.5 text-xs text-red-500 dark:text-red-400">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Erreur sauvegarde
+          <span className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 font-medium">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              Non enregistré
+              <button
+                  onClick={retrySave}
+                  disabled={isSaving}
+                  className="underline font-bold hover:text-red-800 dark:hover:text-red-200 disabled:opacity-50"
+              >
+                  Réessayer
+              </button>
           </span>
       );
       return null;
   };
+
+  /** Bandeau sous l'en-tête : échec de sauvegarde et/ou annulation de génération. */
+  const EditorBanner = (saveStatus === 'error' || lastGeneration) ? (
+      <div className="flex flex-col">
+          {saveStatus === 'error' && (
+              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 min-w-0">
+                      <strong className="font-bold">Ce contenu n'est pas enregistré dans Notion</strong>
+                      {saveError ? ` (${saveError})` : ''}. Il n'existe que sur cet appareil.
+                  </span>
+                  <button
+                      onClick={retrySave}
+                      disabled={isSaving}
+                      className="shrink-0 underline font-bold hover:text-red-950 dark:hover:text-white disabled:opacity-50"
+                  >
+                      {isSaving ? 'Enregistrement…' : 'Réessayer'}
+                  </button>
+              </div>
+          )}
+          {lastGeneration && (
+              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-blue-50 dark:bg-blue-900/25 border-b border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-200">
+                  <Undo2 className="w-4 h-4 shrink-0" />
+                  <span className="flex-1 min-w-0">{lastGeneration.label} — la version précédente est encore récupérable.</span>
+                  <button
+                      onClick={undoLastGeneration}
+                      disabled={isGenerating || isSaving}
+                      className="shrink-0 underline font-bold hover:text-blue-950 dark:hover:text-white disabled:opacity-50"
+                  >
+                      Revenir à la version précédente
+                  </button>
+                  <button
+                      onClick={() => setLastGeneration(null)}
+                      className="shrink-0 text-blue-500 hover:text-blue-800 dark:hover:text-blue-100"
+                      title="Masquer"
+                  >
+                      <X className="w-3.5 h-3.5" />
+                  </button>
+              </div>
+          )}
+      </div>
+  ) : null;
 
   // ── Onglets dynamiques — TOUJOURS visibles selon le format (pas de gating sur le contenu) ──
   const _isVideoFmt = editedItem.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
@@ -702,6 +820,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             onClose={onClose}
             headerContent={Header}
             subHeaderContent={StepTabsMobile}
+            bannerContent={EditorBanner}
             footerContent={getFooterContent()}
         >
             {editedItem.status === ContentStatus.DRAFTING && (
@@ -712,6 +831,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onLaunchCarrouselSlides={triggerCarrouselSlides}
                     onLaunchAdjustment={launchAdjustment}
                     onLaunchPromptsAdjustment={launchPromptsAdjustment}
+                    slidesStale={slidesStale}
                     onChangeStatus={changeStatus}
                     onSave={onSave}
                     isGenerating={isGenerating}

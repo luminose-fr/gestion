@@ -9,6 +9,8 @@ import { BodyRenderer } from './renderers/BodyRenderer';
 import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
 import { parseBodyJson, renderMdText, DEPTH_COLORS, buildPostCourtText, copyTextToClipboard, getPostCourtDzinePrompt, getPostCourtSuggestedVisual } from './renderers/shared';
+// Type-only : erasé à la compilation, pas de cycle de modules à l'exécution
+import type { EditorStep } from './index';
 
 // ── Rapport du Lecteur Froid (relecture "yeux d'un inconnu") ──
 
@@ -33,6 +35,8 @@ interface DraftViewProps {
     onLaunchCarrouselSlides: () => void;
     onLaunchAdjustment: (adjustmentText: string) => void;
     onLaunchPromptsAdjustment: (instruction: string, slideNumero: number | null) => void;
+    /** Le brouillon a changé depuis la génération des slides */
+    slidesStale?: boolean;
     onChangeStatus: (status: ContentStatus, scheduledDate?: string) => Promise<void>;
     onSave: (item: ContentItem) => Promise<void>;
 
@@ -50,13 +54,14 @@ interface DraftViewProps {
     onRunColdRead: () => void;
 
     // View State
-    activeTab: 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script';
-    onTabChange: (tab: 'idea' | 'atelier' | 'slides' | 'postcourt' | 'script') => void;
+    activeTab: EditorStep;
+    onTabChange: (tab: EditorStep) => void;
 }
 
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
-    onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, onChangeStatus, onSave, isGenerating,
+    onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, slidesStale = false,
+    onChangeStatus, onSave, isGenerating,
     aiModels, activeModelId, onCoachSessionChange, onCoachValidate,
     coldRead, onDismissColdRead, onRunColdRead,
     activeTab, onTabChange
@@ -70,6 +75,13 @@ export const DraftView: React.FC<DraftViewProps> = ({
     const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
     const [adjustmentText, setAdjustmentText] = useState("");
     const contentRef = useRef<HTMLDivElement>(null);
+
+    // Le formulaire d'ajustement est partagé entre les onglets : on le referme
+    // en changeant de vue pour ne pas l'afficher là où il n'a pas été ouvert.
+    useEffect(() => {
+        setShowAdjustmentForm(false);
+        setAdjustmentText("");
+    }, [activeTab]);
 
     const isDirect = item.depth === Profondeur.DIRECT;
     const isVideoFormat = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
@@ -886,14 +898,80 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                         <Images className="w-3 h-3" /> Slides
                                     </p>
                                 </div>
-                                <SecBtn
-                                    onClick={onLaunchCarrouselSlides}
-                                    disabled={isGenerating}
-                                    icon={RefreshCw}
-                                    label={isGenerating ? '...' : 'Régénérer'}
-                                    color="violet"
-                                />
+                                <div className="flex items-center gap-2">
+                                    {item.slides && (
+                                        <SecBtn
+                                            onClick={() => { setShowAdjustmentForm(!showAdjustmentForm); if (showAdjustmentForm) setAdjustmentText(""); }}
+                                            disabled={isGenerating}
+                                            icon={MessageSquare}
+                                            label={showAdjustmentForm ? 'Annuler' : 'Ajuster'}
+                                            color="blue"
+                                        />
+                                    )}
+                                    <SecBtn
+                                        onClick={onLaunchCarrouselSlides}
+                                        disabled={isGenerating}
+                                        icon={RefreshCw}
+                                        label={isGenerating ? '...' : 'Régénérer'}
+                                        color="violet"
+                                    />
+                                </div>
                             </div>
+
+                            {/* Le brouillon a bougé depuis la dernière génération */}
+                            {slidesStale && item.slides && (
+                                <div className="px-4 py-2.5 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 flex items-center gap-2 flex-wrap">
+                                    <span className="text-[11px] text-amber-800 dark:text-amber-200 flex-1 min-w-0">
+                                        Le brouillon a été modifié depuis la génération de ces slides — elles ne reflètent plus le texte courant.
+                                    </span>
+                                    <button
+                                        onClick={onLaunchCarrouselSlides}
+                                        disabled={isGenerating}
+                                        className="text-[11px] font-bold underline text-amber-900 dark:text-amber-100 hover:text-amber-950 disabled:opacity-50 shrink-0"
+                                    >
+                                        Régénérer les slides
+                                    </button>
+                                </div>
+                            )}
+
+                            {showAdjustmentForm && item.slides && (
+                                <div className="px-4 py-3 border-b border-brand-border dark:border-dark-sec-border bg-blue-50 dark:bg-blue-900/10 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <MessageSquare className="w-3 h-3" /> Demande d'ajustement
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <textarea
+                                            value={adjustmentText}
+                                            onChange={(e) => setAdjustmentText(e.target.value)}
+                                            placeholder="Slide 3 : rends le titre plus court, garde la métaphore..."
+                                            className="flex-1 text-sm p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-dark-surface text-brand-main dark:text-dark-text placeholder-brand-main/30 dark:placeholder-dark-text/30 outline-hidden focus:ring-2 focus:ring-blue-400 resize-none"
+                                            rows={2}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && adjustmentText.trim()) {
+                                                    onLaunchAdjustment(adjustmentText.trim());
+                                                    setAdjustmentText("");
+                                                    setShowAdjustmentForm(false);
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                if (adjustmentText.trim()) {
+                                                    onLaunchAdjustment(adjustmentText.trim());
+                                                    setAdjustmentText("");
+                                                    setShowAdjustmentForm(false);
+                                                }
+                                            }}
+                                            disabled={!adjustmentText.trim() || isGenerating}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                                        >
+                                            {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                            Envoyer
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1.5">&#8984;+Entrée pour envoyer</p>
+                                </div>
+                            )}
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
                                 {!item.slides ? (
