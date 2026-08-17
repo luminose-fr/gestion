@@ -6,7 +6,7 @@ import * as OneMinService from '../../services/oneMinService';
 import { generateLockedBrief } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
 import { AI_ACTIONS } from '../../ai/actions';
-import { bodyJsonToText } from '../../ai/formats';
+import { bodyJsonToText, getStorageField, getEditorTab, supportsColdRead } from '../../ai/formats';
 import {
     parseDraftResponse, parseAIResponse, sanitizeSlidesResponse,
     extractJsonPayload, formatDraftContent,
@@ -105,11 +105,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             setSaveError(null);
 
             if (activeStep === 'idea') {
-                const isVideo = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
-                    || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
-                const hasContent = isVideo
-                    ? (item.scriptVideo && item.scriptVideo.trim().length > 0)
-                    : (item.body && item.body.trim().length > 0);
+                const contentField = getStorageField(item.targetFormat);
+                const hasContent = (item[contentField] || "").trim().length > 0;
                 const hasCoachSession = !!item.coachSession && item.coachSession.messages && item.coachSession.messages.length > 0;
                 if (hasContent || hasCoachSession || (item.interviewAnswers && item.interviewAnswers.length > 0)) {
                     onStepChange('atelier');
@@ -268,11 +265,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    */
   const executeColdRead = async (item: ContentItem) => {
       const fmt = item.targetFormat;
-      const coldReadFormats = [TargetFormat.POST_TEXTE_COURT, TargetFormat.CARROUSEL_SLIDE, TargetFormat.SCRIPT_VIDEO_REEL_SHORT];
-      if (!fmt || !coldReadFormats.includes(fmt)) return;
+      if (!fmt || !supportsColdRead(fmt)) return;
       try {
-          const isVideo = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT;
-          const raw = isVideo ? (item.scriptVideo || "") : (item.body || "");
+          const raw = item[getStorageField(fmt)] || "";
           const lastBrace = raw.lastIndexOf('}');
           const data = JSON.parse(lastBrace !== -1 ? raw.slice(0, lastBrace + 1) : raw);
           const plain = formatDraftContent(fmt, data);
@@ -391,11 +386,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const modelName = aiModels.find(m => m.apiCode === activeModelId)?.name || activeModelId;
           const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
-          // Router le résultat : scriptVideo pour les formats vidéo, body sinon
-          const isVideoFormat = base.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
-              || base.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
-
-          const draftField: 'body' | 'scriptVideo' = isVideoFormat ? 'scriptVideo' : 'body';
+          // Où déposer le résultat : le registre de formats décide
+          const draftField = getStorageField(base.targetFormat);
           const previousValue = base[draftField] || "";
           const newItem = { ...base, [draftField]: finalContent + signature };
 
@@ -405,16 +397,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               // Le brouillon a changé : les slides déjà produites ne collent plus
               if (base.slides) setSlidesStale(true);
               await saveWithStatus(newItem);
-              // Auto-navigation post-rédaction :
-              // - Vidéo → Script (affichage rendu)
-              // - PostTexteCourt → Copie (texte formaté pour copier-coller)
-              // - Carrousel → Brouillon (relecture de la trame avant de cliquer "Générer les Slides")
-              // - Autres → Brouillon
-              const nextStep: EditorStep =
-                  isVideoFormat   ? 'script'
-                  : base.targetFormat === TargetFormat.POST_TEXTE_COURT ? 'postcourt'
-                                  : 'brouillon';
-              onStepChange(nextStep);
+              // Où atterrir après la rédaction : déclaré par format dans le registre
+              onStepChange(getEditorTab(base.targetFormat));
 
               // Relecture "Lecteur Froid" (non bloquante) sur le contenu fraîchement rédigé
               await executeColdRead(newItem);
@@ -468,9 +452,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    */
   const getAdjustmentField = (): 'body' | 'scriptVideo' | 'slides' => {
       if (activeStep === 'slides' && editedItem?.slides) return 'slides';
-      const isVideo = editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
-          || editedItem?.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
-      return isVideo ? 'scriptVideo' : 'body';
+      return getStorageField(editedItem?.targetFormat);
   };
 
   // --- ADJUSTMENT (Refinement Loop) ---
@@ -663,8 +645,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   ) : null;
 
   // ── Onglets dynamiques — TOUJOURS visibles selon le format (pas de gating sur le contenu) ──
-  const _isVideoFmt = editedItem.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
-      || editedItem.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+  const _isVideoFmt = getStorageField(editedItem.targetFormat) === 'scriptVideo';
   const _isPostCourt = editedItem.targetFormat === TargetFormat.POST_TEXTE_COURT;
   const _isCarrousel = editedItem.targetFormat === TargetFormat.CARROUSEL_SLIDE;
   // Brouillon (trame textuelle) : pour tous les formats sauf vidéo (le Script affiche déjà la trame).

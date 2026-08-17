@@ -15,7 +15,7 @@ import { SITE_URL } from '../constants';
 // ── Types ────────────────────────────────────────────────────────────
 
 export type StorageField = 'body' | 'scriptVideo' | 'slides';
-export type EditorTab = 'atelier' | 'slides' | 'postcourt';
+export type EditorTab = 'atelier' | 'brouillon' | 'slides' | 'postcourt' | 'script';
 
 export interface FormatDefinition {
     /** Valeur exacte du TargetFormat enum */
@@ -24,8 +24,10 @@ export interface FormatDefinition {
     shortKey: string;
     /** Champ ContentItem où stocker le résultat de la rédaction */
     storageField: StorageField;
-    /** Tab de l'éditeur à afficher après génération */
+    /** Étape de l'éditeur où atterrir juste après la rédaction */
     editorTab: EditorTab;
+    /** Ce format bénéficie-t-il de la relecture à froid ? */
+    supportsColdRead: boolean;
     /** Template de production JSON (injecté dans le prompt du Rédacteur) */
     promptTemplate: string;
     /** Extrait un texte lisible depuis les données JSON parsées */
@@ -42,7 +44,8 @@ const POST_TEXTE: FormatDefinition = {
     key: TargetFormat.POST_TEXTE_COURT,
     shortKey: 'Post Texte',
     storageField: 'body',
-    editorTab: 'atelier',
+    editorTab: 'postcourt',
+    supportsColdRead: true,
     promptTemplate: `
 GRILLE DE PRODUCTION — Post "Punchline" (Texte + Image fixe) — LinkedIn, Facebook
 Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un visuel fort et un texte court qui bouscule une idée reçue.
@@ -70,7 +73,8 @@ const ARTICLE: FormatDefinition = {
     key: TargetFormat.ARTICLE_LONG_SEO,
     shortKey: 'Article',
     storageField: 'body',
-    editorTab: 'atelier',
+    editorTab: 'brouillon',
+    supportsColdRead: false,
     promptTemplate: `
 GRILLE DE PRODUCTION — Article (Long/SEO) — Blog
 {
@@ -105,7 +109,8 @@ const SCRIPT_REEL: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_REEL_SHORT,
     shortKey: 'Script Reel',
     storageField: 'scriptVideo',
-    editorTab: 'atelier',
+    editorTab: 'script',
+    supportsColdRead: true,
     promptTemplate: `
 GRILLE DE PRODUCTION — Script "Vidéo Courte" (Reel/Short) — Insta, TikTok, Shorts
 Ce format mise sur l'incarnation. Il utilise la matière des réponses vocales pour créer un script naturel de moins de 60 secondes.
@@ -143,7 +148,8 @@ const SCRIPT_YOUTUBE: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_YOUTUBE,
     shortKey: 'Script Youtube',
     storageField: 'scriptVideo',
-    editorTab: 'atelier',
+    editorTab: 'script',
+    supportsColdRead: false,
     promptTemplate: `
 GRILLE DE PRODUCTION — Script Vidéo (Youtube)
 {
@@ -174,7 +180,8 @@ const CARROUSEL: FormatDefinition = {
     key: TargetFormat.CARROUSEL_SLIDE,
     shortKey: 'Carrousel',
     storageField: 'body',
-    editorTab: 'atelier',
+    editorTab: 'brouillon',
+    supportsColdRead: true,
     promptTemplate: `
 GRILLE DE PRODUCTION — Carrousel — Instagram, LinkedIn
 Format pédagogique. Ta production alimente directement la trame finale : zéro champ à réécrire après coup, tout est calibré pour le montage des slides dans Sketch (format 1:1 Instagram).
@@ -265,7 +272,8 @@ const NEWSLETTER: FormatDefinition = {
     key: TargetFormat.NEWSLETTER,
     shortKey: 'Newsletter',
     storageField: 'body',
-    editorTab: 'atelier',
+    editorTab: 'brouillon',
+    supportsColdRead: false,
     promptTemplate: `
 GRILLE DE PRODUCTION — Newsletter — Mailing-list
 Contenu pour la newsletter de Florent. Ton personnel et chaleureux. Vouvoiement obligatoire (jamais de tutoiement).
@@ -298,7 +306,8 @@ const PROMPT_IMAGE: FormatDefinition = {
     key: TargetFormat.PROMPT_IMAGE,
     shortKey: 'Prompt Image',
     storageField: 'body',
-    editorTab: 'atelier',
+    editorTab: 'brouillon',
+    supportsColdRead: false,
     promptTemplate: `
 GRILLE DE PRODUCTION — Prompt Image (IA Générative)
 {
@@ -420,9 +429,15 @@ export function getStorageField(format: TargetFormat | null | undefined): Storag
  * Utile pour naviguer vers le bon tab après génération.
  */
 export function getEditorTab(format: TargetFormat | null | undefined): EditorTab {
-    if (!format) return 'atelier';
+    if (!format) return 'brouillon';
     const def = FORMAT_REGISTRY[format];
-    return def?.editorTab || 'atelier';
+    return def?.editorTab || 'brouillon';
+}
+
+/** Le format bénéficie-t-il d'une relecture à froid après rédaction ? */
+export function supportsColdRead(format: TargetFormat | null | undefined): boolean {
+    if (!format) return false;
+    return FORMAT_REGISTRY[format]?.supportsColdRead === true;
 }
 
 /**

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat, Profondeur, CoachSession, AIModel } from '../../types';
-import { bodyJsonToText } from '../../ai/formats';
+import { bodyJsonToText, getStorageField } from '../../ai/formats';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
 import { CoachChat } from '../CoachChat';
@@ -84,9 +84,8 @@ export const DraftView: React.FC<DraftViewProps> = ({
     }, [activeTab]);
 
     const isDirect = item.depth === Profondeur.DIRECT;
-    const isVideoFormat = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
-        || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
-    const hasContent = isVideoFormat ? !!item.scriptVideo : !!item.body;
+    const isVideoFormat = getStorageField(item.targetFormat) === 'scriptVideo';
+    const hasContent = !!item[getStorageField(item.targetFormat)];
     const hasInterviewAnswers = !!item.interviewAnswers?.trim();
 
     // ── Session Coach (nouveau flow) ──

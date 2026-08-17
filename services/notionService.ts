@@ -704,6 +704,34 @@ export const fetchContent = async (since?: string): Promise<ContentItem[]> => {
   }
 };
 
+/**
+ * Liste les IDs de tous les contenus encore vivants dans Notion.
+ *
+ * Pourquoi c'est nécessaire : une page archivée ou mise à la corbeille ne
+ * remonte plus du tout dans les résultats de requête. Son absence est donc le
+ * SEUL signal de suppression — une synchronisation incrémentale, qui ne demande
+ * que les pages modifiées depuis la dernière fois, ne peut structurellement pas
+ * la détecter. D'où ce balayage d'IDs, qui permet de purger le cache local.
+ *
+ * Coût : une requête par tranche de 100 pages. À l'échelle d'un usage solo
+ * (quelques centaines de contenus), c'est une à trois requêtes par sync.
+ */
+export const fetchLiveContentIds = async (): Promise<Set<string>> => {
+    const dataSourceId = await getDataSourceId(
+        CONFIG.NOTION_CONTENT_DB_ID,
+        "content",
+        "fetchLiveContentIds"
+    );
+
+    const results = await queryDataSourceAll(dataSourceId, {}, "fetchLiveContentIds Query");
+
+    return new Set(
+        results
+            .filter((page: any) => !page.archived && !page.in_trash)
+            .map((page: any) => page.id as string)
+    );
+};
+
 export const createContent = async (title: string, notes?: string, targetFormat?: string | null): Promise<ContentItem> => {
     try {
         const dataSourceId = await getDataSourceId(
@@ -757,8 +785,9 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
     };
 
     if (item.body !== undefined) {
-        properties["Contenu"] = { 
-            rich_text: markdownToNotion(item.body)
+        // JSON : stocké brut, sans interprétation markdown (voir rawTextToNotion)
+        properties["Contenu"] = {
+            rich_text: rawTextToNotion(item.body)
         };
     }
     
@@ -842,19 +871,19 @@ export const updateContent = async (item: ContentItem): Promise<void> => {
 
     if (item.slides !== undefined) {
         properties["Slides"] = {
-            rich_text: markdownToNotion(item.slides || "")
+            rich_text: rawTextToNotion(item.slides || "")
         };
     }
 
     if (item.postCourt !== undefined) {
         properties["Post Court"] = {
-            rich_text: markdownToNotion(item.postCourt || "")
+            rich_text: rawTextToNotion(item.postCourt || "")
         };
     }
 
     if (item.scriptVideo !== undefined) {
         properties["Script vidéo"] = {
-            rich_text: markdownToNotion(item.scriptVideo || "")
+            rich_text: rawTextToNotion(item.scriptVideo || "")
         };
     }
 

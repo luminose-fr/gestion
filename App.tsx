@@ -241,9 +241,13 @@ function App() {
             ? undefined
             : (shouldFullSync(lastModelsFullSync) ? undefined : lastModelsSync || undefined);
 
-        const [fetchedContent, fetchedModels] = await Promise.all([
+        // Le balayage d'IDs n'est utile qu'en incrémental : une synchronisation
+        // complète remplace déjà la liste, donc les suppressions y disparaissent
+        // d'elles-mêmes.
+        const [fetchedContent, fetchedModels, liveIds] = await Promise.all([
             NotionService.fetchContent(contentSince),
-            NotionService.fetchModels(modelsSince)
+            NotionService.fetchModels(modelsSince),
+            contentSince ? NotionService.fetchLiveContentIds() : Promise.resolve(null)
         ]);
 
         const baseItems = contentSince ? (baseCache?.items ?? items) : [];
@@ -255,7 +259,14 @@ function App() {
         const mergedContent = (contentSince ? mergeById(baseItems, fetchedContent) : fetchedContent)
             .map(item => unsaved.get(item.id) ?? item);
 
-        const nextItems = sortByLastEditedDesc(mergedContent);
+        // Purge des contenus supprimés dans Notion. Un item non enregistré est
+        // épargné : son absence côté Notion est justement ce qu'on veut corriger,
+        // pas un signal de suppression.
+        const prunedContent = liveIds
+            ? mergedContent.filter(item => liveIds.has(item.id) || unsaved.has(item.id))
+            : mergedContent;
+
+        const nextItems = sortByLastEditedDesc(prunedContent);
         const nextModels = modelsSince ? mergeById(baseModels, fetchedModels) : fetchedModels;
 
         setItems(nextItems);

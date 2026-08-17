@@ -1,101 +1,186 @@
-# SocialFlow Manager
+# SocialFlow Manager — gestion.luminose.fr
 
-SocialFlow Manager est une application web de gestion de contenu pour les réseaux sociaux. Elle centralise vos idées, utilise l'IA (via Gemini) pour la rédaction, et stocke tout votre travail directement dans Notion.
+Application de gestion du cycle de vie des contenus pour réseaux sociaux : de l'idée brute
+au post prêt à publier, avec l'IA comme copilote éditorial à chaque étape. Les données
+vivent dans Notion, les appels IA passent par 1min.ai.
 
-## 📚 1. Configuration de Notion (OBLIGATOIRE)
-
-Pour que l'application fonctionne, vous devez créer une intégration Notion et deux bases de données avec des noms de colonnes **en français**.
-
-### Étape A : Créer l'intégration
-1. Allez sur [Notion My Integrations](https://www.notion.so/my-integrations).
-2. Cliquez sur **"New integration"**.
-3. Nommez-la (ex: "SocialFlow App").
-4. Sélectionnez l'espace de travail associé.
-5. Copiez le **"Internal Integration Secret"** (commence par `secret_`). C'est votre `VITE_NOTION_API_KEY`.
-
-### Étape B : Créer la Base de données "Contenu"
-Créez une nouvelle base de données Notion (Page vide > Table Database).
-Ajoutez les propriétés suivantes **exactement** comme indiqué (respectez les majuscules et les accents) :
-
-| Nom de la propriété | Type | Options (si Select/Multi-select) |
-| :--- | :--- | :--- |
-| **Titre** | Title | - |
-| **Statut** | Select | `Idée`, `Brouillon`, `Prêt`, `Publié` |
-| **Plateforme** | Multi-select | `Facebook`, `Instagram`, `LinkedIn`, `Google My Business`, `Youtube`, `Blog`, `Newsletter` |
-| **Contenu** | Text | - (Sera le corps du post) |
-| **Date de publication** | Date | - (Date de planification) |
-| **Notes** | Text | - (Notes internes ou mémo) |
-| **Analysé** | Checkbox | - (Sera coché si analysé par l'IA) |
-| **Verdict** | Select | `Valide`, `Trop lisse`, `À revoir` |
-| **Angle stratégique** | Text | - (Sera rempli par l'IA) |
-| **Format cible** | Select | `Post Texte (Court)`, `Article (Long/SEO)`, `Script Vidéo (Reel/Short)`, `Script Vidéo (Youtube)`, `Carrousel (Slide par Slide)`, `Prompt Image` |
-| **Cible Offre** | Select | `Standard`, `Transverse`, `Seuil` |
-| **Justification** | Text | - (Sera rempli par l'IA) |
-| **Métaphore Suggérée** | Text | - (Sera rempli par l'IA) |
-| **Réponses interview** | Text | - (Pour stocker les réponses) |
-| **Questions interview** | Text | - (Pour stocker les questions) |
-
-*Note : Récupérez l'ID de cette base de données depuis l'URL (la partie après le `/` et avant le `?`). Ce sera votre `VITE_NOTION_CONTENT_DB_ID`.*
-
-### Étape C : Créer la Base de données "Contextes IA"
-Cette base stocke vos différentes "voix" ou personnalités pour l'IA (ex: "LinkedIn Sérieux", "Instagram Fun").
-
-Créez une seconde base de données avec ces propriétés :
-
-| Nom de la propriété | Type | Description |
-| :--- | :--- | :--- |
-| **Nom** | Title | Le nom du contexte (ex: "Expert Tech") |
-| **Description** | Text | Le prompt système pour l'IA (ex: "Tu es un expert concis...") |
-| **Usage** | Select | `Rédacteur`, `Analyste`, `Interviewer` |
-
-*Note : Récupérez l'ID de cette base de données. Ce sera votre `VITE_NOTION_CONTEXT_DB_ID`.*
-
-### Étape D : Connecter l'intégration
-**Important :** Par défaut, votre intégration n'a accès à rien.
-1. Allez sur la page de votre base de données "Contenu".
-2. Cliquez sur les **...** en haut à droite > **Connections** > Ajoutez votre intégration "SocialFlow App".
-3. Répétez l'opération pour la base de données "Contextes IA".
+> 📘 **[SPEC.md](SPEC.md)** décrit l'architecture, le modèle de données, le pipeline
+> éditorial et la dette technique. À lire avant de toucher au code.
 
 ---
 
-## 🛠️ 2. Installation et Lancement Local
+## Architecture en une image
 
-### Prérequis
-- [Node.js](https://nodejs.org/) installé (version 18 ou supérieure recommandée).
-
-### Configuration des variables d'environnement
-1. À la racine du projet, créez un fichier nommé `.env`.
-2. Ajoutez-y vos clés récupérées ci-dessus :
-
-```env
-VITE_NOTION_API_KEY=secret_votre_cle_integration
-VITE_NOTION_CONTENT_DB_ID=votre_id_base_contenu
-VITE_NOTION_CONTEXT_DB_ID=votre_id_base_contextes
+```
+Navigateur (SPA React, GitHub Pages)
+        │  HTTPS + X-Session-Token
+        ▼
+Cloudflare Worker  ── détient TOUS les secrets
+        ├──▶ api.notion.com     (données)
+        └──▶ api.1min.ai        (IA)
 ```
 
-### Commandes
-Ouvrez un terminal dans le dossier du projet :
-
-1. **Installer les dépendances** :
-   ```bash
-   npm install
-   ```
-
-2. **Lancer le serveur de développement** :
-   ```bash
-   npm run dev
-   ```
-   L'application sera accessible à l'adresse indiquée (généralement `http://localhost:7860`).
-
-3. **Construire pour la production** :
-   ```bash
-   npm run build
-   ```
-   Cela génère le dossier `dist/` prêt à être hébergé (sur GitHub Pages, Vercel, Netlify, etc.).
+Une SPA statique ne peut pas garder de secret : **aucune clé d'API n'est dans le bundle**.
+Le front ne connaît que des IDs de bases Notion et l'URL du Worker.
 
 ---
 
-## 🤖 Note sur l'IA
+## 1. Configuration de Notion
 
-L'application utilise **Gemini API** via le worker Cloudflare pour les fonctionnalités d'intelligence artificielle.
-- Assurez-vous que la clé API Gemini est correctement configurée côté Worker.
+Créez une intégration sur [Notion My Integrations](https://www.notion.so/my-integrations)
+et copiez son *Internal Integration Secret* — il ira dans les secrets du **Worker**, jamais
+dans le front.
+
+### Base « Contenu »
+
+| Propriété | Type | Options / rôle |
+| :--- | :--- | :--- |
+| **Titre** | Title | |
+| **Statut** | Select | `Idée`, `Brouillon`, `Prêt`, `Publié` |
+| **Plateforme** | Multi-select | `Facebook`, `Instagram`, `LinkedIn`, `Google My Business`, `Youtube`, `Blog`, `Newsletter` |
+| **Contenu** | Text | JSON du brouillon, écrit par l'IA |
+| **Date de publication** | Date | planification |
+| **Notes** | Text | matière brute saisie à la main |
+| **Analysé** | Checkbox | |
+| **Verdict** | Select | `Valide`, `Trop lisse`, `À revoir` |
+| **Angle stratégique** | Text | rempli par l'IA |
+| **Format cible** | Select | `Post Texte (Court)`, `Article (Long/SEO)`, `Script Vidéo (Reel/Short)`, `Script Vidéo (Youtube)`, `Carrousel (Slide par Slide)`, `Prompt Image`, `Newsletter` |
+| **Objectif** | Select | `Notoriété`, `Recadrage de croyance`, `Confiance / Preuve`, `Éducation pratique`, `Trafic contenu long`, `Conversion séance`, `Promotion événement` |
+| **Justification** | Text | rempli par l'IA |
+| **Métaphore Suggérée** | Text | rempli par l'IA |
+| **Profondeur** | Select | `Direct`, `Légère`, `Complète` |
+| **Coach Session** | Text | JSON de la session Coach |
+| **Slides** | Text | JSON des slides carrousel |
+| **Post Court** | Text | texte prêt à copier |
+| **Script vidéo** | Text | JSON du script |
+
+### Base « Modèles IA »
+
+Catalogue des moteurs 1min.ai, éditable depuis l'application (Réglages → Modèles IA).
+
+| Propriété | Type | Rôle |
+| :--- | :--- | :--- |
+| **Nom** | Title | nom commercial |
+| **Code API** | Text | identifiant envoyé à 1min.ai |
+| **Fournisseur** | Text ou Select | groupe l'affichage |
+| **Cout** | Select | `low`, `low_medium`, `medium`, `high`, `very_high` |
+| **Forces** | Text | |
+| **Cas d'usage** | Text | |
+| **Qualité Rédaction** | Number | 1 à 5 |
+| **Défaut** | Checkbox | modèle présélectionné au démarrage |
+
+> Les noms de colonnes sont résolus au runtime de façon tolérante (accents, apostrophes
+> typographiques, variantes FR/EN), et une colonne absente est ignorée au lieu de faire
+> échouer l'enregistrement.
+
+### Connecter l'intégration
+
+Par défaut, une intégration Notion n'a accès à rien. Sur **chacune** des deux bases :
+**…** en haut à droite → **Connections** → ajoutez votre intégration.
+
+Récupérez enfin l'ID de chaque base depuis son URL (la partie entre le dernier `/` et le `?`).
+
+---
+
+## 2. Lancement en local
+
+```bash
+npm install
+```
+
+Créez un fichier `.env.local` à la racine. **Deux variables suffisent.** Aucune clé d'API
+n'est nécessaire côté front, même en développement : tout transite par le Worker déployé.
+
+```env
+VITE_NOTION_CONTENT_DB_ID=votre_id_base_contenu
+VITE_NOTION_MODELS_DB_ID=votre_id_base_modeles
+```
+
+```bash
+npm run dev
+```
+
+L'application écoute sur http://localhost:7860 — origine déjà autorisée par le CORS du
+Worker. La connexion se fait avec les identifiants définis dans les secrets du Worker.
+
+### Les autres commandes
+
+```bash
+npm run typecheck   # tsc --noEmit sur l'ensemble du projet
+```
+
+```bash
+npm test            # vitest : Worker, Notion, parsing IA, montage des écrans
+```
+
+```bash
+npm run build       # build de production dans dist/
+```
+
+`npm run typecheck` et `npm test` sont les deux garde-fous du projet. Aucune CI ne les
+exécute : lancez-les avant de pousser.
+
+---
+
+## 3. Le Worker
+
+`gestion-luminose-worker/` proxifie Notion et 1min.ai et gère l'authentification. Il
+détient tous les secrets :
+
+```bash
+npx wrangler secret put SESSION_SECRET
+```
+
+```bash
+npx wrangler secret put NOTION_API_KEY
+```
+
+```bash
+npx wrangler secret put ONE_MIN_API_KEY
+```
+
+```bash
+npx wrangler secret put AUTH_USERNAME
+```
+
+```bash
+npx wrangler secret put AUTH_PASSWORD
+```
+
+`SESSION_SECRET` signe les jetons de session en HMAC-SHA256 — générez-le avec
+`openssl rand -base64 32`. Le changer déconnecte immédiatement toutes les sessions : c'est
+le mécanisme de révocation.
+
+Les origines autorisées sont codées dans `ALLOWED_ORIGINS` (`src/index.js`) ; toute
+nouvelle origine de développement doit y être ajoutée, sinon le navigateur bloque les
+réponses.
+
+---
+
+## 4. Déploiement
+
+**Le front est automatique** : tout push sur `main` déclenche
+`.github/workflows/deploy.yml` (build puis publication sur la branche `gh-pages`). Les IDs
+de bases viennent des secrets GitHub `NOTION_CONTENT_DB_ID` et `NOTION_MODELS_DB_ID`.
+
+**Le Worker est manuel** :
+
+```bash
+cd gestion-luminose-worker && npx wrangler deploy
+```
+
+> ⚠️ **Quand les deux changent, l'ordre est imposé : le front d'abord, le Worker ensuite.**
+> Le front sait lire les deux formats de jeton de session, l'inverse n'est pas vrai —
+> déployer le Worker en premier enfermerait la connexion dans une boucle de login.
+
+---
+
+## 5. Note sur l'IA
+
+Tous les appels passent par **1min.ai**, via le Worker. Les modèles disponibles se gèrent
+depuis Réglages → Modèles IA, où un testeur intégré vérifie qu'un code API répond avant
+enregistrement. **Sans au moins un modèle configuré, aucune action IA n'est possible.**
+
+Les personas, les règles de voix et les grilles de production par format sont **dans le
+code** (`ai/prompts/`, `ai/voice.ts`, `ai/formats.ts`), versionnés avec lui, et consultables
+en lecture seule depuis Réglages → Personas.
