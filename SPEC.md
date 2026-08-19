@@ -1,527 +1,597 @@
-# SPEC — gestion.luminose.fr (SocialFlow Manager)
+# SPEC v2.0 — gestion.luminose.fr
 
-> Synthèse fonctionnelle et technique de l'existant.
-> Re-dérivée le 17/08/2026 contre le code de la branche `main`.
+> **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
+> abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
 >
-> **Usage** : reprise de contexte en début de session, et base d'analyse pour proposer
-> des améliorations. Décrit ce qui **est**, pas ce qui devrait être. La section
-> [8. Dette technique](#8-dette-technique) liste les points à challenger.
+> **Statut** : document de conception, écrit le 17/08/2026 avant toute implémentation.
+> Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
+> code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
-> ⚠️ Ce document a déjà dérivé une fois : il décrivait une architecture supprimée depuis.
-> **Le mettre à jour dans la foulée de tout changement structurel**, sinon il ment.
+> L'état du système *avant* migration est décrit en §0.3 ; il reste la référence
+> jusqu'à la fin de la phase 5 (§11).
 
 ---
 
-## 1. Vue d'ensemble
+## 0. Contexte
 
-**Quoi** : application web mono-utilisateur (Florent Jaouali, psychopraticien) qui gère le
-cycle de vie de ses contenus — de l'idée brute au post prêt à publier — avec l'IA comme
-copilote éditorial à chaque étape. Notion sert de base de données, l'app est l'interface
-de travail.
+### 0.1 Le produit
 
-**Où** : https://gestion.luminose.fr — SPA statique sur GitHub Pages (branche `gh-pages`).
+Application mono-utilisateur (Florent Jaouali, psychopraticien transpersonnel) qui gère le
+cycle de vie de ses contenus éditoriaux — de l'idée brute au post prêt à publier — avec
+l'IA comme copilote à chaque étape.
 
-**Particularité structurante** : le produit n'est pas un « bouton générer ». Il encode une
-**méthode éditoriale** — sept personas, des règles de voix transverses, une grille de
-production par format, sept objectifs qui dictent le CTA — dans des prompts système
-versionnés avec le code. La qualité du produit est celle de ces prompts.
+**Ce qui fait la valeur du produit n'est pas le CRUD : c'est la méthode éditoriale
+encodée dans les prompts.** Sept personas, des règles de voix transverses, une grille de
+production par format, sept objectifs qui dictent le CTA. Toute décision d'architecture
+qui met cette méthode en danger est une mauvaise décision, quelle que soit son élégance.
 
-### Stack
+### 0.2 Pourquoi cette migration
 
-| Couche | Choix | Note |
+Notion a été un excellent point de départ : zéro infrastructure, édition immédiate.
+Le coût est devenu structurel. `services/notionService.ts` fait 1040 lignes, dont
+l'essentiel n'existe que pour survivre à l'API :
+
+| Mécanisme | Raison d'être | Devient en D1 |
 | :--- | :--- | :--- |
-| Front | React 19.2 + TypeScript 5.4 + Vite 7 | SPA, pas de SSR |
-| Style | Tailwind CSS v4 (plugin Vite) | thème clair/sombre via `dark:` |
-| Icônes | lucide-react | |
-| Routing | **maison**, via `window.location.hash` | pas de react-router |
-| État | `useState` dans `App.tsx` | pas de store global |
-| Cache local | IndexedDB `LuminoseDB` v3 + localStorage | offline-first partiel |
-| Backend | Cloudflare Worker | proxy + auth, aucune persistance |
-| Données | Notion API `2025-09-03` | 2 databases |
-| IA | **1min.ai uniquement** | catalogue de modèles éditable dans Notion |
-| Tests | vitest — 73 tests | voir §8.1 ; aucune CI ne les exécute |
+| `getDataSourceId` | double appel imposé par l'API 2025-09-03 | néant |
+| `normalizePropName`, `getDataSourceProperties`, `buildPropertyValue` | les colonnes sont identifiées par leur nom affiché | une migration SQL |
+| `markdownToNotion` / `notionToMarkdown` | Notion stocke des segments annotés, pas du texte | `TEXT` |
+| `rawTextToNotion` | contournement du précédent pour le JSON | néant |
+| `enforceRichTextLimit` | découpe à 2000 caractères | `TEXT` (2 Mo par ligne) |
+| `fetchLiveContentIds` | une page archivée disparaît des résultats | `deleted_at` |
+| `fetchWithRetry` | limite de débit ~3 req/s | néant |
 
-### Commandes
+S'y ajoute que la fonctionnalité demandée — les Séries — exige des relations Notion, que
+le service ne sait pas écrire. En SQL, c'est une clé étrangère.
 
-```bash
-npm run dev        # serveur de dev sur http://localhost:7860
-```
+**Vérifié avant décision** : l'application couvre déjà l'intégralité du modèle en édition
+(titre, statut, plateformes, notes, format, objectif, profondeur, verdict, angle,
+métaphore, justification, body, session Coach, slides, post court, date de publication).
+Notion n'est plus une surface d'édition nécessaire.
 
-```bash
-npm run typecheck  # tsc --noEmit — analyse réellement les 50 fichiers du projet
-```
+### 0.3 État de départ
 
-```bash
-npm test           # vitest : 73 tests (Worker, Notion, parsing IA, montage des écrans)
-```
+SPA React 19 + Vite 7 sur GitHub Pages, Cloudflare Worker en proxy Notion + 1min.ai,
+IndexedDB en cache local, 73 tests vitest, jeton de session signé HMAC-SHA256.
+Deux bases Notion : « Contenu » et « Modèles IA ».
 
-```bash
-npm run build      # build de prod dans dist/
-```
+### 0.4 Quotas Cloudflare (plan gratuit)
 
-Aucune CI n'exécute `typecheck` ni `test` : ce sont des garde-fous manuels, à lancer avant
-de pousser.
+| Ressource | Limite gratuite | Besoin estimé |
+| :--- | :--- | :--- |
+| Stockage D1 | 5 Go (500 Mo/base) | < 50 Mo |
+| Lignes lues / jour | 5 000 000 | < 10 000 |
+| Lignes écrites / jour | 100 000 | < 500 |
+| **Requêtes par invocation Worker** | **50** | **contrainte de conception, §3.6** |
+| Time Travel | 7 jours | complété par l'export, §9.4 |
 
-Déploiement du front : **automatique** sur tout push vers `main`
-(`.github/workflows/deploy.yml` → build → branche `gh-pages`). Les IDs de bases Notion
-viennent des secrets GitHub `NOTION_CONTENT_DB_ID`, `NOTION_MODELS_DB_ID`.
-
-Déploiement du Worker : **manuel**, `npx wrangler deploy` depuis `gestion-luminose-worker/`.
-
-> ⚠️ **Ordre imposé : le front d'abord, le Worker ensuite.** Le front sait lire les deux
-> formats de jeton de session (avec et sans signature) ; l'inverse n'est pas vrai.
+Le quota n'est pas un facteur limitant. La limite des 50 requêtes par invocation, si.
 
 ---
 
-## 2. Architecture
+## 1. Architecture cible — NORMATIF
+
+Monorepo npm workspaces. Quatre moteurs purs, un Worker, un front.
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  Navigateur — SPA React (GitHub Pages)                   │
-│                                                          │
-│  App.tsx  ── état global (items, aiModels, activeModel)  │
-│     │                                                    │
-│     ├── services/notionService   ─┐                      │
-│     ├── services/oneMinService    │ tout passe par le    │
-│     └── services/storageService  ─┘ Worker (IDB : local) │
-└───────────────────────┬──────────────────────────────────┘
-                        │  HTTPS + header X-Session-Token
-                        ▼
-┌──────────────────────────────────────────────────────────┐
-│  Cloudflare Worker  gestion-luminose-worker              │
-│  Détient TOUS les secrets. Aucune persistance.           │
-│                                                          │
-│   POST /auth/login                → jeton signé          │
-│   /v1/*                           → proxy Notion         │
-│   /1min/chat, /1min/create-conversation                  │
-└───────────────┬──────────────────────┬───────────────────┘
-                ▼                      ▼
-          api.notion.com          api.1min.ai
+gestion.luminose.fr/
+├── apps/
+│   └── manager/            SPA React (Vite) → Cloudflare Pages
+├── packages/
+│   ├── shared/             types + schémas zod partagés front/worker
+│   ├── editorial/          LE MOTEUR : personas, voix, formats, objectifs,
+│   │                       parsing des réponses IA. Zéro dépendance.
+│   ├── ai/                 abstraction fournisseur (port + adaptateurs)
+│   ├── subtitles/          .srt → .fcpxml
+│   └── psychedelics/       calcul de doses
+├── workers/
+│   └── api/                Hono + D1 + auth
+│       ├── migrations/     NNNN_description.sql
+│       └── src/routes/
+├── tools/
+│   └── import-notion/      migration one-shot, produit un SQL idempotent
+└── scripts/
+    └── deploy.sh
 ```
 
-**Pourquoi un Worker** : une SPA statique ne peut pas garder de secret. Le front ne connaît
-que des IDs de bases Notion (non sensibles) et `WORKER_URL` (`constants.ts`).
+### 1.1 Règles de dépendance (NORMATIF)
 
-### Authentification
+```
+apps/manager  ──▶ packages/{shared, editorial, subtitles, psychedelics}
+workers/api   ──▶ packages/{shared, editorial, ai}
+packages/ai   ──▶ packages/shared
+packages/editorial ──▶ (rien)
+packages/{subtitles, psychedelics} ──▶ (rien)
+```
 
-1. `LoginPage` → `POST /auth/login` avec `{username, password}`.
-2. Le Worker compare aux secrets `AUTH_USERNAME` / `AUTH_PASSWORD`.
-3. Il renvoie `"<payload base64>.<signature base64>"` — payload
-   `{token: uuid, expiresAt: now + 24h}`, signature **HMAC-SHA256** du payload.
-4. Le front stocke dans `localStorage.session_token`, envoie en header `X-Session-Token`.
-5. Le Worker recalcule le HMAC (`crypto.subtle.verify`, temps constant) avant de regarder
-   l'expiration. Payload retouché ou signature recyclée → rejeté.
+- `packages/editorial`, `subtitles`, `psychedelics` : **zéro dépendance runtime**, zéro
+  React, zéro `fetch`, zéro API Workers. Fonctions pures, testables sans réseau ni DOM.
+- `packages/ai` : dépend de `shared` uniquement. Ne connaît ni D1 ni Hono.
+- Le front n'importe **jamais** `packages/ai` : les clés d'API vivent dans le Worker.
 
-Clé de signature : `SESSION_SECRET`, avec repli sur `AUTH_PASSWORD` si absent.
-CORS : seules les origines de `ALLOWED_ORIGINS` (prod + `localhost:7860`) reçoivent
-un `Access-Control-Allow-Origin`.
+### 1.2 Une seule origine
 
-### Variables et secrets
+`gestion.luminose.fr` est servi par Cloudflare Pages. Le Worker capte `/api/*` sur **cette
+même origine** via une route.
 
-| Emplacement | Clés |
+Conséquence directe : **plus de CORS du tout**. Plus de `ALLOWED_ORIGINS` à maintenir,
+plus de préflight, plus d'origine de développement à déclarer. C'est une simplification,
+pas un détail de configuration.
+
+---
+
+## 2. Modèle de données (D1) — NORMATIF
+
+Schéma complet en Annexe A. Principes structurants :
+
+### 2.1 Suppression logique
+
+Toute table métier porte `deleted_at INTEGER` (epoch ms, `NULL` = vivant).
+
+Une suppression est un `UPDATE … SET deleted_at = ?`. La synchronisation incrémentale
+renvoie **aussi** les lignes supprimées depuis `since`, ce qui permet au client de purger
+son cache. Le balayage d'IDs de l'ère Notion disparaît : le problème n'existe plus.
+
+### 2.2 Horodatage
+
+`created_at` et `updated_at` en **epoch millisecondes** (`INTEGER`), jamais en texte ISO.
+`updated_at` est la clé de la synchronisation incrémentale et doit être mis à jour à
+chaque écriture, côté Worker, jamais côté client.
+
+### 2.3 Charges JSON
+
+`body`, `slides`, `script_video`, `coach_session` restent du **JSON sérialisé en TEXT**.
+La base ne les interprète pas, ne les indexe pas, ne les valide pas. Leur schéma est
+l'affaire de `packages/editorial`.
+
+Raison : ces structures évoluent avec les prompts. Les normaliser en tables condamnerait
+chaque évolution de format à une migration SQL.
+
+### 2.4 Identifiants
+
+- Contenus migrés : **l'identifiant de page Notion est conservé**. La migration est ainsi
+  ré-exécutable sans doublon, et les liens existants restent valides.
+- Nouvelles lignes : UUID v4 généré par le Worker.
+
+### 2.5 Les Séries
+
+```
+series 1 ──── N contents          (contents.serie_id)
+series 0..1 ── 1 contents         (series.source_content_id — le contenu pilier)
+```
+
+- **Série sans source** : plusieurs contenus autour d'un thème. Chacun construit sa
+  matière via le Coach.
+- **Série avec source** : un contenu existant (l'article) est le pilier ; les autres en
+  sont des déclinaisons.
+
+C'est **le même objet**. La seule différence est d'où vient la matière. `contents.angle`
+porte l'angle propre de ce contenu au sein de sa série.
+
+---
+
+## 3. API (Worker, Hono) — NORMATIF
+
+### 3.1 Conventions
+
+- Base : `/api`. Toutes les routes exigent un jeton de session valide (§7), sauf
+  `POST /api/auth/login`.
+- Entrées validées par **zod** à la frontière. Une entrée invalide → `400` avec le détail.
+- Sorties en `camelCase` ; la base est en `snake_case`. La conversion a lieu dans
+  `workers/api/src/db.ts`, à un seul endroit.
+- Erreurs : `{ error: string, detail?: unknown }`, statut HTTP signifiant.
+
+### 3.2 Contenus
+
+```
+GET    /api/contents?since=<ms>     liste ; inclut les lignes supprimées si `since`
+GET    /api/contents/:id
+POST   /api/contents                création
+PATCH  /api/contents/:id            mise à jour partielle
+DELETE /api/contents/:id            suppression logique
+POST   /api/contents/batch          création en lot (plan de série, §6.3)
+```
+
+### 3.3 Séries
+
+```
+GET    /api/series?since=<ms>
+GET    /api/series/:id              série + ses contenus (une seule requête, jointure)
+POST   /api/series
+PATCH  /api/series/:id
+DELETE /api/series/:id              suppression logique ; les contenus survivent, détachés
+```
+
+### 3.4 Modèles IA
+
+```
+GET    /api/models
+POST   /api/models
+PATCH  /api/models/:id
+DELETE /api/models/:id
+POST   /api/models/:id/test         ping du fournisseur, §5.4
+```
+
+### 3.5 IA
+
+```
+POST   /api/ai/chat                 { modelId, system?, messages[], json? } → { text }
+```
+
+Le Worker résout `modelId` en ligne de la table `ai_models`, choisit l'adaptateur d'après
+`provider`, et appelle le fournisseur. **Le front ne connaît aucun fournisseur.**
+
+### 3.6 Budget de requêtes (contrainte du plan gratuit)
+
+Maximum **50 requêtes D1 par invocation**. Conséquences normatives :
+
+- Interdiction du N+1. Une série et ses contenus se lisent par **une** jointure.
+- `POST /api/contents/batch` utilise `db.batch()` — un aller-retour, pas N.
+- Toute route nouvelle doit pouvoir énoncer son nombre de requêtes, borné et indépendant
+  du volume de données.
+
+---
+
+## 4. `packages/editorial` — NORMATIF
+
+Le cœur du produit. **Zéro dépendance.** Contient, repris tel quel de l'existant :
+
+| Module | Rôle |
 | :--- | :--- |
-| `.env.local` (dev) / secrets GitHub (prod) | `VITE_NOTION_CONTENT_DB_ID`, `VITE_NOTION_MODELS_DB_ID` |
-| Secrets Worker (`wrangler secret put`) | `SESSION_SECRET`, `NOTION_API_KEY`, `ONE_MIN_API_KEY`, `AUTH_USERNAME`, `AUTH_PASSWORD` |
+| `prompts/` | les personas (Analyste, Coach, Verrouilleur, Rédacteur, Lecteur froid, Artiste, Éclateur) et `buildSystemPrompt()` |
+| `voice.ts` | `VOICE_RULES` — règles de voix transverses |
+| `formats.ts` | `FORMAT_REGISTRY` — source unique de vérité du routage par format |
+| `objectives.ts` | `OBJECTIF_REGISTRY` — guidance Analyste + règles CTA |
+| `actions.ts` | composition des instructions système par action |
+| `executors.ts` | parsing défensif des réponses IA |
+
+### 4.1 Invariants
+
+1. **Aucun appel réseau.** Ce package compose des chaînes et parse des chaînes.
+2. **`FORMAT_REGISTRY` est la seule autorité** sur : où stocker le résultat
+   (`storageField`), où atterrir après rédaction (`editorTab`), qui a droit à la relecture
+   à froid (`supportsColdRead`). Aucun test de format en dur ailleurs.
+3. **Toute modification d'un prompt exige une fixture golden** mise à jour (§10.2).
+4. Le format cible d'un contenu est **choisi par l'humain** et n'est jamais écrasé par l'IA.
 
 ---
 
-## 3. Modèle de données — Notion
+## 5. `packages/ai` — abstraction fournisseur — NORMATIF
 
-L'API `2025-09-03` a introduit les **data sources** : une database en contient une ou
-plusieurs, et ce sont elles qui portent le schéma. D'où le double appel systématique :
-`GET /v1/databases/{db_id}` → `data_sources[0].id`, puis
-`POST /v1/data_sources/{ds_id}/query`. Résultat mis en cache mémoire.
+### 5.1 Le problème
 
-### 3.1 Base « Contenu » (`VITE_NOTION_CONTENT_DB_ID`)
+`oneMinService.ts` est taillé pour 1min.ai, dont l'API n'est pas standard : conversations
+créées séparément, historique aplati à la main dans un prompt unique
+(`buildConversationPrompt`). Changer de fournisseur demanderait aujourd'hui de réécrire
+tous les points d'appel.
 
-| Colonne Notion | Type | Champ `ContentItem` | Rôle |
-| :--- | :--- | :--- | :--- |
-| Titre | Title | `title` | |
-| Statut | Select | `status` | `Idée` / `Brouillon` / `Prêt` / `Publié` |
-| Plateforme | Multi-select | `platforms` | Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter |
-| Contenu | Text | `body` | **JSON** du brouillon (tous formats sauf vidéo) |
-| Date de publication | Date | `scheduledDate` | |
-| Notes | Text | `notes` | matière brute saisie par Florent |
-| Analysé | Checkbox | `analyzed` | |
-| Verdict | Select | `verdict` | `Valide` / `Trop lisse` / `À revoir` |
-| Angle stratégique | Text | `strategicAngle` | produit par l'Analyste |
-| Format cible | Select | `targetFormat` | §5.3 — **choisi par l'humain, jamais écrasé par l'IA** |
-| Objectif | Select | `objectif` | l'un des 7 objectifs (§5.2) — dicte le CTA |
-| Justification | Text | `justification` | |
-| Métaphore Suggérée | Text | `suggestedMetaphor` | |
-| Profondeur | Select | `depth` | `Direct` / `Légère` / `Complète` |
-| Coach Session | Text | `coachSession` | **JSON** de la conversation Coach + brief verrouillé |
-| Slides | Text | `slides` | **JSON** des slides carrousel enrichies |
-| Post Court | Text | `postCourt` | texte prêt à copier |
-| Script vidéo | Text | `scriptVideo` | **JSON** du script (formats vidéo) |
-| Réponses / Questions interview | Text | `interviewAnswers`, `interviewQuestions` | *legacy* — ancien flow Interviewer |
+### 5.2 Le port
 
-`createdAt` et `lastEdited` viennent des métadonnées Notion, pas de colonnes.
+```ts
+export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 
-### 3.2 Base « Modèles IA » (`VITE_NOTION_MODELS_DB_ID`)
+export interface ChatRequest {
+  model: string;              // identifiant opaque, propre au fournisseur
+  system?: string;
+  messages: ChatMessage[];
+  json?: boolean;             // exiger une sortie JSON stricte quand le fournisseur sait le faire
+}
 
-Catalogue éditable des moteurs 1min.ai, géré depuis Réglages → Modèles IA.
+export interface ChatResult { text: string; raw?: unknown }
 
-| Colonne (alias reconnus) | Type | Champ `AIModel` |
+export interface AIProvider {
+  readonly id: string;                                   // 'onemin' | 'openai' | 'anthropic'
+  chat(req: ChatRequest): Promise<ChatResult>;
+  test(model: string): Promise<{ ok: boolean; detail?: string }>;
+}
+```
+
+Le port est **volontairement étroit** : pas de streaming, pas d'outils, pas de multimodal.
+Le produit n'en a pas besoin, et chaque capacité ajoutée est une capacité à réimplémenter
+pour chaque fournisseur.
+
+### 5.3 Deux notions distinctes de « fournisseur »
+
+Aujourd'hui la colonne `provider` sert à grouper l'affichage (« OpenAI », « Anthropic »).
+Dans le modèle cible, deux colonnes :
+
+| Colonne | Rôle | Exemple |
 | :--- | :--- | :--- |
-| Nom | Title | `name` |
-| Code API | Text | `apiCode` — identifiant envoyé à 1min.ai |
-| Fournisseur | Text ou Select | `provider` — groupe l'affichage |
-| Cout / Coût | Select | `cost` — `low` … `very_high` |
-| Forces | Text | `strengths` |
-| Cas d'usage | Text | `bestUseCases` — lu/écrit, absent du formulaire |
-| Qualité Rédaction | Number | `textQuality` (1-5) — stocké, jamais exploité |
-| Défaut | Checkbox | `isDefault` — valeur initiale du sélecteur global |
+| `provider` | **quel adaptateur appeler** | `onemin` |
+| `vendor` | qui a fabriqué le modèle, pour l'affichage | `OpenAI` |
 
-> Le service **lit le schéma réel de la base au runtime** et s'adapte aux noms (accents,
-> apostrophes typographiques, variantes FR/EN) et aux types réels. Une colonne absente est
-> ignorée avec un warning au lieu de faire échouer toute la requête.
+Un même modèle peut ainsi être joignable via 1min.ai aujourd'hui et en direct demain :
+on change une valeur dans la table, pas une ligne de code.
 
-> Il n'y a plus de base « Contextes IA » : la couche de contexte additionnel a été retirée.
+### 5.4 Le testeur
+
+`POST /api/models/:id/test` appelle `provider.test(apiCode)`. C'est le seul moyen fiable
+de valider un code API avant enregistrement, et il devient générique.
 
 ---
 
-## 4. Cache local et synchronisation
+## 6. Séries et déclinaisons
 
-`services/storageService.ts` — IndexedDB `LuminoseDB` v3, deux object stores (`content`,
-`models`, clé `id`). `localStorage` porte les marqueurs de sync et `AppSettings`
-(préférences d'affichage, modèle actif).
+### 6.1 Le modèle
 
-**Au démarrage** : lecture du cache → affichage immédiat → `syncWithNotion()` en fond.
+Voir §2.5. Une série porte un titre (le sujet), une intention, un statut, et
+éventuellement un contenu source.
 
-**Stratégie** : sync incrémentale par défaut (filtre `last_edited_time > lastSync`, fusion
-par `id`), sync complète forcée si la dernière remonte à plus de 24 h ou via le bouton ↻.
+### 6.2 L'Éclateur (persona)
 
-**Écritures** : *optimistic UI*. En cas d'échec Notion, on ne revient pas en arrière (ce
-serait effacer la frappe) : l'item entre dans `unsavedItemsRef`, ce qui déclenche
+Action `PLAN_SERIES`. Reçoit soit le thème et l'intention, soit le texte du contenu
+source, et renvoie un plan de publication :
 
-1. un bandeau ambre persistant avec « Réessayer maintenant » ;
-2. la **protection contre l'écrasement** — la sync réapplique la version locale des items
-   non enregistrés, donc une sync réussie ne peut plus détruire du travail en attente ;
-3. un `beforeunload` qui empêche de fermer l'onglet sans avertissement.
+```json
+[{ "titre": "…", "angle": "…", "format": "Post Texte (Court)",
+   "objectif": "Recadrage de croyance", "justification": "…" }]
+```
+
+Il reçoit `OBJECTIF_REGISTRY` en contexte, y compris la règle d'équilibre éditorial
+(« sur 10 publications, viser ~2 Notoriété, 3 Recadrage… »). Aujourd'hui cette règle ne
+guide qu'une idée isolée ; **une série est le premier endroit où elle devient
+actionnable**.
+
+### 6.3 Le plan de série
+
+Un seul écran, deux portes d'entrée : « Décliner » depuis un contenu Prêt ou Publié,
+« Nouvelle série » depuis l'onglet Séries. Tableau éditable, puis création en lot via
+`POST /api/contents/batch`.
+
+**Atomicité** : le lot est créé dans une transaction D1. Six contenus créés ou zéro,
+jamais une série à moitié peuplée.
+
+### 6.4 L'anti-répétition — NORMATIF
+
+C'est la raison d'être de la fonctionnalité. À la rédaction d'un contenu appartenant à une
+série, le Rédacteur reçoit en plus :
+
+1. le thème et l'intention de la série ;
+2. le texte du contenu source, **si et seulement si** la série en a un ;
+3. **les angles des contenus frères** — leurs `titre` et `angle`, **jamais leur texte
+   complet**, avec la consigne explicite de ne pas empiéter.
+
+La restriction du point 3 n'est pas une optimisation : sans elle, le prompt croît avec la
+série et finit par noyer la consigne.
 
 ---
 
-## 5. Parcours fonctionnel
+## 7. Authentification et sécurité
 
-### 5.1 Espaces et routing
+Le dispositif actuel est conservé : jeton `"<payload base64>.<signature base64>"`, signé
+HMAC-SHA256 avec `SESSION_SECRET`, vérifié en temps constant. Il vient d'être posé et
+testé ; le migrer n'apporterait rien.
 
-| Espace | Hash | État |
-| :--- | :--- | :--- |
-| **Contenus** | `#social/...` | cœur du produit |
-| Clients | `#clients` | placeholder « en construction » |
-| Vidéos | `#videos` | `SubtitleConverter` — `.srt` → `.fcpxml` (Final Cut Pro) |
-| Psychédéliques | `#psychedeliques` | `PsychedelicsCalculator` — repères de dosage |
+Ce qui change : l'origine unique (§1.2) supprime CORS. `ALLOWED_ORIGINS` disparaît.
 
-Hash : `#{espace}/{onglet}/{itemId}/{étape}`.
-Onglets sociaux : `ideas` | `drafts` | `ready` | `calendar` | `archive`.
-Étapes d'éditeur : `idea` | `atelier` | `brouillon` | `slides` | `postcourt` | `script`.
+Reste ouvert, non bloquant : comparaison des identifiants en temps constant, limitation de
+débit sur `/api/auth/login` (demanderait un binding KV), et à terme Cloudflare Access en
+remplacement complet du couple identifiant/mot de passe.
 
-Les deux derniers espaces sont des **outils autonomes**, sans lien avec Notion ni avec le
-pipeline. `SubtitleConverter` réutilise toutefois le catalogue de modèles pour un
-découpage intelligent des sous-titres.
-
-### 5.2 Les sept objectifs (`ai/objectives.ts`)
-
-Chaque contenu a **exactement un** objectif, et c'est lui qui dicte le CTA. Logique
-d'entonnoir :
-
-| Objectif | Étape | Quand |
-| :--- | :--- | :--- |
-| Notoriété | Découverte | l'idée parle de Florent : parcours, vision, opinion assumée |
-| Recadrage de croyance | Découverte | l'idée déloge une croyance qui bloque — contenu signature |
-| Confiance / Preuve | Considération | montre concrètement comment il travaille |
-| Éducation pratique | Considération | démystifie une pratique (hypnose, respiration holotropique) |
-| Trafic contenu long | Considération | bande-annonce d'un article, d'une vidéo, d'une newsletter |
-| Conversion séance | Décision | invite explicitement à prendre rendez-vous (~1 post sur 8-10) |
-| Promotion événement | Décision | stage, atelier, date |
-
-Le registre porte deux choses : `quand` (guidance injectée dans le persona de l'Analyste,
-avec un repère d'équilibre éditorial sur 10 publications) et `ctaRules` (règles injectées
-dans le prompt du Rédacteur au moment de la rédaction).
-
-### 5.3 Pipeline éditorial
-
-```
-  IDÉE          ANALYSE          ATELIER         VERROU        RÉDACTION       FINITION
-┌───────┐    ┌──────────┐    ┌───────────┐   ┌──────────┐   ┌───────────┐   ┌──────────┐
-│ titre │───▶│ Analyste │───▶│   Coach   │──▶│Verrouil- │──▶│ Rédacteur │──▶│ Artiste  │
-│ notes │    │ verdict  │    │  chat     │   │  leur    │   │ JSON du   │   │ slides + │
-│ format│    │ objectif │    │maïeutique │   │  brief   │   │  format   │   │ prompts  │
-│ cible │    │ angle    │    │           │   │ figé     │   │           │   │ Dzine    │
-└───────┘    └──────────┘    └───────────┘   └──────────┘   └───────────┘   └──────────┘
-  Idée        analyzed ✓      coachSession    session.brief   body /          slides
-                                                              scriptVideo
-                                                                   │
-                                        ┌──────────────────────────┴────────────┐
-                                        ▼                                       ▼
-                                 ┌─────────────┐                        ┌──────────────┐
-                                 │ Lecteur     │  relecture à froid     │  Ajustement  │
-                                 │ froid       │  → corrections         │  (itératif)  │
-                                 └─────────────┘                        └──────────────┘
-```
-
-1. **Idée** — `SocialIdeasView` + `IdeaModal`. Florent saisit titre, notes, et **choisit le
-   format cible**. Statut `Idée`.
-2. **Analyse** — unitaire ou en lot (`AnalysisModal`). L'**Analyste** renvoie verdict,
-   justification, objectif, plateformes, angle stratégique, métaphore, profondeur.
-   Une signature `_Généré par : <modèle> - le <date>_` est concaténée à l'angle.
-3. **Coach** — chat multi-tour, réponses JSON `{message, quick_replies[], ready_for_editor}`.
-   Les quick replies sont pré-remplies dans le champ de saisie, éditables avant envoi.
-   Session persistée dans `coachSession`.
-4. **Verrouillage** (`LOCK_BRIEF`) — au « Go Éditeur », le **Verrouilleur** condense la
-   session en un brief figé (`coachSession.brief`). Quand il existe, c'est la matière
-   **unique** du Rédacteur : la session brute ne lui est plus transmise, pour que les
-   pistes écartées ne ressuscitent pas.
-5. **Rédaction** (`DRAFT_CONTENT`) — le Rédacteur reçoit titre, format, objectif (et ses
-   règles CTA), angle, métaphore, notes, brief. Renvoie le JSON du format cible. Routé vers
-   `scriptVideo` (vidéo) ou `body`. Pour un carrousel, `enforceCarrouselConstraints()`
-   applique les contraintes de trame et ajoute la slide de signature définie dans
-   `constants.ts` (jamais générée par l'IA — zéro dérive).
-6. **Relecture à froid** (`COLD_READ`) — sur Post Texte, Carrousel et Reel : le **Lecteur
-   froid** relit et propose des corrections, réinjectables en un clic dans l'ajustement.
-7. **Slides carrousel** (`GENERATE_CARROUSEL_SLIDES`) — l'**Artiste** recopie le JSON à
-   l'identique en ajoutant un `prompt_dzine` (anglais, 50-80 mots) sur les slides
-   `ILLUSTRÉE`. Écrit dans `slides`. `ADJUST_DZINE_PROMPTS` retouche les prompts seuls.
-8. **Ajustement** (`ADJUST_CONTENT`) — instruction en langage naturel. Porte sur **le champ
-   affiché dans l'onglet courant** : `slides` depuis l'onglet Slides, `scriptVideo` pour la
-   vidéo, `body` sinon. Toute génération est annulable une fois (bandeau « Revenir à la
-   version précédente » tant que l'éditeur est ouvert).
-9. **Prêt** / **Publié** — statut manuel, planification via `CalendarView`.
-
-### 5.4 Sélection du modèle
-
-Il n'y a plus de modale de configuration par action : un **sélecteur global** dans l'entête
-choisit le modèle actif pour toutes les actions IA. Sa valeur initiale est le modèle coché
-« Défaut » dans Notion ; le choix est persisté dans `AppSettings.activeModelId`.
-
-### 5.5 Réglages (`SettingsPanel`)
-
-Panneau latéral à trois onglets :
-
-- **Affichage** — préférences de densité des cartes (`DisplayPrefs`) : bande verdict,
-  plateformes, profondeur, objectif.
-- **Modèles IA** — CRUD du catalogue, marquage « par défaut », et un **testeur** qui envoie
-  un ping à 1min.ai pour valider qu'un code API répond avant de l'enregistrer.
-- **Personas** — lecture seule des sept prompts système et des règles de voix.
+**Invariant** : aucune clé de fournisseur (Notion, 1min.ai, OpenAI…) ne quitte le Worker.
 
 ---
 
-## 6. Couche IA
+## 8. Cache local et synchronisation
 
-### 6.1 Fournisseur unique
-
-**1min.ai pour tout.** `OneMinService.generateContent()` est le point d'entrée unique ;
-`testModel()` sert au testeur de Réglages. Le catalogue vient intégralement de Notion :
-sans au moins un modèle configuré, aucune action IA n'est possible, et les points d'entrée
-le signalent explicitement.
-
-### 6.2 Composition des prompts (`ai/prompts/index.ts`)
-
-Trois couches concaténées par `buildSystemPrompt({ action, ... })` :
+IndexedDB conserve son rôle : affichage immédiat au démarrage, puis synchronisation en
+fond. Le protocole se simplifie radicalement.
 
 ```
-[1] PERSONA (hardcodé, versionné dans ai/prompts/*.ts)
-      ↓
-[2] --- CONTEXTE ADDITIONNEL (optionnel, peu utilisé depuis le retrait de la base Contextes)
-      ↓
-[3] --- RÈGLES DE SORTIE, avec injections %%…%%
+GET /api/contents?since=<updated_at max connu>
+   → lignes modifiées ET lignes supprimées depuis
+   → le client applique : upsert des vivantes, purge des supprimées
 ```
 
-| Persona | Fichier | Action(s) | Règles de voix |
-| :--- | :--- | :--- | :--- |
-| Analyste (Stratège) | `analyste.ts` | `ANALYZE_BATCH` | ✅ |
-| Coach | `coach.ts` | `COACH_CHAT` | ✅ |
-| Verrouilleur | `verrouilleur.ts` | `LOCK_BRIEF` | — |
-| Rédacteur (Éditeur) | `redacteur.ts` | `DRAFT_CONTENT`, `ADJUST_CONTENT` | ✅ |
-| Lecteur froid | `lecteurFroid.ts` | `COLD_READ` | — |
-| Directeur artistique | `artiste.ts` | `GENERATE_CARROUSEL_SLIDES`, `ADJUST_DZINE_PROMPTS` | — |
-| Interviewer *(legacy)* | `interviewer.ts` | `GENERATE_INTERVIEW` | — |
+Plus de synchronisation complète périodique, plus de balayage d'identifiants, plus de
+fusion par `mergeById` avec cas particuliers.
 
-`ai/voice.ts` → `VOICE_RULES`, source unique des règles transverses : vouvoiement
-systématique, oralité écrite, **une** métaphore filée, zéro emoji, rigueur clinique
-traduite en expérience vécue, « montre ne dis pas », la « baffe » bienveillante.
-
-### 6.3 Registre des formats (`ai/formats.ts`)
-
-| Format | shortKey | storageField | editorTab |
-| :--- | :--- | :--- | :--- |
-| Post Texte (Court) | `Post Texte` | `body` | `atelier` |
-| Article (Long/SEO) | `Article` | `body` | `atelier` |
-| Script Vidéo (Reel/Short) | `Script Reel` | `scriptVideo` | `atelier` |
-| Script Vidéo (Youtube) | `Script Youtube` | `scriptVideo` | `atelier` |
-| Carrousel (Slide par Slide) | `Carrousel` | `body` | `atelier` |
-| Newsletter | `Newsletter` | `body` | `atelier` |
-| Prompt Image | `Prompt Image` | `body` | `atelier` |
-
-Chaque définition porte le `promptTemplate` (la grille de production injectée dans le
-prompt du Rédacteur — le cœur qualitatif), `toPlainText()` pour la recherche et l'aperçu,
-et le `shortKey` que l'IA doit renvoyer dans le champ `format` (validé par
-`parseDraftResponse`).
-
-### 6.4 Contrat de sortie
-
-Toutes les actions demandent du **JSON strict**. `ai/executors.ts` nettoie défensivement :
-`extractJsonPayload` (retire les fences, tronque entre première `{` et dernière `}`),
-`parseDraftResponse` (valide que `format` est connu), `sanitizeSlidesResponse`,
-`parseAIResponse(text, key)` avec repli regex.
-
-**Attention** : une signature markdown est concaténée **après** le JSON avant stockage.
-Toute relecture doit passer par `parseBodyJson()` / `bodyJsonToText()`, qui retronquent à
-la dernière `}`.
+**Conservé de l'existant** : la protection contre l'écrasement du travail non enregistré.
+Un contenu dont l'écriture a échoué reste protégé de la synchronisation et signalé par un
+bandeau. Ce comportement a été construit pour une bonne raison ; il survit à la migration.
 
 ---
 
-## 7. Carte des fichiers
+## 9. Migration des données
 
+### 9.1 Principe
+
+`tools/import-notion` lit les deux bases Notion et **produit un fichier `import.sql`**
+d'instructions `INSERT OR REPLACE`, avec des identifiants dérivés des pages Notion. Le
+fichier est donc **ré-exécutable sans doublon**, ce qui autorise autant de répétitions
+que nécessaire.
+
+```bash
+NOTION_API_KEY=… npm start -w tools/import-notion
+cd workers/api && npx wrangler d1 execute DB --remote --file=../../tools/import-notion/import.sql
 ```
-App.tsx                  état global, routing hash, sync, analyse, modèle actif
-auth.ts                  login / logout / lecture du payload de jeton
-config.ts                lecture des VITE_* (IDs de bases)
-constants.ts             WORKER_URL, SITE_URL, slide de signature, couleurs de statut
-types.ts                 enums et interfaces du domaine
 
-ai/
-  actions.ts             9 actions IA : system prompt + config de génération
-  objectives.ts          7 objectifs : guidance Analyste + règles CTA Rédacteur
-  formats.ts             FORMAT_REGISTRY : grilles de production, routage de stockage
-  executors.ts           parsing/validation des réponses IA (pur, sans React)
-  voice.ts               VOICE_RULES transverses
-  prompts/               7 personas + buildSystemPrompt()
+### 9.2 Correspondance des champs
 
-services/
-  notionService.ts (1011 l.)  CRUD Notion, rich-text ↔ markdown, introspection de schéma
-  oneMinService.ts            appel 1min.ai + testModel()
-  coachService.ts             session Coach : brief, parsing, append, validation
-  storageService.ts           IndexedDB + marqueurs de sync + AppSettings
-  subtitleService.ts          .srt → .fcpxml
+Table complète en Annexe B. Points d'attention :
 
-components/
-  Layout/Sidebar.tsx, Layout/MobileSubTabs.tsx
-  Views/SocialIdeasView.tsx, Views/SocialGridView.tsx
-  ContentEditor/
-    index.tsx      (879 l.)   orchestrateur : exécuteurs IA, sauvegarde, navigation
-    DraftView.tsx  (1046 l.)  onglets Atelier / Brouillon / Slides / Copie / Script
-    EditorLayout.tsx          chrome (header, sous-header, bandeaux, footer)
-    PreviewView.tsx, renderers/
-  SettingsPanel.tsx (754 l.)  Affichage / Modèles IA (+ testeur) / Personas
-  AnalysisModal.tsx, IdeaModal.tsx, CoachChat.tsx, CalendarView.tsx
-  SubtitleConverter.tsx, PsychedelicsCalculator.tsx
-  RichTextarea, MarkdownToolbar, CommonModals, LoginPage, ContentCard
+- `Contenu` / `Slides` / `Script vidéo` / `Post Court` : lus en **texte brut**, jamais
+  réinterprétés en markdown.
+- `Plateforme` (multi-select) → JSON array en TEXT.
+- Dates Notion (ISO) → epoch ms.
+- `Réponses interview` / `Questions interview` : migrés dans une colonne `legacy_json`.
+  Champs morts, mais on ne détruit pas de données pendant une migration.
 
-gestion-luminose-worker/src/index.js   le Worker complet (auth signée, proxy Notion, 1min)
-```
+### 9.3 Vérification — NORMATIF
+
+La migration n'est pas terminée quand le SQL passe. Elle est terminée quand un script de
+vérification a comparé, **pour chaque ligne et chaque champ**, la valeur Notion et la
+valeur D1, et affiché zéro écart. Ce script fait partie du livrable de la phase 4.
+
+### 9.4 Filet
+
+- **Avant tout** : export JSON complet des deux bases Notion, versionné dans le dépôt
+  (`fixtures/notion-export-<date>.json`). C'est la phase 0.
+- **Après bascule** : Notion reste intact, en lecture seule, pendant au moins un mois.
+- **En régime** : une route d'export (`GET /api/export`) produit un JSON complet
+  téléchargeable. Time Travel (7 jours en gratuit) ne suffit pas comme unique filet.
 
 ---
 
-## 8. Dette technique
+## 10. Tests et garde-fous
 
-### 8.1 ✅ Harnais de test *(posé le 17/08/2026)*
+### 10.1 Ce qui est couvert aujourd'hui (73 tests, à conserver)
 
-Le dépôt n'avait aucun test exécutable. Le 16/08, un `useEffect` placé après un retour
-anticipé dans `SettingsPanel` a passé typecheck **et** build, a été déployé, et rendait une
-page blanche au clic sur Réglages.
+Jetons forgés du Worker, écriture Notion selon le type réel des colonnes, intégrité du
+JSON, parsing défensif des réponses IA, complétude du registre de formats, montage de
+chaque écran.
 
-`npm test` couvre désormais, en 73 tests :
+### 10.2 Ce qui s'ajoute
 
-| Fichier | Ce qu'il protège |
+| Cible | Nature |
 | :--- | :--- |
-| `test/worker-auth.test.ts` | jetons forgés, expirés, signés par un autre secret ; CORS |
-| `test/notion-models.test.ts` | écriture des modèles selon le type réel des colonnes |
-| `test/notion-content.test.ts` | JSON traversant Notion sans altération ; balayage d'IDs |
-| `test/ai-executors.test.ts` | parsing défensif des réponses IA |
-| `test/ai-formats.test.ts` | complétude du registre, routage par format |
-| `test/screens.test.tsx` | montage de chaque écran, dont la transition fermé → ouvert |
+| `packages/editorial` | **golden fixtures** — un prompt composé attendu par action et par format. Toute évolution d'un persona met à jour la fixture, et la revue de la fixture est la revue du changement. |
+| `workers/api` | une suite par route : validation zod, codes de statut, suppression logique, budget de requêtes |
+| Migration | comparaison Notion ↔ D1 champ par champ (§9.3) |
+| `packages/{subtitles, psychedelics}` | tests de calcul purs |
 
-Le test de non-régression de la page blanche a été validé en réintroduisant volontairement
-le bug : il échoue avec *« Rendered more hooks than during the previous render »*.
+### 10.3 Règle de montage
 
-**Règle** : tout composant ayant un retour anticipé doit être monté dans `screens.test.tsx`
-dans les **deux** états. Aucune CI n'exécute ces tests — `npm test` et `npm run typecheck`
-sont à lancer à la main avant de pousser.
-
-### 8.2 ✅ `FORMAT_REGISTRY` est devenu la source de vérité *(17/08/2026)*
-
-`getStorageField()` et `getEditorTab()` étaient exportés et importés nulle part, pendant que
-`SCRIPT_VIDEO_REEL_SHORT` était testé à la main six fois dans `ContentEditor/index.tsx` et
-deux fois dans `DraftView.tsx`.
-
-Le registre porte maintenant trois décisions par format, et l'éditeur les consomme :
-
-- `storageField` — où déposer le résultat de la rédaction ;
-- `editorTab` — sur quelle étape atterrir juste après (le champ existait mais valait
-  `'atelier'` partout et ne servait à rien ; la vraie destination était codée en dur) ;
-- `supportsColdRead` — quels formats bénéficient de la relecture à froid (c'était une liste
-  en dur dans l'éditeur).
-
-Il ne reste qu'un test par format en dur, dans `DraftView` : le CTA spécifique au Reel,
-qui relève de la présentation et non du routage.
-
-### 8.3 ✅ Le JSON ne traverse plus le parseur markdown *(17/08/2026)*
-
-`body`, `slides`, `postCourt` et `scriptVideo` passaient par `markdownToNotion()`, qui
-interprète `**`, `_`, les backticks, `~` et `[texte](url)`. Ils utilisent désormais
-`rawTextToNotion()`. Les champs réellement rédigés (Notes, Angle stratégique…) gardent
-l'interprétation markdown, qui y a du sens.
-
-Le contenu déjà stocké avec annotations se relit sans migration : `notionToMarkdown`
-réémet les marqueurs et reconstitue le JSON à l'identique.
-
-### 8.4 ✅ Les suppressions Notion se propagent *(17/08/2026)*
-
-Une page archivée ne remonte plus du tout dans les résultats de requête : son absence est
-le seul signal de suppression, et une synchronisation incrémentale ne peut structurellement
-pas la détecter. `fetchLiveContentIds()` balaie les IDs vivants et le cache est purgé en
-conséquence — sauf pour les items non enregistrés, dont l'absence côté Notion est
-justement ce qu'on cherche à corriger.
-
-Coût : une requête par tranche de 100 pages, uniquement en sync incrémentale (une sync
-complète remplace déjà la liste).
-
-### 8.5 🟡 Divers
-
-- **`textQuality` (Qualité Rédaction)** : saisi, stocké, relu, jamais exploité.
-- **`bestUseCases` (Cas d'usage)** : lu et écrit, absent du formulaire d'édition.
-- **Bundle de 570 kB** (163 kB gzip) en un seul chunk. `SubtitleConverter`,
-  `PsychedelicsCalculator` et `CalendarView` sont des candidats évidents au `lazy()`.
-  Sans impact perceptible en usage solo sur poste de travail.
-- **`/auth/login`** : comparaison des identifiants avec `===` (fuite de timing théorique)
-  et aucune limitation de débit (demanderait un binding KV).
-- **`ALLOWED_ORIGINS` en dur** dans le Worker : toute nouvelle origine doit y être ajoutée.
-- **Flow `GENERATE_INTERVIEW` / `interviewer.ts`** et champs `interviewAnswers` /
-  `interviewQuestions` marqués *legacy* mais toujours présents.
-- **`.env.local` contient des variables mortes** : `VITE_NOTION_CONTEXT_DB_ID` (base
-  supprimée) et `VITE_GEMINI_API_KEY` (fournisseur retiré).
-- **`node_modules` peut être installé pour la mauvaise plateforme** (arborescence linux sur
-  le Mac) : `npm run build` échoue alors sur les binaires natifs de rollup/esbuild.
-  Correctif : `npm install @rollup/rollup-darwin-arm64 @esbuild/darwin-arm64 --no-save`.
-
-## 9. Pistes à instruire
-
-1. **Espace Clients** — placeholder depuis le début : à construire ou à retirer ?
-2. **Lien « source → déclinaisons »** (dans `TODO`) — une vidéo YouTube est le parent
-   naturel d'un article et de 3-4 posts. Aujourd'hui chaque format repart de zéro.
-   Un champ relation Notion + une action « Décliner ce contenu » depuis un item Prêt/Publié.
-   ⚠️ Tout le pipeline suppose actuellement **un contenu = un format**, du champ
-   `Format cible` au routage `body`/`slides`/`scriptVideo` : ce chantier touchera ce
-   postulat partout, et rend §8.2 bloquant.
-3. **Exploiter ou retirer `textQuality` et `bestUseCases`** — par exemple une suggestion
-   automatique de modèle selon le format cible.
-4. **Règles de voix chez l'Artiste et le Lecteur froid** — absentes. Délibéré (l'Artiste
-   produit de l'anglais pour Dzine) ou oubli côté Lecteur froid ?
+Tout composant ayant un retour anticipé est monté dans `screens.test.tsx` **dans les deux
+états**. Cette règle est née d'une page blanche en production : un `useEffect` placé après
+un `if (!isOpen) return null;`, invisible au typecheck comme au build.
 
 ---
 
-## 10. Journal des modifications
+## 11. Phasage et critères de sortie — NORMATIF
 
-### 17/08/2026
-Socle de tests, `rawTextToNotion` sur les quatre champs JSON, `FORMAT_REGISTRY` branché
-comme source de vérité, propagation des suppressions Notion, README mis à jour.
-SPEC re-dérivée contre le code courant.
+Une phase par lot de travail. **Aucune phase ne laisse l'application cassée.**
 
-### 16/08/2026
-Sauvegarde des modèles IA réparée (introspection du schéma Notion), jeton de session signé
-en HMAC-SHA256 + CORS restreint, protection contre la perte de contenu (erreur propagée,
-items non enregistrés protégés de la sync, annulation de génération), typecheck réparé
-(`include: ["."]` ne résolvait aucun fichier), ajustement des carrousels routé sur l'onglet
-affiché. Puis correctif de la page blanche du panneau Réglages (hook après retour anticipé).
+| # | Phase | Critère de sortie |
+| :--- | :--- | :--- |
+| **0** | **Filet** — export JSON complet des bases Notion, versionné | Le fichier existe, il contient N contenus et M modèles, relus |
+| **1** | **Monorepo** — workspaces, déplacement du front dans `apps/manager` | `npm test` et `npm run typecheck` verts, application identique |
+| **2** | **Moteurs purs** — extraction de `editorial`, `subtitles`, `psychedelics` | Zéro dépendance runtime, golden fixtures en place |
+| **3** | **Worker API + D1** — schéma, migrations, routes, auth | Suite de tests API verte, Notion encore en place et intact |
+| **4** | **Import** — `tools/import-notion` + vérification | Script de comparaison à zéro écart |
+| **5** | **Bascule** — le front lit et écrit l'API | Notion en lecture seule ; parcours complet rejoué de bout en bout |
+| **6** | **Abstraction IA** — `packages/ai`, `/api/ai/chat` | Un second adaptateur écrit, même s'il n'est pas activé |
+| **7** | **Séries** — table, onglet, écran de plan, création en lot | Une série créée à la main de bout en bout |
+| **8** | **L'Éclateur** — `PLAN_SERIES` + anti-répétition | Un plan généré sur un vrai sujet, jugé pertinent |
+
+Phases 0 à 5 : migration, aucune fonctionnalité nouvelle. Phases 6 à 8 : la valeur.
+
+### 11.1 Ce qui peut mal tourner
+
+- **La bascule (phase 5)** est le moment à risque. Elle est réversible tant que Notion
+  reste intact : c'est la raison de la règle du mois de lecture seule.
+- **L'écriture en lot (phase 7)** doit être transactionnelle, sinon une série à moitié
+  créée laisse un état incohérent.
+- **Les golden fixtures (phase 2)** vont figer les prompts actuels. Si un prompt est déjà
+  imparfait, la fixture fige l'imperfection : les relire à ce moment-là, pas plus tard.
+
+---
+
+## Annexe A — Schéma D1
+
+```sql
+-- 0001_init.sql
+
+CREATE TABLE series (
+  id                TEXT PRIMARY KEY,
+  titre             TEXT NOT NULL,
+  intention         TEXT,
+  statut            TEXT NOT NULL DEFAULT 'en_cours',   -- en_cours | terminee
+  source_content_id TEXT REFERENCES contents(id) ON DELETE SET NULL,
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL,
+  deleted_at        INTEGER
+);
+
+CREATE TABLE contents (
+  id                TEXT PRIMARY KEY,
+  title             TEXT NOT NULL DEFAULT '',
+  status            TEXT NOT NULL,                      -- Idée | Brouillon | Prêt | Publié
+  platforms         TEXT NOT NULL DEFAULT '[]',         -- JSON array
+  target_format     TEXT,
+  objectif          TEXT,
+  depth             TEXT,
+  -- Produit par l'Analyste
+  analyzed          INTEGER NOT NULL DEFAULT 0,
+  verdict           TEXT,
+  strategic_angle   TEXT,
+  justification     TEXT,
+  suggested_metaphor TEXT,
+  -- Matière et productions (JSON sérialisé, §2.3)
+  notes             TEXT NOT NULL DEFAULT '',
+  coach_session     TEXT,
+  body              TEXT,
+  slides            TEXT,
+  script_video      TEXT,
+  post_court        TEXT,
+  -- Séries (§2.5)
+  serie_id          TEXT REFERENCES series(id) ON DELETE SET NULL,
+  angle             TEXT,
+  -- Divers
+  scheduled_date    TEXT,                               -- ISO date, sans heure
+  legacy_json       TEXT,                               -- champs interview hérités
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL,
+  deleted_at        INTEGER
+);
+
+CREATE TABLE ai_models (
+  id              TEXT PRIMARY KEY,
+  name            TEXT NOT NULL,
+  api_code        TEXT NOT NULL,
+  provider        TEXT NOT NULL DEFAULT 'onemin',       -- adaptateur, §5.3
+  vendor          TEXT,                                 -- affichage, §5.3
+  cost            TEXT,
+  strengths       TEXT,
+  best_use_cases  TEXT,
+  text_quality    INTEGER,
+  is_default      INTEGER NOT NULL DEFAULT 0,
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL,
+  deleted_at      INTEGER
+);
+
+CREATE TABLE app_settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+-- Synchronisation incrémentale (§8)
+CREATE INDEX idx_contents_updated  ON contents(updated_at);
+CREATE INDEX idx_series_updated    ON series(updated_at);
+CREATE INDEX idx_models_updated    ON ai_models(updated_at);
+-- Listes filtrées par statut, et contenus d'une série (§3.3)
+CREATE INDEX idx_contents_status   ON contents(status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_contents_serie    ON contents(serie_id) WHERE deleted_at IS NULL;
+```
+
+## Annexe B — Correspondance Notion → D1
+
+| Colonne Notion | Type Notion | Colonne D1 | Conversion |
+| :--- | :--- | :--- | :--- |
+| *(id de page)* | — | `contents.id` | conservé tel quel (§2.4) |
+| Titre | title | `title` | texte brut |
+| Statut | select | `status` | nom de l'option |
+| Plateforme | multi_select | `platforms` | JSON array des noms |
+| Contenu | rich_text | `body` | **texte brut**, sans markdown |
+| Slides | rich_text | `slides` | texte brut |
+| Script vidéo | rich_text | `script_video` | texte brut |
+| Post Court | rich_text | `post_court` | texte brut |
+| Notes | rich_text | `notes` | texte brut |
+| Coach Session | rich_text | `coach_session` | texte brut |
+| Date de publication | date | `scheduled_date` | `start` seul |
+| Analysé | checkbox | `analyzed` | 0 / 1 |
+| Verdict | select | `verdict` | nom |
+| Angle stratégique | rich_text | `strategic_angle` | texte brut |
+| Format cible | select | `target_format` | nom |
+| Objectif | select | `objectif` | nom |
+| Justification | rich_text | `justification` | texte brut |
+| Métaphore Suggérée | rich_text | `suggested_metaphor` | texte brut |
+| Profondeur | select | `depth` | nom |
+| Réponses / Questions interview | rich_text | `legacy_json` | objet JSON |
+| *(created_time)* | — | `created_at` | ISO → epoch ms |
+| *(last_edited_time)* | — | `updated_at` | ISO → epoch ms |
+
+Modèles IA : correspondance directe, `provider` initialisé à `onemin` pour toutes les
+lignes, `vendor` reprenant l'ancienne colonne « Fournisseur » (§5.3).
