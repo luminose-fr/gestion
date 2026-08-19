@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 // @ts-ignore — le Worker est du JS sans types
-import worker from '../gestion-luminose-worker/src/index.js';
+import worker from '../src/index.js';
 
 const ENV = {
   AUTH_USERNAME: 'florent',
@@ -20,6 +20,8 @@ const ENV = {
 };
 
 const ORIGIN = 'https://gestion.luminose.fr';
+
+type LoginBody = { sessionToken: string };
 
 const login = (username: string, password: string, origin = ORIGIN, env: any = ENV) =>
   worker.fetch(new Request('https://w.dev/auth/login', {
@@ -57,14 +59,14 @@ describe('login', () => {
   it('délivre un jeton au format payload.signature', async () => {
     const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD);
     expect(res.status).toBe(200);
-    const { sessionToken } = await res.json();
+    const { sessionToken } = await res.json() as LoginBody;
     expect(sessionToken).toMatch(/^[^.]+\.[^.]+$/);
   });
 });
 
 describe('accès au proxy', () => {
   it('accepte un jeton légitime', async () => {
-    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json();
+    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
     expect((await callNotion(sessionToken)).status).toBe(200);
   });
 
@@ -82,25 +84,25 @@ describe('jetons forgés — le trou d’avant', () => {
   });
 
   it('rejette un payload valide sans signature', async () => {
-    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json();
+    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
     expect((await callNotion(sessionToken.split('.')[0])).status).toBe(401);
   });
 
   it('rejette une signature invalide', async () => {
-    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json();
+    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
     const wrong = `${sessionToken.split('.')[0]}.${btoa('signature-bidon')}`;
     expect((await callNotion(wrong)).status).toBe(401);
   });
 
   it('rejette un payload retouché avec une signature recyclée', async () => {
-    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json();
+    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
     const tampered = btoa(JSON.stringify({ token: 'x', expiresAt: 9999999999999 }));
     expect((await callNotion(`${tampered}.${sessionToken.split('.')[1]}`)).status).toBe(401);
   });
 
   it('rejette un jeton signé avec un autre secret', async () => {
     const other = { ...ENV, SESSION_SECRET: 'un-autre-secret' };
-    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, ORIGIN, other)).json();
+    const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, ORIGIN, other)).json() as LoginBody;
     expect((await callNotion(sessionToken)).status).toBe(401);
   });
 
@@ -114,7 +116,7 @@ describe('repli sur AUTH_PASSWORD', () => {
     const env = { ...ENV, SESSION_SECRET: undefined };
     const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, ORIGIN, env);
     expect(res.status).toBe(200);
-    const { sessionToken } = await res.json();
+    const { sessionToken } = await res.json() as LoginBody;
     expect((await callNotion(sessionToken, env)).status).toBe(200);
   });
 });

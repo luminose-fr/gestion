@@ -1,38 +1,24 @@
 {
-  "name": "socialflow-manager",
+  "name": "luminose-gestion",
   "private": true,
-  "version": "0.1.0",
+  "version": "2.0.0",
   "type": "module",
-  "homepage": "https://gestion.luminose.fr",
+  "workspaces": [
+    "packages/*",
+    "workers/*",
+    "apps/*",
+    "tools/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
-  },
-  "dependencies": {
-    "date-fns": "^4.1.0",
-    "lucide-react": "^0.575.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "dev": "npm run dev -w apps/manager",
+    "dev:api": "npm run dev -w workers/api",
+    "build": "npm run build -w apps/manager",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "deploy": "./scripts/deploy.sh"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.1",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.4",
-    "gh-pages": "^6.1.1",
-    "jsdom": "^30.0.1",
-    "tailwindcss": "^4.2.1",
     "typescript": "^5.4.2",
-    "vite": "^7.3.1",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.68.1"
+    "wrangler": "^4.124.0"
   }
 }
