@@ -14,7 +14,7 @@ import {
   findSlideLengthIssues,
   appendSignatureSlide,
   SLIDE_TITLE_MAX,
-} from '../ai/executors';
+} from '../src/index';
 
 describe('extractJsonPayload', () => {
   it('retire les fences markdown', () => {

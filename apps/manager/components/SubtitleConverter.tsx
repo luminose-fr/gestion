@@ -4,7 +4,7 @@ import {
     parseSrt, regroupSubtitles, generateFcpxml, wrapText,
     DEFAULT_STYLE, VIDEO_FORMATS,
     type SrtBlock, type SubtitleBlock, type SubtitleStyle, type ShadowStyle, type VideoFormat,
-} from '../services/subtitleService';
+} from '@luminose/subtitles';
 import { AIModel } from '../types';
 import * as OneMinService from '../services/oneMinService';
 

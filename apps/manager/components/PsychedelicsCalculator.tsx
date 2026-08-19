@@ -8,173 +8,12 @@ import {
   Pill,
   type LucideIcon,
 } from 'lucide-react';
-
-const SUBSTANCES = ['Champignons', 'LSD', 'MDMA'] as const;
-type Substance = (typeof SUBSTANCES)[number];
-
-const DOSE_LEVELS = ['Micro-dose', 'Faible', 'Normal', 'Fort', 'Héroïque'] as const;
-type DoseLevel = (typeof DOSE_LEVELS)[number];
-
-const MUSHROOM_TYPES = [
-  'Psilocybe Cubensis (Secs)',
-  'Psilocybe Cubensis (Frais)',
-  'Truffes Magiques (Secs)',
-  'Truffes Magiques (Fraîches)',
-  'Copelandia Cyanescens (Frais)',
-  'Copelandia Cyanescens (Secs)',
-] as const;
-type MushroomType = (typeof MUSHROOM_TYPES)[number];
-
-const MUSHROOM_FAMILIES = ['Cubensis', 'Truffes', 'Copelandia'] as const;
-type MushroomFamily = (typeof MUSHROOM_FAMILIES)[number];
-
-const MUSHROOM_FORMS = ['Frais', 'Sec'] as const;
-type MushroomForm = (typeof MUSHROOM_FORMS)[number];
-
-type CalculationResult = {
-  level: DoseLevel;
-  amount: number;
-  unit: string;
-  description: string;
-};
-
-type MushroomVariant = {
-  label: string;
-  type: MushroomType;
-};
-
-// Truffes (sclérotes) : ~65-70% d'eau → ratio frais/sec ≈ 3
-const TRUFFLE_FRESH_TO_DRY_RATIO = 3;
-
-const TRUFFLE_FRESH_FACTORS: Record<DoseLevel, number> = {
-  'Micro-dose': 0.01,    // 70 kg → 0.7 g
-  Faible: 0.09,          // 70 kg → 6.3 g
-  Normal: 0.18,          // 70 kg → 12.6 g
-  Fort: 0.30,            // 70 kg → 21 g
-  'Héroïque': 0.50,      // 70 kg → 35 g
-};
-
-const TRUFFLE_DRY_FACTORS: Record<DoseLevel, number> = {
-  'Micro-dose': TRUFFLE_FRESH_FACTORS['Micro-dose'] / TRUFFLE_FRESH_TO_DRY_RATIO,
-  Faible: TRUFFLE_FRESH_FACTORS.Faible / TRUFFLE_FRESH_TO_DRY_RATIO,
-  Normal: TRUFFLE_FRESH_FACTORS.Normal / TRUFFLE_FRESH_TO_DRY_RATIO,
-  Fort: TRUFFLE_FRESH_FACTORS.Fort / TRUFFLE_FRESH_TO_DRY_RATIO,
-  'Héroïque': TRUFFLE_FRESH_FACTORS['Héroïque'] / TRUFFLE_FRESH_TO_DRY_RATIO,
-};
-
-const MUSHROOM_FACTORS: Record<MushroomType, Record<DoseLevel, number>> = {
-  'Psilocybe Cubensis (Secs)': {
-    'Micro-dose': 0.003,
-    Faible: 0.015,
-    Normal: 0.03,
-    Fort: 0.05,
-    'Héroïque': 0.07,
-  },
-  'Psilocybe Cubensis (Frais)': {
-    'Micro-dose': 0.03,
-    Faible: 0.15,
-    Normal: 0.3,
-    Fort: 0.5,
-    'Héroïque': 0.7,
-  },
-  'Truffes Magiques (Fraîches)': TRUFFLE_FRESH_FACTORS,
-  'Truffes Magiques (Secs)': TRUFFLE_DRY_FACTORS,
-  // Copelandia : 2-3x plus puissant que cubensis
-  'Copelandia Cyanescens (Frais)': {
-    'Micro-dose': 0.01,    // 70 kg → 0.7 g
-    Faible: 0.08,          // 70 kg → 5.6 g
-    Normal: 0.15,          // 70 kg → 10.5 g
-    Fort: 0.25,            // 70 kg → 17.5 g
-    'Héroïque': 0.35,      // 70 kg → 24.5 g
-  },
-  'Copelandia Cyanescens (Secs)': {
-    'Micro-dose': 0.001,   // 70 kg → 0.07 g
-    Faible: 0.008,         // 70 kg → 0.56 g
-    Normal: 0.015,         // 70 kg → 1.05 g
-    Fort: 0.025,           // 70 kg → 1.75 g
-    'Héroïque': 0.035,     // 70 kg → 2.45 g
-  },
-};
-
-const MUSHROOM_VARIANTS: Record<MushroomFamily, Partial<Record<MushroomForm, MushroomVariant>>> = {
-  Cubensis: {
-    Frais: {
-      label: 'Psilocybe Cubensis frais',
-      type: 'Psilocybe Cubensis (Frais)',
-    },
-    Sec: {
-      label: 'Psilocybe Cubensis sec',
-      type: 'Psilocybe Cubensis (Secs)',
-    },
-  },
-  Truffes: {
-    Frais: {
-      label: 'Truffes magiques fraîches',
-      type: 'Truffes Magiques (Fraîches)',
-    },
-    Sec: {
-      label: 'Truffes magiques sèches',
-      type: 'Truffes Magiques (Secs)',
-    },
-  },
-  Copelandia: {
-    Frais: {
-      label: 'Copelandia Cyanescens frais',
-      type: 'Copelandia Cyanescens (Frais)',
-    },
-    Sec: {
-      label: 'Copelandia Cyanescens sec',
-      type: 'Copelandia Cyanescens (Secs)',
-    },
-  },
-};
-
-const LSD_TIERS: Record<DoseLevel, { min: number; description: string }> = {
-  'Micro-dose': {
-    min: 10,
-    description: "Sub-perceptuel. Augmentation légère de l'énergie et de la créativité.",
-  },
-  Faible: {
-    min: 25,
-    description: 'Effets légers, légère euphorie, visuels discrets.',
-  },
-  Normal: {
-    min: 80,
-    description: 'Trip complet, visuels géométriques et perception altérée du temps.',
-  },
-  Fort: {
-    min: 150,
-    description: "Expérience intense, confusion possible, dissolution de l'ego.",
-  },
-  'Héroïque': {
-    min: 300,
-    description: 'Dose extrême, réservée aux profils très expérimentés.',
-  },
-};
-
-const MDMA_FACTOR = 1.5;
-const MDMA_MAX_SAFE = 120;
-
-const SAFETY_DATA: Record<Substance, { effects: string[]; advice: string; duration: string }> = {
-  Champignons: {
-    effects: ['Introspection', 'Visuels', 'Connexion émotionnelle', 'Distorsion du temps'],
-    advice:
-      "Le set & setting reste central. Privilégiez un cadre calme, une personne de confiance et commencez bas si la puissance du produit est inconnue.",
-    duration: '4 à 6 heures',
-  },
-  LSD: {
-    effects: ['Énergie', 'Visuels complexes', 'Pensées associatives', 'Synesthésie'],
-    advice:
-      "La durée est longue. Gardez la journée et la nuit libres, testez toujours vos produits et évitez les redrops impulsifs.",
-    duration: '8 à 12 heures',
-  },
-  MDMA: {
-    effects: ['Empathie', 'Énergie', 'Euphorie', 'Sensations tactiles accrues'],
-    advice:
-      "Hydratez-vous sans excès, faites des pauses si vous dansez, évitez les mélanges et respectez un délai de plusieurs semaines entre deux prises.",
-    duration: '3 à 6 heures',
-  },
-};
+import {
+  SUBSTANCES, DOSE_LEVELS, MUSHROOM_FAMILIES, MUSHROOM_FORMS,
+  SAFETY_DATA, COMMON_SAFETY_POINTS,
+  getAvailableForms, getMushroomVariant, computeDoses,
+  type Substance, type DoseLevel, type MushroomFamily, type MushroomForm,
+} from '@luminose/psychedelics';
 
 const SUBSTANCE_THEME: Record<
   Substance,
@@ -207,124 +46,29 @@ const SUBSTANCE_META: Record<Substance, { icon: LucideIcon }> = {
   MDMA: { icon: Pill },
 };
 
-const COMMON_SAFETY_POINTS = [
-  {
-    title: 'Résultats indicatifs',
-    description: 'Les quantités affichées restent des repères. La puissance réelle du produit peut varier fortement.',
-  },
-  {
-    title: 'Commencer bas',
-    description: 'Il est plus prudent de démarrer plus bas que prévu que de chercher à corriger une dose trop forte.',
-  },
-  {
-    title: 'Éviter les mélanges',
-    description: 'Le cumul avec alcool, stimulants ou autres psychotropes augmente nettement les risques.',
-  },
-  {
-    title: 'Set & setting',
-    description: 'Le lieu, l’état émotionnel et la présence d’une personne de confiance changent beaucoup l’expérience.',
-  },
-] as const;
-
-const roundToTwo = (value: number) => Math.round(value * 100) / 100;
-
 export default function PsychedelicsCalculator() {
   const [activeTab, setActiveTab] = useState<Substance>('Champignons');
   const [weight, setWeight] = useState(70);
   const [mushroomFamily, setMushroomFamily] = useState<MushroomFamily>('Cubensis');
   const [mushroomForm, setMushroomForm] = useState<MushroomForm>('Sec');
 
-  const availableForms = useMemo(
-    () => MUSHROOM_FORMS.filter((form) => Boolean(MUSHROOM_VARIANTS[mushroomFamily][form])),
-    [mushroomFamily]
-  );
+  const availableForms = useMemo(() => getAvailableForms(mushroomFamily), [mushroomFamily]);
 
   useEffect(() => {
-    if (!MUSHROOM_VARIANTS[mushroomFamily][mushroomForm]) {
+    if (!availableForms.includes(mushroomForm)) {
       setMushroomForm(availableForms[0] ?? 'Sec');
     }
-  }, [availableForms, mushroomFamily, mushroomForm]);
+  }, [availableForms, mushroomForm]);
 
-  const selectedMushroomVariant = useMemo(() => {
-    return (
-      MUSHROOM_VARIANTS[mushroomFamily][mushroomForm] ??
-      MUSHROOM_VARIANTS[mushroomFamily][availableForms[0] ?? 'Sec'] ?? {
-        label: 'Psilocybe Cubensis sec',
-        type: 'Psilocybe Cubensis (Secs)' as MushroomType,
-      }
-    );
-  }, [availableForms, mushroomFamily, mushroomForm]);
+  const selectedMushroomVariant = useMemo(
+    () => getMushroomVariant(mushroomFamily, mushroomForm),
+    [mushroomFamily, mushroomForm]
+  );
 
-  const calculation = useMemo(() => {
-    if (activeTab === 'Champignons') {
-      const results = DOSE_LEVELS.map((level) => ({
-        level,
-        amount: roundToTwo(weight * MUSHROOM_FACTORS[selectedMushroomVariant.type][level]),
-        unit: 'g',
-        description:
-          level === 'Micro-dose'
-            ? 'Sub-perceptuel. Usage distinct, généralement recherché pour sa discrétion.'
-            : level === 'Faible'
-              ? 'Léger. Couleurs plus vives, rires, ouverture émotionnelle.'
-              : level === 'Normal'
-                ? 'Standard. Visuels, introspection, immersion marquée.'
-                : level === 'Fort'
-                  ? 'Très intense. Distorsions importantes et perte de repères possible.'
-                  : "Extrême. Risque psychologique élevé, approche prudente indispensable.",
-      }));
-
-      return {
-        results,
-        doseContext: `${results[2].amount} g de ${selectedMushroomVariant.label}`,
-      };
-    }
-
-    if (activeTab === 'LSD') {
-      const results = DOSE_LEVELS.map((level) => ({
-        level,
-        amount: LSD_TIERS[level].min,
-        unit: 'µg',
-        description: LSD_TIERS[level].description,
-      }));
-
-      return {
-        results,
-        doseContext: '100 µg de LSD',
-      };
-    }
-
-    let recommended = Math.round(weight * MDMA_FACTOR);
-    const isCapped = recommended > MDMA_MAX_SAFE;
-    if (isCapped) {
-      recommended = MDMA_MAX_SAFE;
-    }
-
-    return {
-      results: [
-        {
-          level: 'Faible' as DoseLevel,
-          amount: Math.round(recommended * 0.7),
-          unit: 'mg',
-          description: "Effets plus doux, descente souvent moins difficile.",
-        },
-        {
-          level: 'Normal' as DoseLevel,
-          amount: recommended,
-          unit: 'mg',
-          description: isCapped
-            ? `Plafonné à ${MDMA_MAX_SAFE} mg pour rester dans un cadre de réduction des risques.`
-            : 'Repère standard basé sur 1,5 mg/kg.',
-        },
-        {
-          level: 'Fort' as DoseLevel,
-          amount: Math.round(recommended * 1.3),
-          unit: 'mg',
-          description: 'Charge corporelle et risque de neurotoxicité nettement accrus.',
-        },
-      ],
-      doseContext: `${recommended} mg de MDMA`,
-    };
-  }, [activeTab, selectedMushroomVariant, weight]);
+  const calculation = useMemo(
+    () => computeDoses(activeTab, weight, selectedMushroomVariant),
+    [activeTab, selectedMushroomVariant, weight]
+  );
 
   const safety = SAFETY_DATA[activeTab];
   const theme = SUBSTANCE_THEME[activeTab];

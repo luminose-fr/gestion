@@ -9,8 +9,8 @@
  * - Clé de format court (pour la détection dans les JSON IA)
  */
 
-import { TargetFormat } from '../types';
-import { SITE_URL } from '../constants';
+import { TargetFormat } from './domain';
+import { SITE_URL } from './config';
 
 // ── Types ────────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@ import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu } from 'lucide-react';
 import { ContentItem, Verdict, Platform, AIModel, isObjectif, isProfondeur } from '../types';
 import * as OneMinService from '../services/oneMinService';
 import * as NotionService from '../services/notionService';
-import { AI_ACTIONS } from '../ai/actions';
+import { AI_ACTIONS } from '@luminose/editorial';
 import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface AnalysisModalProps {

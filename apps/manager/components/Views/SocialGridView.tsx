@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { PenLine, CheckCircle2, Archive, ChevronRight, Sparkles, MinusCircle, XCircle, HelpCircle, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { bodyJsonToText } from '../../ai/formats';
+import { bodyJsonToText } from '@luminose/editorial';
 import { ContentItem, TargetFormat, Verdict, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 
 const VERDICT_STRIPE: Record<Verdict, string> = {

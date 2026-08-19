@@ -15,60 +15,16 @@ export enum ContentStatus {
   PUBLISHED = "Publié"
 }
 
-export enum Verdict {
-  VALID = "Valide",
-  TOO_BLAND = "Trop lisse",
-  NEEDS_WORK = "À revoir"
-}
-
-export enum TargetFormat {
-  POST_TEXTE_COURT = "Post Texte (Court)",
-  ARTICLE_LONG_SEO = "Article (Long/SEO)",
-  SCRIPT_VIDEO_REEL_SHORT = "Script Vidéo (Reel/Short)",
-  SCRIPT_VIDEO_YOUTUBE = "Script Vidéo (Youtube)",
-  CARROUSEL_SLIDE = "Carrousel (Slide par Slide)",
-  PROMPT_IMAGE = "Prompt Image",
-  NEWSLETTER = "Newsletter"
-}
-
-export const TARGET_FORMAT_VALUES = Object.values(TargetFormat) as string[];
-
-export const isTargetFormat = (value: unknown): value is TargetFormat => {
-  return typeof value === "string" && TARGET_FORMAT_VALUES.includes(value);
-};
-
-/**
- * Objectif business d'une publication — chaque contenu en a exactement UN.
- * C'est lui qui dicte la nature du CTA (voir ai/objectives.ts).
- */
-export enum Objectif {
-  NOTORIETE = "Notoriété",
-  RECADRAGE = "Recadrage de croyance",
-  CONFIANCE = "Confiance / Preuve",
-  EDUCATION = "Éducation pratique",
-  TRAFIC = "Trafic contenu long",
-  CONVERSION = "Conversion séance",
-  EVENEMENT = "Promotion événement"
-}
-
-export const OBJECTIF_VALUES = Object.values(Objectif) as string[];
-
-export const isObjectif = (value: unknown): value is Objectif => {
-  return typeof value === "string" && OBJECTIF_VALUES.includes(value);
-};
-
-export enum Profondeur {
-  DIRECT = "Direct",
-  LEGERE = "Légère",
-  COMPLETE = "Complète"
-}
-
-export const PROFONDEUR_VALUES = Object.values(Profondeur) as string[];
-
-export const isProfondeur = (value: unknown): value is Profondeur => {
-  return typeof value === "string" && PROFONDEUR_VALUES.includes(value);
-};
-
+// Le vocabulaire éditorial (Verdict, TargetFormat, Objectif, Profondeur et
+// leurs gardes) vit dans @luminose/editorial : c'est de la méthode, pas du
+// stockage. Réexporté ici pour que le reste de l'app garde un point d'entrée
+// unique sur ses types.
+export {
+  Verdict, TargetFormat, Objectif, Profondeur,
+  TARGET_FORMAT_VALUES, OBJECTIF_VALUES, PROFONDEUR_VALUES,
+  isTargetFormat, isObjectif, isProfondeur,
+} from '@luminose/editorial';
+import type { TargetFormat, Objectif, Profondeur, Verdict } from '@luminose/editorial';
 export interface AIModel {
   id: string;
   name: string;

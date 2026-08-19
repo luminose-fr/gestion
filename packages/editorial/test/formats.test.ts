@@ -8,7 +8,7 @@
  * chaque format déclare tout ce dont l'éditeur a besoin.
  */
 import { describe, it, expect } from 'vitest';
-import { TargetFormat, TARGET_FORMAT_VALUES } from '../types';
+import { TargetFormat, TARGET_FORMAT_VALUES } from '../src/domain';
 import {
   FORMAT_REGISTRY,
   getFormatDef,
@@ -19,7 +19,7 @@ import {
   bodyJsonToText,
   parseBodyJson,
   VALID_SHORT_KEYS,
-} from '../ai/formats';
+} from '../src/index';
 
 const ALL_FORMATS = Object.values(TargetFormat);
 

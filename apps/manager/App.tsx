@@ -3,12 +3,12 @@ import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown 
 import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as NotionService from './services/notionService';
 import * as StorageService from './services/storageService';
-import { AI_ACTIONS } from './ai/actions';
+import { AI_ACTIONS } from '@luminose/editorial';
 import * as OneMinService from './services/oneMinService';
 
 import SettingsPanel from './components/SettingsPanel';
 import ContentEditor, { EditorStep } from './components/ContentEditor';
-import { bodyJsonToText } from './ai/formats';
+import { bodyJsonToText } from '@luminose/editorial';
 import { IdeaModal } from './components/IdeaModal'; 
 import AnalysisModal from './components/AnalysisModal';
 import CalendarView from './components/CalendarView';

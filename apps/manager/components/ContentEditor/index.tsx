@@ -5,13 +5,13 @@ import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
 import * as OneMinService from '../../services/oneMinService';
 import { generateLockedBrief } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
-import { AI_ACTIONS } from '../../ai/actions';
-import { bodyJsonToText, getStorageField, getEditorTab, supportsColdRead } from '../../ai/formats';
+import { AI_ACTIONS } from '@luminose/editorial';
+import { bodyJsonToText, getStorageField, getEditorTab, supportsColdRead } from '@luminose/editorial';
 import {
     parseDraftResponse, parseAIResponse, sanitizeSlidesResponse,
     extractJsonPayload, formatDraftContent,
     appendSignatureSlide, findSlideLengthIssues, SLIDE_TITLE_MAX, SLIDE_TEXT_MAX
-} from '../../ai/executors';
+} from '@luminose/editorial';
 import type { ColdReadReport } from './DraftView';
 
 // Sub-components
@@ -42,7 +42,7 @@ interface ContentEditorProps {
 
 // bodyJsonToText est maintenant centralisé dans ai/formats.ts
 // Ré-exporté ici pour backward compat avec les anciens imports
-export { bodyJsonToText } from '../../ai/formats';
+export { bodyJsonToText } from '@luminose/editorial';
 
 // parseAIResponse → ai/executors.ts
 

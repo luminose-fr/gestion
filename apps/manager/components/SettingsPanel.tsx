@@ -7,8 +7,8 @@ import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as NotionService from '../services/notionService';
 import * as OneMinService from '../services/oneMinService';
 import { ConfirmModal } from './CommonModals';
-import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '../ai/prompts';
-import { VOICE_RULES } from '../ai/voice';
+import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '@luminose/editorial';
+import { VOICE_RULES } from '@luminose/editorial';
 
 interface SettingsPanelProps {
     isOpen: boolean;

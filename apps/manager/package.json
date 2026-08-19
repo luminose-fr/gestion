@@ -12,6 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@luminose/editorial": "*",
+    "@luminose/psychedelics": "*",
+    "@luminose/subtitles": "*",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.575.0",
     "react": "^19.2.4",

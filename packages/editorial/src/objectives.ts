@@ -11,8 +11,8 @@
  * - Décision : inviter clairement à passer à l'action
  */
 
-import { Objectif, isObjectif } from '../types';
-import { SITE_URL } from '../constants';
+import { Objectif, isObjectif } from './domain';
+import { SITE_URL } from './config';
 
 export interface ObjectifDefinition {
     key: Objectif;

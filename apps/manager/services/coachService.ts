@@ -6,7 +6,7 @@
  * en s'appuyant sur l'historique CoachSession côté client.
  */
 
-import { AI_ACTIONS } from '../ai/actions';
+import { AI_ACTIONS } from '@luminose/editorial';
 import * as OneMinService from './oneMinService';
 import type { CoachMessage, CoachSession, AIModel, ContentItem, TargetFormat } from '../types';
 

@@ -5,7 +5,7 @@
  * Elles sont appelées par les exécuteurs async de ContentEditor/index.tsx.
  */
 
-import { TargetFormat, isTargetFormat } from '../types';
+import { TargetFormat, isTargetFormat } from './domain';
 import { parseBodyJson } from './formats';
 
 // ── Extraction JSON ──
