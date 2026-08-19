@@ -1,0 +1,142 @@
+import { z } from 'zod';
+import {
+  TARGET_FORMAT_VALUES, OBJECTIF_VALUES, PROFONDEUR_VALUES,
+} from '@luminose/editorial';
+
+// ── Vocabulaire non éditorial ────────────────────────────────────────────
+
+export const PLATFORMS = [
+  'Facebook', 'Instagram', 'LinkedIn', 'Google My Business',
+  'Youtube', 'Blog', 'Newsletter',
+] as const;
+export type Platform = (typeof PLATFORMS)[number];
+
+export const CONTENT_STATUSES = ['Idée', 'Brouillon', 'Prêt', 'Publié'] as const;
+export type ContentStatus = (typeof CONTENT_STATUSES)[number];
+
+export const VERDICTS = ['Valide', 'Trop lisse', 'À revoir'] as const;
+
+export const SERIE_STATUSES = ['en_cours', 'terminee'] as const;
+export type SerieStatus = (typeof SERIE_STATUSES)[number];
+
+/** Natures de production IA journalisées (SPEC §2.6). */
+export const GENERATION_KINDS = [
+  'analysis', 'draft', 'slides', 'cold_read', 'adjustment', 'brief', 'plan_series',
+] as const;
+export type GenerationKind = (typeof GENERATION_KINDS)[number];
+
+/** Colonne visée par une génération, quand elle en vise une. */
+export const GENERATION_TARGETS = ['draft', 'slides'] as const;
+
+export const COACH_ROLES = ['user', 'assistant'] as const;
+export const COACH_STATUSES = ['in_progress', 'validated'] as const;
+
+// ── Entités ──────────────────────────────────────────────────────────────
+
+/**
+ * Un contenu. `draft` porte le brouillon quel que soit le format (SPEC §2.5) ;
+ * `draft` et `slides` sont du JSON sérialisé que seul editorial interprète.
+ */
+export const ContentSchema = z.object({
+  id: z.string(),
+  title: z.string().default(''),
+  status: z.enum(CONTENT_STATUSES),
+  platforms: z.array(z.enum(PLATFORMS)).default([]),
+  targetFormat: z.enum(TARGET_FORMAT_VALUES as [string, ...string[]]).nullable().default(null),
+  objectif: z.enum(OBJECTIF_VALUES as [string, ...string[]]).nullable().default(null),
+  depth: z.enum(PROFONDEUR_VALUES as [string, ...string[]]).nullable().default(null),
+
+  analyzedAt: z.number().int().nullable().default(null),
+  verdict: z.enum(VERDICTS).nullable().default(null),
+  strategicAngle: z.string().nullable().default(null),
+  justification: z.string().nullable().default(null),
+  suggestedMetaphor: z.string().nullable().default(null),
+
+  notes: z.string().default(''),
+  draft: z.string().nullable().default(null),
+  slides: z.string().nullable().default(null),
+
+  coachStatus: z.enum(COACH_STATUSES).nullable().default(null),
+  coachFormatCible: z.string().nullable().default(null),
+  coachBrief: z.string().nullable().default(null),
+  coachValidatedAt: z.number().int().nullable().default(null),
+
+  serieId: z.string().nullable().default(null),
+  angle: z.string().nullable().default(null),
+
+  scheduledDate: z.string().nullable().default(null),
+  legacyJson: z.string().nullable().default(null),
+
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+  deletedAt: z.number().int().nullable().default(null),
+});
+export type Content = z.infer<typeof ContentSchema>;
+
+export const SerieSchema = z.object({
+  id: z.string(),
+  titre: z.string(),
+  intention: z.string().nullable().default(null),
+  statut: z.enum(SERIE_STATUSES).default('en_cours'),
+  sourceContentId: z.string().nullable().default(null),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+  deletedAt: z.number().int().nullable().default(null),
+});
+export type Serie = z.infer<typeof SerieSchema>;
+
+/**
+ * Un modèle IA du catalogue.
+ * `provider` désigne l'ADAPTATEUR à appeler, `vendor` sert à l'affichage
+ * (SPEC §5.3) : un même modèle peut passer par 1min.ai puis en direct.
+ */
+export const AIModelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  apiCode: z.string(),
+  provider: z.string().default('onemin'),
+  vendor: z.string().nullable().default(null),
+  cost: z.string().nullable().default(null),
+  strengths: z.string().nullable().default(null),
+  bestUseCases: z.string().nullable().default(null),
+  textQuality: z.number().int().nullable().default(null),
+  isDefault: z.boolean().default(false),
+  createdAt: z.number().int(),
+  updatedAt: z.number().int(),
+  deletedAt: z.number().int().nullable().default(null),
+});
+export type AIModel = z.infer<typeof AIModelSchema>;
+
+export const GenerationSchema = z.object({
+  id: z.string(),
+  contentId: z.string(),
+  kind: z.enum(GENERATION_KINDS),
+  target: z.enum(GENERATION_TARGETS).nullable().default(null),
+  modelId: z.string().nullable().default(null),
+  modelLabel: z.string(),
+  instruction: z.string().nullable().default(null),
+  payload: z.string(),
+  createdAt: z.number().int(),
+});
+export type Generation = z.infer<typeof GenerationSchema>;
+
+export const CoachMessageSchema = z.object({
+  id: z.string(),
+  contentId: z.string(),
+  role: z.enum(COACH_ROLES),
+  content: z.string(),
+  raw: z.string().nullable().default(null),
+  quickReplies: z.array(z.string()).default([]),
+  readyForEditor: z.boolean().default(false),
+  createdAt: z.number().int(),
+});
+export type CoachMessage = z.infer<typeof CoachMessageSchema>;
+
+/** Session Coach assemblée pour le client (SPEC §2.7) : le stockage en lignes ne remonte pas. */
+export interface CoachSession {
+  status: 'in_progress' | 'validated' | null;
+  formatCible: string | null;
+  brief: string | null;
+  validatedAt: number | null;
+  messages: CoachMessage[];
+}

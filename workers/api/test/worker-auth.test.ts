@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 // @ts-ignore — le Worker est du JS sans types
-import worker from '../src/index.js';
+import worker from '../src/index';
 
 const ENV = {
   AUTH_USERNAME: 'florent',

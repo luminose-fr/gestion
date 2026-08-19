@@ -1,0 +1,29 @@
+# Worker API — proxy historique (Notion, 1min.ai) ET nouvelle API D1.
+#
+# Le nom reste `gestion-luminose-worker` : le front pointe dessus via
+# constants.ts jusqu'à la bascule de la phase 5. Le renommer casserait
+# l'application en production.
+
+name = "gestion-luminose-worker"
+main = "src/index.ts"
+compatibility_date = "2026-01-31"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# Base créée le 19/08/2026 :
+#   npx wrangler d1 create luminose-gestion --location weur
+[[d1_databases]]
+binding = "DB"
+database_name = "luminose-gestion"
+database_id = "e9327701-3b46-4f85-9e3f-513df1488118"
+
+# ─── Phase 5 — bascule sur l'origine unique (SPEC §1.2) ──────────────────
+# À décommenter le jour où gestion.luminose.fr pointe sur le projet Pages.
+# Le Worker capte alors /api/* sur la MÊME origine que le front, ce qui
+# supprime CORS entièrement.
+#
+# routes = [
+#   { pattern = "gestion.luminose.fr/api/*", zone_name = "luminose.fr" }
+# ]

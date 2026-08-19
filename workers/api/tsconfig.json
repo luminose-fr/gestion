@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
@@ -9,9 +11,16 @@
     "noEmit": true,
     "allowJs": true,
     "checkJs": false,
-    "types": ["@cloudflare/workers-types", "vitest/globals"],
+    "types": [
+      "@cloudflare/workers-types",
+      "vitest/globals",
+      "node"
+    ],
     "isolatedModules": true,
     "verbatimModuleSyntax": false
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ]
 }
