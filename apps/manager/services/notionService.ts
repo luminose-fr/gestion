@@ -636,8 +636,9 @@ const MODEL_FIELDS = {
     provider: ["Fournisseur", "Provider", "Éditeur"],
     cost: ["Cout", "Coût", "Coût / Crédits", "Cost", "Crédits"],
     strengths: ["Forces", "Strengths", "Points forts"],
-    bestUseCases: ["Cas d'usage", "Use cases", "Best use cases"],
-    textQuality: ["Qualité Rédaction", "Qualité", "Text quality"],
+    bestUseCases: ["Meilleurs cas d'utilisation", "Cas d'usage", "Use cases", "Best use cases"],
+    // Stockée en rich_text côté Notion, pas en number : propToNumber sait la lire.
+    textQuality: ["Qualité pour le texte", "Qualité Rédaction", "Qualité", "Text quality"],
     isDefault: ["Défaut", "Par défaut", "Default"],
 };
 

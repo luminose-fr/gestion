@@ -218,7 +218,7 @@ message. Le client garde son modèle mental ; seul le stockage change.
 | `analyzed` (booléen) | `analyzed_at` (ms) | strictement plus informatif, et une seule source de vérité |
 | signature markdown dans le champ | `generations` | §2.6 |
 | `coachSession` (blob) | `coach_messages` + colonnes d'état | §2.7 |
-| `interviewAnswers`, `interviewQuestions` | **non migrés** | flow remplacé par le Coach. Vérifié : **aucun déclencheur dans l'interface**, les champs ne sont plus que relus pour décider d'une redirection. Ils restent dans l'export de la phase 0. |
+| `interviewAnswers`, `interviewQuestions` | `legacy_json` | flow remplacé par le Coach, **aucun déclencheur dans l'interface**. Décision révisée après l'export : 15 contenus portent des questions et 8 des réponses, jusqu'à 8 900 caractères. Une colonne nullable ne coûte rien ; jeter la matière qui a produit ces brouillons, si. |
 | `Cible Offre` | déjà remplacé par `objectif` | fait en amont |
 
 `platforms` reste un tableau JSON plutôt qu'une table de jointure : le filtrage est
@@ -639,6 +639,7 @@ CREATE TABLE contents (
   angle              TEXT,
 
   scheduled_date     TEXT,                              -- date ISO, sans heure
+  legacy_json        TEXT,                              -- matière de l'ancien flow Interviewer (§2.8)
   created_at         INTEGER NOT NULL,
   updated_at         INTEGER NOT NULL,
   deleted_at         INTEGER
@@ -727,7 +728,7 @@ CREATE INDEX idx_coach_messages     ON coach_messages(content_id, created_at);
 | Justification | rich_text | `justification` | texte brut |
 | Métaphore Suggérée | rich_text | `suggested_metaphor` | texte brut |
 | Profondeur | select | `depth` | nom |
-| Réponses / Questions interview | rich_text | **non migré** | flow mort (§2.8) ; conservé dans l'export de la phase 0 |
+| Réponses / Questions interview | rich_text | `legacy_json` | objet JSON `{answers, questions}` (§2.8) |
 | *(created_time)* | — | `created_at` | ISO → epoch ms |
 | *(last_edited_time)* | — | `updated_at` | ISO → epoch ms |
 
