@@ -122,7 +122,9 @@ pas un détail de configuration.
 
 ## 2. Modèle de données (D1) — NORMATIF
 
-Schéma complet en Annexe A. Principes structurants :
+Schéma complet en Annexe A. Le modèle Notion actuel est le produit d'évolutions
+successives sous contrainte non relationnelle ; il est ici repris à zéro. Les écarts
+volontaires avec l'existant sont justifiés en §2.7.
 
 ### 2.1 Suppression logique
 
@@ -130,30 +132,99 @@ Toute table métier porte `deleted_at INTEGER` (epoch ms, `NULL` = vivant).
 
 Une suppression est un `UPDATE … SET deleted_at = ?`. La synchronisation incrémentale
 renvoie **aussi** les lignes supprimées depuis `since`, ce qui permet au client de purger
-son cache. Le balayage d'IDs de l'ère Notion disparaît : le problème n'existe plus.
+son cache. Le balayage d'identifiants de l'ère Notion disparaît : le problème n'existe plus.
 
 ### 2.2 Horodatage
 
 `created_at` et `updated_at` en **epoch millisecondes** (`INTEGER`), jamais en texte ISO.
-`updated_at` est la clé de la synchronisation incrémentale et doit être mis à jour à
-chaque écriture, côté Worker, jamais côté client.
+`updated_at` est la clé de la synchronisation incrémentale et n'est écrit que par le
+Worker, jamais par le client.
 
 ### 2.3 Charges JSON
 
-`body`, `slides`, `script_video`, `coach_session` restent du **JSON sérialisé en TEXT**.
-La base ne les interprète pas, ne les indexe pas, ne les valide pas. Leur schéma est
-l'affaire de `packages/editorial`.
+`contents.draft`, `contents.slides` et les `generations.payload` restent du **JSON
+sérialisé en TEXT**. La base ne les interprète pas, ne les indexe pas, ne les valide pas.
 
-Raison : ces structures évoluent avec les prompts. Les normaliser en tables condamnerait
-chaque évolution de format à une migration SQL.
+Raison : leur forme varie par format (`accroche`/`corps` pour un post court,
+`sections[]` pour un script, `slides[]` pour un carrousel, `objet`/`baffe` pour une
+newsletter) et suit l'évolution des prompts. Les normaliser condamnerait chaque évolution
+de format à une migration SQL. Leur schéma appartient à `packages/editorial`.
 
 ### 2.4 Identifiants
 
 - Contenus migrés : **l'identifiant de page Notion est conservé**. La migration est ainsi
-  ré-exécutable sans doublon, et les liens existants restent valides.
+  ré-exécutable sans doublon.
 - Nouvelles lignes : UUID v4 généré par le Worker.
 
-### 2.5 Les Séries
+### 2.5 Un seul brouillon
+
+`contents.draft` porte le brouillon, **quel que soit le format**.
+
+L'existant a deux colonnes — `body` et `scriptVideo` — pour la même chose : le résultat de
+la rédaction. Elles ne diffèrent que par le format, et `getStorageField()` n'existe que
+pour choisir entre elles. Aucun contenu ne remplit les deux.
+
+Une seule colonne, et la notion de `storageField` disparaît du produit.
+
+`contents.slides` est conservée à part : ce n'est **pas** une dérivation du brouillon mais
+un enrichissement (les `prompt_dzine` de l'Artiste), ajustable indépendamment.
+
+### 2.6 Les productions IA sont un journal — NORMATIF
+
+Chaque production de l'IA est une ligne de `generations` : analyse, rédaction, slides,
+relecture à froid, ajustement, brief verrouillé, plan de série.
+
+`contents` porte l'état **courant** (lecture immédiate, aucune agrégation) ;
+`generations` porte la **trace**. Ce n'est pas de l'event sourcing : on ne reconstruit
+jamais l'état depuis le journal.
+
+Ce que ça règle, et qui n'est pas décoratif :
+
+1. **La provenance sort de la charge utile.** Aujourd'hui la signature
+   `_Généré par : <modèle> - le <date>_` est concaténée **après le JSON**, dans le champ
+   lui-même. Résultat : onze `lastIndexOf('}')` dispersés dans sept fichiers, parce que
+   chaque lecteur doit savoir qu'un contenu JSON n'est pas du JSON. La colonne redevient
+   du JSON pur ; la provenance vit dans sa propre ligne.
+2. **L'annulation devient réelle.** Aujourd'hui : un seul niveau, en mémoire, perdu à la
+   fermeture de l'éditeur. Demain : revenir à n'importe quelle génération antérieure.
+3. **La comparaison devient possible** — deux rédactions du même contenu, côte à côte.
+
+`model_label` est figé à l'écriture : si le modèle est supprimé du catalogue, la
+provenance survit.
+
+Volume : quelques kilo-octets par génération, quelques générations par contenu. Non
+significatif à cette échelle ; si cela changeait, une purge au-delà des N dernières par
+couple (contenu, nature) suffirait.
+
+### 2.7 La conversation Coach est une suite de messages — NORMATIF
+
+`coach_messages` : une ligne par message. L'état de session (statut, brief verrouillé,
+format calibré, date de validation) reste sur `contents`.
+
+Aujourd'hui la session entière est un blob réécrit **à chaque tour** : dix échanges = dix
+réécritures de la conversation complète. Un échec au mauvais moment, et des messages
+disparaissent. En lignes, l'écriture est un `INSERT` : un message écrit ne se perd plus.
+
+**L'API masque ce détail.** `GET /api/contents/:id` renvoie une `coachSession` assemblée
+`{ status, brief, messages[] }`, et `POST /api/contents/:id/coach/messages` ajoute un
+message. Le client garde son modèle mental ; seul le stockage change.
+
+### 2.8 Écarts volontaires avec l'existant
+
+| Existant | Cible | Raison |
+| :--- | :--- | :--- |
+| `body` + `scriptVideo` | `draft` | même rôle ; `getStorageField()` disparaît (§2.5) |
+| `postCourt` (colonne) | **supprimée** | dérivation pure de `body` via `buildPostCourtText()`. Elle est écrite en cache par l'onglet Copie et **recalculée en l'ignorant** par l'aperçu : deux vérités pour un même fait, qui peuvent déjà diverger. Calculée à la lecture. |
+| `analyzed` (booléen) | `analyzed_at` (ms) | strictement plus informatif, et une seule source de vérité |
+| signature markdown dans le champ | `generations` | §2.6 |
+| `coachSession` (blob) | `coach_messages` + colonnes d'état | §2.7 |
+| `interviewAnswers`, `interviewQuestions` | **non migrés** | flow remplacé par le Coach. Vérifié : **aucun déclencheur dans l'interface**, les champs ne sont plus que relus pour décider d'une redirection. Ils restent dans l'export de la phase 0. |
+| `Cible Offre` | déjà remplacé par `objectif` | fait en amont |
+
+`platforms` reste un tableau JSON plutôt qu'une table de jointure : le filtrage est
+côté client sur un volume faible, et SQLite sait interroger du JSON le jour où il faudra.
+
+### 2.9 Les Séries
 
 ```
 series 1 ──── N contents          (contents.serie_id)
@@ -167,8 +238,6 @@ series 0..1 ── 1 contents         (series.source_content_id — le contenu p
 
 C'est **le même objet**. La seule différence est d'où vient la matière. `contents.angle`
 porte l'angle propre de ce contenu au sein de sa série.
-
----
 
 ## 3. API (Worker, Hono) — NORMATIF
 
@@ -185,12 +254,36 @@ porte l'angle propre de ce contenu au sein de sa série.
 
 ```
 GET    /api/contents?since=<ms>     liste ; inclut les lignes supprimées si `since`
-GET    /api/contents/:id
+GET    /api/contents/:id            contenu + coachSession assemblée (§2.7)
 POST   /api/contents                création
 PATCH  /api/contents/:id            mise à jour partielle
 DELETE /api/contents/:id            suppression logique
 POST   /api/contents/batch          création en lot (plan de série, §6.3)
 ```
+
+La liste ne porte **pas** les messages Coach ni le journal des générations : ils ne sont
+lus qu'à l'ouverture d'un contenu. C'est ce qui garde la liste à une seule requête (§3.6).
+
+`postCourt` n'existe plus en base : il est calculé à la lecture depuis `draft` (§2.8).
+Le Worker ne le renvoie pas — c'est `packages/editorial` qui le produit, côté client.
+
+### 3.2.1 Conversation Coach (§2.7)
+
+```
+POST   /api/contents/:id/coach/messages    ajoute un message (append-only)
+PATCH  /api/contents/:id/coach             statut, brief verrouillé, validation
+```
+
+### 3.2.2 Journal des productions (§2.6)
+
+```
+GET    /api/contents/:id/generations?kind=draft   historique, du plus récent au plus ancien
+POST   /api/contents/:id/generations/:genId/revert   réécrit la colonne cible
+```
+
+Une génération n'est jamais modifiée ni supprimée par l'application : elle est un fait
+daté. `revert` **ajoute** une ligne dont la charge reprend celle visée, plutôt que de
+rembobiner le journal — l'annulation d'une annulation reste ainsi possible.
 
 ### 3.3 Séries
 
@@ -476,7 +569,18 @@ Une phase par lot de travail. **Aucune phase ne laisse l'application cassée.**
 
 Phases 0 à 5 : migration, aucune fonctionnalité nouvelle. Phases 6 à 8 : la valeur.
 
-### 11.1 Ce qui peut mal tourner
+### 11.1 Ce que le modèle révisé déplace
+
+Le journal des générations (§2.6) et la conversation en lignes (§2.7) sont décidés en
+**phase 3**, pas ajoutés après coup : la phase 4 doit déjà savoir où déposer l'historique
+extrait des signatures Notion. Deux conséquences pour le phasage :
+
+- l'annulation d'une génération, aujourd'hui limitée à un niveau et perdue à la fermeture
+  de l'éditeur, devient durable dès la bascule (phase 5) — sans travail supplémentaire ;
+- `packages/editorial` perd les onze `lastIndexOf('}')` en phase 2, mais ses fonctions
+  doivent rester tolérantes en lecture tant que Notion est la source (phases 2 à 4).
+
+### 11.2 Ce qui peut mal tourner
 
 - **La bascule (phase 5)** est le moment à risque. Elle est réversible tant que Notion
   reste intact : c'est la raison de la règle du mois de lecture seule.
@@ -504,43 +608,74 @@ CREATE TABLE series (
 );
 
 CREATE TABLE contents (
-  id                TEXT PRIMARY KEY,
-  title             TEXT NOT NULL DEFAULT '',
-  status            TEXT NOT NULL,                      -- Idée | Brouillon | Prêt | Publié
-  platforms         TEXT NOT NULL DEFAULT '[]',         -- JSON array
-  target_format     TEXT,
-  objectif          TEXT,
-  depth             TEXT,
+  id                 TEXT PRIMARY KEY,
+  title              TEXT NOT NULL DEFAULT '',
+  status             TEXT NOT NULL,                     -- Idée | Brouillon | Prêt | Publié
+  platforms          TEXT NOT NULL DEFAULT '[]',        -- tableau JSON (§2.8)
+  target_format      TEXT,
+  objectif           TEXT,
+  depth              TEXT,
+
   -- Produit par l'Analyste
-  analyzed          INTEGER NOT NULL DEFAULT 0,
-  verdict           TEXT,
-  strategic_angle   TEXT,
-  justification     TEXT,
+  analyzed_at        INTEGER,                           -- NULL = jamais analysé (§2.8)
+  verdict            TEXT,
+  strategic_angle    TEXT,
+  justification      TEXT,
   suggested_metaphor TEXT,
-  -- Matière et productions (JSON sérialisé, §2.3)
-  notes             TEXT NOT NULL DEFAULT '',
-  coach_session     TEXT,
-  body              TEXT,
-  slides            TEXT,
-  script_video      TEXT,
-  post_court        TEXT,
-  -- Séries (§2.5)
-  serie_id          TEXT REFERENCES series(id) ON DELETE SET NULL,
-  angle             TEXT,
-  -- Divers
-  scheduled_date    TEXT,                               -- ISO date, sans heure
-  legacy_json       TEXT,                               -- champs interview hérités
-  created_at        INTEGER NOT NULL,
-  updated_at        INTEGER NOT NULL,
-  deleted_at        INTEGER
+
+  -- Matière et productions courantes (JSON pur, sans signature — §2.3, §2.6)
+  notes              TEXT NOT NULL DEFAULT '',
+  draft              TEXT,                              -- LE brouillon, tous formats (§2.5)
+  slides             TEXT,                              -- enrichissement carrousel (§2.5)
+
+  -- Session Coach : état ; les messages sont dans coach_messages (§2.7)
+  coach_status       TEXT,                              -- in_progress | validated
+  coach_format_cible TEXT,                              -- format pour lequel la session a été calibrée
+  coach_brief        TEXT,                              -- brief verrouillé par le Verrouilleur
+  coach_validated_at INTEGER,
+
+  -- Séries (§2.9)
+  serie_id           TEXT REFERENCES series(id) ON DELETE SET NULL,
+  angle              TEXT,
+
+  scheduled_date     TEXT,                              -- date ISO, sans heure
+  created_at         INTEGER NOT NULL,
+  updated_at         INTEGER NOT NULL,
+  deleted_at         INTEGER
+);
+
+-- Journal des productions IA (§2.6)
+CREATE TABLE generations (
+  id          TEXT PRIMARY KEY,
+  content_id  TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,        -- analysis | draft | slides | cold_read
+                                    -- | adjustment | brief | plan_series
+  target      TEXT,                 -- colonne visée : draft | slides (NULL sinon)
+  model_id    TEXT REFERENCES ai_models(id) ON DELETE SET NULL,
+  model_label TEXT NOT NULL,        -- figé à l'écriture : survit à la suppression du modèle
+  instruction TEXT,                 -- l'instruction d'ajustement, le cas échéant
+  payload     TEXT NOT NULL,        -- JSON produit, propre
+  created_at  INTEGER NOT NULL
+);
+
+-- Conversation Coach (§2.7)
+CREATE TABLE coach_messages (
+  id               TEXT PRIMARY KEY,
+  content_id       TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+  role             TEXT NOT NULL,                       -- user | assistant
+  content          TEXT NOT NULL,
+  raw              TEXT,                                -- réponse JSON brute de l'assistant
+  quick_replies    TEXT,                                -- tableau JSON
+  ready_for_editor INTEGER NOT NULL DEFAULT 0,
+  created_at       INTEGER NOT NULL
 );
 
 CREATE TABLE ai_models (
   id              TEXT PRIMARY KEY,
   name            TEXT NOT NULL,
   api_code        TEXT NOT NULL,
-  provider        TEXT NOT NULL DEFAULT 'onemin',       -- adaptateur, §5.3
-  vendor          TEXT,                                 -- affichage, §5.3
+  provider        TEXT NOT NULL DEFAULT 'onemin',       -- adaptateur appelé (§5.3)
+  vendor          TEXT,                                 -- affichage (§5.3)
   cost            TEXT,
   strengths       TEXT,
   best_use_cases  TEXT,
@@ -558,40 +693,49 @@ CREATE TABLE app_settings (
 );
 
 -- Synchronisation incrémentale (§8)
-CREATE INDEX idx_contents_updated  ON contents(updated_at);
-CREATE INDEX idx_series_updated    ON series(updated_at);
-CREATE INDEX idx_models_updated    ON ai_models(updated_at);
--- Listes filtrées par statut, et contenus d'une série (§3.3)
-CREATE INDEX idx_contents_status   ON contents(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_contents_serie    ON contents(serie_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_contents_updated   ON contents(updated_at);
+CREATE INDEX idx_series_updated     ON series(updated_at);
+CREATE INDEX idx_models_updated     ON ai_models(updated_at);
+-- Listes filtrées, contenus d'une série (§3.3)
+CREATE INDEX idx_contents_status    ON contents(status)   WHERE deleted_at IS NULL;
+CREATE INDEX idx_contents_serie     ON contents(serie_id) WHERE deleted_at IS NULL;
+-- Dernière génération d'une nature pour un contenu (§2.6)
+CREATE INDEX idx_generations_lookup ON generations(content_id, kind, created_at DESC);
+CREATE INDEX idx_coach_messages     ON coach_messages(content_id, created_at);
 ```
 
 ## Annexe B — Correspondance Notion → D1
 
-| Colonne Notion | Type Notion | Colonne D1 | Conversion |
+| Colonne Notion | Type Notion | Cible D1 | Conversion |
 | :--- | :--- | :--- | :--- |
 | *(id de page)* | — | `contents.id` | conservé tel quel (§2.4) |
 | Titre | title | `title` | texte brut |
 | Statut | select | `status` | nom de l'option |
-| Plateforme | multi_select | `platforms` | JSON array des noms |
-| Contenu | rich_text | `body` | **texte brut**, sans markdown |
-| Slides | rich_text | `slides` | texte brut |
-| Script vidéo | rich_text | `script_video` | texte brut |
-| Post Court | rich_text | `post_court` | texte brut |
+| Plateforme | multi_select | `platforms` | tableau JSON des noms |
+| Contenu | rich_text | `draft` | **texte brut**, signature retirée (§2.6) |
+| Script vidéo | rich_text | `draft` | idem — une seule colonne (§2.5) |
+| Slides | rich_text | `slides` | texte brut, signature retirée |
+| Post Court | rich_text | **abandonné** | dérivé de `draft` à la lecture (§2.8) |
 | Notes | rich_text | `notes` | texte brut |
-| Coach Session | rich_text | `coach_session` | texte brut |
+| Coach Session | rich_text | `coach_*` + `coach_messages` | JSON éclaté en lignes (§2.7) |
 | Date de publication | date | `scheduled_date` | `start` seul |
-| Analysé | checkbox | `analyzed` | 0 / 1 |
+| Analysé | checkbox | `analyzed_at` | `true` → `last_edited_time` ; `false` → `NULL` |
 | Verdict | select | `verdict` | nom |
-| Angle stratégique | rich_text | `strategic_angle` | texte brut |
+| Angle stratégique | rich_text | `strategic_angle` | texte brut, signature retirée |
 | Format cible | select | `target_format` | nom |
 | Objectif | select | `objectif` | nom |
 | Justification | rich_text | `justification` | texte brut |
 | Métaphore Suggérée | rich_text | `suggested_metaphor` | texte brut |
 | Profondeur | select | `depth` | nom |
-| Réponses / Questions interview | rich_text | `legacy_json` | objet JSON |
+| Réponses / Questions interview | rich_text | **non migré** | flow mort (§2.8) ; conservé dans l'export de la phase 0 |
 | *(created_time)* | — | `created_at` | ISO → epoch ms |
 | *(last_edited_time)* | — | `updated_at` | ISO → epoch ms |
 
-Modèles IA : correspondance directe, `provider` initialisé à `onemin` pour toutes les
+**Signatures.** Les champs produits par l'IA portent une signature markdown concaténée
+après le JSON (`_Généré par : … - le …_`). L'import la **retire du contenu** et en dérive
+une ligne `generations` (`kind` selon le champ, `model_label` extrait du texte,
+`created_at` extrait de la date). L'historique d'avant migration est ainsi conservé, au
+bon endroit, et les colonnes redeviennent du JSON pur.
+
+**Modèles IA** : correspondance directe ; `provider` initialisé à `onemin` pour toutes les
 lignes, `vendor` reprenant l'ancienne colonne « Fournisseur » (§5.3).
