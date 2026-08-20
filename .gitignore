@@ -24,3 +24,5 @@ ENV/
 # System files
 .DS_Store
 Thumbs.db
+# Généré par tools/import-notion (se régénère depuis fixtures/)
+tools/import-notion/import.sql

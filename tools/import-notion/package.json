@@ -1,0 +1,14 @@
+{
+  "name": "@luminose/import-notion",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node import.mjs",
+    "verify": "node verify.mjs",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
