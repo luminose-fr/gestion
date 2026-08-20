@@ -21,6 +21,11 @@
 # temps d'un déploiement ; l'inverse n'est pas vrai — un front neuf appelant une
 # API ancienne échoue. (C'est l'inverse de l'ère Notion, où le jeton de session
 # imposait de pousser le front d'abord : la contrainte a changé avec §1.2.)
+#
+# ⚠️ `git push` NE DÉPLOIE PAS LE FRONT. Le projet Pages est en dépôt direct :
+# seul `wrangler pages deploy` publie une nouvelle version. Le workflow GitHub
+# Actions est désactivé depuis le passage à l'origine unique. Utiliser ce
+# script, ou la commande de la section « Front » ci-dessous.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."

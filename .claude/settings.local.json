@@ -74,7 +74,11 @@
       "Bash(ssh flornet@192.168.64.4 'ss -tln 2>/dev/null | grep -E \":7860|:8788\" | wc -l; echo \"--- autre projet intact ? ---\"; ss -tln 2>/dev/null | grep -c \":8787\"')",
       "Bash(ssh flornet@192.168.64.4 'ss -tlnp 2>/dev/null | grep -E \":7860|:8788\"; echo \"---\"; pgrep -af \"vite\" | grep gestion | head -2')",
       "Bash(ssh flornet@192.168.64.4 'kill 132626 132600 2>/dev/null; sleep 2; ss -tln 2>/dev/null | grep -cE \":7860|:8788\" ; echo \"\\(0 = arrêté\\)\"; ss -tln 2>/dev/null | grep -c \":8787\"; echo \"\\(1 = autre projet intact\\)\"')",
-      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && npm test 2>&1 | grep -E \"Tests \" | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | awk \"{s+=\\\\$2} END {print \\\\\"TOTAL :\\\\\", s, \\\\\"tests\\\\\"}\"; npm run typecheck 2>&1 | grep -c \"error TS\"')"
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && npm test 2>&1 | grep -E \"Tests \" | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | awk \"{s+=\\\\$2} END {print \\\\\"TOTAL :\\\\\", s, \\\\\"tests\\\\\"}\"; npm run typecheck 2>&1 | grep -c \"error TS\"')",
+      "Bash(curl -s -X POST https://gestion.luminose.fr/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"x\",\"password\":\"y\"}' -w \"\\\\n  statut : %{http_code}  type : %{content_type}\\\\n\" --max-time 12)",
+      "Bash(curl -s -o /dev/null -w \"  /api/contents : %{http_code}\\\\n\" --max-time 12 https://gestion.luminose.fr/api/contents)",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr/workers/api && npx wrangler deploy --dry-run --outdir /tmp/_d 2>&1 | grep -iE \"unexpected|warning|Total Upload\"; rm -rf /tmp/_d')",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

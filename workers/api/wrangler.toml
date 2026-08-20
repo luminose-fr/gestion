@@ -25,8 +25,14 @@ workers_dev = true
 # ATTENTION TOML : cette clé doit rester AVANT tout en-tête de table
 # ([[d1_databases]], [observability]…). Placée après, elle serait lue comme un
 # champ de cette table et ignorée — le déploiement réussirait sans la route.
+#
+# DEUX préfixes, et il faut les deux : la connexion vit sur /auth/login, hors
+# de /api. Avec la seule route /api/*, un POST sur /auth/login tombe sur Pages,
+# qui répond 405 — et le front affiche « Identifiants incorrects » sans que le
+# Worker ait jamais été appelé.
 routes = [
-  { pattern = "gestion.luminose.fr/api/*", zone_name = "luminose.fr" }
+  { pattern = "gestion.luminose.fr/api/*", zone_name = "luminose.fr" },
+  { pattern = "gestion.luminose.fr/auth/*", zone_name = "luminose.fr" }
 ]
 
 [observability]
