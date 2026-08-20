@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
-import * as NotionService from './services/notionService';
+import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import { AI_ACTIONS } from '@luminose/editorial';
 import * as OneMinService from './services/oneMinService';
@@ -143,13 +143,8 @@ function App() {
       return Array.from(map.values());
   };
 
-  const sortByLastEditedDesc = (list: ContentItem[]): ContentItem[] => {
-      return [...list].sort((a, b) => {
-          const aTime = a.lastEdited ? new Date(a.lastEdited).getTime() : 0;
-          const bTime = b.lastEdited ? new Date(b.lastEdited).getTime() : 0;
-          return bTime - aTime;
-      });
-  };
+  const sortByLastEditedDesc = (list: ContentItem[]): ContentItem[] =>
+      [...list].sort((a, b) => b.updatedAt - a.updatedAt);
 
   useEffect(() => {
       const handleHashChange = () => {
@@ -218,74 +213,48 @@ function App() {
     setError(null);
 
     try {
-        const nowIso = new Date().toISOString();
-        const fullSyncThresholdMs = 24 * 60 * 60 * 1000;
+        // Synchronisation incrémentale (SPEC §8). Il n'y a plus de sync
+        // complète périodique ni de balayage d'identifiants : la suppression
+        // étant logique, elle remonte comme une modification ordinaire.
+        // Un marqueur hérité de l'ère Notion est une date ISO : Number() en fait
+        // NaN, donc 0, donc une synchronisation complète. C'est le comportement
+        // voulu au premier lancement après la bascule.
+        const lastSync = Number(StorageService.getLastSync("content")) || 0;
+        const since = forceFullSync || !lastSync ? undefined : lastSync;
 
-        const lastContentSync = StorageService.getLastSync("content");
-        const lastModelsSync = StorageService.getLastSync("models");
-
-        const lastContentFullSync = StorageService.getLastFullSync("content");
-        const lastModelsFullSync = StorageService.getLastFullSync("models");
-
-        const shouldFullSync = (lastFullSync: string | null) => {
-            if (!lastFullSync) return true;
-            const last = Date.parse(lastFullSync);
-            if (Number.isNaN(last)) return true;
-            return (Date.now() - last) > fullSyncThresholdMs;
-        };
-
-        const contentSince = forceFullSync
-            ? undefined
-            : (shouldFullSync(lastContentFullSync) ? undefined : lastContentSync || undefined);
-        const modelsSince = forceFullSync
-            ? undefined
-            : (shouldFullSync(lastModelsFullSync) ? undefined : lastModelsSync || undefined);
-
-        // Le balayage d'IDs n'est utile qu'en incrémental : une synchronisation
-        // complète remplace déjà la liste, donc les suppressions y disparaissent
-        // d'elles-mêmes.
-        const [fetchedContent, fetchedModels, liveIds] = await Promise.all([
-            NotionService.fetchContent(contentSince),
-            NotionService.fetchModels(modelsSince),
-            contentSince ? NotionService.fetchLiveContentIds() : Promise.resolve(null)
+        const [contentRes, modelRes] = await Promise.all([
+            Api.fetchContents(since),
+            Api.fetchModels(),
         ]);
 
-        const baseItems = contentSince ? (baseCache?.items ?? items) : [];
-        const baseModels = modelsSince ? (baseCache?.models ?? aiModels) : [];
+        const baseItems = since ? (baseCache?.items ?? items) : [];
 
         // Un contenu non enregistré porte du travail qui n'existe nulle part
-        // ailleurs : la version Notion ne doit jamais l'écraser.
+        // ailleurs : la version serveur ne doit jamais l'écraser.
         const unsaved = unsavedItemsRef.current;
-        const mergedContent = (contentSince ? mergeById(baseItems, fetchedContent) : fetchedContent)
+        const merged = (since ? mergeById(baseItems, contentRes.items) : contentRes.items)
             .map(item => unsaved.get(item.id) ?? item);
 
-        // Purge des contenus supprimés dans Notion. Un item non enregistré est
-        // épargné : son absence côté Notion est justement ce qu'on veut corriger,
-        // pas un signal de suppression.
-        const prunedContent = liveIds
-            ? mergedContent.filter(item => liveIds.has(item.id) || unsaved.has(item.id))
-            : mergedContent;
+        // Les lignes supprimées remontent avec un deletedAt : on les retire du
+        // cache, sauf si elles portent du travail non enregistré.
+        const alive = merged.filter(item => !item.deletedAt || unsaved.has(item.id));
 
-        const nextItems = sortByLastEditedDesc(prunedContent);
-        const nextModels = modelsSince ? mergeById(baseModels, fetchedModels) : fetchedModels;
+        const nextItems = sortByLastEditedDesc(alive);
+        const nextModels = modelRes.items;
 
         setItems(nextItems);
         setAiModels(nextModels);
 
         await Promise.all([
             StorageService.setCachedContent(nextItems),
-            StorageService.setCachedModels(nextModels)
+            StorageService.setCachedModels(nextModels),
         ]);
 
-        StorageService.setLastSync("content", nowIso);
-        StorageService.setLastSync("models", nowIso);
-
-        if (!contentSince) StorageService.setLastFullSync("content", nowIso);
-        if (!modelsSince) StorageService.setLastFullSync("models", nowIso);
+        StorageService.setLastSync("content", String(contentRes.syncedAt));
 
     } catch (err: any) {
         console.error("Sync Error:", err);
-        let msg = err.message || "Impossible de synchroniser avec Notion.";
+        let msg = err.message || "Impossible de synchroniser.";
         setError(msg);
     } finally {
         setIsSyncing(false);
@@ -332,9 +301,9 @@ function App() {
       StorageService.setActiveModelId(modelId);
       // Write-back Notion best-effort : la case « Défaut » suit le choix.
       const chosen = aiModels.find(m => m.apiCode === modelId);
-      const previousDefaults = aiModels.filter(m => m.isDefault && m.apiCode !== modelId);
-      previousDefaults.forEach(m => NotionService.setModelDefault(m.id, false).catch(console.error));
-      if (chosen) NotionService.setModelDefault(chosen.id, true).catch(console.error);
+      // Marquer un défaut démarque les autres côté Worker, dans le même batch :
+      // plus besoin de démarquer les précédents un par un.
+      if (chosen) Api.setModelDefault(chosen.id, true).catch(console.error);
       // Reflète l'état localement
       setAiModels(prev => prev.map(m => ({ ...m, isDefault: m.apiCode === modelId })));
   };
@@ -342,7 +311,9 @@ function App() {
   const handleQuickAddIdea = async (title: string, notes: string, targetFormat?: string | null) => {
     setIsSyncing(true);
     try {
-        const newItem = await NotionService.createContent(title, notes, targetFormat ?? null);
+        const { content: newItem } = await Api.createContent({
+            title, notes, targetFormat: targetFormat ?? null,
+        });
         const newItems = [newItem, ...items];
         setItems(newItems);
         await StorageService.setCachedContent(newItems);
@@ -374,7 +345,7 @@ function App() {
   };
 
   const handleGlobalAnalysis = () => {
-      const itemsToAnalyze = items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed);
+      const itemsToAnalyze = items.filter(i => i.status === ContentStatus.IDEA && !i.analyzedAt);
       if (itemsToAnalyze.length === 0) {
           setAlertInfo({
               isOpen: true,
@@ -407,10 +378,10 @@ function App() {
     StorageService.updateCachedItem(updatedItem).catch(console.error);
 
     try {
-      await NotionService.updateContent(updatedItem);
+      await Api.updateContent(updatedItem.id, updatedItem);
       markItemSaved(updatedItem.id);
     } catch (error: any) {
-      console.error("Erreur update Notion:", error);
+      console.error("Erreur d'enregistrement :", error);
       markItemUnsaved(updatedItem);
       throw error;
     }
@@ -424,7 +395,7 @@ function App() {
 
     for (const item of Array.from(unsavedItemsRef.current.values())) {
         try {
-            await NotionService.updateContent(item);
+            await Api.updateContent(item.id, item);
             unsavedItemsRef.current.delete(item.id);
         } catch (e: any) {
             lastError = e?.message || "Erreur inconnue";
@@ -478,11 +449,11 @@ function App() {
       StorageService.setCachedContent(newItems).catch(console.error);
 
       try {
-          await NotionService.deleteContent(itemToDelete.id);
+          await Api.deleteContent(itemToDelete.id);
           setAlertInfo({
               isOpen: true,
               title: "Suppression réussie",
-              message: "L'élément a été archivé dans Notion.",
+              message: "L'élément a été supprimé.",
               type: 'success'
           });
       } catch (error: any) {
@@ -560,7 +531,7 @@ function App() {
                   justification: justification ?? itemToAnalyze.justification,
                   suggestedMetaphor: suggestedMetaphor ?? itemToAnalyze.suggestedMetaphor,
                   depth: depth ?? itemToAnalyze.depth,
-                  analyzed: true,
+                  analyzedAt: Date.now(),
               };
               await handleUpdateItem(updatedItem);
           }
@@ -580,8 +551,7 @@ function App() {
 
   const filteredItems = useMemo(() => items.filter(item =>
     item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bodyJsonToText(item.body).toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bodyJsonToText(item.scriptVideo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    bodyJsonToText(item.draft || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.notes.toLowerCase().includes(searchQuery.toLowerCase())
   ), [items, searchQuery]);
 
@@ -885,7 +855,7 @@ function App() {
                 <AnalysisModal
                     isOpen={batchAnalysisState.isOpen}
                     onClose={() => setBatchAnalysisState({ ...batchAnalysisState, isOpen: false })}
-                    itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzed)}
+                    itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzedAt)}
                     aiModels={aiModels}
                     selectedModelId={batchAnalysisState.modelId}
                     onAnalysisComplete={handleAnalysisComplete}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat, Profondeur, CoachSession, AIModel } from '../../types';
-import { bodyJsonToText, getStorageField } from '@luminose/editorial';
+import { bodyJsonToText, getEditorTab } from '@luminose/editorial';
+import { createEmptySession } from '../../services/coachService';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
 import { CoachChat } from '../CoachChat';
@@ -37,6 +38,8 @@ interface DraftViewProps {
     onLaunchPromptsAdjustment: (instruction: string, slideNumero: number | null) => void;
     /** Le brouillon a changé depuis la génération des slides */
     slidesStale?: boolean;
+    /** Session Coach du contenu, chargée par l'éditeur : la liste ne la porte pas. */
+    coachSession: CoachSession | null;
     onChangeStatus: (status: ContentStatus, scheduledDate?: string) => Promise<void>;
     onSave: (item: ContentItem) => Promise<void>;
 
@@ -61,6 +64,7 @@ interface DraftViewProps {
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
     onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, slidesStale = false,
+    coachSession,
     onChangeStatus, onSave, isGenerating,
     aiModels, activeModelId, onCoachSessionChange, onCoachValidate,
     coldRead, onDismissColdRead, onRunColdRead,
@@ -84,12 +88,11 @@ export const DraftView: React.FC<DraftViewProps> = ({
     }, [activeTab]);
 
     const isDirect = item.depth === Profondeur.DIRECT;
-    const isVideoFormat = getStorageField(item.targetFormat) === 'scriptVideo';
-    const hasContent = !!item[getStorageField(item.targetFormat)];
-    const hasInterviewAnswers = !!item.interviewAnswers?.trim();
+    const isVideoFormat = getEditorTab(item.targetFormat as TargetFormat) === 'script';
+    const hasContent = !!item.draft;
+    const hasInterviewAnswers = !!item.legacyJson;
 
-    // ── Session Coach (nouveau flow) ──
-    const coachSession = item.coachSession || null;
+    // ── Session Coach — chargée par le parent (SPEC §3.2) ──
     const coachMessagesCount = coachSession?.messages?.filter(m => m.role === 'user' || m.role === 'assistant').length || 0;
     const hasCoachSession = coachMessagesCount > 0;
     const coachSessionValidated = coachSession?.status === 'validated';
@@ -118,14 +121,14 @@ export const DraftView: React.FC<DraftViewProps> = ({
     };
 
     const saveEditBody = () => {
-        const data = parseBodyJson(item.body || "");
+        const data = parseBodyJson(item.draft || "");
         let newBody: string;
         if (data && data.format) {
             newBody = JSON.stringify({ ...data, edited_raw: editBodyText });
         } else {
             newBody = editBodyText;
         }
-        onChange({ ...item, body: newBody });
+        onChange({ ...item, draft: newBody });
         setIsEditingBody(false);
     };
 
@@ -133,14 +136,14 @@ export const DraftView: React.FC<DraftViewProps> = ({
     useEffect(() => {
         if (activeTab !== 'postcourt') return;
         if (item.targetFormat !== TargetFormat.POST_TEXTE_COURT) return;
-        const generated = buildPostCourtText(item.body || "");
+        const generated = buildPostCourtText(item.draft || "");
         if (!generated) return;
         if (postCourtSavedRef.current === generated) return;
         postCourtSavedRef.current = generated;
         const updated = { ...item, postCourt: generated };
         onChange(updated);
         onSave(updated);
-    }, [activeTab, item.body]);
+    }, [activeTab, item.draft]);
 
     // Les onglets sont calculés et rendus par EditorLayout/index.tsx — pas besoin ici.
 
@@ -312,6 +315,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         item={item}
                         aiModels={aiModels}
                         modelId={activeModelId}
+                        session={coachSession ?? createEmptySession(item.targetFormat as TargetFormat | null)}
                         onSessionChange={onCoachSessionChange}
                         onValidate={onCoachValidate}
                     />
@@ -362,7 +366,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         </div>
 
                         {/* 2. Analyse IA — badges + angle + métaphore + justification */}
-                        {(item.analyzed || item.verdict || item.targetFormat || item.objectif || item.depth) && (
+                        {(item.analyzedAt || item.verdict || item.targetFormat || item.objectif || item.depth) && (
                             <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-900/50 p-4 space-y-3">
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="flex items-center gap-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
@@ -517,7 +521,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 </button>
                                             </>
                                         ) : (
-                                            !isVideoFormat && item.body && <SecBtn onClick={() => startEditBody(item.body)} icon={Pencil} label="Modifier" />
+                                            !isVideoFormat && item.draft && <SecBtn onClick={() => startEditBody(item.draft || '')} icon={Pencil} label="Modifier" />
                                         )}
                                         {!isVideoFormat && (
                                             <SecBtn
@@ -594,9 +598,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             placeholder="Éditez le contenu..."
                                         />
                                     ) : isVideoFormat ? (
-                                        <ScriptVideoRenderer raw={item.scriptVideo!} />
+                                        <ScriptVideoRenderer raw={item.draft!} />
                                     ) : (
-                                        <BodyRenderer body={item.body!} />
+                                        <BodyRenderer body={item.draft!} />
                                     )}
                                 </div>
                             </div>
@@ -690,8 +694,8 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             </div>
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {item.scriptVideo ? (
-                                    <ScriptVideoRenderer raw={item.scriptVideo} variant="table" />
+                                {item.draft ? (
+                                    <ScriptVideoRenderer raw={item.draft} variant="table" />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8 min-h-[240px]">
                                         <Video className="w-10 h-10 text-amber-300 dark:text-amber-600" />
@@ -712,7 +716,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             </div>
                         </div>
 
-                        {item.scriptVideo && (
+                        {item.draft && (
                             <div className="flex justify-end">
                                 <button
                                     onClick={() => onChangeStatus(ContentStatus.READY)}
@@ -730,9 +734,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                     TAB : COPIE (Post Court)
                 ════════════════════════════════════════ */}
                 {activeTab === 'postcourt' && (() => {
-                    const postText = buildPostCourtText(item.body || "");
-                    const dzinePrompt = getPostCourtDzinePrompt(item.body || "");
-                    const suggestedVisual = getPostCourtSuggestedVisual(item.body || "");
+                    const postText = buildPostCourtText(item.draft || "");
+                    const dzinePrompt = getPostCourtDzinePrompt(item.draft || "");
+                    const suggestedVisual = getPostCourtSuggestedVisual(item.draft || "");
 
                     const handleCopy = async () => {
                         const copied = await copyTextToClipboard(postText);
@@ -974,7 +978,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
                                 {!item.slides ? (
-                                    !item.body ? (
+                                    !item.draft ? (
                                         // Pas de brouillon textuel → rediriger vers Brouillon
                                         <div className="flex flex-col items-center justify-center h-full text-center gap-4 p-8">
                                             <Images className="w-10 h-10 text-violet-300 dark:text-violet-600" />

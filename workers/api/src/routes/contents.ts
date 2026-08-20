@@ -86,7 +86,7 @@ const insertStatement = (db: D1Database, input: Record<string, any>, ts: number)
       input.status ?? 'Idée',
       JSON.stringify(input.platforms ?? []),
       toSql(input.targetFormat), toSql(input.objectif), toSql(input.depth),
-      input.analyzed ? ts : null,
+      toSql(input.analyzedAt ?? null),
       toSql(input.verdict), toSql(input.strategicAngle),
       toSql(input.justification), toSql(input.suggestedMetaphor),
       input.notes ?? '',
@@ -135,23 +135,15 @@ contents.patch('/:id', async (c) => {
   const ts = now();
 
   const update = buildUpdate(input, COLUMN_MAPS.content);
-  const extra: string[] = [];
-  const extraParams: (string | number | null)[] = [];
 
-  // `analyzed` est une commande, pas une colonne : elle horodate (SPEC §2.8).
-  if (input.analyzed !== undefined) {
-    extra.push('analyzed_at = ?');
-    extraParams.push(input.analyzed ? ts : null);
-  }
-
-  if (!update && extra.length === 0) {
+  if (!update) {
     const row = await c.env.DB.prepare(`SELECT ${C} FROM contents WHERE id = ?`).bind(id).first();
     if (!row) return c.json({ error: 'Contenu introuvable' }, 404);
     return c.json({ content: rowToContent(row) });
   }
 
-  const sets = [...(update ? [update.sql] : []), ...extra, 'updated_at = ?'];
-  const params = [...(update ? update.params : []), ...extraParams, ts, id];
+  const sets = [update.sql, 'updated_at = ?'];
+  const params = [...update.params, ts, id];
 
   const res = await c.env.DB
     .prepare(`UPDATE contents SET ${sets.join(', ')} WHERE id = ? AND deleted_at IS NULL`)

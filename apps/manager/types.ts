@@ -1,19 +1,43 @@
-export enum Platform {
-  FACEBOOK = "Facebook",
-  INSTAGRAM = "Instagram",
-  LINKEDIN = "LinkedIn",
-  GMB = "Google My Business",
-  YOUTUBE = "Youtube",
-  BLOG = "Blog",
-  NEWSLETTER = "Newsletter"
-}
+// Les formes stockées et transportées viennent de @luminose/shared : le front
+// et le Worker parlent le même modèle, il n'y a plus de traduction entre les
+// deux. Le vocabulaire éditorial, lui, vient de @luminose/editorial.
+export {
+  PLATFORMS, CONTENT_STATUSES, VERDICTS, SERIE_STATUSES,
+  GENERATION_KINDS, COACH_ROLES, COACH_STATUSES,
+} from '@luminose/shared';
+export type {
+  Content, Serie, AIModel, Generation, CoachMessage, CoachSession,
+  SerieStatus, GenerationKind,
+} from '@luminose/shared';
+import type { Content } from '@luminose/shared';
 
-export enum ContentStatus {
-  IDEA = "Idée",
-  DRAFTING = "Brouillon",
-  READY = "Prêt",
-  PUBLISHED = "Publié"
-}
+/**
+ * Les valeurs de statut et de plateforme, sous forme d'objet constant.
+ *
+ * `ContentStatus` et `Platform` sont des unions de chaînes dans
+ * @luminose/shared — la bonne forme pour valider une entrée. Mais le code de
+ * l'application les lit surtout comme des constantes nommées
+ * (`ContentStatus.DRAFTING` se relit mieux que `'Brouillon'`), et un nom peut
+ * désigner à la fois un type et une valeur.
+ */
+export const ContentStatus = {
+  IDEA: 'Idée',
+  DRAFTING: 'Brouillon',
+  READY: 'Prêt',
+  PUBLISHED: 'Publié',
+} as const;
+export type ContentStatus = (typeof ContentStatus)[keyof typeof ContentStatus];
+
+export const Platform = {
+  FACEBOOK: 'Facebook',
+  INSTAGRAM: 'Instagram',
+  LINKEDIN: 'LinkedIn',
+  GMB: 'Google My Business',
+  YOUTUBE: 'Youtube',
+  BLOG: 'Blog',
+  NEWSLETTER: 'Newsletter',
+} as const;
+export type Platform = (typeof Platform)[keyof typeof Platform];
 
 // Le vocabulaire éditorial (Verdict, TargetFormat, Objectif, Profondeur et
 // leurs gardes) vit dans @luminose/editorial : c'est de la méthode, pas du
@@ -25,82 +49,24 @@ export {
   isTargetFormat, isObjectif, isProfondeur,
 } from '@luminose/editorial';
 import type { TargetFormat, Objectif, Profondeur, Verdict } from '@luminose/editorial';
-export interface AIModel {
-  id: string;
-  name: string;
-  apiCode: string;
-  cost: 'very_high' | 'high' | 'medium' | 'low_medium' | 'low';
-  strengths: string;
-  provider: string;
-  bestUseCases: string;
-  textQuality: number;
-  /** Modèle marqué « Défaut » dans Notion — sert de valeur initiale au sélecteur global. */
-  isDefault?: boolean;
-}
 
 // ── Coach Chat Session (nouvelle architecture) ───────────────────────
 
-export interface CoachMessage {
-  /** "user" = Florent, "assistant" = Coach, "system" = instruction initiale (non affichée) */
-  role: 'system' | 'user' | 'assistant';
-  /** Contenu texte. Pour l'assistant, c'est le champ "message" extrait du JSON ; le JSON complet est dans raw. */
-  content: string;
-  /** JSON brut complet retourné par l'IA (pour l'assistant) — permet de retrouver quick_replies, ready_for_editor, etc. */
-  raw?: string;
-  /** Quick replies proposées par le Coach à ce tour (pour l'assistant uniquement) */
-  quickReplies?: string[];
-  /** Le Coach estime que la matière est prête pour l'Éditeur (pour l'assistant uniquement) */
-  readyForEditor?: boolean;
-  /** ISO timestamp */
-  timestamp: string;
-}
 
-export interface CoachSession {
-  version: 1;
-  formatCible: TargetFormat | null;
-  messages: CoachMessage[];
-  status: 'in_progress' | 'validated';
-  validatedAt: string | null;
-  /**
-   * Brief verrouillé (JSON sérialisé), généré au "Go Éditeur" par le Verrouilleur.
-   * C'est la matière UNIQUE du Rédacteur quand il est présent — la session brute
-   * ne lui est alors plus transmise (les idées écartées ne ressuscitent plus).
-   */
-  brief?: string | null;
-}
 
-export interface ContentItem {
-  id: string;
-  title: string;
-  status: ContentStatus;
-  platforms: Platform[];
-  body: string;
-  scheduledDate: string | null; // ISO string
-  notes: string; // AI Context or prompt notes
-  lastEdited: string;
-  createdAt: string; // ISO string — date de création de la page Notion
-  // Champs Analyse IA
-  analyzed?: boolean;
-  verdict?: Verdict;
-  strategicAngle?: string;
-  targetFormat?: TargetFormat | null;
-  objectif?: Objectif | null;
-  justification?: string;
-  suggestedMetaphor?: string;
-  // Profondeur de traitement
-  depth?: Profondeur;
-  // Session de chat avec le Coach (nouvelle architecture)
-  coachSession?: CoachSession | null;
-  // Ancien flow interview (conservé pour compat legacy / migration)
-  interviewAnswers?: string;
-  interviewQuestions?: string;
-  // Champ Slides Carrousel
-  slides?: string;
-  // Champ Post Court (Post Texte formaté pour copier-coller)
-  postCourt?: string;
-  // Champ Script Vidéo (pour formats Reel/Short et Youtube)
-  scriptVideo?: string;
-}
+/**
+ * Un contenu, tel que l'API le renvoie.
+ *
+ * C'est désormais @luminose/shared qui fait foi : le front et le Worker
+ * parlent exactement le même modèle. Les écarts avec l'ancienne forme Notion
+ * sont documentés en SPEC §2.8 —
+ *   • `body` et `scriptVideo` fusionnés en `draft` (un seul brouillon)
+ *   • `postCourt` supprimé : dérivé de `draft` à la lecture
+ *   • `analyzed` remplacé par `analyzedAt`
+ *   • `lastEdited` (ISO) remplacé par `updatedAt` (epoch ms)
+ *   • la session Coach n'est plus embarquée : elle se charge à l'ouverture
+ */
+export type ContentItem = Content;
 
 export interface DisplayPrefs {
   showVerdictStripe: boolean;

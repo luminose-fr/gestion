@@ -16,6 +16,11 @@ interface CoachChatProps {
     aiModels: AIModel[];
     /** Modèle IA actif global — utilisé pour tous les tours du Coach. */
     modelId: string;
+    /**
+     * Session chargée par le parent. Elle ne voyage plus dans l'item : la liste
+     * ne porte pas les messages, seul le détail les assemble (SPEC §3.2).
+     */
+    session: CoachSession;
     notionContext?: string;
     /** Appelé après chaque tour (user + assistant) — le parent doit persister côté Notion */
     onSessionChange: (session: CoachSession) => void | Promise<void>;
@@ -24,16 +29,24 @@ interface CoachChatProps {
 }
 
 export const CoachChat: React.FC<CoachChatProps> = ({
-    item, aiModels, modelId, notionContext, onSessionChange, onValidate,
+    item, aiModels, modelId, notionContext, session: initialSession, onSessionChange, onValidate,
 }) => {
-    const initialSession: CoachSession = useMemo(
-        () => item.coachSession || createEmptySession(item.targetFormat || null),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [item.id]
-    );
-
     const [session, setSession] = useState<CoachSession>(initialSession);
     const [input, setInput] = useState('');
+
+    /**
+     * La session est chargée par le parent APRÈS le montage : `useState` a donc
+     * capturé une session vide, et le chat affichait « Prêt à démarrer ? » sur
+     * une conversation existante. On adopte la session dès qu'elle arrive.
+     *
+     * Le garde sur `messages.length` évite d'écraser une conversation en cours
+     * par la version encore vide du parent.
+     */
+    useEffect(() => {
+        if (initialSession.messages.length === 0) return;
+        setSession(prev => (prev.messages.length === 0 ? initialSession : prev));
+        setHasStarted(true);
+    }, [initialSession]);
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     // Sas de démarrage : true UNIQUEMENT si on reprend une session existante (messages déjà présents).
@@ -82,7 +95,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
         setIsSending(true);
 
         // On ajoute le message user
-        const sessionWithUser = appendUserMessage(session, text);
+        const sessionWithUser = appendUserMessage(session, item.id, text);
         setSession(sessionWithUser);
         if (!opts?.isBootstrap) setInput('');
 
@@ -94,7 +107,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                 notionContext,
                 aiModels,
             });
-            const sessionWithReply = appendAssistantReply(sessionWithUser, reply);
+            const sessionWithReply = appendAssistantReply(sessionWithUser, item.id, reply);
             setSession(sessionWithReply);
             await onSessionChange(sessionWithReply);
         } catch (e: any) {

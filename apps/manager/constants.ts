@@ -4,7 +4,17 @@ import { ContentStatus, Platform } from "./types";
 // ils vivent dans @luminose/editorial et sont réexportés ici par commodité.
 export { SITE_URL, SIGNATURE_SLIDE } from "@luminose/editorial";
 
-export const WORKER_URL = "https://gestion-luminose-worker.luminose.workers.dev";
+/**
+ * Origine de l'API.
+ *
+ * Surchargeable par VITE_WORKER_URL pour pointer un `wrangler dev` local et
+ * rejouer le parcours complet sans toucher à la production.
+ *
+ * À la bascule vers l'origine unique (SPEC §1.2), la valeur deviendra "" :
+ * le front appellera /api/* en relatif, sur la même origine que lui.
+ */
+export const WORKER_URL =
+  import.meta.env.VITE_WORKER_URL ?? "https://gestion-luminose-worker.luminose.workers.dev";
 
 /** Site public de Florent — inséré dans les CTA des posts. */
 

@@ -81,8 +81,15 @@ describe('mise à jour', () => {
   it('horodate l’analyse au lieu de stocker un booléen', async () => {
     const created = await createContent();
     expect(created.analyzedAt).toBeNull();
-    const { content } = await (await patch(`/api/contents/${created.id}`, { analyzed: true })).json() as any;
-    expect(content.analyzedAt).toBeGreaterThan(0);
+    // L'analyse a lieu côté client : c'est lui qui fournit la date
+    const at = Date.now();
+    const { content } = await (await patch(`/api/contents/${created.id}`, { analyzedAt: at })).json() as any;
+    expect(content.analyzedAt).toBe(at);
+  });
+
+  it('refuse une date d’analyse non numérique', async () => {
+    const created = await createContent();
+    expect((await patch(`/api/contents/${created.id}`, { analyzedAt: 'hier' })).status).toBe(400);
   });
 
   it('avance updated_at', async () => {

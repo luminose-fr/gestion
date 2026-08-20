@@ -11,7 +11,7 @@ const VERDICT_STRIPE: Record<Verdict, string> = {
     [Verdict.NEEDS_WORK]:  'bg-red-500',
 };
 
-const VERDICT_BADGE_CFG: Record<Verdict, { Icon: React.ComponentType<{ className?: string }>; cls: string }> = {
+const VERDICT_BADGE_CFG: Record<string, { Icon: React.ComponentType<{ className?: string }>; cls: string }> = {
     [Verdict.VALID]:      { Icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50' },
     [Verdict.TOO_BLAND]:  { Icon: MinusCircle,  cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/50' },
     [Verdict.NEEDS_WORK]: { Icon: XCircle,      cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/50' },
@@ -26,7 +26,7 @@ const VERDICT_SORT_ORDER: Record<Verdict, number> = {
 };
 const getStatutKey = (item: ContentItem): number => {
     if (item.verdict && VERDICT_SORT_ORDER[item.verdict]) return VERDICT_SORT_ORDER[item.verdict];
-    if (item.analyzed === false) return 4; // À analyser
+    if (!item.analyzedAt) return 4; // À analyser
     return 5; // pas d'info
 };
 
@@ -61,8 +61,8 @@ export const getPreviewText = (item: ContentItem): string => {
         item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT ||
         item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE
     )
-        ? bodyJsonToText(item.scriptVideo || '') || bodyJsonToText(item.body)
-        : bodyJsonToText(item.body);
+        ? bodyJsonToText(item.draft || '')
+        : bodyJsonToText(item.draft || '');
     return rawText || 'Pas de contenu…';
 };
 
@@ -75,10 +75,10 @@ const formatScheduledDate = (scheduledDate: string | null): string => {
     }
 };
 
-const formatCreatedAt = (iso: string | undefined): string => {
-    if (!iso) return '—';
+const formatCreatedAt = (at: number | undefined): string => {
+    if (!at) return '—';
     try {
-        return format(parseISO(iso), 'd MMM yyyy', { locale: fr });
+        return format(new Date(at), 'd MMM yyyy', { locale: fr });
     } catch {
         return '—';
     }
@@ -86,7 +86,7 @@ const formatCreatedAt = (iso: string | undefined): string => {
 
 // ───────────────────────── VerdictBadge ─────────────────────────
 
-const VerdictBadgeCell: React.FC<{ verdict?: Verdict; analyzed?: boolean }> = ({ verdict, analyzed }) => {
+const VerdictBadgeCell: React.FC<{ verdict?: string; analyzed?: boolean }> = ({ verdict, analyzed }) => {
     if (verdict && VERDICT_BADGE_CFG[verdict]) {
         const { Icon, cls } = VERDICT_BADGE_CFG[verdict];
         return (
@@ -149,11 +149,7 @@ export const ContentTable: React.FC<{
         const collator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
         const dir = sortDirection === 'asc' ? 1 : -1;
         const arr = [...items];
-        const tsOf = (s: string | undefined): number => {
-            if (!s) return 0;
-            const t = Date.parse(s);
-            return Number.isNaN(t) ? 0 : t;
-        };
+        const tsOf = (at: number | undefined): number => at ?? 0;
         arr.sort((a, b) => {
             let cmp = 0;
             if (sortColumn === 'statut') {
@@ -262,7 +258,7 @@ export const ContentTable: React.FC<{
 
                                     {showStatut && (
                                         <td className={cellCls}>
-                                            <VerdictBadgeCell verdict={item.verdict} analyzed={item.analyzed} />
+                                            <VerdictBadgeCell verdict={item.verdict ?? undefined} analyzed={!!item.analyzedAt} />
                                         </td>
                                     )}
 

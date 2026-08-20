@@ -36,7 +36,7 @@ const FILTER_CHIPS: Array<{ id: FilterId; label: string; activeCls: string }> = 
 
 const matchesFilter = (item: ContentItem, filter: FilterId): boolean => {
     if (filter === 'ALL') return true;
-    if (filter === 'TO_ANALYZE') return !item.analyzed;
+    if (filter === 'TO_ANALYZE') return !item.analyzedAt;
     if (filter === 'VALID')      return item.verdict === Verdict.VALID;
     if (filter === 'TOO_BLAND')  return item.verdict === Verdict.TOO_BLAND;
     if (filter === 'NEEDS_WORK') return item.verdict === Verdict.NEEDS_WORK;
@@ -81,7 +81,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
 
     const counts = useMemo(() => ({
         ALL:        items.length,
-        TO_ANALYZE: items.filter(i => !i.analyzed).length,
+        TO_ANALYZE: items.filter(i => !i.analyzedAt).length,
         VALID:      items.filter(i => i.verdict === Verdict.VALID).length,
         TOO_BLAND:  items.filter(i => i.verdict === Verdict.TOO_BLAND).length,
         NEEDS_WORK: items.filter(i => i.verdict === Verdict.NEEDS_WORK).length,

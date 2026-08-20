@@ -72,13 +72,13 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
     const isCarrousel = item.targetFormat === TargetFormat.CARROUSEL_SLIDE;
     const isPostCourt = item.targetFormat === TargetFormat.POST_TEXTE_COURT;
     const usesWorkedLayout = isPostCourt || isCarrousel || isReelShort;
-    const hasBody = isVideoFormat ? !!item.scriptVideo : !!item.body;
+    const hasBody = isVideoFormat ? !!item.draft : !!item.draft;
 
     const [copied, setCopied] = useState(false);
     const [copiedDzine, setCopiedDzine] = useState(false);
-    const postCourtText = isPostCourt ? buildPostCourtText(item.body || "") : "";
-    const dzinePrompt = isPostCourt ? getPostCourtDzinePrompt(item.body || "") : "";
-    const suggestedVisual = isPostCourt ? getPostCourtSuggestedVisual(item.body || "") : "";
+    const postCourtText = isPostCourt ? buildPostCourtText(item.draft || "") : "";
+    const dzinePrompt = isPostCourt ? getPostCourtDzinePrompt(item.draft || "") : "";
+    const suggestedVisual = isPostCourt ? getPostCourtSuggestedVisual(item.draft || "") : "";
 
     const handleCopy = async () => {
         const copied = await copyTextToClipboard(postCourtText);
@@ -207,8 +207,8 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                             </div>
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {item.scriptVideo ? (
-                                    <ScriptVideoRenderer raw={item.scriptVideo} variant="table" />
+                                {item.draft ? (
+                                    <ScriptVideoRenderer raw={item.draft} variant="table" />
                                 ) : (
                                     <div className="p-8 text-center text-brand-main/40 dark:text-dark-text/40 italic">
                                         Pas de script disponible.
@@ -345,8 +345,8 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                     <div className="bg-white dark:bg-dark-surface shadow-xl border border-brand-border dark:border-dark-sec-border rounded-xl overflow-hidden">
                         {hasBody ? (
                             isVideoFormat
-                                ? <ScriptVideoRenderer raw={item.scriptVideo!} />
-                                : <BodyRenderer body={item.body!} />
+                                ? <ScriptVideoRenderer raw={item.draft!} />
+                                : <BodyRenderer body={item.draft!} />
                         ) : (
                             <div className="p-8 text-center text-brand-main/40 dark:text-dark-text/40 italic">
                                 Pas de contenu rédigé.

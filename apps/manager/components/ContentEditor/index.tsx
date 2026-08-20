@@ -6,7 +6,8 @@ import * as OneMinService from '../../services/oneMinService';
 import { generateLockedBrief } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
 import { AI_ACTIONS } from '@luminose/editorial';
-import { bodyJsonToText, getStorageField, getEditorTab, supportsColdRead } from '@luminose/editorial';
+import { bodyJsonToText, getEditorTab, supportsColdRead } from '@luminose/editorial';
+import * as Api from '../../services/apiService';
 import {
     parseDraftResponse, parseAIResponse, sanitizeSlidesResponse,
     extractJsonPayload, formatDraftContent,
@@ -63,7 +64,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   // Une génération écrase intégralement le champ cible — sans ça, un
   // ajustement raté fait disparaître définitivement le texte d'avant.
   const [lastGeneration, setLastGeneration] = useState<{
-      field: 'body' | 'scriptVideo' | 'slides';
+      field: 'draft' | 'slides';
       previousValue: string;
       label: string;
   } | null>(null);
@@ -71,6 +72,24 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   // Le brouillon a été régénéré/ajusté après la production des slides :
   // ce qui s'affiche dans l'onglet Slides ne correspond plus au texte courant.
   const [slidesStale, setSlidesStale] = useState(false);
+
+  /**
+   * Session Coach du contenu ouvert.
+   *
+   * Elle ne voyage plus dans l'item : la liste ne porte pas les messages, seul
+   * le détail les assemble (SPEC §3.2). On la charge donc à l'ouverture, et on
+   * la garde en état le temps de la session d'édition.
+   */
+  const [coachSessionState, setCoachSessionState] = useState<CoachSession | null>(null);
+
+  useEffect(() => {
+      if (!item?.id) { setCoachSessionState(null); return; }
+      let annule = false;
+      Api.fetchContent(item.id)
+          .then(({ coachSession }) => { if (!annule) setCoachSessionState(coachSession); })
+          .catch((e) => console.error('Chargement de la session Coach :', e));
+      return () => { annule = true; };
+  }, [item?.id]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Rapport du Lecteur Froid (relecture "yeux d'un inconnu") — éphémère, non persisté
@@ -105,10 +124,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             setSaveError(null);
 
             if (activeStep === 'idea') {
-                const contentField = getStorageField(item.targetFormat);
-                const hasContent = (item[contentField] || "").trim().length > 0;
-                const hasCoachSession = !!item.coachSession && item.coachSession.messages && item.coachSession.messages.length > 0;
-                if (hasContent || hasCoachSession || (item.interviewAnswers && item.interviewAnswers.length > 0)) {
+                const hasContent = (item.draft || "").trim().length > 0;
+                // La session n'est plus dans l'item : son état suffit à savoir
+                // qu'un travail a commencé, sans charger les messages.
+                const hasCoachSession = !!item.coachStatus;
+                if (hasContent || hasCoachSession || item.legacyJson) {
                     onStepChange('atelier');
                 }
             }
@@ -265,12 +285,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    */
   const executeColdRead = async (item: ContentItem) => {
       const fmt = item.targetFormat;
-      if (!fmt || !supportsColdRead(fmt)) return;
+      if (!fmt || !supportsColdRead(fmt as TargetFormat)) return;
       try {
-          const raw = item[getStorageField(fmt)] || "";
+          const raw = item.draft || "";
           const lastBrace = raw.lastIndexOf('}');
           const data = JSON.parse(lastBrace !== -1 ? raw.slice(0, lastBrace + 1) : raw);
-          const plain = formatDraftContent(fmt, data);
+          const plain = formatDraftContent(fmt as TargetFormat, data);
           if (!plain.trim()) return;
 
           const actionConfig = AI_ACTIONS.COLD_READ;
@@ -352,7 +372,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           };
 
           // Matière : brief verrouillé en priorité, sinon session brute (legacy)
-          const coachSession = base.coachSession || null;
+          // Chargée à l'ouverture de l'éditeur (SPEC §3.2)
+          const coachSession = coachSessionState;
           const lockedBrief = coachSession?.brief || null;
           if (lockedBrief) {
               try {
@@ -386,19 +407,18 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const modelName = aiModels.find(m => m.apiCode === activeModelId)?.name || activeModelId;
           const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
-          // Où déposer le résultat : le registre de formats décide
-          const draftField = getStorageField(base.targetFormat);
-          const previousValue = base[draftField] || "";
-          const newItem = { ...base, [draftField]: finalContent + signature };
+          // Une seule destination, quel que soit le format (SPEC §2.5)
+          const previousValue = base.draft || "";
+          const newItem = { ...base, draft: finalContent + signature };
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
-              if (previousValue) setLastGeneration({ field: draftField, previousValue, label: 'Rédaction régénérée' });
+              if (previousValue) setLastGeneration({ field: 'draft', previousValue, label: 'Rédaction régénérée' });
               // Le brouillon a changé : les slides déjà produites ne collent plus
               if (base.slides) setSlidesStale(true);
               await saveWithStatus(newItem);
               // Où atterrir après la rédaction : déclaré par format dans le registre
-              onStepChange(getEditorTab(base.targetFormat));
+              onStepChange(getEditorTab(base.targetFormat as TargetFormat));
 
               // Relecture "Lecteur Froid" (non bloquante) sur le contenu fraîchement rédigé
               await executeColdRead(newItem);
@@ -420,7 +440,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const systemInstruction = actionConfig.getSystemInstruction(
               undefined,
               editedItem?.suggestedMetaphor || "Non définie",
-              editedItem?.body || "Non défini"
+              editedItem?.draft || "Non défini"
           );
 
           const responseText = await callAI(activeModelId, systemInstruction, "", actionConfig.generationConfig);
@@ -450,10 +470,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    * "Ajuster" doit modifier. Sans ce routage, ajuster un carrousel
    * réécrivait le brouillon et laissait les slides inchangées.
    */
-  const getAdjustmentField = (): 'body' | 'scriptVideo' | 'slides' => {
-      if (activeStep === 'slides' && editedItem?.slides) return 'slides';
-      return getStorageField(editedItem?.targetFormat);
-  };
+  const getAdjustmentField = (): 'draft' | 'slides' =>
+      activeStep === 'slides' && editedItem?.slides ? 'slides' : 'draft';
 
   // --- ADJUSTMENT (Refinement Loop) ---
 
@@ -564,7 +582,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- UI HELPERS ---
 
-  const getVerdictColor = (verdict?: Verdict) => {
+  const getVerdictColor = (verdict?: string | null) => {
       switch (verdict) {
           case Verdict.VALID: return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
           case Verdict.TOO_BLAND: return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
@@ -645,7 +663,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   ) : null;
 
   // ── Onglets dynamiques — TOUJOURS visibles selon le format (pas de gating sur le contenu) ──
-  const _isVideoFmt = getStorageField(editedItem.targetFormat) === 'scriptVideo';
+  const _isVideoFmt = getEditorTab(editedItem.targetFormat as TargetFormat) === 'script';
   const _isPostCourt = editedItem.targetFormat === TargetFormat.POST_TEXTE_COURT;
   const _isCarrousel = editedItem.targetFormat === TargetFormat.CARROUSEL_SLIDE;
   // Brouillon (trame textuelle) : pour tous les formats sauf vidéo (le Script affiche déjà la trame).
@@ -813,6 +831,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onLaunchAdjustment={launchAdjustment}
                     onLaunchPromptsAdjustment={launchPromptsAdjustment}
                     slidesStale={slidesStale}
+                    coachSession={coachSessionState}
                     onChangeStatus={changeStatus}
                     onSave={onSave}
                     isGenerating={isGenerating}

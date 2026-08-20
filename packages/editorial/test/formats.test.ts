@@ -12,7 +12,6 @@ import { TargetFormat, TARGET_FORMAT_VALUES } from '../src/domain';
 import {
   FORMAT_REGISTRY,
   getFormatDef,
-  getStorageField,
   getEditorTab,
   getFormatPromptTemplate,
   supportsColdRead,
@@ -31,7 +30,6 @@ describe('complétude du registre', () => {
   it.each(ALL_FORMATS)('%s déclare tout ce dont l’éditeur a besoin', (format) => {
     const def = FORMAT_REGISTRY[format];
     expect(def.shortKey).toBeTruthy();
-    expect(['body', 'scriptVideo', 'slides']).toContain(def.storageField);
     expect(['atelier', 'brouillon', 'slides', 'postcourt', 'script']).toContain(def.editorTab);
     expect(typeof def.supportsColdRead).toBe('boolean');
     expect(def.promptTemplate.length).toBeGreaterThan(50);
@@ -44,14 +42,6 @@ describe('complétude du registre', () => {
 });
 
 describe('routage — comportement attendu par l’éditeur', () => {
-  it('les deux formats vidéo stockent dans scriptVideo, les autres dans body', () => {
-    expect(getStorageField(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe('scriptVideo');
-    expect(getStorageField(TargetFormat.SCRIPT_VIDEO_YOUTUBE)).toBe('scriptVideo');
-    for (const f of ALL_FORMATS.filter(f => !f.startsWith('Script Vidéo'))) {
-      expect(getStorageField(f)).toBe('body');
-    }
-  });
-
   it('mène au bon écran après la rédaction', () => {
     expect(getEditorTab(TargetFormat.POST_TEXTE_COURT)).toBe('postcourt');
     expect(getEditorTab(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe('script');
@@ -66,7 +56,6 @@ describe('routage — comportement attendu par l’éditeur', () => {
   });
 
   it('reste prévisible quand le format est absent', () => {
-    expect(getStorageField(null)).toBe('body');
     expect(getEditorTab(null)).toBe('brouillon');
     expect(supportsColdRead(null)).toBe(false);
     expect(getFormatPromptTemplate(null)).toBe('');

@@ -51,7 +51,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
         setLocalItem(prev => ({
             ...prev,
             title: item.title,
-            analyzed: item.analyzed,
+            analyzed: item.analyzedAt,
             verdict: item.verdict,
             strategicAngle: item.strategicAngle,
             platforms: item.platforms,
@@ -62,7 +62,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
         }));
     }, [
         item.title,
-        item.analyzed,
+        item.analyzedAt,
         item.verdict,
         item.strategicAngle,
         item.objectif,
@@ -98,7 +98,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
     };
 
     const handleTransformToDraft = async () => {
-        if (!localItem.analyzed) return;
+        if (!localItem.analyzedAt) return;
         setIsSaving(true);
         const newItem = { ...localItem, status: ContentStatus.DRAFTING };
         await onTransformToDraft(newItem, { launchInterview: true });
@@ -110,7 +110,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
         onClose();
     };
 
-    const getVerdictColor = (verdict?: Verdict) => {
+    const getVerdictColor = (verdict?: string | null) => {
         switch (verdict) {
             case Verdict.VALID: return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
             case Verdict.TOO_BLAND: return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
@@ -205,7 +205,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-bold text-violet-800 dark:text-violet-200 flex items-center gap-1.5">
                                     <Brain className="w-3.5 h-3.5" />
-                                    {localItem.analyzed ? 'Analyse Stratégique' : "Analyser avec l'IA"}
+                                    {localItem.analyzedAt ? 'Analyse Stratégique' : "Analyser avec l'IA"}
                                 </span>
                                 {localItem.verdict && (
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${getVerdictColor(localItem.verdict)}`}>
@@ -225,12 +225,12 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white dark:bg-violet-900/40 hover:bg-violet-50 dark:hover:bg-violet-800/40 text-violet-700 dark:text-violet-200 border border-violet-200 dark:border-violet-700 transition-colors disabled:opacity-50 whitespace-nowrap shadow-sm"
                             >
                                 <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
-                                {isReanalyzing ? 'Analyse…' : (localItem.analyzed ? 'Ré-analyser' : 'Analyser')}
+                                {isReanalyzing ? 'Analyse…' : (localItem.analyzedAt ? 'Ré-analyser' : 'Analyser')}
                             </button>
                         </div>
 
                         <div className="p-4 bg-white dark:bg-dark-surface">
-                            {localItem.analyzed && localItem.strategicAngle ? (
+                            {localItem.analyzedAt && localItem.strategicAngle ? (
                                 <div className="space-y-4 animate-in fade-in duration-200">
                                     <div>
                                         <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
@@ -344,8 +344,8 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                         </button>
                         <button
                             onClick={handleTransformToDraft}
-                            disabled={isSaving || !localItem.analyzed}
-                            title={!localItem.analyzed ? "Lancez d'abord l'analyse IA pour débloquer cette action." : undefined}
+                            disabled={isSaving || !localItem.analyzedAt}
+                            title={!localItem.analyzedAt ? "Lancez d'abord l'analyse IA pour débloquer cette action." : undefined}
                             className="flex items-center gap-2 px-4 py-2 bg-brand-main hover:bg-brand-hover text-white text-sm font-semibold rounded-lg shadow-sm shadow-brand-main/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {isSaving ? (

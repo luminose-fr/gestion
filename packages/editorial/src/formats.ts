@@ -14,7 +14,6 @@ import { SITE_URL } from './config';
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export type StorageField = 'body' | 'scriptVideo' | 'slides';
 export type EditorTab = 'atelier' | 'brouillon' | 'slides' | 'postcourt' | 'script';
 
 export interface FormatDefinition {
@@ -22,8 +21,6 @@ export interface FormatDefinition {
     key: TargetFormat;
     /** Clé courte utilisée dans les JSON IA (ex: "Post Texte", "Carrousel") */
     shortKey: string;
-    /** Champ ContentItem où stocker le résultat de la rédaction */
-    storageField: StorageField;
     /** Étape de l'éditeur où atterrir juste après la rédaction */
     editorTab: EditorTab;
     /** Ce format bénéficie-t-il de la relecture à froid ? */
@@ -43,7 +40,6 @@ const t = (v: any): string => (typeof v === 'string' ? v.trim() : '');
 const POST_TEXTE: FormatDefinition = {
     key: TargetFormat.POST_TEXTE_COURT,
     shortKey: 'Post Texte',
-    storageField: 'body',
     editorTab: 'postcourt',
     supportsColdRead: true,
     promptTemplate: `
@@ -72,7 +68,6 @@ Ton : Direct, oralisé, percutant. On entend la voix. Fluide — le texte doit s
 const ARTICLE: FormatDefinition = {
     key: TargetFormat.ARTICLE_LONG_SEO,
     shortKey: 'Article',
-    storageField: 'body',
     editorTab: 'brouillon',
     supportsColdRead: false,
     promptTemplate: `
@@ -108,7 +103,6 @@ Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix 
 const SCRIPT_REEL: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_REEL_SHORT,
     shortKey: 'Script Reel',
-    storageField: 'scriptVideo',
     editorTab: 'script',
     supportsColdRead: true,
     promptTemplate: `
@@ -147,7 +141,6 @@ Le bloc "legende" est OBLIGATOIRE : c'est la description publiée sous la vidéo
 const SCRIPT_YOUTUBE: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_YOUTUBE,
     shortKey: 'Script Youtube',
-    storageField: 'scriptVideo',
     editorTab: 'script',
     supportsColdRead: false,
     promptTemplate: `
@@ -179,7 +172,6 @@ Ton : Narratif, profond, utilisant des métaphores filées. Plus long, plus cont
 const CARROUSEL: FormatDefinition = {
     key: TargetFormat.CARROUSEL_SLIDE,
     shortKey: 'Carrousel',
-    storageField: 'body',
     editorTab: 'brouillon',
     supportsColdRead: true,
     promptTemplate: `
@@ -271,7 +263,6 @@ RÈGLES STRICTES :
 const NEWSLETTER: FormatDefinition = {
     key: TargetFormat.NEWSLETTER,
     shortKey: 'Newsletter',
-    storageField: 'body',
     editorTab: 'brouillon',
     supportsColdRead: false,
     promptTemplate: `
@@ -305,7 +296,6 @@ Ne PAS inclure de salutation (Bonjour) ni de signature (Chaleureusement, Florent
 const PROMPT_IMAGE: FormatDefinition = {
     key: TargetFormat.PROMPT_IMAGE,
     shortKey: 'Prompt Image',
-    storageField: 'body',
     editorTab: 'brouillon',
     supportsColdRead: false,
     promptTemplate: `
@@ -415,18 +405,10 @@ export function parseBodyJson(raw: string): any | null {
 }
 
 /**
- * Obtient le storageField pour un TargetFormat donné.
- * Utile pour savoir où écrire le résultat de la rédaction.
- */
-export function getStorageField(format: TargetFormat | null | undefined): StorageField {
-    if (!format) return 'body';
-    const def = FORMAT_REGISTRY[format];
-    return def?.storageField || 'body';
-}
-
-/**
- * Obtient l'editorTab pour un TargetFormat donné.
- * Utile pour naviguer vers le bon tab après génération.
+ * Étape de l'éditeur où atterrir après la rédaction.
+ *
+ * Il n'y a plus de `storageField` : le brouillon va toujours dans `draft`,
+ * quel que soit le format (SPEC §2.5). Seul l'écran d'arrivée varie encore.
  */
 export function getEditorTab(format: TargetFormat | null | undefined): EditorTab {
     if (!format) return 'brouillon';

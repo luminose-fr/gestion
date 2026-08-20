@@ -46,10 +46,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
 
       <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mb-3 line-clamp-2 min-h-[1.5em]">
         {getHighlightedText(
-            ((item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE)
-                ? bodyJsonToText(item.scriptVideo || "") || bodyJsonToText(item.body)
-                : bodyJsonToText(item.body))
-            || "Pas de contenu...", highlight)}
+            bodyJsonToText(item.draft || "") || "Pas de contenu...", highlight)}
       </p>
 
       <div className="flex items-center justify-between mt-auto gap-2">

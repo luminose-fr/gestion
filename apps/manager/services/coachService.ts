@@ -159,40 +159,54 @@ export const generateLockedBrief = async (opts: {
 };
 
 // ── Helpers de session ─────────────────────────────────────────────────
+//
+// La session n'est plus un blob réécrit à chaque tour : les messages sont des
+// lignes côté API (SPEC §2.7). Ces helpers ne servent plus qu'à maintenir la
+// vue locale entre deux appels, en miroir de ce que le serveur vient d'écrire.
 
 export const createEmptySession = (formatCible: TargetFormat | null): CoachSession => ({
-    version: 1,
     formatCible,
     messages: [],
     status: 'in_progress',
+    brief: null,
     validatedAt: null,
 });
 
-export const appendUserMessage = (session: CoachSession, content: string): CoachSession => ({
+/** Identifiant provisoire, remplacé par celui du serveur au rechargement. */
+const localMessage = (
+    contentId: string,
+    fields: Omit<CoachMessage, 'id' | 'contentId' | 'createdAt'>
+): CoachMessage => ({
+    id: `local-${crypto.randomUUID()}`,
+    contentId,
+    createdAt: Date.now(),
+    ...fields,
+});
+
+export const appendUserMessage = (session: CoachSession, contentId: string, content: string): CoachSession => ({
     ...session,
     messages: [
         ...session.messages,
-        { role: 'user', content, timestamp: new Date().toISOString() } as CoachMessage,
+        localMessage(contentId, { role: 'user', content, raw: null, quickReplies: [], readyForEditor: false }),
     ],
 });
 
-export const appendAssistantReply = (session: CoachSession, reply: CoachAIReply): CoachSession => ({
+export const appendAssistantReply = (session: CoachSession, contentId: string, reply: CoachAIReply): CoachSession => ({
     ...session,
     messages: [
         ...session.messages,
-        {
+        localMessage(contentId, {
             role: 'assistant',
             content: reply.message,
             raw: reply.raw,
             quickReplies: reply.quickReplies,
             readyForEditor: reply.readyForEditor,
-            timestamp: new Date().toISOString(),
-        } as CoachMessage,
+        }),
     ],
 });
 
 export const validateSession = (session: CoachSession): CoachSession => ({
     ...session,
     status: 'validated',
-    validatedAt: new Date().toISOString(),
+    validatedAt: Date.now(),
 });

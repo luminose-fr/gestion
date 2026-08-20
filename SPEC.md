@@ -551,6 +551,25 @@ un `if (!isOpen) return null;`, invisible au typecheck comme au build.
 
 ---
 
+## 10.4 Contrainte d'environnement — dépôt partagé entre deux architectures
+
+Le répertoire de travail est partagé entre le Mac (arm64) et une VM Ubuntu (arm64), et
+`node_modules` ne peut servir qu'une plateforme à la fois : le dernier `npm install`
+gagne, et la machine d'en face échoue sur les binaires natifs — `workerd` pour wrangler,
+`rollup` et `esbuild` pour le build.
+
+Le correctif est d'installer le binaire manquant sans toucher au manifeste :
+
+```bash
+npm install --no-save @cloudflare/workerd-darwin-arm64      # depuis le Mac
+npm install --no-save @cloudflare/workerd-linux-arm64       # depuis la VM
+```
+
+Les deux jeux cohabitent sans conflit ; c'est le `npm install` suivant qui élague. À
+refaire au changement de machine, tant que le répertoire reste partagé.
+
+---
+
 ## 11. Phasage et critères de sortie — NORMATIF
 
 Une phase par lot de travail. **Aucune phase ne laisse l'application cassée.**

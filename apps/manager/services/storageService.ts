@@ -1,7 +1,15 @@
 import { ContentItem, AIModel, AppSettings, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from "../types";
 
 const DB_NAME = "LuminoseDB";
-const DB_VERSION = 3; // Incrémenté pour forcer la mise à jour du schéma (création de 'models')
+/**
+ * v4 — bascule Notion → D1 (SPEC §11, phase 5).
+ *
+ * Les items en cache portent l'ancienne forme (`body`, `scriptVideo`,
+ * `analyzed`, `lastEdited` en ISO). Les lire avec le nouveau modèle donnerait
+ * un affichage silencieusement faux : on VIDE le cache à la montée de version
+ * et la première synchronisation le repeuple depuis l'API.
+ */
+const DB_VERSION = 4;
 const STORE_CONTENT = "content";
 const STORE_MODELS = "models";
 const SYNC_PREFIX = "luminose_sync_";
@@ -16,11 +24,11 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_CONTENT)) {
-        db.createObjectStore(STORE_CONTENT, { keyPath: "id" });
-      }
-      if (!db.objectStoreNames.contains(STORE_MODELS)) {
-        db.createObjectStore(STORE_MODELS, { keyPath: "id" });
+      // Repartir d'un cache vide : les formes d'avant la bascule ne sont pas
+      // lisibles par le nouveau modèle (voir DB_VERSION).
+      for (const store of [STORE_CONTENT, STORE_MODELS]) {
+        if (db.objectStoreNames.contains(store)) db.deleteObjectStore(store);
+        db.createObjectStore(store, { keyPath: "id" });
       }
     };
 

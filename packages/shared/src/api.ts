@@ -38,8 +38,12 @@ const contentWritable = {
   angle: z.string().nullable(),
   // Date seule, sans heure : la publication est multi-plateformes à un instant
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-  /** Renseigné par le Worker à la date courante quand `true` (SPEC §2.8). */
-  analyzed: z.boolean(),
+  /**
+   * Date d'analyse (epoch ms), `null` si jamais analysé. Écrit par le client :
+   * l'analyse a lieu chez lui, c'est lui qui sait quand. Contrairement à
+   * `createdAt`/`updatedAt`, ce n'est pas un horodatage d'infrastructure.
+   */
+  analyzedAt: z.number().int().nullable(),
 };
 
 export const CreateContentSchema = z.object(contentWritable).partial().extend({

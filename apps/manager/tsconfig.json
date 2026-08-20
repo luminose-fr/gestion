@@ -20,7 +20,8 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "types": [
-      "node"
+      "node",
+      "vite/client"
     ]
   },
   "include": [

@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu } from 'lucide-react';
 import { ContentItem, Verdict, Platform, AIModel, isObjectif, isProfondeur } from '../types';
 import * as OneMinService from '../services/oneMinService';
-import * as NotionService from '../services/notionService';
 import { AI_ACTIONS } from '@luminose/editorial';
+import * as Api from '../services/apiService';
 import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface AnalysisModalProps {
@@ -137,10 +137,10 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             justification: justification ?? originalItem.justification,
             suggestedMetaphor: suggestedMetaphor ?? originalItem.suggestedMetaphor,
             depth: depth ?? originalItem.depth,
-            analyzed: true,
+            analyzedAt: Date.now(),
           };
 
-          await NotionService.updateContent(updatedItem);
+          await Api.updateContent(updatedItem.id, updatedItem);
           updateCount++;
           if (isMountedRef.current) setProgress(`Mise à jour de Notion (${updateCount}/${results.length})...`);
         }

@@ -4,7 +4,7 @@ import {
     FlaskConical, AlertCircle, ChevronRight
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
-import * as NotionService from '../services/notionService';
+import * as Api from '../services/apiService';
 import * as OneMinService from '../services/oneMinService';
 import { ConfirmModal } from './CommonModals';
 import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '@luminose/editorial';
@@ -250,13 +250,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setSaveSuccess(false);
         try {
             if (isCreating) {
-                const newModel = await NotionService.createModel(editModel);
+                const { model: newModel } = await Api.createModel(editModel);
                 onModelsChange([...aiModels, newModel]);
                 setEditingId(newModel.id);
                 setIsCreating(false);
             } else if (editingId) {
                 const updatedModel = { ...editModel, id: editingId } as AIModel;
-                await NotionService.updateModel(updatedModel);
+                await Api.updateModel(editingId, editModel);
                 onModelsChange(aiModels.map(m => m.id === editingId ? updatedModel : m));
             }
             setSaveSuccess(true);
@@ -271,7 +271,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setIsDeleting(true);
         setSaveError(null);
         try {
-            await NotionService.deleteModel(deleteId);
+            await Api.deleteModel(deleteId);
             onModelsChange(aiModels.filter(m => m.id !== deleteId));
             if (editingId === deleteId) backToList();
         } catch (e) {

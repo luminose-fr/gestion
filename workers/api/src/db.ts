@@ -116,6 +116,7 @@ export const rowToCoachMessage = (r: any): CoachMessage => ({
 const CONTENT_COLUMNS: Record<string, string> = {
   title: 'title',
   status: 'status',
+  analyzedAt: 'analyzed_at',
   targetFormat: 'target_format',
   objectif: 'objectif',
   depth: 'depth',

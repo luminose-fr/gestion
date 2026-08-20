@@ -26,14 +26,25 @@ import { SocialGridView } from '../components/Views/SocialGridView';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
 import type { AIModel, ContentItem } from '../types';
 
+const now = Date.now();
+
 const MODELS: AIModel[] = [
-  { id: 'm1', name: 'GPT-5.2 Pro', apiCode: 'gpt-5.2-pro', provider: 'OpenAI', cost: 'high', strengths: '', bestUseCases: '', textQuality: 5, isDefault: true },
+  {
+    id: 'm1', name: 'GPT-5.2 Pro', apiCode: 'gpt-5.2-pro',
+    provider: 'onemin', vendor: 'OpenAI', cost: 'high',
+    strengths: '', bestUseCases: '', textQuality: 5, isDefault: true,
+    createdAt: now, updatedAt: now, deletedAt: null,
+  },
 ];
 
 const ITEM: ContentItem = {
   id: 'i1', title: 'Le piège chinois', status: ContentStatus.DRAFTING, platforms: [],
-  body: '', scheduledDate: null, notes: '', lastEdited: new Date().toISOString(),
-  createdAt: new Date().toISOString(),
+  targetFormat: null, objectif: null, depth: null,
+  analyzedAt: null, verdict: null, strategicAngle: null, justification: null,
+  suggestedMetaphor: null, notes: '', draft: null, slides: null,
+  coachStatus: null, coachFormatCible: null, coachBrief: null, coachValidatedAt: null,
+  serieId: null, angle: null, scheduledDate: null, legacyJson: null,
+  createdAt: now, updatedAt: now, deletedAt: null,
 };
 
 const noop = () => {};
