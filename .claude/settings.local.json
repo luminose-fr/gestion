@@ -78,7 +78,16 @@
       "Bash(curl -s -X POST https://gestion.luminose.fr/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"x\",\"password\":\"y\"}' -w \"\\\\n  statut : %{http_code}  type : %{content_type}\\\\n\" --max-time 12)",
       "Bash(curl -s -o /dev/null -w \"  /api/contents : %{http_code}\\\\n\" --max-time 12 https://gestion.luminose.fr/api/contents)",
       "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr/workers/api && npx wrangler deploy --dry-run --outdir /tmp/_d 2>&1 | grep -iE \"unexpected|warning|Total Upload\"; rm -rf /tmp/_d')",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 SKIP_TESTS=1 npm run deploy 2>&1 | tail -25')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && npm test > /tmp/t.log 2>&1; echo \"npm test → code $?\"; npm run typecheck > /tmp/tc.log 2>&1; echo \"npm run typecheck → code $?\"')",
+      "Bash(ssh flornet@192.168.64.4 'sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" /tmp/t.log | grep -iE \"^npm error|error Lifecycle|workspace|failed|No test\" | head -12')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && npm test -w packages/shared 2>&1 | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | grep -E \"Tests |×|AssertionError\" | head -8')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && echo \"=== npm test à la racine ===\" && npm test > /tmp/t2.log 2>&1; echo \"  code $?\"; sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" /tmp/t2.log | grep -E \"Tests \" | awk \"{s+=\\\\$2} END {print \\\\\"  TOTAL :\\\\\", s, \\\\\"tests\\\\\"}\"')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && echo \"=== sh scripts/deploy.sh \\(dash\\) ===\" && DRY_RUN=1 SKIP_TESTS=1 sh scripts/deploy.sh 2>&1 | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | grep -E \"▸|✓|⚠|error|Syntax\" | head -10')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 npm run deploy 2>&1 | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | grep -E \"▸|✓|⚠|\\\\\\\\$ |error\" | head -18; echo \"code de sortie : ${PIPESTATUS[0]:-?}\"')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 npm run deploy 2>&1 | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | grep -E \"▸|✓|Tests |attendu\" | head -14')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 npm run deploy > /tmp/d.log 2>&1; echo \"npm run deploy \\(dry-run\\) → code $?\"; sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" /tmp/d.log | grep -E \"^✓|^▸\" | head -10')"
     ]
   }
 }

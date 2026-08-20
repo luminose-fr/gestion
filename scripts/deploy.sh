@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 #
+# Le script utilise des tableaux et `pipefail`, absents de dash. Lancé par
+# `sh scripts/deploy.sh` — réflexe courant — il échouerait sur des erreurs de
+# syntaxe obscures. On se relance donc sous bash plutôt que de le laisser
+# planter.
+# shellcheck disable=SC2128
+if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
+#
 # Déploiement Cloudflare — Worker API (+ migrations D1) et front Pages.
 #
+#   npm run deploy                   # LE chemin normal
 #   ./scripts/deploy.sh              # tout : tests → migrations → api → app
 #   ./scripts/deploy.sh api          # seulement le Worker (et ses migrations)
 #   ./scripts/deploy.sh app          # seulement le front
 #   SKIP_TESTS=1 ./scripts/deploy.sh # sans la suite de tests (à éviter)
-#   DRY_RUN=1 ./scripts/deploy.sh    # affiche les commandes sans les exécuter
+#   DRY_RUN=1 npm run deploy         # joue les tests, affiche le reste sans l'exécuter
 #
 # Prérequis, une seule fois par machine :
 #   npx wrangler login
@@ -65,8 +73,10 @@ fi
 
 if [ "${SKIP_TESTS:-0}" != "1" ]; then
   step "Tests et typecheck (bloquants)"
-  run npm test
-  run npm run typecheck
+  # Exécutés même en DRY_RUN : ils ne modifient rien, et un dry-run qui se
+  # contenterait de les afficher ne vérifierait pas la seule barrière du script.
+  npm test
+  npm run typecheck
   ok "Suite verte"
 else
   warn "SKIP_TESTS=1 : suite de tests ignorée"
@@ -84,7 +94,7 @@ if has api && need_dir workers/api api; then
 
   step "Worker API"
   ( cd workers/api && run npx wrangler deploy )
-  ok "Worker déployé (routes /api/* de wrangler.toml)"
+  ok "Worker déployé (routes /api/* et /auth/* de wrangler.toml)"
 fi
 
 # ─── Front ───────────────────────────────────────────────────────────────────
@@ -106,6 +116,9 @@ fi
 step "Vérifications suggérées"
 cat <<EOF
   - curl -s -o /dev/null -w '%{http_code}\n' ${APP_URL}/api/contents   # attendu : 401
+  - curl -s -o /dev/null -w '%{http_code}\n' -X POST ${APP_URL}/auth/login \\
+      -H 'Content-Type: application/json' -d '{}'                       # attendu : 401
+      (405 = la route /auth/* n'a pas pris, c'est Pages qui répond)
   - Se connecter, vérifier que la liste des contenus s'affiche
   - Ouvrir Réglages → Modèles IA, lancer un test de modèle
   - Ouvrir un contenu, lancer une action IA de bout en bout
