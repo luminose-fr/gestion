@@ -9,6 +9,20 @@ main = "src/index.ts"
 compatibility_date = "2026-01-31"
 compatibility_flags = ["nodejs_compat"]
 
+# ─── Origine unique (SPEC §1.2) ──────────────────────────────────────────
+# Le domaine est servi par le projet Pages ; cette route capte /api/* AVANT
+# Pages, sur la même origine que le front. C'est ce qui supprime CORS.
+#
+# Sans elle, /api/* tombe sur le repli SPA de Pages : les appels reçoivent du
+# HTML là où ils attendent du JSON, et l'application casse en silence.
+#
+# ATTENTION TOML : cette clé doit rester AVANT tout en-tête de table
+# ([[d1_databases]], [observability]…). Placée après, elle serait lue comme un
+# champ de cette table et ignorée — le déploiement réussirait sans la route.
+routes = [
+  { pattern = "gestion.luminose.fr/api/*", zone_name = "luminose.fr" }
+]
+
 [observability]
 enabled = true
 
@@ -18,12 +32,3 @@ enabled = true
 binding = "DB"
 database_name = "luminose-gestion"
 database_id = "e9327701-3b46-4f85-9e3f-513df1488118"
-
-# ─── Phase 5 — bascule sur l'origine unique (SPEC §1.2) ──────────────────
-# À décommenter le jour où gestion.luminose.fr pointe sur le projet Pages.
-# Le Worker capte alors /api/* sur la MÊME origine que le front, ce qui
-# supprime CORS entièrement.
-#
-# routes = [
-#   { pattern = "gestion.luminose.fr/api/*", zone_name = "luminose.fr" }
-# ]
