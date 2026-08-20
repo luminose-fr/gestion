@@ -6,8 +6,12 @@ export type Env = {
   AUTH_USERNAME: string;
   AUTH_PASSWORD: string;
 
-  /** Fournisseurs. Aucune de ces clés ne quitte le Worker (CLAUDE.md règle 1). */
+  /**
+   * Clés des fournisseurs d'IA. Aucune ne quitte le Worker (CLAUDE.md règle 1).
+   * Le nom suit la convention `<PROVIDER>_API_KEY`, voir routes/ai.ts.
+   */
   ONE_MIN_API_KEY: string;
+  OPENAI_API_KEY?: string;
   /** Encore nécessaire tant que le proxy Notion sert le front (phases 3 à 5). */
   NOTION_API_KEY?: string;
 };

@@ -4,7 +4,7 @@ import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, i
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import { AI_ACTIONS } from '@luminose/editorial';
-import * as OneMinService from './services/oneMinService';
+import * as AiService from './services/aiService';
 
 import SettingsPanel from './components/SettingsPanel';
 import ContentEditor, { EditorStep } from './components/ContentEditor';
@@ -291,21 +291,28 @@ function App() {
 
   // Seed du modèle actif depuis le « Défaut » Notion, tant que l'utilisateur n'a pas choisi explicitement.
   useEffect(() => {
-      if (StorageService.getActiveModelId()) return; // choix explicite déjà fait
+      if (aiModels.length === 0) return;
+
+      // Un réglage hérité contient un CODE d'API, plus un identifiant : il ne
+      // correspond à aucun modèle et l'appel IA échouerait en 404. On repart
+      // alors du modèle « Défaut », comme au premier lancement.
+      const stored = StorageService.getActiveModelId();
+      if (stored && aiModels.some(m => m.id === stored)) return;
+
       const def = aiModels.find(m => m.isDefault) || aiModels[0];
-      if (def) setActiveModelIdState(def.apiCode);
+      if (def) handleActiveModelChange(def.id);
   }, [aiModels]);
 
   const handleActiveModelChange = (modelId: string) => {
       setActiveModelIdState(modelId);
       StorageService.setActiveModelId(modelId);
       // Write-back Notion best-effort : la case « Défaut » suit le choix.
-      const chosen = aiModels.find(m => m.apiCode === modelId);
+      const chosen = aiModels.find(m => m.id === modelId);
       // Marquer un défaut démarque les autres côté Worker, dans le même batch :
       // plus besoin de démarquer les précédents un par un.
       if (chosen) Api.setModelDefault(chosen.id, true).catch(console.error);
       // Reflète l'état localement
-      setAiModels(prev => prev.map(m => ({ ...m, isDefault: m.apiCode === modelId })));
+      setAiModels(prev => prev.map(m => ({ ...m, isDefault: m.id === modelId })));
   };
 
   const handleQuickAddIdea = async (title: string, notes: string, targetFormat?: string | null) => {
@@ -484,8 +491,8 @@ function App() {
               format_cible: itemToAnalyze.targetFormat || "Non précisé",
           }];
           
-          const responseText = await OneMinService.generateContent({
-              model: modelId,
+          const responseText = await AiService.generateContent({
+              modelId: modelId,
               systemInstruction: systemInstruction,
               prompt: JSON.stringify(contentPayload)
           });
@@ -512,7 +519,7 @@ function App() {
               const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
               const depth = isProfondeur(res.profondeur) ? res.profondeur : undefined;
 
-              const modelName = aiModels.find(m => m.apiCode === modelId)?.name || modelId;
+              const modelName = aiModels.find(m => m.id === modelId)?.name || modelId;
               const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
               const rawAngle = (res.angle_strategique ?? res.angle ?? "");
@@ -662,7 +669,7 @@ function App() {
                      >
                         {aiModels.length === 0 && <option value="">Aucun modèle configuré</option>}
                         {aiModels.map(m => (
-                            <option key={m.id} value={m.apiCode}>{m.name}</option>
+                            <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
                      </select>
                      <ChevronDown className="w-3 h-3 absolute right-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />

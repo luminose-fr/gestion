@@ -140,3 +140,9 @@ export interface CoachSession {
   validatedAt: number | null;
   messages: CoachMessage[];
 }
+
+/** Message d'une conversation IA — même forme côté front, Worker et adaptateurs. */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}

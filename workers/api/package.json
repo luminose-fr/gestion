@@ -17,6 +17,7 @@
     "wrangler": "^4.124.0"
   },
   "dependencies": {
+    "@luminose/ai": "^2.0.0",
     "@luminose/editorial": "^2.0.0",
     "@luminose/shared": "^2.0.0",
     "hono": "^4.13.3",

@@ -182,7 +182,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                     )}
                 </div>
                 <span className="text-[10px] font-medium text-brand-main/50 dark:text-dark-text/50 whitespace-nowrap">
-                    {aiModels.find(m => m.apiCode === modelId)?.name || modelId}
+                    {aiModels.find(m => m.id === modelId)?.name || modelId}
                 </span>
             </div>
 
@@ -205,7 +205,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                             </p>
                             <div className="text-[11px] text-brand-main/50 dark:text-dark-text/50 mb-4 px-4 py-2 rounded-md bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border inline-block">
                                 Modèle : <strong className="text-brand-main dark:text-dark-text">
-                                    {aiModels.find(m => m.apiCode === modelId)?.name || modelId}
+                                    {aiModels.find(m => m.id === modelId)?.name || modelId}
                                 </strong>
                                 <span className="text-brand-main/40 dark:text-dark-text/40"> · modifiable en haut de l'app</span>
                             </div>

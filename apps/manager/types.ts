@@ -85,6 +85,6 @@ export const DEFAULT_DISPLAY_PREFS: DisplayPrefs = {
 export interface AppSettings {
   lastUsedContextId?: string;
   displayPrefs?: DisplayPrefs;
-  /** Modèle IA actif/par défaut (apiCode ou modèle interne). */
+  /** Identifiant du modèle actif dans le catalogue — pas son code d'API. */
   activeModelId?: string;
 }

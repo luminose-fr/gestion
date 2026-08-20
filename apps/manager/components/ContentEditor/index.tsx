@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession } from '../../types';
 import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
-import * as OneMinService from '../../services/oneMinService';
+import * as AiService from '../../services/aiService';
 import { generateLockedBrief } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
 import { AI_ACTIONS } from '@luminose/editorial';
@@ -232,8 +232,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   // --- AI LOGIC HELPERS ---
 
   const callAI = async (model: string, systemInstruction: string, prompt: string, _config?: any) => {
-      return await OneMinService.generateContent({
-          model: model,
+      return await AiService.generateContent({
+          modelId: model,
           systemInstruction: systemInstruction,
           prompt: prompt
       });
@@ -404,7 +404,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               finalContent = await enforceCarrouselConstraints(finalContent);
           }
 
-          const modelName = aiModels.find(m => m.apiCode === activeModelId)?.name || activeModelId;
+          const modelName = aiModels.find(m => m.id === activeModelId)?.name || activeModelId;
           const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           // Une seule destination, quel que soit le format (SPEC §2.5)
@@ -447,7 +447,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const cleaned = sanitizeSlidesResponse(responseText);
 
-          const modelName = aiModels.find(m => m.apiCode === activeModelId)?.name || activeModelId;
+          const modelName = aiModels.find(m => m.id === activeModelId)?.name || activeModelId;
           const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
           const previousValue = editedItem?.slides || "";
@@ -508,7 +508,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               ? sanitizeSlidesResponse(responseText)
               : responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
 
-          const modelObj = aiModels.find(m => m.apiCode === activeModelId);
+          const modelObj = aiModels.find(m => m.id === activeModelId);
           const modelName = modelObj?.name || activeModelId;
           const signature = `\n\n_Ajusté par : ${modelName} — le ${new Date().toLocaleString('fr-FR')}_`;
           const finalContent = cleaned + signature;
@@ -558,7 +558,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const cleaned = sanitizeSlidesResponse(responseText);
-          const modelObj = aiModels.find(m => m.apiCode === activeModelId);
+          const modelObj = aiModels.find(m => m.id === activeModelId);
           const modelName = modelObj?.name || activeModelId;
           const signature = `\n\n_Prompts ajustés (${slideNumero === null ? 'tous' : `slide ${slideNumero}`}) par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 

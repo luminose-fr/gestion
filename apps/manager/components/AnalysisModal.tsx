@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu } from 'lucide-react';
 import { ContentItem, Verdict, Platform, AIModel, isObjectif, isProfondeur } from '../types';
-import * as OneMinService from '../services/oneMinService';
+import * as AiService from '../services/aiService';
 import { AI_ACTIONS } from '@luminose/editorial';
 import * as Api from '../services/apiService';
 import { useEscapeClose } from './hooks/useEscapeClose';
@@ -53,7 +53,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
   if (!isOpen) return null;
 
-  const modelName = aiModels.find(m => m.apiCode === selectedModelId)?.name || selectedModelId;
+  const modelName = aiModels.find(m => m.id === selectedModelId)?.name || selectedModelId;
 
   const handleStartAnalysis = async () => {
     if (!isMountedRef.current) return;
@@ -77,8 +77,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       if (isMountedRef.current) setProgress(`Interrogation de l'IA (${modelName})...`);
 
       // 3. Appel API 1min.AI
-      const responseText = await OneMinService.generateContent({
-          model: selectedModelId,
+      const responseText = await AiService.generateContent({
+          modelId: selectedModelId,
           systemInstruction: systemInstruction,
           prompt: JSON.stringify(contentPayload)
       });

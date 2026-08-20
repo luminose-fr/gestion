@@ -1,10 +1,9 @@
 /**
  * Worker API — gestion.luminose.fr
  *
- * Sert simultanément, le temps de la migration (SPEC §11) :
  *   /auth/login   authentification (jeton signé, §7)
- *   /api/*        la nouvelle API sur D1
- *   /v1/*, /1min/* les proxys de l'ère Notion, que le front appelle encore
+ *   /api/*        l'API sur D1, seule utilisée par le front
+ *   /v1/*         proxy Notion résiduel — aucun client, gardé comme filet
  *
  * CORS : maintenu tant que le front vit sur GitHub Pages. Il disparaîtra en
  * phase 5 avec le passage à l'origine unique (SPEC §1.2).
@@ -17,6 +16,7 @@ import { createSessionToken, verifySessionToken, getSessionSecret } from './auth
 import { contents } from './routes/contents';
 import { series } from './routes/series';
 import { models } from './routes/models';
+import { ai } from './routes/ai';
 import { legacy } from './routes/legacy';
 
 const ALLOWED_ORIGINS = [
@@ -59,13 +59,13 @@ const requireSession = async (c: any, next: () => Promise<void>) => {
 
 app.use('/api/*', requireSession);
 app.use('/v1/*', requireSession);
-app.use('/1min/*', requireSession);
 
 // ── Routes ───────────────────────────────────────────────────────────────
 
 app.route('/api/contents', contents);
 app.route('/api/series', series);
 app.route('/api/models', models);
+app.route('/api/ai', ai);
 app.route('/', legacy);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));

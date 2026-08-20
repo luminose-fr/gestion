@@ -6,7 +6,7 @@ import {
     type SrtBlock, type SubtitleBlock, type SubtitleStyle, type ShadowStyle, type VideoFormat,
 } from '@luminose/subtitles';
 import { AIModel } from '../types';
-import * as OneMinService from '../services/oneMinService';
+import * as AiService from '../services/aiService';
 
 const FONT_OPTIONS = [
     'Futura', 'Helvetica Neue', 'Arial', 'Avenir', 'Montserrat',
@@ -215,7 +215,7 @@ Réponds UNIQUEMENT avec un JSON valide au format suivant (tableau de strings) :
 
 Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs doit redonner le texte original complet.`;
 
-            const responseText = await OneMinService.generateContent({ model: aiSelectedModel, prompt });
+            const responseText = await AiService.generateContent({ modelId: aiSelectedModel, prompt });
 
             // Parse the JSON array
             const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
@@ -591,10 +591,10 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                     <div className="space-y-1.5">
                                         {models.map((model: any) => (
                                             <div
-                                                key={model.apiCode}
-                                                onClick={() => !aiLoading && setAiSelectedModel(model.apiCode || '')}
+                                                key={model.id}
+                                                onClick={() => !aiLoading && setAiSelectedModel(model.id)}
                                                 className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border ${
-                                                    aiSelectedModel === model.apiCode
+                                                    aiSelectedModel === model.id
                                                         ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 ring-1 ring-purple-300 dark:ring-purple-700'
                                                         : 'bg-white/50 dark:bg-dark-surface/50 border-transparent hover:bg-brand-light dark:hover:bg-dark-sec-bg'
                                                 }`}

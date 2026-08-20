@@ -130,6 +130,15 @@ export const ChatRequestSchema = z.object({
 });
 export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
 
+/**
+ * Sonde un code d'API AVANT enregistrement : c'est tout l'intérêt du testeur.
+ * On ne passe donc pas par un modèle du catalogue, qui n'existe pas encore.
+ */
+export const TestModelSchema = z.object({
+  apiCode: z.string().min(1),
+  provider: z.string().min(1).default('onemin'),
+});
+
 // ── Synchronisation ──────────────────────────────────────────────────────
 
 /** `since` en epoch ms ; au-delà, les lignes supprimées remontent aussi (SPEC §8). */

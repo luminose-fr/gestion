@@ -302,13 +302,13 @@ GET    /api/models
 POST   /api/models
 PATCH  /api/models/:id
 DELETE /api/models/:id
-POST   /api/models/:id/test         ping du fournisseur, §5.4
 ```
 
 ### 3.5 IA
 
 ```
-POST   /api/ai/chat                 { modelId, system?, messages[], json? } → { text }
+POST   /api/ai/chat                 { modelId, system?, messages[], json? } → { text, modelLabel }
+POST   /api/ai/test                 { apiCode, provider } → sonde un code, §5.4
 ```
 
 Le Worker résout `modelId` en ligne de la table `ai_models`, choisit l'adaptateur d'après
@@ -398,8 +398,11 @@ on change une valeur dans la table, pas une ligne de code.
 
 ### 5.4 Le testeur
 
-`POST /api/models/:id/test` appelle `provider.test(apiCode)`. C'est le seul moyen fiable
-de valider un code API avant enregistrement, et il devient générique.
+`POST /api/ai/test` avec `{ apiCode, provider }` appelle `provider.test(apiCode)`.
+
+Il porte sur un **code**, pas sur un modèle du catalogue : au moment du test, le modèle
+n'existe pas encore — c'est précisément ce qu'on cherche à valider. Le test est devenu
+générique, c'est l'adaptateur qui sait comment sonder son API au coût le plus bas.
 
 ---
 

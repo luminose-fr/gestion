@@ -7,7 +7,7 @@
  */
 
 import { AI_ACTIONS } from '@luminose/editorial';
-import * as OneMinService from './oneMinService';
+import * as AiService from './aiService';
 import type { CoachMessage, CoachSession, AIModel, ContentItem, TargetFormat } from '../types';
 
 export interface CoachAIReply {
@@ -104,8 +104,8 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
             content: m.content,
         }));
 
-    const responseText = await OneMinService.generateContent({
-        model: modelId,
+    const responseText = await AiService.generateContent({
+        modelId: modelId,
         prompt: userMessage,
         systemInstruction,
         history,
@@ -144,8 +144,8 @@ export const generateLockedBrief = async (opts: {
             .map(m => ({ role: m.role, content: m.content })),
     };
 
-    const responseText = await OneMinService.generateContent({
-        model: modelId,
+    const responseText = await AiService.generateContent({
+        modelId: modelId,
         systemInstruction,
         prompt: JSON.stringify(payload),
     });

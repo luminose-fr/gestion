@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as Api from '../services/apiService';
-import * as OneMinService from '../services/oneMinService';
+import * as AiService from '../services/aiService';
 import { ConfirmModal } from './CommonModals';
 import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '@luminose/editorial';
 import { VOICE_RULES } from '@luminose/editorial';
@@ -119,7 +119,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     // Test model state
     const [testApiCode, setTestApiCode] = useState('');
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-    const [testResult, setTestResult] = useState<OneMinService.ModelTestResult | null>(null);
+    const [testResult, setTestResult] = useState<AiService.ModelTestResult | null>(null);
 
     const prefs = { ...DEFAULT_DISPLAY_PREFS, ...displayPrefs };
     const setPref = <K extends keyof DisplayPrefs>(key: K, value: DisplayPrefs[K]) => {
@@ -203,7 +203,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         if (!code || testStatus === 'testing') return;
         setTestStatus('testing');
         setTestResult(null);
-        const result = await OneMinService.testModel(code);
+        const result = await AiService.testModel(code);
         setTestResult(result);
         setTestStatus(result.available ? 'success' : 'error');
     };
