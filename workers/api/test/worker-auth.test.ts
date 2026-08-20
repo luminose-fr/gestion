@@ -121,25 +121,29 @@ describe('repli sur AUTH_PASSWORD', () => {
   });
 });
 
-describe('CORS', () => {
-  it('autorise l’origine de production', async () => {
-    const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, ORIGIN);
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
+describe('origine unique — plus aucun CORS', () => {
+  /**
+   * Le front est servi sur la MÊME origine que cette API (SPEC §1.2) : la
+   * route /api/* de wrangler.toml capte les appels avant Pages. Il n'y a donc
+   * plus d'en-têtes CORS à émettre, ni de liste d'origines à tenir à jour.
+   *
+   * Ce test verrouille l'absence : réintroduire un middleware CORS « au cas
+   * où » ferait silencieusement revenir la liste d'origines qu'on vient de
+   * supprimer, avec le piège d'entretien qui va avec.
+   */
+  it('n’émet aucun en-tête Access-Control, quelle que soit l’origine', async () => {
+    for (const origin of [ORIGIN, 'https://site-malveillant.example']) {
+      const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, origin);
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
+      expect(res.headers.get('Access-Control-Allow-Methods')).toBeNull();
+    }
   });
 
-  it('autorise le serveur de dev', async () => {
-    const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, 'http://localhost:7860');
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:7860');
-  });
-
-  it('n’envoie aucun en-tête ACAO à une origine inconnue', async () => {
-    const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, 'https://site-malveillant.example');
+  it('ne répond plus au préflight : il n’y en a plus', async () => {
+    const res = await worker.fetch(
+      new Request('https://w.dev/api/contents', { method: 'OPTIONS', headers: { Origin: ORIGIN } }),
+      ENV
+    );
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
-    expect(res.headers.get('Vary')).toBe('Origin');
-  });
-
-  it('répond au préflight OPTIONS', async () => {
-    const res = await worker.fetch(new Request('https://w.dev/v1/pages', { method: 'OPTIONS', headers: { Origin: ORIGIN } }), ENV);
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
   });
 });

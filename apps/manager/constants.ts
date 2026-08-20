@@ -5,16 +5,17 @@ import { ContentStatus, Platform } from "./types";
 export { SITE_URL, SIGNATURE_SLIDE } from "@luminose/editorial";
 
 /**
- * Origine de l'API.
+ * Origine de l'API — VIDE, donc relative (SPEC §1.2).
  *
- * Surchargeable par VITE_WORKER_URL pour pointer un `wrangler dev` local et
- * rejouer le parcours complet sans toucher à la production.
+ * Le front est servi par Cloudflare Pages sur gestion.luminose.fr, et le
+ * Worker capte /api/* sur cette même origine. Les appels partent donc en
+ * `/api/...` : plus de CORS, et surtout plus d'origine figée au build — le
+ * piège classique d'une URL de développement partie en production.
  *
- * À la bascule vers l'origine unique (SPEC §1.2), la valeur deviendra "" :
- * le front appellera /api/* en relatif, sur la même origine que lui.
+ * En local, le proxy de vite.config.ts renvoie /api vers `wrangler dev`, ce qui
+ * fait emprunter au développement exactement le même chemin qu'à la production.
  */
-export const WORKER_URL =
-  import.meta.env.VITE_WORKER_URL ?? "https://gestion-luminose-worker.luminose.workers.dev";
+export const WORKER_URL = "";
 
 /** Site public de Florent — inséré dans les CTA des posts. */
 

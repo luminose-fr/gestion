@@ -5,11 +5,9 @@
  *   /api/*        l'API sur D1, seule utilisée par le front
  *   /v1/*         proxy Notion résiduel — aucun client, gardé comme filet
  *
- * CORS : maintenu tant que le front vit sur GitHub Pages. Il disparaîtra en
- * phase 5 avec le passage à l'origine unique (SPEC §1.2).
+ * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
  */
 import { Hono } from 'hono';
-import { cors } from 'hono/cors';
 import { ZodError } from 'zod';
 import type { Env } from './env';
 import { createSessionToken, verifySessionToken, getSessionSecret } from './auth';
@@ -19,19 +17,12 @@ import { models } from './routes/models';
 import { ai } from './routes/ai';
 import { legacy } from './routes/legacy';
 
-const ALLOWED_ORIGINS = [
-  'https://gestion.luminose.fr',
-  'http://localhost:7860',
-  'http://127.0.0.1:7860',
-];
-
 const app = new Hono<{ Bindings: Env }>();
 
-app.use('*', cors({
-  origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : null),
-  allowHeaders: ['Content-Type', 'Notion-Version', 'X-Session-Token'],
-  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-}));
+// Aucun CORS : le front est servi sur la MÊME origine que cette API
+// (gestion.luminose.fr, route /api/* de wrangler.toml — SPEC §1.2). Il n'y a
+// donc plus de liste d'origines à tenir à jour, ni de préflight. En local, le
+// proxy de Vite reproduit la même situation.
 
 // ── Authentification ─────────────────────────────────────────────────────
 

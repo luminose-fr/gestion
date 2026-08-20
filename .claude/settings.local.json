@@ -61,7 +61,20 @@
       "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr status --short)",
       "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr status --short -- gestion-luminose-worker/)",
       "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr check-ignore gestion-luminose-worker/src/index.js)",
-      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr diff --stat package-lock.json package.json)"
+      "Bash(git -C /Users/flornet/Sites/gestion.luminose.fr diff --stat package-lock.json package.json)",
+      "Bash(ssh flornet@192.168.64.4 'pkill -f \"wrangler dev --port 8788\" 2>/dev/null; pkill -f \"vite\" 2>/dev/null; sleep 2; cd ~/Shared/Sites/gestion.luminose.fr/workers/api && \\(nohup npx wrangler dev --port 8788 --local > /tmp/wdev2.log 2>&1 &\\) ; cd ~/Shared/Sites/gestion.luminose.fr && \\(VITE_API_TARGET=http://localhost:8788 nohup npm run dev > /tmp/vite.log 2>&1 &\\) ; sleep 16; curl -s -o /dev/null -w \"  /api/contents : %{http_code}\\\\n\" --max-time 8 http://localhost:7860/api/contents; curl -s -o /dev/null -w \"  /auth.ts      : %{http_code}\\\\n\" --max-time 8 http://localhost:7860/auth.ts')",
+      "Bash(ssh flornet@192.168.64.4 'curl -s -o /dev/null -w \"  /api/contents : %{http_code} \\(401 attendu\\)\\\\n\" --max-time 8 http://localhost:7860/api/contents; curl -s -o /dev/null -w \"  /auth.ts      : %{http_code} \\(200 attendu\\)\\\\n\" --max-time 8 http://localhost:7860/auth.ts')",
+      "Bash(ssh flornet@192.168.64.4 'tail -12 /tmp/vite.log')",
+      "Bash(ssh flornet@192.168.64.4 'pgrep -af \"vite|wrangler\" | grep -v research | head -6; echo \"--- ports ---\"; ss -tlnp 2>/dev/null | grep -E \":786[0-9]|:878[0-9]\" | head -5')",
+      "Bash(ssh flornet@192.168.64.4 'kill 131591 131592 2633 2>/dev/null; sleep 2; cd ~/Shared/Sites/gestion.luminose.fr/workers/api && setsid nohup npx wrangler dev --port 8788 --local > /tmp/wdev2.log 2>&1 < /dev/null & sleep 18; ss -tln 2>/dev/null | grep -c \":8788\" || echo 0')",
+      "Bash(ssh flornet@192.168.64.4 'ss -tln 2>/dev/null | grep \":8788\" && echo \"Worker 8788 en écoute\" || \\(echo \"pas en écoute — log :\"; tail -4 /tmp/wdev2.log\\)')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && setsid env VITE_API_TARGET=http://localhost:8788 nohup npm run dev > /tmp/vite.log 2>&1 < /dev/null & sleep 14; curl -s -o /dev/null -w \"  /api/contents : %{http_code} \\(401 attendu\\)\\\\n\" --max-time 8 http://localhost:7860/api/contents; curl -s -o /dev/null -w \"  /auth.ts      : %{http_code} \\(200 attendu\\)\\\\n\" --max-time 8 http://localhost:7860/auth.ts')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr/workers/api && npx wrangler d1 execute DB --local --file=../../tools/import-notion/import.sql 2>&1 | tail -2 | head -1')",
+      "Bash(ssh flornet@192.168.64.4 'pkill -f \"wrangler dev --port 8788\"; pkill -f \"gestion.luminose.fr/node_modules/.bin/vite\"; sleep 2; rm -rf ~/Shared/Sites/gestion.luminose.fr/workers/api/.wrangler /tmp/vite.log /tmp/wdev2.log; echo \"nettoyé côté VM\"; pgrep -af \"wrangler dev|vite\" | grep -c research || true')",
+      "Bash(ssh flornet@192.168.64.4 'ss -tln 2>/dev/null | grep -E \":7860|:8788\" | wc -l; echo \"--- autre projet intact ? ---\"; ss -tln 2>/dev/null | grep -c \":8787\"')",
+      "Bash(ssh flornet@192.168.64.4 'ss -tlnp 2>/dev/null | grep -E \":7860|:8788\"; echo \"---\"; pgrep -af \"vite\" | grep gestion | head -2')",
+      "Bash(ssh flornet@192.168.64.4 'kill 132626 132600 2>/dev/null; sleep 2; ss -tln 2>/dev/null | grep -cE \":7860|:8788\" ; echo \"\\(0 = arrêté\\)\"; ss -tln 2>/dev/null | grep -c \":8787\"; echo \"\\(1 = autre projet intact\\)\"')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && npm test 2>&1 | grep -E \"Tests \" | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | awk \"{s+=\\\\$2} END {print \\\\\"TOTAL :\\\\\", s, \\\\\"tests\\\\\"}\"; npm run typecheck 2>&1 | grep -c \"error TS\"')"
     ]
   }
 }
