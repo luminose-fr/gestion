@@ -9,6 +9,12 @@ main = "src/index.ts"
 compatibility_date = "2026-01-31"
 compatibility_flags = ["nodejs_compat"]
 
+# Ajouter `routes` désactive workers.dev par DÉFAUT — et le front l'appelle
+# encore en absolu. Le laisser actif garde les deux chemins ouverts pendant la
+# bascule vers l'origine unique, et sert de filet ensuite : si la route venait
+# à tomber, l'URL workers.dev reste joignable.
+workers_dev = true
+
 # ─── Origine unique (SPEC §1.2) ──────────────────────────────────────────
 # Le domaine est servi par le projet Pages ; cette route capte /api/* AVANT
 # Pages, sur la même origine que le front. C'est ce qui supprime CORS.
