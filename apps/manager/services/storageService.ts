@@ -1,22 +1,24 @@
-import { ContentItem, AIModel, AppSettings, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from "../types";
+import { ContentItem, AIModel, Serie, AppSettings, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from "../types";
 
 const DB_NAME = "LuminoseDB";
 /**
- * v4 — bascule Notion → D1 (SPEC §11, phase 5).
- *
- * Les items en cache portent l'ancienne forme (`body`, `scriptVideo`,
- * `analyzed`, `lastEdited` en ISO). Les lire avec le nouveau modèle donnerait
- * un affichage silencieusement faux : on VIDE le cache à la montée de version
- * et la première synchronisation le repeuple depuis l'API.
+ * v4 — bascule Notion → D1 (SPEC §11, phase 5) : les items en cache portaient
+ *      l'ancienne forme (`body`, `scriptVideo`, `analyzed`, `lastEdited` en
+ *      ISO). Les lire avec le nouveau modèle donnerait un affichage
+ *      silencieusement faux, d'où la purge sous ce seuil.
+ * v5 — les Séries (SPEC §11, phase 7) : un store s'ajoute, aucune forme
+ *      existante ne change. Rien à jeter.
  */
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const STORE_CONTENT = "content";
 const STORE_MODELS = "models";
+const STORE_SERIES = "series";
+const STORES = [STORE_CONTENT, STORE_MODELS, STORE_SERIES];
 const SYNC_PREFIX = "luminose_sync_";
 const FULL_SYNC_PREFIX = "luminose_full_sync_";
 const APP_SETTINGS_KEY = "luminose_app_settings";
 
-export type SyncScope = "content" | "models";
+export type SyncScope = "content" | "models" | "series";
 
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -24,11 +26,16 @@ const openDB = (): Promise<IDBDatabase> => {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      // Repartir d'un cache vide : les formes d'avant la bascule ne sont pas
-      // lisibles par le nouveau modèle (voir DB_VERSION).
-      for (const store of [STORE_CONTENT, STORE_MODELS]) {
-        if (db.objectStoreNames.contains(store)) db.deleteObjectStore(store);
-        db.createObjectStore(store, { keyPath: "id" });
+      // Sous la v4, le cache porte les formes d'avant la bascule : illisibles
+      // par le modèle actuel, on les jette et la première synchronisation
+      // repeuple depuis l'API (voir DB_VERSION).
+      if (event.oldVersion < 4) {
+        for (const store of STORES) {
+          if (db.objectStoreNames.contains(store)) db.deleteObjectStore(store);
+        }
+      }
+      for (const store of STORES) {
+        if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" });
       }
     };
 
@@ -50,63 +57,53 @@ const withDB = async <T>(operation: (db: IDBDatabase) => Promise<T>): Promise<T>
   }
 };
 
-export const getCachedContent = (): Promise<ContentItem[]> =>
+/**
+ * Lecture d'un store entier. Un store absent (montée de version en cours,
+ * cache jamais peuplé) rend un tableau vide : l'application démarre alors sur
+ * l'API, elle ne plante pas.
+ */
+const readAll = <T>(store: string): Promise<T[]> =>
   withDB(db => new Promise((resolve, reject) => {
     try {
-      const transaction = db.transaction(STORE_CONTENT, "readonly");
-      const store = transaction.objectStore(STORE_CONTENT);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
+      const request = db.transaction(store, "readonly").objectStore(store).getAll();
+      request.onsuccess = () => resolve((request.result || []) as T[]);
       request.onerror = () => reject(request.error);
-    } catch {
-      // Fallback si le store n'existe pas encore (cas rare après upgrade)
+    } catch (e) {
+      console.warn(`Store ${store} introuvable, retour tableau vide`, e);
       resolve([]);
     }
   }));
 
-export const setCachedContent = (items: ContentItem[]): Promise<void> =>
+/** Remplace le contenu d'un store — le cache reflète l'état serveur, pas une accumulation. */
+const replaceAll = <T>(store: string, rows: T[]): Promise<void> =>
   withDB(db => new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_CONTENT, "readwrite");
-    const store = transaction.objectStore(STORE_CONTENT);
-    store.clear();
-    items.forEach(item => store.put(item));
+    const transaction = db.transaction(store, "readwrite");
+    const objectStore = transaction.objectStore(store);
+    objectStore.clear();
+    rows.forEach(row => objectStore.put(row));
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   }));
+
+export const getCachedContent = (): Promise<ContentItem[]> => readAll<ContentItem>(STORE_CONTENT);
+
+export const setCachedContent = (items: ContentItem[]): Promise<void> => replaceAll(STORE_CONTENT, items);
 
 export const updateCachedItem = (item: ContentItem): Promise<void> =>
   withDB(db => new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_CONTENT, "readwrite");
-    const store = transaction.objectStore(STORE_CONTENT);
-    store.put(item);
+    transaction.objectStore(STORE_CONTENT).put(item);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   }));
 
-export const getCachedModels = (): Promise<AIModel[]> =>
-  withDB(db => new Promise((resolve, reject) => {
-    try {
-      const transaction = db.transaction(STORE_MODELS, "readonly");
-      const store = transaction.objectStore(STORE_MODELS);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    } catch (e) {
-      // Evite le crash si le store n'est pas encore prêt
-      console.warn("Store models introuvable, retour tableau vide", e);
-      resolve([]);
-    }
-  }));
+export const getCachedModels = (): Promise<AIModel[]> => readAll<AIModel>(STORE_MODELS);
 
-export const setCachedModels = (models: AIModel[]): Promise<void> =>
-  withDB(db => new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_MODELS, "readwrite");
-    const store = transaction.objectStore(STORE_MODELS);
-    store.clear();
-    models.forEach(m => store.put(m));
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-  }));
+export const setCachedModels = (models: AIModel[]): Promise<void> => replaceAll(STORE_MODELS, models);
+
+export const getCachedSeries = (): Promise<Serie[]> => readAll<Serie>(STORE_SERIES);
+
+export const setCachedSeries = (series: Serie[]): Promise<void> => replaceAll(STORE_SERIES, series);
 
 const safeGetLocalStorage = (key: string): string | null => {
   try {

@@ -1,11 +1,11 @@
 import React from 'react';
 import {
     Lightbulb, Calendar as CalendarIcon, Archive, Users, Settings,
-    Briefcase, CheckCircle2, PenLine, X, Video, Sparkles
+    Briefcase, CheckCircle2, PenLine, X, Video, Sparkles, Layers
 } from 'lucide-react';
 
 type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics';
-type SocialTab = 'drafts' | 'ready' | 'ideas' | 'calendar' | 'archive';
+type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
 
 interface SidebarProps {
     currentSpace: SpaceView;
@@ -15,6 +15,7 @@ interface SidebarProps {
         ideas: number;
         drafts: number;
         ready: number;
+        series: number;
         calendar: number;
         archive: number;
     };
@@ -43,6 +44,7 @@ const SOCIAL_TABS: Array<{
     { id: 'ideas',    icon: Lightbulb,    label: 'Boîte à idées'   },
     { id: 'drafts',   icon: PenLine,      label: 'En cours'        },
     { id: 'ready',    icon: CheckCircle2, label: 'Prêts'           },
+    { id: 'series',   icon: Layers,       label: 'Séries'          },
     { id: 'calendar', icon: CalendarIcon, label: 'Calendrier'      },
     { id: 'archive',  icon: Archive,      label: 'Archives'        },
 ];
@@ -108,6 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (id === 'ideas')    return counts.ideas;
         if (id === 'drafts')   return counts.drafts;
         if (id === 'ready')    return counts.ready;
+        if (id === 'series')   return counts.series;
         if (id === 'calendar') return counts.calendar;
         if (id === 'archive')  return counts.archive;
         return undefined;

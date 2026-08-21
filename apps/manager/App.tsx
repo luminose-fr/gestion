@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
-import { ContentItem, ContentStatus, AIModel, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
+import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
-import { AI_ACTIONS } from '@luminose/editorial';
+import { AI_ACTIONS, type PlanSeriesEntry } from '@luminose/editorial';
 import * as AiService from './services/aiService';
 
 import SettingsPanel from './components/SettingsPanel';
@@ -23,9 +23,21 @@ import { Sidebar } from './components/Layout/Sidebar';
 import { MobileSubTabs } from './components/Layout/MobileSubTabs';
 import { SocialIdeasView } from './components/Views/SocialIdeasView';
 import { SocialGridView } from './components/Views/SocialGridView';
+import { SeriesView } from './components/Series/SeriesView';
+import { SeriePlanView } from './components/Series/SeriePlanView';
 
 type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics';
-type SocialTab = 'drafts' | 'ready' | 'ideas' | 'calendar' | 'archive';
+type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
+
+const SOCIAL_TABS: SocialTab[] = ['drafts', 'ready', 'ideas', 'series', 'calendar', 'archive'];
+
+/** L'onglet où un contenu se trouve naturellement, d'après son statut. */
+const tabForStatus = (status: ContentStatus): SocialTab => {
+    if (status === ContentStatus.IDEA) return 'ideas';
+    if (status === ContentStatus.READY) return 'ready';
+    if (status === ContentStatus.PUBLISHED) return 'archive';
+    return 'drafts';
+};
 
 const getSpaceHash = (space: SpaceView) => {
     if (space === 'psychedelics') return 'psychedeliques';
@@ -42,7 +54,7 @@ const getHashState = () => {
     if (parts[0] === 'psychedelics' || parts[0] === 'psychedeliques') space = 'psychedelics';
     
     let tab: SocialTab = 'ideas'; 
-    if (parts[1] && ['drafts', 'ready', 'ideas', 'calendar', 'archive'].includes(parts[1])) {
+    if (parts[1] && SOCIAL_TABS.includes(parts[1] as SocialTab)) {
         tab = parts[1] as SocialTab;
     }
 
@@ -69,6 +81,7 @@ function App() {
 
   const [items, setItems] = useState<ContentItem[]>([]);
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
+  const [series, setSeries] = useState<Serie[]>([]);
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -146,6 +159,9 @@ function App() {
   const sortByLastEditedDesc = (list: ContentItem[]): ContentItem[] =>
       [...list].sort((a, b) => b.updatedAt - a.updatedAt);
 
+  const sortByUpdatedDesc = (list: Serie[]): Serie[] =>
+      [...list].sort((a, b) => b.updatedAt - a.updatedAt);
+
   useEffect(() => {
       const handleHashChange = () => {
           const { space, tab, itemId, step } = getHashState();
@@ -179,6 +195,12 @@ function App() {
 
   const editingItem = editingItemId ? items.find(i => i.id === editingItemId) || null : null;
 
+  // Sur l'onglet Séries, le troisième segment de l'URL désigne une série, pas
+  // un contenu : c'est ce qui distingue la liste de l'écran de plan.
+  const editingSerie = currentSocialTab === 'series' && editingItemId
+      ? series.find(s => s.id === editingItemId) || null
+      : null;
+
   useEffect(() => {
     setAuthenticated(isAuthenticated());
     setCheckingAuth(false);
@@ -187,26 +209,29 @@ function App() {
   const initData = async () => {
       let cachedItems: ContentItem[] = [];
       let cachedModels: AIModel[] = [];
+      let cachedSeries: Serie[] = [];
       try {
-          [cachedItems, cachedModels] = await Promise.all([
+          [cachedItems, cachedModels, cachedSeries] = await Promise.all([
               StorageService.getCachedContent(),
-              StorageService.getCachedModels()
+              StorageService.getCachedModels(),
+              StorageService.getCachedSeries()
           ]);
 
           if (cachedItems.length > 0) setItems(cachedItems);
           if (cachedModels.length > 0) setAiModels(cachedModels);
+          if (cachedSeries.length > 0) setSeries(cachedSeries);
 
       } catch (e) {
           console.error("Erreur lecture cache:", e);
       } finally {
           setIsInitializing(false);
-          syncWithNotion(false, { items: cachedItems, models: cachedModels });
+          syncWithNotion(false, { items: cachedItems, models: cachedModels, series: cachedSeries });
       }
   };
 
   const syncWithNotion = async (
       forceFullSync = false,
-      baseCache?: { items?: ContentItem[]; models?: AIModel[] }
+      baseCache?: { items?: ContentItem[]; models?: AIModel[]; series?: Serie[] }
   ) => {
     if (isSyncing) return;
     setIsSyncing(true);
@@ -221,10 +246,13 @@ function App() {
         // voulu au premier lancement après la bascule.
         const lastSync = Number(StorageService.getLastSync("content")) || 0;
         const since = forceFullSync || !lastSync ? undefined : lastSync;
+        const lastSerieSync = Number(StorageService.getLastSync("series")) || 0;
+        const sinceSeries = forceFullSync || !lastSerieSync ? undefined : lastSerieSync;
 
-        const [contentRes, modelRes] = await Promise.all([
+        const [contentRes, modelRes, serieRes] = await Promise.all([
             Api.fetchContents(since),
             Api.fetchModels(),
+            Api.fetchSeries(sinceSeries),
         ]);
 
         const baseItems = since ? (baseCache?.items ?? items) : [];
@@ -239,18 +267,29 @@ function App() {
         // cache, sauf si elles portent du travail non enregistré.
         const alive = merged.filter(item => !item.deletedAt || unsaved.has(item.id));
 
+        // Une série supprimée remonte comme une modification ordinaire, avec
+        // son deletedAt : on la retire du cache au passage (SPEC §8).
+        const baseSeries = sinceSeries ? (baseCache?.series ?? series) : [];
+        const nextSeries = sortByUpdatedDesc(
+            (sinceSeries ? mergeById(baseSeries, serieRes.items) : serieRes.items)
+                .filter(serie => !serie.deletedAt)
+        );
+
         const nextItems = sortByLastEditedDesc(alive);
         const nextModels = modelRes.items;
 
         setItems(nextItems);
         setAiModels(nextModels);
+        setSeries(nextSeries);
 
         await Promise.all([
             StorageService.setCachedContent(nextItems),
             StorageService.setCachedModels(nextModels),
+            StorageService.setCachedSeries(nextSeries),
         ]);
 
         StorageService.setLastSync("content", String(contentRes.syncedAt));
+        StorageService.setLastSync("series", String(serieRes.syncedAt));
 
     } catch (err: any) {
         console.error("Sync Error:", err);
@@ -281,6 +320,7 @@ function App() {
     setAuthenticated(false);
     setItems([]);
     setAiModels([]);
+    setSeries([]);
     setIsInitializing(true);
   };
 
@@ -469,6 +509,106 @@ function App() {
       }
   };
 
+  // --- SÉRIES (SPEC §6) ---
+
+  const persistSeries = (next: Serie[]) => {
+      const sorted = sortByUpdatedDesc(next);
+      setSeries(sorted);
+      StorageService.setCachedSeries(sorted).catch(console.error);
+  };
+
+  /**
+   * Crée la série et ouvre son écran de plan dans la foulée : créer une série
+   * vide n'a aucun intérêt en soi, ce qu'on veut c'est la remplir.
+   * L'erreur est propagée pour que le formulaire garde la saisie.
+   */
+  const handleCreateSerie = async (input: {
+      titre: string; intention?: string | null; sourceContentId?: string | null;
+  }): Promise<Serie> => {
+      try {
+          const { serie } = await Api.createSerie(input);
+          persistSeries([serie, ...series]);
+          updateRoute('social', 'series', serie.id);
+          return serie;
+      } catch (e: any) {
+          setAlertInfo({
+              isOpen: true,
+              title: "Création impossible",
+              message: e.message || "La série n'a pas pu être créée.",
+              type: 'error'
+          });
+          throw e;
+      }
+  };
+
+  const handleUpdateSerie = async (id: string, patch: Partial<Serie>): Promise<void> => {
+      try {
+          const { serie } = await Api.updateSerie(id, patch);
+          persistSeries(series.map(s => (s.id === id ? serie : s)));
+      } catch (e: any) {
+          setAlertInfo({
+              isOpen: true,
+              title: "Enregistrement impossible",
+              message: e.message || "La série n'a pas pu être mise à jour.",
+              type: 'error'
+          });
+      }
+  };
+
+  /** La série disparaît, ses contenus survivent — détachés (SPEC §3.3). */
+  const handleDeleteSerie = async (serie: Serie): Promise<void> => {
+      try {
+          await Api.deleteSerie(serie.id);
+          persistSeries(series.filter(s => s.id !== serie.id));
+          const detached = items.map(i => (i.serieId === serie.id ? { ...i, serieId: null } : i));
+          setItems(detached);
+          StorageService.setCachedContent(detached).catch(console.error);
+          updateRoute('social', 'series');
+      } catch (e: any) {
+          setAlertInfo({
+              isOpen: true,
+              title: "Suppression impossible",
+              message: e.message || "La série n'a pas pu être supprimée.",
+              type: 'error'
+          });
+      }
+  };
+
+  /**
+   * Le plan devient des contenus, en une seule écriture transactionnelle
+   * (SPEC §6.3). L'erreur remonte à l'écran de plan, qui garde le tableau
+   * intact : rien n'est perdu si le lot est refusé.
+   */
+  const handleCreateSeriePlan = async (serieId: string, entries: PlanSeriesEntry[]): Promise<void> => {
+      const { items: created } = await Api.createContentsBatch(entries.map(entry => ({
+          title: entry.titre,
+          // L'angle du plan est celui de CE contenu dans la série ; il ne
+          // remplace pas l'angle stratégique, que l'Analyste écrira peut-être.
+          angle: entry.angle || null,
+          targetFormat: entry.format,
+          objectif: entry.objectif,
+          justification: entry.justification || null,
+          serieId,
+          status: ContentStatus.IDEA,
+      })));
+      const next = sortByLastEditedDesc([...created, ...items]);
+      setItems(next);
+      await StorageService.setCachedContent(next);
+  };
+
+  /** « Décliner » depuis un contenu Prêt ou Publié : il devient le pilier. */
+  const handleDeclineContent = (item: ContentItem) => {
+      void handleCreateSerie({
+          titre: item.title || 'Nouvelle série',
+          intention: null,
+          sourceContentId: item.id,
+      }).catch(() => { /* alerte déjà affichée */ });
+  };
+
+  const handleOpenSerieContent = (item: ContentItem) => {
+      updateRoute('social', tabForStatus(item.status), item.id, 'idea');
+  };
+
   // --- AI ANALYSIS FLOW (sans modale — modèle actif global) ---
 
   const triggerSingleAnalysis = (item: ContentItem) => {
@@ -583,10 +723,11 @@ function App() {
       ideas:    items.filter(i => i.status === ContentStatus.IDEA).length,
       drafts:   items.filter(i => i.status === ContentStatus.DRAFTING).length,
       ready:    items.filter(i => i.status === ContentStatus.READY).length,
+      series:   series.filter(s => s.statut === 'en_cours').length,
       calendar: items.filter(i => !!i.scheduledDate && new Date(i.scheduledDate) > today).length,
       archive:  items.filter(i => i.status === ContentStatus.PUBLISHED && !!i.scheduledDate && new Date(i.scheduledDate) < today).length,
     };
-  }, [items]);
+  }, [items, series]);
 
   // ── Returns conditionnels (après tous les hooks) ──────────────────────────
 
@@ -649,6 +790,7 @@ function App() {
                   {currentSpace === 'social' && currentSocialTab === 'ideas' && 'Boîte à idées'}
                   {currentSpace === 'social' && currentSocialTab === 'drafts' && 'En cours'}
                   {currentSpace === 'social' && currentSocialTab === 'ready' && 'Prêts à publier'}
+                  {currentSpace === 'social' && currentSocialTab === 'series' && (editingSerie ? editingSerie.titre : 'Séries')}
                   {currentSpace === 'social' && currentSocialTab === 'calendar' && 'Calendrier'}
                   {currentSpace === 'social' && currentSocialTab === 'archive' && 'Archives'}
                   {currentSpace === 'clients' && 'Clients'}
@@ -777,6 +919,7 @@ function App() {
                         onClose={handleCloseEditor}
                         onSave={handleUpdateItem}
                         onDelete={handleDeleteItem}
+                        onDecline={handleDeclineContent}
                         activeStep={currentEditorStep}
                         onStepChange={handleStepChange}
                         initialAction={pendingEditorAction}
@@ -835,6 +978,34 @@ function App() {
                                     onNavigateToIdeas={() => updateRoute('social', 'ideas')}
                                     displayPrefs={displayPrefs}
                                 />
+                            )}
+
+                            {currentSocialTab === 'series' && (
+                                editingSerie ? (
+                                    <SeriePlanView
+                                        serie={editingSerie}
+                                        contents={items.filter(i => i.serieId === editingSerie.id)}
+                                        sourceContent={
+                                            editingSerie.sourceContentId
+                                                ? items.find(i => i.id === editingSerie.sourceContentId) || null
+                                                : null
+                                        }
+                                        onBack={() => updateRoute('social', 'series')}
+                                        onUpdate={(patch) => handleUpdateSerie(editingSerie.id, patch)}
+                                        onDelete={() => handleDeleteSerie(editingSerie)}
+                                        onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
+                                        onOpenContent={handleOpenSerieContent}
+                                    />
+                                ) : (
+                                    <SeriesView
+                                        series={series}
+                                        contents={items}
+                                        isInitializing={isInitializing}
+                                        isSyncing={isSyncing}
+                                        onOpen={(serie) => updateRoute('social', 'series', serie.id)}
+                                        onCreate={async (input) => { await handleCreateSerie(input); }}
+                                    />
+                                )
                             )}
 
                             {currentSocialTab === 'calendar' && (

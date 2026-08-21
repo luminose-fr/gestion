@@ -17,6 +17,9 @@ export * from './voice';
 export * from './formats';
 export * from './objectives';
 
+// Les Séries — plan de publication et anti-répétition (SPEC §6)
+export * from './series';
+
 // Composition des prompts et parsing des réponses
 export * from './prompts';
 export * from './actions';

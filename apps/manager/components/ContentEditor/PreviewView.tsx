@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Eye, RotateCcw, CheckCircle2, Target, Zap, Images, Copy, Check, FileText, Video, Calendar } from 'lucide-react';
+import { Eye, RotateCcw, CheckCircle2, Target, Zap, Images, Copy, Check, FileText, Video, Calendar, Layers } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat } from '../../types';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
@@ -62,9 +62,11 @@ const PublishButton: React.FC<{ onPublish: (date: string) => void; currentDate: 
 interface PreviewViewProps {
     item: ContentItem;
     onChangeStatus: (status: ContentStatus, scheduledDate?: string) => Promise<void>;
+    /** Ouvre une série dont ce contenu est le pilier (SPEC §6.3). */
+    onDecline?: () => void;
 }
 
-export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }) => {
+export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, onDecline }) => {
 
     const isReelShort = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT;
     const isVideoFormat = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
@@ -172,6 +174,18 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus }
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {/* Décliner : la seconde porte d'entrée des séries — celle qui
+                            part d'un contenu existant plutôt que d'un thème (SPEC §6.3). */}
+                        {onDecline && (
+                            <button
+                                onClick={onDecline}
+                                title="Créer une série dont ce contenu est le pilier"
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 rounded-lg border border-violet-200 dark:border-violet-800/50 transition-colors"
+                            >
+                                <Layers className="w-3.5 h-3.5" />
+                                Décliner
+                            </button>
+                        )}
                         {item.status === ContentStatus.READY && (
                             <PublishButton onPublish={(date) => onChangeStatus(ContentStatus.PUBLISHED, date)} currentDate={item.scheduledDate} />
                         )}

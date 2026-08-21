@@ -23,8 +23,10 @@ import SubtitleConverter from '../components/SubtitleConverter';
 import PsychedelicsCalculator from '../components/PsychedelicsCalculator';
 import { SocialIdeasView } from '../components/Views/SocialIdeasView';
 import { SocialGridView } from '../components/Views/SocialGridView';
+import { SeriesView } from '../components/Series/SeriesView';
+import { SeriePlanView } from '../components/Series/SeriePlanView';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
-import type { AIModel, ContentItem } from '../types';
+import type { AIModel, ContentItem, Serie } from '../types';
 
 const now = Date.now();
 
@@ -44,6 +46,12 @@ const ITEM: ContentItem = {
   suggestedMetaphor: null, notes: '', draft: null, slides: null,
   coachStatus: null, coachFormatCible: null, coachBrief: null, coachValidatedAt: null,
   serieId: null, angle: null, scheduledDate: null, legacyJson: null,
+  createdAt: now, updatedAt: now, deletedAt: null,
+};
+
+const SERIE: Serie = {
+  id: 's1', titre: 'Qu’est-ce qu’un psychopraticien transpersonnel ?',
+  intention: 'Faire comprendre le métier', statut: 'en_cours', sourceContentId: null,
   createdAt: now, updatedAt: now, deletedAt: null,
 };
 
@@ -133,5 +141,51 @@ describe('vues de contenu', () => {
       expect(() => render(<SocialGridView {...(shared as any)} items={[ITEM]} type={type} />)).not.toThrow();
       cleanup();
     }
+  });
+});
+
+describe('séries', () => {
+  it('SeriesView se monte vide et peuplée', () => {
+    const { container } = render(
+      <SeriesView series={[]} contents={[]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} />
+    );
+    expect(container.textContent).toContain('Aucune série');
+    cleanup();
+
+    const populated = render(
+      <SeriesView series={[SERIE]} contents={[ITEM]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} />
+    );
+    expect(populated.container.textContent).toContain('psychopraticien');
+  });
+
+  const planProps = {
+    contents: [] as ContentItem[],
+    sourceContent: null,
+    onBack: noop,
+    onUpdate: asyncNoop,
+    onDelete: asyncNoop,
+    onCreateContents: asyncNoop,
+    onOpenContent: noop,
+  };
+
+  it('SeriePlanView se monte avec un plan vide', () => {
+    const { container } = render(<SeriePlanView {...(planProps as any)} serie={SERIE} />);
+    expect(container.textContent).toContain('Plan de publication');
+    expect(container.textContent).toContain('Le plan est vide');
+  });
+
+  /** Le pilier et les contenus rattachés sont deux rendus distincts du même écran. */
+  it('SeriePlanView se monte avec un contenu pilier et des contenus rattachés', () => {
+    const serieWithSource: Serie = { ...SERIE, sourceContentId: ITEM.id };
+    const { container } = render(
+      <SeriePlanView
+        {...(planProps as any)}
+        serie={serieWithSource}
+        sourceContent={ITEM}
+        contents={[{ ...ITEM, serieId: SERIE.id, angle: 'La mécanique du piège' }]}
+      />
+    );
+    expect(container.textContent).toContain('Contenu pilier');
+    expect(container.textContent).toContain('La mécanique du piège');
   });
 });

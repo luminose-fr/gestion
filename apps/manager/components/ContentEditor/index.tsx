@@ -30,6 +30,8 @@ interface ContentEditorProps {
   onClose: () => void;
   onSave: (item: ContentItem) => Promise<void>;
   onDelete?: (item: ContentItem) => Promise<void>;
+  /** « Décliner » : ce contenu devient le pilier d'une nouvelle série (SPEC §6.3). */
+  onDecline?: (item: ContentItem) => void;
   // Navigation Props
   activeStep: EditorStep;
   onStepChange: (step: EditorStep) => void;
@@ -48,7 +50,7 @@ export { bodyJsonToText } from '@luminose/editorial';
 // parseAIResponse → ai/executors.ts
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
-    item, aiModels = [], activeModelId, onClose, onSave, onDelete,
+    item, aiModels = [], activeModelId, onClose, onSave, onDelete, onDecline,
     activeStep, onStepChange,
     initialAction = null, onInitialActionConsumed
 }) => {
@@ -851,6 +853,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                 <PreviewView 
                     item={editedItem}
                     onChangeStatus={changeStatus}
+                    onDecline={onDecline ? () => onDecline(editedItem) : undefined}
                 />
             )}
         </EditorLayout>
