@@ -166,6 +166,7 @@ describe('séries', () => {
     onDelete: asyncNoop,
     onCreateContents: asyncNoop,
     onOpenContent: noop,
+    onGeneratePlan: async () => [],
   };
 
   it('SeriePlanView se monte avec un plan vide', () => {

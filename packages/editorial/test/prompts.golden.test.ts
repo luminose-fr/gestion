@@ -16,6 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import { AI_ACTIONS } from '../src/actions';
 import { TargetFormat, Objectif } from '../src/domain';
+import { buildSerieContextSection } from '../src/series';
 
 const fixture = (name: string) => `./fixtures/${name}.txt`;
 
@@ -61,6 +62,33 @@ describe('prompts composés', () => {
         undefined, TargetFormat.POST_TEXTE_COURT, Objectif.CONVERSION
       )
     ).toMatchFileSnapshot(fixture('draft-post-court-conversion'));
+  });
+
+  /**
+   * L'anti-répétition est NORMATIVE (SPEC §6.4) : cette fixture est le seul
+   * endroit où l'on voit ce que le Rédacteur reçoit vraiment des contenus
+   * frères — leurs titres et leurs angles, et rien de leur texte.
+   */
+  it('DRAFT_CONTENT — post court, dans une série', async () => {
+    const serieContext = buildSerieContextSection({
+      titre: 'La respiration holotropique, sans folklore',
+      intention: 'Lever les peurs et les fantasmes sur la pratique.',
+      sourceText: 'Le texte intégral du contenu pilier.',
+      freres: [
+        { titre: 'Non, vous n’allez pas perdre le contrôle', angle: 'La peur de lâcher prise.' },
+        { titre: 'Ce que le cadre rend possible', angle: 'Le rôle du praticien pendant la séance.' },
+      ],
+    });
+    await expect(
+      AI_ACTIONS.DRAFT_CONTENT.getSystemInstruction(
+        undefined, TargetFormat.POST_TEXTE_COURT, Objectif.RECADRAGE, serieContext
+      )
+    ).toMatchFileSnapshot(fixture('draft-post-court-serie'));
+  });
+
+  it('PLAN_SERIES', async () => {
+    await expect(AI_ACTIONS.PLAN_SERIES.getSystemInstruction())
+      .toMatchFileSnapshot(fixture('plan-series'));
   });
 
   it('COLD_READ', async () => {

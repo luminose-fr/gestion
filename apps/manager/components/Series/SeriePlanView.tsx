@@ -6,7 +6,7 @@ import {
     ContentItem, Serie, SerieStatus, TargetFormat, Objectif,
     TARGET_FORMAT_VALUES, OBJECTIF_VALUES, isTargetFormat, isObjectif,
 } from '../../types';
-import { PlanSeriesEntry, emptyPlanEntry, isPlanEntryUsable } from '@luminose/editorial';
+import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable } from '@luminose/editorial';
 import { ConfirmModal } from '../CommonModals';
 
 interface SeriePlanViewProps {
@@ -21,7 +21,16 @@ interface SeriePlanViewProps {
     /** Création en lot : six contenus ou zéro, jamais une série à moitié peuplée (SPEC §6.3). */
     onCreateContents: (entries: PlanSeriesEntry[]) => Promise<void>;
     onOpenContent: (item: ContentItem) => void;
+    /**
+     * L'Éclateur (SPEC §6.2). `dejaPrevus` porte les angles déjà pris — les
+     * contenus créés ET les lignes du tableau : régénérer ne doit pas
+     * reproposer ce qui est déjà là.
+     */
+    onGeneratePlan: (nombreSouhaite: number, dejaPrevus: SerieSibling[]) => Promise<PlanSeriesEntry[]>;
 }
+
+/** Longueurs de série proposées — au-delà, l'équilibre éditorial se dilue. */
+const TAILLES = [3, 4, 5, 6, 8, 10];
 
 const STATUT_OPTIONS: Array<{ value: SerieStatus; label: string }> = [
     { value: 'en_cours', label: 'En cours' },
@@ -34,7 +43,8 @@ const inputCls =
     'placeholder-brand-main/40 dark:placeholder-dark-text/40 outline-hidden transition-colors';
 
 export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
-    serie, contents, sourceContent, onBack, onUpdate, onDelete, onCreateContents, onOpenContent
+    serie, contents, sourceContent, onBack, onUpdate, onDelete, onCreateContents, onOpenContent,
+    onGeneratePlan
 }) => {
     /**
      * Le plan vit en mémoire jusqu'à la création en lot : tant que Florent
@@ -46,6 +56,8 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     const [isCreating, setIsCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [isPlanning, setIsPlanning] = useState(false);
+    const [nombreSouhaite, setNombreSouhaite] = useState(6);
 
     // Champs d'en-tête : édition locale, écriture au blur — une requête par
     // champ quitté, pas une par frappe.
@@ -67,15 +79,39 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
 
     const removeRow = (index: number) => setRows(prev => prev.filter((_, i) => i !== index));
 
+    /**
+     * Le plan généré s'AJOUTE aux lignes présentes plutôt que de les remplacer :
+     * une ligne écrite à la main ne doit pas disparaître parce qu'on a demandé
+     * une rallonge à l'Éclateur.
+     */
+    const handleGenerate = async () => {
+        if (isPlanning) return;
+        setIsPlanning(true);
+        setCreateError(null);
+        try {
+            const dejaPrevus: SerieSibling[] = [
+                ...contents.map(item => ({ titre: item.title, angle: item.angle })),
+                ...usableRows.map(row => ({ titre: row.titre, angle: row.angle })),
+            ];
+            const entries = await onGeneratePlan(nombreSouhaite, dejaPrevus);
+            setRows(prev => [...prev, ...entries]);
+        } catch (e: any) {
+            setCreateError(e?.message || "L'Éclateur n'a pas pu produire de plan.");
+        } finally {
+            setIsPlanning(false);
+        }
+    };
+
     const handleCreate = async () => {
         if (usableRows.length === 0 || isCreating) return;
         setIsCreating(true);
         setCreateError(null);
         try {
             await onCreateContents(usableRows);
-            // Le plan a été transformé en contenus : il n'a plus de raison
-            // d'être à l'écran, et le garder inviterait à le créer deux fois.
-            setRows([]);
+            // Les lignes créées quittent le plan — les garder inviterait à les
+            // créer deux fois. Une ligne encore sans titre reste : c'est du
+            // travail en cours, pas un déchet.
+            setRows(prev => prev.filter(row => !isPlanEntryUsable(row)));
         } catch (e: any) {
             setCreateError(e?.message || "La création en lot a échoué.");
         } finally {
@@ -175,6 +211,25 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         {rows.length === 0 ? 'aucune ligne' : `${usableRows.length} contenu${usableRows.length > 1 ? 's' : ''} à créer`}
                     </span>
                     <div className="ml-auto flex items-center gap-2">
+                        <select
+                            value={nombreSouhaite}
+                            onChange={e => setNombreSouhaite(Number(e.target.value))}
+                            title="Nombre de publications demandé à l'Éclateur"
+                            className="px-2 py-1.5 rounded-sm border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-[10px] font-semibold text-brand-main/70 dark:text-dark-text/70 outline-hidden cursor-pointer"
+                        >
+                            {TAILLES.map(n => (
+                                <option key={n} value={n}>{n} publications</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={handleGenerate}
+                            disabled={isPlanning}
+                            title="L'Éclateur propose un plan à partir du sujet, de l'intention et du contenu pilier"
+                            className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs transition-colors disabled:opacity-50 bg-white dark:bg-violet-900/30 hover:bg-violet-50 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800"
+                        >
+                            {isPlanning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                            {isPlanning ? 'L’Éclateur travaille…' : 'Générer un plan'}
+                        </button>
                         <button
                             onClick={addRow}
                             className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs transition-colors bg-white dark:bg-dark-surface hover:bg-brand-light dark:hover:bg-dark-bg text-brand-main/60 dark:text-dark-text/60 border-brand-border dark:border-dark-sec-border"
@@ -203,8 +258,9 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     <div className="px-4 py-10 text-center">
                         <Wand2 className="w-10 h-10 mx-auto mb-3 text-brand-border dark:text-dark-sec-border" />
                         <p className="text-sm text-brand-main/60 dark:text-dark-text/60 max-w-md mx-auto">
-                            Le plan est vide. Ajoutez les publications de la série ligne par ligne :
-                            un titre, l'angle propre à chaque contenu, son format et son objectif.
+                            Le plan est vide. Demandez-en un à l'Éclateur, ou ajoutez les publications
+                            ligne par ligne : un titre, l'angle propre à chaque contenu, son format
+                            et son objectif.
                         </p>
                     </div>
                 ) : (

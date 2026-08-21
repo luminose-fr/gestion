@@ -7,19 +7,41 @@
 
 import { TargetFormat, isTargetFormat } from './domain';
 import { parseBodyJson } from './formats';
+import { PlanSeriesEntry, normalizePlanEntry, isPlanEntryUsable } from './series';
 
 // ── Extraction JSON ──
+
+/** Retire les balises markdown dont les modèles enrobent volontiers leur JSON. */
+const stripFences = (responseText: string): string =>
+    responseText
+        .replace(/```json\s?/g, '')
+        .replace(/```\s?/g, '')
+        .trim()
+        .replace(/^json\s*/i, '')
+        .trim();
 
 /** Extrait un objet JSON nettoyé depuis une réponse IA brute */
 export const extractJsonPayload = (responseText: string): string => {
     if (!responseText) return "";
-    let cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
-    cleaned = cleaned.replace(/^json\s*/i, '').trim();
+    const cleaned = stripFences(responseText);
 
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+        return cleaned.slice(firstBrace, lastBrace + 1);
+    }
+    return cleaned;
+};
+
+/** Même chose pour une réponse attendue en TABLEAU (l'Analyste, l'Éclateur). */
+export const extractJsonArrayPayload = (responseText: string): string => {
+    if (!responseText) return "";
+    const cleaned = stripFences(responseText);
+
+    const first = cleaned.indexOf('[');
+    const last = cleaned.lastIndexOf(']');
+    if (first !== -1 && last !== -1 && last > first) {
+        return cleaned.slice(first, last + 1);
     }
     return cleaned;
 };
@@ -112,6 +134,36 @@ export const sanitizeSlidesResponse = (responseText: string): string => {
         : rest.slides;
 
     return JSON.stringify({ ...rest, slides: sanitizedSlides }, null, 2);
+};
+
+/**
+ * Parse le plan renvoyé par l'Éclateur (SPEC §6.2).
+ *
+ * Tolérant sur le contenu, strict sur la forme : une entrée dont le format ou
+ * l'objectif sort du vocabulaire est conservée avec ces champs à null — c'est
+ * un choix que Florent fera dans le tableau — mais une réponse qui n'est pas
+ * un tableau JSON est une erreur, pas un plan.
+ */
+export const parsePlanSeriesResponse = (responseText: string): PlanSeriesEntry[] => {
+    const cleaned = extractJsonArrayPayload(responseText);
+    if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
+
+    let data: unknown;
+    try {
+        data = JSON.parse(cleaned);
+    } catch {
+        throw new Error("Le plan de série n'est pas un JSON valide.");
+    }
+
+    if (!Array.isArray(data)) {
+        throw new Error("Format de plan invalide (tableau JSON attendu).");
+    }
+
+    const entries = data.map(normalizePlanEntry).filter(isPlanEntryUsable);
+    if (entries.length === 0) {
+        throw new Error("Le plan ne contient aucune publication exploitable.");
+    }
+    return entries;
 };
 
 // ── Contraintes carrousel (vérifiées côté code, pas côté prompt) ──

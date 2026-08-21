@@ -14,6 +14,8 @@ import { REDACTEUR_PERSONA, REDACTEUR_ADJUSTMENT_INTRO } from './redacteur';
 import { ARTISTE_PERSONA } from './artiste';
 import { VERROUILLEUR_PERSONA } from './verrouilleur';
 import { LECTEUR_FROID_PERSONA } from './lecteurFroid';
+import { ECLATEUR_PERSONA } from './eclateur';
+import { OBJECTIF_VALUES } from '../domain';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -26,7 +28,8 @@ export type AIAction =
     | 'ADJUST_CONTENT'
     | 'COLD_READ'
     | 'GENERATE_CARROUSEL_SLIDES'
-    | 'ADJUST_DZINE_PROMPTS';
+    | 'ADJUST_DZINE_PROMPTS'
+    | 'PLAN_SERIES';
 
 // ── Personas (base fixe) ─────────────────────────────────────────────
 
@@ -40,6 +43,7 @@ const PERSONA_PROMPTS: Record<string, string> = {
     COLD_READ: LECTEUR_FROID_PERSONA,
     GENERATE_CARROUSEL_SLIDES: ARTISTE_PERSONA,
     ADJUST_DZINE_PROMPTS: ARTISTE_PERSONA,
+    PLAN_SERIES: ECLATEUR_PERSONA,
 };
 
 // ── Règles de sortie par action ──────────────────────────────────────
@@ -54,7 +58,7 @@ Pour chaque idée, retourne un objet JSON avec exactement ces champs :
 2. 'titre' : Titre de travail proposé.
 3. 'verdict' : uniquement une des valeurs suivantes : 'Valide', 'Trop lisse', 'À revoir'.
 4. 'justification' : 2-3 phrases maximum expliquant le verdict.
-5. 'objectif' : exactement une des valeurs suivantes : "Notoriété" | "Recadrage de croyance" | "Confiance / Preuve" | "Éducation pratique" | "Trafic contenu long" | "Conversion séance" | "Promotion événement". C'est l'objectif business du post (voir la liste des objectifs dans ton persona) — il dictera le CTA du Rédacteur. Choisis-en UN seul, celui qui sert le mieux l'idée.
+5. 'objectif' : exactement une des valeurs suivantes : ${OBJECTIF_VALUES.map(v => `"${v}"`).join(' | ')}. C'est l'objectif business du post (voir la liste des objectifs dans ton persona) — il dictera le CTA du Rédacteur. Choisis-en UN seul, celui qui sert le mieux l'idée.
 6. 'plateformes' : un tableau contenant uniquement les noms exacts des plateformes autorisées (Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter).
 7. 'angle_strategique' : L'angle précis, le brief pour l'Intervieweur puis l'Éditeur. 3-5 phrases qui 'durcissent' le propos et précisent la direction, en cohérence avec le format_cible fourni.
 8. 'metaphore_suggeree' : Si une piste métaphorique émerge, la noter ici. Sinon : null.
@@ -139,6 +143,8 @@ LOGIQUE DE SOURCES :
 
 %%OBJECTIF_CTA%%
 
+%%SERIE_CONTEXT%%
+
 RÈGLES DE SORTIE (FIXE) :
 %%FORMAT_TEMPLATE%%
     `.trim(),
@@ -222,6 +228,32 @@ FORMAT DE SORTIE (STRICT) :
 Retourne UNIQUEMENT le JSON. Zéro texte avant, zéro texte après, zéro bloc markdown.
     `.trim(),
 
+    PLAN_SERIES: `
+RÈGLES DE SORTIE (FORMAT JSON STRICT) :
+Tu reçois un objet JSON contenant :
+- sujet : le thème de la série.
+- intention : ce que la série doit produire chez le lecteur (peut être vide).
+- contenu_source : le texte du contenu pilier, ou null si la série n'en a pas.
+- contenus_existants : les publications déjà prévues dans la série, sous la forme {titre, angle}. Leur territoire est pris.
+- nombre_souhaite : le nombre de publications attendu.
+
+Tu retournes EXCLUSIVEMENT un TABLEAU JSON, sans aucun texte avant ou après, sans balises markdown :
+[
+  {
+    "titre": "Titre de travail de la publication.",
+    "angle": "Ce que CETTE publication traite, et qu'aucune autre de la série ne traite. Une à trois phrases, assez précises pour que le Rédacteur sache où aller — et où ne pas aller.",
+    "format": "une valeur EXACTE de la liste des formats disponibles",
+    "objectif": "exactement une de ces valeurs : ${OBJECTIF_VALUES.map(v => `« ${v} »`).join(' | ')}",
+    "justification": "Pourquoi ce contenu, à cette place de la série. 1 à 2 phrases."
+  }
+]
+
+DISCIPLINE DE SORTIE :
+- Autant d'entrées que le champ nombre_souhaite le demande — sauf si la matière n'en porte pas autant. Dans ce cas, rends-en moins : un plan court et net vaut mieux qu'un plan complété au remplissage.
+- Aucun angle ne recoupe un angle déjà présent dans contenus_existants.
+- Les valeurs de "format" et "objectif" sont recopiées à l'identique depuis les listes fournies. Une valeur approchée est une valeur fausse.
+- Les cinq champs sont obligatoires et non vides.
+    `.trim(),
     ADJUST_DZINE_PROMPTS: `
 Tu reçois :
 1. Le JSON complet d'un carrousel — les prompts Dzine en anglais y sont déjà présents sur les slides ILLUSTRÉE.
@@ -263,6 +295,8 @@ interface BuildOptions {
     formatTemplate?: string;
     /** Règles CTA de l'objectif — injectées dans %%OBJECTIF_CTA%% pour DRAFT_CONTENT */
     objectifCta?: string;
+    /** Contexte de série (anti-répétition) — injecté dans %%SERIE_CONTEXT%% pour DRAFT_CONTENT */
+    serieContext?: string;
     /** Paramètres lecture froide (format, objectif, contenu) — injectés dans %%COLD_READ_PARAMS%% pour COLD_READ */
     coldReadParams?: string;
     /** Profondeur — injectée dans %%PROFONDEUR_INJECTION%% pour GENERATE_INTERVIEW */
@@ -282,7 +316,7 @@ interface BuildOptions {
 }
 
 export function buildSystemPrompt(options: BuildOptions): string {
-    const { action, notionContext, formatTemplate, objectifCta, coldReadParams, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
+    const { action, notionContext, formatTemplate, objectifCta, serieContext, coldReadParams, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
 
     // 1. BASE FIXE : le persona complet (hardcodé)
     const persona = PERSONA_PROMPTS[action] || '';
@@ -304,6 +338,11 @@ export function buildSystemPrompt(options: BuildOptions): string {
             outputRules = outputRules.replace('%%FORMAT_TEMPLATE%%', formatTemplate);
         }
         outputRules = outputRules.replace('%%OBJECTIF_CTA%%', objectifCta || 'OBJECTIF : non défini — un seul CTA, sobre et concret (une seule action, identité de l\'auteur visible).');
+        // Hors série, le marqueur disparaît AVEC sa ligne : un contenu isolé
+        // reçoit exactement le prompt qu'il recevait avant les séries.
+        outputRules = serieContext
+            ? outputRules.replace('%%SERIE_CONTEXT%%', serieContext)
+            : outputRules.replace('\n\n%%SERIE_CONTEXT%%', '');
     }
     if (action === 'COLD_READ') {
         outputRules = outputRules.replace('%%COLD_READ_PARAMS%%', coldReadParams || '');
@@ -336,3 +375,4 @@ export { REDACTEUR_PERSONA, REDACTEUR_ADJUSTMENT_INTRO } from './redacteur';
 export { ARTISTE_PERSONA } from './artiste';
 export { VERROUILLEUR_PERSONA } from './verrouilleur';
 export { LECTEUR_FROID_PERSONA } from './lecteurFroid';
+export { ECLATEUR_PERSONA } from './eclateur';

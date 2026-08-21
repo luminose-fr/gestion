@@ -104,13 +104,15 @@ export const AI_ACTIONS = {
          * @param notionContext - Description du contexte Notion complémentaire (optionnel)
          * @param targetFormat - Le format cible (TargetFormat enum value) — pour injecter le bon template
          * @param objectif - L'objectif du post (Objectif enum value) — pour injecter les règles CTA
+         * @param serieContext - Contexte de série (SPEC §6.4), produit par buildSerieContextSection()
          */
-        getSystemInstruction: (notionContext?: string, targetFormat?: string, objectif?: string) =>
+        getSystemInstruction: (notionContext?: string, targetFormat?: string, objectif?: string, serieContext?: string) =>
             buildSystemPrompt({
                 action: 'DRAFT_CONTENT',
                 notionContext: notionContext || undefined,
                 formatTemplate: getFormatPromptTemplate(targetFormat as any) || '',
                 objectifCta: getObjectifCtaRules(objectif),
+                serieContext: serieContext || undefined,
             }),
     },
 
@@ -147,6 +149,24 @@ export const AI_ACTIONS = {
                 notionContext: notionContext || undefined,
                 currentContent,
                 adjustmentRequest,
+            }),
+    },
+
+    PLAN_SERIES: {
+        generationConfig: {
+            responseMimeType: "application/json" as const
+        },
+        /**
+         * L'Éclateur (SPEC §6.2). Le sujet, l'intention, le texte du contenu
+         * pilier et les publications déjà prévues voyagent dans la charge
+         * utile, pas dans l'instruction système : seul le persona est fixe.
+         *
+         * @param notionContext - Contexte additionnel (optionnel)
+         */
+        getSystemInstruction: (notionContext?: string) =>
+            buildSystemPrompt({
+                action: 'PLAN_SERIES',
+                notionContext: notionContext || undefined,
             }),
     },
 

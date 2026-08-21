@@ -3,12 +3,15 @@ import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown 
 import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
-import { AI_ACTIONS, type PlanSeriesEntry } from '@luminose/editorial';
+import {
+  AI_ACTIONS, bodyJsonToText, buildSerieContextSection,
+  type PlanSeriesEntry, type SerieSibling,
+} from '@luminose/editorial';
 import * as AiService from './services/aiService';
+import { generateSeriePlan } from './services/seriesService';
 
 import SettingsPanel from './components/SettingsPanel';
 import ContentEditor, { EditorStep } from './components/ContentEditor';
-import { bodyJsonToText } from '@luminose/editorial';
 import { IdeaModal } from './components/IdeaModal'; 
 import AnalysisModal from './components/AnalysisModal';
 import CalendarView from './components/CalendarView';
@@ -596,6 +599,19 @@ function App() {
       await StorageService.setCachedContent(next);
   };
 
+  /** L'Éclateur : un plan proposé, jamais créé — c'est le tableau qui décide (SPEC §6.2). */
+  const handleGenerateSeriePlan = (serie: Serie) =>
+      (nombreSouhaite: number, dejaPrevus: SerieSibling[]): Promise<PlanSeriesEntry[]> =>
+          generateSeriePlan({
+              serie,
+              sourceContent: serie.sourceContentId
+                  ? items.find(i => i.id === serie.sourceContentId) || null
+                  : null,
+              dejaPrevus,
+              modelId: activeModelId,
+              nombreSouhaite,
+          });
+
   /** « Décliner » depuis un contenu Prêt ou Publié : il devient le pilier. */
   const handleDeclineContent = (item: ContentItem) => {
       void handleCreateSerie({
@@ -701,6 +717,31 @@ function App() {
     bodyJsonToText(item.draft || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.notes.toLowerCase().includes(searchQuery.toLowerCase())
   ), [items, searchQuery]);
+
+  /**
+   * Ce que le Rédacteur reçoit EN PLUS quand le contenu ouvert appartient à
+   * une série (SPEC §6.4) : le thème, l'intention, le texte du pilier, et les
+   * angles des frères — jamais leur texte.
+   */
+  const editorSerieContext = useMemo(() => {
+      if (!editingItem?.serieId) return undefined;
+      const serie = series.find(s => s.id === editingItem.serieId);
+      if (!serie) return undefined;
+
+      // Un pilier qui serait le contenu ouvert lui-même ne s'auto-alimente pas.
+      const source = serie.sourceContentId && serie.sourceContentId !== editingItem.id
+          ? items.find(i => i.id === serie.sourceContentId) || null
+          : null;
+
+      return buildSerieContextSection({
+          titre: serie.titre,
+          intention: serie.intention,
+          sourceText: source ? (bodyJsonToText(source.draft || '') || source.notes) : null,
+          freres: items
+              .filter(i => i.serieId === serie.id && i.id !== editingItem.id)
+              .map(i => ({ titre: i.title, angle: i.angle })),
+      });
+  }, [editingItem, series, items]);
 
   const ideaItems    = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.IDEA),     [filteredItems]);
   const draftingItems = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.DRAFTING), [filteredItems]);
@@ -920,6 +961,7 @@ function App() {
                         onSave={handleUpdateItem}
                         onDelete={handleDeleteItem}
                         onDecline={handleDeclineContent}
+                        serieContext={editorSerieContext}
                         activeStep={currentEditorStep}
                         onStepChange={handleStepChange}
                         initialAction={pendingEditorAction}
@@ -995,6 +1037,7 @@ function App() {
                                         onDelete={() => handleDeleteSerie(editingSerie)}
                                         onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
                                         onOpenContent={handleOpenSerieContent}
+                                        onGeneratePlan={handleGenerateSeriePlan(editingSerie)}
                                     />
                                 ) : (
                                     <SeriesView

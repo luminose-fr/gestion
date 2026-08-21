@@ -32,6 +32,11 @@ interface ContentEditorProps {
   onDelete?: (item: ContentItem) => Promise<void>;
   /** « Décliner » : ce contenu devient le pilier d'une nouvelle série (SPEC §6.3). */
   onDecline?: (item: ContentItem) => void;
+  /**
+   * Contexte de série pour le Rédacteur (SPEC §6.4) — composé en amont par
+   * @luminose/editorial. `undefined` quand le contenu n'appartient à aucune série.
+   */
+  serieContext?: string;
   // Navigation Props
   activeStep: EditorStep;
   onStepChange: (step: EditorStep) => void;
@@ -50,7 +55,7 @@ export { bodyJsonToText } from '@luminose/editorial';
 // parseAIResponse → ai/executors.ts
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
-    item, aiModels = [], activeModelId, onClose, onSave, onDelete, onDecline,
+    item, aiModels = [], activeModelId, onClose, onSave, onDelete, onDecline, serieContext,
     activeStep, onStepChange,
     initialAction = null, onInitialActionConsumed
 }) => {
@@ -358,10 +363,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       setColdRead(null);
       try {
           const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
+          // Le contexte de série n'arrive qu'au moment de rédiger : c'est là
+          // que l'anti-répétition compte (SPEC §6.4).
           const systemInstruction = actionConfig.getSystemInstruction(
               undefined,
               base.targetFormat || undefined,
-              base.objectif || undefined
+              base.objectif || undefined,
+              serieContext
           );
 
           const promptPayload: Record<string, unknown> = {
@@ -372,6 +380,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               metaphore_suggeree: base.suggestedMetaphor || "Non défini",
               notes: base.notes || "",
           };
+
+          // L'angle propre du contenu dans sa série : c'est SON territoire,
+          // celui que le plan lui a attribué.
+          if (base.angle) promptPayload.angle_dans_la_serie = base.angle;
 
           // Matière : brief verrouillé en priorité, sinon session brute (legacy)
           // Chargée à l'ouverture de l'éditeur (SPEC §3.2)
