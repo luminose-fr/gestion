@@ -25,8 +25,10 @@ export type EditorStep = 'idea' | 'atelier' | 'brouillon' | 'slides' | 'postcour
 interface ContentEditorProps {
   item: ContentItem | null;
   aiModels: AIModel[];
-  /** Modèle IA actif global — utilisé par toutes les actions (plus de modale de choix). */
+  /** Modèle IA actif global — repli des actions sans preset. */
   activeModelId: string;
+  /** Le modèle réglé pour une action donnée (Réglages → Modèles IA). */
+  modelFor: (action: string) => string;
   onClose: () => void;
   onSave: (item: ContentItem) => Promise<void>;
   onDelete?: (item: ContentItem) => Promise<void>;
@@ -55,7 +57,7 @@ export { bodyJsonToText } from '@luminose/editorial';
 // parseAIResponse → ai/executors.ts
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
-    item, aiModels = [], activeModelId, onClose, onSave, onDelete, onDecline, serieContext,
+    item, aiModels = [], activeModelId, modelFor, onClose, onSave, onDelete, onDecline, serieContext,
     activeStep, onStepChange,
     initialAction = null, onInitialActionConsumed
 }) => {
@@ -269,8 +271,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    * Nom du modèle, figé au moment de l'écriture : si le modèle disparaît du
    * catalogue, la provenance lui survit (SPEC §2.6).
    */
-  const modelLabel = () =>
-      aiModels.find(m => m.id === activeModelId)?.name || activeModelId || 'Modèle inconnu';
+  const modelLabel = (modelId: string) =>
+      aiModels.find(m => m.id === modelId)?.name || modelId || 'Modèle inconnu';
 
   /**
    * Écrit une production dans le journal, et la colonne visée avec elle —
@@ -283,14 +285,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       target?: 'draft' | 'slides' | null;
       payload: string;
       instruction?: string | null;
+      /** Le modèle QUI A PRODUIT — pas le modèle actif, qui peut être un autre. */
+      modelId: string;
   }): Promise<void> => {
       if (!editedItem) return;
       try {
           await Api.recordGeneration(editedItem.id, {
               kind: input.kind,
               target: input.target ?? null,
-              modelId: activeModelId || null,
-              modelLabel: modelLabel(),
+              modelId: input.modelId || null,
+              modelLabel: modelLabel(input.modelId),
               instruction: input.instruction ?? null,
               payload: input.payload,
               apply: !!input.target,
@@ -370,7 +374,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           brief = await generateLockedBrief({
               item: editedItem,
               session,
-              modelId: activeModelId,
+              modelId: modelFor('LOCK_BRIEF'),
           });
       } catch (e) {
           console.warn('Verrouillage du brief impossible — fallback session brute.', e);
@@ -387,7 +391,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
       try {
           await Api.updateCoach(editedItem.id, { status: 'validated', brief: validated.brief });
-          if (brief) await journalise({ kind: 'brief', payload: brief });
+          if (brief) await journalise({ kind: 'brief', payload: brief, modelId: modelFor('LOCK_BRIEF') });
           triggerSaveStatus('saved');
       } catch (e: any) {
           if (isMountedRef.current) setSaveError(e?.message || "La validation n'a pas pu être enregistrée.");
@@ -423,14 +427,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               item.objectif || "Non défini",
               plain
           );
-          const responseText = await callAI(activeModelId, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
+          const modeleRelecture = modelFor('COLD_READ');
+          const responseText = await callAI(modeleRelecture, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
           const report = JSON.parse(extractJsonPayload(responseText));
           if (isMountedRef.current && report && report.lecture_naive) {
               setColdRead(report as ColdReadReport);
               // Journalisée sans être appliquée : une relecture ne vise aucune
               // colonne, mais c'est un fait daté qu'on veut pouvoir relire.
               Api.recordGeneration(item.id, {
-                  kind: 'cold_read', modelId: activeModelId || null, modelLabel: modelLabel(),
+                  kind: 'cold_read', modelId: modeleRelecture || null, modelLabel: modelLabel(modeleRelecture),
                   payload: JSON.stringify(report),
               }).catch((e) => console.warn('Relecture non journalisée :', e));
           }
@@ -467,7 +472,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const adjustConfig = AI_ACTIONS.ADJUST_CONTENT;
           const systemInstruction = adjustConfig.getSystemInstruction(undefined, result, instruction);
-          const responseText = await callAI(activeModelId, systemInstruction, "", adjustConfig.generationConfig);
+          const responseText = await callAI(modelFor('ADJUST_CONTENT'), systemInstruction, "", adjustConfig.generationConfig);
           const adjusted = parseDraftResponse(responseText);
           // On garde la version ajustée même si un léger dépassement subsiste (une seule passe)
           result = appendSignatureSlide(adjusted, SIGNATURE_SLIDE);
@@ -531,7 +536,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               }
           }
 
-          const responseText = await callAI(activeModelId, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
+          const modeleRedaction = modelFor('DRAFT_CONTENT');
+          const responseText = await callAI(modeleRedaction, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
           let finalContent = parseDraftResponse(responseText);
 
           // Carrousel : slide Signature (code) + contrôle déterministe des longueurs
@@ -547,10 +553,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
-              if (previousValue) setLastGeneration({ field: 'draft', previousValue, label: `Rédaction régénérée par ${modelLabel()}` });
+              if (previousValue) setLastGeneration({ field: 'draft', previousValue, label: `Rédaction régénérée par ${modelLabel(modeleRedaction)}` });
               // Le brouillon a changé : les slides déjà produites ne collent plus
               if (base.slides) setSlidesStale(true);
-              await journalise({ kind: 'draft', target: 'draft', payload: finalContent });
+              await journalise({ kind: 'draft', target: 'draft', payload: finalContent, modelId: modeleRedaction });
               await saveWithStatus(newItem);
               // Où atterrir après la rédaction : déclaré par format dans le registre
               onStepChange(getEditorTab(base.targetFormat as TargetFormat));
@@ -578,7 +584,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               editedItem?.draft || "Non défini"
           );
 
-          const responseText = await callAI(activeModelId, systemInstruction, "", actionConfig.generationConfig);
+          const modeleSlides = modelFor('GENERATE_CARROUSEL_SLIDES');
+          const responseText = await callAI(modeleSlides, systemInstruction, "", actionConfig.generationConfig);
 
           const cleaned = sanitizeSlidesResponse(responseText);
 
@@ -586,9 +593,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const newItem = { ...editedItem!, slides: cleaned };
           if (isMountedRef.current) {
               setEditedItem(newItem);
-              if (previousValue) setLastGeneration({ field: 'slides', previousValue, label: `Slides régénérées par ${modelLabel()}` });
+              if (previousValue) setLastGeneration({ field: 'slides', previousValue, label: `Slides régénérées par ${modelLabel(modeleSlides)}` });
               setSlidesStale(false);
-              await journalise({ kind: 'slides', target: 'slides', payload: cleaned });
+              await journalise({ kind: 'slides', target: 'slides', payload: cleaned, modelId: modeleSlides });
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
@@ -628,8 +635,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               adjustmentText
           );
 
+          const modeleAjustement = modelFor('ADJUST_CONTENT');
           const responseText = await callAI(
-              activeModelId,
+              modeleAjustement,
               systemInstruction,
               "", // le contenu est déjà dans le system prompt
               actionConfig.generationConfig
@@ -646,13 +654,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
-              if (previousValue) setLastGeneration({ field: targetField, previousValue, label: `Ajustement appliqué par ${modelLabel()}` });
+              if (previousValue) setLastGeneration({ field: targetField, previousValue, label: `Ajustement appliqué par ${modelLabel(modeleAjustement)}` });
               // Ajuster le brouillon périme les slides ; ajuster les slides les remet à jour
               if (targetField === 'slides') setSlidesStale(false);
               else if (editedItem?.slides) setSlidesStale(true);
               // L'instruction fait partie du fait daté : sans elle, on relit un
               // texte modifié sans savoir ce qu'on avait demandé.
-              await journalise({ kind: 'adjustment', target: targetField, payload: cleaned, instruction: adjustmentText });
+              await journalise({ kind: 'adjustment', target: targetField, payload: cleaned, instruction: adjustmentText, modelId: modeleAjustement });
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
@@ -681,8 +689,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               slideNumero
           );
 
+          const modelePrompts = modelFor('ADJUST_DZINE_PROMPTS');
           const responseText = await callAI(
-              activeModelId,
+              modelePrompts,
               systemInstruction,
               "", // les inputs sont déjà dans le system prompt
               actionConfig.generationConfig
@@ -697,6 +706,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               await journalise({
                   kind: 'adjustment', target: 'slides', payload: cleaned,
                   instruction: `Prompts d'image, ${cible} : ${instruction}`,
+                  modelId: modelePrompts,
               });
               await saveWithStatus(newItem);
           }
@@ -969,7 +979,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onSave={onSave}
                     isGenerating={isGenerating}
                     aiModels={aiModels}
-                    activeModelId={activeModelId}
+                    activeModelId={modelFor('COACH_CHAT')}
                     onCoachMessage={handleCoachMessage}
                     onCoachValidate={handleCoachValidate}
                     activeTab={activeStep}

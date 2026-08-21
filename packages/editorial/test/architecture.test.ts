@@ -45,3 +45,29 @@ describe.each(PURE)('packages/%s', (pkg) => {
     expect(offenders.map(f => f.replace(PACKAGES_DIR + '/', ''))).toEqual([]);
   });
 });
+
+/**
+ * Le catalogue des actions réglables (Réglages → Modèle par action) doit
+ * désigner des actions qui existent vraiment. Une entrée orpheline afficherait
+ * un menu qui ne pilote rien.
+ */
+describe('catalogue des actions réglables', () => {
+  it('ne référence que des actions déclarées', async () => {
+    const { AI_ACTIONS, AI_ACTION_CATALOG } = await import('../src/actions');
+    for (const action of AI_ACTION_CATALOG) {
+      expect(Object.keys(AI_ACTIONS)).toContain(action.id);
+    }
+  });
+
+  it('n’expose pas l’Intervieweur, dont plus aucun écran ne déclenche l’action', async () => {
+    const { AI_ACTION_CATALOG } = await import('../src/actions');
+    expect(AI_ACTION_CATALOG.map(a => a.id)).not.toContain('GENERATE_INTERVIEW');
+  });
+
+  it('dit pour chaque action ce qu’elle demande au modèle', async () => {
+    const { AI_ACTION_CATALOG, ATTENDU_LABELS } = await import('../src/actions');
+    for (const action of AI_ACTION_CATALOG) {
+      expect(ATTENDU_LABELS[action.attendu]).toBeTruthy();
+    }
+  });
+});

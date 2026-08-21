@@ -126,6 +126,16 @@ export const setProviderKey = (id: string, apiKey: string) =>
 export const deleteProviderKey = (id: string) =>
   api<ProviderKeyState>(`/settings/providers/${id}`, { method: 'DELETE' });
 
+// ── Modèle par action ────────────────────────────────────────────────────
+
+/** `{ DRAFT_CONTENT: '<id>' }` — les actions absentes prennent le modèle actif. */
+export const fetchActionModels = () => api<{ actions: Record<string, string> }>('/settings/actions');
+
+export const setActionModel = (action: string, modelId: string | null) =>
+  api<{ action: string; modelId: string | null }>(`/settings/actions/${action}`, {
+    method: 'PUT', ...body({ modelId }),
+  });
+
 // ── Sauvegarde complète (SPEC §9.4) ──────────────────────────────────────
 
 /**

@@ -9,10 +9,11 @@
  */
 import { Hono } from 'hono';
 import { PROVIDER_IDS } from '@luminose/ai';
-import { SetProviderKeySchema } from '@luminose/shared';
+import { CONFIGURABLE_ACTIONS } from '@luminose/editorial';
+import { SetProviderKeySchema, SetActionModelSchema } from '@luminose/shared';
 import type { Env } from '../env';
 import { now } from '../db';
-import { readStoredKey, readEnvKey, settingKeyFor, fingerprint } from '../keys';
+import { readEnvKey, settingKeyFor, settingKeyForAction, fingerprint } from '../keys';
 
 export const settings = new Hono<{ Bindings: Env }>();
 
@@ -90,4 +91,61 @@ settings.delete('/providers/:id', async (c) => {
 
   const repli = readEnvKey(c.env, id);
   return c.json({ id, configured: !!repli, source: repli ? 'environnement' : null });
+});
+
+// ── Modèle par action (les « presets ») ──────────────────────────────────
+
+/**
+ * Quel modèle sert quelle action. Sans réglage, l'action prend le modèle actif
+ * — c'est le comportement d'avant, et il reste le repli.
+ *
+ * 1 requête : toutes les affectations d'un coup.
+ */
+settings.get('/actions', async (c) => {
+  const { results } = await c.env.DB
+    .prepare("SELECT key, value FROM app_settings WHERE key LIKE 'action_model:%'")
+    .all();
+
+  const actions: Record<string, string> = {};
+  for (const row of results as any[]) {
+    const action = String(row.key).slice('action_model:'.length);
+    // Une action inconnue en base (renommée, retirée) ne remonte pas : elle
+    // n'a plus de sens et encombrerait l'écran de réglage.
+    if (CONFIGURABLE_ACTIONS.includes(action) && row.value) actions[action] = String(row.value);
+  }
+  return c.json({ actions });
+});
+
+/**
+ * 2 requêtes : on vérifie que le modèle existe avant de l'affecter. Un preset
+ * qui pointe vers un modèle supprimé échouerait au moment de rédiger — c'est-à-dire
+ * au pire moment.
+ */
+settings.put('/actions/:action', async (c) => {
+  const action = c.req.param('action');
+  if (!CONFIGURABLE_ACTIONS.includes(action)) {
+    return c.json({ error: `Action inconnue : « ${action} ».` }, 404);
+  }
+
+  const { modelId } = SetActionModelSchema.parse(await c.req.json());
+  const ts = now();
+
+  // `null` remet l'action sur le modèle actif.
+  if (modelId === null) {
+    await c.env.DB.prepare('DELETE FROM app_settings WHERE key = ?')
+      .bind(settingKeyForAction(action)).run();
+    return c.json({ action, modelId: null });
+  }
+
+  const model = await c.env.DB
+    .prepare('SELECT id FROM ai_models WHERE id = ? AND deleted_at IS NULL')
+    .bind(modelId).first();
+  if (!model) return c.json({ error: 'Modèle introuvable dans le catalogue' }, 404);
+
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  ).bind(settingKeyForAction(action), modelId, ts).run();
+
+  return c.json({ action, modelId });
 });

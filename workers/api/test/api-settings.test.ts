@@ -120,3 +120,58 @@ describe('la clé posée est celle qui part au fournisseur', () => {
     expect(calls[0].headers.Authorization).toBe(`Bearer ${CLE}`);
   });
 });
+
+describe('modèle par action', () => {
+  const creerModele = async (nom: string) =>
+    (await json(await post('/api/models', { name: nom, apiCode: `code-${nom}` }))).model;
+
+  it('sans réglage, aucune action n’est affectée', async () => {
+    const { actions } = await json(await call('/api/settings/actions'));
+    expect(actions).toEqual({});
+  });
+
+  it('affecte un modèle à une action et le relit', async () => {
+    const modele = await creerModele('Rédacteur premium');
+    const res = await put('/api/settings/actions/DRAFT_CONTENT', { modelId: modele.id });
+    expect(res.status).toBe(200);
+
+    const { actions } = await json(await call('/api/settings/actions'));
+    expect(actions).toEqual({ DRAFT_CONTENT: modele.id });
+  });
+
+  /** Un preset qui pointe vers un modèle absent échouerait au moment de rédiger. */
+  it('refuse un modèle qui n’est pas au catalogue', async () => {
+    expect((await put('/api/settings/actions/DRAFT_CONTENT', { modelId: 'fantome' })).status).toBe(404);
+  });
+
+  it('refuse une action inconnue', async () => {
+    const modele = await creerModele('M');
+    expect((await put('/api/settings/actions/RESUMER_TOUT', { modelId: modele.id })).status).toBe(404);
+  });
+
+  it('null remet l’action sur le modèle actif', async () => {
+    const modele = await creerModele('M');
+    await put('/api/settings/actions/COLD_READ', { modelId: modele.id });
+    await put('/api/settings/actions/COLD_READ', { modelId: null });
+
+    const { actions } = await json(await call('/api/settings/actions'));
+    expect(actions.COLD_READ).toBeUndefined();
+  });
+
+  /** L'ancien Intervieweur n'a plus d'écran : il n'a pas à être réglable. */
+  it('ne connaît pas les actions retirées du flux', async () => {
+    const modele = await creerModele('M');
+    expect((await put('/api/settings/actions/GENERATE_INTERVIEW', { modelId: modele.id })).status).toBe(404);
+  });
+
+  it('les presets voyagent dans la sauvegarde, contrairement aux clés', async () => {
+    const modele = await creerModele('M');
+    await put('/api/settings/actions/DRAFT_CONTENT', { modelId: modele.id });
+    await put('/api/settings/providers/openrouter', { apiKey: CLE });
+
+    const sauvegarde = await json(await call('/api/export'));
+    const cles = sauvegarde.settings.map((s: any) => s.key);
+    expect(cles).toContain('action_model:DRAFT_CONTENT');
+    expect(cles.some((k: string) => k.startsWith('provider_key:'))).toBe(false);
+  });
+});

@@ -72,6 +72,8 @@ describe('SettingsPanel', () => {
     displayPrefs: DEFAULT_DISPLAY_PREFS,
     onDisplayPrefsChange: noop,
     onClose: noop,
+    actionModels: {},
+    onActionModelsChange: noop,
   };
 
   it('se monte fermé sans planter', () => {

@@ -19,6 +19,41 @@ import { getObjectifCtaRules } from "./objectives";
 
 // ── Actions IA ───────────────────────────────────────────────────────
 
+/**
+ * Les actions IA du flux éditorial, dans l'ordre où elles interviennent.
+ *
+ * Cette liste — et non les clés de `AI_ACTIONS` — décrit ce que Florent règle :
+ * `GENERATE_INTERVIEW` en est volontairement absente, l'Intervieweur ayant été
+ * remplacé par le Coach et aucun écran ne le déclenchant plus.
+ *
+ * `attendu` dit ce que la tâche demande VRAIMENT au modèle. C'est ce qui guide
+ * la dépense : juger et recopier ne réclament pas de talent d'écriture, porter
+ * la voix n'admet pas d'économie.
+ */
+export const AI_ACTION_CATALOG = [
+    { id: 'ANALYZE_BATCH',             persona: 'Analyste',      label: 'Analyse des idées',        attendu: 'juger' },
+    { id: 'COACH_CHAT',                persona: 'Coach',         label: 'Atelier (conversation)',   attendu: 'voix' },
+    { id: 'LOCK_BRIEF',                persona: 'Verrouilleur',  label: 'Brief verrouillé',         attendu: 'synthèse' },
+    { id: 'DRAFT_CONTENT',             persona: 'Rédacteur',     label: 'Rédaction',                attendu: 'voix' },
+    { id: 'ADJUST_CONTENT',            persona: 'Rédacteur',     label: 'Ajustement du texte',      attendu: 'voix' },
+    { id: 'COLD_READ',                 persona: 'Lecteur froid', label: 'Relecture à froid',        attendu: 'juger' },
+    { id: 'GENERATE_CARROUSEL_SLIDES', persona: 'Artiste',       label: 'Slides du carrousel',      attendu: 'recopie' },
+    { id: 'ADJUST_DZINE_PROMPTS',      persona: 'Artiste',       label: 'Prompts d’image',          attendu: 'recopie' },
+    { id: 'PLAN_SERIES',               persona: 'Éclateur',      label: 'Plan de série',            attendu: 'synthèse' },
+] as const;
+
+export type ConfigurableAction = (typeof AI_ACTION_CATALOG)[number]['id'];
+
+export const CONFIGURABLE_ACTIONS: string[] = AI_ACTION_CATALOG.map(a => a.id);
+
+/** Ce que la tâche demande au modèle, en clair — pour l'écran de réglage. */
+export const ATTENDU_LABELS: Record<string, string> = {
+    juger:    'Juger, classer — la constance compte, pas le style',
+    recopie:  'Recopier sans abîmer — l’obéissance avant le talent',
+    synthèse: 'Synthétiser sans rien perdre — l’exhaustivité compte',
+    voix:     'Porter la voix — c’est le produit lui-même',
+};
+
 export const AI_ACTIONS = {
 
     ANALYZE_BATCH: {

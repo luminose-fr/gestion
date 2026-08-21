@@ -85,6 +85,8 @@ function App() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [series, setSeries] = useState<Serie[]>([]);
+  /** Modèle affecté à chaque action ; une action absente prend le modèle actif. */
+  const [actionModels, setActionModels] = useState<Record<string, string>>({});
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -164,6 +166,16 @@ function App() {
 
   const sortByUpdatedDesc = (list: Serie[]): Serie[] =>
       [...list].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  /**
+   * Le modèle d'une action : son preset, à condition que ce modèle existe
+   * encore au catalogue — sinon le modèle actif. Un preset qui pointe vers un
+   * modèle supprimé ne doit pas faire échouer l'action au moment de l'appel.
+   */
+  const modelFor = (action: string): string => {
+      const preset = actionModels[action];
+      return preset && aiModels.some(m => m.id === preset) ? preset : activeModelId;
+  };
 
   useEffect(() => {
       const handleHashChange = () => {
@@ -252,10 +264,11 @@ function App() {
         const lastSerieSync = Number(StorageService.getLastSync("series")) || 0;
         const sinceSeries = forceFullSync || !lastSerieSync ? undefined : lastSerieSync;
 
-        const [contentRes, modelRes, serieRes] = await Promise.all([
+        const [contentRes, modelRes, serieRes, actionRes] = await Promise.all([
             Api.fetchContents(since),
             Api.fetchModels(),
             Api.fetchSeries(sinceSeries),
+            Api.fetchActionModels(),
         ]);
 
         const baseItems = since ? (baseCache?.items ?? items) : [];
@@ -284,6 +297,7 @@ function App() {
         setItems(nextItems);
         setAiModels(nextModels);
         setSeries(nextSeries);
+        setActionModels(actionRes.actions ?? {});
 
         await Promise.all([
             StorageService.setCachedContent(nextItems),
@@ -407,7 +421,7 @@ function App() {
       }
       // Plus de modale de config : on ouvre directement l'exécuteur batch avec le modèle actif.
       // AnalysisModal a son propre écran de démarrage (confirmation + progression).
-      setBatchAnalysisState({ isOpen: true, modelId: activeModelId });
+      setBatchAnalysisState({ isOpen: true, modelId: modelFor('ANALYZE_BATCH') });
   };
 
   const handleAnalysisComplete = () => {
@@ -608,7 +622,7 @@ function App() {
                   ? items.find(i => i.id === serie.sourceContentId) || null
                   : null,
               dejaPrevus,
-              modelId: activeModelId,
+              modelId: modelFor('PLAN_SERIES'),
               nombreSouhaite,
           });
 
@@ -628,7 +642,7 @@ function App() {
   // --- AI ANALYSIS FLOW (sans modale — modèle actif global) ---
 
   const triggerSingleAnalysis = (item: ContentItem) => {
-      void performSingleAnalysis(activeModelId, item.id);
+      void performSingleAnalysis(modelFor('ANALYZE_BATCH'), item.id);
   };
 
   const performSingleAnalysis = async (modelId: string, itemId?: string) => {
@@ -968,6 +982,7 @@ function App() {
                         onSave={handleUpdateItem}
                         onDelete={handleDeleteItem}
                         onDecline={handleDeclineContent}
+                        modelFor={modelFor}
                         serieContext={editorSerieContext}
                         activeStep={currentEditorStep}
                         onStepChange={handleStepChange}
@@ -1109,6 +1124,8 @@ function App() {
           onModelsChange={handleModelsChange}
           activeModelId={activeModelId}
           onActiveModelChange={handleActiveModelChange}
+          actionModels={actionModels}
+          onActionModelsChange={setActionModels}
           initialTab={settingsPanelInitialTab}
       />
     </div>

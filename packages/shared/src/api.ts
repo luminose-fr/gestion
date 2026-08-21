@@ -149,6 +149,11 @@ export const SetProviderKeySchema = z.object({
   apiKey: z.string().trim().min(8).max(500),
 });
 
+/** Modèle affecté à une action ; `null` remet l'action sur le modèle actif. */
+export const SetActionModelSchema = z.object({
+  modelId: z.string().trim().min(1).nullable(),
+});
+
 // ── Synchronisation ──────────────────────────────────────────────────────
 
 /** `since` en epoch ms ; au-delà, les lignes supprimées remontent aussi (SPEC §8). */

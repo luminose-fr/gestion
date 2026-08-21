@@ -19,6 +19,12 @@ import type { Env } from './env';
 
 const PREFIX = 'provider_key:';
 
+/** Modèle affecté à une action, dans la même table (`action_model:<ACTION>`). */
+const ACTION_PREFIX = 'action_model:';
+
+export const settingKeyForAction = (action: string) => `${ACTION_PREFIX}${action}`;
+export const ACTION_PATTERN = `${ACTION_PREFIX}%`;
+
 export const settingKeyFor = (providerId: string) => `${PREFIX}${providerId}`;
 
 /** Les lignes de `app_settings` qui portent une clé — à ne jamais exporter (§9.4). */

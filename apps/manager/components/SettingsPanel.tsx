@@ -7,7 +7,10 @@ import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as Api from '../services/apiService';
 import * as AiService from '../services/aiService';
 import { ConfirmModal } from './CommonModals';
-import { ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA } from '@luminose/editorial';
+import {
+    ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA,
+    AI_ACTION_CATALOG, ATTENDU_LABELS,
+} from '@luminose/editorial';
 import { VOICE_RULES } from '@luminose/editorial';
 
 interface SettingsPanelProps {
@@ -22,6 +25,9 @@ interface SettingsPanelProps {
     /** Changer le modèle actif/par défaut. */
     onActiveModelChange: (modelId: string) => void;
     /** Onglet à afficher à l'ouverture. Défaut : 'display'. */
+    /** Modèle réglé pour chaque action ; une action absente prend le modèle actif. */
+    actionModels: Record<string, string>;
+    onActionModelsChange: (map: Record<string, string>) => void;
     initialTab?: 'display' | 'models' | 'personas' | 'providers';
 }
 
@@ -90,6 +96,8 @@ const SectionTitle: React.FC<{ icon: React.ComponentType<{ className?: string }>
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     isOpen, onClose, displayPrefs, onDisplayPrefsChange,
     aiModels, onModelsChange, activeModelId, onActiveModelChange,
+    actionModels,
+    onActionModelsChange,
     initialTab = 'display',
 }) => {
     const [activeTab, setActiveTab] = useState<Tab>(initialTab);
@@ -164,6 +172,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             setProviderError(e?.message || "La clé n'a pas pu être effacée.");
         } finally {
             setProviderBusy(null);
+        }
+    };
+
+    // Modèle par action — replié par défaut : neuf lignes qu'on ne règle qu'une fois.
+    const [presetsOuverts, setPresetsOuverts] = useState(false);
+    const [presetBusy, setPresetBusy] = useState<string | null>(null);
+
+    const handleActionModel = async (action: string, modelId: string) => {
+        setPresetBusy(action);
+        setSaveError(null);
+        try {
+            await Api.setActionModel(action, modelId || null);
+            const suite = { ...actionModels };
+            if (modelId) suite[action] = modelId; else delete suite[action];
+            onActionModelsChange(suite);
+        } catch (e) {
+            setSaveError(describeError(e));
+        } finally {
+            setPresetBusy(null);
         }
     };
 
@@ -603,6 +630,60 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 <Plus className="w-3.5 h-3.5" />
                                 Ajouter un modèle
                             </button>
+
+                            {/* Modèle par action — le réglage qui évite de changer de modèle à chaque geste */}
+                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
+                                <button
+                                    onClick={() => setPresetsOuverts(o => !o)}
+                                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-brand-light/40 dark:bg-dark-bg/40 hover:bg-brand-light dark:hover:bg-dark-bg transition-colors"
+                                >
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-brand-main/40 dark:text-dark-text/40 flex items-center gap-1.5">
+                                        <Cpu className="w-3 h-3" />
+                                        Modèle par action
+                                    </span>
+                                    <span className="flex items-center gap-1.5 text-[11px] text-brand-main/50 dark:text-dark-text/50">
+                                        {Object.keys(actionModels).length === 0
+                                            ? 'toutes sur le modèle actif'
+                                            : `${Object.keys(actionModels).length} réglée${Object.keys(actionModels).length > 1 ? 's' : ''} sur ${AI_ACTION_CATALOG.length}`}
+                                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${presetsOuverts ? 'rotate-90' : ''}`} />
+                                    </span>
+                                </button>
+
+                                {presetsOuverts && (
+                                    <div className="p-3 space-y-3 border-t border-brand-border dark:border-dark-sec-border">
+                                        <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 leading-relaxed">
+                                            Chaque action peut avoir son modèle. Sans réglage, elle prend celui du
+                                            sélecteur en haut de l'application.
+                                        </p>
+                                        {AI_ACTION_CATALOG.map(action => (
+                                            <div key={action.id}>
+                                                <div className="flex items-baseline justify-between gap-2">
+                                                    <label className="text-xs font-semibold text-brand-main dark:text-white">
+                                                        {action.label}
+                                                    </label>
+                                                    <span className="text-[10px] text-brand-main/40 dark:text-dark-text/40 shrink-0">
+                                                        {action.persona}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[10px] text-brand-main/40 dark:text-dark-text/40 mb-1">
+                                                    {ATTENDU_LABELS[action.attendu]}
+                                                </p>
+                                                <select
+                                                    value={actionModels[action.id] ?? ''}
+                                                    disabled={presetBusy === action.id}
+                                                    onChange={(e) => handleActionModel(action.id, e.target.value)}
+                                                    className="w-full px-3 py-1.5 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg text-xs text-brand-main dark:text-white outline-hidden cursor-pointer transition-colors disabled:opacity-50"
+                                                >
+                                                    <option value="">— Modèle actif —</option>
+                                                    {aiModels.map(m => (
+                                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Panneau de test d'un code API */}
                             <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/40 dark:bg-dark-bg/40 p-3">
