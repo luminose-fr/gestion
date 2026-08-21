@@ -102,6 +102,26 @@ export const deleteModel = (id: string) =>
 export const setModelDefault = (id: string, isDefault: boolean) =>
   updateModel(id, { isDefault });
 
+// ── Sauvegarde complète (SPEC §9.4) ──────────────────────────────────────
+
+/**
+ * Le jeton de session voyage en en-tête : un simple lien ne peut donc pas
+ * télécharger l'export, il faut passer par une requête puis un blob. On rend
+ * le nom de fichier proposé par le Worker — daté, donc restaurable sans doute.
+ */
+export const fetchExport = async (): Promise<{ blob: Blob; filename: string }> => {
+  const res = await fetch(`${WORKER_URL}/api/export`, {
+    headers: { 'X-Session-Token': getSessionToken() ?? '' },
+  });
+  if (!res.ok) {
+    throw new Error(`Erreur ${res.status} — la sauvegarde n'a pas pu être produite.`);
+  }
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1]
+    ?? `luminose-export-${new Date().toISOString().slice(0, 10)}.json`;
+  return { blob: await res.blob(), filename };
+};
+
 // ── Conversation Coach (SPEC §2.7) ───────────────────────────────────────
 
 export const appendCoachMessage = (

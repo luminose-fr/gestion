@@ -24,9 +24,19 @@ class Stmt {
     return new Stmt(this.db, this.sql, params);
   }
 
+  /**
+   * D1 rend la MÊME forme pour une écriture et une lecture : `results` est vide
+   * pour un INSERT, peuplé pour un SELECT. C'est ce qui permet à un batch de
+   * mêler les deux — et ce que fait l'export (§9.4), qui lit six tables dans
+   * une seule transaction. `node:sqlite`, lui, sépare `run` et `all`.
+   */
   async run() {
-    const res = this.db.prepare(this.sql).run(...(this.params as any[]));
-    return { success: true, meta: { changes: Number(res.changes), last_row_id: Number(res.lastInsertRowid) } };
+    const stmt = this.db.prepare(this.sql);
+    if (/^\s*SELECT/i.test(this.sql)) {
+      return { success: true, results: stmt.all(...(this.params as any[])) as Row[], meta: { changes: 0, last_row_id: 0 } };
+    }
+    const res = stmt.run(...(this.params as any[]));
+    return { success: true, results: [] as Row[], meta: { changes: Number(res.changes), last_row_id: Number(res.lastInsertRowid) } };
   }
 
   async first(): Promise<Row | null> {

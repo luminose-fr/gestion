@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     X, SlidersHorizontal, Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2,
-    FlaskConical, AlertCircle, ChevronRight
+    FlaskConical, AlertCircle, ChevronRight, Download
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as Api from '../services/apiService';
@@ -110,6 +110,33 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     // semblait ne rien faire et Florent croyait le modèle enregistré.
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saveSuccess, setSaveSuccess] = useState(false);
+
+    // Sauvegarde complète (SPEC §9.4)
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportError, setExportError] = useState<string | null>(null);
+
+    /**
+     * Le navigateur ne sait pas poser d'en-tête sur un clic de lien : on
+     * récupère la sauvegarde, puis on la fait descendre depuis un blob.
+     */
+    const handleExport = async () => {
+        if (isExporting) return;
+        setIsExporting(true);
+        setExportError(null);
+        try {
+            const { blob, filename } = await Api.fetchExport();
+            const url = URL.createObjectURL(blob);
+            const lien = document.createElement('a');
+            lien.href = url;
+            lien.download = filename;
+            lien.click();
+            URL.revokeObjectURL(url);
+        } catch (e: any) {
+            setExportError(e?.message || "La sauvegarde n'a pas pu être téléchargée.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     // Model edit state
     const [editModel, setEditModel] = useState<Partial<AIModel>>({
@@ -400,6 +427,30 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 value={prefs.showObjectif}
                                 onChange={v => setPref('showObjectif', v)}
                             />
+
+                            <p className="text-[10px] font-black uppercase tracking-widest text-brand-main/40 dark:text-dark-text/40 mt-6 mb-3">
+                                Sauvegarde
+                            </p>
+                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border p-4">
+                                <p className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed">
+                                    Un fichier JSON de toutes vos données — contenus, séries, modèles,
+                                    conversations et productions IA, suppressions comprises. Le filet
+                                    de Cloudflare ne remonte qu'à sept jours ; celui-ci ne s'efface pas.
+                                </p>
+                                {exportError && (
+                                    <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">{exportError}</p>
+                                )}
+                                <button
+                                    onClick={handleExport}
+                                    disabled={isExporting}
+                                    className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg hover:bg-white dark:hover:bg-dark-surface text-xs font-semibold text-brand-main dark:text-white transition-colors disabled:opacity-50"
+                                >
+                                    {isExporting
+                                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        : <Download className="w-3.5 h-3.5" />}
+                                    {isExporting ? 'Préparation…' : 'Télécharger une sauvegarde'}
+                                </button>
+                            </div>
                         </div>
                     )}
 
