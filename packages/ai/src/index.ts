@@ -9,7 +9,7 @@
  */
 export * from './port';
 export { createOneMinProvider, flattenConversation, extractText, findBusinessError } from './providers/onemin';
-export { createOpenAIProvider } from './providers/openai';
+export { createOpenAIProvider, describeError, PROBE_MAX_TOKENS } from './providers/openai';
 export { createOpenRouterProvider, OPENROUTER_BASE_URL } from './providers/openrouter';
 
 import type { AIProvider, ProviderConfig } from './port';

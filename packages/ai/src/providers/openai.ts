@@ -14,6 +14,49 @@ import { stripCodeFences } from '../port';
 
 const DEFAULT_BASE = 'https://api.openai.com/v1';
 
+/**
+ * Budget de la sonde (SPEC §5.4 : « au coût le plus bas »).
+ *
+ * Il valait 5 jetons, ce qui suffit pour un modèle ordinaire et ne suffit pas
+ * pour un modèle à raisonnement : sa réflexion se paie sur le même budget, et
+ * plusieurs fournisseurs refusent la requête plutôt que de rendre une réponse
+ * tronquée. 64 jetons restent une fraction de centime et laissent la place au
+ * « pong ».
+ */
+export const PROBE_MAX_TOKENS = 64;
+
+/**
+ * Le message d'erreur d'une API compatible OpenAI, en entier.
+ *
+ * Les passerelles empilent deux niveaux : le leur (« Provider returned
+ * error ») et celui du fournisseur en dessous, dans `metadata.raw`. Ne
+ * remonter que le premier, c'est afficher « il y a eu une erreur » — le
+ * diagnostic est dans le second, et sans lui on cherche du mauvais côté.
+ */
+export const describeError = (data: any, status: number): string => {
+  const error = data?.error ?? {};
+  const message = typeof error.message === 'string' ? error.message.trim() : '';
+  const entete = message || `Erreur ${status}`;
+
+  const details: string[] = [];
+  const fournisseur = error.metadata?.provider_name;
+  if (typeof fournisseur === 'string' && fournisseur.trim()) {
+    details.push(`fournisseur : ${fournisseur.trim()}`);
+  }
+
+  const brut = error.metadata?.raw;
+  if (brut) {
+    const texte = (typeof brut === 'string' ? brut : JSON.stringify(brut)).trim();
+    // On ne répète pas le message quand la passerelle l'a simplement recopié.
+    if (texte && !entete.includes(texte)) details.push(texte.slice(0, 300));
+  }
+
+  const code = error.code ?? status;
+  if (code && String(code) !== '200') details.push(`code ${code}`);
+
+  return details.length > 0 ? `${entete} (${details.join(' — ')})` : entete;
+};
+
 export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIProvider => {
   const call = async (payload: unknown): Promise<any> => {
     const res = await fetch(`${config.baseUrl ?? DEFAULT_BASE}/chat/completions`, {
@@ -33,7 +76,7 @@ export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIP
       throw new Error(`${id} a renvoyé une réponse invalide (${res.status}) : ${text.slice(0, 160)}`);
     }
     if (!res.ok) {
-      throw new Error(data?.error?.message ?? `Erreur ${id} (${res.status})`);
+      throw new Error(`${id} : ${describeError(data, res.status)}`);
     }
     return data;
   };
@@ -66,7 +109,7 @@ export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIP
         const data = await call({
           model: model.trim(),
           messages: [{ role: 'user', content: 'ping' }],
-          max_tokens: 5,
+          max_tokens: PROBE_MAX_TOKENS,
         });
         const sample = String(data?.choices?.[0]?.message?.content ?? '').replace(/\s+/g, ' ').trim();
         return {

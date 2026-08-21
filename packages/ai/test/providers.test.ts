@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getProvider, PROVIDER_IDS, flattenConversation, extractText, findBusinessError,
   createOneMinProvider, createOpenAIProvider, createOpenRouterProvider, OPENROUTER_BASE_URL,
-  stripCodeFences, type ChatMessage,
+  describeError, PROBE_MAX_TOKENS, stripCodeFences, type ChatMessage,
 } from '../src/index';
 
 const CONFIG = { apiKey: 'cle-de-test' };
@@ -203,6 +203,62 @@ describe('openrouter n’est qu’une URL de base', () => {
   it('porte son propre identifiant — la provenance ne se confond pas', () => {
     expect(createOpenRouterProvider(CONFIG).id).toBe('openrouter');
     expect(createOpenAIProvider(CONFIG).id).toBe('openai');
+  });
+});
+
+/**
+ * Le 21/08/2026 : un test de modèle sur OpenRouter rendait « Provider returned
+ * error », point. La passerelle empile pourtant deux niveaux — le sien et
+ * celui du fournisseur en dessous. Sans le second, on cherche du mauvais côté.
+ */
+describe('une erreur de passerelle se lit en entier', () => {
+  const ERREUR_OPENROUTER = {
+    error: {
+      message: 'Provider returned error',
+      code: 429,
+      metadata: { provider_name: 'Chutes', raw: 'rate limit exceeded for free tier' },
+    },
+  };
+
+  it('remonte le fournisseur et son message brut', () => {
+    const texte = describeError(ERREUR_OPENROUTER, 429);
+    expect(texte).toContain('Provider returned error');
+    expect(texte).toContain('Chutes');
+    expect(texte).toContain('rate limit exceeded');
+    expect(texte).toContain('429');
+  });
+
+  it('se contente du message quand la passerelle n’en dit pas plus', () => {
+    expect(describeError({ error: { message: 'Invalid model' } }, 400)).toBe('Invalid model (code 400)');
+  });
+
+  it('ne répète pas un message que la passerelle a recopié', () => {
+    const texte = describeError({ error: { message: 'Rate limited', metadata: { raw: 'Rate limited' } } }, 429);
+    expect(texte.match(/Rate limited/g)).toHaveLength(1);
+  });
+
+  it('dit quelque chose même sans corps d’erreur exploitable', () => {
+    expect(describeError({}, 502)).toContain('502');
+    expect(describeError(null, 500)).toContain('500');
+  });
+
+  it('le testeur de modèle rapporte cette erreur complète', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(ERREUR_OPENROUTER), { status: 429 }));
+    const res = await createOpenRouterProvider(CONFIG).test('z-ai/glm-5.2:free');
+    expect(res.available).toBe(false);
+    expect(res.error).toContain('Chutes');
+    expect(res.error).toContain('rate limit exceeded');
+  });
+
+  /**
+   * La sonde valait 5 jetons : un modèle à raisonnement paie sa réflexion sur
+   * ce budget, et plusieurs fournisseurs refusent plutôt que de tronquer.
+   */
+  it('sonde avec un budget qui laisse la place à un modèle qui réfléchit', async () => {
+    const calls = stubFetch(OPENAI_OK);
+    await createOpenRouterProvider(CONFIG).test('z-ai/glm-5.2:free');
+    expect(calls[0].body.max_tokens).toBe(PROBE_MAX_TOKENS);
+    expect(PROBE_MAX_TOKENS).toBeGreaterThan(5);
   });
 });
 
