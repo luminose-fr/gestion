@@ -110,6 +110,25 @@ describe('refus explicites', () => {
     expect((await json(res)).detail).toContain('Fournisseur inconnu');
   });
 
+  /**
+   * Un fournisseur qui refuse répond 200 avec son erreur dans la charge utile.
+   * Le 21/08/2026, un compte à sec ressortait en « Erreur interne » : le
+   * message qui disait quoi faire restait enterré dans `detail`.
+   */
+  it('502 et message du fournisseur quand celui-ci refuse la requête', async () => {
+    await seedModel('m-onemin', 'onemin');
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
+      aiRecord: {
+        status: 'FAILURE',
+        aiRecordDetail: { resultObject: { code: 'INSUFFICIENT_CREDITS', message: 'only has 0 credits' } },
+      },
+    }), { status: 200 }));
+
+    const res = await call('/api/ai/chat', { modelId: 'm-onemin', messages: [{ role: 'user', content: 'x' }] });
+    expect(res.status).toBe(502);
+    expect((await json(res)).error).toContain('0 credits');
+  });
+
   it('refuse une requête sans message', async () => {
     await seedModel('m-onemin', 'onemin');
     expect((await call('/api/ai/chat', { modelId: 'm-onemin', messages: [] })).status).toBe(400);

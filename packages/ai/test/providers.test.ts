@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  getProvider, PROVIDER_IDS, flattenConversation, extractText,
+  getProvider, PROVIDER_IDS, flattenConversation, extractText, findBusinessError,
   createOneMinProvider, createOpenAIProvider, stripCodeFences,
   type ChatMessage,
 } from '../src/index';
@@ -120,6 +120,49 @@ describe('les contorsions de 1min.ai restent dans son adaptateur', () => {
     ['aiRecord.response', { aiRecord: { response: 'E' } }, 'E'],
   ])('extrait la réponse depuis la forme « %s »', (_, payload, expected) => {
     expect(extractText(payload)).toBe(expected);
+  });
+
+  /**
+   * Le 21/08/2026 : compte à sec, réponse 200, texte vide, et l'application qui
+   * annonçait « réponse IA vide ou invalide ». Le diagnostic partait vers le
+   * parseur pour un problème de facturation.
+   */
+  describe('un refus métier arrive en 200 — il doit quand même se voir', () => {
+    const CREDITS_EPUISES = {
+      aiRecord: {
+        status: 'FAILURE',
+        aiRecordDetail: {
+          resultObject: {
+            code: 'INSUFFICIENT_CREDITS',
+            name: 'BusinessError',
+            message: 'The feature requires 5655 credits, but the Luminose team only has 0 credits',
+          },
+        },
+      },
+    };
+
+    it('lève au lieu de rendre un texte vide', async () => {
+      stubFetch(CREDITS_EPUISES);
+      await expect(
+        createOneMinProvider(CONFIG).chat({ model: 'm', messages: CONVERSATION })
+      ).rejects.toThrow(/credits/i);
+    });
+
+    it('le testeur de modèle le rapporte au lieu d’annoncer « disponible »', async () => {
+      stubFetch(CREDITS_EPUISES);
+      const res = await createOneMinProvider(CONFIG).test('m');
+      expect(res.available).toBe(false);
+      expect(res.error).toContain('credits');
+    });
+
+    it('ne se déclenche pas sur une réponse normale', () => {
+      expect(findBusinessError(ONEMIN_OK)).toBeNull();
+      expect(findBusinessError({ response: 'B' })).toBeNull();
+    });
+
+    it('signale un échec même sans message exploitable', () => {
+      expect(findBusinessError({ aiRecord: { status: 'FAILURE' } })).toContain('refusée');
+    });
   });
 
   it('signale une réponse non-JSON au lieu de la laisser casser plus haut', async () => {

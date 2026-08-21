@@ -41,6 +41,27 @@ export const flattenConversation = (system: string | undefined, messages: ChatMe
   return system ? `${system}\n\n---\n\n${prompt}` : prompt;
 };
 
+/**
+ * 1min.ai répond 200 même quand il REFUSE la requête : l'erreur métier se
+ * cache dans `resultObject`, qui devient alors un objet au lieu d'un tableau,
+ * et `aiRecord.status` passe à FAILURE.
+ *
+ * Sans ce contrôle, un compte à court de crédits ressort en texte vide, et
+ * l'application accuse le parseur (« réponse IA vide ou invalide ») pour un
+ * problème de facturation. Le diagnostic part alors dans la mauvaise
+ * direction — c'est arrivé le 21/08/2026, en pleine recette des Séries.
+ */
+export const findBusinessError = (payload: any): string | null => {
+  const record = payload?.aiRecord;
+  const result = record?.aiRecordDetail?.resultObject;
+
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const detail = result.message ?? result.code;
+    if (detail) return String(detail);
+  }
+  return record?.status === 'FAILURE' ? 'requête refusée, sans message' : null;
+};
+
 /** Réponse utile, quelle que soit la forme renvoyée. */
 export const extractText = (payload: any): string => {
   const resultObject = payload?.aiRecord?.aiRecordDetail?.resultObject;
@@ -96,6 +117,10 @@ export const createOneMinProvider = (config: ProviderConfig): AIProvider => {
     async chat(req: ChatRequest): Promise<ChatResult> {
       const prompt = flattenConversation(req.system, req.messages);
       const payload = await call(body(req.model, prompt));
+
+      const refus = findBusinessError(payload);
+      if (refus) throw new Error(`1min.ai a refusé la requête : ${refus}`);
+
       return { text: stripCodeFences(extractText(payload)), raw: payload };
     },
 
@@ -106,6 +131,9 @@ export const createOneMinProvider = (config: ProviderConfig): AIProvider => {
       try {
         // Le prompt le plus court possible : quelques fractions de centime.
         const payload = await call(body(model.trim(), 'ping'));
+        const refus = findBusinessError(payload);
+        if (refus) return { available: false, error: refus, latencyMs: Date.now() - started };
+
         const sample = extractText(payload).replace(/\s+/g, ' ').trim();
         return {
           available: true,

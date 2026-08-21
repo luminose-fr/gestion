@@ -8,7 +8,7 @@
  * Changer de fournisseur pour un modèle = changer une valeur en base.
  */
 export * from './port';
-export { createOneMinProvider, flattenConversation, extractText } from './providers/onemin';
+export { createOneMinProvider, flattenConversation, extractText, findBusinessError } from './providers/onemin';
 export { createOpenAIProvider } from './providers/openai';
 
 import type { AIProvider, ProviderConfig } from './port';

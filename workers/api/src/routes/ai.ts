@@ -68,12 +68,23 @@ ai.post('/chat', async (c) => {
 
   // L'ordre compte : on valide d'abord que l'adaptateur existe (voir configFor)
   const provider = resolve(model.provider, c.env);
-  const result = await provider.chat({
-    model: model.apiCode,
-    system: input.system,
-    messages: input.messages,
-    json: input.json,
-  });
+
+  let result;
+  try {
+    result = await provider.chat({
+      model: model.apiCode,
+      system: input.system,
+      messages: input.messages,
+      json: input.json,
+    });
+  } catch (e: any) {
+    // Une panne du fournisseur n'est pas une panne du Worker : 502, et son
+    // message EN CLAIR. Passer par le gestionnaire générique le reléguerait
+    // dans `detail`, et le front afficherait « Erreur interne » là où le
+    // fournisseur disait précisément ce qui manquait (crédits, quota, modèle
+    // retiré). C'est la différence entre un diagnostic et une devinette.
+    return c.json({ error: e?.message ?? 'Le fournisseur IA n’a pas répondu.' }, 502);
+  }
 
   // `raw` reste au Worker : le front n'a que faire de la forme du fournisseur,
   // et la lui exposer inviterait à s'y accrocher.
