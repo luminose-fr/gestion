@@ -4,8 +4,9 @@ import { ContentItem, AIModel, CoachSession, CoachMessage } from '../types';
 import {
     sendCoachMessage,
     createEmptySession,
-    appendUserMessage,
-    appendAssistantReply,
+    buildUserMessage,
+    buildAssistantMessage,
+    withMessage,
     validateSession,
     buildCoachBrief,
 } from '../services/coachService';
@@ -22,14 +23,18 @@ interface CoachChatProps {
      */
     session: CoachSession;
     notionContext?: string;
-    /** Appelé après chaque tour (user + assistant) — le parent doit persister côté Notion */
-    onSessionChange: (session: CoachSession) => void | Promise<void>;
+    /**
+     * Appelé pour CHAQUE message, dès qu'il existe (SPEC §2.7). Le parent
+     * l'ajoute à la conversation stockée : un message écrit ne se perd plus,
+     * même si le tour suivant échoue.
+     */
+    onAppendMessage: (message: CoachMessage) => void | Promise<void>;
     /** Appelé quand Florent clique "Go Éditeur" — la session est marquée validated avant appel */
     onValidate: (session: CoachSession) => void | Promise<void>;
 }
 
 export const CoachChat: React.FC<CoachChatProps> = ({
-    item, aiModels, modelId, notionContext, session: initialSession, onSessionChange, onValidate,
+    item, aiModels, modelId, notionContext, session: initialSession, onAppendMessage, onValidate,
 }) => {
     const [session, setSession] = useState<CoachSession>(initialSession);
     const [input, setInput] = useState('');
@@ -94,10 +99,13 @@ export const CoachChat: React.FC<CoachChatProps> = ({
         setError(null);
         setIsSending(true);
 
-        // On ajoute le message user
-        const sessionWithUser = appendUserMessage(session, item.id, text);
+        // Le message de Florent est écrit AVANT l'appel au Coach : s'il échoue,
+        // ce que Florent a tapé est déjà en sécurité (SPEC §2.7).
+        const userMessage = buildUserMessage(item.id, text);
+        const sessionWithUser = withMessage(session, userMessage);
         setSession(sessionWithUser);
         if (!opts?.isBootstrap) setInput('');
+        void onAppendMessage(userMessage);
 
         try {
             const reply = await sendCoachMessage({
@@ -107,13 +115,11 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                 notionContext,
                 aiModels,
             });
-            const sessionWithReply = appendAssistantReply(sessionWithUser, item.id, reply);
-            setSession(sessionWithReply);
-            await onSessionChange(sessionWithReply);
+            const assistantMessage = buildAssistantMessage(item.id, reply);
+            setSession(withMessage(sessionWithUser, assistantMessage));
+            await onAppendMessage(assistantMessage);
         } catch (e: any) {
             setError(e?.message || 'Erreur lors de l\'appel au Coach.');
-            // On garde le message user mais on laisse Florent retry — on persiste la session partielle
-            await onSessionChange(sessionWithUser);
         } finally {
             setIsSending(false);
         }
@@ -148,6 +154,9 @@ export const CoachChat: React.FC<CoachChatProps> = ({
         }
         const lastUser = [...newMessages].reverse().find(m => m.role === 'user');
         if (!lastUser) return;
+        // Retrait LOCAL seulement : la conversation stockée est append-only,
+        // et la proposition écartée y reste — suivie de la demande de
+        // reformulation, ce qui est exactement ce qui s'est passé.
         const rolledBack = { ...session, messages: newMessages };
         setSession(rolledBack);
         // On renvoie le dernier user avec une consigne implicite de reformuler

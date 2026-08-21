@@ -50,8 +50,11 @@ contents.get('/:id', async (c) => {
   const row = await c.env.DB.prepare(`SELECT ${C} FROM contents WHERE id = ?`).bind(id).first();
   if (!row) return c.json({ error: 'Contenu introuvable' }, 404);
 
+  // `rowid` départage : un tour de Coach écrit le message de Florent puis
+  // celui de l'assistant, parfois dans la même milliseconde. Trier sur
+  // `created_at` seul rendrait alors l'ordre de la conversation indéterminé.
   const { results } = await c.env.DB
-    .prepare('SELECT * FROM coach_messages WHERE content_id = ? ORDER BY created_at ASC')
+    .prepare('SELECT * FROM coach_messages WHERE content_id = ? ORDER BY created_at ASC, rowid ASC')
     .bind(id).all();
 
   const content = rowToContent(row);

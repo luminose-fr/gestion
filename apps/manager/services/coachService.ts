@@ -161,8 +161,8 @@ export const generateLockedBrief = async (opts: {
 // ── Helpers de session ─────────────────────────────────────────────────
 //
 // La session n'est plus un blob réécrit à chaque tour : les messages sont des
-// lignes côté API (SPEC §2.7). Ces helpers ne servent plus qu'à maintenir la
-// vue locale entre deux appels, en miroir de ce que le serveur vient d'écrire.
+// lignes côté API (SPEC §2.7). Ces helpers fabriquent le message que l'on
+// AJOUTE — à la vue locale et, par l'appelant, à la conversation stockée.
 
 export const createEmptySession = (formatCible: TargetFormat | null): CoachSession => ({
     formatCible,
@@ -183,26 +183,21 @@ const localMessage = (
     ...fields,
 });
 
-export const appendUserMessage = (session: CoachSession, contentId: string, content: string): CoachSession => ({
-    ...session,
-    messages: [
-        ...session.messages,
-        localMessage(contentId, { role: 'user', content, raw: null, quickReplies: [], readyForEditor: false }),
-    ],
-});
+export const buildUserMessage = (contentId: string, content: string): CoachMessage =>
+    localMessage(contentId, { role: 'user', content, raw: null, quickReplies: [], readyForEditor: false });
 
-export const appendAssistantReply = (session: CoachSession, contentId: string, reply: CoachAIReply): CoachSession => ({
+export const buildAssistantMessage = (contentId: string, reply: CoachAIReply): CoachMessage =>
+    localMessage(contentId, {
+        role: 'assistant',
+        content: reply.message,
+        raw: reply.raw,
+        quickReplies: reply.quickReplies,
+        readyForEditor: reply.readyForEditor,
+    });
+
+export const withMessage = (session: CoachSession, message: CoachMessage): CoachSession => ({
     ...session,
-    messages: [
-        ...session.messages,
-        localMessage(contentId, {
-            role: 'assistant',
-            content: reply.message,
-            raw: reply.raw,
-            quickReplies: reply.quickReplies,
-            readyForEditor: reply.readyForEditor,
-        }),
-    ],
+    messages: [...session.messages, message],
 });
 
 export const validateSession = (session: CoachSession): CoachSession => ({

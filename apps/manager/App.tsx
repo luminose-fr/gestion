@@ -676,7 +676,6 @@ function App() {
               const depth = isProfondeur(res.profondeur) ? res.profondeur : undefined;
 
               const modelName = aiModels.find(m => m.id === modelId)?.name || modelId;
-              const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
 
               const rawAngle = (res.angle_strategique ?? res.angle ?? "");
               const angleWithTitle = suggestedTitle
@@ -687,7 +686,9 @@ function App() {
                   ...itemToAnalyze,
                   // Le titre initial n'est PAS remplacé — le titre suggéré est visible dans le bloc Analyse IA
                   verdict: res.verdict,
-                  strategicAngle: angleWithTitle + signature,
+                  // Plus de signature collée derrière le texte : la provenance
+                  // part au journal des productions (SPEC §2.6).
+                  strategicAngle: angleWithTitle,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
                   // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
                   objectif: objectif || itemToAnalyze.objectif,
@@ -697,6 +698,12 @@ function App() {
                   analyzedAt: Date.now(),
               };
               await handleUpdateItem(updatedItem);
+
+              // L'analyse ne vise aucune colonne en particulier — elle en
+              // remplit plusieurs : journalisée sans être appliquée.
+              Api.recordGeneration(itemToAnalyze.id, {
+                  kind: 'analysis', modelId, modelLabel: modelName, payload: JSON.stringify(res),
+              }).catch(e => console.warn('Analyse non journalisée :', e));
           }
       } catch (error: any) {
           setAlertInfo({ isOpen: true, title: "Erreur Analyse", message: error.message, type: "error" });

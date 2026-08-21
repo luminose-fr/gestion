@@ -133,6 +133,22 @@ describe('conversation Coach', () => {
     expect(coachSession.validatedAt).toBeGreaterThan(0);
   });
 
+  /**
+   * Un tour écrit le message de Florent puis celui de l'assistant, parfois
+   * dans la même milliseconde : sans départage par `rowid`, l'ordre de la
+   * conversation devient indéterminé et le Verrouilleur relit un dialogue
+   * mélangé.
+   */
+  it('rend les messages dans leur ordre d’écriture', async () => {
+    const content = await withContent();
+    for (const [role, texte] of [['user', 'un'], ['assistant', 'deux'], ['user', 'trois'], ['assistant', 'quatre']] as const) {
+      await post(`/api/contents/${content.id}/coach/messages`, { role, content: texte });
+    }
+
+    const { coachSession } = await json(await call(`/api/contents/${content.id}`));
+    expect(coachSession.messages.map((m: any) => m.content)).toEqual(['un', 'deux', 'trois', 'quatre']);
+  });
+
   it('supprimer le contenu emporte ses messages', async () => {
     const content = await withContent();
     await post(`/api/contents/${content.id}/coach/messages`, { role: 'user', content: 'x' });

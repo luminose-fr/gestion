@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
-import { ContentItem, ContentStatus, TargetFormat, Profondeur, CoachSession, AIModel } from '../../types';
+import { ContentItem, ContentStatus, TargetFormat, Profondeur, CoachSession, CoachMessage, AIModel } from '../../types';
 import { bodyJsonToText, getEditorTab } from '@luminose/editorial';
 import { createEmptySession } from '../../services/coachService';
 import { MarkdownToolbar } from '../MarkdownToolbar';
@@ -48,7 +48,8 @@ interface DraftViewProps {
     // Coach session (inline)
     aiModels: AIModel[];
     activeModelId: string;
-    onCoachSessionChange: (session: CoachSession) => void | Promise<void>;
+    /** Un message de plus dans la conversation — append-only (SPEC §2.7). */
+    onCoachMessage: (message: CoachMessage) => void | Promise<void>;
     onCoachValidate: (session: CoachSession) => void | Promise<void>;
 
     // Lecteur Froid
@@ -66,7 +67,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
     onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, slidesStale = false,
     coachSession,
     onChangeStatus, onSave, isGenerating,
-    aiModels, activeModelId, onCoachSessionChange, onCoachValidate,
+    aiModels, activeModelId, onCoachMessage, onCoachValidate,
     coldRead, onDismissColdRead, onRunColdRead,
     activeTab, onTabChange
 }) => {
@@ -316,7 +317,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         aiModels={aiModels}
                         modelId={activeModelId}
                         session={coachSession ?? createEmptySession(item.targetFormat as TargetFormat | null)}
-                        onSessionChange={onCoachSessionChange}
+                        onAppendMessage={onCoachMessage}
                         onValidate={onCoachValidate}
                     />
                 )}

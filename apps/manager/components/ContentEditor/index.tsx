@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X } from 'lucide-react';
-import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession } from '../../types';
+import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession, CoachMessage } from '../../types';
 import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
 import * as AiService from '../../services/aiService';
-import { generateLockedBrief } from '../../services/coachService';
+import { generateLockedBrief, createEmptySession } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
 import { AI_ACTIONS } from '@luminose/editorial';
 import { bodyJsonToText, getEditorTab, supportsColdRead } from '@luminose/editorial';
@@ -203,10 +203,37 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       await saveWithStatus(editedItem);
   };
 
-  /** Restaure la version qui précédait la dernière génération IA. */
+  /**
+   * Revient à la version qui précédait la dernière génération.
+   *
+   * L'annulation passe par le JOURNAL (SPEC §2.6) : elle ajoute une ligne dont
+   * la charge reprend celle visée, plutôt que d'effacer. Elle survit donc à la
+   * fermeture de l'éditeur — et annuler l'annulation reste possible.
+   *
+   * Repli sur la valeur gardée en mémoire quand le journal ne porte rien
+   * d'antérieur : les contenus d'avant la bascule n'ont pas d'historique.
+   */
   const undoLastGeneration = async () => {
       if (!lastGeneration || !editedItem || isGenerating || isSaving) return;
-      const restored = { ...editedItem, [lastGeneration.field]: lastGeneration.previousValue };
+      const field = lastGeneration.field;
+
+      try {
+          const { generations } = await Api.fetchGenerations(editedItem.id);
+          // [0] est celle qu'on vient d'écrire ; [1] est celle d'avant.
+          const precedente = generations.filter(g => g.target === field)[1];
+          if (precedente) {
+              await Api.revertGeneration(editedItem.id, precedente.id);
+              const restored = { ...editedItem, [field]: precedente.payload };
+              setEditedItem(restored);
+              setLastGeneration(null);
+              await saveWithStatus(restored);
+              return;
+          }
+      } catch (e) {
+          console.warn('Retour par le journal impossible — repli sur la version en mémoire.', e);
+      }
+
+      const restored = { ...editedItem, [field]: lastGeneration.previousValue };
       setEditedItem(restored);
       setLastGeneration(null);
       await saveWithStatus(restored);
@@ -236,6 +263,47 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       onClose(); 
   };
 
+  // --- JOURNAL DES PRODUCTIONS IA (SPEC §2.6) ---
+
+  /**
+   * Nom du modèle, figé au moment de l'écriture : si le modèle disparaît du
+   * catalogue, la provenance lui survit (SPEC §2.6).
+   */
+  const modelLabel = () =>
+      aiModels.find(m => m.id === activeModelId)?.name || activeModelId || 'Modèle inconnu';
+
+  /**
+   * Écrit une production dans le journal, et la colonne visée avec elle —
+   * les deux dans le même batch côté Worker. C'est ce qui remplace la
+   * signature markdown collée derrière le JSON : la colonne redevient du JSON
+   * pur, la provenance vit dans sa propre ligne.
+   */
+  const journalise = async (input: {
+      kind: 'analysis' | 'draft' | 'slides' | 'cold_read' | 'adjustment' | 'brief';
+      target?: 'draft' | 'slides' | null;
+      payload: string;
+      instruction?: string | null;
+  }): Promise<void> => {
+      if (!editedItem) return;
+      try {
+          await Api.recordGeneration(editedItem.id, {
+              kind: input.kind,
+              target: input.target ?? null,
+              modelId: activeModelId || null,
+              modelLabel: modelLabel(),
+              instruction: input.instruction ?? null,
+              payload: input.payload,
+              apply: !!input.target,
+          });
+      } catch (e: any) {
+          // La production n'est pas perdue pour autant : l'enregistrement
+          // ordinaire qui suit écrit la colonne. Seule la trace manque, et
+          // l'erreur le dit plutôt que de passer inaperçue.
+          if (isMountedRef.current) setSaveError(e?.message || "La production n'a pas pu être journalisée.");
+          triggerSaveStatus('error');
+      }
+  };
+
   // --- AI LOGIC HELPERS ---
 
   const callAI = async (model: string, systemInstruction: string, prompt: string, _config?: any) => {
@@ -246,14 +314,46 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       });
   };
 
-  // --- COACH SESSION HANDLERS (nouveau flow) ---
+  // --- CONVERSATION COACH (SPEC §2.7) ---
 
-  /** Persiste la session Coach après chaque tour (user + assistant). */
-  const handleCoachSessionChange = async (session: CoachSession) => {
+  /**
+   * Un message de plus dans la conversation. L'écriture est un INSERT, pas la
+   * réécriture d'un blob : un échec au mauvais moment ne peut plus emporter
+   * les messages précédents.
+   *
+   * La vue locale est mise à jour d'abord — la conversation ne doit pas
+   * attendre le réseau pour s'afficher.
+   */
+  const handleCoachMessage = async (message: CoachMessage) => {
       if (!isMountedRef.current || !editedItem) return;
-      const newItem = { ...editedItem, coachSession: session };
-      setEditedItem(newItem);
-      await saveWithStatus(newItem);
+
+      const premierMessage = (coachSessionState?.messages.length ?? 0) === 0;
+      setCoachSessionState(prev => {
+          const base = prev ?? createEmptySession(editedItem.targetFormat as TargetFormat | null);
+          return { ...base, messages: [...base.messages, message] };
+      });
+
+      try {
+          await Api.appendCoachMessage(editedItem.id, {
+              role: message.role,
+              content: message.content,
+              raw: message.raw,
+              quickReplies: message.quickReplies,
+              readyForEditor: message.readyForEditor,
+          });
+          // Le format cible pour lequel la session est calibrée n'a de sens
+          // qu'une fois : au premier message (SPEC §2.7).
+          if (premierMessage) {
+              await Api.updateCoach(editedItem.id, {
+                  status: 'in_progress',
+                  formatCible: editedItem.targetFormat,
+              });
+          }
+          triggerSaveStatus('saved');
+      } catch (e: any) {
+          if (isMountedRef.current) setSaveError(e?.message || "Le message n'a pas pu être enregistré.");
+          triggerSaveStatus('error');
+      }
   };
 
   /**
@@ -265,22 +365,38 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const handleCoachValidate = async (session: CoachSession) => {
       if (!isMountedRef.current || !editedItem) return;
       setIsGenerating(true);
-      let sessionWithBrief = session;
+      let brief: string | null = null;
       try {
-          const brief = await generateLockedBrief({
+          brief = await generateLockedBrief({
               item: editedItem,
               session,
               modelId: activeModelId,
           });
-          sessionWithBrief = { ...session, brief };
       } catch (e) {
           console.warn('Verrouillage du brief impossible — fallback session brute.', e);
       }
       if (!isMountedRef.current) return;
-      const newItem = { ...editedItem, coachSession: sessionWithBrief };
-      setEditedItem(newItem);
-      await saveWithStatus(newItem);
-      await executeDrafting(newItem);
+
+      const validated: CoachSession = {
+          ...session,
+          status: 'validated',
+          validatedAt: Date.now(),
+          brief: brief ?? session.brief,
+      };
+      setCoachSessionState(validated);
+
+      try {
+          await Api.updateCoach(editedItem.id, { status: 'validated', brief: validated.brief });
+          if (brief) await journalise({ kind: 'brief', payload: brief });
+          triggerSaveStatus('saved');
+      } catch (e: any) {
+          if (isMountedRef.current) setSaveError(e?.message || "La validation n'a pas pu être enregistrée.");
+          triggerSaveStatus('error');
+      }
+
+      // La session est passée explicitement : `coachSessionState` vient d'être
+      // posé dans ce même tour de rendu, il serait encore périmé ici.
+      await executeDrafting(editedItem, validated);
   };
 
   // --- AI ACTIONS EXECUTORS (modèle actif global, plus de contexte) ---
@@ -311,6 +427,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const report = JSON.parse(extractJsonPayload(responseText));
           if (isMountedRef.current && report && report.lecture_naive) {
               setColdRead(report as ColdReadReport);
+              // Journalisée sans être appliquée : une relecture ne vise aucune
+              // colonne, mais c'est un fait daté qu'on veut pouvoir relire.
+              Api.recordGeneration(item.id, {
+                  kind: 'cold_read', modelId: activeModelId || null, modelLabel: modelLabel(),
+                  payload: JSON.stringify(report),
+              }).catch((e) => console.warn('Relecture non journalisée :', e));
           }
       } catch (e) {
           console.warn('Lecture froide indisponible :', e);
@@ -355,7 +477,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       return result;
   };
 
-  const executeDrafting = async (itemArg?: ContentItem) => {
+  const executeDrafting = async (itemArg?: ContentItem, sessionArg?: CoachSession | null) => {
       if (!isMountedRef.current) return;
       const base = itemArg ?? editedItem;
       if (!base) return;
@@ -387,7 +509,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           // Matière : brief verrouillé en priorité, sinon session brute (legacy)
           // Chargée à l'ouverture de l'éditeur (SPEC §3.2)
-          const coachSession = coachSessionState;
+          const coachSession = sessionArg ?? coachSessionState;
           const lockedBrief = coachSession?.brief || null;
           if (lockedBrief) {
               try {
@@ -418,18 +540,17 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               finalContent = await enforceCarrouselConstraints(finalContent);
           }
 
-          const modelName = aiModels.find(m => m.id === activeModelId)?.name || activeModelId;
-          const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
-
-          // Une seule destination, quel que soit le format (SPEC §2.5)
+          // Une seule destination, quel que soit le format (SPEC §2.5), et du
+          // JSON PUR : la provenance part au journal, pas dans la colonne.
           const previousValue = base.draft || "";
-          const newItem = { ...base, draft: finalContent + signature };
+          const newItem = { ...base, draft: finalContent };
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
-              if (previousValue) setLastGeneration({ field: 'draft', previousValue, label: 'Rédaction régénérée' });
+              if (previousValue) setLastGeneration({ field: 'draft', previousValue, label: `Rédaction régénérée par ${modelLabel()}` });
               // Le brouillon a changé : les slides déjà produites ne collent plus
               if (base.slides) setSlidesStale(true);
+              await journalise({ kind: 'draft', target: 'draft', payload: finalContent });
               await saveWithStatus(newItem);
               // Où atterrir après la rédaction : déclaré par format dans le registre
               onStepChange(getEditorTab(base.targetFormat as TargetFormat));
@@ -461,15 +582,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const cleaned = sanitizeSlidesResponse(responseText);
 
-          const modelName = aiModels.find(m => m.id === activeModelId)?.name || activeModelId;
-          const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
-
           const previousValue = editedItem?.slides || "";
-          const newItem = { ...editedItem!, slides: cleaned + signature };
+          const newItem = { ...editedItem!, slides: cleaned };
           if (isMountedRef.current) {
               setEditedItem(newItem);
-              if (previousValue) setLastGeneration({ field: 'slides', previousValue, label: 'Slides régénérées' });
+              if (previousValue) setLastGeneration({ field: 'slides', previousValue, label: `Slides régénérées par ${modelLabel()}` });
               setSlidesStale(false);
+              await journalise({ kind: 'slides', target: 'slides', payload: cleaned });
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
@@ -522,20 +641,18 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               ? sanitizeSlidesResponse(responseText)
               : responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
 
-          const modelObj = aiModels.find(m => m.id === activeModelId);
-          const modelName = modelObj?.name || activeModelId;
-          const signature = `\n\n_Ajusté par : ${modelName} — le ${new Date().toLocaleString('fr-FR')}_`;
-          const finalContent = cleaned + signature;
-
           const previousValue = currentContent;
-          const newItem = { ...editedItem!, [targetField]: finalContent };
+          const newItem = { ...editedItem!, [targetField]: cleaned };
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
-              if (previousValue) setLastGeneration({ field: targetField, previousValue, label: 'Ajustement appliqué' });
+              if (previousValue) setLastGeneration({ field: targetField, previousValue, label: `Ajustement appliqué par ${modelLabel()}` });
               // Ajuster le brouillon périme les slides ; ajuster les slides les remet à jour
               if (targetField === 'slides') setSlidesStale(false);
               else if (editedItem?.slides) setSlidesStale(true);
+              // L'instruction fait partie du fait daté : sans elle, on relit un
+              // texte modifié sans savoir ce qu'on avait demandé.
+              await journalise({ kind: 'adjustment', target: targetField, payload: cleaned, instruction: adjustmentText });
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
@@ -572,13 +689,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const cleaned = sanitizeSlidesResponse(responseText);
-          const modelObj = aiModels.find(m => m.id === activeModelId);
-          const modelName = modelObj?.name || activeModelId;
-          const signature = `\n\n_Prompts ajustés (${slideNumero === null ? 'tous' : `slide ${slideNumero}`}) par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
+          const cible = slideNumero === null ? 'toutes les slides' : `la slide ${slideNumero}`;
 
-          const newItem = { ...editedItem, slides: cleaned + signature };
+          const newItem = { ...editedItem, slides: cleaned };
           if (isMountedRef.current) {
               setEditedItem(newItem);
+              await journalise({
+                  kind: 'adjustment', target: 'slides', payload: cleaned,
+                  instruction: `Prompts d'image, ${cible} : ${instruction}`,
+              });
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
@@ -851,7 +970,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     isGenerating={isGenerating}
                     aiModels={aiModels}
                     activeModelId={activeModelId}
-                    onCoachSessionChange={handleCoachSessionChange}
+                    onCoachMessage={handleCoachMessage}
                     onCoachValidate={handleCoachValidate}
                     activeTab={activeStep}
                     onTabChange={onStepChange}

@@ -99,8 +99,6 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       // 5. Mise à jour de Notion
       if (isMountedRef.current) setProgress(`Mise à jour de Notion (0/${results.length})...`);
 
-      const signature = `\n\n_Généré par : ${modelName} - le ${new Date().toLocaleString('fr-FR')}_`;
-
       let updateCount = 0;
       for (let idx = 0; idx < results.length; idx++) {
         const res = results[idx];
@@ -130,7 +128,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             ...originalItem,
             // Le titre initial n'est PAS remplacé — le titre suggéré est visible dans le bloc Analyse IA
             verdict: res.verdict,
-            strategicAngle: angleWithTitle + signature,
+            // Plus de signature collée derrière le texte (SPEC §2.6).
+            strategicAngle: angleWithTitle,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
             // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
             objectif: objectif || originalItem.objectif,
@@ -141,6 +140,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           };
 
           await Api.updateContent(updatedItem.id, updatedItem);
+          // Une ligne de journal par idée analysée : la provenance sort de la
+          // charge utile, elle ne disparaît pas avec elle (SPEC §2.6).
+          await Api.recordGeneration(updatedItem.id, {
+              kind: 'analysis', modelId: selectedModelId, modelLabel: modelName, payload: JSON.stringify(res),
+          }).catch(e => console.warn('Analyse non journalisée :', e));
           updateCount++;
           if (isMountedRef.current) setProgress(`Mise à jour de Notion (${updateCount}/${results.length})...`);
         }
