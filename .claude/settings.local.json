@@ -87,7 +87,13 @@
       "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && echo \"=== sh scripts/deploy.sh \\(dash\\) ===\" && DRY_RUN=1 SKIP_TESTS=1 sh scripts/deploy.sh 2>&1 | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | grep -E \"▸|✓|⚠|error|Syntax\" | head -10')",
       "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 npm run deploy 2>&1 | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | grep -E \"▸|✓|⚠|\\\\\\\\$ |error\" | head -18; echo \"code de sortie : ${PIPESTATUS[0]:-?}\"')",
       "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 npm run deploy 2>&1 | sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" | grep -E \"▸|✓|Tests |attendu\" | head -14')",
-      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 npm run deploy > /tmp/d.log 2>&1; echo \"npm run deploy \\(dry-run\\) → code $?\"; sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" /tmp/d.log | grep -E \"^✓|^▸\" | head -10')"
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && DRY_RUN=1 npm run deploy > /tmp/d.log 2>&1; echo \"npm run deploy \\(dry-run\\) → code $?\"; sed \"s/\\\\x1b\\\\[[0-9;]*m//g\" /tmp/d.log | grep -E \"^✓|^▸\" | head -10')",
+      "Bash(git fetch *)",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=8 flornet@192.168.64.4 'hostname && uname -m && node -v && ls ~/ | head -20')",
+      "Bash(ssh flornet@192.168.64.4 'ls ~/Shared/ 2>/dev/null | head; echo \"---\"; ls ~/Shared/gestion.luminose.fr 2>/dev/null | head -30')",
+      "Bash(ssh flornet@192.168.64.4 'ls ~/Shared/Sites | head -20; echo \"---\"; ls ~/Shared/Sites/gestion.luminose.fr | head -30')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && npm test 2>&1 | tail -40')",
+      "Bash(ssh flornet@192.168.64.4 'cd ~/Shared/Sites/gestion.luminose.fr && npm test 2>&1 | grep -E \"Test Files|Tests |✓ |✗ |FAIL\" | head -40; echo \"=== TYPECHECK ===\"; npm run typecheck 2>&1 | tail -20')"
     ]
   }
 }
