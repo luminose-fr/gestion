@@ -102,6 +102,30 @@ export const deleteModel = (id: string) =>
 export const setModelDefault = (id: string, isDefault: boolean) =>
   updateModel(id, { isDefault });
 
+// ── Clés des fournisseurs (SPEC §5.5) ────────────────────────────────────
+
+/**
+ * L'état d'un adaptateur, tel que le Worker accepte de le décrire : posée ou
+ * non, d'où elle vient, et son empreinte. Jamais la clé — elle n'a aucun
+ * chemin de retour vers le navigateur.
+ */
+export interface ProviderKeyState {
+  id: string;
+  label: string;
+  configured: boolean;
+  hint: string | null;
+  source: 'base' | 'environnement' | null;
+  updatedAt: number | null;
+}
+
+export const fetchProviders = () => api<{ providers: ProviderKeyState[] }>('/settings/providers');
+
+export const setProviderKey = (id: string, apiKey: string) =>
+  api<ProviderKeyState>(`/settings/providers/${id}`, { method: 'PUT', ...body({ apiKey }) });
+
+export const deleteProviderKey = (id: string) =>
+  api<ProviderKeyState>(`/settings/providers/${id}`, { method: 'DELETE' });
+
 // ── Sauvegarde complète (SPEC §9.4) ──────────────────────────────────────
 
 /**

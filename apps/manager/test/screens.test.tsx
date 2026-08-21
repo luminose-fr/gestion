@@ -97,6 +97,13 @@ describe('SettingsPanel', () => {
     const { container } = render(<SettingsPanel {...(props as any)} isOpen={true} />);
     expect(container.textContent).toContain('Modèles IA');
   });
+
+  /** L'onglet des clés interroge l'API au montage : il doit survivre à une réponse vide. */
+  it('se monte sur l’onglet des clés', () => {
+    const { container } = render(<SettingsPanel {...(props as any)} isOpen={true} initialTab="providers" />);
+    expect(container.textContent).toContain('Clés');
+    expect(container.textContent).toContain("n'en revient jamais");
+  });
 });
 
 describe('écrans autonomes', () => {

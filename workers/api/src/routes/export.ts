@@ -27,7 +27,10 @@ exportRoute.get('/', async (c) => {
     c.env.DB.prepare('SELECT * FROM ai_models ORDER BY created_at ASC'),
     c.env.DB.prepare('SELECT * FROM generations ORDER BY created_at ASC, rowid ASC'),
     c.env.DB.prepare('SELECT * FROM coach_messages ORDER BY created_at ASC, rowid ASC'),
-    c.env.DB.prepare('SELECT * FROM app_settings ORDER BY key ASC'),
+    // Les clés des fournisseurs sont exclues : une sauvegarde se range dans
+    // un dossier, s'envoie par mail, se pose sur un disque externe. Y glisser
+    // des identifiants d'API en ferait un secret de plus à protéger.
+    c.env.DB.prepare("SELECT * FROM app_settings WHERE key NOT LIKE 'provider_key:%' ORDER BY key ASC"),
   ]);
 
   const rows = (index: number): any[] => (results[index]?.results ?? []) as any[];

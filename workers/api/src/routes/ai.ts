@@ -9,47 +9,37 @@
  * changeant une valeur en base, sans toucher au code ni redéployer le front.
  */
 import { Hono } from 'hono';
-import { getProvider, PROVIDER_IDS, type AIProvider, type ProviderConfig } from '@luminose/ai';
+import { getProvider, PROVIDER_IDS, type AIProvider } from '@luminose/ai';
 import { ChatRequestSchema, TestModelSchema } from '@luminose/shared';
 import type { Env } from '../env';
 import { rowToModel } from '../db';
+import { resolveApiKey } from '../keys';
 
 export const ai = new Hono<{ Bindings: Env }>();
 
 /**
- * Clé d'API par fournisseur. Un fournisseur sans clé configurée est une erreur
- * explicite, pas un appel qui échouera plus loin avec un message obscur.
- *
- * N'est appelée QU'APRÈS résolution de l'adaptateur : pour un `provider`
- * inconnu, réclamer une clé enverrait sur une fausse piste — le problème est
- * qu'aucun adaptateur ne porte ce nom, pas qu'un secret manque.
- */
-export const configFor = (providerId: string, env: Env): ProviderConfig => {
-  const keys: Record<string, string | undefined> = {
-    onemin: env.ONE_MIN_API_KEY,
-    openai: env.OPENAI_API_KEY,
-  };
-  const apiKey = keys[providerId];
-  if (!apiKey) {
-    throw new Error(
-      `Aucune clé configurée pour le fournisseur « ${providerId} ». ` +
-      `Posez le secret correspondant (npx wrangler secret put ...).`
-    );
-  }
-  return { apiKey };
-};
-
-/**
  * Résout un adaptateur : d'abord son existence, ensuite sa clé. Inverser les
- * deux produirait un message trompeur pour un fournisseur inconnu.
+ * deux produirait un message trompeur pour un fournisseur inconnu — le
+ * problème serait alors qu'aucun adaptateur ne porte ce nom, pas qu'une clé
+ * manque.
+ *
+ * 1 requête (la clé posée en base) ; l'environnement sert de repli.
  */
-const resolve = (providerId: string, env: Env): AIProvider => {
+const resolve = async (providerId: string, env: Env): Promise<AIProvider> => {
   if (!PROVIDER_IDS.includes(providerId)) {
     throw new Error(
       `Fournisseur inconnu : « ${providerId} ». Connus : ${PROVIDER_IDS.join(', ')}.`
     );
   }
-  return getProvider(providerId, configFor(providerId, env));
+
+  const apiKey = await resolveApiKey(env, providerId);
+  if (!apiKey) {
+    throw new Error(
+      `Aucune clé configurée pour le fournisseur « ${providerId} ». ` +
+      `Renseignez-la dans Réglages → Fournisseurs.`
+    );
+  }
+  return getProvider(providerId, { apiKey });
 };
 
 /** 1 requête : la ligne du modèle. */
@@ -66,8 +56,8 @@ ai.post('/chat', async (c) => {
   const model = await loadModel(c.env, input.modelId);
   if (!model) return c.json({ error: 'Modèle introuvable dans le catalogue' }, 404);
 
-  // L'ordre compte : on valide d'abord que l'adaptateur existe (voir configFor)
-  const provider = resolve(model.provider, c.env);
+  // L'ordre compte : on valide d'abord que l'adaptateur existe (voir resolve)
+  const provider = await resolve(model.provider, c.env);
 
   let result;
   try {
@@ -100,5 +90,6 @@ ai.post('/chat', async (c) => {
  */
 ai.post('/test', async (c) => {
   const { apiCode, provider } = TestModelSchema.parse(await c.req.json());
-  return c.json(await resolve(provider, c.env).test(apiCode));
+  const adaptateur = await resolve(provider, c.env);
+  return c.json(await adaptateur.test(apiCode));
 });

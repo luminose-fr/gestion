@@ -4,6 +4,7 @@
  *   /auth/login   authentification (jeton signé, §7)
  *   /api/*        l'API sur D1, seule utilisée par le front
  *   /api/export   sauvegarde JSON complète (§9.4)
+ *   /api/settings clés des fournisseurs — en écriture seule (§5.5)
  *   /v1/*         proxy Notion résiduel — aucun client, gardé comme filet
  *
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
@@ -17,6 +18,7 @@ import { series } from './routes/series';
 import { models } from './routes/models';
 import { ai } from './routes/ai';
 import { exportRoute } from './routes/export';
+import { settings } from './routes/settings';
 import { legacy } from './routes/legacy';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -60,6 +62,7 @@ app.route('/api/series', series);
 app.route('/api/models', models);
 app.route('/api/ai', ai);
 app.route('/api/export', exportRoute);
+app.route('/api/settings', settings);
 app.route('/', legacy);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));

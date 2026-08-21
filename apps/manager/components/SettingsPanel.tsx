@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     X, SlidersHorizontal, Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2,
-    FlaskConical, AlertCircle, ChevronRight, Download
+    FlaskConical, AlertCircle, ChevronRight, Download, KeyRound
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../types';
 import * as Api from '../services/apiService';
@@ -22,7 +22,7 @@ interface SettingsPanelProps {
     /** Changer le modèle actif/par défaut. */
     onActiveModelChange: (modelId: string) => void;
     /** Onglet à afficher à l'ouverture. Défaut : 'display'. */
-    initialTab?: 'display' | 'models' | 'personas';
+    initialTab?: 'display' | 'models' | 'personas' | 'providers';
 }
 
 const HARDCODED_PERSONAS = [
@@ -33,12 +33,13 @@ const HARDCODED_PERSONAS = [
     { id: 'artiste',  name: 'Directeur Artistique',             usage: 'Prompts image',    prompt: ARTISTE_PERSONA   },
 ];
 
-type Tab = 'display' | 'models' | 'personas';
+type Tab = 'display' | 'models' | 'personas' | 'providers';
 
 const TAB_LABEL: Record<Tab, string> = {
-    display:  'Affichage',
-    models:   'Modèles IA',
-    personas: 'Personas',
+    display:   'Affichage',
+    models:    'Modèles IA',
+    providers: 'Clés',
+    personas:  'Personas',
 };
 
 // ─── Atoms ────────────────────────────────────────────────────────────────
@@ -111,6 +112,61 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saveSuccess, setSaveSuccess] = useState(false);
 
+    /**
+     * Clés des fournisseurs (SPEC §5.5). On ne détient jamais la valeur d'une
+     * clé posée : l'API n'en rend que l'empreinte. `saisies` porte ce que
+     * Florent est en train de taper, et se vide dès que c'est envoyé.
+     */
+    const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
+    const [saisies, setSaisies] = useState<Record<string, string>>({});
+    const [providerBusy, setProviderBusy] = useState<string | null>(null);
+    const [providerError, setProviderError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        Api.fetchProviders()
+            // `?? []` : une réponse sans `providers` ne doit pas transformer
+            // l'état en `undefined` — l'écran planterait au premier `.map`.
+            .then(({ providers }) => setProviders(providers ?? []))
+            .catch(e => setProviderError(e?.message || "Les fournisseurs n'ont pas pu être lus."));
+    }, [isOpen]);
+
+    const remplaceProvider = (etat: Api.ProviderKeyState) =>
+        setProviders(prev => prev.map(p => (p.id === etat.id ? { ...p, ...etat } : p)));
+
+    const handleSaveKey = async (id: string) => {
+        const cle = (saisies[id] ?? '').trim();
+        if (!cle || providerBusy) return;
+        setProviderBusy(id);
+        setProviderError(null);
+        try {
+            remplaceProvider(await Api.setProviderKey(id, cle));
+            // La clé ne traîne pas dans l'état du composant une fois envoyée.
+            setSaisies(prev => ({ ...prev, [id]: '' }));
+        } catch (e: any) {
+            setProviderError(e?.message || "La clé n'a pas pu être enregistrée.");
+        } finally {
+            setProviderBusy(null);
+        }
+    };
+
+    const handleDeleteKey = async (id: string) => {
+        if (providerBusy) return;
+        setProviderBusy(id);
+        setProviderError(null);
+        try {
+            await Api.deleteProviderKey(id);
+            // On relit plutôt que de deviner : effacer la clé de base peut
+            // faire réapparaître celle de l'environnement, avec son empreinte.
+            const { providers } = await Api.fetchProviders();
+            setProviders(providers);
+        } catch (e: any) {
+            setProviderError(e?.message || "La clé n'a pas pu être effacée.");
+        } finally {
+            setProviderBusy(null);
+        }
+    };
+
     // Sauvegarde complète (SPEC §9.4)
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState<string | null>(null);
@@ -145,6 +201,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     // Test model state
     const [testApiCode, setTestApiCode] = useState('');
+    /** Le testeur sonde un adaptateur précis : « claude-opus-4-7 » chez 1min.ai
+     *  et « anthropic/claude-opus-4.7 » chez OpenRouter ne sont pas le même code. */
+    const [testProvider, setTestProvider] = useState('onemin');
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testResult, setTestResult] = useState<AiService.ModelTestResult | null>(null);
 
@@ -207,10 +266,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const handleCreateModel = () => {
         setEditingId(null);
         setIsCreating(true);
-        setEditModel({ name: '', apiCode: '', cost: 'medium', provider: '', strengths: '', bestUseCases: '', textQuality: 3 });
+        setEditModel({ name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3 });
     };
 
-    // Devine le fournisseur à partir du préfixe du code API.
+    // Devine le FABRICANT à partir du préfixe du code API — jamais l'adaptateur.
     const guessProvider = (apiCode: string): string => {
         const c = apiCode.toLowerCase();
         if (c.startsWith('claude') || c.includes('anthropic')) return 'Anthropic';
@@ -230,7 +289,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         if (!code || testStatus === 'testing') return;
         setTestStatus('testing');
         setTestResult(null);
-        const result = await AiService.testModel(code);
+        const result = await AiService.testModel(code, testProvider);
         setTestResult(result);
         setTestStatus(result.available ? 'success' : 'error');
     };
@@ -241,7 +300,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setEditModel({
             name: code,
             apiCode: code,
-            provider: guessProvider(code),
+            provider: testProvider,
+            vendor: guessProvider(code),
             cost: 'medium',
             textQuality: 3,
             strengths: '',
@@ -268,7 +328,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     const handleSaveModel = async () => {
         if (!(editModel.apiCode || '').trim()) {
-            setSaveError("Le code API 1min.AI est obligatoire (sans lui le modèle est inutilisable).");
+            setSaveError("Le code API est obligatoire (sans lui le modèle est inutilisable).");
             return;
         }
 
@@ -325,6 +385,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const TABS: Array<{ id: Tab; icon: React.ComponentType<{ className?: string }>; label: string }> = [
         { id: 'display',  icon: SlidersHorizontal, label: 'Affichage'  },
         { id: 'models',   icon: Cpu,               label: 'Modèles IA' },
+        { id: 'providers', icon: KeyRound,         label: 'Clés'       },
         { id: 'personas', icon: User,              label: 'Personas'   },
     ];
 
@@ -455,6 +516,82 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     )}
 
                     {/* ─── MODELS TAB ─── */}
+                    {activeTab === 'providers' && (
+                        <div className="p-5 space-y-4 animate-in fade-in duration-200">
+                            <p className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed">
+                                Une clé posée ici part au Worker et n'en revient jamais : l'application
+                                n'en affiche que les quatre derniers caractères. Pour la remplacer,
+                                saisissez-en une nouvelle — il n'y a rien à relire.
+                            </p>
+
+                            {providerError && (
+                                <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {providerError}
+                                </p>
+                            )}
+
+                            {providers.length === 0 && !providerError && (
+                                <p className="text-xs text-brand-main/50 dark:text-dark-text/50">Chargement…</p>
+                            )}
+
+                            {providers.map(p => (
+                                <div key={p.id} className="rounded-xl border border-brand-border dark:border-dark-sec-border p-4 space-y-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <h3 className="font-semibold text-sm text-brand-main dark:text-white">{p.label}</h3>
+                                        {p.configured ? (
+                                            <span className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50">
+                                                <CheckCircle2 className="w-3 h-3" />
+                                                {p.hint}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-brand-light text-brand-main/60 border border-brand-border dark:bg-dark-bg dark:text-dark-text/60 dark:border-dark-sec-border">
+                                                Aucune clé
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {p.source === 'environnement' && (
+                                        <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50">
+                                            Clé héritée des secrets du Worker. En saisir une ici la remplacera.
+                                        </p>
+                                    )}
+
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="password"
+                                            autoComplete="off"
+                                            spellCheck={false}
+                                            value={saisies[p.id] ?? ''}
+                                            onChange={e => setSaisies(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                            placeholder={p.configured ? 'Nouvelle clé…' : 'Clé d’API…'}
+                                            className="flex-1 min-w-0 px-3 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg font-mono text-xs text-brand-main dark:text-white outline-hidden transition-colors"
+                                        />
+                                        <button
+                                            onClick={() => handleSaveKey(p.id)}
+                                            disabled={!(saisies[p.id] ?? '').trim() || providerBusy === p.id}
+                                            className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40"
+                                        >
+                                            {providerBusy === p.id
+                                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                : <Save className="w-3.5 h-3.5" />}
+                                            Poser
+                                        </button>
+                                    </div>
+
+                                    {p.source === 'base' && (
+                                        <button
+                                            onClick={() => handleDeleteKey(p.id)}
+                                            disabled={providerBusy === p.id}
+                                            className="text-[11px] font-medium text-red-500 hover:underline disabled:opacity-40"
+                                        >
+                                            Effacer la clé enregistrée
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {activeTab === 'models' && !isInModelEditor && (
                         <div className="p-5 animate-in fade-in duration-200 space-y-3">
                             <SectionTitle icon={Cpu} label="Modèles IA" count={aiModels.length} />
@@ -471,11 +608,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/40 dark:bg-dark-bg/40 p-3">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-brand-main/40 dark:text-dark-text/40 flex items-center gap-1.5 mb-2">
                                     <FlaskConical className="w-3 h-3" />
-                                    Tester un code API 1min.AI
+                                    Tester un code API
                                 </p>
                                 <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 leading-relaxed mb-2">
-                                    Vérifie si un modèle (ex : <code className="font-mono">claude-opus-4-7</code>) répond. Requête mini, ~1 token de coût.
+                                    Vérifie si un modèle répond, chez l'adaptateur choisi. Requête mini, ~1 token de coût.
                                 </p>
+                                <select
+                                    value={testProvider}
+                                    onChange={(e) => { setTestProvider(e.target.value); setTestStatus('idle'); setTestResult(null); }}
+                                    className="w-full mb-1.5 px-3 py-1.5 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg text-xs font-semibold text-brand-main dark:text-white outline-hidden cursor-pointer transition-colors"
+                                >
+                                    {providers.map(p => (
+                                        <option key={p.id} value={p.id}>{p.label}</option>
+                                    ))}
+                                </select>
                                 <div className="flex items-stretch gap-1.5">
                                     <input
                                         type="text"
@@ -577,9 +723,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                         >
                                             <div className="flex items-center justify-between gap-2 mb-1">
                                                 <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{m.name}</h3>
-                                                {m.provider && (
-                                                    <span className="shrink-0 text-[10px] bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
-                                                        {m.provider}
+                                                {(m.vendor || m.provider) && (
+                                                    <span
+                                                        title={`Adaptateur : ${m.provider}`}
+                                                        className="shrink-0 text-[10px] bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap"
+                                                    >
+                                                        {m.vendor || m.provider}
                                                     </span>
                                                 )}
                                             </div>
@@ -639,7 +788,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Code API 1min.AI</label>
+                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Code API</label>
                                 <input
                                     type="text"
                                     value={editModel.apiCode || ''}
@@ -649,14 +798,41 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 />
                             </div>
 
+                            {/*
+                                Deux notions distinctes (SPEC §5.3), longtemps confondues dans ce
+                                formulaire : l'ADAPTATEUR décide par où passe l'appel, le FABRICANT
+                                ne sert qu'à l'affichage. Saisir « OpenAI » dans le premier faisait
+                                échouer l'appel sur « Fournisseur inconnu ».
+                            */}
                             <div>
-                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Fournisseur</label>
+                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Adaptateur</label>
+                                <select
+                                    value={editModel.provider || 'onemin'}
+                                    onChange={(e) => setEditModel({ ...editModel, provider: e.target.value })}
+                                    className="w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg text-sm text-brand-main dark:text-white outline-hidden cursor-pointer transition-colors"
+                                >
+                                    {providers.map(p => (
+                                        <option key={p.id} value={p.id}>{p.label}</option>
+                                    ))}
+                                    {/* Une valeur héritée qui ne correspond à aucun adaptateur connu
+                                        reste visible plutôt que d'être remplacée en silence. */}
+                                    {editModel.provider && !providers.some(p => p.id === editModel.provider) && (
+                                        <option value={editModel.provider}>{editModel.provider} (inconnu)</option>
+                                    )}
+                                </select>
+                                <p className="mt-1.5 text-[11px] text-brand-main/50 dark:text-dark-text/50">
+                                    Par où passe l'appel. Sa clé se pose dans l'onglet Clés.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black text-brand-main/40 dark:text-dark-text/40 uppercase tracking-widest mb-2">Fabricant</label>
                                 <input
                                     type="text"
-                                    value={editModel.provider || ''}
-                                    onChange={(e) => setEditModel({ ...editModel, provider: e.target.value })}
+                                    value={editModel.vendor || ''}
+                                    onChange={(e) => setEditModel({ ...editModel, vendor: e.target.value })}
                                     className="w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main rounded-lg text-sm text-brand-main dark:text-white outline-hidden transition-colors"
-                                    placeholder="ex : OpenAI"
+                                    placeholder="ex : Anthropic"
                                 />
                             </div>
 

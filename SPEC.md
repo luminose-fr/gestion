@@ -1,9 +1,12 @@
-# SPEC v2.0 — gestion.luminose.fr
+# SPEC v2.1 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
 >
 > **Statut** : document de conception, écrit le 17/08/2026 avant toute implémentation.
+> **v2.1 (21/08/2026)** : les clés des fournisseurs peuvent être posées depuis
+> l'administration (§5.5). L'invariant du §7 est précisé, pas levé : une clé entre,
+> elle ne ressort jamais.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -396,6 +399,11 @@ Dans le modèle cible, deux colonnes :
 Un même modèle peut ainsi être joignable via 1min.ai aujourd'hui et en direct demain :
 on change une valeur dans la table, pas une ligne de code.
 
+Adaptateurs disponibles : `onemin`, `openai`, `openrouter`. Le troisième n'est
+qu'une URL de base posée sur le second — OpenRouter expose l'API
+`/chat/completions` d'OpenAI. C'est la démonstration que le port tient : un
+fournisseur de plus n'a obligé à réimplémenter personne.
+
 ### 5.4 Le testeur
 
 `POST /api/ai/test` avec `{ apiCode, provider }` appelle `provider.test(apiCode)`.
@@ -403,6 +411,35 @@ on change une valeur dans la table, pas une ligne de code.
 Il porte sur un **code**, pas sur un modèle du catalogue : au moment du test, le modèle
 n'existe pas encore — c'est précisément ce qu'on cherche à valider. Le test est devenu
 générique, c'est l'adaptateur qui sait comment sonder son API au coût le plus bas.
+
+### 5.5 Où vivent les clés — NORMATIF
+
+Une clé de fournisseur peut être posée de deux façons :
+
+| Origine | Pose | Priorité |
+| :--- | :--- | :--- |
+| `app_settings`, sous `provider_key:<adaptateur>` | Réglages → Clés | **l'emporte** |
+| Variable d'environnement (`ONE_MIN_API_KEY`…) | `wrangler secret put` | repli |
+
+**L'invariant reste le même, et c'est lui qui compte : une clé n'a aucun chemin
+de retour vers le navigateur.** Elle entre par `PUT /api/settings/providers/:id`,
+sert aux appels, s'efface par `DELETE` — mais aucune route ne la relit. La liste
+ne rend qu'une empreinte de quatre caractères et l'origine de la clé : assez pour
+reconnaître laquelle est posée, trop peu pour s'en servir.
+
+Deux conséquences non négociables :
+
+1. **L'export (§9.4) exclut ces lignes.** Une sauvegarde se range dans un
+   dossier, s'envoie par mail, se pose sur un disque externe. Y glisser des
+   identifiants d'API en ferait un secret de plus à protéger.
+2. **Le repli sur l'environnement est conservé.** Un déploiement qui pose ses
+   secrets avec `wrangler secret put` continue de fonctionner sans que personne
+   touche à l'interface.
+
+Ce que ce choix coûte, dit franchement : une clé en base est lisible par qui
+peut interroger la base, là où un secret Cloudflare ne l'est par personne, pas
+même par l'application. Le gain est l'autonomie — changer de fournisseur ne
+demande plus la ligne de commande ni un redéploiement.
 
 ---
 
@@ -464,7 +501,10 @@ Reste ouvert, non bloquant : comparaison des identifiants en temps constant, lim
 débit sur `/api/auth/login` (demanderait un binding KV), et à terme Cloudflare Access en
 remplacement complet du couple identifiant/mot de passe.
 
-**Invariant** : aucune clé de fournisseur (Notion, 1min.ai, OpenAI…) ne quitte le Worker.
+**Invariant** : aucune clé de fournisseur (Notion, 1min.ai, OpenAI, OpenRouter…)
+ne quitte le Worker. Elles peuvent désormais y ENTRER depuis l'administration et
+être stockées en base (§5.5) — la direction est à sens unique, et c'est elle que
+l'invariant protège.
 
 ---
 
@@ -525,7 +565,8 @@ valeur D1, et affiché zéro écart. Ce script fait partie du livrable de la pha
   (`fixtures/notion-export-<date>.json`). C'est la phase 0.
 - **Après bascule** : Notion reste intact, en lecture seule, pendant au moins un mois.
 - **En régime** : une route d'export (`GET /api/export`) produit un JSON complet
-  téléchargeable. Time Travel (7 jours en gratuit) ne suffit pas comme unique filet.
+  téléchargeable, lignes supprimées comprises. Time Travel (7 jours en gratuit) ne
+  suffit pas comme unique filet. **Les clés des fournisseurs en sont exclues** (§5.5).
 
 ---
 

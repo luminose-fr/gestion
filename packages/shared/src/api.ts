@@ -139,6 +139,16 @@ export const TestModelSchema = z.object({
   provider: z.string().min(1).default('onemin'),
 });
 
+// ── Clés des fournisseurs ────────────────────────────────────────────────
+
+/**
+ * Une clé d'API posée depuis l'administration. Bornée par prudence : une
+ * chaîne de 10 Ko dans ce champ n'est pas une clé, c'est un accident — ou pire.
+ */
+export const SetProviderKeySchema = z.object({
+  apiKey: z.string().trim().min(8).max(500),
+});
+
 // ── Synchronisation ──────────────────────────────────────────────────────
 
 /** `since` en epoch ms ; au-delà, les lignes supprimées remontent aussi (SPEC §8). */

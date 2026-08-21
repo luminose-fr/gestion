@@ -22,8 +22,11 @@ Aucune CI n'exécute les tests. `npm test` et `npm run typecheck` **avant chaque
 ## Les cinq règles qui ne se négocient pas
 
 1. **Les secrets ne quittent jamais le Worker.** Aucune clé de fournisseur (Notion,
-   1min.ai, OpenAI…) dans le bundle front, jamais, même en développement. Le front ne
-   connaît que des identifiants de modèles et l'origine de l'API.
+   1min.ai, OpenAI, OpenRouter…) dans le bundle front, jamais, même en développement. Le
+   front ne connaît que des identifiants de modèles et l'origine de l'API.
+   Depuis la v2.1 de la SPEC, une clé peut être POSÉE depuis l'administration et stockée
+   en base (§5.5) : le sens unique est la règle. Aucune route ne renvoie une clé, l'écran
+   n'en affiche que les quatre derniers caractères, et l'export les exclut.
 
 2. **`packages/editorial` n'a aucune dépendance.** Ni React, ni `fetch`, ni API Workers.
    Il compose des chaînes et il en parse. C'est ce qui le rend testable et c'est là que

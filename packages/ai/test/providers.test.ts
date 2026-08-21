@@ -9,8 +9,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getProvider, PROVIDER_IDS, flattenConversation, extractText, findBusinessError,
-  createOneMinProvider, createOpenAIProvider, stripCodeFences,
-  type ChatMessage,
+  createOneMinProvider, createOpenAIProvider, createOpenRouterProvider, OPENROUTER_BASE_URL,
+  stripCodeFences, type ChatMessage,
 } from '../src/index';
 
 const CONFIG = { apiKey: 'cle-de-test' };
@@ -37,8 +37,8 @@ const OPENAI_OK = { choices: [{ message: { content: 'La réponse du modèle' } }
 beforeEach(() => vi.unstubAllGlobals());
 
 describe('registre', () => {
-  it('expose les deux fournisseurs', () => {
-    expect(PROVIDER_IDS.sort()).toEqual(['onemin', 'openai']);
+  it('expose les trois fournisseurs', () => {
+    expect(PROVIDER_IDS.sort()).toEqual(['onemin', 'openai', 'openrouter']);
   });
 
   it('refuse un fournisseur inconnu au lieu de retomber sur un autre', () => {
@@ -51,6 +51,7 @@ describe('même contrat, deux fournisseurs', () => {
   it.each([
     ['onemin', ONEMIN_OK],
     ['openai', OPENAI_OK],
+    ['openrouter', OPENAI_OK],
   ])('%s renvoie le texte du modèle', async (id, payload) => {
     stubFetch(payload);
     const result = await getProvider(id, CONFIG).chat({
@@ -62,6 +63,7 @@ describe('même contrat, deux fournisseurs', () => {
   it.each([
     ['onemin', ONEMIN_OK],
     ['openai', OPENAI_OK],
+    ['openrouter', OPENAI_OK],
   ])('%s teste un modèle et mesure sa latence', async (id, payload) => {
     stubFetch(payload);
     const res = await getProvider(id, CONFIG).test('un-modele');
@@ -169,6 +171,38 @@ describe('les contorsions de 1min.ai restent dans son adaptateur', () => {
     vi.stubGlobal('fetch', async () => new Response('<html>502 Bad Gateway</html>', { status: 502 }));
     const res = await createOneMinProvider(CONFIG).test('m');
     expect(res.error).toContain('réponse invalide');
+  });
+});
+
+/**
+ * La preuve que le port tient : un troisième fournisseur n'ajoute qu'une URL.
+ * Si OpenRouter avait demandé une contorsion, c'est ici qu'on l'aurait vu.
+ */
+describe('openrouter n’est qu’une URL de base', () => {
+  it('vise openrouter.ai, pas openai.com', async () => {
+    const calls = stubFetch(OPENAI_OK);
+    await createOpenRouterProvider(CONFIG).chat({ model: 'anthropic/claude-sonnet-4.5', messages: CONVERSATION });
+    expect(calls[0].url.startsWith(OPENROUTER_BASE_URL)).toBe(true);
+    expect(calls[0].headers.Authorization).toBe('Bearer cle-de-test');
+  });
+
+  it('accepte un code modèle préfixé par son éditeur', async () => {
+    const calls = stubFetch(OPENAI_OK);
+    await getProvider('openrouter', CONFIG).chat({ model: 'openai/gpt-5.2-pro', messages: CONVERSATION });
+    expect(calls[0].body.model).toBe('openai/gpt-5.2-pro');
+  });
+
+  it('se laisse pointer ailleurs — une passerelle compatible reste joignable', async () => {
+    const calls = stubFetch(OPENAI_OK);
+    await createOpenRouterProvider({ ...CONFIG, baseUrl: 'https://passerelle.test/v1' }).chat({
+      model: 'm', messages: CONVERSATION,
+    });
+    expect(calls[0].url).toBe('https://passerelle.test/v1/chat/completions');
+  });
+
+  it('porte son propre identifiant — la provenance ne se confond pas', () => {
+    expect(createOpenRouterProvider(CONFIG).id).toBe('openrouter');
+    expect(createOpenAIProvider(CONFIG).id).toBe('openai');
   });
 });
 
