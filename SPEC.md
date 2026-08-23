@@ -1,4 +1,4 @@
-# SPEC v2.2 — gestion.luminose.fr
+# SPEC v2.3 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -11,6 +11,9 @@
 > L'Éclateur produit la matière de chaque publication et fait office d'Analyste pour
 > sa série (§6.2) ; l'anti-répétition irrigue tout l'atelier, plus seulement la
 > rédaction (§6.4).
+> **v2.3 (23/08/2026)** : l'explorateur croise une seconde source, qui juge de la PROSE
+> et non du raisonnement, et il s'ouvre sur une courte liste de vingt modèles
+> délibérément différents (§5.6).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -454,21 +457,81 @@ demande plus la ligne de commande ni un redéploiement.
 
 ### 5.6 L'explorateur de catalogue
 
-`GET /api/models/catalogue` croise deux appels sortants vers OpenRouter :
-`/models` (public — prix, contexte, code exact) et `/benchmarks` (clé requise —
-les indices d'Artificial Analysis). Cache d'une heure : les quotas sont de
-30 requêtes/minute et 500/jour.
+`GET /api/models/catalogue` croise **trois** appels sortants. Cache d'une heure,
+clé de cache versionnée : les quotas d'OpenRouter sont de 30 requêtes/minute et
+500/jour, et un déploiement qui change la forme de la réponse ne doit pas servir
+l'ancienne une heure de plus.
 
-**Ce que ces indices mesurent, et ce qu'ils ne mesurent pas.** Les `task_type`
+| Source | Clé | Ce qu'elle apporte |
+| :--- | :--- | :--- |
+| OpenRouter `/models` | non | prix, contexte, code exact |
+| OpenRouter `/benchmarks` | oui | indices d'Artificial Analysis |
+| EQ-Bench *Creative Writing* | non | Elo, note d'écriture, tournures d'IA, profil par critère |
+
+**Ce que les indices d'Artificial Analysis ne mesurent pas.** Les `task_type`
 publiés sont `coding`, `intelligence`, `agentic`, `search`. Aucune tâche du flux
 éditorial n'est là-dedans : ni juger avec constance, ni recopier un JSON sans
-l'abîmer, ni écrire du français incarné sous contrainte de voix. L'explorateur
-sert donc à **réduire le champ** — quatre cents modèles, une dizaine de
-candidats — jamais à décider. L'écran le dit, parce qu'un chiffre affiché sans
-cette phrase se lit comme un verdict.
+l'abîmer, ni écrire du français incarné sous contrainte de voix. Ils restent
+utiles à la famille *Synthétiser*, et à rien d'autre.
 
-Sans clé OpenRouter, la colonne des indices est vide et le catalogue reste
-rendu : le prix et le contexte écartent déjà beaucoup de candidats.
+**Pourquoi EQ-Bench.** Il juge de la prose, et trois de ses quinze critères
+redisent mot pour mot les règles de voix du §3 : *Show-Don't-Tell*, *Avoids
+Purple Prose*, *Avoids Positivity Bias*. Son `slop_score` — la densité de
+formules toutes faites — est l'exact anti-pattern que les personas combattent,
+et c'est la mesure la plus discriminante du jeu (de 6 à 63).
+
+**Ses limites, à dire à l'écran.** Ce n'est pas une API publiée : ce sont les
+fichiers que sa page de classement charge, et leur forme peut changer sans
+préavis. Il juge de la fiction, en anglais : c'est un **indice** de la voix de
+Florent, pas une mesure. La route l'entoure donc en conséquence — son absence
+vide les colonnes d'écriture, bascule l'écran sur le catalogue entier, en dit la
+raison, et n'emporte rien d'autre.
+
+**La clé OpenRouter ne part qu'à OpenRouter — NORMATIF.** EQ-Bench est une
+source tierce ajoutée après coup ; aucun appel sortant vers un autre hôte ne
+porte d'en-tête d'autorisation. Le §7 s'applique ici sans exception.
+
+#### La courte liste — NORMATIF
+
+Quatre cents modèles au catalogue, sept utilisés au plus. L'explorateur s'ouvre
+donc sur **vingt modèles délibérément différents**, le catalogue entier restant
+à un clic. La doctrine vit dans `packages/editorial/src/shortlist.ts`, pas dans
+l'écran ni dans la route :
+
+1. **Deux planchers.** Elo ≥ 1400 et slop < 30 : un quota de palier ne justifie
+   pas de recommander ce qu'on ne recommanderait pas. Un palier pauvre reste
+   incomplet, et ses places sont redistribuées.
+2. **L'accès le moins cher d'un même modèle.** Un modèle est publié sous
+   plusieurs codes — `:free`, `:batch`, variante datée, déclinaison de taille.
+   On n'en garde qu'un, le moins cher ; à prix égal, le meilleur Elo tranche.
+   Sans cette étape la liste proposait Inkling à 4,05 $ alors qu'il est gratuit.
+3. **Six paliers de prix**, resserrés en bas — entre 0,08 $ et 1 $ l'arbitrage
+   est réel, entre 25 $ et 50 $ il ne l'est plus guère.
+4. **Trois modèles par fabricant au plus**, et **une seule lignée par ligne** :
+   `v4-flash-latest` et `v4-flash-0731` sont le même modèle, `kimi-k2.6` et
+   `kimi-k3` ne le sont pas.
+5. **Les dominés tombent** — moins bon sur les trois axes sans être moins cher.
+   La comparaison est bornée **au palier ET au fabricant**, et ces deux bornes
+   portent tout le sens de la règle :
+   - le **palier**, parce qu'un modèle gratuit bat sur le papier n'importe quel
+     modèle à 0,08 $ tout en étant plafonné en débit — il ne le remplace pas ;
+   - le **fabricant**, parce que ces notes mesurent de la fiction en anglais. Un
+     écart de deux dixièmes n'y dit rien du français de Florent, et laisser ce
+     bruit effacer la maison d'en face coûterait ce qui a le plus de valeur :
+     une porte de sortie quand l'une tombe, sature, ou déplaît à la lecture.
+
+   Ce que la règle sait donc dire, et rien de plus : *un fabricant remplace son
+   propre modèle*. Opus 5 efface Fable 5 — même maison, moitié prix, meilleur
+   sur les trois axes ; il n'efface pas Kimi K3.
+
+Le classement interne pèse l'Elo à 45 %, la note d'écriture à 25 %, l'absence de
+tournures d'IA à 30 %.
+
+Au 23/08/2026, ces règles rendent **20 modèles de 11 fabricants**, répartis sur
+les six paliers.
+
+L'explorateur sert à **réduire le champ** — jamais à décider. L'écran le dit,
+parce qu'un chiffre affiché sans cette phrase se lit comme un verdict.
 
 ---
 

@@ -132,17 +132,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     });
 
     /**
-     * L'explorateur du catalogue OpenRouter. Il sert à RÉDUIRE le champ —
-     * quatre cents modèles, une dizaine de candidats — jamais à décider :
-     * les indices publiés mesurent le raisonnement et le code, pas la voix.
+     * L'explorateur du catalogue. Il sert à RÉDUIRE le champ — quatre cents
+     * modèles, vingt candidats — jamais à décider. Il s'ouvre sur la courte
+     * liste, parce qu'une liste qu'on ne lit pas ne réduit rien.
      */
     const [exploring, setExploring] = useState(false);
     const [catalogue, setCatalogue] = useState<Api.CatalogueModel[] | null>(null);
-    const [catalogueEtat, setCatalogueEtat] = useState<{ benchmarks: boolean; raison: string | null }>({ benchmarks: false, raison: null });
+    const [catalogueEtat, setCatalogueEtat] = useState<{
+        benchmarks: boolean; raison: string | null;
+        ecriture: boolean; ecritureRaison: string | null;
+    }>({ benchmarks: false, raison: null, ecriture: false, ecritureRaison: null });
     const [catalogueErreur, setCatalogueErreur] = useState<string | null>(null);
     const [catalogueCharge, setCatalogueCharge] = useState(false);
     const [recherche, setRecherche] = useState('');
-    const [tri, setTri] = useState<'intelligence' | 'prix' | 'nom'>('intelligence');
+    const [vueCatalogue, setVueCatalogue] = useState<'selection' | 'tout'>('selection');
+    const [tri, setTri] = useState<'prix' | 'ecriture' | 'slop' | 'intelligence' | 'nom'>('prix');
 
     const [testApiCode, setTestApiCode] = useState('');
     /** Le testeur sonde un adaptateur précis : « claude-opus-4-7 » chez 1min.ai
@@ -276,9 +280,15 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         setCatalogueCharge(true);
         setCatalogueErreur(null);
         try {
-            const { models, benchmarksAvailable, benchmarksReason } = await Api.fetchCatalogue();
+            const { models, benchmarksAvailable, benchmarksReason, ecritureAvailable, ecritureReason } = await Api.fetchCatalogue();
             setCatalogue(models ?? []);
-            setCatalogueEtat({ benchmarks: benchmarksAvailable, raison: benchmarksReason });
+            setCatalogueEtat({
+                benchmarks: benchmarksAvailable, raison: benchmarksReason,
+                ecriture: ecritureAvailable, ecritureRaison: ecritureReason,
+            });
+            // Sans notes d'écriture, la courte liste est vide : montrer un écran
+            // vide serait une panne muette. On bascule sur le catalogue entier.
+            if (!ecritureAvailable) setVueCatalogue('tout');
         } catch (e: any) {
             setCatalogueErreur(e?.message || "Le catalogue n'a pas pu être lu.");
         } finally {
@@ -742,35 +752,54 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     </div>
                 )}
 
-                {/* ─── MODÈLES IA — explorateur du catalogue OpenRouter ─── */}
+                {/* ─── MODÈLES IA — explorateur du catalogue ─── */}
                 {isInExplorer && (() => {
                     const dejaLa = new Set(aiModels.filter(m => m.provider === 'openrouter').map(m => m.apiCode));
                     const terme = recherche.trim().toLowerCase();
-                    const filtres = (catalogue ?? []).filter(m =>
+                    const tous = catalogue ?? [];
+                    // Tolérant à une réponse d'une version antérieure (cache, proxy) :
+                    // un champ manquant vide la sélection, il ne casse pas l'écran.
+                    const courteListe = tous.filter(m => m.selection === true);
+                    const base = vueCatalogue === 'selection' && courteListe.length ? courteListe : tous;
+                    const filtres = base.filter(m =>
                         !terme || m.id.toLowerCase().includes(terme) || m.name.toLowerCase().includes(terme)
                     );
                     const trie = [...filtres].sort((a, b) => {
                         if (tri === 'nom') return a.name.localeCompare(b.name, 'fr');
                         if (tri === 'prix') return (a.completionPrice ?? 1e9) - (b.completionPrice ?? 1e9);
-                        // Intelligence décroissante, les modèles non mesurés en fin de liste.
+                        if (tri === 'ecriture') return (b.ecriture ?? -1) - (a.ecriture ?? -1);
+                        // Le slop est le seul axe où le plus bas gagne ; les non mesurés en fin de liste.
+                        if (tri === 'slop') return (a.slop ?? 1e9) - (b.slop ?? 1e9);
                         return (b.intelligence ?? -1) - (a.intelligence ?? -1);
                     });
-                    const PLAFOND = 60;
+                    // La courte liste tient à l'écran ; le catalogue entier, non.
+                    const PLAFOND = vueCatalogue === 'selection' ? trie.length : 60;
                     const visibles = trie.slice(0, PLAFOND);
-                    const prix = (v: number | null) => (v === null ? '—' : v === 0 ? 'gratuit' : `${v.toFixed(2)} $`);
+                    const prix = (v: number | null) => (v === null ? '—' : v === 0 ? 'gratuit' : `${v.toFixed(2)}`);
+                    const note = (v: number | null, chiffres = 1) =>
+                        v === null ? null : v.toFixed(chiffres);
+
+                    const ONGLET = (actif: boolean) =>
+                        `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                            actif
+                                ? 'bg-brand-main text-white shadow-sm shadow-brand-main/25 dark:bg-white dark:text-brand-main'
+                                : 'text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg'
+                        }`;
+                    const TH = 'px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap';
 
                     return (
                         <div className="animate-fade-in">
-                            <FilAriane label="Catalogue OpenRouter" />
+                            <FilAriane label="Catalogue des modèles" />
 
                             <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70 max-w-3xl mb-1">
-                                Ce que publie OpenRouter : le prix, le contexte, et les indices d'Artificial Analysis
-                                quand le modèle y figure.
+                                Deux sources croisées : OpenRouter pour le prix, le contexte et les indices
+                                d'Artificial Analysis ; EQ-Bench pour la qualité d'écriture.
                             </p>
                             <p className="text-xs leading-relaxed text-brand-main/50 dark:text-dark-text/50 max-w-3xl mb-4">
-                                Ces indices mesurent le raisonnement, le code et la capacité d'agent — aucune des
-                                tâches de votre flux. Ils servent à réduire le champ, pas à choisir : le modèle qui
-                                écrit le mieux votre voix se décide en le lisant.
+                                Les indices d'Artificial Analysis mesurent le raisonnement, le code et la capacité
+                                d'agent — aucune tâche de votre flux. EQ-Bench juge de la prose, en anglais et sur
+                                de la fiction : c'est un indice de votre voix, pas une mesure. Ils réduisent le
+                                champ ; le modèle qui écrit le mieux votre français se décide en le lisant.
                             </p>
 
                             {catalogueErreur && (
@@ -779,11 +808,38 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </p>
                             )}
 
-                            {!catalogueEtat.benchmarks && catalogue && (
+                            {catalogue && !catalogueEtat.ecriture && (
+                                <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-3">
+                                    Notes d'écriture indisponibles ({catalogueEtat.ecritureRaison ?? 'raison inconnue'}) :
+                                    EQ-Bench n'est pas une API publiée, sa forme peut changer sans préavis. La sélection
+                                    en dépend — le catalogue entier reste lisible.
+                                </p>
+                            )}
+                            {catalogue && !catalogueEtat.benchmarks && (
                                 <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-3">
                                     {catalogueEtat.raison === 'clé absente'
-                                        ? 'Indices indisponibles : aucune clé OpenRouter posée. Le prix et le contexte restent lisibles.'
-                                        : 'Indices indisponibles : OpenRouter a refusé la requête (quota, sans doute). Réessayez plus tard.'}
+                                        ? "Indices d'Artificial Analysis indisponibles : aucune clé OpenRouter posée."
+                                        : "Indices d'Artificial Analysis indisponibles : OpenRouter a refusé la requête (quota, sans doute)."}
+                                </p>
+                            )}
+
+                            {catalogue && catalogueEtat.ecriture && (
+                                <div className="flex items-center gap-1 p-1 mb-3 rounded-xl bg-brand-light dark:bg-dark-bg w-fit">
+                                    <button onClick={() => { setVueCatalogue('selection'); setTri('prix'); }} className={ONGLET(vueCatalogue === 'selection')}>
+                                        La sélection · {courteListe.length}
+                                    </button>
+                                    <button onClick={() => setVueCatalogue('tout')} className={ONGLET(vueCatalogue === 'tout')}>
+                                        Tout le catalogue · {tous.length}
+                                    </button>
+                                </div>
+                            )}
+
+                            {vueCatalogue === 'selection' && courteListe.length > 0 && (
+                                <p className="text-xs leading-relaxed text-brand-main/60 dark:text-dark-text/60 max-w-3xl mb-3 pl-3 border-l-2 border-brand-border dark:border-dark-sec-border">
+                                    Vous n'utiliserez jamais quarante modèles. Cette liste garde, par palier de prix,
+                                    ceux qui écrivent le mieux — au plus trois par fabricant, une seule variante par
+                                    modèle, et rien qui soit battu sur tous les tableaux par moins cher que lui.
+                                    Chaque ligne répond donc à une question que les autres ne posent pas.
                                 </p>
                             )}
 
@@ -801,10 +857,12 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 <select
                                     value={tri}
                                     onChange={e => setTri(e.target.value as any)}
-                                    className={`${CHAMP} sm:w-56 py-2 cursor-pointer`}
+                                    className={`${CHAMP} sm:w-60 py-2 cursor-pointer`}
                                 >
-                                    <option value="intelligence">Trier par indice d'intelligence</option>
                                     <option value="prix">Trier par prix de sortie</option>
+                                    <option value="ecriture">Trier par note d'écriture</option>
+                                    <option value="slop">Trier par tournures d'IA</option>
+                                    <option value="intelligence">Trier par indice d'intelligence</option>
                                     <option value="nom">Trier par nom</option>
                                 </select>
                             </div>
@@ -822,11 +880,13 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                             <table className="min-w-full text-sm">
                                                 <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
                                                     <tr>
-                                                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Modèle</th>
-                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Entrée $/M</th>
-                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Sortie $/M</th>
-                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Contexte</th>
-                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Intelligence</th>
+                                                        <th className={`${TH} text-left min-w-[17rem]`}>Modèle</th>
+                                                        <th className={`${TH} text-right`}>Entrée → sortie $/M</th>
+                                                        <th className={`${TH} text-right`}>Contexte</th>
+                                                        <th className={`${TH} text-right`}>Écriture</th>
+                                                        <th className={`${TH} text-right`}>Tournures d'IA</th>
+                                                        <th className={`${TH} text-right`}>Consignes</th>
+                                                        <th className={`${TH} text-right`}>Intelligence</th>
                                                         <th className="w-24 px-3 py-2" aria-hidden="true" />
                                                     </tr>
                                                 </thead>
@@ -834,19 +894,57 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                     {visibles.map(m => (
                                                         <tr key={m.id} className="hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors">
                                                             <td className="px-3 py-2">
-                                                                <p className="font-semibold text-[13px] text-brand-main dark:text-white">{m.name}</p>
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <p className="font-semibold text-[13px] text-brand-main dark:text-white">{m.name}</p>
+                                                                    {m.palierLibelle && vueCatalogue === 'tout' && (
+                                                                        <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-brand-main/10 text-brand-main dark:bg-white/15 dark:text-white whitespace-nowrap">
+                                                                            sélection · {m.palierLibelle}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <p className="font-mono text-[11px] text-brand-main/50 dark:text-dark-text/50">{m.id}</p>
+                                                                {(m.forces ?? []).length > 0 && (
+                                                                    <p className="text-[10px] text-brand-main/45 dark:text-dark-text/45 mt-0.5">
+                                                                        Fort en : {(m.forces ?? []).join(', ')}
+                                                                    </p>
+                                                                )}
                                                             </td>
-                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">{prix(m.promptPrice)}</td>
-                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">{prix(m.completionPrice)}</td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">
+                                                                {m.completionPrice === 0 && m.promptPrice === 0
+                                                                    ? 'gratuit'
+                                                                    : `${prix(m.promptPrice)} → ${prix(m.completionPrice)}`}
+                                                            </td>
                                                             <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">
                                                                 {m.contextLength ? `${Math.round(m.contextLength / 1000)}k` : '—'}
                                                             </td>
                                                             <td className="px-3 py-2 text-right whitespace-nowrap">
-                                                                {m.intelligence === null ? (
-                                                                    <span className="text-xs text-brand-main/30 dark:text-dark-text/30">non mesuré</span>
+                                                                {note(m.ecriture, 2) === null ? (
+                                                                    <span className="text-xs text-brand-main/30 dark:text-dark-text/30">—</span>
                                                                 ) : (
-                                                                    <span className="text-xs font-bold text-brand-main dark:text-white">{m.intelligence.toFixed(1)}</span>
+                                                                    <span className="text-xs font-bold text-brand-main dark:text-white">{note(m.ecriture, 2)}</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                                                                {m.slop === null ? (
+                                                                    <span className="text-xs text-brand-main/30 dark:text-dark-text/30">—</span>
+                                                                ) : (
+                                                                    <span className={`text-xs font-bold ${
+                                                                        m.slop <= 13 ? 'text-emerald-700 dark:text-emerald-300'
+                                                                            : m.slop <= 22 ? 'text-brand-main dark:text-white'
+                                                                            : 'text-amber-700 dark:text-amber-400'
+                                                                    }`}>
+                                                                        {note(m.slop)}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">
+                                                                {note(m.suivi, 1) ?? '—'}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                                                                {m.intelligence === null ? (
+                                                                    <span className="text-xs text-brand-main/30 dark:text-dark-text/30">—</span>
+                                                                ) : (
+                                                                    <span className="text-xs text-brand-main/70 dark:text-dark-text/70">{m.intelligence.toFixed(1)}</span>
                                                                 )}
                                                             </td>
                                                             <td className="px-3 py-2 text-right">
@@ -868,11 +966,18 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                         </div>
                                     </div>
 
+                                    {/* Une colonne dont on ignore le sens ne sert à rien. */}
+                                    <p className="mt-2.5 px-1 text-[11px] leading-relaxed text-brand-main/50 dark:text-dark-text/50 max-w-3xl">
+                                        <strong className="font-semibold">Écriture</strong> et <strong className="font-semibold">Consignes</strong> : sur 20, plus haut est meilleur.{' '}
+                                        <strong className="font-semibold">Tournures d'IA</strong> : densité des formules toutes faites — <em>plus bas est meilleur</em>, et c'est
+                                        la colonne la plus parlante pour la voix.
+                                    </p>
+
                                     {/* Aucun plafond silencieux : ce qui n'est pas montré est annoncé. */}
-                                    <p className="mt-2.5 px-1 text-[11px] text-brand-main/50 dark:text-dark-text/50">
+                                    <p className="mt-1 px-1 text-[11px] text-brand-main/50 dark:text-dark-text/50">
                                         {trie.length > PLAFOND
                                             ? `${PLAFOND} modèles affichés sur ${trie.length} correspondants — affinez la recherche.`
-                                            : `${trie.length} modèle${trie.length > 1 ? 's' : ''} correspondant${trie.length > 1 ? 's' : ''}.`}
+                                            : `${trie.length} modèle${trie.length > 1 ? 's' : ''} affiché${trie.length > 1 ? 's' : ''}.`}
                                     </p>
                                 </>
                             )}

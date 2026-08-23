@@ -115,6 +115,18 @@ export interface CatalogueModel {
   intelligence: number | null;
   coding: number | null;
   agentic: number | null;
+  /** Notes d'écriture (EQ-Bench), quand le modèle y figure. */
+  elo: number | null;
+  ecriture: number | null;
+  /** Densité de tournures d'IA. PLUS BAS EST MEILLEUR. */
+  slop: number | null;
+  suivi: number | null;
+  /** Ce sur quoi ce modèle est RELATIVEMENT fort, en français. */
+  forces: string[];
+  /** Retenu dans la courte liste, et le palier de prix qui l'explique. */
+  selection: boolean;
+  palier: string | null;
+  palierLibelle: string | null;
 }
 
 export const fetchCatalogue = () =>
@@ -122,6 +134,10 @@ export const fetchCatalogue = () =>
     models: CatalogueModel[];
     benchmarksAvailable: boolean;
     benchmarksReason: string | null;
+    ecritureAvailable: boolean;
+    ecritureReason: string | null;
+    /** L'ordre de la courte liste, du moins cher au plus cher. */
+    selection: string[];
     fetchedAt: number;
   }>('/models/catalogue');
 

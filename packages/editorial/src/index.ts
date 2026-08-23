@@ -20,6 +20,9 @@ export * from './objectives';
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';
 
+// Le choix des modèles — courte liste et paliers de prix (SPEC §5.6)
+export * from './shortlist';
+
 // Composition des prompts et parsing des réponses
 export * from './prompts';
 export * from './actions';

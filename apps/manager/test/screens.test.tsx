@@ -142,20 +142,63 @@ describe('espace Réglages', () => {
    * L'explorateur est un état de rendu à part entière : il se monte, et il
    * annonce ce que ses indices mesurent — sinon on les prend pour un verdict.
    */
+  const catalogueStub = (over: Record<string, unknown> = {}) => ({
+    models: [{
+      id: 'anthropic/claude-fable-5', name: 'Claude Fable 5', contextLength: 1000000,
+      promptPrice: 10, completionPrice: 50, intelligence: 71.2, coding: 65.8, agentic: 58.3,
+      elo: 1932.4, ecriture: 16.81, slop: 10.28, suivi: 18.49,
+      forces: ['Rythme', "Évite l'emphase"],
+      selection: true, palier: 'premium', palierLibelle: '> 15 $',
+    }],
+    benchmarksAvailable: true, benchmarksReason: null,
+    ecritureAvailable: true, ecritureReason: null,
+    selection: ['anthropic/claude-fable-5'], fetchedAt: Date.now(),
+    ...over,
+  });
+
   it('l’explorateur de catalogue se monte et dit ce qu’il mesure', async () => {
-    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
-      models: [{
-        id: 'anthropic/claude-fable-5', name: 'Claude Fable 5', contextLength: 1000000,
-        promptPrice: 10, completionPrice: 50, intelligence: 71.2, coding: 65.8, agentic: 58.3,
-      }],
-      benchmarksAvailable: true, benchmarksReason: null, fetchedAt: Date.now(),
-    }), { status: 200 }));
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(catalogueStub()), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
     fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
 
-    expect(container.textContent).toContain('aucune des tâches de votre flux');
+    expect(container.textContent).toContain('aucune tâche de votre flux');
     expect(await findByText('anthropic/claude-fable-5')).toBeTruthy();
+    // La colonne la plus parlante ne doit pas se lire à l'envers.
+    expect(container.textContent).toContain('plus bas est meilleur');
+  });
+
+  it('l’explorateur s’ouvre sur la courte liste et sait montrer le reste', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(catalogueStub()), { status: 200 }));
+
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    await findByText('anthropic/claude-fable-5');
+
+    expect(container.textContent).toContain('La sélection · 1');
+    expect(container.textContent).toContain('Tout le catalogue · 1');
+    fireEvent.click(await findByText('Tout le catalogue · 1'));
+    expect(container.textContent).toContain('sélection · > 15 $');
+  });
+
+  /** EQ-Bench n'est pas une API publiée : son absence doit se voir, pas se subir. */
+  it('sans notes d’écriture, l’explorateur bascule sur le catalogue entier et le dit', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(catalogueStub({
+      ecritureAvailable: false, ecritureReason: 'injoignable', selection: [],
+      models: [{
+        id: 'anthropic/claude-fable-5', name: 'Claude Fable 5', contextLength: 1000000,
+        promptPrice: 10, completionPrice: 50, intelligence: 71.2, coding: 65.8, agentic: 58.3,
+        elo: null, ecriture: null, slop: null, suivi: null, forces: [],
+        selection: false, palier: null, palierLibelle: null,
+      }],
+    })), { status: 200 }));
+
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    await findByText('anthropic/claude-fable-5');
+
+    expect(container.textContent).toContain("Notes d'écriture indisponibles (injoignable)");
+    expect(container.textContent).not.toContain('La sélection ·');
   });
 
   it('n’affiche jamais autre chose que l’empreinte d’une clé', () => {
