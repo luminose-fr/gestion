@@ -18,7 +18,7 @@ import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
 import {
     ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA, VOICE_RULES,
-    AI_ACTION_CATALOG, ATTENDU_LABELS,
+    AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
 
@@ -44,18 +44,6 @@ const HARDCODED_PERSONAS = [
     { id: 'coach',    name: 'Coach (sparring-partner)',        usage: 'Session chat',     prompt: COACH_PERSONA     },
     { id: 'editeur',  name: 'Éditeur Littéraire & Scénariste', usage: 'Rédaction finale', prompt: REDACTEUR_PERSONA },
     { id: 'artiste',  name: 'Directeur Artistique',            usage: 'Prompts image',    prompt: ARTISTE_PERSONA   },
-];
-
-/**
- * Les actions regroupées par ce qu'elles demandent au modèle. L'ordre des
- * familles va du moins au plus exigeant : c'est dans cet ordre qu'on décide
- * où dépenser.
- */
-const FAMILLES: Array<{ attendu: string; titre: string }> = [
-    { attendu: 'juger',    titre: 'Juger' },
-    { attendu: 'recopie',  titre: 'Recopier' },
-    { attendu: 'synthèse', titre: 'Synthétiser' },
-    { attendu: 'voix',     titre: 'Porter la voix' },
 ];
 
 const CHAMP =
@@ -839,22 +827,12 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 {/* ─── MODÈLE PAR ACTION ─── */}
                 {section === 'presets' && (
                     <div className="space-y-6 animate-fade-in">
-                        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
-                            <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70">
-                                Chaque action peut avoir son modèle. Sans réglage, elle prend celui du sélecteur en
-                                haut de l'application. Les actions sont rangées par ce qu'elles demandent au modèle —
-                                c'est ce qui décide où dépenser.
-                            </p>
-
-                            <div className="border-l-2 border-brand-main dark:border-white pl-3.5 py-0.5">
-                                <p className={`${TITRE_GROUPE} text-brand-main dark:text-white mb-1.5`}>Ce qui compte vraiment</p>
-                                <p className="text-xs leading-relaxed text-brand-main/70 dark:text-dark-text/70">
-                                    Les classements publics mesurent la capacité à coder et à raisonner. Vos tâches
-                                    demandent autre chose. Un modèle économique suffit à juger et à recopier — c'est
-                                    aussi là qu'est le volume. La voix, elle, ne s'économise pas : c'est le produit.
-                                </p>
-                            </div>
-                        </div>
+                        <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70 max-w-3xl">
+                            Chaque action peut avoir son modèle. Sans réglage, elle prend celui du sélecteur en haut
+                            de l'application. Les actions sont rangées par ce qu'elles demandent — les classements
+                            publics, eux, mesurent la capacité à coder et à raisonner, ce qu'aucune de ces tâches
+                            ne réclame.
+                        </p>
 
                         {saveError && (
                             <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1.5">
@@ -862,22 +840,40 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             </p>
                         )}
 
-                        {FAMILLES.map(famille => {
-                            const actions = AI_ACTION_CATALOG.filter(a => a.attendu === famille.attendu);
-                            if (actions.length === 0) return null;
+                        {/*
+                            Le conseil est rendu PAR FAMILLE et PAR ACTION, pas en préambule :
+                            il doit être sous les yeux au moment où le menu s'ouvre, sinon il
+                            ne sert qu'une fois, à la première lecture.
+                        */}
+                        {ATTENDU_ORDRE.map(attendu => {
+                            const famille = ATTENDU_FAMILLES[attendu];
+                            const actions = AI_ACTION_CATALOG.filter(a => a.attendu === attendu);
+                            if (!famille || actions.length === 0) return null;
                             return (
-                                <div key={famille.attendu}>
-                                    <EnTeteGroupe titre={famille.titre} detail={ATTENDU_LABELS[famille.attendu]} />
+                                <div key={attendu}>
+                                    <div className="border-l-2 border-brand-main dark:border-white pl-3.5 py-0.5 mb-3">
+                                        <p className="text-[13px] font-bold text-brand-main dark:text-white">{famille.titre}</p>
+                                        <p className="text-xs leading-relaxed text-brand-main/60 dark:text-dark-text/60 mt-0.5">
+                                            {famille.demande}
+                                        </p>
+                                        <p className="text-xs leading-relaxed text-brand-main dark:text-white mt-1 font-medium">
+                                            → {famille.choix}
+                                        </p>
+                                    </div>
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                                         {actions.map(action => (
                                             <div
                                                 key={action.id}
-                                                className="p-3.5 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface space-y-2.5"
+                                                className="p-3.5 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex flex-col gap-2.5"
                                             >
                                                 <div className="flex items-baseline justify-between gap-2">
                                                     <span className="text-[13px] font-bold text-brand-main dark:text-white">{action.label}</span>
                                                     <span className="text-[10px] text-brand-main/40 dark:text-dark-text/40 whitespace-nowrap">{action.persona}</span>
                                                 </div>
+                                                <p className="text-[11px] leading-relaxed text-brand-main/50 dark:text-dark-text/50 flex-1">
+                                                    {action.pourChoisir}
+                                                </p>
                                                 <SelecteurModele
                                                     value={actionModels[action.id] ?? ''}
                                                     disabled={presetBusy === action.id}

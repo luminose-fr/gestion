@@ -64,10 +64,27 @@ describe('catalogue des actions réglables', () => {
     expect(AI_ACTION_CATALOG.map(a => a.id)).not.toContain('GENERATE_INTERVIEW');
   });
 
-  it('dit pour chaque action ce qu’elle demande au modèle', async () => {
-    const { AI_ACTION_CATALOG, ATTENDU_LABELS } = await import('../src/actions');
+  /**
+   * Le conseil de choix se lit à deux niveaux : la famille dit où mettre
+   * l'argent, l'action dit ce qui lui est propre. Une action sans l'un des
+   * deux laisse Florent choisir à l'aveugle.
+   */
+  it('dit pour chaque action ce qu’elle demande, et ce qui lui est propre', async () => {
+    const { AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE } = await import('../src/actions');
     for (const action of AI_ACTION_CATALOG) {
-      expect(ATTENDU_LABELS[action.attendu]).toBeTruthy();
+      const famille = ATTENDU_FAMILLES[action.attendu];
+      expect(famille?.demande).toBeTruthy();
+      expect(famille?.choix).toBeTruthy();
+      expect(action.pourChoisir.length).toBeGreaterThan(20);
+    }
+  });
+
+  it('range les familles du moins au plus exigeant, sans en oublier', async () => {
+    const { AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE } = await import('../src/actions');
+    expect(ATTENDU_ORDRE).toEqual(Object.keys(ATTENDU_FAMILLES));
+    // Toute famille utilisée par une action est rendue par l'écran.
+    for (const action of AI_ACTION_CATALOG) {
+      expect(ATTENDU_ORDRE).toContain(action.attendu);
     }
   });
 });

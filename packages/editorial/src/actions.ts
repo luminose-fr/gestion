@@ -31,28 +31,67 @@ import { getObjectifCtaRules } from "./objectives";
  * la voix n'admet pas d'économie.
  */
 export const AI_ACTION_CATALOG = [
-    { id: 'ANALYZE_BATCH',             persona: 'Analyste',      label: 'Analyse des idées',        attendu: 'juger' },
-    { id: 'COACH_CHAT',                persona: 'Coach',         label: 'Atelier (conversation)',   attendu: 'voix' },
-    { id: 'LOCK_BRIEF',                persona: 'Verrouilleur',  label: 'Brief verrouillé',         attendu: 'synthèse' },
-    { id: 'DRAFT_CONTENT',             persona: 'Rédacteur',     label: 'Rédaction',                attendu: 'voix' },
-    { id: 'ADJUST_CONTENT',            persona: 'Rédacteur',     label: 'Ajustement du texte',      attendu: 'voix' },
-    { id: 'COLD_READ',                 persona: 'Lecteur froid', label: 'Relecture à froid',        attendu: 'juger' },
-    { id: 'GENERATE_CARROUSEL_SLIDES', persona: 'Artiste',       label: 'Slides du carrousel',      attendu: 'recopie' },
-    { id: 'ADJUST_DZINE_PROMPTS',      persona: 'Artiste',       label: 'Prompts d’image',          attendu: 'recopie' },
-    { id: 'PLAN_SERIES',               persona: 'Éclateur',      label: 'Plan de série',            attendu: 'synthèse' },
+    { id: 'ANALYZE_BATCH',             persona: 'Analyste',      label: 'Analyse des idées',        attendu: 'juger',
+      pourChoisir: 'L’action la plus appelée du flux : une par idée. C’est elle qui fait la facture si vous prenez cher.' },
+    { id: 'COACH_CHAT',                persona: 'Coach',         label: 'Atelier (conversation)',   attendu: 'voix',
+      pourChoisir: 'La plus coûteuse : la conversation grossit à chaque tour, et tout l’historique repart à chaque message.' },
+    { id: 'LOCK_BRIEF',                persona: 'Verrouilleur',  label: 'Brief verrouillé',         attendu: 'synthèse',
+      pourChoisir: 'Quelques appels par mois, et le brief conditionne tout ce qui suit.' },
+    { id: 'DRAFT_CONTENT',             persona: 'Rédacteur',     label: 'Rédaction',                attendu: 'voix',
+      pourChoisir: 'C’est le produit. Le seul endroit où économiser se paie en temps de réécriture.' },
+    { id: 'ADJUST_CONTENT',            persona: 'Rédacteur',     label: 'Ajustement du texte',      attendu: 'voix',
+      pourChoisir: 'Doit modifier SEULEMENT ce qu’on lui demande, et rendre le JSON complet.' },
+    { id: 'COLD_READ',                 persona: 'Lecteur froid', label: 'Relecture à froid',        attendu: 'juger',
+      pourChoisir: 'Entrée courte, sortie courte, appelée à chaque rédaction.' },
+    { id: 'GENERATE_CARROUSEL_SLIDES', persona: 'Artiste',       label: 'Slides du carrousel',      attendu: 'recopie',
+      pourChoisir: 'Recopie tout le carrousel : le coût est dans les jetons produits, pas reçus.' },
+    { id: 'ADJUST_DZINE_PROMPTS',      persona: 'Artiste',       label: 'Prompts d’image',          attendu: 'recopie',
+      pourChoisir: 'Même recopie, en plus court — et les slides TYPO doivent rester à null.' },
+    { id: 'PLAN_SERIES',               persona: 'Éclateur',      label: 'Plan de série',            attendu: 'synthèse',
+      pourChoisir: 'Doit diverger : un modèle faible rend cinq reformulations de la même idée.' },
 ] as const;
 
 export type ConfigurableAction = (typeof AI_ACTION_CATALOG)[number]['id'];
 
 export const CONFIGURABLE_ACTIONS: string[] = AI_ACTION_CATALOG.map(a => a.id);
 
-/** Ce que la tâche demande au modèle, en clair — pour l'écran de réglage. */
-export const ATTENDU_LABELS: Record<string, string> = {
-    juger:    'Juger, classer — la constance compte, pas le style',
-    recopie:  'Recopier sans abîmer — l’obéissance avant le talent',
-    synthèse: 'Synthétiser sans rien perdre — l’exhaustivité compte',
-    voix:     'Porter la voix — c’est le produit lui-même',
+/**
+ * Ce que chaque famille demande au modèle, et ce que ça implique pour le
+ * choisir.
+ *
+ * `demande` dit la tâche ; `choix` dit où mettre l'argent. Les deux sont
+ * séparés parce qu'on les lit à deux moments différents : le premier pour
+ * comprendre, le second au moment d'ouvrir le menu.
+ *
+ * Le repère de fond, valable pour les quatre : les classements publics
+ * mesurent la capacité à coder et à raisonner en plusieurs étapes. Aucune des
+ * tâches ci-dessous ne demande ça.
+ */
+export const ATTENDU_FAMILLES: Record<string, { titre: string; demande: string; choix: string }> = {
+    juger: {
+        titre: 'Juger',
+        demande: 'Rendre deux fois le même verdict sur le même texte, et un JSON propre. Le talent d’écriture ne sert à rien ici.',
+        choix: 'Un modèle économique fait l’affaire — et c’est là qu’est le volume : une analyse par idée, une relecture par contenu.',
+    },
+    recopie: {
+        titre: 'Recopier',
+        demande: 'Rendre un JSON entier à l’identique en n’y ajoutant qu’un champ. C’est de l’obéissance, pas du talent.',
+        choix: 'Économique aussi, mais pas n’importe lequel : un modèle qui « améliore » au passage casse la trame du carrousel. Si la structure revient abîmée, montez d’un cran.',
+    },
+    synthèse: {
+        titre: 'Synthétiser',
+        demande: 'Ne rien perdre. Pour le brief, la liste des interdits ; pour le plan, des angles vraiment distincts.',
+        choix: 'Milieu de gamme au minimum. Volume dérisoire, enjeu élevé : un interdit oublié ressort dans le texte final, deux angles qui se ressemblent font deux publications jumelles.',
+    },
+    voix: {
+        titre: 'Porter la voix',
+        demande: 'Écrire comme Florent — vouvoiement, oralité, une seule métaphore filée, zéro emoji — sous une longue liste de contraintes.',
+        choix: 'Votre meilleur modèle. Vingt textes par mois coûtent moins qu’un café, même au tarif le plus élevé ; le vrai coût, c’est de réécrire ce qui sonne faux.',
+    },
 };
+
+/** L'ordre de lecture des familles : du moins au plus exigeant. */
+export const ATTENDU_ORDRE = ['juger', 'recopie', 'synthèse', 'voix'];
 
 export const AI_ACTIONS = {
 

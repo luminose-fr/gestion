@@ -103,12 +103,20 @@ describe('espace Réglages', () => {
     expect(container.textContent).toContain('Aucun modèle sur cet adaptateur');
   });
 
-  it('groupe les actions par ce qu’elles demandent, et le dit', () => {
+  /**
+   * Le conseil doit être là où se prend la décision : sous chaque famille, et
+   * sur chaque carte. En préambule, il ne sert qu'à la première lecture.
+   */
+  it('donne le conseil de choix par famille ET par action', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="presets" />);
-    expect(container.textContent).toContain('Ce qui compte vraiment');
     for (const famille of ['Juger', 'Recopier', 'Synthétiser', 'Porter la voix']) {
       expect(container.textContent).toContain(famille);
     }
+    // Ce que la famille implique pour la dépense…
+    expect(container.textContent).toContain('c’est là qu’est le volume');
+    // …et ce qui est propre à une action.
+    expect(container.textContent).toContain('la conversation grossit à chaque tour');
+    expect(container.textContent).not.toContain('Ce qui compte vraiment');
   });
 
   it('les sélecteurs d’action rangent les modèles sous leur adaptateur', () => {
