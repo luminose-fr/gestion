@@ -13,6 +13,7 @@ import {
   sanitizeSlidesResponse,
   findSlideLengthIssues,
   appendSignatureSlide,
+  parsePlanSeriesResponse,
   SLIDE_TITLE_MAX,
 } from '../src/index';
 
@@ -114,5 +115,29 @@ describe('appendSignatureSlide', () => {
     const out = JSON.parse(appendSignatureSlide(body, { titre: 'Florent', texte: 'Psychopraticien' }));
     expect(out.slides).toHaveLength(2);
     expect(out.slides[1].titre).toBe('Florent');
+  });
+});
+
+/**
+ * Un modèle qui se reprend émet deux blocs JSON dans la même réponse. Observé
+ * le 23/08/2026 dans l'Atelier ; le défaut touchait TOUS les parseurs, pas
+ * seulement le Coach — ils partageaient la même extraction naïve.
+ */
+describe('deux blocs JSON dans une même réponse', () => {
+  it('la rédaction retient le bloc qui porte un format', () => {
+    const brouillon = JSON.stringify({ format: 'Post Texte', accroche: 'La bonne version' });
+    const reponse = `{"note":"je me suis trompé de forme"}\n\nCorrection :\n\n${brouillon}`;
+    expect(JSON.parse(parseDraftResponse(reponse)).accroche).toBe('La bonne version');
+  });
+
+  it('le plan de série retient le dernier tableau', () => {
+    const plan = [{ titre: 'A', angle: 'a', format: null, objectif: null, justification: '', notes: '' }];
+    const reponse = `[]\n\nJe reprends :\n\n${JSON.stringify(plan)}`;
+    expect(parsePlanSeriesResponse(reponse).map(e => e.titre)).toEqual(['A']);
+  });
+
+  it('une accolade dans une chaîne ne coupe pas le bloc', () => {
+    const avec = JSON.stringify({ format: 'Post Texte', corps: 'On garde {la structure} telle quelle' });
+    expect(JSON.parse(parseDraftResponse(avec)).corps).toContain('{la structure}');
   });
 });

@@ -20,11 +20,86 @@ const stripFences = (responseText: string): string =>
         .replace(/^json\s*/i, '')
         .trim();
 
-/** Extrait un objet JSON nettoyé depuis une réponse IA brute */
-export const extractJsonPayload = (responseText: string): string => {
+/**
+ * Les blocs JSON de premier niveau d'une réponse, dans l'ordre où ils
+ * apparaissent.
+ *
+ * Un modèle qui se reprend en émet DEUX — « {…} Correction, je dois respecter
+ * le format : {…} ». Prendre l'empan du premier « { » au dernier « } » avale
+ * la prose intercalaire, ne parse plus rien, et l'application affiche le JSON
+ * brut à la place du message. C'est arrivé le 23/08/2026 dans l'Atelier.
+ *
+ * Le balayage tient compte des chaînes et des échappements : une accolade
+ * DANS un texte ne compte pas.
+ */
+const blocsJson = (texte: string, ouvrant: '{' | '['): string[] => {
+    const fermant = ouvrant === '{' ? '}' : ']';
+    const blocs: string[] = [];
+    let debut = -1;
+    let profondeur = 0;
+    let dansChaine = false;
+    let echappe = false;
+
+    for (let i = 0; i < texte.length; i++) {
+        const c = texte[i];
+
+        if (dansChaine) {
+            if (echappe) echappe = false;
+            else if (c === '\\') echappe = true;
+            else if (c === '"') dansChaine = false;
+            continue;
+        }
+        if (c === '"') { dansChaine = true; continue; }
+
+        if (c === ouvrant) {
+            if (profondeur === 0) debut = i;
+            profondeur++;
+        } else if (c === fermant && profondeur > 0) {
+            profondeur--;
+            if (profondeur === 0 && debut !== -1) {
+                blocs.push(texte.slice(debut, i + 1));
+                debut = -1;
+            }
+        }
+    }
+    return blocs;
+};
+
+/**
+ * Le dernier bloc qui parse — et qui convient, si l'appelant sait dire ce
+ * qu'il attend. Un modèle qui se corrige laisse sa première tentative
+ * derrière lui : c'est la dernière version qui fait foi.
+ */
+const dernierBlocValide = (
+    blocs: string[],
+    convient?: (valeur: any) => boolean
+): string | null => {
+    for (let i = blocs.length - 1; i >= 0; i--) {
+        try {
+            const valeur = JSON.parse(blocs[i]);
+            if (!convient || convient(valeur)) return blocs[i];
+        } catch {
+            // Bloc illisible : on essaie le précédent.
+        }
+    }
+    return null;
+};
+
+/**
+ * Extrait un objet JSON nettoyé depuis une réponse IA brute.
+ *
+ * `convient` permet de désigner le bon bloc quand il y en a plusieurs — celui
+ * qui porte un `message` pour le Coach, un `format` pour une rédaction.
+ */
+export const extractJsonPayload = (responseText: string, convient?: (valeur: any) => boolean): string => {
     if (!responseText) return "";
     const cleaned = stripFences(responseText);
 
+    const bloc = dernierBlocValide(blocsJson(cleaned, '{'), convient);
+    if (bloc) return bloc;
+
+    // Aucun bloc complet : on rend l'empan brut. Une réponse tronquée reste
+    // ainsi diagnosticable par l'appelant, qui dira ce qui manque.
     const firstBrace = cleaned.indexOf('{');
     const lastBrace = cleaned.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -34,9 +109,12 @@ export const extractJsonPayload = (responseText: string): string => {
 };
 
 /** Même chose pour une réponse attendue en TABLEAU (l'Analyste, l'Éclateur). */
-export const extractJsonArrayPayload = (responseText: string): string => {
+export const extractJsonArrayPayload = (responseText: string, convient?: (valeur: any) => boolean): string => {
     if (!responseText) return "";
     const cleaned = stripFences(responseText);
+
+    const bloc = dernierBlocValide(blocsJson(cleaned, '['), convient);
+    if (bloc) return bloc;
 
     const first = cleaned.indexOf('[');
     const last = cleaned.lastIndexOf(']');
@@ -55,7 +133,7 @@ const SHORT_FORMAT_KEYS = ["Post Texte", "Article", "Script Reel", "Script Youtu
  * Retourne le JSON brut nettoyé — c'est ce qu'on stocke dans body/scriptVideo.
  */
 export const parseDraftResponse = (responseText: string): string => {
-    const cleaned = extractJsonPayload(responseText);
+    const cleaned = extractJsonPayload(responseText, (v) => typeof v?.format === 'string');
     if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
 
     let data: any;
@@ -145,7 +223,7 @@ export const sanitizeSlidesResponse = (responseText: string): string => {
  * un tableau JSON est une erreur, pas un plan.
  */
 export const parsePlanSeriesResponse = (responseText: string): PlanSeriesEntry[] => {
-    const cleaned = extractJsonArrayPayload(responseText);
+    const cleaned = extractJsonArrayPayload(responseText, (v) => Array.isArray(v) && v.length > 0);
     if (!cleaned) throw new Error("Réponse IA vide ou invalide.");
 
     let data: unknown;

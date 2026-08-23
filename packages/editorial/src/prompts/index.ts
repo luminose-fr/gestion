@@ -103,6 +103,7 @@ RÈGLES :
 - "quick_replies" contient 2 à 4 entrées courtes (max 60 caractères), à la première personne (c'est Florent qui les énoncera). Ces réponses seront pré-remplies dans le champ de saisie de Florent, qui pourra les éditer avant d'envoyer.
 - "ready_for_editor" : true uniquement quand tu estimes avoir une direction solide et validable pour l'Éditeur (et dans ce cas, inclus "Go, passe à l'Éditeur" dans les quick_replies). Sinon false.
 - Tu peux utiliser du markdown léger dans "message" (gras, listes). Pas de code fence, pas de JSON imbriqué dans ce champ.
+- UN SEUL bloc JSON par réponse. Si tu t'aperçois en cours de route que ta réponse ne respecte pas ce format, réécris le bloc entier — ne fais jamais suivre une première tentative d'une correction : deux blocs dans la même réponse, c'est une réponse illisible.
     `.trim(),
 
     LOCK_BRIEF: `

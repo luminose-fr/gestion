@@ -6,7 +6,7 @@
  * en s'appuyant sur l'historique CoachSession côté client.
  */
 
-import { AI_ACTIONS } from '@luminose/editorial';
+import { AI_ACTIONS, extractJsonPayload } from '@luminose/editorial';
 import * as AiService from './aiService';
 import type { CoachMessage, CoachSession, AIModel, ContentItem, TargetFormat } from '../types';
 
@@ -42,19 +42,18 @@ export const buildCoachBrief = (item: ContentItem, contexteSerie?: string | null
 
 // ── Parsing de la réponse IA ──────────────────────────────────────────
 
-const extractJson = (raw: string): string => {
-    let cleaned = raw.replace(/```json\s?/gi, '').replace(/```\s?/g, '').trim();
-    cleaned = cleaned.replace(/^json\s*/i, '').trim();
-    const first = cleaned.indexOf('{');
-    const last = cleaned.lastIndexOf('}');
-    if (first !== -1 && last !== -1 && last > first) {
-        cleaned = cleaned.slice(first, last + 1);
-    }
-    return cleaned;
-};
+/**
+ * L'extraction vit dans @luminose/editorial, avec le reste du parsing
+ * défensif : elle sait reconnaître le dernier bloc JSON valide quand un modèle
+ * se corrige en cours de réponse — et c'est arrivé.
+ */
+const extractJson = (raw: string, convient?: (valeur: any) => boolean): string =>
+    extractJsonPayload(raw, convient);
 
 export const parseCoachReply = (rawResponse: string): CoachAIReply => {
-    const cleaned = extractJson(rawResponse);
+    // Le bloc qui porte un `message` : quand le Coach se reprend, sa première
+    // tentative n'est pas celle qu'il faut lire.
+    const cleaned = extractJson(rawResponse, (v) => typeof v?.message === 'string');
     let data: any;
     try {
         data = JSON.parse(cleaned);
@@ -114,6 +113,11 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
         prompt: userMessage,
         systemInstruction,
         history,
+        // Le Coach rend un OBJET : le mode JSON natif des API compatibles
+        // OpenAI s'applique, et interdit à la racine ce qui vient d'arriver —
+        // deux blocs et de la prose entre eux. 1min.ai l'ignore, sans dommage.
+        // Absent des actions qui rendent un TABLEAU : ce mode exige un objet.
+        json: true,
     });
 
     return parseCoachReply(responseText);
@@ -158,7 +162,7 @@ export const generateLockedBrief = async (opts: {
         prompt: JSON.stringify(payload),
     });
 
-    const cleaned = extractJson(responseText);
+    const cleaned = extractJson(responseText, (v) => Array.isArray(v?.structure));
     const parsed = JSON.parse(cleaned); // throw si invalide → fallback legacy côté appelant
     if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.structure)) {
         throw new Error('Brief verrouillé invalide (structure manquante).');
