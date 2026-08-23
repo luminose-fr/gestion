@@ -15,8 +15,13 @@ import {
     PLANCHER_ELO,
     PLAFOND_SLOP,
     CAP_FABRICANT,
+    profilerModele,
+    qualiteRedactionDe,
+    famillesPourModele,
     type ModeleNote,
+    type NoteProfilable,
 } from '../src/shortlist';
+import { ATTENDU_FAMILLES, AI_ACTION_CATALOG } from '../src/actions';
 
 const note = (slug: string, prixSortie: number, elo: number, ecriture = 16, slop = 15): ModeleNote =>
     ({ slug, prixSortie, elo, ecriture, slop });
@@ -214,5 +219,124 @@ describe('dégradations', () => {
     it('les seuils sont ceux annoncés dans la SPEC', () => {
         expect(PLANCHER_ELO).toBe(1400);
         expect(PLAFOND_SLOP).toBe(30);
+    });
+});
+
+/**
+ * Le profil d'un modèle (SPEC §5.6).
+ *
+ * Ces trois champs se remplissaient de mémoire. Ce qui compte ici : ils disent
+ * ce que les mesures disent — et se taisent quand elles manquent.
+ */
+describe('le profil déduit des mesures', () => {
+    const CONTEXTE = {
+        releveLe: '23/08/2026',
+        familles: ATTENDU_FAMILLES,
+        actions: AI_ACTION_CATALOG,
+    };
+
+    const profil = (over: Partial<NoteProfilable> = {}) => profilerModele({
+        slug: 'openai/gpt-5.6-sol', prixSortie: 10, prixIn: 2,
+        elo: 1959, ecriture: 16.78, slop: 11.68, suivi: 18.48,
+        forces: ['Rythme', "Évite l'emphase"],
+        ...over,
+    }, CONTEXTE);
+
+    it('range le coût sur les mêmes paliers que la sélection', () => {
+        expect(profil({ prixSortie: 0 }).cost).toBe('low');
+        expect(profil({ prixSortie: 0.08 }).cost).toBe('low');
+        expect(profil({ prixSortie: 0.79 }).cost).toBe('low_medium');
+        expect(profil({ prixSortie: 4 }).cost).toBe('medium');
+        expect(profil({ prixSortie: 15 }).cost).toBe('high');
+        expect(profil({ prixSortie: 50 }).cost).toBe('very_high');
+    });
+
+    it('classe la rédaction sur l’Elo', () => {
+        expect(qualiteRedactionDe(2105, 6.6)).toBe(5);
+        expect(qualiteRedactionDe(1826, 11.8)).toBe(4);
+        expect(qualiteRedactionDe(1556, 20.9)).toBe(3);
+        expect(qualiteRedactionDe(1301, 22)).toBe(2);
+        expect(qualiteRedactionDe(870, 44)).toBe(1);
+    });
+
+    it('retire un cran au modèle bavard, si bien classé soit-il', () => {
+        // Gemini 3.1 Pro : correctement classé, mais trois fois le slop de Fable 5.
+        expect(qualiteRedactionDe(1489, 30.03)).toBe(1);
+        expect(qualiteRedactionDe(1489, 12)).toBe(2);
+        // Le plancher tient.
+        expect(qualiteRedactionDe(700, 60)).toBe(1);
+    });
+
+    it('écrit les mesures, le prix et la date du relevé', () => {
+        const { strengths } = profil();
+        expect(strengths).toContain("Rythme, Évite l'emphase.");
+        expect(strengths).toContain('écriture 16,78/20');
+        expect(strengths).toContain("tournures d'IA 11,7 (plus bas est meilleur)");
+        expect(strengths).toContain('suivi des consignes 18,5/20');
+        expect(strengths).toContain('Prix : 2,00 → 10,00 $ par million de jetons.');
+        expect(strengths).toContain('Relevé le 23/08/2026');
+    });
+
+    it('dit « gratuit » plutôt qu’un prix de zéro', () => {
+        expect(profil({ prixSortie: 0, prixIn: 0 }).strengths).toContain('Gratuit.');
+    });
+
+    it('nomme les familles ET les actions concernées', () => {
+        // Bien écrit et peu bavard : la voix.
+        const voix = profil({ prixSortie: 25, ecriture: 17.07, slop: 6.6, elo: 2105 }).strengths;
+        expect(voix).toContain('Porter la voix — Atelier (conversation), Rédaction, Ajustement du texte.');
+        expect(voix).toContain('Synthétiser — Brief verrouillé, Plan de série.');
+        // Trop cher pour le volume : ni juger ni recopier.
+        expect(voix).not.toContain('Juger —');
+    });
+
+    it('envoie les modèles bon marché sur le volume', () => {
+        const eco = profil({ prixSortie: 0.38, elo: 1511, ecriture: 16.28, slop: 23.19 }).strengths;
+        expect(eco).toContain('Juger — Analyse des idées, Relecture à froid.');
+        expect(eco).toContain('Recopier — Slides du carrousel, Prompts d’image.');
+        // Trop bavard pour porter la voix, et sous le seuil de la synthèse.
+        expect(eco).not.toContain('Porter la voix');
+        expect(eco).not.toContain('Synthétiser');
+    });
+
+    it('le dit quand aucune famille ne le distingue', () => {
+        const quelconque = profil({ prixSortie: 20, elo: 1450, ecriture: 15.9, slop: 26 }).strengths;
+        expect(quelconque).toContain('Aucune famille du flux ne le distingue');
+    });
+
+    /** Ne pas inventer une note est plus utile que d'en inventer une moyenne. */
+    it('se tait quand le modèle n’est pas mesuré', () => {
+        const p = profil({ elo: null, ecriture: null, slop: null, suivi: null, forces: [] });
+        expect(p.textQuality).toBeNull();
+        expect(p.strengths).toContain('n’est pas mesuré par EQ-Bench');
+        expect(p.strengths).not.toContain('écriture');
+        // Le prix, lui, est connu : le coût reste juste.
+        expect(p.cost).toBe('high');
+    });
+
+    /**
+     * La distinction qui évite un mensonge : l'écriture appartient au MODÈLE,
+     * le tarif au FOURNISSEUR. Le même Claude coûte des crédits chez 1min.ai et
+     * des dollars par million de jetons chez OpenRouter.
+     */
+    it('ne colle pas un tarif OpenRouter sur un modèle appelé ailleurs', () => {
+        const p = profilerModele(
+            { slug: 'anthropic/claude-opus-5', prixSortie: 25, prixIn: 5,
+              elo: 2105, ecriture: 17.07, slop: 6.59, suivi: 18.43, forces: ['Rythme'] },
+            { ...CONTEXTE, avecPrix: false },
+        );
+        expect(p.cost).toBeNull();
+        expect(p.strengths).not.toContain('$ par million');
+        expect(p.strengths).toContain('Les tarifs de votre fournisseur ne sont pas repris ici.');
+        // Ce qui relève du modèle, lui, reste écrit.
+        expect(p.textQuality).toBe(5);
+        expect(p.strengths).toContain('écriture 17,07/20');
+        expect(p.strengths).toContain('Porter la voix');
+    });
+
+    it('les familles se lisent aussi seules', () => {
+        expect(famillesPourModele({
+            slug: 'x/y', prixSortie: 1, elo: 1800, ecriture: 16.6, slop: 11, suivi: 18, forces: [],
+        })).toEqual(['voix', 'juger', 'recopie', 'synthèse']);
     });
 });

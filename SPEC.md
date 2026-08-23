@@ -13,8 +13,10 @@
 > rédaction (§6.4).
 > **v2.3 (23/08/2026)** : l'explorateur croise une seconde source, qui juge de la PROSE
 > et non du raisonnement, et il s'ouvre sur une courte liste de vingt modèles
-> délibérément différents (§5.6). L'atelier du Coach cesse d'être un aller sans
-> retour : rouvrir et réinitialiser (§2.7).
+> délibérément différents (§5.6). Le coût, la qualité de rédaction et les forces
+> d'un modèle sont désormais déduits des mesures, plus saisis de mémoire (§5.6).
+> L'atelier du Coach cesse d'être un aller sans retour : rouvrir et
+> réinitialiser (§2.7).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -552,6 +554,30 @@ les six paliers.
 
 L'explorateur sert à **réduire le champ** — jamais à décider. L'écran le dit,
 parce qu'un chiffre affiché sans cette phrase se lit comme un verdict.
+
+#### Le profil d'un modèle
+
+« Coût / Crédits », « Qualité rédaction » et « Forces & cas d'usage » se
+remplissaient de mémoire, à partir de ce qu'on croyait savoir d'un modèle. Les
+mesures existent : elles écrivent ces trois champs, à l'ajout depuis le
+catalogue comme au clic sur **Actualiser** pour un modèle déjà posé.
+
+- **Coût** — les mêmes paliers que la courte liste, le gratuit et le micro fondus.
+- **Qualité rédaction** — cinq crans sur l'Elo, moins un cran au-delà de 30 de
+  slop : un modèle bien classé qui empile les formules toutes faites ne portera
+  pas cette voix-là, quoi qu'en dise son rang.
+- **Forces** — les forces relatives, les trois mesures, les familles du flux
+  auxquelles il convient avec les actions nommées, et **la date du relevé** :
+  ces chiffres vieillissent, et un champ rempli sans date se lit comme une
+  vérité intemporelle.
+
+**Le prix appartient au fournisseur, l'écriture au modèle — NORMATIF.** Le même
+Claude coûte des crédits chez 1min.ai et des dollars par million de jetons chez
+OpenRouter. Actualiser un modèle appelé par un AUTRE adaptateur écrit donc la
+qualité et les forces, **jamais le coût**, et le texte dit que les tarifs du
+fournisseur n'y sont pas repris. La correspondance passe par la même
+normalisation que l'appariement des sources : sans elle, `claude-fable-5` et
+`anthropic/claude-fable-5` seraient deux modèles étrangers.
 
 ---
 

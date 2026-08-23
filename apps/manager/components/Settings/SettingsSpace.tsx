@@ -10,7 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2,
-    FlaskConical, AlertCircle, Download, KeyRound, Compass, Search,
+    FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 import * as Api from '../../services/apiService';
@@ -18,7 +18,7 @@ import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
 import {
     ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA, VOICE_RULES,
-    AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE,
+    AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE, profilerModele, normaliserNomModele,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
 
@@ -146,6 +146,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [catalogueCharge, setCatalogueCharge] = useState(false);
     const [recherche, setRecherche] = useState('');
     const [vueCatalogue, setVueCatalogue] = useState<'selection' | 'tout'>('selection');
+    /** L'identifiant du modèle en cours de rafraîchissement, pour ne pas doubler le clic. */
+    const [majEnCours, setMajEnCours] = useState<string | null>(null);
     const [tri, setTri] = useState<'prix' | 'ecriture' | 'slop' | 'intelligence' | 'nom'>('prix');
 
     const [testApiCode, setTestApiCode] = useState('');
@@ -308,20 +310,88 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         return VENDEURS[prefixe] ?? (prefixe ? prefixe.charAt(0).toUpperCase() + prefixe.slice(1) : '');
     };
 
+    /**
+     * Le coût, la qualité de rédaction et les forces ne se tapent plus de
+     * mémoire : les mesures existent, elles écrivent ces trois champs. La
+     * doctrine vit dans @luminose/editorial, testée à part.
+     */
+    const profilDepuisCatalogue = (m: Api.CatalogueModel, avecPrix = true) => profilerModele(
+        {
+            slug: m.id,
+            prixSortie: m.completionPrice,
+            prixIn: m.promptPrice,
+            elo: m.elo,
+            ecriture: m.ecriture,
+            slop: m.slop,
+            suivi: m.suivi,
+            forces: m.forces ?? [],
+        },
+        {
+            // La date compte : ces chiffres vieillissent, et un champ rempli
+            // sans date se lit comme une vérité intemporelle.
+            releveLe: new Date().toLocaleDateString('fr-FR'),
+            familles: ATTENDU_FAMILLES,
+            actions: AI_ACTION_CATALOG,
+            avecPrix,
+        },
+    );
+
+    /**
+     * Le même modèle porte deux codes selon l'adaptateur : `claude-fable-5` chez
+     * 1min.ai, `anthropic/claude-fable-5` chez OpenRouter. Sans normalisation,
+     * « Actualiser » n'apparaîtrait que sur les modèles OpenRouter — c'est-à-dire
+     * presque aucun de ceux déjà posés.
+     */
+    const modeleCorrespondant = (slug: string): AIModel | undefined => {
+        const cle = normaliserNomModele(slug);
+        return aiModels.find(x => normaliserNomModele(x.apiCode) === cle);
+    };
+
     const ajouterDepuisCatalogue = (m: Api.CatalogueModel) => {
+        const profil = profilDepuisCatalogue(m);
         setEditModel({
             name: m.name,
             apiCode: m.id,
             provider: 'openrouter',
             vendor: vendeurDepuisCode(m.id),
-            cost: 'medium',
-            textQuality: 3,
-            strengths: '',
+            cost: profil.cost,
+            textQuality: profil.textQuality ?? 3,
+            strengths: profil.strengths,
             bestUseCases: '',
         });
         setExploring(false);
         setIsCreating(true);
         setEditingId(null);
+    };
+
+    /**
+     * Rafraîchit un modèle DÉJÀ au catalogue. Sans ça, la fonctionnalité ne
+     * servirait qu'aux modèles à venir : les sept déjà posés garderaient leurs
+     * valeurs saisies de mémoire.
+     *
+     * Ne touche que les trois champs mesurés — le nom, le code et l'adaptateur
+     * appartiennent à Florent.
+     */
+    const rafraichirDepuisCatalogue = async (m: Api.CatalogueModel) => {
+        const existant = modeleCorrespondant(m.id);
+        if (!existant || majEnCours === m.id) return;
+        setMajEnCours(m.id);
+        try {
+            // Le prix ne suit que si le modèle est appelé PAR OpenRouter. Ailleurs,
+            // « Coût / Crédits » reste ce que Florent a posé : c'est sa facture.
+            const memeFournisseur = existant.provider === 'openrouter';
+            const profil = profilDepuisCatalogue(m, memeFournisseur);
+            const { model } = await Api.updateModel(existant.id, {
+                ...(profil.cost !== null ? { cost: profil.cost } : {}),
+                textQuality: profil.textQuality ?? existant.textQuality,
+                strengths: profil.strengths,
+            });
+            onModelsChange(aiModels.map(x => (x.id === model.id ? model : x)));
+        } catch (e: any) {
+            setCatalogueErreur(e?.message || "Le modèle n'a pas pu être mis à jour.");
+        } finally {
+            setMajEnCours(null);
+        }
     };
 
     const handleEditModel = (model: AIModel) => {
@@ -754,7 +824,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {/* ─── MODÈLES IA — explorateur du catalogue ─── */}
                 {isInExplorer && (() => {
-                    const dejaLa = new Set(aiModels.filter(m => m.provider === 'openrouter').map(m => m.apiCode));
+                    const dejaLa = new Set(aiModels.map(m => normaliserNomModele(m.apiCode)));
                     const terme = recherche.trim().toLowerCase();
                     const tous = catalogue ?? [];
                     // Tolérant à une réponse d'une version antérieure (cache, proxy) :
@@ -948,8 +1018,18 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                 )}
                                                             </td>
                                                             <td className="px-3 py-2 text-right">
-                                                                {dejaLa.has(m.id) ? (
-                                                                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">au catalogue</span>
+                                                                {dejaLa.has(normaliserNomModele(m.id)) ? (
+                                                                    <button
+                                                                        onClick={() => void rafraichirDepuisCatalogue(m)}
+                                                                        disabled={majEnCours === m.id}
+                                                                        title="Réécrire coût, qualité de rédaction et forces d'après les mesures"
+                                                                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors whitespace-nowrap disabled:opacity-40 inline-flex items-center gap-1.5"
+                                                                    >
+                                                                        {majEnCours === m.id
+                                                                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                                            : <RefreshCw className="w-3 h-3" />}
+                                                                        Actualiser
+                                                                    </button>
                                                                 ) : (
                                                                     <button
                                                                         onClick={() => ajouterDepuisCatalogue(m)}
@@ -1103,7 +1183,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 <textarea
                                     value={editModel.strengths || ''}
                                     onChange={e => setEditModel({ ...editModel, strengths: e.target.value })}
-                                    className={`${CHAMP} resize-none min-h-[100px] leading-relaxed`}
+                                    /* Assez haut pour le profil rempli depuis le catalogue : mesures,
+                                       prix, familles et date tiennent sans qu'on ait à faire défiler. */
+                                    className={`${CHAMP} resize-y min-h-[200px] leading-relaxed`}
                                     placeholder="Ex : Excelle dans la structure longue et l'analyse…"
                                 />
                             </div>

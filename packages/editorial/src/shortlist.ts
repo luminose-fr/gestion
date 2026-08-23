@@ -269,3 +269,150 @@ export const selectionnerCourteListe = (
         return pa - pb;
     });
 };
+
+// ── Le profil d'un modèle, déduit des mesures ────────────────────────────
+//
+// Coût, qualité de rédaction, forces : trois champs qu'on remplissait à la
+// main, de mémoire, à partir de ce qu'on croyait savoir d'un modèle. Les
+// mesures existent maintenant — autant les laisser écrire.
+
+/** Une note augmentée du profil par critère, tel que la route l'assemble. */
+export interface NoteProfilable extends ModeleNote {
+    /** Prix d'ENTRÉE par million de jetons — la sélection l'ignore, le profil l'affiche. */
+    prixIn?: number | null;
+    suivi: number | null;
+    /** Ce sur quoi le modèle est RELATIVEMENT fort, déjà en français. */
+    forces: string[];
+}
+
+export interface ProfilModele {
+    /** Une des cinq valeurs du champ « Coût / Crédits », ou `null` hors du fournisseur mesuré. */
+    cost: string | null;
+    /** 1 à 5, ou `null` quand aucune mesure d'écriture n'existe pour ce modèle. */
+    textQuality: number | null;
+    /** Le texte du champ « Forces & cas d'usage ». */
+    strengths: string;
+}
+
+/** Le champ « Coût / Crédits » suit les paliers de prix — même découpage, un cran fondu en bas. */
+const COUT_PAR_PALIER: Readonly<Record<string, string>> = {
+    gratuit: 'low',
+    micro: 'low',
+    eco: 'low_medium',
+    moyen: 'medium',
+    eleve: 'high',
+    premium: 'very_high',
+};
+
+/**
+ * La qualité de rédaction, sur cinq crans.
+ *
+ * L'Elo porte le classement — c'est un jugement humain de textes mis face à
+ * face, ce qui est exactement la question posée. Le slop retire ensuite un cran
+ * aux bavards : un modèle bien classé qui empile les formules toutes faites ne
+ * portera pas cette voix-là, quoi qu'en dise son rang.
+ */
+export const qualiteRedactionDe = (elo: number | null, slop: number | null): number | null => {
+    if (elo === null) return null;
+    let note = elo >= 1900 ? 5 : elo >= 1750 ? 4 : elo >= 1550 ? 3 : elo >= 1300 ? 2 : 1;
+    if (slop !== null && slop >= 25) note = Math.max(1, note - 1);
+    return note;
+};
+
+/** Décimales à la française : ces chaînes sont lues, pas parsées. */
+const dec = (v: number, chiffres = 1): string => v.toFixed(chiffres).replace('.', ',');
+
+const prixLisible = (entree: number | null, sortie: number | null): string | null => {
+    if (sortie === null) return null;
+    if (sortie === 0 && (entree === null || entree === 0)) return 'Gratuit.';
+    const e = entree === null ? '—' : dec(entree, 2);
+    return `Prix : ${e} → ${dec(sortie, 2)} $ par million de jetons.`;
+};
+
+/**
+ * À quelles familles du flux ce modèle convient (SPEC §5.6).
+ *
+ * Le suivi des consignes ne figure pas dans ces règles, et c'est un constat, pas
+ * un oubli : il sature autour de 18/20 chez tous les modèles corrects. Pour
+ * juger et recopier, ce qui départage n'est donc pas le talent — c'est le prix.
+ */
+export const famillesPourModele = (m: NoteProfilable): string[] => {
+    const familles: string[] = [];
+    if (m.slop !== null && m.ecriture !== null && m.slop <= 14 && m.ecriture >= 16.4) {
+        familles.push('voix');
+    }
+    if (m.prixSortie !== null && m.prixSortie <= 4) {
+        familles.push('juger', 'recopie');
+    }
+    if (m.elo !== null && m.elo >= 1550) {
+        familles.push('synthèse');
+    }
+    return familles;
+};
+
+/**
+ * Remplit les trois champs d'un modèle à partir des mesures.
+ *
+ * `releveLe` est passé par l'appelant : une fonction qui lit l'horloge n'est
+ * plus testable, et la date compte — ces chiffres vieillissent.
+ */
+export const profilerModele = (
+    m: NoteProfilable,
+    contexte: {
+        releveLe: string;
+        familles: Readonly<Record<string, { titre: string }>>;
+        actions: ReadonlyArray<{ label: string; attendu: string }>;
+        /**
+         * `false` quand le modèle est appelé par un AUTRE adaptateur que celui
+         * dont viennent ces prix. La qualité d'écriture est une propriété du
+         * MODÈLE ; le prix, une propriété du FOURNISSEUR. Coller un tarif
+         * OpenRouter sur un modèle facturé en crédits 1min.ai serait faux.
+         */
+        avecPrix?: boolean;
+    },
+): ProfilModele => {
+    const palier = m.prixSortie === null
+        ? null
+        : PALIERS_PRIX.find(p => p.contient(m.prixSortie as number)) ?? null;
+
+    const lignes: string[] = [];
+    if (m.forces.length > 0) lignes.push(`${m.forces.join(', ')}.`);
+
+    const mesures: string[] = [];
+    if (m.ecriture !== null) mesures.push(`écriture ${dec(m.ecriture, 2)}/20`);
+    if (m.slop !== null) mesures.push(`tournures d'IA ${dec(m.slop)} (plus bas est meilleur)`);
+    if (m.suivi !== null) mesures.push(`suivi des consignes ${dec(m.suivi)}/20`);
+    if (mesures.length > 0) lignes.push(`${mesures.join(' · ')}.`);
+
+    const avecPrix = contexte.avecPrix !== false;
+    const prix = avecPrix ? prixLisible(m.prixIn ?? null, m.prixSortie) : null;
+    if (prix) lignes.push(prix);
+
+    const retenues = famillesPourModele(m);
+    if (retenues.length > 0) {
+        const puces = retenues.map(cle => {
+            const titre = contexte.familles[cle]?.titre ?? cle;
+            const labels = contexte.actions.filter(a => a.attendu === cle).map(a => a.label);
+            return labels.length > 0 ? `• ${titre} — ${labels.join(', ')}.` : `• ${titre}.`;
+        });
+        lignes.push(['Bon pour :', ...puces].join('\n'));
+    } else if (m.elo !== null) {
+        lignes.push('Aucune famille du flux ne le distingue : d’autres font mieux à ce prix.');
+    }
+
+    if (m.elo === null) {
+        lignes.push('Ce modèle n’est pas mesuré par EQ-Bench — la qualité de rédaction reste à juger à la lecture.');
+    }
+
+    lignes.push(avecPrix
+        ? `Relevé le ${contexte.releveLe} (EQ-Bench Creative Writing + OpenRouter).`
+        : `Relevé le ${contexte.releveLe} (EQ-Bench Creative Writing). Les tarifs de votre fournisseur ne sont pas repris ici.`);
+
+    return {
+        // `null` = « je ne sais pas ce que ça coûte chez ce fournisseur » ;
+        // l'appelant garde alors la valeur saisie.
+        cost: avecPrix ? (palier ? (COUT_PAR_PALIER[palier.id] ?? 'medium') : 'medium') : null,
+        textQuality: qualiteRedactionDe(m.elo, m.slop),
+        strengths: lignes.join('\n\n'),
+    };
+};
