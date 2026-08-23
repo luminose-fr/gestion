@@ -10,7 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2,
-    FlaskConical, AlertCircle, Download, KeyRound,
+    FlaskConical, AlertCircle, Download, KeyRound, Compass, Search,
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 import * as Api from '../../services/apiService';
@@ -131,6 +131,19 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3,
     });
 
+    /**
+     * L'explorateur du catalogue OpenRouter. Il sert à RÉDUIRE le champ —
+     * quatre cents modèles, une dizaine de candidats — jamais à décider :
+     * les indices publiés mesurent le raisonnement et le code, pas la voix.
+     */
+    const [exploring, setExploring] = useState(false);
+    const [catalogue, setCatalogue] = useState<Api.CatalogueModel[] | null>(null);
+    const [catalogueEtat, setCatalogueEtat] = useState<{ benchmarks: boolean; raison: string | null }>({ benchmarks: false, raison: null });
+    const [catalogueErreur, setCatalogueErreur] = useState<string | null>(null);
+    const [catalogueCharge, setCatalogueCharge] = useState(false);
+    const [recherche, setRecherche] = useState('');
+    const [tri, setTri] = useState<'intelligence' | 'prix' | 'nom'>('intelligence');
+
     const [testApiCode, setTestApiCode] = useState('');
     /** Le testeur sonde un adaptateur précis : « claude-opus-4-7 » chez 1min.ai
      *  et « anthropic/claude-opus-4.7 » chez OpenRouter ne sont pas le même code. */
@@ -149,6 +162,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         setEditingId(null);
         setIsCreating(false);
         setSelectedPersonaId(null);
+        setExploring(false);
         setSaveError(null);
         setSaveSuccess(false);
     }, [section]);
@@ -158,11 +172,11 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         const handler = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             if (isSaving || isDeleting || deleteId) return;
-            if (editingId || isCreating || selectedPersonaId) backToList();
+            if (editingId || isCreating || selectedPersonaId || exploring) backToList();
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [editingId, isCreating, selectedPersonaId, isSaving, isDeleting, deleteId]);
+    }, [editingId, isCreating, selectedPersonaId, exploring, isSaving, isDeleting, deleteId]);
 
     // Le badge « Enregistré » s'efface tout seul.
     useEffect(() => {
@@ -180,6 +194,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         setEditingId(null);
         setIsCreating(false);
         setSelectedPersonaId(null);
+        setExploring(false);
         setSaveError(null);
         setSaveSuccess(false);
     };
@@ -253,6 +268,50 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         } finally {
             setIsExporting(false);
         }
+    };
+
+    const ouvrirExplorateur = async () => {
+        setExploring(true);
+        if (catalogue || catalogueCharge) return;
+        setCatalogueCharge(true);
+        setCatalogueErreur(null);
+        try {
+            const { models, benchmarksAvailable, benchmarksReason } = await Api.fetchCatalogue();
+            setCatalogue(models ?? []);
+            setCatalogueEtat({ benchmarks: benchmarksAvailable, raison: benchmarksReason });
+        } catch (e: any) {
+            setCatalogueErreur(e?.message || "Le catalogue n'a pas pu être lu.");
+        } finally {
+            setCatalogueCharge(false);
+        }
+    };
+
+    /** Le fabricant se lit dans le préfixe du code OpenRouter : `anthropic/claude-…`. */
+    const VENDEURS: Record<string, string> = {
+        'anthropic': 'Anthropic', 'openai': 'OpenAI', 'google': 'Google', 'meta-llama': 'Meta',
+        'mistralai': 'Mistral', 'deepseek': 'DeepSeek', 'x-ai': 'xAI', 'qwen': 'Alibaba',
+        'z-ai': 'Z.ai', 'moonshotai': 'Moonshot', 'cohere': 'Cohere', 'nvidia': 'NVIDIA',
+        'microsoft': 'Microsoft', 'amazon': 'Amazon', 'perplexity': 'Perplexity',
+    };
+    const vendeurDepuisCode = (code: string): string => {
+        const prefixe = code.split('/')[0] ?? '';
+        return VENDEURS[prefixe] ?? (prefixe ? prefixe.charAt(0).toUpperCase() + prefixe.slice(1) : '');
+    };
+
+    const ajouterDepuisCatalogue = (m: Api.CatalogueModel) => {
+        setEditModel({
+            name: m.name,
+            apiCode: m.id,
+            provider: 'openrouter',
+            vendor: vendeurDepuisCode(m.id),
+            cost: 'medium',
+            textQuality: 3,
+            strengths: '',
+            bestUseCases: '',
+        });
+        setExploring(false);
+        setIsCreating(true);
+        setEditingId(null);
     };
 
     const handleEditModel = (model: AIModel) => {
@@ -360,6 +419,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     // ── Vues de détail ────────────────────────────────────────────────────
 
     const isInModelEditor = section === 'models' && (isCreating || !!editingId);
+    const isInExplorer = section === 'models' && exploring && !isInModelEditor;
     const isInPersonaView = section === 'personas' && !!selectedPersonaId;
 
     const groupes = grouperParAdaptateur(aiModels, providers);
@@ -484,7 +544,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 )}
 
                 {/* ─── MODÈLES IA — catalogue ─── */}
-                {section === 'models' && !isInModelEditor && (
+                {section === 'models' && !isInModelEditor && !isInExplorer && (
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start animate-fade-in">
                         <div className="space-y-6">
                             <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70 max-w-2xl">
@@ -575,13 +635,22 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 );
                             })}
 
-                            <button
-                                onClick={() => handleCreateModel()}
-                                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main/60 dark:text-dark-text/60 hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-all"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                Ajouter un modèle
-                            </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => handleCreateModel()}
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main/60 dark:text-dark-text/60 hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-all"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Ajouter un modèle
+                                </button>
+                                <button
+                                    onClick={ouvrirExplorateur}
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main/60 dark:text-dark-text/60 hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-all"
+                                >
+                                    <Compass className="w-3.5 h-3.5" />
+                                    Explorer le catalogue OpenRouter
+                                </button>
+                            </div>
 
                             <p className="text-[11px] text-brand-main/50 dark:text-dark-text/50 leading-relaxed px-1">
                                 Le modèle marqué <strong>« Défaut »</strong> sert aux actions qui n'ont pas de réglage
@@ -672,6 +741,144 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         </div>
                     </div>
                 )}
+
+                {/* ─── MODÈLES IA — explorateur du catalogue OpenRouter ─── */}
+                {isInExplorer && (() => {
+                    const dejaLa = new Set(aiModels.filter(m => m.provider === 'openrouter').map(m => m.apiCode));
+                    const terme = recherche.trim().toLowerCase();
+                    const filtres = (catalogue ?? []).filter(m =>
+                        !terme || m.id.toLowerCase().includes(terme) || m.name.toLowerCase().includes(terme)
+                    );
+                    const trie = [...filtres].sort((a, b) => {
+                        if (tri === 'nom') return a.name.localeCompare(b.name, 'fr');
+                        if (tri === 'prix') return (a.completionPrice ?? 1e9) - (b.completionPrice ?? 1e9);
+                        // Intelligence décroissante, les modèles non mesurés en fin de liste.
+                        return (b.intelligence ?? -1) - (a.intelligence ?? -1);
+                    });
+                    const PLAFOND = 60;
+                    const visibles = trie.slice(0, PLAFOND);
+                    const prix = (v: number | null) => (v === null ? '—' : v === 0 ? 'gratuit' : `${v.toFixed(2)} $`);
+
+                    return (
+                        <div className="animate-fade-in">
+                            <FilAriane label="Catalogue OpenRouter" />
+
+                            <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70 max-w-3xl mb-1">
+                                Ce que publie OpenRouter : le prix, le contexte, et les indices d'Artificial Analysis
+                                quand le modèle y figure.
+                            </p>
+                            <p className="text-xs leading-relaxed text-brand-main/50 dark:text-dark-text/50 max-w-3xl mb-4">
+                                Ces indices mesurent le raisonnement, le code et la capacité d'agent — aucune des
+                                tâches de votre flux. Ils servent à réduire le champ, pas à choisir : le modèle qui
+                                écrit le mieux votre voix se décide en le lisant.
+                            </p>
+
+                            {catalogueErreur && (
+                                <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1.5 mb-3">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {catalogueErreur}
+                                </p>
+                            )}
+
+                            {!catalogueEtat.benchmarks && catalogue && (
+                                <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-3">
+                                    {catalogueEtat.raison === 'clé absente'
+                                        ? 'Indices indisponibles : aucune clé OpenRouter posée. Le prix et le contexte restent lisibles.'
+                                        : 'Indices indisponibles : OpenRouter a refusé la requête (quota, sans doute). Réessayez plus tard.'}
+                                </p>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                                <div className="relative flex-1 min-w-0">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-main/40 dark:text-dark-text/40" />
+                                    <input
+                                        type="text"
+                                        value={recherche}
+                                        onChange={e => setRecherche(e.target.value)}
+                                        placeholder="Chercher un modèle ou un fabricant…"
+                                        className={`${CHAMP} pl-9 py-2`}
+                                    />
+                                </div>
+                                <select
+                                    value={tri}
+                                    onChange={e => setTri(e.target.value as any)}
+                                    className={`${CHAMP} sm:w-56 py-2 cursor-pointer`}
+                                >
+                                    <option value="intelligence">Trier par indice d'intelligence</option>
+                                    <option value="prix">Trier par prix de sortie</option>
+                                    <option value="nom">Trier par nom</option>
+                                </select>
+                            </div>
+
+                            {catalogueCharge && (
+                                <p className="text-xs text-brand-main/50 dark:text-dark-text/50 flex items-center gap-2 py-6">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Lecture du catalogue…
+                                </p>
+                            )}
+
+                            {catalogue && (
+                                <>
+                                    <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full text-sm">
+                                                <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
+                                                    <tr>
+                                                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Modèle</th>
+                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Entrée $/M</th>
+                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Sortie $/M</th>
+                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Contexte</th>
+                                                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Intelligence</th>
+                                                        <th className="w-24 px-3 py-2" aria-hidden="true" />
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
+                                                    {visibles.map(m => (
+                                                        <tr key={m.id} className="hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors">
+                                                            <td className="px-3 py-2">
+                                                                <p className="font-semibold text-[13px] text-brand-main dark:text-white">{m.name}</p>
+                                                                <p className="font-mono text-[11px] text-brand-main/50 dark:text-dark-text/50">{m.id}</p>
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">{prix(m.promptPrice)}</td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">{prix(m.completionPrice)}</td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main/70 dark:text-dark-text/70">
+                                                                {m.contextLength ? `${Math.round(m.contextLength / 1000)}k` : '—'}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap">
+                                                                {m.intelligence === null ? (
+                                                                    <span className="text-xs text-brand-main/30 dark:text-dark-text/30">non mesuré</span>
+                                                                ) : (
+                                                                    <span className="text-xs font-bold text-brand-main dark:text-white">{m.intelligence.toFixed(1)}</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                {dejaLa.has(m.id) ? (
+                                                                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">au catalogue</span>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => ajouterDepuisCatalogue(m)}
+                                                                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:border-brand-main hover:text-brand-main dark:hover:text-white transition-colors whitespace-nowrap"
+                                                                    >
+                                                                        Ajouter
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Aucun plafond silencieux : ce qui n'est pas montré est annoncé. */}
+                                    <p className="mt-2.5 px-1 text-[11px] text-brand-main/50 dark:text-dark-text/50">
+                                        {trie.length > PLAFOND
+                                            ? `${PLAFOND} modèles affichés sur ${trie.length} correspondants — affinez la recherche.`
+                                            : `${trie.length} modèle${trie.length > 1 ? 's' : ''} correspondant${trie.length > 1 ? 's' : ''}.`}
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* ─── MODÈLES IA — éditeur ─── */}
                 {isInModelEditor && (

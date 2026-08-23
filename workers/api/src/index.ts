@@ -5,6 +5,7 @@
  *   /api/*        l'API sur D1, seule utilisée par le front
  *   /api/export   sauvegarde JSON complète (§9.4)
  *   /api/settings clés des fournisseurs — en écriture seule (§5.5)
+ *   /api/models/catalogue  explorateur OpenRouter — filtre, ne décide pas (§5.6)
  *   /v1/*         proxy Notion résiduel — aucun client, gardé comme filet
  *
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
@@ -19,6 +20,7 @@ import { models } from './routes/models';
 import { ai } from './routes/ai';
 import { exportRoute } from './routes/export';
 import { settings } from './routes/settings';
+import { catalogue } from './routes/catalogue';
 import { legacy } from './routes/legacy';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -60,6 +62,9 @@ app.use('/v1/*', requireSession);
 app.route('/api/contents', contents);
 app.route('/api/series', series);
 app.route('/api/models', models);
+// Avant /api/models pour la lisibilité seulement : aucune route de `models`
+// ne capte /catalogue, il n'y a pas de GET /:id.
+app.route('/api/models/catalogue', catalogue);
 app.route('/api/ai', ai);
 app.route('/api/export', exportRoute);
 app.route('/api/settings', settings);

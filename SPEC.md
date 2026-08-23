@@ -6,7 +6,7 @@
 > **Statut** : document de conception, écrit le 17/08/2026 avant toute implémentation.
 > **v2.1 (21/08/2026)** : les clés des fournisseurs peuvent être posées depuis
 > l'administration (§5.5). L'invariant du §7 est précisé, pas levé : une clé entre,
-> elle ne ressort jamais.
+> elle ne ressort jamais. L'explorateur de catalogue arrive en §5.6.
 > **v2.2 (23/08/2026)** : une série est une PROGRESSION, pas un ensemble (§2.9).
 > L'Éclateur produit la matière de chaque publication et fait office d'Analyste pour
 > sa série (§6.2) ; l'anti-répétition irrigue tout l'atelier, plus seulement la
@@ -451,6 +451,24 @@ Ce que ce choix coûte, dit franchement : une clé en base est lisible par qui
 peut interroger la base, là où un secret Cloudflare ne l'est par personne, pas
 même par l'application. Le gain est l'autonomie — changer de fournisseur ne
 demande plus la ligne de commande ni un redéploiement.
+
+### 5.6 L'explorateur de catalogue
+
+`GET /api/models/catalogue` croise deux appels sortants vers OpenRouter :
+`/models` (public — prix, contexte, code exact) et `/benchmarks` (clé requise —
+les indices d'Artificial Analysis). Cache d'une heure : les quotas sont de
+30 requêtes/minute et 500/jour.
+
+**Ce que ces indices mesurent, et ce qu'ils ne mesurent pas.** Les `task_type`
+publiés sont `coding`, `intelligence`, `agentic`, `search`. Aucune tâche du flux
+éditorial n'est là-dedans : ni juger avec constance, ni recopier un JSON sans
+l'abîmer, ni écrire du français incarné sous contrainte de voix. L'explorateur
+sert donc à **réduire le champ** — quatre cents modèles, une dizaine de
+candidats — jamais à décider. L'écran le dit, parce qu'un chiffre affiché sans
+cette phrase se lit comme un verdict.
+
+Sans clé OpenRouter, la colonne des indices est vide et le catalogue reste
+rendu : le prix et le contexte écartent déjà beaucoup de candidats.
 
 ---
 

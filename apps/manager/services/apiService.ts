@@ -102,6 +102,29 @@ export const deleteModel = (id: string) =>
 export const setModelDefault = (id: string, isDefault: boolean) =>
   updateModel(id, { isDefault });
 
+// ── Explorateur du catalogue OpenRouter (SPEC §5.6) ──────────────────────
+
+export interface CatalogueModel {
+  id: string;
+  name: string;
+  contextLength: number;
+  /** Prix par million de jetons, en dollars. `null` quand OpenRouter n'en publie pas. */
+  promptPrice: number | null;
+  completionPrice: number | null;
+  /** Indices d'Artificial Analysis, quand le modèle y figure. */
+  intelligence: number | null;
+  coding: number | null;
+  agentic: number | null;
+}
+
+export const fetchCatalogue = () =>
+  api<{
+    models: CatalogueModel[];
+    benchmarksAvailable: boolean;
+    benchmarksReason: string | null;
+    fetchedAt: number;
+  }>('/models/catalogue');
+
 // ── Clés des fournisseurs (SPEC §5.5) ────────────────────────────────────
 
 /**

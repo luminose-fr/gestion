@@ -13,7 +13,7 @@
  * retour anticipé doit être monté dans les DEUX états.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 import SettingsSpace from '../components/Settings/SettingsSpace';
@@ -136,6 +136,26 @@ describe('espace Réglages', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="models" />);
     const vides = container.textContent?.match(/Aucun modèle sur cet adaptateur/g) ?? [];
     expect(vides).toHaveLength(1);
+  });
+
+  /**
+   * L'explorateur est un état de rendu à part entière : il se monte, et il
+   * annonce ce que ses indices mesurent — sinon on les prend pour un verdict.
+   */
+  it('l’explorateur de catalogue se monte et dit ce qu’il mesure', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
+      models: [{
+        id: 'anthropic/claude-fable-5', name: 'Claude Fable 5', contextLength: 1000000,
+        promptPrice: 10, completionPrice: 50, intelligence: 71.2, coding: 65.8, agentic: 58.3,
+      }],
+      benchmarksAvailable: true, benchmarksReason: null, fetchedAt: Date.now(),
+    }), { status: 200 }));
+
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+
+    expect(container.textContent).toContain('aucune des tâches de votre flux');
+    expect(await findByText('anthropic/claude-fable-5')).toBeTruthy();
   });
 
   it('n’affiche jamais autre chose que l’empreinte d’une clé', () => {
