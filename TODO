@@ -3,3 +3,6 @@
 - Conseils sur les modèles à utiliser pout telle ou telle tâche
 - Calcul des créduits utilisés pour tel post ?
 - Trier par la dernière colonne choisie et mémoriser (sur le compte user, pas sur la session navigateur)
+- Quand on sélectionne un modèle, on ne voit pas le fournisseur.
+- Inutile d'afficher OpenAI si aucune clé n'est saisie (idem 1min et openrouter)
+- Suite du travail sur une série : ça ne peut pas être un travail indépendant "idée par idée" ; il faut que ça intègre la logique générale de la série puisqu'il y a une progression logique => adapter l'interface et les prompts

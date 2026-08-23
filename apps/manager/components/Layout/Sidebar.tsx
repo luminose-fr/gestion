@@ -4,13 +4,18 @@ import {
     Briefcase, CheckCircle2, PenLine, X, Video, Sparkles, Layers
 } from 'lucide-react';
 
-type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics';
+import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
+
+type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'settings';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
 
 interface SidebarProps {
     currentSpace: SpaceView;
     currentSocialTab: SocialTab;
+    /** Section ouverte dans l'espace Réglages. */
+    currentSettingsSection: SettingsSection;
     onNavigate: (space: SpaceView, tab: SocialTab) => void;
+    onNavigateSettings: (section: SettingsSection) => void;
     counts: {
         ideas: number;
         drafts: number;
@@ -21,7 +26,6 @@ interface SidebarProps {
     };
     isMobileOpen: boolean;
     onMobileClose: () => void;
-    onOpenSettings: () => void;
 }
 
 const SPACES: Array<{
@@ -101,10 +105,14 @@ const PanelTab: React.FC<{
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({
-    currentSpace, currentSocialTab, onNavigate, counts,
-    isMobileOpen, onMobileClose, onOpenSettings
+    currentSpace, currentSocialTab, currentSettingsSection,
+    onNavigate, onNavigateSettings, counts,
+    isMobileOpen, onMobileClose
 }) => {
-    const showSubPanel = currentSpace === 'social';
+    // Réglages a ses sections dans le même panneau que les onglets de Contenus :
+    // c'est le même geste, au même endroit, pour deux espaces différents.
+    const showSubPanel = currentSpace === 'social' || currentSpace === 'settings';
+    const estReglages = currentSpace === 'settings';
 
     const tabCount = (id: SocialTab): number | undefined => {
         if (id === 'ideas')    return counts.ideas;
@@ -154,8 +162,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex-1" />
 
                     <RailButton
-                        active={false}
-                        onClick={() => { onOpenSettings(); onMobileClose(); }}
+                        active={estReglages}
+                        onClick={() => { onNavigateSettings(currentSettingsSection); onMobileClose(); }}
                         icon={Settings}
                         label="Réglages"
                     />
@@ -165,7 +173,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {showSubPanel && (
                     <div className="w-[210px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex flex-col">
                         <div className="px-4 h-[52px] flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border shrink-0">
-                            <p className="font-bold text-sm text-brand-main dark:text-white truncate">Contenus</p>
+                            <p className="font-bold text-sm text-brand-main dark:text-white truncate">
+                                {estReglages ? 'Réglages' : 'Contenus'}
+                            </p>
                             <button
                                 onClick={onMobileClose}
                                 className="md:hidden p-1 -mr-1 rounded-md text-brand-main/50 dark:text-dark-text/50 hover:bg-white dark:hover:bg-dark-sec-bg"
@@ -175,16 +185,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-                            {SOCIAL_TABS.map(t => (
-                                <PanelTab
-                                    key={t.id}
-                                    active={currentSocialTab === t.id}
-                                    onClick={() => { onNavigate('social', t.id); onMobileClose(); }}
-                                    icon={t.icon}
-                                    label={t.label}
-                                    count={tabCount(t.id)}
-                                />
-                            ))}
+                            {estReglages
+                                ? SETTINGS_SECTIONS.map(s => (
+                                    <PanelTab
+                                        key={s.id}
+                                        active={currentSettingsSection === s.id}
+                                        onClick={() => { onNavigateSettings(s.id); onMobileClose(); }}
+                                        icon={s.icon}
+                                        label={s.label}
+                                    />
+                                ))
+                                : SOCIAL_TABS.map(t => (
+                                    <PanelTab
+                                        key={t.id}
+                                        active={currentSocialTab === t.id}
+                                        onClick={() => { onNavigate('social', t.id); onMobileClose(); }}
+                                        icon={t.icon}
+                                        label={t.label}
+                                        count={tabCount(t.id)}
+                                    />
+                                ))}
                         </div>
                     </div>
                 )}

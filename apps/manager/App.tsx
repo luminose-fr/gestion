@@ -10,7 +10,11 @@ import {
 import * as AiService from './services/aiService';
 import { generateSeriePlan } from './services/seriesService';
 
-import SettingsPanel from './components/SettingsPanel';
+import SettingsSpace from './components/Settings/SettingsSpace';
+import {
+  SettingsSection, isSettingsSection, settingsSectionLabel, settingsSectionSousTitre,
+  grouperParAdaptateur,
+} from './components/Settings/sections';
 import ContentEditor, { EditorStep } from './components/ContentEditor';
 import { IdeaModal } from './components/IdeaModal'; 
 import AnalysisModal from './components/AnalysisModal';
@@ -29,7 +33,7 @@ import { SocialGridView } from './components/Views/SocialGridView';
 import { SeriesView } from './components/Series/SeriesView';
 import { SeriePlanView } from './components/Series/SeriePlanView';
 
-type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics';
+type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'settings';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
 
 const SOCIAL_TABS: SocialTab[] = ['drafts', 'ready', 'ideas', 'series', 'calendar', 'archive'];
@@ -44,6 +48,7 @@ const tabForStatus = (status: ContentStatus): SocialTab => {
 
 const getSpaceHash = (space: SpaceView) => {
     if (space === 'psychedelics') return 'psychedeliques';
+    if (space === 'settings') return 'reglages';
     return space;
 };
 
@@ -55,11 +60,17 @@ const getHashState = () => {
     if (parts[0] === 'clients') space = 'clients';
     if (parts[0] === 'videos') space = 'videos';
     if (parts[0] === 'psychedelics' || parts[0] === 'psychedeliques') space = 'psychedelics';
+    if (parts[0] === 'settings' || parts[0] === 'reglages') space = 'settings';
     
     let tab: SocialTab = 'ideas'; 
     if (parts[1] && SOCIAL_TABS.includes(parts[1] as SocialTab)) {
         tab = parts[1] as SocialTab;
     }
+
+    // Sur Réglages, le deuxième segment nomme la section — même place que
+    // l'onglet de Contenus, pour que l'URL reste lisible.
+    const settingsSection: SettingsSection =
+        space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'display';
 
     const itemId = parts[2] && parts[2].trim() !== '' ? parts[2] : null;
     
@@ -75,7 +86,7 @@ const getHashState = () => {
         }
     }
 
-    return { space, tab, itemId, step };
+    return { space, tab, settingsSection, itemId, step };
 };
 
 function App() {
@@ -95,6 +106,7 @@ function App() {
   
   const [currentSpace, setCurrentSpace] = useState<SpaceView>('social');
   const [currentSocialTab, setCurrentSocialTab] = useState<SocialTab>('ideas');
+  const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('display');
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [currentEditorStep, setCurrentEditorStep] = useState<EditorStep>('idea');
@@ -103,8 +115,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [settingsPanelInitialTab, setSettingsPanelInitialTab] = useState<'display' | 'models' | 'personas'>('display');
+  /** Adaptateurs et état de leur clé — l'écriture seule fait que seule l'empreinte revient (SPEC §5.5). */
+  const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
 
   const [displayPrefs, setDisplayPrefsState] = useState<DisplayPrefs>(() => StorageService.getDisplayPrefs());
 
@@ -179,10 +191,13 @@ function App() {
 
   useEffect(() => {
       const handleHashChange = () => {
-          const { space, tab, itemId, step } = getHashState();
+          const { space, tab, settingsSection, itemId, step } = getHashState();
           setCurrentSpace(space);
           if (space === 'social') {
               setCurrentSocialTab(tab);
+          }
+          if (space === 'settings') {
+              setCurrentSettingsSection(settingsSection);
           }
           setEditingItemId(itemId);
           setCurrentEditorStep(step);
@@ -193,6 +208,12 @@ function App() {
       window.addEventListener('hashchange', handleHashChange);
       return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  /** Réglages : `#reglages/<section>`. */
+  const updateSettingsRoute = (section: SettingsSection) => {
+      const hash = `reglages/${section}`;
+      if (window.location.hash !== `#${hash}`) window.location.hash = hash;
+  };
 
   const updateRoute = (space: SpaceView, tab: SocialTab, itemId: string | null = null, step: EditorStep = 'idea') => {
       let hash = `${getSpaceHash(space)}`;
@@ -264,11 +285,12 @@ function App() {
         const lastSerieSync = Number(StorageService.getLastSync("series")) || 0;
         const sinceSeries = forceFullSync || !lastSerieSync ? undefined : lastSerieSync;
 
-        const [contentRes, modelRes, serieRes, actionRes] = await Promise.all([
+        const [contentRes, modelRes, serieRes, actionRes, providerRes] = await Promise.all([
             Api.fetchContents(since),
             Api.fetchModels(),
             Api.fetchSeries(sinceSeries),
             Api.fetchActionModels(),
+            Api.fetchProviders(),
         ]);
 
         const baseItems = since ? (baseCache?.items ?? items) : [];
@@ -298,6 +320,7 @@ function App() {
         setAiModels(nextModels);
         setSeries(nextSeries);
         setActionModels(actionRes.actions ?? {});
+        setProviders(providerRes.providers ?? []);
 
         await Promise.all([
             StorageService.setCachedContent(nextItems),
@@ -726,11 +749,6 @@ function App() {
       }
   };
 
-  const openSettingsFromSidebar = () => {
-      setSettingsPanelInitialTab('display');
-      setIsSettingsPanelOpen(true);
-  };
-
   // ── Hooks dérivés — TOUJOURS avant tout return conditionnel ──────────────
 
   const filteredItems = useMemo(() => items.filter(item =>
@@ -815,11 +833,12 @@ function App() {
       <Sidebar
           currentSpace={currentSpace}
           currentSocialTab={currentSocialTab}
+          currentSettingsSection={currentSettingsSection}
           onNavigate={(space, tab) => updateRoute(space, tab)}
+          onNavigateSettings={updateSettingsRoute}
           counts={counts}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
-          onOpenSettings={openSettingsFromSidebar}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
@@ -858,7 +877,13 @@ function App() {
                   {currentSpace === 'clients' && 'Clients'}
                   {currentSpace === 'videos' && 'Sous-titres'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
+                  {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
               </h1>
+              {currentSpace === 'settings' && (
+                  <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
+                      {settingsSectionSousTitre(currentSettingsSection)}
+                  </p>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -872,9 +897,17 @@ function App() {
                         className="appearance-none pl-7 pr-7 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
                      >
                         {aiModels.length === 0 && <option value="">Aucun modèle configuré</option>}
-                        {aiModels.map(m => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
+                        {/* Groupé par adaptateur : le même modèle peut être joignable
+                            par deux chemins, et le nom seul ne les distingue pas. */}
+                        {grouperParAdaptateur(aiModels, providers)
+                            .filter(g => g.models.length > 0)
+                            .map(g => (
+                                <optgroup key={g.id} label={g.label}>
+                                    {g.models.map(m => (
+                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                    ))}
+                                </optgroup>
+                            ))}
                      </select>
                      <ChevronDown className="w-3 h-3 absolute right-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />
                  </div>
@@ -897,10 +930,13 @@ function App() {
             </div>
         </header>
 
-        {currentSpace === 'social' && !isEditorTakeover && (
+        {(currentSpace === 'settings' || (currentSpace === 'social' && !isEditorTakeover)) && (
           <MobileSubTabs
+              space={currentSpace === 'settings' ? 'settings' : 'social'}
               currentTab={currentSocialTab}
+              currentSettingsSection={currentSettingsSection}
               onNavigate={(tab) => updateRoute('social', tab)}
+              onNavigateSettings={updateSettingsRoute}
               counts={counts}
           />
         )}
@@ -957,6 +993,22 @@ function App() {
                     <SubtitleConverter aiModels={aiModels} />
                 </div>
             </main>
+        )}
+
+        {currentSpace === 'settings' && (
+            <SettingsSpace
+                section={currentSettingsSection}
+                displayPrefs={displayPrefs}
+                onDisplayPrefsChange={handleDisplayPrefsChange}
+                aiModels={aiModels}
+                onModelsChange={handleModelsChange}
+                activeModelId={activeModelId}
+                onActiveModelChange={handleActiveModelChange}
+                actionModels={actionModels}
+                onActionModelsChange={setActionModels}
+                providers={providers}
+                onProvidersChange={setProviders}
+            />
         )}
 
         {currentSpace === 'psychedelics' && (
@@ -1115,19 +1167,6 @@ function App() {
         )}
       </div>
 
-      <SettingsPanel
-          isOpen={isSettingsPanelOpen}
-          onClose={() => setIsSettingsPanelOpen(false)}
-          displayPrefs={displayPrefs}
-          onDisplayPrefsChange={handleDisplayPrefsChange}
-          aiModels={aiModels}
-          onModelsChange={handleModelsChange}
-          activeModelId={activeModelId}
-          onActiveModelChange={handleActiveModelChange}
-          actionModels={actionModels}
-          onActionModelsChange={setActionModels}
-          initialTab={settingsPanelInitialTab}
-      />
     </div>
   );
 }

@@ -26,3 +26,7 @@ ENV/
 Thumbs.db
 # Généré par tools/import-notion (se régénère depuis fixtures/)
 tools/import-notion/import.sql
+
+# Sources des maquettes (/design) : le canevas publié en est la copie durable,
+# et le fichier assemblé pèse plus de 2 Mo.
+.design/

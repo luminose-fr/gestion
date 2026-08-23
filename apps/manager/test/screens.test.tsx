@@ -16,7 +16,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 
-import SettingsPanel from '../components/SettingsPanel';
+import SettingsSpace from '../components/Settings/SettingsSpace';
+import { SETTINGS_SECTIONS } from '../components/Settings/sections';
 import { LoginPage } from '../components/LoginPage';
 import CalendarView from '../components/CalendarView';
 import SubtitleConverter from '../components/SubtitleConverter';
@@ -64,47 +65,75 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe('SettingsPanel', () => {
+describe('espace Réglages', () => {
   const props = {
-    contexts: [] as any[],
-    aiModels: MODELS,
-    onModelsChange: noop,
     displayPrefs: DEFAULT_DISPLAY_PREFS,
     onDisplayPrefsChange: noop,
-    onClose: noop,
+    aiModels: MODELS,
+    onModelsChange: noop,
+    activeModelId: 'm1',
+    onActiveModelChange: noop,
     actionModels: {},
     onActionModelsChange: noop,
+    providers: [
+      { id: 'onemin', label: '1min.ai', configured: true, hint: '…f4d9', source: 'environnement' as const, updatedAt: null },
+      { id: 'openrouter', label: 'OpenRouter', configured: true, hint: '…0000', source: 'base' as const, updatedAt: 1 },
+      { id: 'openai', label: 'OpenAI', configured: false, hint: null, source: null, updatedAt: null },
+    ],
+    onProvidersChange: noop,
   };
 
-  it('se monte fermé sans planter', () => {
-    expect(() => render(<SettingsPanel {...(props as any)} isOpen={false} />)).not.toThrow();
+  /**
+   * Chaque section est un état de rendu distinct — c'est la règle née de la
+   * page blanche de SettingsPanel : ce qui n'est pas monté ici n'est vérifié
+   * par rien.
+   */
+  it.each(SETTINGS_SECTIONS.map(s => s.id))('la section %s se monte', (section) => {
+    expect(() => render(<SettingsSpace {...(props as any)} section={section} />)).not.toThrow();
   });
 
-  it('se monte ouvert sans planter', () => {
-    expect(() => render(<SettingsPanel {...(props as any)} isOpen={true} />)).not.toThrow();
+  it('range le catalogue sous ses adaptateurs', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="models" />);
+    expect(container.textContent).toContain('1min.ai');
+    expect(container.textContent).toContain('OpenRouter');
+    // Le modèle de test est sur l'adaptateur onemin : il tombe sous son groupe,
+    // et l'adaptateur sans modèle le dit plutôt que de disparaître.
+    expect(container.textContent).toContain('GPT-5.2 Pro');
+    // OpenRouter a une clé mais aucun modèle : il se montre, et il le dit.
+    expect(container.textContent).toContain('Aucun modèle sur cet adaptateur');
+  });
+
+  it('groupe les actions par ce qu’elles demandent, et le dit', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="presets" />);
+    expect(container.textContent).toContain('Ce qui compte vraiment');
+    for (const famille of ['Juger', 'Recopier', 'Synthétiser', 'Porter la voix']) {
+      expect(container.textContent).toContain(famille);
+    }
+  });
+
+  it('les sélecteurs d’action rangent les modèles sous leur adaptateur', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="presets" />);
+    const groupes = container.querySelectorAll('optgroup');
+    expect(groupes.length).toBeGreaterThan(0);
+    expect(Array.from(groupes).map(g => g.getAttribute('label'))).toContain('1min.ai');
   });
 
   /**
-   * LE test de non-régression : c'est la transition fermé → ouvert qui plantait.
-   * Un hook déclaré après le retour anticipé change le nombre de hooks entre les
-   * deux rendus, et React fait tomber tout l'arbre.
+   * Trois adaptateurs, deux avec une clé, des modèles sur un seul : OpenRouter
+   * se montre vide (il a une clé, on va lui en ajouter), OpenAI disparaît.
+   * On compte le message de groupe vide — « OpenAI » apparaît aussi comme
+   * FABRICANT sur une carte, ce qui ne dit rien du catalogue.
    */
-  it('survit à la transition fermé → ouvert (régression page blanche)', () => {
-    const { rerender, container } = render(<SettingsPanel {...(props as any)} isOpen={false} />);
-    expect(() => rerender(<SettingsPanel {...(props as any)} isOpen={true} />)).not.toThrow();
-    expect(container.textContent).toContain('Réglages');
+  it('laisse hors du catalogue un adaptateur sans clé ni modèle', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="models" />);
+    const vides = container.textContent?.match(/Aucun modèle sur cet adaptateur/g) ?? [];
+    expect(vides).toHaveLength(1);
   });
 
-  it('affiche le catalogue de modèles une fois ouvert', () => {
-    const { container } = render(<SettingsPanel {...(props as any)} isOpen={true} />);
-    expect(container.textContent).toContain('Modèles IA');
-  });
-
-  /** L'onglet des clés interroge l'API au montage : il doit survivre à une réponse vide. */
-  it('se monte sur l’onglet des clés', () => {
-    const { container } = render(<SettingsPanel {...(props as any)} isOpen={true} initialTab="providers" />);
-    expect(container.textContent).toContain('Clés');
-    expect(container.textContent).toContain("n'en revient jamais");
+  it('n’affiche jamais autre chose que l’empreinte d’une clé', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="providers" />);
+    expect(container.textContent).toContain('…f4d9');
+    expect(container.textContent).toContain('Aucune clé');
   });
 });
 
