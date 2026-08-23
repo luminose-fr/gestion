@@ -13,7 +13,7 @@
  * retour anticipé doit être monté dans les DEUX états.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import SettingsSpace from '../components/Settings/SettingsSpace';
@@ -26,8 +26,9 @@ import { SocialIdeasView } from '../components/Views/SocialIdeasView';
 import { SocialGridView } from '../components/Views/SocialGridView';
 import { SeriesView } from '../components/Series/SeriesView';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
+import { CoachChat } from '../components/CoachChat';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
-import type { AIModel, ContentItem, Serie } from '../types';
+import type { AIModel, ContentItem, Serie, CoachMessage, CoachSession } from '../types';
 
 const now = Date.now();
 
@@ -205,6 +206,100 @@ describe('espace Réglages', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="providers" />);
     expect(container.textContent).toContain('…f4d9');
     expect(container.textContent).toContain('Aucune clé');
+  });
+});
+
+/**
+ * L'atelier a deux états de rendu que rien ne couvrait : en cours et validé.
+ * C'est exactement là qu'était le piège — validé, le chat passait en lecture
+ * seule DÉFINITIVEMENT, et une rédaction qui échouait derrière laissait la
+ * publication sans aucune action possible.
+ */
+describe('atelier du Coach', () => {
+  const msg = (role: 'user' | 'assistant', content: string): CoachMessage => ({
+    id: `m-${role}-${content.length}`, contentId: 'i1', role, content,
+    raw: null, quickReplies: [], readyForEditor: false, createdAt: now,
+  });
+
+  const session = (over: Partial<CoachSession> = {}): CoachSession => ({
+    status: 'in_progress', formatCible: null, brief: null, validatedAt: null,
+    messages: [msg('user', 'TITRE : Le piège chinois'), msg('assistant', 'Voici une direction.')],
+    ...over,
+  });
+
+  const monte = (over: Partial<CoachSession> = {}, handlers: Record<string, any> = {}) =>
+    render(
+      <CoachChat
+        item={ITEM}
+        aiModels={MODELS}
+        modelId="m1"
+        session={session(over)}
+        onAppendMessage={noop}
+        onValidate={asyncNoop}
+        onReopen={asyncNoop}
+        onReset={asyncNoop}
+        {...handlers}
+      />
+    );
+
+  it('se monte session en cours, et propose de valider', () => {
+    const { container } = monte();
+    expect(container.textContent).toContain('Voici une direction.');
+    expect(container.textContent).toContain('Go Éditeur');
+  });
+
+  it('se monte session validée, et offre le chemin du retour', () => {
+    const { container } = monte({ status: 'validated', validatedAt: now });
+    expect(container.textContent).toContain('Validée');
+    expect(container.textContent).toContain('Rouvrir');
+    // Le pied ne doit plus promettre une transmission à venir : elle a eu lieu.
+    expect(container.textContent).not.toContain('prête à être transmise');
+  });
+
+  it('rouvrir rend l’atelier utilisable sans attendre le réseau', () => {
+    let rouvert = 0;
+    const { container, getByText } = monte(
+      { status: 'validated', validatedAt: now },
+      { onReopen: async () => { rouvert++; } }
+    );
+    expect(container.textContent).not.toContain('Go Éditeur');
+
+    fireEvent.click(getByText('Rouvrir'));
+
+    expect(rouvert).toBe(1);
+    expect(container.textContent).toContain('Go Éditeur');
+    expect(container.textContent).not.toContain('Validée');
+  });
+
+  it('réinitialiser demande confirmation avant de jeter la conversation', () => {
+    let reinit = 0;
+    const { container, getByText } = monte({}, { onReset: async () => { reinit++; } });
+
+    fireEvent.click(getByText('Réinitialiser'));
+    expect(container.textContent).toContain('Réinitialiser la session ?');
+    expect(reinit).toBe(0);
+  });
+
+  /** Le parent renvoie une session vide, mais l'effet d'adoption ignore le vide :
+   *  la vue doit se vider elle-même, sans quoi le JSON resterait à l'écran. */
+  it('après réinitialisation, la conversation quitte l’écran', async () => {
+    const { container, getByText, getAllByText } = monte({}, { onReset: asyncNoop });
+
+    fireEvent.click(getByText('Réinitialiser'));
+    const boutons = getAllByText('Réinitialiser');
+    fireEvent.click(boutons[boutons.length - 1]);
+
+    await waitFor(() => {
+      expect(container.textContent).not.toContain('Voici une direction.');
+    });
+    expect(container.textContent).toContain('Prêt à démarrer ?');
+  });
+
+  it('sans message, rien à rouvrir ni à réinitialiser', () => {
+    const { container } = monte({ status: null, messages: [] });
+    expect(container.textContent).toContain('Prêt à démarrer ?');
+    expect(container.textContent).not.toContain('Réinitialiser');
+    expect(container.textContent).not.toContain('Rouvrir');
   });
 });
 

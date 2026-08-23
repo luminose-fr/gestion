@@ -207,6 +207,14 @@ export const updateCoach = (
   input: { status?: 'in_progress' | 'validated' | null; formatCible?: string | null; brief?: string | null }
 ) => api<{ updated: boolean }>(`/contents/${contentId}/coach`, { method: 'PATCH', ...body(input) });
 
+/**
+ * Réinitialise la session : la conversation sort de la vue, l'état repart à
+ * zéro. Les messages ne sont pas détruits côté base — la session qu'on jette
+ * est justement celle qu'on voudra peut-être relire.
+ */
+export const resetCoach = (contentId: string) =>
+  api<{ reset: boolean; messages: number }>(`/contents/${contentId}/coach`, { method: 'DELETE' });
+
 // ── Journal des générations (SPEC §2.6) ──────────────────────────────────
 
 export const fetchGenerations = (contentId: string, kind?: string) =>

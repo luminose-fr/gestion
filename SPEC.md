@@ -13,7 +13,8 @@
 > rédaction (§6.4).
 > **v2.3 (23/08/2026)** : l'explorateur croise une seconde source, qui juge de la PROSE
 > et non du raisonnement, et il s'ouvre sur une courte liste de vingt modèles
-> délibérément différents (§5.6).
+> délibérément différents (§5.6). L'atelier du Coach cesse d'être un aller sans
+> retour : rouvrir et réinitialiser (§2.7).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -218,6 +219,25 @@ disparaissent. En lignes, l'écriture est un `INSERT` : un message écrit ne se 
 **L'API masque ce détail.** `GET /api/contents/:id` renvoie une `coachSession` assemblée
 `{ status, brief, messages[] }`, et `POST /api/contents/:id/coach/messages` ajoute un
 message. Le client garde son modèle mental ; seul le stockage change.
+
+**L'atelier a deux sorties — NORMATIF.** Une session validée n'est pas un état
+terminal. Sans retour possible, une rédaction qui échoue derrière la validation laisse
+la publication **intouchable** : le chat est en lecture seule, « Go Éditeur » a disparu,
+et rien ne peut plus être tenté. C'est arrivé le 23/08/2026, sur une réponse de Coach
+rendue en JSON illisible.
+
+| Sortie | Effet | Réversible |
+| :--- | :--- | :--- |
+| **Rouvrir** | `coach_status` repasse à `in_progress`, `coach_validated_at` s'efface | rien n'est perdu |
+| **Réinitialiser** | messages marqués `deleted_at`, statut / brief / format cible remis à zéro | en base, oui |
+
+`DELETE /api/contents/:id/coach` porte la réinitialisation, en deux requêtes. Les
+messages sont **marqués, pas détruits** : on jette une session parce qu'elle s'est mal
+passée, c'est-à-dire au moment précis où l'on voudra peut-être relire ce qui a été dit.
+La lecture filtre `deleted_at IS NULL` ; l'append-only tient toujours.
+
+**Le brouillon n'est jamais touché** par l'une ni l'autre : on jette l'atelier, pas ce
+qui en est sorti.
 
 ### 2.8 Écarts volontaires avec l'existant
 
@@ -844,7 +864,8 @@ CREATE TABLE coach_messages (
   raw              TEXT,                                -- réponse JSON brute de l'assistant
   quick_replies    TEXT,                                -- tableau JSON
   ready_for_editor INTEGER NOT NULL DEFAULT 0,
-  created_at       INTEGER NOT NULL
+  created_at       INTEGER NOT NULL,
+  deleted_at       INTEGER                              -- réinitialisation de session (§2.7)
 );
 
 CREATE TABLE ai_models (

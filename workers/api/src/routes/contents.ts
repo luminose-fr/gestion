@@ -54,7 +54,7 @@ contents.get('/:id', async (c) => {
   // celui de l'assistant, parfois dans la même milliseconde. Trier sur
   // `created_at` seul rendrait alors l'ordre de la conversation indéterminé.
   const { results } = await c.env.DB
-    .prepare('SELECT * FROM coach_messages WHERE content_id = ? ORDER BY created_at ASC, rowid ASC')
+    .prepare('SELECT * FROM coach_messages WHERE content_id = ? AND deleted_at IS NULL ORDER BY created_at ASC, rowid ASC')
     .bind(id).all();
 
   const content = rowToContent(row);
@@ -216,6 +216,41 @@ contents.patch('/:id/coach', async (c) => {
 
   if (!res.meta.changes) return c.json({ error: 'Contenu introuvable' }, 404);
   return c.json({ updated: true });
+});
+
+/**
+ * 2 requêtes. Réinitialise la session Coach : la conversation sort de la vue,
+ * l'état repart à zéro.
+ *
+ * Pourquoi cette route existe : l'atelier était un aller SANS RETOUR. Une fois
+ * `validated`, le chat passait en lecture seule pour toujours — et si la
+ * rédaction qui suit échouait, la publication devenait intouchable. Il fallait
+ * une porte de sortie.
+ *
+ * Les messages sont SOFT-DELETED : on jette une session parce qu'elle s'est mal
+ * passée, c'est-à-dire au moment précis où l'on voudra peut-être relire ce qui
+ * a été dit.
+ */
+contents.delete('/:id/coach', async (c) => {
+  const id = c.req.param('id');
+  const ts = now();
+
+  const existe = await c.env.DB
+    .prepare('SELECT id FROM contents WHERE id = ? AND deleted_at IS NULL')
+    .bind(id).first();
+  if (!existe) return c.json({ error: 'Contenu introuvable' }, 404);
+
+  const [messages] = await c.env.DB.batch([
+    c.env.DB.prepare('UPDATE coach_messages SET deleted_at = ? WHERE content_id = ? AND deleted_at IS NULL')
+      .bind(ts, id),
+    c.env.DB.prepare(
+      `UPDATE contents SET coach_status = NULL, coach_brief = NULL, coach_validated_at = NULL,
+                           coach_format_cible = NULL, updated_at = ?
+       WHERE id = ?`
+    ).bind(ts, id),
+  ]);
+
+  return c.json({ reset: true, messages: messages.meta.changes ?? 0 });
 });
 
 // ── Journal des générations (SPEC §2.6) ──────────────────────────────────

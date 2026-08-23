@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Send, Loader2, CheckCircle2, Sparkles, RefreshCw, AlertCircle, MessageCircle, ArrowRight, Brain } from 'lucide-react';
-import { ContentItem, AIModel, CoachSession, CoachMessage } from '../types';
+import { Send, Loader2, CheckCircle2, Sparkles, RefreshCw, AlertCircle, MessageCircle, ArrowRight, Brain, RotateCcw, Undo2 } from 'lucide-react';
+import { ContentItem, AIModel, CoachSession, CoachMessage, TargetFormat } from '../types';
 import {
     sendCoachMessage,
     createEmptySession,
@@ -11,6 +11,7 @@ import {
     buildCoachBrief,
 } from '../services/coachService';
 import { renderMdText } from './ContentEditor/renderers/shared';
+import { ConfirmModal } from './CommonModals';
 
 interface CoachChatProps {
     item: ContentItem;
@@ -32,10 +33,19 @@ interface CoachChatProps {
     onAppendMessage: (message: CoachMessage) => void | Promise<void>;
     /** Appelé quand Florent clique "Go Éditeur" — la session est marquée validated avant appel */
     onValidate: (session: CoachSession) => void | Promise<void>;
+    /**
+     * Rouvre une session validée. L'atelier était un aller sans retour : une
+     * fois validé, plus un mot ne pouvait être envoyé, et une rédaction qui
+     * échouait laissait la publication intouchable.
+     */
+    onReopen: () => void | Promise<void>;
+    /** Jette la conversation et repart de zéro. Confirmé, et réversible en base. */
+    onReset: () => void | Promise<void>;
 }
 
 export const CoachChat: React.FC<CoachChatProps> = ({
-    item, aiModels, modelId, contexteSerie, session: initialSession, onAppendMessage, onValidate,
+    item, aiModels, modelId, contexteSerie, session: initialSession,
+    onAppendMessage, onValidate, onReopen, onReset,
 }) => {
     const [session, setSession] = useState<CoachSession>(initialSession);
     const [input, setInput] = useState('');
@@ -62,6 +72,8 @@ export const CoachChat: React.FC<CoachChatProps> = ({
     );
     const scrollRef = useRef<HTMLDivElement>(null);
     const didAutoBootstrap = useRef(false);
+    const [confirmReset, setConfirmReset] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
 
     const isValidated = session.status === 'validated';
 
@@ -138,6 +150,34 @@ export const CoachChat: React.FC<CoachChatProps> = ({
         await onValidate(validated);
     };
 
+    const handleReopen = async () => {
+        if (!isValidated || isResetting) return;
+        // La vue repasse en écriture tout de suite : le parent persiste, mais
+        // l'atelier n'a pas à attendre le réseau pour redevenir utilisable.
+        setSession(prev => ({ ...prev, status: 'in_progress', validatedAt: null }));
+        await onReopen();
+    };
+
+    const handleReset = async () => {
+        if (isResetting) return;
+        setIsResetting(true);
+        setError(null);
+        try {
+            await onReset();
+            // Le parent renverra une session vide, mais l'effet d'adoption
+            // ignore les sessions vides pour ne pas écraser une conversation en
+            // cours : la vue locale doit donc se vider elle-même.
+            setSession(createEmptySession(item.targetFormat as TargetFormat | null));
+            didAutoBootstrap.current = false;
+            setHasStarted(false);
+            setInput('');
+        } catch (e: any) {
+            setError(e?.message || "La session n'a pas pu être réinitialisée.");
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
@@ -191,10 +231,46 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                         </span>
                     )}
                 </div>
-                <span className="text-[10px] font-medium text-brand-main/50 dark:text-dark-text/50 whitespace-nowrap">
-                    {aiModels.find(m => m.id === modelId)?.name || modelId}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                    {isValidated && (
+                        <button
+                            onClick={handleReopen}
+                            disabled={isResetting}
+                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:border-brand-main hover:text-brand-main dark:hover:text-white transition-colors whitespace-nowrap disabled:opacity-40 flex items-center gap-1.5"
+                            title="Repasser la session en cours pour continuer la conversation"
+                        >
+                            <Undo2 className="w-3 h-3" />
+                            Rouvrir
+                        </button>
+                    )}
+                    {session.messages.length > 0 && (
+                        <button
+                            onClick={() => setConfirmReset(true)}
+                            disabled={isResetting}
+                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-transparent text-red-600/80 dark:text-red-400/80 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 transition-colors whitespace-nowrap disabled:opacity-40 flex items-center gap-1.5"
+                            title="Jeter cette conversation et repartir de zéro"
+                        >
+                            {isResetting
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <RotateCcw className="w-3 h-3" />}
+                            Réinitialiser
+                        </button>
+                    )}
+                    <span className="text-[10px] font-medium text-brand-main/50 dark:text-dark-text/50 whitespace-nowrap">
+                        {aiModels.find(m => m.id === modelId)?.name || modelId}
+                    </span>
+                </div>
             </div>
+
+            <ConfirmModal
+                isOpen={confirmReset}
+                onClose={() => setConfirmReset(false)}
+                onConfirm={() => { void handleReset(); }}
+                title="Réinitialiser la session ?"
+                message="La conversation disparaît de l'atelier et le Coach repartira de zéro. Le brouillon déjà rédigé, lui, n'est pas touché."
+                isDestructive
+                confirmLabel="Réinitialiser"
+            />
 
             {/* MESSAGES */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
@@ -376,10 +452,21 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                 </div>
             )}
 
+            {/* Une session validée ne se referme plus sur elle-même : le chemin
+                du retour est écrit là où l'on constate qu'il manque. */}
             {isValidated && (
-                <div className="p-4 border-t border-brand-border dark:border-dark-sec-border bg-green-50 dark:bg-green-900/10 text-xs text-green-800 dark:text-green-300 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Session validée — prête à être transmise à l'Éditeur pour rédaction finale.
+                <div className="p-4 border-t border-brand-border dark:border-dark-sec-border bg-green-50 dark:bg-green-900/10 text-xs text-green-800 dark:text-green-300 flex items-center justify-between gap-3 flex-wrap">
+                    <span className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 shrink-0" />
+                        Session validée et transmise au Rédacteur. La rédaction se trouve dans les autres onglets.
+                    </span>
+                    <button
+                        onClick={handleReopen}
+                        disabled={isResetting}
+                        className="font-bold underline underline-offset-2 hover:no-underline whitespace-nowrap disabled:opacity-40"
+                    >
+                        Rien n'est arrivé ? Rouvrir la session
+                    </button>
                 </div>
             )}
         </div>

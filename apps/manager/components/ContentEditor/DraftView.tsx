@@ -53,6 +53,8 @@ interface DraftViewProps {
     /** Un message de plus dans la conversation — append-only (SPEC §2.7). */
     onCoachMessage: (message: CoachMessage) => void | Promise<void>;
     onCoachValidate: (session: CoachSession) => void | Promise<void>;
+    onCoachReopen: () => void | Promise<void>;
+    onCoachReset: () => void | Promise<void>;
 
     // Lecteur Froid
     coldRead: ColdReadReport | null;
@@ -69,7 +71,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
     onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, slidesStale = false,
     coachSession, serieContext,
     onChangeStatus, onSave, isGenerating,
-    aiModels, activeModelId, onCoachMessage, onCoachValidate,
+    aiModels, activeModelId, onCoachMessage, onCoachValidate, onCoachReopen, onCoachReset,
     coldRead, onDismissColdRead, onRunColdRead,
     activeTab, onTabChange
 }) => {
@@ -322,6 +324,8 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         contexteSerie={serieContext}
                         onAppendMessage={onCoachMessage}
                         onValidate={onCoachValidate}
+                        onReopen={onCoachReopen}
+                        onReset={onCoachReset}
                     />
                 )}
                 {isDirect && (

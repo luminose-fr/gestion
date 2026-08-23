@@ -178,3 +178,97 @@ describe('création en lot', () => {
     expect((await post('/api/contents/batch', { items: [] })).status).toBe(400);
   });
 });
+
+/**
+ * La session Coach (SPEC §2.7).
+ *
+ * Ce qui compte ici : la conversation est append-only, mais l'atelier ne doit
+ * pas être un aller SANS RETOUR. Un modèle qui rend du JSON illisible, une
+ * rédaction qui échoue derrière, et la publication devenait intouchable.
+ */
+describe('session Coach', () => {
+  const ajouteMessage = (id: string, role: string, content: string) =>
+    post(`/api/contents/${id}/coach/messages`, { role, content });
+
+  const lire = async (id: string) => (await (await call(`/api/contents/${id}`)).json() as any);
+
+  it('rouvre une session validée sans toucher à la conversation', async () => {
+    const c = await createContent();
+    await ajouteMessage(c.id, 'user', 'Je veux parler du piège chinois.');
+    await ajouteMessage(c.id, 'assistant', 'Voici une direction.');
+    await patch(`/api/contents/${c.id}/coach`, { status: 'validated', brief: '{"structure":[]}' });
+
+    let vue = await lire(c.id);
+    expect(vue.coachSession.status).toBe('validated');
+    expect(vue.coachSession.validatedAt).toBeTruthy();
+
+    await patch(`/api/contents/${c.id}/coach`, { status: 'in_progress' });
+
+    vue = await lire(c.id);
+    expect(vue.coachSession.status).toBe('in_progress');
+    expect(vue.coachSession.validatedAt).toBeNull();
+    expect(vue.coachSession.messages).toHaveLength(2);
+  });
+
+  it('réinitialise : la conversation sort de la vue et l’état repart à zéro', async () => {
+    const c = await createContent({ targetFormat: 'Post Texte (Court)' });
+    await ajouteMessage(c.id, 'user', 'Premier tour.');
+    await ajouteMessage(c.id, 'assistant', '{"message":"…"} du JSON illisible');
+    await patch(`/api/contents/${c.id}/coach`, { status: 'validated', formatCible: 'Post Texte (Court)', brief: '{"structure":[]}' });
+
+    const res = await call(`/api/contents/${c.id}/coach`, { method: 'DELETE' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ reset: true, messages: 2 });
+
+    const vue = await lire(c.id);
+    expect(vue.coachSession.messages).toHaveLength(0);
+    expect(vue.coachSession.status).toBeNull();
+    expect(vue.coachSession.brief).toBeNull();
+    expect(vue.coachSession.validatedAt).toBeNull();
+    expect(vue.coachSession.formatCible).toBeNull();
+  });
+
+  /** Le motif même de la réinitialisation est de vouloir relire ce qui s'est passé. */
+  it('ne détruit pas les messages : ils sont marqués, pas effacés', async () => {
+    const c = await createContent();
+    await ajouteMessage(c.id, 'user', 'Ce que j’ai écrit doit survivre.');
+    await call(`/api/contents/${c.id}/coach`, { method: 'DELETE' });
+
+    const lignes = (env.DB as unknown as TestD1).query('SELECT content, deleted_at FROM coach_messages');
+    expect(lignes).toHaveLength(1);
+    expect((lignes[0] as any).content).toBe('Ce que j’ai écrit doit survivre.');
+    expect((lignes[0] as any).deleted_at).toBeTruthy();
+  });
+
+  it('le brouillon n’est pas touché — on jette l’atelier, pas ce qui en est sorti', async () => {
+    const c = await createContent();
+    await patch(`/api/contents/${c.id}`, { draft: '{"body":"un brouillon rédigé"}' });
+    await ajouteMessage(c.id, 'assistant', 'Direction.');
+
+    await call(`/api/contents/${c.id}/coach`, { method: 'DELETE' });
+
+    const vue = await lire(c.id);
+    expect(vue.content.draft).toBe('{"body":"un brouillon rédigé"}');
+  });
+
+  it('une seconde réinitialisation ne compte pas les messages déjà retirés', async () => {
+    const c = await createContent();
+    await ajouteMessage(c.id, 'user', 'Un tour.');
+    await call(`/api/contents/${c.id}/coach`, { method: 'DELETE' });
+
+    const res = await call(`/api/contents/${c.id}/coach`, { method: 'DELETE' });
+    expect(await res.json()).toMatchObject({ reset: true, messages: 0 });
+  });
+
+  it('404 sur un contenu inconnu', async () => {
+    const res = await call('/api/contents/inexistant/coach', { method: 'DELETE' });
+    expect(res.status).toBe(404);
+  });
+
+  it('exige un jeton de session', async () => {
+    const c = await createContent();
+    const res = await app.fetch(
+      new Request(`https://api.test/api/contents/${c.id}/coach`, { method: 'DELETE' }), env as any);
+    expect(res.status).toBe(401);
+  });
+});

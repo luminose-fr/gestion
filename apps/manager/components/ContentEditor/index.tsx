@@ -376,6 +376,39 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   };
 
   /**
+   * Rouvre une session validée. Le seul effet est de rendre l'atelier
+   * utilisable à nouveau : ni la conversation ni le brouillon ne bougent.
+   *
+   * Cette porte manquait, et son absence coûtait cher : validé une fois, le
+   * chat était en lecture seule pour toujours, et une rédaction qui échouait
+   * derrière laissait la publication sans aucune action possible.
+   */
+  const handleCoachReopen = async () => {
+      if (!isMountedRef.current || !editedItem) return;
+      setCoachSessionState(prev => (prev ? { ...prev, status: 'in_progress', validatedAt: null } : prev));
+      try {
+          await Api.updateCoach(editedItem.id, { status: 'in_progress' });
+          triggerSaveStatus('saved');
+      } catch (e: any) {
+          if (isMountedRef.current) setSaveError(e?.message || "La session n'a pas pu être rouverte.");
+          triggerSaveStatus('error');
+      }
+  };
+
+  /**
+   * Réinitialise la session : la conversation sort de la vue et l'état repart
+   * à zéro. Le brouillon n'est PAS touché — on jette l'atelier, pas le travail
+   * qui en est sorti.
+   */
+  const handleCoachReset = async () => {
+      if (!isMountedRef.current || !editedItem) return;
+      await Api.resetCoach(editedItem.id);
+      if (!isMountedRef.current) return;
+      setCoachSessionState(createEmptySession(editedItem.targetFormat as TargetFormat | null));
+      triggerSaveStatus('saved');
+  };
+
+  /**
    * Florent clique "Go Éditeur" : session validée → le Verrouilleur condense
    * l'atelier en un brief verrouillé (dernière version validée + interdits),
    * puis la rédaction démarre à partir de CE brief (plus de session brute).
@@ -1037,6 +1070,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     activeModelId={modelFor('COACH_CHAT')}
                     onCoachMessage={handleCoachMessage}
                     onCoachValidate={handleCoachValidate}
+                    onCoachReopen={handleCoachReopen}
+                    onCoachReset={handleCoachReset}
                     activeTab={activeStep}
                     onTabChange={onStepChange}
                     coldRead={coldRead}
