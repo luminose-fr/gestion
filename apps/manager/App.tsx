@@ -72,21 +72,35 @@ const getHashState = () => {
     const settingsSection: SettingsSection =
         space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'display';
 
-    const itemId = parts[2] && parts[2].trim() !== '' ? parts[2] : null;
+    /**
+     * Sur l'onglet Séries, l'URL porte DEUX identifiants :
+     * `#social/series/<serie>/<contenu>/<etape>`.
+     *
+     * C'est ce qui permet de travailler une publication sans quitter sa série :
+     * la route se souvient d'où l'on vient, et « retour » ramène au plan plutôt
+     * qu'à la boîte à idées.
+     */
+    const surSeries = space === 'social' && tab === 'series';
+    const segment = (i: number) => (parts[i] && parts[i].trim() !== '' ? parts[i] : null);
+
+    const serieId = surSeries ? segment(2) : null;
+    const itemId = surSeries ? segment(3) : segment(2);
+    const etapeIndex = surSeries ? 4 : 3;
     
     let step: EditorStep = 'idea';
     const LEGACY_STEP_MAP: Record<string, EditorStep> = {
         'interview': 'atelier', 'content': 'atelier',
     };
-    if (parts[3]) {
-        if (['idea', 'atelier', 'brouillon', 'slides', 'postcourt', 'script'].includes(parts[3])) {
-            step = parts[3] as EditorStep;
-        } else if (LEGACY_STEP_MAP[parts[3]]) {
-            step = LEGACY_STEP_MAP[parts[3]];
+    const brut = parts[etapeIndex];
+    if (brut) {
+        if (['idea', 'atelier', 'brouillon', 'slides', 'postcourt', 'script'].includes(brut)) {
+            step = brut as EditorStep;
+        } else if (LEGACY_STEP_MAP[brut]) {
+            step = LEGACY_STEP_MAP[brut];
         }
     }
 
-    return { space, tab, settingsSection, itemId, step };
+    return { space, tab, settingsSection, serieId, itemId, step };
 };
 
 function App() {
@@ -109,6 +123,7 @@ function App() {
   const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('display');
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingSerieId, setEditingSerieId] = useState<string | null>(null);
   const [currentEditorStep, setCurrentEditorStep] = useState<EditorStep>('idea');
   const [pendingEditorAction, setPendingEditorAction] = useState<'interview' | null>(null);
 
@@ -191,7 +206,7 @@ function App() {
 
   useEffect(() => {
       const handleHashChange = () => {
-          const { space, tab, settingsSection, itemId, step } = getHashState();
+          const { space, tab, settingsSection, serieId, itemId, step } = getHashState();
           setCurrentSpace(space);
           if (space === 'social') {
               setCurrentSocialTab(tab);
@@ -200,6 +215,7 @@ function App() {
               setCurrentSettingsSection(settingsSection);
           }
           setEditingItemId(itemId);
+          setEditingSerieId(serieId);
           setCurrentEditorStep(step);
       };
       
@@ -208,6 +224,14 @@ function App() {
       window.addEventListener('hashchange', handleHashChange);
       return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  /** Séries : `#social/series/<serie>[/<contenu>[/<etape>]]`. */
+  const updateSerieRoute = (serieId: string, contentId?: string | null, step: EditorStep = 'idea') => {
+      const hash = contentId
+          ? `social/series/${serieId}/${contentId}/${step}`
+          : `social/series/${serieId}`;
+      if (window.location.hash !== `#${hash}`) window.location.hash = hash;
+  };
 
   /** Réglages : `#reglages/<section>`. */
   const updateSettingsRoute = (section: SettingsSection) => {
@@ -231,11 +255,9 @@ function App() {
 
   const editingItem = editingItemId ? items.find(i => i.id === editingItemId) || null : null;
 
-  // Sur l'onglet Séries, le troisième segment de l'URL désigne une série, pas
-  // un contenu : c'est ce qui distingue la liste de l'écran de plan.
-  const editingSerie = currentSocialTab === 'series' && editingItemId
-      ? series.find(s => s.id === editingItemId) || null
-      : null;
+  // Sur l'onglet Séries, le troisième segment de l'URL désigne la série
+  // ouverte ; le quatrième, la publication qu'on y travaille.
+  const editingSerie = editingSerieId ? series.find(s => s.id === editingSerieId) || null : null;
 
   useEffect(() => {
     setAuthenticated(isAuthenticated());
@@ -421,14 +443,16 @@ function App() {
     updateRoute(currentSpace, currentSocialTab, item.id, 'idea');
   };
 
+  /** Fermer un contenu ouvert depuis sa série ramène au plan, pas à la boîte à idées. */
   const handleCloseEditor = () => {
-      updateRoute(currentSpace, currentSocialTab, null, 'idea');
+      if (editingSerieId) updateSerieRoute(editingSerieId);
+      else updateRoute(currentSpace, currentSocialTab, null, 'idea');
   };
 
   const handleStepChange = (newStep: EditorStep) => {
-      if (editingItemId) {
-          updateRoute(currentSpace, currentSocialTab, editingItemId, newStep);
-      }
+      if (!editingItemId) return;
+      if (editingSerieId) updateSerieRoute(editingSerieId, editingItemId, newStep);
+      else updateRoute(currentSpace, currentSocialTab, editingItemId, newStep);
   };
 
   const handleGlobalAnalysis = () => {
@@ -524,14 +548,17 @@ function App() {
     if (options?.launchInterview) {
         setPendingEditorAction('interview');
     }
-    // Naviguer vers l'éditeur dans la vue brouillons
-    updateRoute('social', 'drafts', updatedItem.id, 'idea');
+    // Naviguer vers l'éditeur — dans sa série quand le contenu en vient : on
+    // ne quitte pas une série pour travailler l'une de ses publications.
+    if (updatedItem.serieId) updateSerieRoute(updatedItem.serieId, updatedItem.id, 'idea');
+    else updateRoute('social', 'drafts', updatedItem.id, 'idea');
   };
 
   const handleDeleteItem = async (itemToDelete: ContentItem): Promise<void> => {
       const newItems = items.filter(i => i.id !== itemToDelete.id);
       setItems(newItems);
-      updateRoute(currentSpace, currentSocialTab, null, 'idea');
+      if (editingSerieId) updateSerieRoute(editingSerieId);
+      else updateRoute(currentSpace, currentSocialTab, null, 'idea');
       
       StorageService.setCachedContent(newItems).catch(console.error);
 
@@ -620,15 +647,25 @@ function App() {
    * intact : rien n'est perdu si le lot est refusé.
    */
   const handleCreateSeriePlan = async (serieId: string, entries: PlanSeriesEntry[]): Promise<void> => {
-      const { items: created } = await Api.createContentsBatch(entries.map(entry => ({
+      const ts = Date.now();
+      const { items: created } = await Api.createContentsBatch(entries.map((entry, index) => ({
           title: entry.titre,
-          // L'angle du plan est celui de CE contenu dans la série ; il ne
-          // remplace pas l'angle stratégique, que l'Analyste écrira peut-être.
+          // L'angle du plan est celui de CE contenu dans la série.
           angle: entry.angle || null,
+          // La matière produite par l'Éclateur devient les notes : c'est ce que
+          // Florent aurait écrit à la main, et ce sur quoi l'Atelier mordra.
+          notes: entry.notes || '',
           targetFormat: entry.format,
           objectif: entry.objectif,
           justification: entry.justification || null,
           serieId,
+          // Le rang fait la progression : la série se relit dans cet ordre.
+          seriePosition: index + 1,
+          // L'Éclateur EST l'Analyste de la série : il a décidé angle, format et
+          // objectif en voyant l'ensemble. Les repasser un par un à l'Analyste
+          // casserait l'équilibre qu'il vient de construire — ils arrivent donc
+          // analysés, et « Analyser tout » ne les reprend pas.
+          analyzedAt: ts,
           status: ContentStatus.IDEA,
       })));
       const next = sortByLastEditedDesc([...created, ...items]);
@@ -658,8 +695,10 @@ function App() {
       }).catch(() => { /* alerte déjà affichée */ });
   };
 
+  /** Ouvrir une publication depuis sa série y reste : c'est le même travail. */
   const handleOpenSerieContent = (item: ContentItem) => {
-      updateRoute('social', tabForStatus(item.status), item.id, 'idea');
+      if (item.serieId) updateSerieRoute(item.serieId, item.id, 'idea');
+      else updateRoute('social', tabForStatus(item.status), item.id, 'idea');
   };
 
   // --- AI ANALYSIS FLOW (sans modale — modèle actif global) ---
@@ -705,8 +744,12 @@ function App() {
                 .map((p: string) => p as Platform)
                 .filter((p: any) => Object.values(Platform).includes(p));
 
-              // Le format cible est choisi par l'utilisateur et ne doit pas être écrasé par l'IA
-              const objectif = isObjectif(res.objectif) ? res.objectif : undefined;
+              // Le format cible est choisi par l'utilisateur et ne doit pas être écrasé par l'IA.
+              // L'objectif d'une publication de série non plus : il vient du plan,
+              // décidé en voyant l'ensemble — l'Analyste, lui, ne voit qu'une idée.
+              const objectif = itemToAnalyze.serieId
+                  ? undefined
+                  : (isObjectif(res.objectif) ? res.objectif : undefined);
               const justification = typeof res.justification === 'string' ? res.justification : undefined;
               const suggestedMetaphor = typeof res.metaphore_suggeree === 'string' ? res.metaphore_suggeree : undefined;
               const suggestedTitle = typeof res.titre === 'string' ? res.titre : undefined;
@@ -762,6 +805,32 @@ function App() {
    * une série (SPEC §6.4) : le thème, l'intention, le texte du pilier, et les
    * angles des frères — jamais leur texte.
    */
+  /**
+   * De quoi situer la publication ouverte dans sa série, pour l'éditeur : son
+   * rang, le total, et ses voisines. C'est ce qui permet d'enchaîner sans
+   * repasser par le plan.
+   */
+  const editorSerieNav = useMemo(() => {
+      if (!editingItem?.serieId || !editingSerieId) return null;
+      const serie = series.find(s => s.id === editingSerieId);
+      if (!serie) return null;
+
+      const fratrie = items
+          .filter(i => i.serieId === serie.id)
+          .sort((a, b) => (a.seriePosition ?? 9999) - (b.seriePosition ?? 9999));
+      const index = fratrie.findIndex(i => i.id === editingItem.id);
+
+      return {
+          titre: serie.titre,
+          // Le RANG du plan fait foi, pas la place dans ce qui existe déjà :
+          // une série se compte comme elle a été pensée, même à moitié créée.
+          position: editingItem.seriePosition ?? (index >= 0 ? index + 1 : null),
+          total: fratrie.length,
+          precedent: index > 0 ? fratrie[index - 1] : null,
+          suivant: index >= 0 && index < fratrie.length - 1 ? fratrie[index + 1] : null,
+      };
+  }, [editingItem, editingSerieId, series, items]);
+
   const editorSerieContext = useMemo(() => {
       if (!editingItem?.serieId) return undefined;
       const serie = series.find(s => s.id === editingItem.serieId);
@@ -776,9 +845,11 @@ function App() {
           titre: serie.titre,
           intention: serie.intention,
           sourceText: source ? (bodyJsonToText(source.draft || '') || source.notes) : null,
+          position: editingItem.seriePosition,
+          titreCourant: editingItem.title,
           freres: items
               .filter(i => i.serieId === serie.id && i.id !== editingItem.id)
-              .map(i => ({ titre: i.title, angle: i.angle })),
+              .map(i => ({ titre: i.title, angle: i.angle, position: i.seriePosition })),
       });
   }, [editingItem, series, items]);
 
@@ -1036,6 +1107,9 @@ function App() {
                         onDecline={handleDeclineContent}
                         modelFor={modelFor}
                         serieContext={editorSerieContext}
+                        serieNav={editorSerieNav}
+                        onOpenSerie={() => editingSerieId && updateSerieRoute(editingSerieId)}
+                        onOpenSerieContent={handleOpenSerieContent}
                         activeStep={currentEditorStep}
                         onStepChange={handleStepChange}
                         initialAction={pendingEditorAction}

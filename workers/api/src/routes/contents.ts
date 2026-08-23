@@ -22,8 +22,8 @@ export const contents = new Hono<{ Bindings: Env }>();
 /** Colonnes du contenu, listées une fois — évite les SELECT * divergents. */
 const C = 'id, title, status, platforms, target_format, objectif, depth, analyzed_at, verdict, ' +
   'strategic_angle, justification, suggested_metaphor, notes, draft, slides, coach_status, ' +
-  'coach_format_cible, coach_brief, coach_validated_at, serie_id, angle, scheduled_date, ' +
-  'legacy_json, created_at, updated_at, deleted_at';
+  'coach_format_cible, coach_brief, coach_validated_at, serie_id, angle, serie_position, ' +
+  'scheduled_date, legacy_json, created_at, updated_at, deleted_at';
 
 // ── Liste et synchronisation ─────────────────────────────────────────────
 
@@ -81,8 +81,9 @@ const insertStatement = (db: D1Database, input: Record<string, any>, ts: number)
     stmt: db.prepare(
       `INSERT INTO contents (id, title, status, platforms, target_format, objectif, depth,
          analyzed_at, verdict, strategic_angle, justification, suggested_metaphor,
-         notes, draft, slides, serie_id, angle, scheduled_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         notes, draft, slides, serie_id, angle, serie_position, scheduled_date,
+         created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id,
       input.title ?? '',
@@ -94,8 +95,8 @@ const insertStatement = (db: D1Database, input: Record<string, any>, ts: number)
       toSql(input.justification), toSql(input.suggestedMetaphor),
       input.notes ?? '',
       toSql(input.draft), toSql(input.slides),
-      toSql(input.serieId), toSql(input.angle), toSql(input.scheduledDate),
-      ts, ts
+      toSql(input.serieId), toSql(input.angle), toSql(input.seriePosition ?? null),
+      toSql(input.scheduledDate), ts, ts
     ),
   };
 };

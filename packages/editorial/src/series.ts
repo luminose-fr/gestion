@@ -26,6 +26,15 @@ export interface PlanSeriesEntry {
     format: TargetFormat | null;
     objectif: Objectif | null;
     justification: string;
+    /**
+     * La matière de cette publication : ce qu'elle doit contenir, prélevé du
+     * pilier ou du thème.
+     *
+     * Sans elle, un contenu de série naissait vide — un titre et un angle,
+     * rien à quoi l'Atelier puisse mordre. C'est ce champ qui remplit
+     * `contents.notes`, celui-là même que Florent écrirait à la main.
+     */
+    notes: string;
 }
 
 export const emptyPlanEntry = (): PlanSeriesEntry => ({
@@ -34,6 +43,7 @@ export const emptyPlanEntry = (): PlanSeriesEntry => ({
     format: null,
     objectif: null,
     justification: '',
+    notes: '',
 });
 
 /**
@@ -56,6 +66,7 @@ export const normalizePlanEntry = (raw: unknown): PlanSeriesEntry => {
         format: isTargetFormat(source.format) ? source.format : null,
         objectif: isObjectif(source.objectif) ? source.objectif : null,
         justification: str(source.justification),
+        notes: str(source.notes),
     };
 };
 
@@ -72,6 +83,8 @@ export const normalizePlanEntry = (raw: unknown): PlanSeriesEntry => {
 export interface SerieSibling {
     titre: string;
     angle?: string | null;
+    /** Rang dans la série — ce qui fait la progression (SPEC §2.9). */
+    position?: number | null;
 }
 
 export interface SerieContext {
@@ -81,6 +94,10 @@ export interface SerieContext {
     /** Texte du contenu pilier — uniquement si la série en a un. */
     sourceText?: string | null;
     freres?: SerieSibling[];
+    /** Rang du contenu courant, quand il en a un. */
+    position?: number | null;
+    /** Titre du contenu courant — pour le situer dans la liste des frères. */
+    titreCourant?: string | null;
 }
 
 /**
@@ -118,18 +135,40 @@ export const buildSerieContextSection = (serie: SerieContext): string => {
     }
 
     const freres = (serie.freres ?? []).filter(f => f.titre.trim() || (f.angle ?? '').trim());
-    lines.push(``, `LES AUTRES PUBLICATIONS DE LA SÉRIE — TERRITOIRE OCCUPÉ :`);
+
+    lines.push(``, `LA SÉRIE, DANS SON ORDRE — TERRITOIRE OCCUPÉ :`);
     if (freres.length === 0) {
         lines.push(`Aucune autre publication n'est encore prévue : le territoire est libre.`);
     } else {
-        freres.forEach(f => {
+        /**
+         * La liste est rendue DANS L'ORDRE, avec le contenu courant à sa
+         * place : c'est ce qui transforme un ensemble en progression. Le
+         * Rédacteur sait alors ce qui a déjà été dit avant lui, et ce qui
+         * viendra après — donc ce qu'il n'a ni à installer ni à conclure.
+         */
+        const rang = (f: SerieSibling) => (typeof f.position === 'number' ? f.position : Number.MAX_SAFE_INTEGER);
+        const courant: SerieSibling = {
+            titre: serie.titreCourant?.trim() || '(ce contenu)',
+            position: serie.position ?? null,
+        };
+        const suite = [...freres, courant].sort((a, b) => rang(a) - rang(b));
+
+        suite.forEach((f, index) => {
+            const numero = typeof f.position === 'number' ? f.position : index + 1;
+            if (f === courant) {
+                lines.push(`▶ ${numero}. CELLE QUE TU ÉCRIS MAINTENANT — « ${courant.titre} »`);
+                return;
+            }
             const titre = f.titre.trim() || '(sans titre)';
             const angle = (f.angle ?? '').trim();
-            lines.push(angle ? `• « ${titre} » — ${angle}` : `• « ${titre} » — angle non précisé`);
+            lines.push(`  ${numero}. « ${titre} » — ${angle || 'angle non précisé'}`);
         });
+
         lines.push(
+            ``,
             `Tu ne reçois QUE leur titre et leur angle, volontairement : ce sont des bornes, pas de la matière.`,
             `N'empiète sur aucun de ces angles — ni en le traitant, ni en le résumant « au passage ». Si ton propos en croise un, une phrase suffit, puis tu reviens au tien.`,
+            `Ce qui précède est déjà dit : tu n'as pas à le réinstaller. Ce qui suit viendra : tu n'as pas à le conclure.`,
         );
     }
 
@@ -143,7 +182,7 @@ export interface PlanSeriesPayload {
     sujet: string;
     intention: string | null;
     contenu_source: string | null;
-    contenus_existants: Array<{ titre: string; angle: string | null }>;
+    contenus_existants: Array<{ titre: string; angle: string | null; position: number | null }>;
     nombre_souhaite: number;
 }
 
@@ -162,6 +201,7 @@ export const buildPlanSeriesPayload = (input: {
     contenus_existants: (input.freres ?? []).map(f => ({
         titre: f.titre,
         angle: (f.angle ?? '').trim() || null,
+        position: f.position ?? null,
     })),
     nombre_souhaite: input.nombreSouhaite,
 });

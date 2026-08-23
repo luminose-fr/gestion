@@ -36,6 +36,8 @@ const contentWritable = {
   slides: z.string().nullable(),
   serieId: z.string().nullable(),
   angle: z.string().nullable(),
+  /** Rang dans la série. Positif : une série se compte à partir de 1. */
+  seriePosition: z.number().int().positive().nullable(),
   // Date seule, sans heure : la publication est multi-plateformes à un instant
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   /**

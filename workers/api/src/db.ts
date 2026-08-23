@@ -49,6 +49,7 @@ export const rowToContent = (r: any): Content => ({
   coachValidatedAt: r.coach_validated_at ?? null,
   serieId: r.serie_id ?? null,
   angle: r.angle ?? null,
+  seriePosition: r.serie_position ?? null,
   scheduledDate: r.scheduled_date ?? null,
   legacyJson: r.legacy_json ?? null,
   createdAt: r.created_at,
@@ -129,6 +130,7 @@ const CONTENT_COLUMNS: Record<string, string> = {
   slides: 'slides',
   serieId: 'serie_id',
   angle: 'angle',
+  seriePosition: 'serie_position',
   scheduledDate: 'scheduled_date',
 };
 

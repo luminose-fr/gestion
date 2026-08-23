@@ -258,9 +258,9 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     <div className="px-4 py-10 text-center">
                         <Wand2 className="w-10 h-10 mx-auto mb-3 text-brand-border dark:text-dark-sec-border" />
                         <p className="text-sm text-brand-main/60 dark:text-dark-text/60 max-w-md mx-auto">
-                            Le plan est vide. Demandez-en un à l'Éclateur, ou ajoutez les publications
-                            ligne par ligne : un titre, l'angle propre à chaque contenu, son format
-                            et son objectif.
+                            Le plan est vide. Demandez-en un à l'Éclateur : il rend une progression —
+                            titre, angle, matière, format et objectif pour chaque publication, dans
+                            l'ordre où elles se lisent. Vous pouvez aussi les ajouter ligne par ligne.
                         </p>
                     </div>
                 ) : (
@@ -269,7 +269,8 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             <thead className="border-b border-brand-border dark:border-dark-sec-border">
                                 <tr>
                                     <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[14rem]">Titre</th>
-                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[18rem]">Angle</th>
+                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Angle</th>
+                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[20rem]">Matière</th>
                                     <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Format</th>
                                     <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Objectif</th>
                                     <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Justification</th>
@@ -294,6 +295,14 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                                 onChange={e => patchRow(index, { angle: e.target.value })}
                                                 placeholder="Ce que CE contenu traite, et que les autres ne traitent pas"
                                                 className={`${inputCls} h-16 resize-none`}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <textarea
+                                                value={row.notes}
+                                                onChange={e => patchRow(index, { notes: e.target.value })}
+                                                placeholder="Ce que la publication doit contenir : faits, objections à lever, éléments prélevés du pilier"
+                                                className={`${inputCls} h-24 resize-none`}
                                             />
                                         </td>
                                         <td className="px-3 py-2">
@@ -362,12 +371,19 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     </p>
                 ) : (
                     <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
-                        {contents.map(item => (
+                        {/* Dans l'ordre de la progression : une série se relit comme elle a été pensée. */}
+                        {[...contents]
+                            .sort((a, b) => (a.seriePosition ?? 9999) - (b.seriePosition ?? 9999))
+                            .map((item, index) => (
                             <li key={item.id}>
                                 <button
                                     onClick={() => onOpenContent(item)}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors group"
+                                    className="w-full text-left px-4 py-2.5 hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors group flex items-start gap-3"
                                 >
+                                    <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-[11px] font-bold text-brand-main/70 dark:text-dark-text/70">
+                                        {item.seriePosition ?? index + 1}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-semibold text-sm text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors">
                                             {item.title || 'Sans titre'}
@@ -386,6 +402,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                             {item.angle}
                                         </p>
                                     )}
+                                    </span>
                                 </button>
                             </li>
                         ))}

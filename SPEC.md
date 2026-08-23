@@ -1,4 +1,4 @@
-# SPEC v2.1 — gestion.luminose.fr
+# SPEC v2.2 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -7,6 +7,10 @@
 > **v2.1 (21/08/2026)** : les clés des fournisseurs peuvent être posées depuis
 > l'administration (§5.5). L'invariant du §7 est précisé, pas levé : une clé entre,
 > elle ne ressort jamais.
+> **v2.2 (23/08/2026)** : une série est une PROGRESSION, pas un ensemble (§2.9).
+> L'Éclateur produit la matière de chaque publication et fait office d'Analyste pour
+> sa série (§6.2) ; l'anti-répétition irrigue tout l'atelier, plus seulement la
+> rédaction (§6.4).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -242,6 +246,13 @@ series 0..1 ── 1 contents         (series.source_content_id — le contenu p
 C'est **le même objet**. La seule différence est d'où vient la matière. `contents.angle`
 porte l'angle propre de ce contenu au sein de sa série.
 
+**Une série est une progression — NORMATIF.** `contents.serie_position` porte le rang
+(1, 2, 3…). Ce n'est pas un confort d'affichage : la première publication ouvre le sujet
+pour un inconnu, les suivantes s'appuient sur ce qui précède sans le réinstaller, la
+dernière peut proposer quelque chose. Sans rang, une série n'est qu'un ensemble, et
+chaque contenu réécrit l'introduction des autres. Le rang est `NULL` pour un contenu
+rattaché à la main : il ferme la marche plutôt que de bloquer l'écriture.
+
 ## 3. API (Worker, Hono) — NORMATIF
 
 ### 3.1 Conventions
@@ -457,8 +468,21 @@ source, et renvoie un plan de publication :
 
 ```json
 [{ "titre": "…", "angle": "…", "format": "Post Texte (Court)",
-   "objectif": "Recadrage de croyance", "justification": "…" }]
+   "objectif": "Recadrage de croyance", "justification": "…", "notes": "…" }]
 ```
+
+L'ordre du tableau EST la progression (§2.9) : la création en lot y lit le rang.
+
+`notes` porte **la matière** de la publication — ce qu'elle doit contenir, prélevé du
+pilier ou du thème. Elle alimente `contents.notes`, celle-là même que Florent écrirait à
+la main. Sans elle, une publication de série naît avec un titre et rien d'autre, et tout
+est à reconstruire.
+
+**L'Éclateur est l'Analyste de sa série — NORMATIF.** Angle, format et objectif sont
+décidés ici, en voyant l'ensemble, et ne sont pas repassés à l'Analyste publication par
+publication : celui-ci ne voit qu'une idée isolée et casserait l'équilibre éditorial que
+l'Éclateur vient de construire. Les contenus créés arrivent donc **analysés**
+(`analyzed_at` posé), hors du lot « À analyser ».
 
 Il reçoit `OBJECTIF_REGISTRY` en contexte, y compris la règle d'équilibre éditorial
 (« sur 10 publications, viser ~2 Notoriété, 3 Recadrage… »). Aujourd'hui cette règle ne
@@ -476,16 +500,23 @@ jamais une série à moitié peuplée.
 
 ### 6.4 L'anti-répétition — NORMATIF
 
-C'est la raison d'être de la fonctionnalité. À la rédaction d'un contenu appartenant à une
-série, le Rédacteur reçoit en plus :
+C'est la raison d'être de la fonctionnalité. Un contenu appartenant à une série est
+travaillé avec, en plus :
 
 1. le thème et l'intention de la série ;
 2. le texte du contenu source, **si et seulement si** la série en a un ;
 3. **les angles des contenus frères** — leurs `titre` et `angle`, **jamais leur texte
-   complet**, avec la consigne explicite de ne pas empiéter.
+   complet**, avec la consigne explicite de ne pas empiéter ;
+4. **sa place dans la progression** — la liste est rendue dans l'ordre, le contenu
+   courant à son rang : ce qui précède est déjà dit, ce qui suit viendra.
 
 La restriction du point 3 n'est pas une optimisation : sans elle, le prompt croît avec la
 série et finit par noyer la consigne.
+
+**Ce bloc irrigue TOUT l'atelier, pas seulement la rédaction.** Le Coach le reçoit dans
+son brief d'ouverture, le Verrouilleur dans sa charge utile, le Rédacteur dans son prompt
+système. Le donner au seul Rédacteur revenait à laisser l'atelier — l'endroit où la
+direction se décide — choisir une direction qu'il faudrait corriger ensuite.
 
 ---
 
@@ -700,6 +731,7 @@ CREATE TABLE contents (
   -- Séries (§2.9)
   serie_id           TEXT REFERENCES series(id) ON DELETE SET NULL,
   angle              TEXT,
+  serie_position     INTEGER,                           -- rang dans la série (§2.9)
 
   scheduled_date     TEXT,                              -- date ISO, sans heure
   legacy_json        TEXT,                              -- matière de l'ancien flow Interviewer (§2.8)

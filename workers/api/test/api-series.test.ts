@@ -51,6 +51,30 @@ describe('séries', () => {
     expect(contents.map((x: any) => x.angle).sort()).toEqual(['angle A', 'angle B']);
   });
 
+  /**
+   * Une série est une progression : elle se relit dans l'ordre où elle a été
+   * pensée, pas dans celui où la base rend les lignes.
+   */
+  it('rend les contenus dans l’ordre de la progression', async () => {
+    const serie = await createSerie();
+    // Créés à l'envers exprès : c'est le rang qui doit trancher, pas l'insertion.
+    for (const [titre, rang] of [['Troisième', 3], ['Premier', 1], ['Deuxième', 2]] as const) {
+      await post('/api/contents', { title: titre, serieId: serie.id, seriePosition: rang });
+    }
+    await post('/api/contents', { title: 'Rattaché à la main', serieId: serie.id });
+
+    const { contents } = await json(await call(`/api/series/${serie.id}`));
+    expect(contents.map((c: any) => c.title))
+      .toEqual(['Premier', 'Deuxième', 'Troisième', 'Rattaché à la main']);
+    expect(contents[0].seriePosition).toBe(1);
+    expect(contents[3].seriePosition).toBeNull();
+  });
+
+  it('refuse un rang qui ne compte pas à partir de 1', async () => {
+    const serie = await createSerie();
+    expect((await post('/api/contents', { title: 'x', serieId: serie.id, seriePosition: 0 })).status).toBe(400);
+  });
+
   it('supprimer une série DÉTACHE ses contenus sans les perdre', async () => {
     const serie = await createSerie();
     await post('/api/contents', { title: 'Enfant', serieId: serie.id });

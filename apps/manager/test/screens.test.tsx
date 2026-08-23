@@ -46,7 +46,7 @@ const ITEM: ContentItem = {
   analyzedAt: null, verdict: null, strategicAngle: null, justification: null,
   suggestedMetaphor: null, notes: '', draft: null, slides: null,
   coachStatus: null, coachFormatCible: null, coachBrief: null, coachValidatedAt: null,
-  serieId: null, angle: null, scheduledDate: null, legacyJson: null,
+  serieId: null, angle: null, seriePosition: null, scheduledDate: null, legacyJson: null,
   createdAt: now, updatedAt: now, deletedAt: null,
 };
 
@@ -226,5 +226,34 @@ describe('séries', () => {
     );
     expect(container.textContent).toContain('Contenu pilier');
     expect(container.textContent).toContain('La mécanique du piège');
+  });
+
+  /**
+   * Une série se relit dans l'ordre où elle a été pensée — y compris quand les
+   * contenus arrivent dans le désordre depuis le cache.
+   */
+  it('SeriePlanView rend les publications dans l’ordre de la progression', () => {
+    const publication = (id: string, titre: string, rang: number | null): ContentItem =>
+      ({ ...ITEM, id, title: titre, serieId: SERIE.id, seriePosition: rang });
+
+    const { container } = render(
+      <SeriePlanView
+        {...(planProps as any)}
+        serie={SERIE}
+        contents={[
+          publication('c3', 'Troisième', 3),
+          publication('c1', 'Premier', 1),
+          publication('c9', 'Sans rang', null),
+          publication('c2', 'Deuxième', 2),
+        ]}
+      />
+    );
+    const titres = Array.from(container.querySelectorAll('li'))
+      .map(li => li.textContent ?? '')
+      .map(t => t.replace(/\s+/g, ' ').trim());
+    expect(titres[0]).toContain('Premier');
+    expect(titres[1]).toContain('Deuxième');
+    expect(titres[2]).toContain('Troisième');
+    expect(titres[3]).toContain('Sans rang');
   });
 });

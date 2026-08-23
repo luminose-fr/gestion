@@ -244,15 +244,19 @@ Tu retournes EXCLUSIVEMENT un TABLEAU JSON, sans aucun texte avant ou après, sa
     "angle": "Ce que CETTE publication traite, et qu'aucune autre de la série ne traite. Une à trois phrases, assez précises pour que le Rédacteur sache où aller — et où ne pas aller.",
     "format": "une valeur EXACTE de la liste des formats disponibles",
     "objectif": "exactement une de ces valeurs : ${OBJECTIF_VALUES.map(v => `« ${v} »`).join(' | ')}",
-    "justification": "Pourquoi ce contenu, à cette place de la série. 1 à 2 phrases."
+    "justification": "Pourquoi ce contenu, à cette place de la série. 1 à 2 phrases.",
+    "notes": "LA MATIÈRE de cette publication : ce qu'elle doit contenir concrètement. Les faits, les objections à lever, les points à expliquer, les éléments prélevés du contenu pilier quand il y en a un. 3 à 6 phrases, écrites comme des notes de travail — pas comme du texte publiable. C'est ce que l'Atelier aura sous la main pour discuter, et ce que le Rédacteur transformera. Sans elle, la publication naît vide."
   }
 ]
 
+L'ORDRE EST SIGNIFIANT :
+Tu rends une PROGRESSION, pas une liste. La série se lira dans l'ordre où tu la rends : la première publication ouvre le sujet pour quelqu'un qui ne le connaît pas, les suivantes s'appuient sur ce qui précède sans le répéter, la dernière peut proposer quelque chose. Une entrée placée en 5 n'a pas à réinstaller ce que l'entrée 1 a posé.
+
 DISCIPLINE DE SORTIE :
 - Autant d'entrées que le champ nombre_souhaite le demande — sauf si la matière n'en porte pas autant. Dans ce cas, rends-en moins : un plan court et net vaut mieux qu'un plan complété au remplissage.
-- Aucun angle ne recoupe un angle déjà présent dans contenus_existants.
+- Aucun angle ne recoupe un angle déjà présent dans contenus_existants. Ces publications-là ont leur rang (champ "position") : les tiennes viennent après.
 - Les valeurs de "format" et "objectif" sont recopiées à l'identique depuis les listes fournies. Une valeur approchée est une valeur fausse.
-- Les cinq champs sont obligatoires et non vides.
+- Les six champs sont obligatoires et non vides.
     `.trim(),
     ADJUST_DZINE_PROMPTS: `
 Tu reçois :

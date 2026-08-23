@@ -205,8 +205,15 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-xs font-bold text-violet-800 dark:text-violet-200 flex items-center gap-1.5">
                                     <Brain className="w-3.5 h-3.5" />
-                                    {localItem.analyzedAt ? 'Analyse Stratégique' : "Analyser avec l'IA"}
+                                    {localItem.serieId
+                                        ? 'Décidé par le plan de série'
+                                        : (localItem.analyzedAt ? 'Analyse Stratégique' : "Analyser avec l'IA")}
                                 </span>
+                                {localItem.serieId && localItem.seriePosition && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-800/50">
+                                        publication {localItem.seriePosition}
+                                    </span>
+                                )}
                                 {localItem.verdict && (
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${getVerdictColor(localItem.verdict)}`}>
                                         {localItem.verdict}
@@ -222,6 +229,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                             <button
                                 onClick={onAnalyze}
                                 disabled={isReanalyzing}
+                                title={localItem.serieId
+                                    ? "L'objectif et le format viennent du plan de série et ne seront pas modifiés."
+                                    : undefined}
                                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white dark:bg-violet-900/40 hover:bg-violet-50 dark:hover:bg-violet-800/40 text-violet-700 dark:text-violet-200 border border-violet-200 dark:border-violet-700 transition-colors disabled:opacity-50 whitespace-nowrap shadow-sm"
                             >
                                 <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
@@ -230,16 +240,35 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                         </div>
 
                         <div className="p-4 bg-white dark:bg-dark-surface">
-                            {localItem.analyzedAt && localItem.strategicAngle ? (
+                            {/*
+                                Une publication de série arrive analysée par l'Éclateur : elle a un
+                                angle, un objectif et une justification, mais pas d'angle stratégique.
+                                Exiger ce dernier affichait « Cliquez sur Analyser » sur un contenu
+                                déjà décidé — et invitait à casser l'équilibre du plan.
+                            */}
+                            {(localItem.strategicAngle || localItem.angle || localItem.objectif || localItem.justification) ? (
                                 <div className="space-y-4 animate-in fade-in duration-200">
-                                    <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
-                                            Angle recommandé
-                                        </p>
-                                        <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
-                                            {localItem.strategicAngle.replace(/\*\*/g, '')}
-                                        </p>
-                                    </div>
+                                    {localItem.angle && (
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                                Angle dans la série
+                                            </p>
+                                            <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
+                                                {localItem.angle}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {localItem.strategicAngle && (
+                                        <div>
+                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                                Angle recommandé
+                                            </p>
+                                            <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
+                                                {localItem.strategicAngle.replace(/\*\*/g, '')}
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {(localItem.platforms?.length || 0) > 0 && (
                                         <div>

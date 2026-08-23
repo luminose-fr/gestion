@@ -40,6 +40,8 @@ interface DraftViewProps {
     slidesStale?: boolean;
     /** Session Coach du contenu, chargée par l'éditeur : la liste ne la porte pas. */
     coachSession: CoachSession | null;
+    /** Contexte de série, quand le contenu appartient à une série (SPEC §6.4). */
+    serieContext?: string;
     onChangeStatus: (status: ContentStatus, scheduledDate?: string) => Promise<void>;
     onSave: (item: ContentItem) => Promise<void>;
 
@@ -65,7 +67,7 @@ interface DraftViewProps {
 export const DraftView: React.FC<DraftViewProps> = ({
     item, onChange,
     onLaunchDrafting, onLaunchCarrouselSlides, onLaunchAdjustment, onLaunchPromptsAdjustment, slidesStale = false,
-    coachSession,
+    coachSession, serieContext,
     onChangeStatus, onSave, isGenerating,
     aiModels, activeModelId, onCoachMessage, onCoachValidate,
     coldRead, onDismissColdRead, onRunColdRead,
@@ -317,6 +319,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         aiModels={aiModels}
                         modelId={activeModelId}
                         session={coachSession ?? createEmptySession(item.targetFormat as TargetFormat | null)}
+                        contexteSerie={serieContext}
                         onAppendMessage={onCoachMessage}
                         onValidate={onCoachValidate}
                     />

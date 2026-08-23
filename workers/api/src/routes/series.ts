@@ -29,7 +29,9 @@ series.get('/:id', async (c) => {
   if (!row) return c.json({ error: 'Série introuvable' }, 404);
 
   const { results } = await c.env.DB
-    .prepare('SELECT * FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY created_at ASC')
+    // La série se lit dans l'ordre de sa progression ; une publication sans
+    // rang (rattachée à la main) ferme la marche plutôt que de s'intercaler.
+    .prepare('SELECT * FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY serie_position IS NULL, serie_position ASC, created_at ASC')
     .bind(id).all();
 
   return c.json({ serie: rowToSerie(row), contents: results.map(rowToContent) });

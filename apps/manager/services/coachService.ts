@@ -23,7 +23,7 @@ export interface CoachAIReply {
  * Construit le premier message utilisateur (brief initial).
  * Ce message est envoyé à l'IA en même temps que le premier prompt Florent.
  */
-export const buildCoachBrief = (item: ContentItem): string => {
+export const buildCoachBrief = (item: ContentItem, contexteSerie?: string | null): string => {
     const parts: string[] = [];
     parts.push(`TITRE : ${item.title || '(sans titre)'}`);
     if (item.targetFormat) parts.push(`FORMAT CIBLE : ${item.targetFormat}`);
@@ -32,6 +32,10 @@ export const buildCoachBrief = (item: ContentItem): string => {
     if (item.suggestedMetaphor) parts.push(`MÉTAPHORE SUGGÉRÉE : ${item.suggestedMetaphor}`);
     if (item.justification) parts.push(`JUSTIFICATION DE L'ANALYSE :\n${item.justification}`);
     if (item.notes) parts.push(`NOTES DE FLORENT :\n${item.notes}`);
+    // Une publication de série n'est pas une idée isolée : l'atelier doit
+    // savoir ce qui précède et ce qui suit, sinon il propose une direction
+    // que le Rédacteur devra corriger plus tard (SPEC §6.4).
+    if (contexteSerie) parts.push(contexteSerie);
     parts.push(`\nOuvre la conversation avec une première proposition calibrée au format cible (voir les règles du persona). Propose 2-4 quick_replies.`);
     return parts.join('\n\n');
 };
@@ -79,7 +83,8 @@ interface SendOptions {
     session: CoachSession;
     userMessage: string;
     modelId: string;
-    notionContext?: string;
+    /** Contexte additionnel injecté dans le persona — aujourd'hui, la série. */
+    contexteAdditionnel?: string;
     aiModels: AIModel[];
 }
 
@@ -92,9 +97,9 @@ interface SendOptions {
  * puis de persister côté Notion.
  */
 export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply> => {
-    const { session, userMessage, modelId, notionContext, aiModels } = opts;
+    const { session, userMessage, modelId, contexteAdditionnel, aiModels } = opts;
 
-    const systemInstruction = AI_ACTIONS.COACH_CHAT.getSystemInstruction(notionContext);
+    const systemInstruction = AI_ACTIONS.COACH_CHAT.getSystemInstruction(contexteAdditionnel);
 
     // Historique au format ChatMessage (on ignore les éventuels messages system stockés)
     const history = session.messages
@@ -126,11 +131,11 @@ export const generateLockedBrief = async (opts: {
     item: ContentItem;
     session: CoachSession;
     modelId: string;
-    notionContext?: string;
+    contexteSerie?: string | null;
 }): Promise<string> => {
-    const { item, session, modelId, notionContext } = opts;
+    const { item, session, modelId, contexteSerie } = opts;
 
-    const systemInstruction = AI_ACTIONS.LOCK_BRIEF.getSystemInstruction(notionContext);
+    const systemInstruction = AI_ACTIONS.LOCK_BRIEF.getSystemInstruction(contexteSerie || undefined);
 
     const payload = {
         titre: item.title || '(sans titre)',
@@ -139,6 +144,9 @@ export const generateLockedBrief = async (opts: {
         angle_strategique: item.strategicAngle || '',
         metaphore_suggeree: item.suggestedMetaphor || '',
         notes: item.notes || '',
+        // Le brief verrouillé sert de matière UNIQUE au Rédacteur : s'il perd
+        // la série en route, l'anti-répétition arrive trop tard.
+        ...(contexteSerie ? { contexte_serie: contexteSerie } : {}),
         session: session.messages
             .filter(m => m.role === 'user' || m.role === 'assistant')
             .map(m => ({ role: m.role, content: m.content })),

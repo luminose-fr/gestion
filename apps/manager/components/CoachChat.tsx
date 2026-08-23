@@ -22,7 +22,8 @@ interface CoachChatProps {
      * ne porte pas les messages, seul le détail les assemble (SPEC §3.2).
      */
     session: CoachSession;
-    notionContext?: string;
+    /** Contexte de série (SPEC §6.4) — ce que l'atelier doit savoir de la progression. */
+    contexteSerie?: string | null;
     /**
      * Appelé pour CHAQUE message, dès qu'il existe (SPEC §2.7). Le parent
      * l'ajoute à la conversation stockée : un message écrit ne se perd plus,
@@ -34,7 +35,7 @@ interface CoachChatProps {
 }
 
 export const CoachChat: React.FC<CoachChatProps> = ({
-    item, aiModels, modelId, notionContext, session: initialSession, onAppendMessage, onValidate,
+    item, aiModels, modelId, contexteSerie, session: initialSession, onAppendMessage, onValidate,
 }) => {
     const [session, setSession] = useState<CoachSession>(initialSession);
     const [input, setInput] = useState('');
@@ -88,7 +89,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
         if (session.messages.length > 0) return;
         if (isValidated) return;
         didAutoBootstrap.current = true;
-        void handleSend(buildCoachBrief(item), { isBootstrap: true });
+        void handleSend(buildCoachBrief(item, contexteSerie), { isBootstrap: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hasStarted]);
 
@@ -112,7 +113,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                 session: sessionWithUser,
                 userMessage: text,
                 modelId,
-                notionContext,
+                contexteAdditionnel: contexteSerie || undefined,
                 aiModels,
             });
             const assistantMessage = buildAssistantMessage(item.id, reply);

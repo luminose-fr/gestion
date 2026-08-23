@@ -63,6 +63,8 @@ export const ContentSchema = z.object({
 
   serieId: z.string().nullable().default(null),
   angle: z.string().nullable().default(null),
+  /** Rang dans la série — la progression se lit dans cet ordre (SPEC §2.9). */
+  seriePosition: z.number().int().nullable().default(null),
 
   scheduledDate: z.string().nullable().default(null),
   legacyJson: z.string().nullable().default(null),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X } from 'lucide-react';
+import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession, CoachMessage } from '../../types';
 import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
 import * as AiService from '../../services/aiService';
@@ -39,6 +39,20 @@ interface ContentEditorProps {
    * @luminose/editorial. `undefined` quand le contenu n'appartient à aucune série.
    */
   serieContext?: string;
+  /**
+   * La place de ce contenu dans sa série, quand il est ouvert depuis elle.
+   * Sans ça, on travaillait une publication comme une idée isolée — et on
+   * repassait par le plan à chaque fois pour savoir où l'on en était.
+   */
+  serieNav?: {
+      titre: string;
+      position: number | null;
+      total: number;
+      precedent: ContentItem | null;
+      suivant: ContentItem | null;
+  } | null;
+  onOpenSerie?: () => void;
+  onOpenSerieContent?: (item: ContentItem) => void;
   // Navigation Props
   activeStep: EditorStep;
   onStepChange: (step: EditorStep) => void;
@@ -58,6 +72,7 @@ export { bodyJsonToText } from '@luminose/editorial';
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
     item, aiModels = [], activeModelId, modelFor, onClose, onSave, onDelete, onDecline, serieContext,
+    serieNav, onOpenSerie, onOpenSerieContent,
     activeStep, onStepChange,
     initialAction = null, onInitialActionConsumed
 }) => {
@@ -375,6 +390,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               item: editedItem,
               session,
               modelId: modelFor('LOCK_BRIEF'),
+              contexteSerie: serieContext,
           });
       } catch (e) {
           console.warn('Verrouillage du brief impossible — fallback session brute.', e);
@@ -763,9 +779,47 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       return null;
   };
 
+  /** Situe la publication dans sa série, et permet d'enchaîner sans repasser par le plan. */
+  const SerieBanner = serieNav ? (
+      <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-violet-50 dark:bg-violet-900/20 border-b border-violet-200 dark:border-violet-800/50 text-xs text-violet-900 dark:text-violet-100">
+          <button
+              onClick={onOpenSerie}
+              className="flex items-center gap-1.5 font-bold hover:underline shrink-0"
+              title="Revenir au plan de la série"
+          >
+              <Layers className="w-3.5 h-3.5" />
+              {serieNav.titre}
+          </button>
+          {serieNav.position !== null && (
+              <span className="text-violet-700/80 dark:text-violet-200/70 shrink-0">
+                  publication {serieNav.position} sur {serieNav.total}
+              </span>
+          )}
+          <div className="ml-auto flex items-center gap-1 shrink-0">
+              <button
+                  onClick={() => serieNav.precedent && onOpenSerieContent?.(serieNav.precedent)}
+                  disabled={!serieNav.precedent}
+                  title={serieNav.precedent ? `Précédente : ${serieNav.precedent.title}` : 'Première de la série'}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg font-medium hover:bg-violet-100 dark:hover:bg-violet-900/40 disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                  <ChevronLeft className="w-3.5 h-3.5" /> Précédente
+              </button>
+              <button
+                  onClick={() => serieNav.suivant && onOpenSerieContent?.(serieNav.suivant)}
+                  disabled={!serieNav.suivant}
+                  title={serieNav.suivant ? `Suivante : ${serieNav.suivant.title}` : 'Dernière de la série'}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg font-medium hover:bg-violet-100 dark:hover:bg-violet-900/40 disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                  Suivante <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+          </div>
+      </div>
+  ) : null;
+
   /** Bandeau sous l'en-tête : échec de sauvegarde et/ou annulation de génération. */
-  const EditorBanner = (saveStatus === 'error' || lastGeneration) ? (
+  const EditorBanner = (SerieBanner || saveStatus === 'error' || lastGeneration) ? (
       <div className="flex flex-col">
+          {SerieBanner}
           {saveStatus === 'error' && (
               <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -975,6 +1029,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     onLaunchPromptsAdjustment={launchPromptsAdjustment}
                     slidesStale={slidesStale}
                     coachSession={coachSessionState}
+                    serieContext={serieContext}
                     onChangeStatus={changeStatus}
                     onSave={onSave}
                     isGenerating={isGenerating}

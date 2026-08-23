@@ -66,6 +66,27 @@ describe('contexte de série (anti-répétition)', () => {
     expect(section).not.toContain(brouillonDuFrere);
   });
 
+  /**
+   * Ce qui transforme un ensemble en progression : le contenu courant est
+   * rendu À SA PLACE dans la liste ordonnée, pas à part.
+   */
+  it('situe le contenu courant dans la progression', () => {
+    const section = buildSerieContextSection({
+      ...SERIE,
+      position: 2,
+      titreCourant: 'Perdre le contrôle',
+      freres: [
+        { titre: 'Ce que le cadre rend possible', angle: 'Le rôle du praticien.', position: 3 },
+        { titre: 'Pas besoin d’y croire', angle: 'Le fantasme new-age.', position: 1 },
+      ],
+    });
+    const lignes = section.split('\n').filter(l => /^\s*[▶ ]?\s*\d\./.test(l));
+    expect(lignes[0]).toContain('Pas besoin d’y croire');
+    expect(lignes[1]).toContain('CELLE QUE TU ÉCRIS MAINTENANT');
+    expect(lignes[2]).toContain('Ce que le cadre rend possible');
+    expect(section).toContain('Ce qui précède est déjà dit');
+  });
+
   it('dit que le territoire est libre quand la série est vide', () => {
     expect(buildSerieContextSection(SERIE)).toContain('territoire est libre');
   });
@@ -84,7 +105,7 @@ describe('charge utile de l’Éclateur', () => {
       sujet: SERIE.titre,
       intention: null,
       contenu_source: null,
-      contenus_existants: [{ titre: 'Déjà prévu', angle: 'Un angle' }],
+      contenus_existants: [{ titre: 'Déjà prévu', angle: 'Un angle', position: null }],
       nombre_souhaite: 6,
     });
   });
@@ -107,10 +128,12 @@ describe('lignes de plan', () => {
     const entry = normalizePlanEntry({
       titre: ' Un titre ', angle: 'Un angle',
       format: 'Post LinkedIn', objectif: 'Vendre', justification: 'Parce que',
+      notes: '  La matière  ',
     });
     expect(entry).toEqual({
       titre: 'Un titre', angle: 'Un angle',
       format: null, objectif: null, justification: 'Parce que',
+      notes: 'La matière',
     });
   });
 
