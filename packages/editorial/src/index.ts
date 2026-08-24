@@ -20,6 +20,9 @@ export * from './objectives';
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';
 
+// La relecture à froid, et la mémoire de ses propres passes (SPEC §3.5.2)
+export * from './coldRead';
+
 // Le choix des modèles — courte liste et paliers de prix (SPEC §5.6)
 export * from './shortlist';
 

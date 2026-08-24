@@ -464,6 +464,64 @@ cassé APRÈS la réponse — un parsing, une écriture. Une exception assumée 
 Coach garde en plus sa trace dans la conversation, parce qu'une fois le message refermé,
 un tour sans réponse ressemblerait à un tour qui charge encore.
 
+### 3.5.2 La relecture à froid ne tourne pas en rond — NORMATIF
+
+Le Lecteur froid est **sans mémoire du contenu**, et ça ne change pas : il doit lire avec
+les yeux d'un inconnu, sinon il ne sert à rien. Mais sans mémoire **de ses propres
+demandes**, il condamne à la passe N+1 la phrase qu'il a dictée à la passe N.
+
+Ce n'est pas une hypothèse. Le 24/08/2026, le carrousel « Le masque qu'on recoud » a été
+relu quatre fois sans jamais sortir de « À retoucher » :
+
+| passe | ce qu'il dicte / ce qu'il condamne |
+|---|---|
+| 2 | dicte slide 5 : « on ne saute pas la salle pour aller au balcon » |
+| 3 | condamne : « géographie incohérente sur 4 lieux » ; dicte : « on ne passe pas la scène par-dessus pour filer aux coulisses » |
+| 4 | condamne : « la métaphore tourne à vide, je relis deux fois et je ne sais toujours pas ce que ça veut dire » |
+
+Une phrase écrite par un critique pour cocher une case est rarement une bonne phrase en
+contexte : il la relit à froid, elle ne passe pas, il en dicte une autre. Rien n'arrête
+ça. **Quatre règles y mettent fin.**
+
+**1. La relecture connaît ses passes précédentes.** Les corrections qu'elle a dictées ET
+qui ont été appliquées lui reviennent, dans l'ordre, avec la règle qui va avec : une
+phrase qu'elle a elle-même écrite ne se rejette que si elle peut dire **en quoi elle est
+pire que ce qu'elle remplaçait**. Un point déjà obtenu ne se rouvre pas sous un autre nom.
+
+L'historique s'arrête à la **dernière rédaction complète** : au-delà, les corrections
+parlent d'un texte qui n'existe plus, et les annoncer comme présentes serait faux. Il se
+reconstruit depuis le journal (§2.6) ; l'en-tête `COLD_READ_APPLY_PREFIX` est ce qui rend
+une ligne d'ajustement reconnaissable, d'où la constante partagée plutôt que deux chaînes
+recopiées.
+
+**2. « Rien à signaler » est une réponse valide.** Le persona demandait d'être dur et « un
+problème signalé = une correction proposée » ; le schéma exigeait `problemes` et
+`controles` ; et le verdict était défini **en négatif sur ce champ-là** — « Publiable si
+aucun problème Bloquant ou Important ». On demandait à un critique de produire des
+reproches, puis on conditionnait la sortie à ce qu'il n'en produise pas. Une liste vide
+est désormais explicitement attendue quand le contenu tient.
+
+**3. La retouche reçoit la grille qui a produit le contenu.** `formatTemplate` et
+`objectifCta` n'arrivaient que dans `DRAFT_CONTENT` : le Rédacteur retouchait donc sans
+les limites qui avaient gouverné sa propre production, et sans les règles CTA que la
+relecture, elle, vérifiait. Deux mètres pour la même règle, et une slide repassée
+au-dessus de la limite à chaque retouche.
+
+**4. Ce qui se compte se compte dans le code, pas dans le prompt.** Le garde-fou
+déterministe des longueurs ne tournait qu'après une rédaction complète. Une retouche
+pouvait donc repasser une slide au-dessus de la limite sans que rien ne le voie — c'est
+arrivé à un caractère près (« slide 6 = 141 caractères »), sur une correction que le
+Lecteur froid avait lui-même annoncée à « 137 car. ». Il tourne aussi après un ajustement,
+et la relecture n'annonce plus aucun décompte pour les corrections qu'elle propose : un
+décompte faux rend le vrai inutile.
+
+**La légende d'un carrousel est arbitrée.** « La légende ne répète pas les slides » était
+KO aux quatre passes, sans jamais être réparable : la grille demande une légende qui
+prolonge le propos dans la voix de Florent, donc elle reprend la métaphore. Les deux
+côtés disent maintenant la même chose — la légende porte ce que les slides ne peuvent pas
+porter (un exemple anonymisé, ce que ça change), reprendre la métaphore centrale n'est pas
+un doublon, et seule une phrase entière recopiée qui n'ajoute rien se signale.
+
 ### 3.6 Budget de requêtes (contrainte du plan gratuit)
 
 Maximum **50 requêtes D1 par invocation**. Conséquences normatives :

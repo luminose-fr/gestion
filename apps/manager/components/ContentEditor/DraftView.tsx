@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat, Profondeur, CoachSession, CoachMessage, AIModel } from '../../types';
-import { bodyJsonToText, getEditorTab } from '@luminose/editorial';
+import { bodyJsonToText, getEditorTab, buildColdReadApplyInstruction } from '@luminose/editorial';
 import { createEmptySession } from '../../services/coachService';
 import { EnCours, useActionIA } from '../Feedback';
 import { MarkdownToolbar } from '../MarkdownToolbar';
@@ -223,9 +223,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                 .map(p => `${p.localisation ? `[${p.localisation}] ` : ''}${p.correction_proposee}`)
                 .join('\n');
             if (!corrections.trim()) return;
-            const abouti = await onLaunchAdjustment(
-                `Applique ces corrections issues d'une relecture à froid, sans rien changer d'autre :\n${corrections}`
-            );
+            // L'en-tête vient d'`editorial` : c'est lui qui, relu dans le journal,
+            // permet à la relecture suivante de savoir ce qu'elle a déjà obtenu.
+            const abouti = await onLaunchAdjustment(buildColdReadApplyInstruction(corrections));
             if (abouti !== false) onDismissColdRead();
         };
 

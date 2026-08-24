@@ -152,14 +152,14 @@ RÈGLES DE SORTIE (FIXE) :
 
     COLD_READ: `
 %%COLD_READ_PARAMS%%
-
+%%COLD_READ_HISTORY%%
 CONTRÔLES À EFFECTUER (rôle 2 — Contrôleur) :
 1. Sujet réel nommé tôt : dans les 3 premières lignes (ou les 2 premières slides), un inconnu sait "de quoi ça parle, pour moi".
 2. Ancrage praticien : on comprend que l'auteur est thérapeute au plus tard à la slide 3 (ou dans le premier tiers du texte).
 3. Une seule métaphore filée, un seul retournement — pas de deuxième bascule qui dilue.
 4. CTA : une seule action, concrète, alignée sur l'objectif fourni, avec l'identité de l'auteur visible (qui il est / où le trouver).
-5. Pour un carrousel : titres ≤ 35 caractères, textes ≤ 140 caractères (espaces compris, slide "Signature" exclue). Donne le décompte exact des dépassements.
-6. Légende de publication : la première ligne (~125 premiers caractères) parle de la situation du lecteur (pas seulement du conte/de l'image) ; la légende ne répète pas les slides mot pour mot.
+5. Pour un carrousel : titres ≤ 35 caractères, textes ≤ 140 caractères (espaces compris, slide "Signature" exclue). Donne le décompte exact des dépassements CONSTATÉS. En revanche n'annonce AUCUN décompte pour les corrections que tu proposes : un garde-fou déterministe raccourcit après coup ce qui dépasse, et un décompte faux de ta part rend le tien inutile.
+6. Légende de publication (carrousel et Reel seulement — les autres formats n'en ont pas) : la première ligne (~125 premiers caractères) parle de la situation du lecteur, pas seulement du conte ou de l'image. La légende PORTE CE QUE LES SLIDES NE PEUVENT PAS PORTER — un exemple anonymisé, ce que ça change concrètement — et c'est là-dessus qu'on la juge. Reprendre la métaphore centrale et la phrase d'accroche est NORMAL et voulu : ce n'est pas un doublon. Ne signale une répétition que si une phrase entière (plus de dix mots consécutifs) est reprise à l'identique d'une slide ET n'apporte rien de neuf.
 7. Zéro emoji, vouvoiement strict du lecteur.
 
 RÈGLES DE SORTIE (FORMAT JSON STRICT) — aucun texte avant ou après le JSON :
@@ -179,6 +179,8 @@ RÈGLES DE SORTIE (FORMAT JSON STRICT) — aucun texte avant ou après le JSON :
   "verdict": "Publiable" | "À retoucher" | "À revoir"
 }
 Verdict : "Publiable" si aucun problème Bloquant ou Important ; "À retoucher" si des corrections localisées suffisent ; "À revoir" si le problème est structurel (le contenu ne dit pas ce qu'il croit dire).
+
+UNE LISTE VIDE EST UNE RÉPONSE VALIDE. Si rien n'est Bloquant ni Important, rends "problemes": [] et le verdict "Publiable". Un "Détail" ne se signale que s'il est vraiment actionnable — pas pour meubler.
     `.trim(),
 
     ADJUST_CONTENT: `
@@ -304,6 +306,8 @@ interface BuildOptions {
     serieContext?: string;
     /** Paramètres lecture froide (format, objectif, contenu) — injectés dans %%COLD_READ_PARAMS%% pour COLD_READ */
     coldReadParams?: string;
+    /** Ce que les passes précédentes ont déjà obtenu — injecté dans %%COLD_READ_HISTORY%% (voir coldRead.ts) */
+    coldReadHistory?: string;
     /** Profondeur — injectée dans %%PROFONDEUR_INJECTION%% pour GENERATE_INTERVIEW */
     profondeur?: string;
     /** Paramètres carrousel — injectés dans %%CARROUSEL_PARAMS%% pour GENERATE_CARROUSEL_SLIDES */
@@ -321,7 +325,7 @@ interface BuildOptions {
 }
 
 export function buildSystemPrompt(options: BuildOptions): string {
-    const { action, notionContext, formatTemplate, objectifCta, serieContext, coldReadParams, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
+    const { action, notionContext, formatTemplate, objectifCta, serieContext, coldReadParams, coldReadHistory, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
 
     // 1. BASE FIXE : le persona complet (hardcodé)
     const persona = PERSONA_PROMPTS[action] || '';
@@ -351,12 +355,30 @@ export function buildSystemPrompt(options: BuildOptions): string {
     }
     if (action === 'COLD_READ') {
         outputRules = outputRules.replace('%%COLD_READ_PARAMS%%', coldReadParams || '');
+        // Sans passe antérieure, le marqueur disparaît AVEC sa ligne : une
+        // première relecture reçoit exactement le prompt d'avant cette mémoire.
+        // Le marqueur occupe sa propre ligne : le retirer SEUL laisse la ligne
+        // vide qui séparait déjà le contenu des contrôles. Retirer la ligne avec
+        // lui collait les deux blocs.
+        outputRules = outputRules.replace(
+            '%%COLD_READ_HISTORY%%',
+            coldReadHistory ? `\n${coldReadHistory}\n` : '',
+        );
     }
     if (action === 'GENERATE_CARROUSEL_SLIDES' && carrouselParams) {
         outputRules = outputRules.replace('%%CARROUSEL_PARAMS%%', carrouselParams);
     }
     if (action === 'ADJUST_CONTENT') {
-        const adjustPersona = persona + '\n\n' + REDACTEUR_ADJUSTMENT_INTRO;
+        // La grille et les règles CTA n'arrivaient QUE dans DRAFT_CONTENT : le
+        // Rédacteur retouchait donc sans les contraintes qui avaient gouverné
+        // sa propre production — d'où des slides repassées au-dessus de la
+        // limite, et des bascules en trop, que la relecture suivante allait
+        // découvrir. Elles valent pour la retouche aussi.
+        const grille = formatTemplate
+            ? `\n\nGRILLE DU FORMAT — celle qui a produit ce contenu, et qui s'applique encore :\n${formatTemplate}\n\nElle ne se négocie pas au motif qu'on ne demande qu'une retouche : limites de longueur, nombre de bascules et rôles restent ceux-là. Une correction qui les violerait se réécrit pour les respecter.`
+            : '';
+        const cta = objectifCta ? `\n\n${objectifCta}` : '';
+        const adjustPersona = persona + grille + cta + '\n\n' + REDACTEUR_ADJUSTMENT_INTRO;
         outputRules = outputRules
             .replace('%%CURRENT_CONTENT%%', currentContent || '')
             .replace('%%ADJUSTMENT_REQUEST%%', adjustmentRequest || '');

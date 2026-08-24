@@ -8,6 +8,10 @@ import { AlertModal, ConfirmModal } from '../CommonModals';
 import { EnCours } from '../Feedback';
 import { AI_ACTIONS, AI_ACTION_CATALOG } from '@luminose/editorial';
 import { bodyJsonToText, getEditorTab, supportsColdRead } from '@luminose/editorial';
+import {
+    getFormatPromptTemplate, getObjectifCtaRules,
+    buildColdReadHistorySection, isColdReadApplyInstruction, stripColdReadApplyPrefix,
+} from '@luminose/editorial';
 import * as Api from '../../services/apiService';
 import {
     parseDraftResponse, parseAIResponse, sanitizeSlidesResponse,
@@ -540,6 +544,35 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    * contexte vierge (ni notes, ni atelier, ni brief) qui répond en inconnu.
    * Échec silencieux : la relecture ne bloque jamais la rédaction.
    */
+  /**
+   * Ce que les passes précédentes ont déjà obtenu, repris du journal.
+   *
+   * Sans ça, le Lecteur froid condamne à la passe N+1 la phrase qu'il a dictée
+   * à la passe N — deux fois de suite le 24/08/2026 (voir coldRead.ts). Un
+   * échec de lecture ne bloque pas la relecture : elle repart sans mémoire,
+   * c'est-à-dire comme avant.
+   */
+  const lireHistoriqueRelectures = async (contentId: string): Promise<string> => {
+      try {
+          // Le journal rend le plus récent d'abord. On remonte le temps et on
+          // S'ARRÊTE À LA DERNIÈRE RÉDACTION : au-delà, les corrections parlent
+          // d'un texte qui n'existe plus — les annoncer comme présentes serait
+          // faux, exactement pour la raison qui périme le rapport à l'écran.
+          const { generations } = await Api.fetchGenerations(contentId, undefined, 12);
+          const passes: string[] = [];
+          for (const g of generations) {
+              if (g.kind === 'draft') break;
+              if (g.kind === 'adjustment' && isColdReadApplyInstruction(g.instruction)) {
+                  passes.push(stripColdReadApplyPrefix(g.instruction ?? ''));
+              }
+          }
+          return buildColdReadHistorySection(passes.reverse());
+      } catch (e) {
+          console.warn('Historique des relectures illisible — relecture sans mémoire.', e);
+          return '';
+      }
+  };
+
   const executeColdRead = async (item: ContentItem) => {
       const fmt = item.targetFormat;
       if (!fmt || !supportsColdRead(fmt as TargetFormat)) return;
@@ -551,11 +584,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           if (!plain.trim()) return;
 
           const actionConfig = AI_ACTIONS.COLD_READ;
+          const historique = await lireHistoriqueRelectures(item.id);
           const systemInstruction = actionConfig.getSystemInstruction(
               undefined,
               fmt,
               item.objectif || "Non défini",
-              plain
+              plain,
+              historique,
           );
           const modeleRelecture = modelFor('COLD_READ');
           const responseText = await callAI('COLD_READ', modeleRelecture, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
@@ -598,8 +633,14 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    * Pour un carrousel : ajoute la slide Signature (texte fixe, côté code) puis
    * vérifie les longueurs titre/texte. En cas de dépassement, une passe
    * d'ajustement automatique et ciblée est demandée au Rédacteur.
+   *
+   * `sanitize` dépend du champ visé : la trame passe par `parseDraftResponse`,
+   * les slides par `sanitizeSlidesResponse`, qui protège `prompt_dzine`.
    */
-  const enforceCarrouselConstraints = async (content: string): Promise<string> => {
+  const enforceCarrouselConstraints = async (
+      content: string,
+      sanitize: (raw: string) => string = parseDraftResponse,
+  ): Promise<string> => {
       let result = appendSignatureSlide(content, SIGNATURE_SLIDE);
       const issues = findSlideLengthIssues(result);
       if (issues.length === 0) return result;
@@ -611,9 +652,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
       try {
           const adjustConfig = AI_ACTIONS.ADJUST_CONTENT;
-          const systemInstruction = adjustConfig.getSystemInstruction(undefined, result, instruction);
+          const systemInstruction = adjustConfig.getSystemInstruction(
+              undefined, result, instruction,
+              getFormatPromptTemplate(editedItem?.targetFormat as TargetFormat),
+              getObjectifCtaRules(editedItem?.objectif),
+          );
           const responseText = await callAI('ADJUST_CONTENT', modelFor('ADJUST_CONTENT'), systemInstruction, TOUR_UTILISATEUR.ADJUST_CONTENT, adjustConfig.generationConfig);
-          const adjusted = parseDraftResponse(responseText);
+          const adjusted = sanitize(responseText);
           // On garde la version ajustée même si un léger dépassement subsiste (une seule passe)
           result = appendSignatureSlide(adjusted, SIGNATURE_SLIDE);
       } catch (e) {
@@ -773,10 +818,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const targetField = getAdjustmentField();
           const currentContent = editedItem?.[targetField] || "";
 
+          // La grille du format et les règles CTA voyagent avec la retouche : sans
+          // elles, le Rédacteur réécrivait une slide en ignorant les limites qui
+          // avaient gouverné sa propre production (SPEC §3.5.2).
           const systemInstruction = actionConfig.getSystemInstruction(
               undefined, // pas de contexte Notion additionnel
               currentContent,
-              adjustmentText
+              adjustmentText,
+              getFormatPromptTemplate(editedItem?.targetFormat as TargetFormat),
+              getObjectifCtaRules(editedItem?.objectif),
           );
 
           const modeleAjustement = modelFor('ADJUST_CONTENT');
@@ -794,8 +844,20 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               ? sanitizeSlidesResponse(responseText)
               : responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
 
+          // Le garde-fou déterministe des longueurs ne tournait QU'APRÈS une
+          // rédaction complète : une retouche pouvait donc repasser une slide
+          // au-dessus de la limite sans que rien ne le voie, et c'est la
+          // relecture suivante qui le découvrait — « slide 6 = 141 caractères,
+          // dépassement de 1 », le 24/08/2026. Il tourne ici aussi.
+          const applied = editedItem?.targetFormat === TargetFormat.CARROUSEL_SLIDE
+              ? await enforceCarrouselConstraints(
+                    cleaned,
+                    targetField === 'slides' ? sanitizeSlidesResponse : parseDraftResponse,
+                )
+              : cleaned;
+
           const previousValue = currentContent;
-          const newItem = { ...editedItem!, [targetField]: cleaned };
+          const newItem = { ...editedItem!, [targetField]: applied };
 
           if (isMountedRef.current) {
               setEditedItem(newItem);
@@ -805,7 +867,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               else if (editedItem?.slides) setSlidesStale(true);
               // L'instruction fait partie du fait daté : sans elle, on relit un
               // texte modifié sans savoir ce qu'on avait demandé.
-              await journalise({ kind: 'adjustment', target: targetField, payload: cleaned, instruction: adjustmentText, modelId: modeleAjustement });
+              await journalise({ kind: 'adjustment', target: targetField, payload: applied, instruction: adjustmentText, modelId: modeleAjustement });
               await saveWithStatus(newItem);
           }
           return true;

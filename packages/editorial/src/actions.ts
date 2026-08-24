@@ -200,11 +200,17 @@ export const AI_ACTIONS = {
          * @param objectif - L'objectif du post (pour vérifier l'alignement du CTA)
          * @param contenu - Le contenu final, tel qu'un inconnu le lirait (texte formaté)
          */
-        getSystemInstruction: (notionContext: string | undefined, format: string, objectif: string, contenu: string) =>
+        /**
+         * @param historique - Ce que les passes précédentes ont déjà obtenu (coldRead.ts).
+         *                     Absent, la relecture est sans mémoire — et se met à
+         *                     condamner ses propres corrections.
+         */
+        getSystemInstruction: (notionContext: string | undefined, format: string, objectif: string, contenu: string, historique?: string) =>
             buildSystemPrompt({
                 action: 'COLD_READ',
                 notionContext: notionContext || undefined,
                 coldReadParams: `FORMAT DU CONTENU : ${format}\nOBJECTIF DU POST : ${objectif}\n\nCONTENU À RELIRE (tel qu'un inconnu le découvrirait) :\n${contenu}`,
+                coldReadHistory: historique || undefined,
             }),
     },
 
@@ -216,13 +222,18 @@ export const AI_ACTIONS = {
          * @param notionContext - Description du contexte Notion complémentaire (optionnel)
          * @param currentContent - Le JSON du contenu actuel
          * @param adjustmentRequest - L'instruction d'ajustement de Florent
+         * @param formatTemplate - La grille qui a produit ce contenu, et qui s'applique encore
+         * @param objectifCta - Les règles CTA de l'objectif, pour que la retouche juge du CTA
+         *                      avec le même mètre que la rédaction
          */
-        getSystemInstruction: (notionContext?: string, currentContent?: string, adjustmentRequest?: string) =>
+        getSystemInstruction: (notionContext?: string, currentContent?: string, adjustmentRequest?: string, formatTemplate?: string, objectifCta?: string) =>
             buildSystemPrompt({
                 action: 'ADJUST_CONTENT',
                 notionContext: notionContext || undefined,
                 currentContent,
                 adjustmentRequest,
+                formatTemplate: formatTemplate || undefined,
+                objectifCta: objectifCta || undefined,
             }),
     },
 

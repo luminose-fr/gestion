@@ -17,6 +17,9 @@ import { describe, it, expect } from 'vitest';
 import { AI_ACTIONS } from '../src/actions';
 import { TargetFormat, Objectif } from '../src/domain';
 import { buildSerieContextSection } from '../src/series';
+import { buildColdReadHistorySection } from '../src/coldRead';
+import { getFormatPromptTemplate } from '../src/formats';
+import { getObjectifCtaRules } from '../src/objectives';
 
 const fixture = (name: string) => `./fixtures/${name}.txt`;
 
@@ -99,10 +102,44 @@ describe('prompts composés', () => {
     ).toMatchFileSnapshot(fixture('cold-read'));
   });
 
+  /**
+   * La deuxième passe et les suivantes. C'est le seul endroit où l'on voit ce
+   * qui empêche le Lecteur froid de condamner ses propres corrections — le
+   * défaut qui a fait tourner un carrousel en rond sur quatre relectures
+   * (SPEC §3.5.2).
+   */
+  it('COLD_READ — deuxième passe, avec la mémoire de la première', async () => {
+    const historique = buildColdReadHistorySection([
+      "[slide 5] Remplacer le texte par : « Un cadre rigoureux, sécurisé. »\n[légende] Couper le paragraphe 3.",
+    ]);
+    await expect(
+      AI_ACTIONS.COLD_READ.getSystemInstruction(
+        undefined, TargetFormat.CARROUSEL_SLIDE, Objectif.RECADRAGE, '(contenu relu)', historique
+      )
+    ).toMatchFileSnapshot(fixture('cold-read-passe-2'));
+  });
+
   it('ADJUST_CONTENT', async () => {
     await expect(
       AI_ACTIONS.ADJUST_CONTENT.getSystemInstruction(undefined, '{"format":"Post Texte"}', 'Raccourcis l\'intro')
     ).toMatchFileSnapshot(fixture('adjust-content'));
+  });
+
+  /**
+   * La retouche AVEC la grille du format et les règles CTA. Sans elles, le
+   * Rédacteur réécrivait une slide en ignorant les limites qui avaient gouverné
+   * sa propre production — et la relecture suivante le découvrait.
+   */
+  it('ADJUST_CONTENT — carrousel, avec la grille et les règles CTA', async () => {
+    await expect(
+      AI_ACTIONS.ADJUST_CONTENT.getSystemInstruction(
+        undefined,
+        '{"format":"Carrousel"}',
+        'Raccourcis la slide 6.',
+        getFormatPromptTemplate(TargetFormat.CARROUSEL_SLIDE),
+        getObjectifCtaRules(Objectif.RECADRAGE),
+      )
+    ).toMatchFileSnapshot(fixture('adjust-content-carrousel'));
   });
 
   it('GENERATE_CARROUSEL_SLIDES', async () => {

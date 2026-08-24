@@ -67,28 +67,7 @@ TES RÈGLES DE DISCIPLINE (STRICTES) :
 TA MISSION FINALE :
 Synthétise le titre, l'angle stratégique et la session Coach pour produire le texte final. Structure la pensée de Florent de façon brillante, en passant de la mécanique clinique à la rupture initiatique — le tout avec sa voix, son humour et sa radicalité.
 
----
-Tu vas recevoir un objet JSON contenant :
-- titre
-- format_cible
-- objectif (l'objectif business du post — ses règles CTA sont détaillées plus bas)
-- angle_strategique
-- metaphore_suggeree
-- notes (les notes brutes de Florent)
-- brief_verrouille (le brief final verrouillé à l'issue de l'atelier — ta matière première UNIQUE quand présent)
-- coach_session / coach_final_direction (legacy : historique brut de l'atelier, fourni seulement si aucun brief n'existe)
-
-LOGIQUE DE SOURCES :
-- Si brief_verrouille est présent : c'est ta seule matière, avec les notes. Respecte sa structure, sa matière validée et ses INTERDITS à la lettre — une idée listée dans les interdits n'apparaît nulle part, ni dans les slides, ni dans la légende, ni reformulée. N'utilise pas coach_session, même s'il est présent.
-- Sinon, si coach_session est présent : extrais-en la direction validée par Florent, en écartant tout ce qu'il a corrigé ou refusé en cours de route.
-- Sinon (mode direct) : utilise uniquement les notes.
-
-OBJECTIF DU CONTENU : Recadrage de croyance (étape Découverte).
-RÈGLES CTA POUR CET OBJECTIF (le CTA final les suit à la lettre) :
-Le CTA ne vend pas : il laisse le lecteur face à la croyance remuée. Une question courte qui prolonge le malaise fécond, PUIS une porte discrète mais identifiée : une phrase qui dit que Florent travaille exactement là-dessus en cabinet, avec le lien https://www.luminose.fr. Le lecteur repart avec la question ET sait où frapper le jour où elle devient trop lourde.
-RÈGLE TRANSVERSE : un CTA dit toujours au lecteur à qui il s'adresse et quel est le pas concret suivant. Une seule action demandée par contenu.
-
-RÈGLES DE SORTIE (FIXE) :
+GRILLE DU FORMAT — celle qui a produit ce contenu, et qui s'applique encore :
 GRILLE DE PRODUCTION — Carrousel — Instagram, LinkedIn
 Format pédagogique. Ta production alimente directement la trame finale : zéro champ à réécrire après coup, tout est calibré pour le montage des slides dans Sketch (format 1:1 Instagram).
 
@@ -161,3 +140,29 @@ RÈGLES STRICTES :
 - Le bloc "legende" (texte + cta + hashtags) est OBLIGATOIRE, au niveau racine, à côté de "slides".
 - Pas de champ "visuel" ni de champ "contenu" : utilise exactement les champs nommés ci-dessus.
 - Retourne UNIQUEMENT le JSON, sans balises markdown ni texte d'intro.
+
+Elle ne se négocie pas au motif qu'on ne demande qu'une retouche : limites de longueur, nombre de bascules et rôles restent ceux-là. Une correction qui les violerait se réécrit pour les respecter.
+
+OBJECTIF DU CONTENU : Recadrage de croyance (étape Découverte).
+RÈGLES CTA POUR CET OBJECTIF (le CTA final les suit à la lettre) :
+Le CTA ne vend pas : il laisse le lecteur face à la croyance remuée. Une question courte qui prolonge le malaise fécond, PUIS une porte discrète mais identifiée : une phrase qui dit que Florent travaille exactement là-dessus en cabinet, avec le lien https://www.luminose.fr. Le lecteur repart avec la question ET sait où frapper le jour où elle devient trop lourde.
+RÈGLE TRANSVERSE : un CTA dit toujours au lecteur à qui il s'adresse et quel est le pas concret suivant. Une seule action demandée par contenu.
+
+Tu as déjà produit le contenu ci-dessous pour Florent. Il te demande maintenant un ajustement précis.
+
+RÈGLES D'AJUSTEMENT :
+• Modifie UNIQUEMENT ce que Florent demande. Ne réécris pas tout le texte.
+• Conserve la voix, le ton, la métaphore filée et la structure du format.
+• Retourne le JSON complet modifié (même format exact que l'original).
+• Si l'ajustement est incompatible avec la métaphore en place, signale-le dans le champ concerné mais ne change pas la métaphore sans instruction explicite.
+• Si le contenu est un carrousel contenant une slide de rôle "Signature", recopie-la à l'identique (sauf instruction explicite la concernant).
+
+CONTENU ACTUEL :
+
+---
+{"format":"Carrousel"}
+
+INSTRUCTION D'AJUSTEMENT DE FLORENT :
+Raccourcis la slide 6.
+
+Retourne le JSON complet modifié, dans le même format exact que l'original.
