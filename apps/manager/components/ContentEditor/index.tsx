@@ -373,7 +373,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           return await AiService.generateContent({
               modelId: model,
               systemInstruction: systemInstruction,
-              prompt: prompt
+              prompt: prompt,
+              // Le libellé voyage avec l'appel : c'est lui qui titre le message
+              // d'échec, et « Échec — Relecture à froid » vaut mieux qu'« Erreur ».
+              action: fiche?.label ?? String(action),
           });
       } finally {
           appelsEnCours.current -= 1;
@@ -665,7 +668,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               await executeColdRead(newItem);
           }
       } catch (error: any) {
-          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Rédaction", message: error.message, type: "error" });
+          // L'échec d'appel est déjà annoncé par le passage obligé ; ici on ne
+          // rattrape que ce qui a cassé APRÈS la réponse — un parsing, une écriture.
+          if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Rédaction impossible", message: error.message, type: "error" });
       } finally {
           if (isMountedRef.current) setIsGenerating(false);
       }
@@ -699,7 +704,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
-          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Slides", message: error.message, type: "error" });
+          if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Slides impossibles", message: error.message, type: "error" });
       } finally {
           if (isMountedRef.current) setIsGenerating(false);
       }
@@ -766,7 +771,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           }
           return true;
       } catch (error: any) {
-          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Ajustement", message: error.message, type: "error" });
+          if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Ajustement impossible", message: error.message, type: "error" });
           return false;
       } finally {
           if (isMountedRef.current) setIsGenerating(false);
@@ -815,7 +820,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
-          if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Ajustement Prompts", message: error.message, type: "error" });
+          if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Ajustement des prompts impossible", message: error.message, type: "error" });
       } finally {
           if (isMountedRef.current) setIsGenerating(false);
       }

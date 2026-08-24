@@ -118,6 +118,7 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
         // deux blocs et de la prose entre eux. 1min.ai l'ignore, sans dommage.
         // Absent des actions qui rendent un TABLEAU : ce mode exige un objet.
         json: true,
+        action: 'Atelier (conversation)',
     });
 
     return parseCoachReply(responseText);
@@ -160,6 +161,7 @@ export const generateLockedBrief = async (opts: {
         modelId: modelId,
         systemInstruction,
         prompt: JSON.stringify(payload),
+        action: 'Brief verrouillé',
     });
 
     const cleaned = extractJson(responseText, (v) => Array.isArray(v?.structure));

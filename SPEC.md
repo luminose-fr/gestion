@@ -17,8 +17,8 @@
 > d'un modèle sont désormais déduits des mesures, plus saisis de mémoire (§5.6).
 > L'atelier du Coach cesse d'être un aller sans retour : rouvrir et
 > réinitialiser (§2.7). Les appels IA sont visibles tant qu'ils durent et ne
-> détruisent plus ce qui les précède (§3.5.1) ; les adaptateurs reprennent une
-> fois sur un échec passager (§5.2).
+> détruisent plus ce qui les précède, et tout échec s'annonce de la même façon
+> (§3.5.1) ; les adaptateurs reprennent une fois sur un échec passager (§5.2).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -375,6 +375,23 @@ Lecteur froid partait dès le clic sur « Appliquer les corrections », sans att
 échec côté fournisseur laissait une erreur à l'écran et plus rien pour réessayer — les
 problèmes relevés et les corrections proposées étaient perdus, et c'était la seule copie
 sous les yeux. Ce qui déclenche une action IA doit donc en recevoir le verdict.
+
+**Tout échec d'appel IA s'annonce, et de la même façon — NORMATIF.** Le signalement vit
+dans `aiService.generateContent`, par où passent les sept appelants de l'application ;
+l'application s'y abonne et rend un message unique : « Échec — {action} », suivi du texte
+du fournisseur, mot pour mot.
+
+Pourquoi là et pas chez les appelants : le 24/08/2026, une « Lecture froide » a échoué
+faute de crédits et **rien** ne s'est affiché — l'appelant avalait l'erreur pour ne pas
+bloquer la rédaction, ce qui était un bon réflexe pour la rédaction et un mauvais pour
+Florent. Sept appelants qui doivent chacun penser à afficher, c'est sept occasions
+d'oublier ; un seul passage obligé, c'est zéro.
+
+L'erreur est **marquée** au passage. Un appelant sait donc qu'elle est déjà annoncée et
+n'en fait pas une seconde présentation ; ce qu'il montre encore lui-même, c'est ce qui a
+cassé APRÈS la réponse — un parsing, une écriture. Une exception assumée : l'atelier du
+Coach garde en plus sa trace dans la conversation, parce qu'une fois le message refermé,
+un tour sans réponse ressemblerait à un tour qui charge encore.
 
 ### 3.6 Budget de requêtes (contrainte du plan gratuit)
 

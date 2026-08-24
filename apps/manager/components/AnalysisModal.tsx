@@ -80,7 +80,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       const responseText = await AiService.generateContent({
           modelId: selectedModelId,
           systemInstruction: systemInstruction,
-          prompt: JSON.stringify(contentPayload)
+          prompt: JSON.stringify(contentPayload),
+          action: 'Analyse des idées',
       });
 
       if (isMountedRef.current) setProgress("Traitement des réponses...");
@@ -161,7 +162,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      if (isMountedRef.current) setError(err.message || "Une erreur est survenue pendant l'analyse.");
+      // Un échec d'appel est déjà annoncé une fois, en haut : le répéter ici en
+      // ferait deux présentations pour un seul fait.
+      if (isMountedRef.current && !AiService.estSignalee(err)) {
+          setError(err.message || "Une erreur est survenue pendant l'analyse.");
+      }
     } finally {
       if (isMountedRef.current) setIsAnalyzing(false);
     }

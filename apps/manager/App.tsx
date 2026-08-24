@@ -155,6 +155,21 @@ function App() {
       isOpen: false, title: '', message: '', type: 'info'
   });
 
+  /**
+   * Tout échec d'appel IA s'annonce ici, quelle que soit sa provenance : le
+   * service qui les porte tous prévient, et l'application montre. Un écran qui
+   * dépendrait de la vigilance de chaque appelant finirait par en oublier un —
+   * c'est ce qui a rendu une « Lecture froide » muette le 24/08/2026.
+   */
+  useEffect(() => AiService.surEchecIA(echec => {
+      setAlertInfo({
+          isOpen: true,
+          title: echec.action ? `Échec — ${echec.action}` : 'Échec de l’appel au modèle',
+          message: echec.message,
+          type: 'error',
+      });
+  }), []);
+
   // Contenus dont l'écriture Notion a échoué : ils n'existent qu'en local.
   // Le ref porte la version à réémettre (toujours à jour, même dans une closure
   // de sync périmée) ; le state ne sert qu'à l'affichage du bandeau.
@@ -726,7 +741,8 @@ function App() {
           const responseText = await AiService.generateContent({
               modelId: modelId,
               systemInstruction: systemInstruction,
-              prompt: JSON.stringify(contentPayload)
+              prompt: JSON.stringify(contentPayload),
+              action: 'Analyse des idées',
           });
 
           let results: any[] = [];
@@ -786,7 +802,9 @@ function App() {
               }).catch(e => console.warn('Analyse non journalisée :', e));
           }
       } catch (error: any) {
-          setAlertInfo({ isOpen: true, title: "Erreur Analyse", message: error.message, type: "error" });
+          // Déjà annoncé si l'appel lui-même a échoué : ne reste ici que ce qui
+          // casse APRÈS la réponse — un parsing, une écriture.
+          if (!AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Analyse impossible", message: error.message, type: "error" });
       } finally {
           setIsSingleAnalyzing(false);
       }

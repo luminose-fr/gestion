@@ -215,7 +215,7 @@ Réponds UNIQUEMENT avec un JSON valide au format suivant (tableau de strings) :
 
 Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs doit redonner le texte original complet.`;
 
-            const responseText = await AiService.generateContent({ modelId: aiSelectedModel, prompt });
+            const responseText = await AiService.generateContent({ modelId: aiSelectedModel, prompt, action: 'Découpe des sous-titres' });
 
             // Parse the JSON array
             const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();
@@ -263,7 +263,9 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
             setPreviewIndex(0);
         } catch (err: any) {
             console.error('AI Smart Split error:', err);
-            alert(`Erreur IA : ${err.message}`);
+            // Plus de `alert()` natif : un échec d'appel s'annonce comme les
+            // autres, en haut. Ne reste ici que ce qui casse APRÈS la réponse.
+            if (!AiService.estSignalee(err)) alert(`Découpe impossible : ${err.message}`);
         } finally {
             setAiLoading(false);
         }
