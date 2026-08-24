@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Send, Loader2, CheckCircle2, Sparkles, RefreshCw, AlertCircle, MessageCircle, ArrowRight, Brain, RotateCcw, Undo2 } from 'lucide-react';
+import { Send, CheckCircle2, Sparkles, RefreshCw, AlertCircle, MessageCircle, ArrowRight, Brain, RotateCcw, Undo2 } from 'lucide-react';
 import { ContentItem, AIModel, CoachSession, CoachMessage, TargetFormat } from '../types';
 import {
     sendCoachMessage,
@@ -12,6 +12,7 @@ import {
 } from '../services/coachService';
 import { renderMdText } from './ContentEditor/renderers/shared';
 import { ConfirmModal } from './CommonModals';
+import { Barre, EnCours } from './Feedback';
 
 interface CoachChatProps {
     item: ContentItem;
@@ -251,9 +252,8 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                             title="Jeter cette conversation et repartir de zéro"
                         >
                             {isResetting
-                                ? <Loader2 className="w-3 h-3 animate-spin" />
-                                : <RotateCcw className="w-3 h-3" />}
-                            Réinitialiser
+                                ? <EnCours label="Réinitialisation…" taille="xs" />
+                                : <><RotateCcw className="w-3 h-3" /> Réinitialiser</>}
                         </button>
                     )}
                     <span className="text-[10px] font-medium text-brand-main/50 dark:text-dark-text/50 whitespace-nowrap">
@@ -354,9 +354,13 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                         <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
                             <Brain className="w-3 h-3 text-violet-600 dark:text-violet-300" />
                         </div>
-                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2 text-xs text-brand-main/60 dark:text-dark-text/60">
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            Le Coach réfléchit…
+                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-2xl rounded-tl-sm px-4 py-3 min-w-44 text-xs text-brand-main/60 dark:text-dark-text/60">
+                            <div className="flex items-center gap-2">
+                                <EnCours label="Le Coach réfléchit…" />
+                            </div>
+                            {/* La bulle d'attente porte sa propre barre : c'est là que
+                                le regard est posé, pas en haut de l'écran. */}
+                            <Barre part={null} epaisseur={2} className="mt-2" libelle="Réponse du Coach" />
                         </div>
                     </div>
                 )}

@@ -12,7 +12,11 @@
  * passage obligé prévient, quoi que fasse l'appelant ».
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { AI_ACTION_CATALOG } from '@luminose/editorial';
 import { generateContent, surEchecIA, estSignalee, type EchecIA } from '../services/aiService';
+import * as Activite from '../services/activityService';
 
 const reponse = (corps: unknown, status = 200) =>
     new Response(JSON.stringify(corps), { status });
@@ -139,5 +143,72 @@ describe('signalement des échecs', () => {
         expect(vus).toHaveLength(1);
         expect(vus[0].action).toBe('Plan de série');
         desabonner();
+    });
+});
+
+/**
+ * Le témoin d'attente vit au MÊME endroit que le signalement d'échec, et pour
+ * la même raison (SPEC §3.5.1). Ce qui est vérifié ici n'est pas « un bandeau
+ * s'affiche » mais « le passage obligé ouvre et referme le témoin, quoi que
+ * fasse l'appelant ».
+ */
+describe('témoin d’appel en cours', () => {
+    it('s’ouvre pendant l’appel, se referme après, et NOMME l’action et le persona', async () => {
+        Activite.enregistrerModeles([{ id: 'm1', name: 'GPT-5.2 Pro' }]);
+        let relacher: (() => void) | null = null;
+        vi.stubGlobal('fetch', async () => {
+            await new Promise<void>(r => { relacher = r; });
+            return reponse({ text: 'ok', modelLabel: 'x' });
+        });
+
+        const appel = generateContent({ modelId: 'm1', prompt: 'p', action: 'Relecture à froid' });
+        await vi.waitFor(() => expect(Activite.tachesEnCours()).toHaveLength(1));
+
+        const tache = Activite.tachesEnCours()[0];
+        expect(tache.nature).toBe('ia');
+        expect(tache.label).toBe('Relecture à froid');
+        expect(tache.persona).toBe('Lecteur froid');
+        expect(tache.modele).toBe('GPT-5.2 Pro');
+
+        relacher!();
+        await appel;
+        expect(Activite.tachesEnCours()).toHaveLength(0);
+    });
+
+    it('se referme aussi quand l’appel échoue', async () => {
+        vi.stubGlobal('fetch', async () => reponse({ error: 'refus' }, 502));
+        await expect(generateContent({ modelId: 'm1', prompt: 'p', action: 'Rédaction' })).rejects.toThrow();
+        expect(Activite.tachesEnCours()).toHaveLength(0);
+    });
+
+    /**
+     * Le persona se DÉDUIT du libellé. Un libellé qui ne correspond à rien
+     * laisse le bandeau à moitié muet, sans que rien ne casse : c'est le genre
+     * d'écart qu'on ne voit qu'en le cherchant.
+     */
+    it('tous les libellés employés dans l’application désignent une action connue', () => {
+        const connus = new Set<string>(AI_ACTION_CATALOG.map(a => a.label));
+        const racine = join(import.meta.dirname, '..');
+        const parcourir = (dir: string): string[] =>
+            readdirSync(dir)
+                .filter(e => e !== 'node_modules' && e !== 'dist' && e !== 'test')
+                .flatMap(e => {
+                    const p = join(dir, e);
+                    return statSync(p).isDirectory() ? parcourir(p)
+                        : /\.tsx?$/.test(p) ? [p] : [];
+                });
+
+        // Le découpage de sous-titres n'est pas une action éditoriale : il n'a
+        // ni persona ni modèle réglable, et n'a donc rien à faire au catalogue.
+        const horsCatalogue = new Set(['Découpe des sous-titres']);
+
+        const orphelins = parcourir(racine).flatMap(f => {
+            const src = readFileSync(f, 'utf8');
+            return [...src.matchAll(/action:\s*'([^']+)'/g)]
+                .map(m => m[1])
+                .filter(label => !connus.has(label) && !horsCatalogue.has(label))
+                .map(label => `${f.replace(racine + '/', '')} → ${label}`);
+        });
+        expect(orphelins).toEqual([]);
     });
 });

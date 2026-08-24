@@ -9,13 +9,14 @@
  */
 import React, { useEffect, useState } from 'react';
 import {
-    Cpu, Plus, Trash2, Save, Loader2, ChevronLeft, User, Eye, CheckCircle2,
+    Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 import * as Api from '../../services/apiService';
 import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
+import { EnCours, Patience } from '../Feedback';
 import {
     ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA, VOICE_RULES,
     AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE, profilerModele, normaliserNomModele,
@@ -777,8 +778,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     disabled={!testApiCode.trim() || testStatus === 'testing'}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-xs font-bold rounded-lg shadow-sm transition-colors disabled:opacity-40 whitespace-nowrap"
                                 >
-                                    {testStatus === 'testing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
-                                    Tester
+                                    {testStatus === 'testing'
+                                        ? <EnCours label="Test…" />
+                                        : <><FlaskConical className="w-3.5 h-3.5" /> Tester</>}
                                 </button>
                             </div>
 
@@ -938,9 +940,10 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             </div>
 
                             {catalogueCharge && (
-                                <p className="text-xs text-brand-main/50 dark:text-dark-text/50 flex items-center gap-2 py-6">
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Lecture du catalogue…
-                                </p>
+                                <Patience
+                                    titre="Lecture du catalogue"
+                                    detail="OpenRouter, puis les notes d'écriture"
+                                />
                             )}
 
                             {catalogue && (
@@ -1026,9 +1029,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                         className="text-[10px] font-bold px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors whitespace-nowrap disabled:opacity-40 inline-flex items-center gap-1.5"
                                                                     >
                                                                         {majEnCours === m.id
-                                                                            ? <Loader2 className="w-3 h-3 animate-spin" />
-                                                                            : <RefreshCw className="w-3 h-3" />}
-                                                                        Actualiser
+                                                                            ? <EnCours label="Mise à jour…" taille="xs" />
+                                                                            : <><RefreshCw className="w-3 h-3" /> Actualiser</>}
                                                                     </button>
                                                                 ) : (
                                                                     <button
@@ -1210,8 +1212,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     disabled={isSaving || !(editModel.name || '').trim()}
                                     className="flex items-center gap-2 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm shadow-brand-main/25 transition-colors disabled:opacity-40"
                                 >
-                                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                    {isCreating ? 'Créer' : 'Enregistrer'}
+                                    {isSaving
+                                        ? <EnCours label={isCreating ? 'Création…' : 'Enregistrement…'} />
+                                        : <><Save className="w-3.5 h-3.5" /> {isCreating ? 'Créer' : 'Enregistrer'}</>}
                                 </button>
                             </div>
                         </div>
@@ -1299,7 +1302,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         )}
 
                         {providers.length === 0 && !providerError && (
-                            <p className="text-xs text-brand-main/50 dark:text-dark-text/50">Chargement…</p>
+                            <Patience titre="Lecture des adaptateurs" />
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -1340,8 +1343,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                             disabled={!(saisies[p.id] ?? '').trim() || providerBusy === p.id}
                                             className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40"
                                         >
-                                            {providerBusy === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                            Poser
+                                            {providerBusy === p.id
+                                                ? <EnCours label="Pose…" />
+                                                : <><Save className="w-3.5 h-3.5" /> Poser</>}
                                         </button>
                                     </div>
 
@@ -1426,8 +1430,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 disabled={isExporting}
                                 className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg hover:bg-white dark:hover:bg-dark-surface text-xs font-semibold text-brand-main dark:text-white transition-colors disabled:opacity-50"
                             >
-                                {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                                {isExporting ? 'Préparation…' : 'Télécharger une sauvegarde'}
+                                {isExporting
+                                    ? <EnCours label="Préparation…" />
+                                    : <><Download className="w-3.5 h-3.5" /> Télécharger une sauvegarde</>}
                             </button>
                             <p className="text-[11px] text-brand-main/45 dark:text-dark-text/45">
                                 Les clés des fournisseurs en sont exclues.

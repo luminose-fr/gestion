@@ -1,8 +1,6 @@
 - Idem Publer ?
 - Conseils basés sur l'analyse des posts passés ?
-- Conseils sur les modèles à utiliser pout telle ou telle tâche
 - Calcul des créduits utilisés pour tel post ?
 - Trier par la dernière colonne choisie et mémoriser (sur le compte user, pas sur la session navigateur)
-- Quand on sélectionne un modèle, on ne voit pas le fournisseur.
-- Inutile d'afficher OpenAI si aucune clé n'est saisie (idem 1min et openrouter)
-- Suite du travail sur une série : ça ne peut pas être un travail indépendant "idée par idée" ; il faut que ça intègre la logique générale de la série puisqu'il y a une progression logique => adapter l'interface et les prompts
+- Utiliser l'API Batch de OpenRouter pour réduir les couts ?
+- A/R entre "LECTEUR FROID" et "APPLIQUER LES CORRECTIONS" ex. sur "Le masque qu'on recoud, et le théâtre derrière" qui a été "lu à froid" puis corrigé 2 fois ... et la 3è lecture reste KO. => qqch ne va pas dans le process, ça tourne en rond on dirait

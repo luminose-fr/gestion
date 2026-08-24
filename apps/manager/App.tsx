@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { RefreshCw, LogOut, Loader2, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
+import { RefreshCw, LogOut, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
@@ -8,6 +8,7 @@ import {
   type PlanSeriesEntry, type SerieSibling,
 } from '@luminose/editorial';
 import * as AiService from './services/aiService';
+import * as Activite from './services/activityService';
 import { generateSeriePlan } from './services/seriesService';
 
 import SettingsSpace from './components/Settings/SettingsSpace';
@@ -22,6 +23,7 @@ import CalendarView from './components/CalendarView';
 import { LoginPage } from './components/LoginPage';
 import { isAuthenticated, logout } from './auth';
 import { AlertModal } from './components/CommonModals';
+import { BandeauActivite, EnCours, FiletActivite, Patience } from './components/Feedback';
 import SubtitleConverter from './components/SubtitleConverter';
 import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 
@@ -154,6 +156,13 @@ function App() {
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
   });
+
+  /**
+   * Le registre d'activité ne connaît que des identifiants : on lui prête le
+   * catalogue pour qu'il puisse NOMMER le modèle dans le bandeau — c'est la
+   * moitié de l'information quand on doute de son fournisseur (SPEC §3.5.1).
+   */
+  useEffect(() => { Activite.enregistrerModeles(aiModels); }, [aiModels]);
 
   /**
    * Tout échec d'appel IA s'annonce ici, quelle que soit sa provenance : le
@@ -310,6 +319,12 @@ function App() {
     setIsSyncing(true);
     setError(null);
 
+    // La synchronisation se NOMME dans le bandeau au lieu de poser un voile sur
+    // l'écran : elle ne réclame rien de Florent, donc elle ne doit rien lui
+    // interdire — surtout celle qui part toute seule au démarrage.
+    const suivi = Activite.ouvrir({ label: 'Synchronisation', cle: 'app:sync' });
+    let abouti = false;
+
     try {
         // Synchronisation incrémentale (SPEC §8). Il n'y a plus de sync
         // complète périodique ni de balayage d'identifiants : la suppression
@@ -367,12 +382,14 @@ function App() {
 
         StorageService.setLastSync("content", String(contentRes.syncedAt));
         StorageService.setLastSync("series", String(serieRes.syncedAt));
+        abouti = true;
 
     } catch (err: any) {
         console.error("Sync Error:", err);
         let msg = err.message || "Impossible de synchroniser.";
         setError(msg);
     } finally {
+        suivi.fermer(abouti);
         setIsSyncing(false);
     }
   };
@@ -912,7 +929,7 @@ function App() {
   if (checkingAuth) {
     return (
       <div className="h-screen flex items-center justify-center bg-brand-light dark:bg-dark-bg">
-        <Loader2 className="w-8 h-8 text-brand-main dark:text-dark-text animate-spin" />
+        <Patience titre="Vérification de la session" />
       </div>
     );
   }
@@ -941,22 +958,20 @@ function App() {
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
 
-        {(isSyncing) && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 dark:bg-dark-bg/60 backdrop-blur-[1px]">
-                <div className="flex flex-col items-center justify-center p-6 bg-white dark:bg-dark-surface rounded-2xl shadow-xl border border-brand-border dark:border-dark-sec-border animate-in fade-in zoom-in duration-200">
-                    <Loader2 className="w-10 h-10 text-brand-main dark:text-dark-text animate-spin mb-3" />
-                    <p className="text-sm font-semibold text-brand-main dark:text-dark-text">Synchronisation Notion...</p>
-                </div>
-            </div>
-        )}
-
+        {/*
+            Le voile bloquant de la synchronisation a disparu : il masquait tout
+            l'écran pour une opération que personne n'attend — celle du démarrage
+            partait toute seule — et il n'apprenait rien de plus que le bandeau.
+            Ne reste que la première lecture, où il n'y a de toute façon rien à
+            afficher derrière.
+        */}
         {isInitializing && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-brand-light dark:bg-dark-bg">
-                <Loader2 className="w-8 h-8 text-brand-main dark:text-dark-text animate-spin" />
+                <Patience titre="Chargement de vos contenus" detail="Cache local, puis synchronisation" />
             </div>
         )}
 
-        <header className="h-[52px] px-4 md:px-6 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
+        <header className="relative h-[52px] px-4 md:px-6 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
               <button
                   onClick={() => setIsMobileMenuOpen(true)}
@@ -1010,13 +1025,15 @@ function App() {
                      <ChevronDown className="w-3 h-3 absolute right-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />
                  </div>
 
+                 {/* L'icône tourne, pas le bouton : `disabled:animate-spin` faisait
+                     pivoter la zone cliquable entière, halo de survol compris. */}
                  <button
                     onClick={() => syncWithNotion(true)}
                     disabled={isSyncing}
-                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-40 disabled:animate-spin"
-                    title="Synchroniser avec Notion"
+                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-60"
+                    title={isSyncing ? 'Synchronisation en cours…' : 'Synchroniser avec Notion'}
                  >
-                     <RefreshCw className="w-[14px] h-[14px]" />
+                     <RefreshCw className={`w-[14px] h-[14px] ${isSyncing ? 'animate-spin' : ''}`} />
                  </button>
                  <button
                     onClick={handleLogout}
@@ -1026,7 +1043,15 @@ function App() {
                      <LogOut className="w-[14px] h-[14px]" />
                  </button>
             </div>
+
+            {/* Le filet court sur la bordure basse de l'en-tête : toujours au même
+                endroit, quel que soit l'écran ouvert, et sans rien pousser. */}
+            <FiletActivite />
         </header>
+
+        {/* Le bandeau des appels en cours vit ici, dans la coque : un appel lancé
+            depuis l'atelier reste visible quand on revient à la liste (SPEC §3.5.1). */}
+        <BandeauActivite />
 
         {(currentSpace === 'settings' || (currentSpace === 'social' && !isEditorTakeover)) && (
           <MobileSubTabs
@@ -1064,9 +1089,11 @@ function App() {
                   <button
                       onClick={retryUnsavedItems}
                       disabled={isRetryingUnsaved}
-                      className="underline font-bold hover:text-amber-950 dark:hover:text-white disabled:opacity-50 disabled:no-underline"
+                      className="inline-flex items-center gap-1.5 underline font-bold hover:text-amber-950 dark:hover:text-white disabled:opacity-50 disabled:no-underline"
                   >
-                      {isRetryingUnsaved ? "Enregistrement…" : "Réessayer maintenant"}
+                      {isRetryingUnsaved
+                          ? <EnCours label="Enregistrement…" taille="xs" />
+                          : "Réessayer maintenant"}
                   </button>
               </div>
           </div>

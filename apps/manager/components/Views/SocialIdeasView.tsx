@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-    Search, Plus, Loader2, Sparkles, ArrowRightFromLine, Lightbulb
+    Search, Plus, Sparkles, ArrowRightFromLine, Lightbulb
 } from 'lucide-react';
 import {
     ContentItem, Verdict, TargetFormat, TARGET_FORMAT_VALUES,
@@ -9,6 +9,7 @@ import {
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
 import { CharCounter } from '../CommonModals';
+import { EnCours } from '../Feedback';
 import { ContentTable } from './SocialGridView';
 
 interface SocialIdeasViewProps {
@@ -166,8 +167,9 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                                 disabled={!newIdeaTitle.trim() || !newIdeaFormat || isSyncing}
                                 className="flex items-center gap-2 px-4 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
                             >
-                                {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                                Ajouter
+                                {isSyncing
+                                    ? <EnCours label="Ajout…" />
+                                    : <><Plus className="w-3.5 h-3.5" /> Ajouter</>}
                             </button>
                         </div>
                     </form>

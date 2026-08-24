@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Brain, RefreshCw, ArrowRight, Loader2, Trash2, ArrowRightFromLine, Save, CheckCircle2, AlertCircle, Zap, Lightbulb, NotebookPen } from 'lucide-react';
+import { X, Brain, RefreshCw, ArrowRight, Trash2, ArrowRightFromLine, Save, CheckCircle2, AlertCircle, Zap, Lightbulb, NotebookPen } from 'lucide-react';
 import { ContentItem, ContentStatus, Verdict, Profondeur, TargetFormat, TARGET_FORMAT_VALUES } from '../types';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { RichTextarea } from './RichTextarea';
 import { CharCounter, ConfirmModal } from './CommonModals';
+import { EnCours } from './Feedback';
 import { useEscapeClose } from './hooks/useEscapeClose';
 
 interface IdeaModalProps {
@@ -234,8 +235,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                     : undefined}
                                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white dark:bg-violet-900/40 hover:bg-violet-50 dark:hover:bg-violet-800/40 text-violet-700 dark:text-violet-200 border border-violet-200 dark:border-violet-700 transition-colors disabled:opacity-50 whitespace-nowrap shadow-sm"
                             >
-                                <RefreshCw className={`w-3 h-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
-                                {isReanalyzing ? 'Analyse…' : (localItem.analyzedAt ? 'Ré-analyser' : 'Analyser')}
+                                {isReanalyzing
+                                    ? <EnCours label="Analyse…" taille="xs" />
+                                    : <><RefreshCw className="w-3 h-3" /> {localItem.analyzedAt ? 'Ré-analyser' : 'Analyser'}</>}
                             </button>
                         </div>
 
@@ -341,9 +343,8 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                     </button>
                     <div className="flex items-center gap-2">
                         {saveStatus === 'saving' && (
-                            <span className="flex items-center gap-1 text-xs text-brand-main/60 dark:text-dark-text/60 animate-pulse">
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                Sauvegarde…
+                            <span className="flex items-center gap-1.5 text-xs text-brand-main/60 dark:text-dark-text/60">
+                                <EnCours label="Enregistrement…" taille="xs" />
                             </span>
                         )}
                         {saveStatus === 'saved' && (
@@ -368,8 +369,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                     : 'text-brand-main/30 dark:text-dark-text/30 cursor-not-allowed'
                             }`}
                         >
-                            {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                            Enregistrer
+                            {isSaving
+                                ? <EnCours label="Enregistrement…" />
+                                : <><Save className="w-3.5 h-3.5" /> Enregistrer</>}
                         </button>
                         <button
                             onClick={handleTransformToDraft}
@@ -378,7 +380,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                             className="flex items-center gap-2 px-4 py-2 bg-brand-main hover:bg-brand-hover text-white text-sm font-semibold rounded-lg shadow-sm shadow-brand-main/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {isSaving ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <EnCours label="Ouverture…" taille="md" />
                             ) : (
                                 <>
                                     Travailler cette idée

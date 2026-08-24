@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, AlertCircle, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useEscapeClose } from './hooks/useEscapeClose';
+import { EnCours } from './Feedback';
 
 // --- TYPES ---
 interface AlertModalProps {
@@ -102,8 +103,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}
             `}
           >
-            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isLoading ? '...' : confirmLabel}
+            {/* Le libellé RESTE : « ... » effaçait le seul mot qui disait
+                ce qu'on était en train de confirmer. */}
+            {isLoading ? <EnCours label={`${confirmLabel}…`} taille="md" /> : confirmLabel}
           </button>
         </div>
       </div>

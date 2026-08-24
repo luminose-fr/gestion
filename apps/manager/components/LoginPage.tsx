@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { login } from '../auth';
+import { EnCours } from './Feedback';
 
 export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
   const [username, setUsername] = useState('');
@@ -104,14 +105,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
               disabled={loading || !username || !password}
               className="w-full flex items-center justify-center gap-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white py-3 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-brand-main/20"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Connexion...
-                </>
-              ) : (
-                'Se connecter'
-              )}
+              {loading ? <EnCours label="Connexion…" taille="md" /> : 'Se connecter'}
             </button>
           </form>
         </div>

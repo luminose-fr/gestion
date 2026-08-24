@@ -409,8 +409,37 @@ ne montre plus rien. « Il ne s'est rien passé » était une lecture correcte d
 Le modèle y figure parce qu'on change de fournisseur et qu'on doute de son choix :
 savoir qu'« il se passe quelque chose » ne répond pas à la question posée.
 
-`callAI` est le point de passage unique de tous les appels de l'éditeur, et donc le seul
-endroit où ce témoin se pose.
+**Le témoin se pose dans `aiService.generateContent`, pas chez l'appelant.** Il vivait
+dans `callAI`, passage unique des appels **de l'éditeur** — ce qui laissait muets
+l'Analyste, l'Éclateur et le découpage de sous-titres, qui ne passent pas par là. Le
+raisonnement du signalement d'échec vaut mot pour mot ici : sept appelants qui doivent
+chacun penser à afficher, c'est sept occasions d'oublier. `callAI` ne sert plus qu'à
+traduire l'identifiant d'action en libellé.
+
+**Le bandeau vit dans la coque de l'application**, sous l'en-tête, et non dans l'écran qui
+déclenche. Un appel lancé depuis l'atelier reste donc visible quand on revient à la
+liste — et il l'est aussi depuis Réglages ou Sous-titres, d'où partent des appels que
+l'éditeur n'a jamais vus.
+
+**Ce qui attend porte une barre — NORMATIF.** Aucun aller-retour ne se signale par un
+rond qui tourne seul : chaque témoin d'attente porte une barre de progression, et chaque
+bouton qui travaille NOMME son travail (« Rédaction… »), jamais « ... ». Trois formes
+distinctes suffisent, définies une fois dans `components/Feedback.tsx` — `Barre`,
+`EnCours` (dans un bouton), `Patience` (un panneau entier) — et le registre
+`services/activityService.ts` dit ce qui tourne.
+
+La barre **remplit quand on sait, balaie quand on ne sait pas**. Un appel IA ne se compte
+pas : son échéance est estimée d'après la médiane des appels comparables déjà mesurés
+(même action, même modèle), gardés en local. Sous deux mesures, il n'y a pas d'habitude
+et la barre balaie. La progression estimée s'approche de 100 % **sans jamais l'atteindre**
+— une barre pleine avant la réponse est un mensonge qu'on ne peut plus rattraper. Passé
+deux fois et demie l'échéance attendue, le bandeau le dit : c'est le seul moment où
+l'écran sait distinguer « ça travaille » de « c'est bloqué ».
+
+**La synchronisation ne bloque plus l'écran.** Elle posait un voile sur toute la fenêtre,
+y compris celle qui part seule au démarrage : elle ne réclame rien, donc elle n'interdit
+rien. Elle se nomme dans le bandeau, comme le reste. Seule la première lecture du cache
+occupe encore l'écran, faute d'avoir quoi que ce soit à montrer derrière.
 
 **Aucun résultat d'IA n'est écarté avant de savoir si la suite a abouti.** Le rapport du
 Lecteur froid partait dès le clic sur « Appliquer les corrections », sans attendre : un

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Brain, AlertCircle, Loader2, Cpu } from 'lucide-react';
+import { X, Sparkles, Brain, AlertCircle, Cpu } from 'lucide-react';
 import { ContentItem, Verdict, Platform, AIModel, isObjectif, isProfondeur } from '../types';
 import * as AiService from '../services/aiService';
 import { AI_ACTIONS } from '@luminose/editorial';
 import * as Api from '../services/apiService';
 import { useEscapeClose } from './hooks/useEscapeClose';
+import { Patience } from './Feedback';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -40,6 +41,12 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState<string>("");
+  /**
+   * L'analyse en lot est la SEULE opération de l'application qui sache où elle
+   * en est : un appel au modèle, puis une écriture par idée. Sa barre porte donc
+   * un vrai chiffre, là où les autres ne peuvent qu'estimer.
+   */
+  const [part, setPart] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Garde-fou : évite les setState sur composant démonté pendant l'analyse async
@@ -59,7 +66,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     if (!isMountedRef.current) return;
     setIsAnalyzing(true);
     setError(null);
-    setProgress("Préparation des données...");
+    setPart(null);
+    setProgress("Préparation des données…");
 
     try {
       // 1. Préparation du System Prompt
@@ -74,7 +82,11 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         format_cible: item.targetFormat || "Non précisé",
       }));
       
-      if (isMountedRef.current) setProgress(`Interrogation de l'IA (${modelName})...`);
+      // Pendant l'appel au modèle, la barre BALAIE : on ne sait rien de son
+      // avancement, et l'immobiliser à 8 % pour tout le temps long de l'opération
+      // aurait été pire que de l'avouer. Elle se remplit ensuite, à l'écriture,
+      // où l'on compte vraiment. Le bandeau du haut, lui, donne l'estimation.
+      if (isMountedRef.current) setProgress(`Interrogation de l'IA (${modelName})…`);
 
       // 3. Appel API 1min.AI
       const responseText = await AiService.generateContent({
@@ -84,7 +96,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           action: 'Analyse des idées',
       });
 
-      if (isMountedRef.current) setProgress("Traitement des réponses...");
+      if (isMountedRef.current) { setPart(0.5); setProgress("Traitement des réponses…"); }
 
       // 4. Parsing de la réponse
       let results: AnalysisResult[] = [];
@@ -98,7 +110,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       }
 
       // 5. Mise à jour de Notion
-      if (isMountedRef.current) setProgress(`Mise à jour de Notion (0/${results.length})...`);
+      if (isMountedRef.current) setProgress(`Enregistrement (0/${results.length})…`);
 
       let updateCount = 0;
       for (let idx = 0; idx < results.length; idx++) {
@@ -147,7 +159,10 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
               kind: 'analysis', modelId: selectedModelId, modelLabel: modelName, payload: JSON.stringify(res),
           }).catch(e => console.warn('Analyse non journalisée :', e));
           updateCount++;
-          if (isMountedRef.current) setProgress(`Mise à jour de Notion (${updateCount}/${results.length})...`);
+          if (isMountedRef.current) {
+              setPart(0.5 + 0.5 * (updateCount / Math.max(1, results.length)));
+              setProgress(`Enregistrement (${updateCount}/${results.length})…`);
+          }
         }
       }
 
@@ -156,6 +171,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       }
 
       if (isMountedRef.current) {
+        setPart(1);
         setProgress(`Terminé ! ${updateCount}/${results.length} idées mises à jour.`);
         onAnalysisComplete();
         onClose();
@@ -232,11 +248,13 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                     )}
                 </>
             ) : (
-                <div className="py-8 flex flex-col items-center justify-center text-center">
-                    <Loader2 className="w-12 h-12 text-brand-main dark:text-brand-light animate-spin mb-4" />
-                    <h4 className="text-lg font-semibold text-brand-main dark:text-white mb-2">Analyse en cours...</h4>
-                    <p className="text-brand-main/60 dark:text-dark-text/60 text-sm animate-pulse">{progress}</p>
-                </div>
+                <Patience
+                    titre={itemsToAnalyze.length > 1
+                        ? `Analyse de ${itemsToAnalyze.length} idées`
+                        : "Analyse d'une idée"}
+                    detail={progress}
+                    part={part}
+                />
             )}
         </div>
 

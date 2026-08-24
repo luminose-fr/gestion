@@ -9,30 +9,51 @@
  */
 import { WORKER_URL } from '../constants';
 import { getSessionToken } from '../auth';
+import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage,
 } from '@luminose/shared';
 
-const api = async <T>(path: string, init: RequestInit = {}): Promise<T> => {
-  const res = await fetch(`${WORKER_URL}/api${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Session-Token': getSessionToken() ?? '',
-      ...(init.headers ?? {}),
-    },
-  });
+/**
+ * `temoin` NOMME l'opération dans le bandeau d'activité. Sans lui, la requête
+ * reste anonyme : elle allume le filet de progression sous l'en-tête, sans
+ * s'écrire nulle part. C'est le bon défaut — « PATCH /contents/… » n'apprend
+ * rien, et un bandeau qui commente chaque frappe devient un bruit qu'on ignore.
+ *
+ * On ne nomme donc que ce qui est long ET demandé : lire le catalogue, préparer
+ * une sauvegarde, créer un plan de série.
+ */
+const api = async <T>(
+  path: string,
+  init: RequestInit = {},
+  temoin: Activite.Descripteur = {},
+): Promise<T> => {
+  const suivi = Activite.ouvrir(temoin);
+  let abouti = false;
+  try {
+    const res = await fetch(`${WORKER_URL}/api${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-Token': getSessionToken() ?? '',
+        ...(init.headers ?? {}),
+      },
+    });
 
-  const text = await res.text();
-  let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { /* réponse non-JSON */ }
+    const text = await res.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* réponse non-JSON */ }
 
-  if (!res.ok) {
-    // On remonte le message du serveur : c'est lui qui sait ce qui cloche.
-    const detail = data?.error ?? text.slice(0, 200) ?? '';
-    throw new Error(`Erreur ${res.status}${detail ? ` — ${detail}` : ''}`);
+    if (!res.ok) {
+      // On remonte le message du serveur : c'est lui qui sait ce qui cloche.
+      const detail = data?.error ?? text.slice(0, 200) ?? '';
+      throw new Error(`Erreur ${res.status}${detail ? ` — ${detail}` : ''}`);
+    }
+    abouti = true;
+    return data as T;
+  } finally {
+    suivi.fermer(abouti);
   }
-  return data as T;
 };
 
 const body = (payload: unknown) => ({ body: JSON.stringify(payload) });
@@ -64,7 +85,11 @@ export const deleteContent = (id: string) =>
 
 /** Création en lot — le plan de série. Transactionnelle côté Worker. */
 export const createContentsBatch = (items: Partial<Content>[]) =>
-  api<{ items: Content[] }>('/contents/batch', { method: 'POST', ...body({ items }) });
+  api<{ items: Content[] }>(
+    '/contents/batch',
+    { method: 'POST', ...body({ items }) },
+    { label: 'Création des publications', etape: `${items.length} au total` },
+  );
 
 // ── Séries ───────────────────────────────────────────────────────────────
 
@@ -139,7 +164,7 @@ export const fetchCatalogue = () =>
     /** L'ordre de la courte liste, du moins cher au plus cher. */
     selection: string[];
     fetchedAt: number;
-  }>('/models/catalogue');
+  }>('/models/catalogue', {}, { label: 'Lecture du catalogue', cle: 'api:catalogue' });
 
 // ── Clés des fournisseurs (SPEC §5.5) ────────────────────────────────────
 
@@ -182,18 +207,22 @@ export const setActionModel = (action: string, modelId: string | null) =>
  * télécharger l'export, il faut passer par une requête puis un blob. On rend
  * le nom de fichier proposé par le Worker — daté, donc restaurable sans doute.
  */
-export const fetchExport = async (): Promise<{ blob: Blob; filename: string }> => {
-  const res = await fetch(`${WORKER_URL}/api/export`, {
-    headers: { 'X-Session-Token': getSessionToken() ?? '' },
-  });
-  if (!res.ok) {
-    throw new Error(`Erreur ${res.status} — la sauvegarde n'a pas pu être produite.`);
-  }
-  const disposition = res.headers.get('Content-Disposition') ?? '';
-  const filename = /filename="([^"]+)"/.exec(disposition)?.[1]
-    ?? `luminose-export-${new Date().toISOString().slice(0, 10)}.json`;
-  return { blob: await res.blob(), filename };
-};
+export const fetchExport = (): Promise<{ blob: Blob; filename: string }> =>
+  Activite.suivre(
+    { label: 'Préparation de la sauvegarde', cle: 'api:export' },
+    async () => {
+      const res = await fetch(`${WORKER_URL}/api/export`, {
+        headers: { 'X-Session-Token': getSessionToken() ?? '' },
+      });
+      if (!res.ok) {
+        throw new Error(`Erreur ${res.status} — la sauvegarde n'a pas pu être produite.`);
+      }
+      const disposition = res.headers.get('Content-Disposition') ?? '';
+      const filename = /filename="([^"]+)"/.exec(disposition)?.[1]
+        ?? `luminose-export-${new Date().toISOString().slice(0, 10)}.json`;
+      return { blob: await res.blob(), filename };
+    },
+  );
 
 // ── Conversation Coach (SPEC §2.7) ───────────────────────────────────────
 

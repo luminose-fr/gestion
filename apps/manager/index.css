@@ -17,6 +17,40 @@
   --color-dark-text: #bb95dd;
   --color-dark-sec-border: #613f7f;
   --color-dark-sec-bg: rgba(63, 34, 88, 0.5);
+
+  /*
+    Les témoins d'attente. `animate-fade-in` était utilisé depuis longtemps sans
+    exister : Tailwind v4 ne fournit aucune de ces animations, et la classe ne
+    produisait rien du tout. Elles sont déclarées ici, donc réellement jouées.
+
+    `balayage` sert aux barres dont on ne connaît pas l'échéance : elles ne
+    peuvent pas remplir, alors elles parcourent.
+  */
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-balayage: balayage 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes balayage {
+    from { transform: translateX(-110%); }
+    to   { transform: translateX(360%); }
+  }
+}
+
+/*
+  Une barre qui balaie sans fin fatigue, et le mouvement n'apprend rien à qui
+  l'a réglé sur « moins d'animations ». Le témoin reste alors visible, immobile.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .animate-balayage {
+    animation: none;
+    transform: none;
+    width: 100%;
+    opacity: 0.5;
+  }
 }
 
 /*

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Upload, Download, FileText, Eye, ChevronDown, ChevronUp, Scissors, Merge, RotateCcw, Sparkles, Cpu, DollarSign, X, Loader2 } from 'lucide-react';
+import { Upload, Download, FileText, Eye, ChevronDown, ChevronUp, Scissors, Merge, RotateCcw, Sparkles, Cpu, DollarSign, X } from 'lucide-react';
 import {
     parseSrt, regroupSubtitles, generateFcpxml, wrapText,
     DEFAULT_STYLE, VIDEO_FORMATS,
@@ -7,6 +7,7 @@ import {
 } from '@luminose/subtitles';
 import { AIModel } from '../types';
 import * as AiService from '../services/aiService';
+import { EnCours } from './Feedback';
 
 const FONT_OPTIONS = [
     'Futura', 'Helvetica Neue', 'Arial', 'Avenir', 'Montserrat',
@@ -630,7 +631,9 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                 disabled={aiLoading}
                                 className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-700 shadow-lg shadow-purple-600/20 transition-all hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0"
                             >
-                                {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Découpage en cours...</> : <><Sparkles className="w-4 h-4" /> Lancer le découpage</>}
+                                {aiLoading
+                                    ? <EnCours label="Découpage…" taille="md" />
+                                    : <><Sparkles className="w-4 h-4" /> Lancer le découpage</>}
                             </button>
                         </div>
                     </div>

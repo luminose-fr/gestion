@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Check, Copy, Wand2, X, Loader2, Send } from 'lucide-react';
+import { Check, Copy, Wand2, X, Send } from 'lucide-react';
+import { EnCours } from '../../Feedback';
 import { copyTextToClipboard, CarrouselLegende } from './shared';
 
 interface SlidesRendererProps {
@@ -127,8 +128,9 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                                 disabled={!adjustText.trim() || isAdjusting}
                                 className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end sm:self-stretch shrink-0"
                             >
-                                {isAdjusting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                Envoyer
+                                {isAdjusting
+                                    ? <EnCours label="Ajustement…" />
+                                    : <><Send className="w-3.5 h-3.5" /> Envoyer</>}
                             </button>
                         </div>
                         <p className="text-[10px] text-amber-700/70 dark:text-amber-300/70 mt-1.5">

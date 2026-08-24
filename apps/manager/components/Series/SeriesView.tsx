@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Layers, Plus, Loader2, Link2 } from 'lucide-react';
+import { Layers, Plus, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ContentItem, Serie } from '../../types';
+import { EnCours } from '../Feedback';
 
 interface SeriesViewProps {
     series: Serie[];
@@ -114,8 +115,9 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                                 disabled={!titre.trim() || isSyncing}
                                 className="flex items-center gap-2 px-4 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
                             >
-                                {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                                Créer la série
+                                {isSyncing
+                                    ? <EnCours label="Création…" />
+                                    : <><Plus className="w-3.5 h-3.5" /> Créer la série</>}
                             </button>
                         </div>
                     </form>

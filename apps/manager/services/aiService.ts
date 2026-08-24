@@ -10,6 +10,8 @@
  */
 import { WORKER_URL } from '../constants';
 import { getSessionToken } from '../auth';
+import { AI_ACTION_CATALOG } from '@luminose/editorial';
+import * as Activite from './activityService';
 import type { ChatMessage } from '@luminose/shared';
 
 export interface GenerateRequest {
@@ -76,11 +78,36 @@ const post = async <T>(path: string, payload: unknown): Promise<T> => {
   return data as T;
 };
 
+/**
+ * Le témoin d'appel en cours se pose ICI, pour la même raison que le
+ * signalement d'échec juste au-dessus (SPEC §3.5.1) : c'est le passage obligé
+ * des sept appelants. Posé chez eux, il manquerait partout où le bouton qui a
+ * déclenché l'appel disparaît — et l'écran ne montrerait plus rien.
+ *
+ * Le persona se déduit du libellé plutôt que d'être passé en paramètre : un
+ * argument de plus, c'est un argument qu'un appelant oubliera.
+ */
+const ouvrirSuivi = (request: GenerateRequest) => {
+  const label = request.action ?? 'Appel au modèle';
+  const fiche = AI_ACTION_CATALOG.find(a => a.label === label);
+  return Activite.ouvrir({
+    nature: 'ia',
+    label,
+    persona: fiche?.persona ?? null,
+    modele: Activite.nomDuModele(request.modelId),
+    // L'estimation se mesure par action ET par modèle : le même Rédacteur met
+    // dix secondes chez l'un et une minute chez l'autre.
+    cle: `ia:${label}:${request.modelId}`,
+  });
+};
+
 export const generateContent = async (request: GenerateRequest): Promise<string> => {
   const messages: ChatMessage[] = [
     ...(request.history ?? []),
     { role: 'user', content: request.prompt },
   ];
+
+  const suivi = ouvrirSuivi(request);
 
   try {
     const { text } = await post<{ text: string; modelLabel: string }>('/ai/chat', {
@@ -89,8 +116,10 @@ export const generateContent = async (request: GenerateRequest): Promise<string>
       messages,
       json: request.json,
     });
+    suivi.fermer(true);
     return text;
   } catch (e: any) {
+    suivi.fermer(false);
     // Marquée d'abord : l'appelant doit pouvoir savoir qu'elle est déjà annoncée,
     // même s'il la reçoit après plusieurs relances.
     if (e && typeof e === 'object') (e as any).signaleeIA = true;
@@ -122,4 +151,7 @@ export interface ModelTestResult {
  * modèle n'existe pas encore — c'est justement ce qu'on cherche à valider.
  */
 export const testModel = (apiCode: string, provider = 'onemin') =>
-  post<ModelTestResult>('/ai/test', { apiCode, provider });
+  Activite.suivre(
+    { nature: 'ia', label: 'Test du modèle', modele: apiCode, cle: `ia:test:${provider}` },
+    () => post<ModelTestResult>('/ai/test', { apiCode, provider }),
+  );

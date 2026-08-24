@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    ArrowLeft, Plus, Trash2, Loader2, Layers, Link2, Rows3, Wand2, CheckCircle2, AlertCircle
+    ArrowLeft, Plus, Trash2, Layers, Link2, Rows3, Wand2, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import {
     ContentItem, Serie, SerieStatus, TargetFormat, Objectif,
@@ -8,6 +8,7 @@ import {
 } from '../../types';
 import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable, isPlanEntryCreatable } from '@luminose/editorial';
 import { ConfirmModal } from '../CommonModals';
+import { EnCours } from '../Feedback';
 
 interface SeriePlanViewProps {
     serie: Serie;
@@ -232,8 +233,9 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             title="L'Éclateur propose un plan à partir du sujet, de l'intention et du contenu pilier"
                             className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs transition-colors disabled:opacity-50 bg-white dark:bg-violet-900/30 hover:bg-violet-50 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800"
                         >
-                            {isPlanning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                            {isPlanning ? 'L’Éclateur travaille…' : 'Générer un plan'}
+                            {isPlanning
+                                ? <EnCours label="L’Éclateur travaille…" taille="xs" />
+                                : <><Wand2 className="w-3 h-3" /> Générer un plan</>}
                         </button>
                         <button
                             onClick={addRow}
@@ -246,8 +248,12 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             disabled={creatableRows.length === 0 || isCreating}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
                         >
-                            {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                            {creatableRows.length > 1 ? `Créer les ${creatableRows.length} contenus` : 'Créer le contenu'}
+                            {isCreating
+                                ? <EnCours label="Création…" taille="xs" />
+                                : <>
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    {creatableRows.length > 1 ? `Créer les ${creatableRows.length} contenus` : 'Créer le contenu'}
+                                  </>}
                         </button>
                     </div>
                 </div>

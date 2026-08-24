@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession, CoachMessage } from '../../types';
 import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
 import * as AiService from '../../services/aiService';
 import { generateLockedBrief, createEmptySession } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
+import { EnCours } from '../Feedback';
 import { AI_ACTIONS, AI_ACTION_CATALOG } from '@luminose/editorial';
 import { bodyJsonToText, getEditorTab, supportsColdRead } from '@luminose/editorial';
 import * as Api from '../../services/apiService';
@@ -211,28 +212,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAction, editedItem?.id, editedItem?.status]);
 
-  /**
-   * L'appel IA en cours, s'il y en a un.
+  /*
+   * Le témoin d'appel IA ne vit plus ici.
    *
-   * Sans ça, un aller-retour avec le fournisseur est INVISIBLE dès que le bouton
-   * qui l'a déclenché disparaît — c'est exactement ce qui se passe au « Go
-   * Éditeur » : la validation retire le bouton, la rédaction part, et l'écran
-   * ne montre plus rien. « Il ne s'est rien passé » était une lecture correcte
-   * de ce que l'écran affichait.
+   * Il était posé dans `callAI`, seul passage des appels DE L'ÉDITEUR — ce qui
+   * laissait muets ceux de l'Analyste, de l'Éclateur et du découpage de
+   * sous-titres. Il est descendu dans `aiService.generateContent`, par où
+   * passent les sept appelants, et remonte dans la coque de l'application :
+   * un appel reste donc visible même quand on quitte l'écran qui l'a lancé
+   * (SPEC §3.5.1). Voir `services/activityService.ts`.
    */
-  const [appelIA, setAppelIA] = useState<{ label: string; persona: string; modele: string; debut: number } | null>(null);
-  const [secondesIA, setSecondesIA] = useState(0);
-  /** Compteur de profondeur : deux appels enchaînés ne doivent pas s'éteindre l'un l'autre. */
-  const appelsEnCours = React.useRef(0);
-
-  useEffect(() => {
-      if (!appelIA) { setSecondesIA(0); return; }
-      // Le temps écoulé est le seul signal qui distingue « ça travaille » de
-      // « c'est bloqué ». Il vaut la seconde d'intervalle.
-      setSecondesIA(0);
-      const t = setInterval(() => setSecondesIA(Math.round((Date.now() - appelIA.debut) / 1000)), 1000);
-      return () => clearInterval(t);
-  }, [appelIA]);
 
   // isDirty : vrai si editedItem diffère du item Notion source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
@@ -404,10 +393,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   } as const;
 
   /**
-   * Le point de passage UNIQUE de tous les appels IA de l'éditeur — et donc le
-   * seul endroit où poser le témoin qui les rend visibles. L'action est passée
-   * explicitement : sans elle le bandeau ne pourrait dire que « ça travaille »,
-   * ce qui n'est pas ce qu'on veut savoir.
+   * Le point de passage unique des appels IA de l'éditeur. Il ne sert plus qu'à
+   * une chose : traduire l'identifiant d'action en LIBELLÉ. C'est ce libellé qui
+   * titre le bandeau d'attente et le message d'échec — « Échec — Relecture à
+   * froid » vaut mieux qu'« Erreur ». Le témoin, lui, se pose dans le service.
    */
   const callAI = async (
       action: keyof typeof AI_ACTIONS,
@@ -417,29 +406,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       _config?: any,
   ) => {
       const fiche = AI_ACTION_CATALOG.find(a => a.id === action);
-      appelsEnCours.current += 1;
-      setAppelIA({
-          label: fiche?.label ?? String(action),
-          persona: fiche?.persona ?? '',
-          modele: modelLabel(model),
-          debut: Date.now(),
+      return AiService.generateContent({
+          modelId: model,
+          systemInstruction: systemInstruction,
+          prompt: prompt,
+          action: fiche?.label ?? String(action),
       });
-      try {
-          return await AiService.generateContent({
-              modelId: model,
-              systemInstruction: systemInstruction,
-              prompt: prompt,
-              // Le libellé voyage avec l'appel : c'est lui qui titre le message
-              // d'échec, et « Échec — Relecture à froid » vaut mieux qu'« Erreur ».
-              action: fiche?.label ?? String(action),
-          });
-      } finally {
-          appelsEnCours.current -= 1;
-          if (appelsEnCours.current <= 0) {
-              appelsEnCours.current = 0;
-              setAppelIA(null);
-          }
-      }
   };
 
   // --- CONVERSATION COACH (SPEC §2.7) ---
@@ -912,9 +884,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   const SaveIndicator = () => {
       if (saveStatus === 'saving') return (
-          <span className="flex items-center gap-1.5 text-xs text-brand-main/60 dark:text-dark-text/60 animate-pulse">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Sauvegarde…
+          <span className="flex items-center gap-1.5 text-xs text-brand-main/60 dark:text-dark-text/60">
+              <EnCours label="Enregistrement…" />
           </span>
       );
       if (saveStatus === 'saved') return (
@@ -976,26 +947,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       </div>
   ) : null;
 
-  /** Bandeau sous l'en-tête : appel IA en cours, échec de sauvegarde, annulation de génération. */
-  const EditorBanner = (SerieBanner || appelIA || saveStatus === 'error' || lastGeneration) ? (
+  /** Bandeau sous l'en-tête : échec de sauvegarde, annulation de génération. */
+  const EditorBanner = (SerieBanner || saveStatus === 'error' || lastGeneration) ? (
       <div className="flex flex-col">
           {SerieBanner}
-          {/* Le témoin d'appel IA. Il nomme l'action, le persona et le MODÈLE :
-              savoir qu'« il se passe quelque chose » ne suffit pas quand on
-              vient de changer de fournisseur et qu'on doute de son choix. */}
-          {appelIA && (
-              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-brand-light dark:bg-dark-sec-bg border-b border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
-                  <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
-                  <span className="flex-1 min-w-0">
-                      <strong className="font-bold">{appelIA.label}</strong>
-                      {appelIA.persona ? ` — ${appelIA.persona}` : ''}
-                      <span className="text-brand-main/60 dark:text-dark-text/60"> · {appelIA.modele}</span>
-                  </span>
-                  <span className="shrink-0 tabular-nums text-brand-main/60 dark:text-dark-text/60">
-                      {secondesIA} s
-                  </span>
-              </div>
-          )}
           {saveStatus === 'error' && (
               <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1006,9 +961,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   <button
                       onClick={retrySave}
                       disabled={isSaving}
-                      className="shrink-0 underline font-bold hover:text-red-950 dark:hover:text-white disabled:opacity-50"
+                      className="shrink-0 inline-flex items-center gap-1.5 underline font-bold hover:text-red-950 dark:hover:text-white disabled:opacity-50"
                   >
-                      {isSaving ? 'Enregistrement…' : 'Réessayer'}
+                      {isSaving ? <EnCours label="Enregistrement…" taille="xs" /> : 'Réessayer'}
                   </button>
               </div>
           )}
@@ -1179,8 +1134,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                           : 'text-brand-main/30 dark:text-dark-text/30 cursor-not-allowed'
                   }`}
               >
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Enregistrer
+                  {isSaving
+                      ? <EnCours label="Enregistrement…" taille="md" />
+                      : <><Save className="w-4 h-4" /> Enregistrer</>}
               </button>
           </>
       );

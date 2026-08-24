@@ -28,6 +28,8 @@ import { SeriesView } from '../components/Series/SeriesView';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
 import { CoachChat } from '../components/CoachChat';
 import { DraftView } from '../components/ContentEditor/DraftView';
+import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
+import * as Activite from '../services/activityService';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
 import type { AIModel, ContentItem, Serie, CoachMessage, CoachSession } from '../types';
 
@@ -536,5 +538,70 @@ describe('séries', () => {
     expect(titres[1]).toContain('Deuxième');
     expect(titres[2]).toContain('Troisième');
     expect(titres[3]).toContain('Sans rang');
+  });
+});
+
+/**
+ * Les témoins d'attente.
+ *
+ * `FiletActivite` et `BandeauActivite` ont un retour anticipé : ils sont montés
+ * dans les DEUX états, au repos et pendant une tâche — c'est la règle née de la
+ * page blanche du 16/08/2026 (voir l'en-tête de ce fichier).
+ */
+describe('témoins d’attente', () => {
+  it('Barre se rend remplie ET balayante', () => {
+    const { container: rempli } = render(<Barre part={0.42} libelle="Rédaction" />);
+    expect(rempli.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('42');
+
+    const { container: balaie } = render(<Barre part={null} libelle="Rédaction" />);
+    // Sans échéance connue, pas de valeur annoncée : la barre ne prétend rien.
+    expect(balaie.querySelector('[role="progressbar"]')?.hasAttribute('aria-valuenow')).toBe(false);
+  });
+
+  it('Patience nomme la tâche, avec et sans détail', () => {
+    const { container } = render(<Patience titre="Analyse de 3 idées" detail="Enregistrement (2/3)…" part={0.7} />);
+    expect(container.textContent).toContain('Analyse de 3 idées');
+    expect(container.textContent).toContain('Enregistrement (2/3)…');
+    cleanup();
+    expect(() => render(<Patience titre="Lecture du catalogue" />)).not.toThrow();
+  });
+
+  it('EnCours dit ce qui travaille, jamais « ... »', () => {
+    const { container } = render(<EnCours label="Rédaction…" />);
+    expect(container.textContent).toBe('Rédaction…');
+  });
+
+  it('le bandeau reste muet au repos, et nomme l’appel dès qu’il y en a un', async () => {
+    const { container, rerender } = render(<BandeauActivite />);
+    expect(container.textContent).toBe('');
+
+    Activite.enregistrerModeles(MODELS);
+    const suivi = Activite.ouvrir({
+      nature: 'ia', label: 'Rédaction', persona: 'Rédacteur', modele: Activite.nomDuModele('m1'),
+    });
+    rerender(<BandeauActivite />);
+    await waitFor(() => {
+      expect(container.textContent).toContain('Rédaction');
+      expect(container.textContent).toContain('Rédacteur');
+      // Le modèle EST l'information : « il se passe quelque chose » ne suffit pas.
+      expect(container.textContent).toContain('GPT-5.2 Pro');
+    });
+
+    suivi.fermer();
+    await waitFor(() => expect(container.textContent).toBe(''));
+  });
+
+  it('le filet s’allume puis s’éteint, sans clignoter sur une requête éclair', async () => {
+    const { container } = render(<FiletActivite />);
+    expect(container.querySelector('[role="progressbar"]')).toBeNull();
+
+    const suivi = Activite.ouvrir({ label: '' });
+    // Rien pendant les 150 premières millisecondes : une requête plus courte
+    // que ça ne doit pas faire sauter l'écran.
+    expect(container.querySelector('[role="progressbar"]')).toBeNull();
+    await waitFor(() => expect(container.querySelector('[role="progressbar"]')).not.toBeNull());
+
+    suivi.fermer();
+    await waitFor(() => expect(container.querySelector('[role="progressbar"]')).toBeNull());
   });
 });

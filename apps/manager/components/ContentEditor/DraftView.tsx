@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Loader2, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
+import { MessageSquare, LayoutTemplate, RefreshCw, Sparkles, Save, CheckCircle2, FileText, Brain, Lightbulb, Images, Pencil, X, Copy, Check, Target, Zap, Quote, Video, Send, ChevronDown, ArrowRight } from 'lucide-react';
 import { ContentItem, ContentStatus, TargetFormat, Profondeur, CoachSession, CoachMessage, AIModel } from '../../types';
 import { bodyJsonToText, getEditorTab } from '@luminose/editorial';
 import { createEmptySession } from '../../services/coachService';
+import { EnCours, useActionIA } from '../Feedback';
 import { MarkdownToolbar } from '../MarkdownToolbar';
 import { RichTextarea } from '../RichTextarea';
 import { CoachChat } from '../CoachChat';
@@ -83,6 +84,13 @@ export const DraftView: React.FC<DraftViewProps> = ({
     activeTab, onTabChange
 }) => {
 
+    /**
+     * Le libellé de l'appel IA en cours. `isGenerating` dit qu'il s'en passe un,
+     * pas LEQUEL : les quatre boutons « Régénérer » de l'écran se mettaient donc
+     * tous à tourner ensemble, y compris pour une relecture à froid.
+     */
+    const actionIA = useActionIA();
+
     const [isEditingBody, setIsEditingBody] = useState(false);
     const [editBodyText, setEditBodyText] = useState("");
     const [copied, setCopied] = useState(false);
@@ -161,8 +169,13 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
     // ── Bouton secondaire réutilisable ──
 
-    const SecBtn = ({ onClick, disabled, icon: Icon, label, color = 'default' }: {
-        onClick: () => void; disabled?: boolean; icon: any; label: string; color?: 'default' | 'pink' | 'blue' | 'violet';
+    const SecBtn = ({ onClick, disabled, icon: Icon, label, color = 'default', enCours, labelEnCours }: {
+        onClick: () => void; disabled?: boolean; icon: any; label: string;
+        color?: 'default' | 'pink' | 'blue' | 'violet';
+        /** Ce bouton est celui qui a déclenché l'appel en cours. */
+        enCours?: boolean;
+        /** Ce qu'il dit pendant ce temps — un verbe à l'œuvre, jamais « ... ». */
+        labelEnCours?: string;
     }) => {
         const colors = {
             default: 'bg-white dark:bg-dark-surface hover:bg-brand-light dark:hover:bg-dark-bg text-brand-main/60 dark:text-dark-text/60 border-brand-border dark:border-dark-sec-border',
@@ -171,11 +184,12 @@ export const DraftView: React.FC<DraftViewProps> = ({
             violet:  'bg-white dark:bg-violet-900/30 hover:bg-violet-50 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800',
         };
         return (
-            <button onClick={onClick} disabled={disabled}
+            <button onClick={onClick} disabled={disabled || enCours}
                 className={`flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs transition-colors disabled:opacity-50 ${colors[color]}`}
             >
-                <Icon className={`w-3 h-3 ${disabled && label === '...' ? 'animate-spin' : ''}`} />
-                {label}
+                {enCours
+                    ? <EnCours label={labelEnCours ?? label} taille="xs" />
+                    : <><Icon className="w-3 h-3" /> {label}</>}
             </button>
         );
     };
@@ -515,9 +529,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     disabled={isGenerating}
                                     className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg shadow-sm shadow-violet-600/20 transition-all disabled:opacity-50 whitespace-nowrap"
                                 >
-                                    {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Images className="w-3.5 h-3.5" />}
-                                    Générer les Slides
-                                    <ArrowRight className="w-3.5 h-3.5" />
+                                    {actionIA === 'Slides du carrousel'
+                                        ? <EnCours label="Production des slides…" />
+                                        : <><Images className="w-3.5 h-3.5" /> Générer les Slides <ArrowRight className="w-3.5 h-3.5" /></>}
                                 </button>
                             </div>
                         )}
@@ -563,6 +577,8 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 disabled={isGenerating}
                                                 icon={Brain}
                                                 label="Lecture froide"
+                                                enCours={actionIA === 'Relecture à froid'}
+                                                labelEnCours="Relecture…"
                                             />
                                         )}
                                         <SecBtn
@@ -576,7 +592,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             onClick={onLaunchDrafting}
                                             disabled={isGenerating}
                                             icon={RefreshCw}
-                                            label={isGenerating ? '...' : 'Régénérer'}
+                                            label="Régénérer"
+                                            enCours={actionIA === 'Rédaction'}
+                                            labelEnCours="Rédaction…"
                                             color="pink"
                                         />
                                     </div>
@@ -614,8 +632,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 disabled={!adjustmentText.trim() || isGenerating}
                                                 className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
                                             >
-                                                {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                                Envoyer
+                                                {actionIA === 'Ajustement du texte'
+                                                    ? <EnCours label="Ajustement…" />
+                                                    : <><Send className="w-3.5 h-3.5" /> Envoyer</>}
                                             </button>
                                         </div>
                                         <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1.5">&#8984;+Entrée pour envoyer</p>
@@ -722,7 +741,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     onClick={onLaunchDrafting}
                                     disabled={isGenerating}
                                     icon={RefreshCw}
-                                    label={isGenerating ? '...' : 'Régénérer'}
+                                    label="Régénérer"
+                                    enCours={actionIA === 'Rédaction'}
+                                    labelEnCours="Rédaction…"
                                     color="pink"
                                 />
                             </div>
@@ -808,7 +829,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                         onClick={onLaunchDrafting}
                                         disabled={isGenerating}
                                         icon={RefreshCw}
-                                        label={isGenerating ? '...' : 'Régénérer'}
+                                        label="Régénérer"
+                                        enCours={actionIA === 'Rédaction'}
+                                        labelEnCours="Rédaction…"
                                         color="pink"
                                     />
                                 </div>
@@ -949,7 +972,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                         onClick={onLaunchCarrouselSlides}
                                         disabled={isGenerating}
                                         icon={RefreshCw}
-                                        label={isGenerating ? '...' : 'Régénérer'}
+                                        label="Régénérer"
+                                        enCours={actionIA === 'Slides du carrousel'}
+                                        labelEnCours="Production…"
                                         color="violet"
                                     />
                                 </div>
@@ -1002,8 +1027,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             disabled={!adjustmentText.trim() || isGenerating}
                                             className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed self-end"
                                         >
-                                            {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                                            Envoyer
+                                            {actionIA === 'Ajustement du texte'
+                                                ? <EnCours label="Ajustement…" />
+                                                : <><Send className="w-3.5 h-3.5" /> Envoyer</>}
                                         </button>
                                     </div>
                                     <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1.5">&#8984;+Entrée pour envoyer</p>
@@ -1041,8 +1067,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 disabled={isGenerating}
                                                 className="flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium shadow-md transition-all disabled:opacity-50"
                                             >
-                                                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                                Générer les slides
+                                                {actionIA === 'Slides du carrousel'
+                                                    ? <EnCours label="Production des slides…" taille="md" />
+                                                    : <><Sparkles className="w-4 h-4" /> Générer les slides</>}
                                             </button>
                                             <button
                                                 onClick={() => onTabChange('brouillon')}
