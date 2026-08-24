@@ -21,7 +21,8 @@
 > (§3.5.1) ; un tour vide ne part plus chez un fournisseur (§3.5) ; les
 > adaptateurs reprennent une fois sur un échec passager (§5.2) ; la relecture à
 > froid se relit depuis le journal, datée et signée (§2.6) ; le format d'une
-> publication est résolu et non comparé, et exigé avant création (§6.2).
+> publication est résolu et non comparé, et exigé avant création (§6.2) ; les
+> publications d'une série naissent en Brouillon (§6.3).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -751,6 +752,14 @@ Un seul écran, deux portes d'entrée : « Décliner » depuis un contenu Prêt 
 
 **Atomicité** : le lot est créé dans une transaction D1. Six contenus créés ou zéro,
 jamais une série à moitié peuplée.
+
+**Les publications naissent en `Brouillon`, pas en `Idée` — NORMATIF.** L'étape Idée sert
+à décider ce qu'on fait d'une intuition : son format, son angle, son objectif, et
+faut-il l'analyser. Pour une publication de série, tout cela est déjà tranché — par
+l'Éclateur, en voyant l'ensemble (§6.2), et le format est exigé avant création. Il ne
+reste rien à faire à cette étape : c'était un passage obligé sans travail à l'intérieur.
+
+Elles arrivent donc dans « En cours », prêtes pour l'Atelier, avec `analyzed_at` posé.
 
 ### 6.4 L'anti-répétition — NORMATIF
 

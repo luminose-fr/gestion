@@ -681,7 +681,16 @@ function App() {
           // casserait l'équilibre qu'il vient de construire — ils arrivent donc
           // analysés, et « Analyser tout » ne les reprend pas.
           analyzedAt: ts,
-          status: ContentStatus.IDEA,
+          /**
+           * Directement en Brouillon, pas en Idée.
+           *
+           * L'étape Idée sert à décider ce qu'on fait d'une intuition : format,
+           * angle, objectif, et faut-il l'analyser. Pour une publication de
+           * série, TOUT cela est déjà tranché — par l'Éclateur, en voyant
+           * l'ensemble, et le format est désormais exigé avant création. Il ne
+           * reste rien à y faire : c'était une étape de passage, pas de travail.
+           */
+          status: ContentStatus.DRAFTING,
       })));
       const next = sortByLastEditedDesc([...created, ...items]);
       setItems(next);
