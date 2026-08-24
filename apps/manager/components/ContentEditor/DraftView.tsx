@@ -63,6 +63,8 @@ interface DraftViewProps {
 
     // Lecteur Froid
     coldRead: ColdReadReport | null;
+    /** Quand et par qui — un rapport repris du journal n'est pas une relecture d'à l'instant. */
+    coldReadMeta?: { at: number; modelLabel: string } | null;
     onDismissColdRead: () => void;
     onRunColdRead: () => void;
 
@@ -77,7 +79,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
     coachSession, serieContext,
     onChangeStatus, onSave, isGenerating,
     aiModels, activeModelId, onCoachMessage, onCoachValidate, onCoachReopen, onCoachReset,
-    coldRead, onDismissColdRead, onRunColdRead,
+    coldRead, coldReadMeta, onDismissColdRead, onRunColdRead,
     activeTab, onTabChange
 }) => {
 
@@ -224,6 +226,16 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         <X className="w-3.5 h-3.5" />
                     </button>
                 </div>
+
+                {/* La date n'est pas décorative : le brouillon a pu changer depuis,
+                    et ce rapport juge le texte tel qu'il était ce jour-là. */}
+                {coldReadMeta && (
+                    <p className="text-[10px] text-cyan-700/60 dark:text-cyan-300/60 -mt-1">
+                        Relecture du {new Date(coldReadMeta.at).toLocaleString('fr-FR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                        })} par {coldReadMeta.modelLabel} — relancez-la si le texte a changé depuis.
+                    </p>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-cyan-900 dark:text-cyan-100/80">
                     {coldRead.lecture_naive?.sujet && (

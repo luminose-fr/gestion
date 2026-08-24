@@ -217,10 +217,15 @@ export const resetCoach = (contentId: string) =>
 
 // ── Journal des générations (SPEC §2.6) ──────────────────────────────────
 
-export const fetchGenerations = (contentId: string, kind?: string) =>
-  api<{ generations: Generation[] }>(
-    `/contents/${contentId}/generations${kind ? `?kind=${kind}` : ''}`
+export const fetchGenerations = (contentId: string, kind?: string, limit?: number) => {
+  const q = new URLSearchParams();
+  if (kind) q.set('kind', kind);
+  if (limit) q.set('limit', String(limit));
+  const suffixe = q.toString();
+  return api<{ generations: Generation[] }>(
+    `/contents/${contentId}/generations${suffixe ? `?${suffixe}` : ''}`
   );
+};
 
 /**
  * Journalise une production IA. Avec `apply`, écrit aussi la colonne visée —

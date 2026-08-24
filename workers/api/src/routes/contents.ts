@@ -265,11 +265,21 @@ contents.delete('/:id/coach', async (c) => {
  * `rowid` est monotone à l'insertion.
  */
 contents.get('/:id/generations', async (c) => {
-  const kind = new URL(c.req.url).searchParams.get('kind');
+  const params = new URL(c.req.url).searchParams;
+  const kind = params.get('kind');
+
+  /**
+   * Une borne, parce qu'un `payload` est un brouillon entier : trente
+   * générations font des centaines de kilo-octets pour une question qui n'en
+   * demandait souvent qu'une (« la dernière relecture à froid »).
+   */
+  const demande = Number(params.get('limit'));
+  const limite = Number.isFinite(demande) && demande > 0 ? Math.min(demande, 200) : 50;
+
   const sql = kind
-    ? 'SELECT * FROM generations WHERE content_id = ? AND kind = ? ORDER BY created_at DESC, rowid DESC'
-    : 'SELECT * FROM generations WHERE content_id = ? ORDER BY created_at DESC, rowid DESC';
-  const bindings = kind ? [c.req.param('id'), kind] : [c.req.param('id')];
+    ? 'SELECT * FROM generations WHERE content_id = ? AND kind = ? ORDER BY created_at DESC, rowid DESC LIMIT ?'
+    : 'SELECT * FROM generations WHERE content_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?';
+  const bindings = kind ? [c.req.param('id'), kind, limite] : [c.req.param('id'), limite];
 
   const { results } = await c.env.DB.prepare(sql).bind(...bindings).all();
   return c.json({ generations: results.map(rowToGeneration) });

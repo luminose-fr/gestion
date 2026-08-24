@@ -357,6 +357,22 @@ describe('Lecteur froid — panneau', () => {
             />
         );
 
+    it('affiche la provenance d’un rapport repris du journal', () => {
+        const { container } = monte({
+            coldReadMeta: { at: new Date('2026-08-24T14:32:00').getTime(), modelLabel: 'Claude Fable 5' },
+        });
+        expect(container.textContent).toContain('Relecture du 24/08/2026');
+        expect(container.textContent).toContain('par Claude Fable 5');
+        // La mise en garde compte autant que la date : le texte a pu changer depuis.
+        expect(container.textContent).toContain('relancez-la si le texte a changé');
+    });
+
+    it('se passe de provenance quand elle manque', () => {
+        const { container } = monte();
+        expect(container.textContent).toContain('Lecteur froid');
+        expect(container.textContent).not.toContain('Relecture du');
+    });
+
     it('se monte avec et sans rapport', () => {
         expect(() => monte({}, null)).not.toThrow();
         cleanup();

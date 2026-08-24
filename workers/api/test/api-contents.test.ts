@@ -180,6 +180,60 @@ describe('création en lot', () => {
 });
 
 /**
+ * Le journal des productions (SPEC §2.6).
+ *
+ * Ce qui compte ici : la relecture à froid est la SEULE production IA qui ne
+ * vise aucune colonne du contenu. Le journal est donc son unique domicile — et
+ * la route doit savoir en rendre une seule ligne sans tout charger.
+ */
+describe('journal des productions', () => {
+  const journalise = (id: string, kind: string, payload: string) =>
+    post(`/api/contents/${id}/generations`, {
+      kind, modelId: 'm1', modelLabel: 'Claude Fable 5', payload,
+    });
+
+  it('rend la dernière relecture à froid, et elle seule', async () => {
+    const c = await createContent();
+    await journalise(c.id, 'cold_read', '{"lecture_naive":{"sujet":"ancienne"}}');
+    await journalise(c.id, 'draft', '{"body":"un brouillon"}');
+    await journalise(c.id, 'cold_read', '{"lecture_naive":{"sujet":"la plus récente"}}');
+
+    const res = await call(`/api/contents/${c.id}/generations?kind=cold_read&limit=1`);
+    const { generations } = await res.json() as any;
+
+    expect(generations).toHaveLength(1);
+    expect(generations[0].payload).toContain('la plus récente');
+    expect(generations[0].modelLabel).toBe('Claude Fable 5');
+  });
+
+  /** Un payload est un brouillon entier : sans borne, trente lignes font des centaines de Ko. */
+  it('borne ce qu’elle rend, et plafonne ce qu’on lui demande', async () => {
+    const c = await createContent();
+    for (let i = 0; i < 5; i++) await journalise(c.id, 'draft', `{"n":${i}}`);
+
+    const deux = await (await call(`/api/contents/${c.id}/generations?limit=2`)).json() as any;
+    expect(deux.generations).toHaveLength(2);
+
+    // Une demande absurde retombe sur le plafond, pas sur une erreur.
+    const enorme = await (await call(`/api/contents/${c.id}/generations?limit=99999`)).json() as any;
+    expect(enorme.generations).toHaveLength(5);
+
+    // Et une demande invalide retombe sur la valeur par défaut.
+    const bancale = await (await call(`/api/contents/${c.id}/generations?limit=abc`)).json() as any;
+    expect(bancale.generations).toHaveLength(5);
+  });
+
+  it('sans borne demandée, rend du plus récent au plus ancien', async () => {
+    const c = await createContent();
+    await journalise(c.id, 'draft', '{"n":1}');
+    await journalise(c.id, 'draft', '{"n":2}');
+
+    const { generations } = await (await call(`/api/contents/${c.id}/generations`)).json() as any;
+    expect(generations[0].payload).toContain('"n":2');
+  });
+});
+
+/**
  * La session Coach (SPEC §2.7).
  *
  * Ce qui compte ici : la conversation est append-only, mais l'atelier ne doit

@@ -19,7 +19,8 @@
 > réinitialiser (§2.7). Les appels IA sont visibles tant qu'ils durent et ne
 > détruisent plus ce qui les précède, et tout échec s'annonce de la même façon
 > (§3.5.1) ; un tour vide ne part plus chez un fournisseur (§3.5) ; les
-> adaptateurs reprennent une fois sur un échec passager (§5.2).
+> adaptateurs reprennent une fois sur un échec passager (§5.2) ; la relecture à
+> froid se relit depuis le journal, datée et signée (§2.6).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -208,6 +209,26 @@ Ce que ça règle, et qui n'est pas décoratif :
 `model_label` est figé à l'écriture : si le modèle est supprimé du catalogue, la
 provenance survit.
 
+**Le journal est le seul domicile de la relecture à froid — NORMATIF.** Toutes les
+autres productions atterrissent dans une colonne de `contents` : la rédaction dans
+`draft`, les slides dans `slides`, le brief dans `coach_brief`, l'analyse dans
+`verdict`/`strategic_angle`. La relecture à froid ne vise AUCUNE colonne — c'est un
+jugement porté sur le texte, pas une version du texte.
+
+Elle était donc journalisée sans être jamais relue, et le code affirmait même
+« éphémère, non persisté » là où elle l'était depuis le début. Fermer le panneau, ou le
+voir disparaître sur un échec, revenait à perdre un rapport qui dormait en base.
+
+L'éditeur reprend donc la dernière ligne `cold_read` à l'ouverture, en UNE requête
+(`?kind=cold_read&limit=1`), et affiche **quand** et **par quel modèle** — un rapport
+d'hier ne doit pas se faire passer pour un jugement du texte d'aujourd'hui. Un échec
+d'écriture du journal se voit à l'écran : sans cette ligne, le rapport ne survivra pas à
+la fermeture, et c'est précisément ce qu'on répare.
+
+`GET /contents/:id/generations` accepte `limit` (défaut 50, plafond 200). Sans borne, la
+route rendait tout : un `payload` est un brouillon entier, trente lignes font des
+centaines de kilo-octets pour une question qui n'en demandait qu'une.
+
 Volume : quelques kilo-octets par génération, quelques générations par contenu. Non
 significatif à cette échelle ; si cela changeait, une purge au-delà des N dernières par
 couple (contenu, nature) suffirait.
@@ -320,9 +341,12 @@ DELETE /api/contents/:id/coach             réinitialise la session (§2.7)
 ### 3.2.2 Journal des productions (§2.6)
 
 ```
-GET    /api/contents/:id/generations?kind=draft   historique, du plus récent au plus ancien
-POST   /api/contents/:id/generations/:genId/revert   réécrit la colonne cible
+GET    /api/contents/:id/generations?kind=&limit=  historique, du plus récent au plus ancien
+POST   /api/contents/:id/generations/:genId/revert réécrit la colonne cible
 ```
+
+`limit` vaut 50 par défaut et plafonne à 200. La borne n'est pas cosmétique : un
+`payload` est un brouillon entier.
 
 Une génération n'est jamais modifiée ni supprimée par l'application : elle est un fait
 daté. `revert` **ajoute** une ligne dont la charge reprend celle visée, plutôt que de

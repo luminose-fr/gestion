@@ -114,10 +114,48 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           .catch((e) => console.error('Chargement de la session Coach :', e));
       return () => { annule = true; };
   }, [item?.id]);
+
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Rapport du Lecteur Froid (relecture "yeux d'un inconnu") — éphémère, non persisté
+  /**
+   * Rapport du Lecteur Froid. Il EST journalisé (`kind: 'cold_read'`) depuis
+   * toujours — mais rien ne le relisait, et le commentaire d'origine affirmait
+   * ici « éphémère, non persisté ». Fermer le panneau, ou le voir disparaître
+   * sur un échec, revenait donc à perdre un rapport qui était en base.
+   *
+   * `provenance` accompagne le rapport restauré : une relecture d'hier ne doit
+   * pas se faire passer pour un jugement du texte d'aujourd'hui.
+   */
   const [coldRead, setColdRead] = useState<ColdReadReport | null>(null);
+  const [coldReadMeta, setColdReadMeta] = useState<{ at: number; modelLabel: string } | null>(null);
+
+  /**
+   * La dernière relecture à froid, reprise du journal à l'ouverture. Une seule
+   * ligne demandée : c'est la seule production IA qui ne vise aucune colonne du
+   * contenu, donc la seule qui n'avait aucun chemin de retour à l'écran.
+   */
+  useEffect(() => {
+      if (!item?.id) { setColdRead(null); setColdReadMeta(null); return; }
+      let annule = false;
+      setColdRead(null);
+      setColdReadMeta(null);
+      Api.fetchGenerations(item.id, 'cold_read', 1)
+          .then(({ generations }) => {
+              const derniere = generations?.[0];
+              if (annule || !derniere) return;
+              try {
+                  const rapport = JSON.parse(derniere.payload);
+                  if (rapport?.lecture_naive) {
+                      setColdRead(rapport as ColdReadReport);
+                      setColdReadMeta({ at: derniere.createdAt, modelLabel: derniere.modelLabel });
+                  }
+              } catch {
+                  // Un rapport illisible en base ne doit pas empêcher d'ouvrir le contenu.
+              }
+          })
+          .catch((e) => console.warn('Dernière relecture à froid non relue :', e));
+      return () => { annule = true; };
+  }, [item?.id]);
 
   // Timer ref pour auto-reset du saveStatus
   const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,6 +181,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             setEditedItem({ ...item });
             setIsGenerating(false);
             setColdRead(null);
+            setColdReadMeta(null);
             setLastGeneration(null);
             setSlidesStale(false);
             setSaveError(null);
@@ -551,12 +590,21 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const report = JSON.parse(extractJsonPayload(responseText));
           if (isMountedRef.current && report && report.lecture_naive) {
               setColdRead(report as ColdReadReport);
+              setColdReadMeta({ at: Date.now(), modelLabel: modelLabel(modeleRelecture) });
               // Journalisée sans être appliquée : une relecture ne vise aucune
               // colonne, mais c'est un fait daté qu'on veut pouvoir relire.
               Api.recordGeneration(item.id, {
                   kind: 'cold_read', modelId: modeleRelecture || null, modelLabel: modelLabel(modeleRelecture),
                   payload: JSON.stringify(report),
-              }).catch((e) => console.warn('Relecture non journalisée :', e));
+              }).catch((e) => {
+                  // Sans cette ligne en base, le rapport ne survit pas à la
+                  // fermeture du panneau : c'est exactement la perte qu'on répare.
+                  console.warn('Relecture non journalisée :', e);
+                  if (isMountedRef.current) setSaveError(
+                      "La relecture à froid n'a pas pu être enregistrée : elle disparaîtra en quittant ce contenu."
+                  );
+                  triggerSaveStatus('error');
+              });
           }
       } catch (e) {
           console.warn('Lecture froide indisponible :', e);
@@ -568,6 +616,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       void (async () => {
           setIsGenerating(true);
           setColdRead(null);
+          setColdReadMeta(null);
           try { await executeColdRead(editedItem); }
           finally { if (isMountedRef.current) setIsGenerating(false); }
       })();
@@ -606,7 +655,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       const base = itemArg ?? editedItem;
       if (!base) return;
       setIsGenerating(true);
+      // Une rédaction neuve périme la relecture : elle jugeait le texte d'avant.
       setColdRead(null);
+      setColdReadMeta(null);
       try {
           const actionConfig = AI_ACTIONS.DRAFT_CONTENT;
           // Le contexte de série n'arrive qu'au moment de rédiger : c'est là
@@ -1167,7 +1218,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     activeTab={activeStep}
                     onTabChange={onStepChange}
                     coldRead={coldRead}
-                    onDismissColdRead={() => setColdRead(null)}
+                    coldReadMeta={coldReadMeta}
+                    onDismissColdRead={() => { setColdRead(null); setColdReadMeta(null); }}
                     onRunColdRead={triggerColdRead}
                 />
             )}
