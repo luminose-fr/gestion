@@ -18,7 +18,8 @@
 > L'atelier du Coach cesse d'être un aller sans retour : rouvrir et
 > réinitialiser (§2.7). Les appels IA sont visibles tant qu'ils durent et ne
 > détruisent plus ce qui les précède, et tout échec s'annonce de la même façon
-> (§3.5.1) ; les adaptateurs reprennent une fois sur un échec passager (§5.2).
+> (§3.5.1) ; un tour vide ne part plus chez un fournisseur (§3.5) ; les
+> adaptateurs reprennent une fois sur un échec passager (§5.2).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -355,6 +356,21 @@ POST   /api/ai/test                 { apiCode, provider } → sonde un code, §5
 
 Le Worker résout `modelId` en ligne de la table `ai_models`, choisit l'adaptateur d'après
 `provider`, et appelle le fournisseur. **Le front ne connaît aucun fournisseur.**
+
+**Au moins un message doit porter du CONTENU — NORMATIF.** Pas seulement exister. Une
+conversation d'un unique tour vide passait la frontière et arrivait chez le fournisseur,
+qui l'écartait et se retrouvait avec zéro message : « messages: at least one message is
+required », renvoyé de trois couches plus loin et en anglais.
+
+Trois actions étaient dans ce cas — Ajustement du texte, Slides du carrousel, Prompts
+d'image — parce que toute leur matière tient dans le prompt système. 1min.ai ne l'avait
+jamais signalé : il aplatit la conversation en un prompt unique, où un tour vide ne se
+voit pas. Le défaut n'est apparu qu'en changeant de fournisseur.
+
+Ces actions envoient donc un tour qui NOMME LA TÂCHE — « Applique l'ajustement
+demandé. » — sans porter de consigne, comme le « Relis ce contenu. » du Lecteur froid le
+faisait déjà. Et le schéma refuse le reste ici, en français, plutôt que de laisser un
+tiers le diagnostiquer.
 
 ### 3.5.1 Ce que l'écran montre d'un appel IA — NORMATIF
 

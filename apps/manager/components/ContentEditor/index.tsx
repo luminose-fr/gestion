@@ -349,6 +349,22 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   // --- AI LOGIC HELPERS ---
 
   /**
+   * Le tour utilisateur des actions dont TOUTE la matière est dans le prompt
+   * système. Il ne peut pas être vide : Anthropic écarte un message sans
+   * contenu, et OpenRouter transmet alors une conversation de zéro message —
+   * « messages: at least one message is required ». 1min.ai ne l'avait jamais
+   * signalé parce qu'il aplatit tout en un prompt unique.
+   *
+   * Ces phrases ne portent aucune consigne : elles nomment la tâche, comme le
+   * « Relis ce contenu. » du Lecteur froid le faisait déjà.
+   */
+  const TOUR_UTILISATEUR = {
+      ADJUST_CONTENT: 'Applique l’ajustement demandé.',
+      GENERATE_CARROUSEL_SLIDES: 'Produis les slides.',
+      ADJUST_DZINE_PROMPTS: 'Ajuste les prompts d’image.',
+  } as const;
+
+  /**
    * Le point de passage UNIQUE de tous les appels IA de l'éditeur — et donc le
    * seul endroit où poser le témoin qui les rend visibles. L'action est passée
    * explicitement : sans elle le bandeau ne pourrait dire que « ça travaille »,
@@ -575,7 +591,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const adjustConfig = AI_ACTIONS.ADJUST_CONTENT;
           const systemInstruction = adjustConfig.getSystemInstruction(undefined, result, instruction);
-          const responseText = await callAI('ADJUST_CONTENT', modelFor('ADJUST_CONTENT'), systemInstruction, "", adjustConfig.generationConfig);
+          const responseText = await callAI('ADJUST_CONTENT', modelFor('ADJUST_CONTENT'), systemInstruction, TOUR_UTILISATEUR.ADJUST_CONTENT, adjustConfig.generationConfig);
           const adjusted = parseDraftResponse(responseText);
           // On garde la version ajustée même si un léger dépassement subsiste (une seule passe)
           result = appendSignatureSlide(adjusted, SIGNATURE_SLIDE);
@@ -690,7 +706,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const modeleSlides = modelFor('GENERATE_CARROUSEL_SLIDES');
-          const responseText = await callAI('GENERATE_CARROUSEL_SLIDES', modeleSlides, systemInstruction, "", actionConfig.generationConfig);
+          const responseText = await callAI('GENERATE_CARROUSEL_SLIDES', modeleSlides, systemInstruction, TOUR_UTILISATEUR.GENERATE_CARROUSEL_SLIDES, actionConfig.generationConfig);
 
           const cleaned = sanitizeSlidesResponse(responseText);
 
@@ -745,7 +761,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               'ADJUST_CONTENT',
               modeleAjustement,
               systemInstruction,
-              "", // le contenu est déjà dans le system prompt
+              TOUR_UTILISATEUR.ADJUST_CONTENT,
               actionConfig.generationConfig
           );
 
@@ -802,7 +818,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               'ADJUST_DZINE_PROMPTS',
               modelePrompts,
               systemInstruction,
-              "", // les inputs sont déjà dans le system prompt
+              TOUR_UTILISATEUR.ADJUST_DZINE_PROMPTS,
               actionConfig.generationConfig
           );
 

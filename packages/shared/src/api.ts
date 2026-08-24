@@ -127,7 +127,21 @@ export const ChatRequestSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string(),
-  })).min(1),
+  }))
+    .min(1)
+    /**
+     * Au moins un message doit porter du CONTENU, pas seulement exister.
+     *
+     * Une conversation d'un seul message vide passait cette frontière et
+     * arrivait chez le fournisseur, qui l'écartait et se retrouvait avec zéro
+     * message : « messages: at least one message is required », renvoyé depuis
+     * trois couches plus loin. Le refuser ici rend le diagnostic immédiat, et
+     * dans la bonne langue.
+     */
+    .refine(
+      (messages) => messages.some(m => m.content.trim().length > 0),
+      { message: 'Au moins un message doit porter du contenu : un tour vide est écarté par les fournisseurs.' },
+    ),
   json: z.boolean().optional(),
 });
 export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;

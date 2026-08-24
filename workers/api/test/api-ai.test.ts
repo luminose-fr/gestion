@@ -134,6 +134,34 @@ describe('refus explicites', () => {
     expect((await call('/api/ai/chat', { modelId: 'm-onemin', messages: [] })).status).toBe(400);
   });
 
+  /**
+   * Le 24/08/2026, « Appliquer les corrections » envoyait un unique tour vide —
+   * toute la matière était dans le prompt système. Anthropic écarte un message
+   * sans contenu, OpenRouter transmettait donc une conversation de zéro
+   * message, et l'erreur revenait de trois couches plus loin, en anglais.
+   */
+  it('refuse un tour vide, plutôt que de le laisser partir chez le fournisseur', async () => {
+    await seedModel('m-openrouter', 'openrouter');
+
+    const res = await call('/api/ai/chat', {
+      modelId: 'm-openrouter', system: 'Tout est ici.', messages: [{ role: 'user', content: '   ' }],
+    });
+
+    expect(res.status).toBe(400);
+    // Et rien n'est parti : le refus est le nôtre, pas celui d'un tiers.
+    expect(outbound).toHaveLength(0);
+  });
+
+  it('un tour vide passe s’il accompagne un tour qui porte du contenu', async () => {
+    await seedModel('m-onemin', 'onemin');
+
+    const res = await call('/api/ai/chat', {
+      modelId: 'm-onemin',
+      messages: [{ role: 'user', content: 'Une vraie question' }, { role: 'assistant', content: '' }],
+    });
+    expect(res.status).toBe(200);
+  });
+
   it('exige un jeton de session', async () => {
     const res = await app.fetch(new Request('https://api.test/api/ai/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
