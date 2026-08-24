@@ -12,6 +12,7 @@ import { getSessionToken } from '../auth';
 import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
+  ModeSuppressionSerie,
 } from '@luminose/shared';
 
 /**
@@ -107,8 +108,13 @@ export const createSerie = (input: Partial<Serie>) =>
 export const updateSerie = (id: string, input: Partial<Serie>) =>
   api<{ serie: Serie }>(`/series/${id}`, { method: 'PATCH', ...body(input) });
 
-export const deleteSerie = (id: string) =>
-  api<{ deleted: boolean; detachedContents: number }>(`/series/${id}`, { method: 'DELETE' });
+/**
+ * `contenus` décide du sort des publications : détachées (défaut) ou supprimées
+ * avec la série (SPEC §3.3). Le défaut est le geste sûr — la cascade se demande.
+ */
+export const deleteSerie = (id: string, contenus: ModeSuppressionSerie = 'detacher') =>
+  api<{ deleted: boolean; detachedContents: number; deletedContents: number }>(
+    `/series/${id}?contenus=${contenus}`, { method: 'DELETE' });
 
 // ── Modèles IA ───────────────────────────────────────────────────────────
 

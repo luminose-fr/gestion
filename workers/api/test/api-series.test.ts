@@ -87,6 +87,80 @@ describe('séries', () => {
     expect(items[0].serieId).toBeNull();
   });
 
+  /**
+   * La cascade (SPEC §3.3). Ce qui est protégé ici : le DÉFAUT reste le geste
+   * sûr, et le contenu pilier n'est jamais emporté — il préexiste à la série
+   * qu'il a fait naître.
+   */
+  it('sans le demander, une suppression ne détruit rien : c’est le détachement', async () => {
+    const serie = await createSerie();
+    await post('/api/contents', { title: 'Enfant', serieId: serie.id, seriePosition: 1 });
+
+    const res = await json(await call(`/api/series/${serie.id}`, { method: 'DELETE' }));
+    expect(res).toMatchObject({ deleted: true, detachedContents: 1, deletedContents: 0 });
+
+    const { items } = await json(await call('/api/contents'));
+    expect(items).toHaveLength(1);
+  });
+
+  it('détacher retire AUSSI le rang — une place dans une progression disparue n’en est pas une', async () => {
+    const serie = await createSerie();
+    await post('/api/contents', { title: 'Enfant', serieId: serie.id, seriePosition: 1 });
+
+    await call(`/api/series/${serie.id}?contenus=detacher`, { method: 'DELETE' });
+
+    const { items } = await json(await call('/api/contents'));
+    expect(items[0].serieId).toBeNull();
+    expect(items[0].seriePosition).toBeNull();
+  });
+
+  it('« supprimer » emporte les publications avec la série', async () => {
+    const serie = await createSerie();
+    await post('/api/contents', { title: 'Première', serieId: serie.id, seriePosition: 1 });
+    await post('/api/contents', { title: 'Deuxième', serieId: serie.id, seriePosition: 2 });
+
+    const res = await json(await call(`/api/series/${serie.id}?contenus=supprimer`, { method: 'DELETE' }));
+    expect(res).toMatchObject({ deleted: true, detachedContents: 0, deletedContents: 2 });
+
+    const { items } = await json(await call('/api/contents'));
+    expect(items).toHaveLength(0);
+  });
+
+  it('la cascade n’emporte JAMAIS le contenu pilier', async () => {
+    const article = (await json(await post('/api/contents', { title: 'Article sur le stress' }))).content;
+    const serie = await createSerie({ sourceContentId: article.id });
+    await post('/api/contents', { title: 'Déclinaison', serieId: serie.id, seriePosition: 1 });
+
+    const res = await json(await call(`/api/series/${serie.id}?contenus=supprimer`, { method: 'DELETE' }));
+    expect(res.deletedContents).toBe(1);
+
+    const { items } = await json(await call('/api/contents'));
+    expect(items.map((i: any) => i.title)).toEqual(['Article sur le stress']);
+  });
+
+  it('ne touche pas aux publications d’une AUTRE série', async () => {
+    const a = await createSerie({ titre: 'A' });
+    const b = await createSerie({ titre: 'B' });
+    await post('/api/contents', { title: 'Chez A', serieId: a.id });
+    await post('/api/contents', { title: 'Chez B', serieId: b.id });
+
+    await call(`/api/series/${a.id}?contenus=supprimer`, { method: 'DELETE' });
+
+    const { items } = await json(await call('/api/contents'));
+    expect(items.map((i: any) => i.title)).toEqual(['Chez B']);
+  });
+
+  it('refuse un mode de suppression inventé', async () => {
+    const serie = await createSerie();
+    expect((await call(`/api/series/${serie.id}?contenus=pulveriser`, { method: 'DELETE' })).status).toBe(400);
+  });
+
+  it('une série déjà supprimée reste introuvable, quel que soit le mode', async () => {
+    const serie = await createSerie();
+    await call(`/api/series/${serie.id}`, { method: 'DELETE' });
+    expect((await call(`/api/series/${serie.id}?contenus=supprimer`, { method: 'DELETE' })).status).toBe(404);
+  });
+
   it('déclare un contenu pilier — le cas des déclinaisons', async () => {
     const article = (await json(await post('/api/contents', { title: 'Article sur le stress' }))).content;
     const serie = await createSerie({ sourceContentId: article.id });

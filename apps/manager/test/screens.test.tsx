@@ -26,6 +26,7 @@ import { SocialIdeasView } from '../components/Views/SocialIdeasView';
 import { SocialGridView, TRI_CONTENUS_DEFAUT } from '../components/Views/SocialGridView';
 import { SeriesView, TRI_SERIES_DEFAUT } from '../components/Series/SeriesView';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
+import { ConfirmSuppressionSerie } from '../components/Series/ConfirmSuppressionSerie';
 import { CoachChat } from '../components/CoachChat';
 import { DraftView } from '../components/ContentEditor/DraftView';
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
@@ -521,6 +522,67 @@ describe('séries', () => {
 
     fireEvent.click(getByText('Créée le'));
     expect(demandes[1]).toEqual({ colonne: 'creele', sens: 'asc' });
+  });
+
+  /**
+   * La modale de suppression : retour anticipé, donc montée dans les DEUX
+   * états. Et surtout, elle doit rendre au choix ce qu'il vaut — c'était toute
+   * la raison de la remplacer.
+   */
+  describe('supprimer une série', () => {
+    const props = {
+      titre: 'Le transpersonnel, sans folklore',
+      nbPublications: 3,
+      onClose: noop,
+      onConfirm: noop,
+    };
+
+    it('ne rend rien tant qu’elle est fermée', () => {
+      const { container } = render(<ConfirmSuppressionSerie {...props} isOpen={false} />);
+      expect(container.textContent).toBe('');
+    });
+
+    it('annonce le nombre de publications et offre les deux gestes', () => {
+      const { container } = render(<ConfirmSuppressionSerie {...props} isOpen />);
+      expect(container.textContent).toContain('3 publications');
+      expect(container.textContent).toContain('Supprimer, garder les publications');
+      expect(container.textContent).toContain('Tout supprimer');
+    });
+
+    /**
+     * Deux rendus distincts, pas un `rerender` : pendant qu'une suppression
+     * tourne, les DEUX boutons sont désactivés — c'est voulu, et ça rendrait le
+     * second clic muet sur la même instance.
+     */
+    it('rend le mode choisi, et pas l’autre', () => {
+      const choix: string[] = [];
+
+      const garder = render(<ConfirmSuppressionSerie {...props} isOpen onConfirm={m => { choix.push(m); }} />);
+      fireEvent.click(garder.getByText('Supprimer, garder les publications'));
+      expect(choix).toEqual(['detacher']);
+      cleanup();
+
+      const tout = render(<ConfirmSuppressionSerie {...props} isOpen onConfirm={m => { choix.push(m); }} />);
+      fireEvent.click(tout.getByText(/Tout supprimer/));
+      expect(choix).toEqual(['detacher', 'supprimer']);
+    });
+
+    /** Une série vide n'a rien à cascader : le choix n'a pas lieu d'être posé. */
+    it('sur une série vide, un seul geste est proposé', () => {
+      const { container } = render(<ConfirmSuppressionSerie {...props} isOpen nbPublications={0} />);
+      expect(container.textContent).toContain('aucune publication');
+      expect(container.textContent).toContain('Supprimer la série');
+      expect(container.textContent).not.toContain('Tout supprimer');
+    });
+
+    /** Le pilier préexiste à la série : sans cette phrase, « tout supprimer » fait peur à raison. */
+    it('dit que le contenu pilier ne part pas avec la série', () => {
+      const { container } = render(
+        <ConfirmSuppressionSerie {...props} isOpen titrePilier="Article sur le stress" />
+      );
+      expect(container.textContent).toContain('Article sur le stress');
+      expect(container.textContent).toContain('ne sera pas supprimé');
+    });
   });
 
   const planProps = {

@@ -170,6 +170,22 @@ export const SetActionModelSchema = z.object({
   modelId: z.string().trim().min(1).nullable(),
 });
 
+// ── Suppression d'une série ──────────────────────────────────────────────
+
+/**
+ * Ce qu'on fait des publications quand la série disparaît.
+ *
+ * `detacher` est le DÉFAUT, et il le reste : supprimer un regroupement ne doit
+ * jamais emporter le travail qu'il regroupait par accident. La cascade se
+ * demande explicitement.
+ */
+export const MODES_SUPPRESSION_SERIE = ['detacher', 'supprimer'] as const;
+export type ModeSuppressionSerie = (typeof MODES_SUPPRESSION_SERIE)[number];
+
+export const DeleteSerieQuerySchema = z.object({
+  contenus: z.enum(MODES_SUPPRESSION_SERIE).default('detacher'),
+});
+
 // ── État des listes (tri et filtre retenus) ──────────────────────────────
 
 /**

@@ -361,8 +361,27 @@ GET    /api/series?since=<ms>
 GET    /api/series/:id              série + ses contenus (une seule requête, jointure)
 POST   /api/series
 PATCH  /api/series/:id
-DELETE /api/series/:id              suppression logique ; les contenus survivent, détachés
+DELETE /api/series/:id?contenus=detacher|supprimer
 ```
+
+**Supprimer une série pose une question, et le défaut est le geste sûr — NORMATIF.**
+
+`contenus=detacher` (le DÉFAUT, appliqué quand le paramètre est absent) laisse les
+publications vivre : elles perdent leur rattachement **et leur rang**, rien d'autre. Un
+rang qui désigne une place dans une progression disparue n'en est pas un. Leur `angle`
+reste : c'est de la matière éditoriale, pas de la structure.
+
+`contenus=supprimer` les emporte avec la série. C'est le cas où la série entière était
+une fausse piste ; sans ce mode, il fallait supprimer les publications une par une avant
+de pouvoir atteindre la série.
+
+**Le contenu pilier n'est JAMAIS emporté.** Il n'a pas de `serie_id` — il préexiste à la
+série qu'il a fait naître (§6.3). Une déclinaison ratée ne détruit pas l'article dont
+elle est partie, et l'écran le dit avant de demander confirmation.
+
+Les deux modes tiennent en **2 requêtes**, dans un batch : la série et ses publications
+tombent ensemble ou pas du tout. La réponse compte les deux séparément
+(`detachedContents`, `deletedContents`), l'un des deux valant toujours zéro.
 
 ### 3.4 Modèles IA
 

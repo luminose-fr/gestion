@@ -34,7 +34,7 @@ import { SocialIdeasView, FILTRES_IDEES, type FilterId } from './components/View
 import { SocialGridView, COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT } from './components/Views/SocialGridView';
 import { SeriesView, COLONNES_SERIES, TRI_SERIES_DEFAUT } from './components/Series/SeriesView';
 import { triValide, type Tri } from './components/TriTableau';
-import type { EtatDeVue, VueId } from '@luminose/shared';
+import type { EtatDeVue, VueId, ModeSuppressionSerie } from '@luminose/shared';
 import { SeriePlanView } from './components/Series/SeriePlanView';
 
 type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'settings';
@@ -699,13 +699,22 @@ function App() {
   };
 
   /** La série disparaît, ses contenus survivent — détachés (SPEC §3.3). */
-  const handleDeleteSerie = async (serie: Serie): Promise<void> => {
+  /**
+   * `mode` décide du sort des publications (SPEC §3.3) : détachées, elles
+   * perdent leur rattachement et leur rang ; supprimées, elles quittent la
+   * liste avec la série. Le cache local suit le même sort dans la foulée —
+   * sinon la série disparaît de l'écran mais ses publications y restent
+   * jusqu'à la synchronisation suivante.
+   */
+  const handleDeleteSerie = async (serie: Serie, mode: ModeSuppressionSerie): Promise<void> => {
       try {
-          await Api.deleteSerie(serie.id);
+          await Api.deleteSerie(serie.id, mode);
           persistSeries(series.filter(s => s.id !== serie.id));
-          const detached = items.map(i => (i.serieId === serie.id ? { ...i, serieId: null } : i));
-          setItems(detached);
-          StorageService.setCachedContent(detached).catch(console.error);
+          const suivants = mode === 'supprimer'
+              ? items.filter(i => i.serieId !== serie.id)
+              : items.map(i => (i.serieId === serie.id ? { ...i, serieId: null, seriePosition: null } : i));
+          setItems(suivants);
+          StorageService.setCachedContent(suivants).catch(console.error);
           updateRoute('social', 'series');
       } catch (e: any) {
           setAlertInfo({
@@ -1290,7 +1299,7 @@ function App() {
                                         }
                                         onBack={() => updateRoute('social', 'series')}
                                         onUpdate={(patch) => handleUpdateSerie(editingSerie.id, patch)}
-                                        onDelete={() => handleDeleteSerie(editingSerie)}
+                                        onDelete={(mode) => handleDeleteSerie(editingSerie, mode)}
                                         onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
                                         onOpenContent={handleOpenSerieContent}
                                         onGeneratePlan={handleGenerateSeriePlan(editingSerie)}

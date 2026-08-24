@@ -7,7 +7,8 @@ import {
     TARGET_FORMAT_VALUES, OBJECTIF_VALUES, isTargetFormat, isObjectif,
 } from '../../types';
 import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable, isPlanEntryCreatable } from '@luminose/editorial';
-import { ConfirmModal } from '../CommonModals';
+import type { ModeSuppressionSerie } from '@luminose/shared';
+import { ConfirmSuppressionSerie } from './ConfirmSuppressionSerie';
 import { EnCours } from '../Feedback';
 
 interface SeriePlanViewProps {
@@ -18,7 +19,8 @@ interface SeriePlanViewProps {
     sourceContent: ContentItem | null;
     onBack: () => void;
     onUpdate: (patch: Partial<Serie>) => Promise<void>;
-    onDelete: () => Promise<void>;
+    /** Le sort des publications est décidé au moment de supprimer (SPEC §3.3). */
+    onDelete: (mode: ModeSuppressionSerie) => Promise<void>;
     /** Création en lot : six contenus ou zéro, jamais une série à moitié peuplée (SPEC §6.3). */
     onCreateContents: (entries: PlanSeriesEntry[]) => Promise<void>;
     onOpenContent: (item: ContentItem) => void;
@@ -437,14 +439,13 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 )}
             </div>
 
-            <ConfirmModal
+            <ConfirmSuppressionSerie
                 isOpen={confirmDelete}
+                titre={serie.titre}
+                nbPublications={contents.length}
+                titrePilier={sourceContent ? (sourceContent.title || 'Sans titre') : null}
                 onClose={() => setConfirmDelete(false)}
-                onConfirm={() => { void onDelete(); }}
-                title="Supprimer cette série ?"
-                message="Les contenus de la série ne sont pas supprimés : ils sont simplement détachés."
-                isDestructive
-                confirmLabel="Supprimer"
+                onConfirm={onDelete}
             />
         </div>
     );
