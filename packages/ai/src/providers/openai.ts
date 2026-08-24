@@ -9,6 +9,7 @@
  * Il couvre bien plus qu'OpenAI : Groq, Together, OpenRouter, Mistral et la
  * plupart des passerelles exposent la même forme. Seul `baseUrl` change.
  */
+import { avecUneReprise, ErreurFournisseur, STATUTS_PASSAGERS } from '../port';
 import type { AIProvider, ChatRequest, ChatResult, ProviderConfig, TestResult } from '../port';
 import { stripCodeFences } from '../port';
 
@@ -58,7 +59,7 @@ export const describeError = (data: any, status: number): string => {
 };
 
 export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIProvider => {
-  const call = async (payload: unknown): Promise<any> => {
+  const unAppel = async (payload: unknown): Promise<any> => {
     const res = await fetch(`${config.baseUrl ?? DEFAULT_BASE}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -73,13 +74,21 @@ export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIP
     try {
       data = JSON.parse(text);
     } catch {
-      throw new Error(`${id} a renvoyé une réponse invalide (${res.status}) : ${text.slice(0, 160)}`);
+      // Du HTML de passerelle plutôt que du JSON : c'est l'infrastructure qui
+      // parle, pas le modèle. Une seconde tentative a du sens.
+      throw new ErreurFournisseur(
+        `${id} a renvoyé une réponse invalide (${res.status}) : ${text.slice(0, 160)}`,
+        STATUTS_PASSAGERS.has(res.status),
+      );
     }
     if (!res.ok) {
-      throw new Error(`${id} : ${describeError(data, res.status)}`);
+      throw new ErreurFournisseur(`${id} : ${describeError(data, res.status)}`, STATUTS_PASSAGERS.has(res.status));
     }
     return data;
   };
+
+  const call = (payload: unknown): Promise<any> =>
+    avecUneReprise(() => unAppel(payload), config.repriseDelaiMs);
 
   /** Ici le rôle système existe vraiment : aucun aplatissement à faire. */
   const buildMessages = (req: ChatRequest) => [

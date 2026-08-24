@@ -16,7 +16,9 @@
 > délibérément différents (§5.6). Le coût, la qualité de rédaction et les forces
 > d'un modèle sont désormais déduits des mesures, plus saisis de mémoire (§5.6).
 > L'atelier du Coach cesse d'être un aller sans retour : rouvrir et
-> réinitialiser (§2.7).
+> réinitialiser (§2.7). Les appels IA sont visibles tant qu'ils durent et ne
+> détruisent plus ce qui les précède (§3.5.1) ; les adaptateurs reprennent une
+> fois sur un échec passager (§5.2).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -311,6 +313,7 @@ Le Worker ne le renvoie pas — c'est `packages/editorial` qui le produit, côt�
 ```
 POST   /api/contents/:id/coach/messages    ajoute un message (append-only)
 PATCH  /api/contents/:id/coach             statut, brief verrouillé, validation
+DELETE /api/contents/:id/coach             réinitialise la session (§2.7)
 ```
 
 ### 3.2.2 Journal des productions (§2.6)
@@ -352,6 +355,26 @@ POST   /api/ai/test                 { apiCode, provider } → sonde un code, §5
 
 Le Worker résout `modelId` en ligne de la table `ai_models`, choisit l'adaptateur d'après
 `provider`, et appelle le fournisseur. **Le front ne connaît aucun fournisseur.**
+
+### 3.5.1 Ce que l'écran montre d'un appel IA — NORMATIF
+
+Un aller-retour avec le fournisseur est **visible tant qu'il dure**, dans un bandeau qui
+nomme l'action, le persona, le modèle et le temps écoulé. Sans lui, un appel devient
+invisible dès que le bouton qui l'a déclenché disparaît — c'est exactement ce qui se
+passe au « Go Éditeur » : la validation retire le bouton, la rédaction part, et l'écran
+ne montre plus rien. « Il ne s'est rien passé » était une lecture correcte de l'écran.
+
+Le modèle y figure parce qu'on change de fournisseur et qu'on doute de son choix :
+savoir qu'« il se passe quelque chose » ne répond pas à la question posée.
+
+`callAI` est le point de passage unique de tous les appels de l'éditeur, et donc le seul
+endroit où ce témoin se pose.
+
+**Aucun résultat d'IA n'est écarté avant de savoir si la suite a abouti.** Le rapport du
+Lecteur froid partait dès le clic sur « Appliquer les corrections », sans attendre : un
+échec côté fournisseur laissait une erreur à l'écran et plus rien pour réessayer — les
+problèmes relevés et les corrections proposées étaient perdus, et c'était la seule copie
+sous les yeux. Ce qui déclenche une action IA doit donc en recevoir le verdict.
 
 ### 3.6 Budget de requêtes (contrainte du plan gratuit)
 
@@ -421,6 +444,20 @@ export interface AIProvider {
 Le port est **volontairement étroit** : pas de streaming, pas d'outils, pas de multimodal.
 Le produit n'en a pas besoin, et chaque capacité ajoutée est une capacité à réimplémenter
 pour chaque fournisseur.
+
+**Une reprise, et une seule — NORMATIF.** Les adaptateurs rejouent un appel qui a
+échoué de façon PASSAGÈRE : 408, 409, 425, 429, 5xx, ou un transport qui lâche sans
+réponse. Tout le reste — 401, 402, 404, 422, et les refus métier rendus dans un 200,
+comme le manque de crédits chez 1min.ai — est un refus **motivé** : le rejouer ne
+changerait rien et retarderait un message déjà clair.
+
+Une seule reprise, parce qu'un appel de rédaction dure déjà des dizaines de secondes et
+qu'une génération peut avoir abouti côté fournisseur avant que sa réponse se perde —
+chaque tentative supplémentaire est facturée. Deux essais couvrent le hoquet ; au-delà,
+c'est une panne, et mieux vaut le dire.
+
+Elle est née d'un fait : le 23/08/2026, un « Go Éditeur » a échoué puis fonctionné à
+l'identique la fois suivante. Aucune reprise n'existait nulle part.
 
 ### 5.3 Deux notions distinctes de « fournisseur »
 

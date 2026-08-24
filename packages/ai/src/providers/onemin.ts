@@ -12,7 +12,7 @@
  * Rien de tout cela ne doit remonter à l'appelant.
  */
 import type { AIProvider, ChatRequest, ChatResult, ChatMessage, ProviderConfig, TestResult } from '../port';
-import { stripCodeFences } from '../port';
+import { stripCodeFences, avecUneReprise, ErreurFournisseur, STATUTS_PASSAGERS } from '../port';
 
 const ENDPOINT = 'https://api.1min.ai/api/chat-with-ai';
 
@@ -87,7 +87,7 @@ const body = (model: string, prompt: string) => ({
 });
 
 export const createOneMinProvider = (config: ProviderConfig): AIProvider => {
-  const call = async (payload: unknown): Promise<any> => {
+  const unAppel = async (payload: unknown): Promise<any> => {
     const res = await fetch(config.baseUrl ?? ENDPOINT, {
       method: 'POST',
       headers: { 'API-KEY': config.apiKey, 'Content-Type': 'application/json' },
@@ -101,15 +101,22 @@ export const createOneMinProvider = (config: ProviderConfig): AIProvider => {
     } catch {
       // 1min.ai renvoie parfois du HTML d'erreur : on le dit clairement plutôt
       // que de laisser un JSON.parse échouer plus haut.
-      throw new Error(
-        `1min.ai a renvoyé une réponse invalide (${res.status}) : ${text.slice(0, 160)}`
+      throw new ErreurFournisseur(
+        `1min.ai a renvoyé une réponse invalide (${res.status}) : ${text.slice(0, 160)}`,
+        STATUTS_PASSAGERS.has(res.status),
       );
     }
     if (!res.ok) {
-      throw new Error(data?.error ?? data?.message ?? `Erreur 1min.ai (${res.status})`);
+      throw new ErreurFournisseur(
+        data?.error ?? data?.message ?? `Erreur 1min.ai (${res.status})`,
+        STATUTS_PASSAGERS.has(res.status),
+      );
     }
     return data;
   };
+
+  const call = (payload: unknown): Promise<any> =>
+    avecUneReprise(() => unAppel(payload), config.repriseDelaiMs);
 
   return {
     id: 'onemin',

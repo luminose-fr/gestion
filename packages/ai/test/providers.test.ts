@@ -291,3 +291,108 @@ describe('nettoyage des clôtures markdown', () => {
     expect(stripCodeFences('```json\n{"a":1}\n```')).toBe('{"a":1}');
   });
 });
+
+/**
+ * La reprise sur échec passager.
+ *
+ * Née d'un « Go Éditeur » qui a échoué puis fonctionné à l'identique la fois
+ * suivante. Ce qui compte ici : reprendre sur ce qui passe, et JAMAIS sur un
+ * refus motivé — réessayer un 401 ne fait que retarder un message déjà clair.
+ */
+describe('reprise sur échec passager', () => {
+  const SANS_ATTENTE = { apiKey: 'cle-de-test', repriseDelaiMs: 0 };
+
+  /** Sert les réponses dans l'ordre, une par appel. */
+  const stubSequence = (reponses: Array<{ status?: number; payload?: unknown; jette?: boolean; texte?: string }>) => {
+    const appels: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      const r = reponses[appels.length] ?? reponses[reponses.length - 1];
+      appels.push(String(url));
+      if (r.jette) throw new TypeError('Network connection lost');
+      if (r.texte !== undefined) return new Response(r.texte, { status: r.status ?? 200 });
+      return new Response(JSON.stringify(r.payload ?? OPENAI_OK), { status: r.status ?? 200 });
+    });
+    return appels;
+  };
+
+  it('reprend une fois sur un 503 et rend la réponse', async () => {
+    const appels = stubSequence([
+      { status: 503, payload: { error: { message: 'temporairement indisponible' } } },
+      { status: 200, payload: OPENAI_OK },
+    ]);
+    const res = await createOpenAIProvider(SANS_ATTENTE).chat({ model: 'gpt-5.6-sol', messages: CONVERSATION });
+
+    expect(res.text).toBe('La réponse du modèle');
+    expect(appels).toHaveLength(2);
+  });
+
+  it('reprend sur un 429 — l’encombrement passe', async () => {
+    const appels = stubSequence([{ status: 429, payload: { error: { message: 'rate limited' } } }, {}]);
+    await createOpenAIProvider(SANS_ATTENTE).chat({ model: 'm', messages: CONVERSATION });
+    expect(appels).toHaveLength(2);
+  });
+
+  it('reprend quand le transport lâche, sans réponse du tout', async () => {
+    const appels = stubSequence([{ jette: true }, { status: 200, payload: OPENAI_OK }]);
+    const res = await createOpenAIProvider(SANS_ATTENTE).chat({ model: 'm', messages: CONVERSATION });
+
+    expect(res.text).toBe('La réponse du modèle');
+    expect(appels).toHaveLength(2);
+  });
+
+  /** Le point qui distingue une reprise utile d'un simple doublement du coût. */
+  it('ne reprend JAMAIS un refus motivé', async () => {
+    for (const status of [401, 402, 404, 422]) {
+      const appels = stubSequence([{ status, payload: { error: { message: 'refus' } } }, {}]);
+      await expect(
+        createOpenAIProvider(SANS_ATTENTE).chat({ model: 'm', messages: CONVERSATION })
+      ).rejects.toThrow();
+      expect(appels).toHaveLength(1);
+    }
+  });
+
+  it('deux échecs passagers restent un échec, avec le message du fournisseur', async () => {
+    const appels = stubSequence([
+      { status: 502, payload: { error: { message: 'passerelle en vrac' } } },
+      { status: 502, payload: { error: { message: 'passerelle en vrac' } } },
+    ]);
+    await expect(
+      createOpenAIProvider(SANS_ATTENTE).chat({ model: 'm', messages: CONVERSATION })
+    ).rejects.toThrow(/passerelle en vrac/);
+    expect(appels).toHaveLength(2);
+  });
+
+  it('du HTML de passerelle vaut une reprise, pas un abandon', async () => {
+    const appels = stubSequence([
+      { status: 502, texte: '<html><body>Bad Gateway</body></html>' },
+      { status: 200, payload: OPENAI_OK },
+    ]);
+    const res = await createOpenAIProvider(SANS_ATTENTE).chat({ model: 'm', messages: CONVERSATION });
+
+    expect(res.text).toBe('La réponse du modèle');
+    expect(appels).toHaveLength(2);
+  });
+
+  it('1min.ai en profite aussi', async () => {
+    const appels = stubSequence([
+      { status: 503, payload: { error: 'service indisponible' } },
+      { status: 200, payload: ONEMIN_OK },
+    ]);
+    const res = await createOneMinProvider(SANS_ATTENTE).chat({ model: 'claude-fable-5', messages: CONVERSATION });
+
+    expect(res.text).toBe('La réponse du modèle');
+    expect(appels).toHaveLength(2);
+  });
+
+  /** Un refus métier n'est pas un code HTTP : il arrive dans un 200. */
+  it('un refus métier de 1min.ai n’est pas rejoué', async () => {
+    const appels = stubSequence([{
+      status: 200,
+      payload: { aiRecord: { status: 'FAILURE', aiRecordDetail: { resultObject: { message: 'INSUFFICIENT_CREDITS' } } } },
+    }]);
+    await expect(
+      createOneMinProvider(SANS_ATTENTE).chat({ model: 'm', messages: CONVERSATION })
+    ).rejects.toThrow(/1min\.ai a refusé/);
+    expect(appels).toHaveLength(1);
+  });
+});

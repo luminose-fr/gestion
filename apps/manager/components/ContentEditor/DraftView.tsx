@@ -34,7 +34,12 @@ interface DraftViewProps {
     // AI Handlers
     onLaunchDrafting: () => void;
     onLaunchCarrouselSlides: () => void;
-    onLaunchAdjustment: (adjustmentText: string) => void;
+    /**
+     * Rend `false` si l'ajustement a ÉCHOUÉ — le panneau du Lecteur froid en
+     * dépend pour ne pas s'effacer sur un échec. Ne rien rendre vaut succès :
+     * les appelants qui n'ont rien à décider derrière n'ont pas à s'en occuper.
+     */
+    onLaunchAdjustment: (adjustmentText: string) => void | Promise<boolean | void>;
     onLaunchPromptsAdjustment: (instruction: string, slideNumero: number | null) => void;
     /** Le brouillon a changé depuis la génération des slides */
     slidesStale?: boolean;
@@ -188,15 +193,24 @@ export const DraftView: React.FC<DraftViewProps> = ({
             : g === 'Important' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
                                 : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
 
-        const applyCorrections = () => {
+        /**
+         * Le rapport ne disparaît QU'EN CAS DE SUCCÈS.
+         *
+         * Il partait auparavant dès le clic, sans attendre : un échec côté
+         * fournisseur laissait donc une erreur à l'écran et plus rien pour
+         * réessayer — les problèmes relevés, les corrections proposées, tout
+         * était perdu. C'est la seule copie que Florent avait sous les yeux.
+         */
+        const applyCorrections = async () => {
             const corrections = problemes
                 .filter(p => p.correction_proposee)
                 .map(p => `${p.localisation ? `[${p.localisation}] ` : ''}${p.correction_proposee}`)
                 .join('\n');
-            if (corrections.trim()) {
-                onLaunchAdjustment(`Applique ces corrections issues d'une relecture à froid, sans rien changer d'autre :\n${corrections}`);
-            }
-            onDismissColdRead();
+            if (!corrections.trim()) return;
+            const abouti = await onLaunchAdjustment(
+                `Applique ces corrections issues d'une relecture à froid, sans rien changer d'autre :\n${corrections}`
+            );
+            if (abouti !== false) onDismissColdRead();
         };
 
         return (
@@ -252,7 +266,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                 <div className="flex items-center gap-2 pt-1">
                     {problemes.some(p => p.correction_proposee) && (
                         <button
-                            onClick={applyCorrections}
+                            onClick={() => { void applyCorrections(); }}
                             disabled={isGenerating}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-50"
                         >

@@ -27,6 +27,7 @@ import { SocialGridView } from '../components/Views/SocialGridView';
 import { SeriesView } from '../components/Series/SeriesView';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
 import { CoachChat } from '../components/CoachChat';
+import { DraftView } from '../components/ContentEditor/DraftView';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
 import type { AIModel, ContentItem, Serie, CoachMessage, CoachSession } from '../types';
 
@@ -301,6 +302,104 @@ describe('atelier du Coach', () => {
     expect(container.textContent).not.toContain('Réinitialiser');
     expect(container.textContent).not.toContain('Rouvrir');
   });
+});
+
+/**
+ * Le panneau du Lecteur froid.
+ *
+ * Il partait dès le clic sur « Appliquer les corrections », sans attendre le
+ * résultat. Un échec côté fournisseur laissait donc une erreur à l'écran et
+ * plus rien pour réessayer : les problèmes relevés et les corrections
+ * proposées étaient perdus, et c'était la seule copie sous les yeux.
+ */
+describe('Lecteur froid — panneau', () => {
+    const RAPPORT = {
+        lecture_naive: { sujet: 'Le piège chinois', auteur: 'un praticien', action: 'lire' },
+        controles: [{ regle: 'Zéro emoji', statut: 'OK' as const }],
+        problemes: [
+            { gravite: 'Important' as const, localisation: 'accroche',
+              probleme: 'On ne sait pas de quoi ça parle', correction_proposee: 'Nommer le piège dès la première ligne.' },
+        ],
+        verdict: 'À retoucher',
+    };
+
+    const AVEC_BROUILLON: ContentItem = {
+        ...ITEM,
+        targetFormat: 'Post Texte (Court)' as any,
+        draft: JSON.stringify({ body: 'Un brouillon rédigé.' }),
+    };
+
+    const monte = (handlers: Record<string, any> = {}, coldRead: any = RAPPORT) =>
+        render(
+            <DraftView
+                item={AVEC_BROUILLON}
+                onChange={noop}
+                onLaunchDrafting={noop}
+                onLaunchCarrouselSlides={noop}
+                onLaunchAdjustment={asyncNoop}
+                onLaunchPromptsAdjustment={noop}
+                coachSession={null}
+                onChangeStatus={asyncNoop}
+                onSave={asyncNoop}
+                isGenerating={false}
+                aiModels={MODELS}
+                activeModelId="m1"
+                onCoachMessage={noop}
+                onCoachValidate={asyncNoop}
+                onCoachReopen={asyncNoop}
+                onCoachReset={asyncNoop}
+                coldRead={coldRead}
+                onDismissColdRead={noop}
+                onRunColdRead={noop}
+                activeTab="brouillon"
+                onTabChange={noop}
+                {...handlers}
+            />
+        );
+
+    it('se monte avec et sans rapport', () => {
+        expect(() => monte({}, null)).not.toThrow();
+        cleanup();
+        const { container } = monte();
+        expect(container.textContent).toContain('Lecteur froid');
+        expect(container.textContent).toContain('On ne sait pas de quoi ça parle');
+    });
+
+    it('garde le rapport quand l’ajustement échoue', async () => {
+        let ecarte = 0;
+        const { container, getByText } = monte({
+            onLaunchAdjustment: async () => false,
+            onDismissColdRead: () => { ecarte++; },
+        });
+
+        fireEvent.click(getByText('Appliquer les corrections'));
+        await waitFor(() => expect(ecarte).toBe(0));
+
+        // Tout est encore là : on peut réessayer sans avoir rien perdu.
+        expect(container.textContent).toContain('Nommer le piège dès la première ligne.');
+    });
+
+    it('ne l’écarte qu’une fois l’ajustement abouti', async () => {
+        let ecarte = 0;
+        let recu = '';
+        const { getByText } = monte({
+            onLaunchAdjustment: async (t: string) => { recu = t; return true; },
+            onDismissColdRead: () => { ecarte++; },
+        });
+
+        fireEvent.click(getByText('Appliquer les corrections'));
+        await waitFor(() => expect(ecarte).toBe(1));
+        expect(recu).toContain('Nommer le piège dès la première ligne.');
+        expect(recu).toContain('[accroche]');
+    });
+
+    it('un rapport sans correction proposée n’offre pas d’appliquer', () => {
+        const { container } = monte({}, { ...RAPPORT, problemes: [
+            { gravite: 'Détail', probleme: 'Une virgule de trop' },
+        ] });
+        expect(container.textContent).not.toContain('Appliquer les corrections');
+        expect(container.textContent).toContain('Une virgule de trop');
+    });
 });
 
 describe('écrans autonomes', () => {

@@ -5,7 +5,7 @@ import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
 import * as AiService from '../../services/aiService';
 import { generateLockedBrief, createEmptySession } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
-import { AI_ACTIONS } from '@luminose/editorial';
+import { AI_ACTIONS, AI_ACTION_CATALOG } from '@luminose/editorial';
 import { bodyJsonToText, getEditorTab, supportsColdRead } from '@luminose/editorial';
 import * as Api from '../../services/apiService';
 import {
@@ -172,6 +172,29 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAction, editedItem?.id, editedItem?.status]);
 
+  /**
+   * L'appel IA en cours, s'il y en a un.
+   *
+   * Sans ça, un aller-retour avec le fournisseur est INVISIBLE dès que le bouton
+   * qui l'a déclenché disparaît — c'est exactement ce qui se passe au « Go
+   * Éditeur » : la validation retire le bouton, la rédaction part, et l'écran
+   * ne montre plus rien. « Il ne s'est rien passé » était une lecture correcte
+   * de ce que l'écran affichait.
+   */
+  const [appelIA, setAppelIA] = useState<{ label: string; persona: string; modele: string; debut: number } | null>(null);
+  const [secondesIA, setSecondesIA] = useState(0);
+  /** Compteur de profondeur : deux appels enchaînés ne doivent pas s'éteindre l'un l'autre. */
+  const appelsEnCours = React.useRef(0);
+
+  useEffect(() => {
+      if (!appelIA) { setSecondesIA(0); return; }
+      // Le temps écoulé est le seul signal qui distingue « ça travaille » de
+      // « c'est bloqué ». Il vaut la seconde d'intervalle.
+      setSecondesIA(0);
+      const t = setInterval(() => setSecondesIA(Math.round((Date.now() - appelIA.debut) / 1000)), 1000);
+      return () => clearInterval(t);
+  }, [appelIA]);
+
   // isDirty : vrai si editedItem diffère du item Notion source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
 
@@ -325,12 +348,40 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- AI LOGIC HELPERS ---
 
-  const callAI = async (model: string, systemInstruction: string, prompt: string, _config?: any) => {
-      return await AiService.generateContent({
-          modelId: model,
-          systemInstruction: systemInstruction,
-          prompt: prompt
+  /**
+   * Le point de passage UNIQUE de tous les appels IA de l'éditeur — et donc le
+   * seul endroit où poser le témoin qui les rend visibles. L'action est passée
+   * explicitement : sans elle le bandeau ne pourrait dire que « ça travaille »,
+   * ce qui n'est pas ce qu'on veut savoir.
+   */
+  const callAI = async (
+      action: keyof typeof AI_ACTIONS,
+      model: string,
+      systemInstruction: string,
+      prompt: string,
+      _config?: any,
+  ) => {
+      const fiche = AI_ACTION_CATALOG.find(a => a.id === action);
+      appelsEnCours.current += 1;
+      setAppelIA({
+          label: fiche?.label ?? String(action),
+          persona: fiche?.persona ?? '',
+          modele: modelLabel(model),
+          debut: Date.now(),
       });
+      try {
+          return await AiService.generateContent({
+              modelId: model,
+              systemInstruction: systemInstruction,
+              prompt: prompt
+          });
+      } finally {
+          appelsEnCours.current -= 1;
+          if (appelsEnCours.current <= 0) {
+              appelsEnCours.current = 0;
+              setAppelIA(null);
+          }
+      }
   };
 
   // --- CONVERSATION COACH (SPEC §2.7) ---
@@ -477,7 +528,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               plain
           );
           const modeleRelecture = modelFor('COLD_READ');
-          const responseText = await callAI(modeleRelecture, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
+          const responseText = await callAI('COLD_READ', modeleRelecture, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
           const report = JSON.parse(extractJsonPayload(responseText));
           if (isMountedRef.current && report && report.lecture_naive) {
               setColdRead(report as ColdReadReport);
@@ -521,7 +572,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const adjustConfig = AI_ACTIONS.ADJUST_CONTENT;
           const systemInstruction = adjustConfig.getSystemInstruction(undefined, result, instruction);
-          const responseText = await callAI(modelFor('ADJUST_CONTENT'), systemInstruction, "", adjustConfig.generationConfig);
+          const responseText = await callAI('ADJUST_CONTENT', modelFor('ADJUST_CONTENT'), systemInstruction, "", adjustConfig.generationConfig);
           const adjusted = parseDraftResponse(responseText);
           // On garde la version ajustée même si un léger dépassement subsiste (une seule passe)
           result = appendSignatureSlide(adjusted, SIGNATURE_SLIDE);
@@ -586,7 +637,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           }
 
           const modeleRedaction = modelFor('DRAFT_CONTENT');
-          const responseText = await callAI(modeleRedaction, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
+          const responseText = await callAI('DRAFT_CONTENT', modeleRedaction, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
           let finalContent = parseDraftResponse(responseText);
 
           // Carrousel : slide Signature (code) + contrôle déterministe des longueurs
@@ -634,7 +685,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const modeleSlides = modelFor('GENERATE_CARROUSEL_SLIDES');
-          const responseText = await callAI(modeleSlides, systemInstruction, "", actionConfig.generationConfig);
+          const responseText = await callAI('GENERATE_CARROUSEL_SLIDES', modeleSlides, systemInstruction, "", actionConfig.generationConfig);
 
           const cleaned = sanitizeSlidesResponse(responseText);
 
@@ -664,12 +715,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // --- ADJUSTMENT (Refinement Loop) ---
 
-  const launchAdjustment = (adjustmentText: string) => {
-      void executeAdjustment(adjustmentText);
-  };
+  /** Rend le verdict de l'ajustement : l'appelant doit pouvoir décider APRÈS. */
+  const launchAdjustment = (adjustmentText: string): Promise<boolean> =>
+      executeAdjustment(adjustmentText);
 
-  const executeAdjustment = async (adjustmentText: string) => {
-      if (!isMountedRef.current || !adjustmentText.trim()) return;
+  const executeAdjustment = async (adjustmentText: string): Promise<boolean> => {
+      if (!isMountedRef.current || !adjustmentText.trim()) return false;
       setIsGenerating(true);
       try {
           const actionConfig = AI_ACTIONS.ADJUST_CONTENT;
@@ -686,6 +737,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const modeleAjustement = modelFor('ADJUST_CONTENT');
           const responseText = await callAI(
+              'ADJUST_CONTENT',
               modeleAjustement,
               systemInstruction,
               "", // le contenu est déjà dans le system prompt
@@ -712,8 +764,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               await journalise({ kind: 'adjustment', target: targetField, payload: cleaned, instruction: adjustmentText, modelId: modeleAjustement });
               await saveWithStatus(newItem);
           }
+          return true;
       } catch (error: any) {
           if (isMountedRef.current) setAlertInfo({ isOpen: true, title: "Erreur Ajustement", message: error.message, type: "error" });
+          return false;
       } finally {
           if (isMountedRef.current) setIsGenerating(false);
       }
@@ -740,6 +794,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const modelePrompts = modelFor('ADJUST_DZINE_PROMPTS');
           const responseText = await callAI(
+              'ADJUST_DZINE_PROMPTS',
               modelePrompts,
               systemInstruction,
               "", // les inputs sont déjà dans le system prompt
@@ -849,10 +904,26 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       </div>
   ) : null;
 
-  /** Bandeau sous l'en-tête : échec de sauvegarde et/ou annulation de génération. */
-  const EditorBanner = (SerieBanner || saveStatus === 'error' || lastGeneration) ? (
+  /** Bandeau sous l'en-tête : appel IA en cours, échec de sauvegarde, annulation de génération. */
+  const EditorBanner = (SerieBanner || appelIA || saveStatus === 'error' || lastGeneration) ? (
       <div className="flex flex-col">
           {SerieBanner}
+          {/* Le témoin d'appel IA. Il nomme l'action, le persona et le MODÈLE :
+              savoir qu'« il se passe quelque chose » ne suffit pas quand on
+              vient de changer de fournisseur et qu'on doute de son choix. */}
+          {appelIA && (
+              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-brand-light dark:bg-dark-sec-bg border-b border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
+                  <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                  <span className="flex-1 min-w-0">
+                      <strong className="font-bold">{appelIA.label}</strong>
+                      {appelIA.persona ? ` — ${appelIA.persona}` : ''}
+                      <span className="text-brand-main/60 dark:text-dark-text/60"> · {appelIA.modele}</span>
+                  </span>
+                  <span className="shrink-0 tabular-nums text-brand-main/60 dark:text-dark-text/60">
+                      {secondesIA} s
+                  </span>
+              </div>
+          )}
           {saveStatus === 'error' && (
               <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200">
                   <AlertCircle className="w-4 h-4 shrink-0" />

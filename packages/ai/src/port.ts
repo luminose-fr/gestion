@@ -52,7 +52,55 @@ export interface ProviderConfig {
   apiKey: string;
   /** Surcharge de l'URL de base — utile pour les API compatibles OpenAI. */
   baseUrl?: string;
+  /** Délai avant la seconde tentative. Zéro en test, pour ne pas attendre. */
+  repriseDelaiMs?: number;
 }
+
+// ── Reprise sur échec passager ───────────────────────────────────────────
+
+/**
+ * Les codes qui valent une seconde tentative : le fournisseur est encombré ou
+ * en panne un instant, pas en désaccord avec la requête.
+ *
+ * Tout le reste — 401, 402, 404, 422 — est un refus MOTIVÉ : réessayer ne
+ * changerait rien et ferait perdre du temps sur un message déjà clair.
+ */
+export const STATUTS_PASSAGERS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+
+/** Une erreur de fournisseur, avec ce qu'on sait de sa nature. */
+export class ErreurFournisseur extends Error {
+  constructor(message: string, readonly passagere: boolean) {
+    super(message);
+    this.name = 'ErreurFournisseur';
+  }
+}
+
+/**
+ * UNE seule reprise, et pas davantage.
+ *
+ * Pourquoi elle existe : le 23/08/2026, un « Go Éditeur » a échoué puis
+ * fonctionné à l'identique la fois suivante. Aucune reprise n'existait nulle
+ * part, donc un 429 ou un 502 d'une seconde faisait échouer toute une action
+ * éditoriale.
+ *
+ * Pourquoi une seule : un appel de rédaction dure déjà des dizaines de
+ * secondes, et une génération peut avoir abouti côté fournisseur avant que sa
+ * réponse se perde — chaque tentative supplémentaire est facturée. Deux essais
+ * couvrent le hoquet ; au-delà, c'est une panne, et mieux vaut le dire.
+ *
+ * Une erreur qui n'est pas une `ErreurFournisseur` vient du transport (fetch
+ * qui jette, connexion coupée) : passagère par nature.
+ */
+export const avecUneReprise = async <T>(tenter: () => Promise<T>, delaiMs = 700): Promise<T> => {
+  try {
+    return await tenter();
+  } catch (e) {
+    const passagere = e instanceof ErreurFournisseur ? e.passagere : true;
+    if (!passagere) throw e;
+    if (delaiMs > 0) await new Promise(resoudre => setTimeout(resoudre, delaiMs));
+    return await tenter();
+  }
+};
 
 /** Retire les clôtures markdown qu'un modèle ajoute parfois autour du JSON. */
 export const stripCodeFences = (text: string): string =>
