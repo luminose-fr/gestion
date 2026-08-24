@@ -170,6 +170,34 @@ export const SetActionModelSchema = z.object({
   modelId: z.string().trim().min(1).nullable(),
 });
 
+// ── État des listes (tri et filtre retenus) ──────────────────────────────
+
+/**
+ * Les listes dont on retient le tri. L'identifiant est celui de l'onglet, pas
+ * celui d'un composant : c'est ce que Florent voit, et deux onglets qui
+ * partagent le même tableau gardent chacun leur tri.
+ */
+export const VUES = ['ideas', 'drafts', 'ready', 'archive', 'series'] as const;
+export type VueId = (typeof VUES)[number];
+
+/**
+ * Ce qu'une liste retient d'une visite à l'autre.
+ *
+ * `tri` n'est PAS une énumération, volontairement. Les colonnes appartiennent à
+ * l'écran et bougent avec lui ; un réglage qui désigne une colonne disparue doit
+ * retomber sur le tri par défaut, pas faire échouer l'écriture d'après. Le front
+ * valide donc `tri` contre ses propres colonnes, et le Worker n'en garde que la
+ * forme.
+ */
+export const EtatDeVueSchema = z.object({
+  tri: z.string().trim().min(1).max(40),
+  sens: z.enum(['asc', 'desc']),
+  /** Le filtre actif, quand la liste en a un. `null` = aucun filtre. */
+  filtre: z.string().trim().min(1).max(40).nullable().default(null),
+});
+
+export type EtatDeVue = z.infer<typeof EtatDeVueSchema>;
+
 // ── Synchronisation ──────────────────────────────────────────────────────
 
 /** `since` en epoch ms ; au-delà, les lignes supprimées remontent aussi (SPEC §8). */

@@ -1,5 +1,6 @@
 /**
- * Réglages de l'application — pour l'instant, les clés des fournisseurs d'IA.
+ * Réglages de l'application : clés des fournisseurs, modèle par action, et ce
+ * que chaque liste retient de son tri.
  *
  * **Écriture seule.** Une clé entre par PUT, sert au Worker, s'efface par
  * DELETE — mais aucune route ne la renvoie. La liste ne porte qu'une
@@ -10,10 +11,10 @@
 import { Hono } from 'hono';
 import { PROVIDER_IDS } from '@luminose/ai';
 import { CONFIGURABLE_ACTIONS } from '@luminose/editorial';
-import { SetProviderKeySchema, SetActionModelSchema } from '@luminose/shared';
+import { SetProviderKeySchema, SetActionModelSchema, EtatDeVueSchema, VUES } from '@luminose/shared';
 import type { Env } from '../env';
 import { now } from '../db';
-import { readEnvKey, settingKeyFor, settingKeyForAction, fingerprint } from '../keys';
+import { readEnvKey, settingKeyFor, settingKeyForAction, settingKeyForVue, vueFromSettingKey, VUE_PATTERN, fingerprint } from '../keys';
 
 export const settings = new Hono<{ Bindings: Env }>();
 
@@ -148,4 +149,54 @@ settings.put('/actions/:action', async (c) => {
   ).bind(settingKeyForAction(action), modelId, ts).run();
 
   return c.json({ action, modelId });
+});
+
+// ── Tri et filtre retenus par les listes ─────────────────────────────────
+
+const safeJson = (value: unknown): unknown => {
+  try { return JSON.parse(String(value)); } catch { return null; }
+};
+
+/**
+ * Ce que chaque liste retient d'une visite à l'autre.
+ *
+ * Le réglage vit ICI et pas dans le navigateur : Florent travaille depuis
+ * plusieurs postes, et un tri qu'il faut refaire à chaque machine n'est pas un
+ * réglage, c'est une corvée qui revient.
+ *
+ * 1 requête : tous les états d'un coup (SPEC §3.6).
+ */
+settings.get('/vues', async (c) => {
+  const { results } = await c.env.DB
+    .prepare('SELECT key, value FROM app_settings WHERE key LIKE ?')
+    .bind(VUE_PATTERN).all();
+
+  const vues: Record<string, unknown> = {};
+  for (const row of results as any[]) {
+    const vue = vueFromSettingKey(String(row.key));
+    if (!VUES.includes(vue as any)) continue;
+    // Une valeur illisible en base ne doit pas empêcher les autres listes de
+    // retrouver leur tri : on l'ignore, la liste repart sur son défaut.
+    const lu = EtatDeVueSchema.safeParse(safeJson(row.value));
+    if (lu.success) vues[vue] = lu.data;
+  }
+  return c.json({ vues });
+});
+
+/** 1 requête. Pose le tri et le filtre d'une liste. */
+settings.put('/vues/:vue', async (c) => {
+  const vue = c.req.param('vue');
+  if (!VUES.includes(vue as any)) {
+    return c.json({ error: `Liste inconnue : « ${vue} ».` }, 404);
+  }
+
+  const etat = EtatDeVueSchema.parse(await c.req.json());
+  const ts = now();
+
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  ).bind(settingKeyForVue(vue), JSON.stringify(etat), ts).run();
+
+  return c.json({ vue, etat });
 });

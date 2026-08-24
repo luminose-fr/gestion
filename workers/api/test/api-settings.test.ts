@@ -175,3 +175,76 @@ describe('modèle par action', () => {
     expect(cles.some((k: string) => k.startsWith('provider_key:'))).toBe(false);
   });
 });
+
+/**
+ * Le tri des listes vit sur le compte, pas dans le navigateur (SPEC §3.7).
+ *
+ * Ce qui est protégé ici : un réglage illisible ou périmé ne doit JAMAIS
+ * empêcher les autres listes de retrouver le leur. Une liste sans réglage
+ * repart sur son défaut ; c'est le front qui le connaît, pas le Worker.
+ */
+describe('tri et filtre retenus par les listes', () => {
+  it('sans réglage, aucune liste n’a de tri', async () => {
+    const res = await call('/api/settings/vues');
+    expect(res.status).toBe(200);
+    expect((await json(res)).vues).toEqual({});
+  });
+
+  it('pose un tri et le relit tel quel', async () => {
+    const pose = await put('/api/settings/vues/ideas', { tri: 'createdAt', sens: 'desc', filtre: 'TO_ANALYZE' });
+    expect(pose.status).toBe(200);
+
+    const { vues } = await json(await call('/api/settings/vues'));
+    expect(vues.ideas).toEqual({ tri: 'createdAt', sens: 'desc', filtre: 'TO_ANALYZE' });
+  });
+
+  it('le filtre est facultatif — une liste qui n’en a pas rend null', async () => {
+    await put('/api/settings/vues/series', { tri: 'statut', sens: 'asc' });
+    const { vues } = await json(await call('/api/settings/vues'));
+    expect(vues.series).toEqual({ tri: 'statut', sens: 'asc', filtre: null });
+  });
+
+  it('chaque liste garde le sien', async () => {
+    await put('/api/settings/vues/ideas', { tri: 'contenu', sens: 'asc' });
+    await put('/api/settings/vues/drafts', { tri: 'format', sens: 'desc' });
+    const { vues } = await json(await call('/api/settings/vues'));
+    expect(vues.ideas.tri).toBe('contenu');
+    expect(vues.drafts.tri).toBe('format');
+  });
+
+  it('refuse une liste inconnue', async () => {
+    const res = await put('/api/settings/vues/inconnue', { tri: 'contenu', sens: 'asc' });
+    expect(res.status).toBe(404);
+  });
+
+  it('refuse un sens qui n’en est pas un', async () => {
+    const res = await put('/api/settings/vues/ideas', { tri: 'contenu', sens: 'diagonal' });
+    expect(res.status).toBe(400);
+  });
+
+  /**
+   * La colonne n'est PAS validée contre une énumération : elle appartient à
+   * l'écran et bouge avec lui. Le Worker n'en garde que la forme, le front
+   * retombe sur son défaut s'il ne la connaît plus.
+   */
+  it('accepte une colonne que le Worker ne connaît pas', async () => {
+    const res = await put('/api/settings/vues/ideas', { tri: 'colonneDeDemain', sens: 'asc' });
+    expect(res.status).toBe(200);
+  });
+
+  it('une valeur illisible en base n’emporte pas les autres listes', async () => {
+    await put('/api/settings/vues/ideas', { tri: 'contenu', sens: 'asc' });
+    await (env.DB as any).prepare(
+      "INSERT INTO app_settings (key, value, updated_at) VALUES ('vue:series', 'ceci n''est pas du JSON', 1)"
+    ).run();
+
+    const { vues } = await json(await call('/api/settings/vues'));
+    expect(vues.series).toBeUndefined();
+    expect(vues.ideas.tri).toBe('contenu');
+  });
+
+  it('exige un jeton de session', async () => {
+    const res = await app.fetch(new Request('https://api.test/api/settings/vues'), env as any);
+    expect(res.status).toBe(401);
+  });
+});

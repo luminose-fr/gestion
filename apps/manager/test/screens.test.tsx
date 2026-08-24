@@ -23,8 +23,8 @@ import CalendarView from '../components/CalendarView';
 import SubtitleConverter from '../components/SubtitleConverter';
 import PsychedelicsCalculator from '../components/PsychedelicsCalculator';
 import { SocialIdeasView } from '../components/Views/SocialIdeasView';
-import { SocialGridView } from '../components/Views/SocialGridView';
-import { SeriesView } from '../components/Series/SeriesView';
+import { SocialGridView, TRI_CONTENUS_DEFAUT } from '../components/Views/SocialGridView';
+import { SeriesView, TRI_SERIES_DEFAUT } from '../components/Series/SeriesView';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
 import { CoachChat } from '../components/CoachChat';
 import { DraftView } from '../components/ContentEditor/DraftView';
@@ -445,6 +445,10 @@ describe('vues de contenu', () => {
     onEdit: noop,
     onNavigateToIdeas: noop,
     displayPrefs: DEFAULT_DISPLAY_PREFS,
+    tri: TRI_CONTENUS_DEFAUT,
+    onTri: noop,
+    filtre: 'ALL',
+    onFiltre: noop,
   };
 
   it('SocialIdeasView se monte vide et peuplée', () => {
@@ -468,15 +472,55 @@ describe('vues de contenu', () => {
 describe('séries', () => {
   it('SeriesView se monte vide et peuplée', () => {
     const { container } = render(
-      <SeriesView series={[]} contents={[]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} />
+      <SeriesView series={[]} contents={[]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} tri={TRI_SERIES_DEFAUT} onTri={noop} />
     );
     expect(container.textContent).toContain('Aucune série');
     cleanup();
 
     const populated = render(
-      <SeriesView series={[SERIE]} contents={[ITEM]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} />
+      <SeriesView series={[SERIE]} contents={[ITEM]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} tri={TRI_SERIES_DEFAUT} onTri={noop} />
     );
     expect(populated.container.textContent).toContain('psychopraticien');
+  });
+
+  /**
+   * Le tri des Séries n'existait pas : le tableau rendait l'ordre reçu, point.
+   * Ces deux tests tiennent les deux moitiés — ce qui s'affiche, et ce qui est
+   * demandé au clic.
+   */
+  it('SeriesView rend les séries dans l’ordre du tri fourni', () => {
+    const serie = (id: string, titre: string, creeLe: number): Serie =>
+      ({ ...SERIE, id, titre, createdAt: creeLe });
+    const series = [serie('s1', 'Bêta', 200), serie('s2', 'Alpha', 100), serie('s3', 'Gamma', 300)];
+
+    const { container, rerender } = render(
+      <SeriesView series={series} contents={[]} isInitializing={false} isSyncing={false}
+        onOpen={noop} onCreate={asyncNoop} tri={{ colonne: 'titre', sens: 'asc' }} onTri={noop} />
+    );
+    const titres = () => Array.from(container.querySelectorAll('tbody tr')).map(tr => tr.textContent ?? '');
+    expect(titres()[0]).toContain('Alpha');
+    expect(titres()[2]).toContain('Gamma');
+
+    rerender(
+      <SeriesView series={series} contents={[]} isInitializing={false} isSyncing={false}
+        onOpen={noop} onCreate={asyncNoop} tri={{ colonne: 'creele', sens: 'desc' }} onTri={noop} />
+    );
+    expect(titres()[0]).toContain('Gamma');
+    expect(titres()[2]).toContain('Alpha');
+  });
+
+  it('un clic sur un en-tête de Séries demande le tri suivant', () => {
+    const demandes: Array<{ colonne: string; sens: string }> = [];
+    const { getByText } = render(
+      <SeriesView series={[SERIE]} contents={[]} isInitializing={false} isSyncing={false}
+        onOpen={noop} onCreate={asyncNoop}
+        tri={{ colonne: 'creele', sens: 'desc' }} onTri={t => demandes.push(t)} />
+    );
+    fireEvent.click(getByText('Statut'));
+    expect(demandes).toEqual([{ colonne: 'statut', sens: 'asc' }]);
+
+    fireEvent.click(getByText('Créée le'));
+    expect(demandes[1]).toEqual({ colonne: 'creele', sens: 'asc' });
   });
 
   const planProps = {

@@ -11,7 +11,7 @@ import { WORKER_URL } from '../constants';
 import { getSessionToken } from '../auth';
 import * as Activite from './activityService';
 import type {
-  Content, Serie, AIModel, Generation, CoachSession, CoachMessage,
+  Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
 } from '@luminose/shared';
 
 /**
@@ -199,6 +199,14 @@ export const setActionModel = (action: string, modelId: string | null) =>
   api<{ action: string; modelId: string | null }>(`/settings/actions/${action}`, {
     method: 'PUT', ...body({ modelId }),
   });
+
+// ── Tri et filtre retenus par les listes (SPEC §3.7) ─────────────────────
+
+/** Toutes les listes d'un coup ; une liste absente n'a jamais été triée. */
+export const fetchVues = () => api<{ vues: Partial<Record<VueId, EtatDeVue>> }>('/settings/vues');
+
+export const setVue = (vue: VueId, etat: EtatDeVue) =>
+  api<{ vue: VueId; etat: EtatDeVue }>(`/settings/vues/${vue}`, { method: 'PUT', ...body(etat) });
 
 // ── Sauvegarde complète (SPEC §9.4) ──────────────────────────────────────
 

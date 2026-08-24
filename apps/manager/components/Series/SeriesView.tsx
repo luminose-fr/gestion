@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ContentItem, Serie } from '../../types';
 import { EnCours } from '../Feedback';
+import { EnTeteTriable, comparateurFr, triSuivant, type Tri } from '../TriTableau';
 
 interface SeriesViewProps {
     series: Serie[];
@@ -13,7 +14,16 @@ interface SeriesViewProps {
     isSyncing: boolean;
     onOpen: (serie: Serie) => void;
     onCreate: (input: { titre: string; intention: string | null }) => Promise<void>;
+    tri: Tri;
+    onTri: (tri: Tri) => void;
 }
+
+/** Les colonnes triables des Séries. */
+export const COLONNES_SERIES = ['titre', 'statut', 'contenus', 'creele'] as const;
+export const TRI_SERIES_DEFAUT: Tri = { colonne: 'creele', sens: 'desc' };
+
+/** « En cours » avant « Terminée » : l'ordre du travail, pas l'alphabet. */
+const STATUT_ORDRE: Record<string, number> = { en_cours: 1, terminee: 2 };
 
 const STATUT_LABEL: Record<string, string> = {
     en_cours: 'En cours',
@@ -35,7 +45,7 @@ const formatDate = (at: number | undefined): string => {
 };
 
 export const SeriesView: React.FC<SeriesViewProps> = ({
-    series, contents, isInitializing, isSyncing, onOpen, onCreate
+    series, contents, isInitializing, isSyncing, onOpen, onCreate, tri, onTri
 }) => {
     const [createOpen, setCreateOpen] = useState(false);
     const [titre, setTitre] = useState('');
@@ -55,6 +65,34 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
         });
         return counts;
     }, [contents]);
+
+    /**
+     * Le tri des séries. Le titre départage systématiquement les égalités :
+     * sans ça, deux séries au même statut changent de place à chaque rendu, et
+     * la liste paraît bouger toute seule.
+     */
+    const seriesTriees = useMemo(() => {
+        const sens = tri.sens === 'asc' ? 1 : -1;
+        const parTitre = (a: Serie, b: Serie) => comparateurFr.compare(a.titre || '', b.titre || '');
+        return [...series].sort((a, b) => {
+            let cmp = 0;
+            if (tri.colonne === 'statut') {
+                cmp = (STATUT_ORDRE[a.statut] ?? 9) - (STATUT_ORDRE[b.statut] ?? 9);
+                if (cmp === 0) cmp = parTitre(a, b);
+            } else if (tri.colonne === 'contenus') {
+                cmp = (countBySerie.get(a.id) ?? 0) - (countBySerie.get(b.id) ?? 0);
+                if (cmp === 0) cmp = parTitre(a, b);
+            } else if (tri.colonne === 'creele') {
+                cmp = (a.createdAt ?? 0) - (b.createdAt ?? 0);
+                if (cmp === 0) cmp = parTitre(a, b);
+            } else {
+                cmp = parTitre(a, b);
+            }
+            return cmp * sens;
+        });
+    }, [series, countBySerie, tri.colonne, tri.sens]);
+
+    const handleTri = (colonne: string) => onTri(triSuivant(tri, colonne));
 
     const reset = () => {
         setTitre('');
@@ -141,14 +179,14 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                         <table className="min-w-full text-sm">
                             <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[18rem]">Série</th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Statut</th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Contenus</th>
-                                    <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">Créée le</th>
+                                    <EnTeteTriable colonne="titre"    label="Série"    tri={tri} onTri={handleTri} className="min-w-[18rem]" />
+                                    <EnTeteTriable colonne="statut"   label="Statut"   tri={tri} onTri={handleTri} className="whitespace-nowrap" />
+                                    <EnTeteTriable colonne="contenus" label="Contenus" tri={tri} onTri={handleTri} className="whitespace-nowrap" />
+                                    <EnTeteTriable colonne="creele"   label="Créée le" tri={tri} onTri={handleTri} className="whitespace-nowrap" />
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
-                                {series.map(serie => (
+                                {seriesTriees.map(serie => (
                                     <tr
                                         key={serie.id}
                                         tabIndex={0}

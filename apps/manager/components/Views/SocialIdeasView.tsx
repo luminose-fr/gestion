@@ -11,6 +11,7 @@ import { RichTextarea } from '../RichTextarea';
 import { CharCounter } from '../CommonModals';
 import { EnCours } from '../Feedback';
 import { ContentTable } from './SocialGridView';
+import type { Tri } from '../TriTableau';
 
 interface SocialIdeasViewProps {
     items: ContentItem[];
@@ -23,9 +24,17 @@ interface SocialIdeasViewProps {
     isInitializing: boolean;
     onNavigateToIdeas: () => void;
     displayPrefs?: DisplayPrefs;
+    /** Tri ET filtre sont pilotés : ils se conservent d'une visite à l'autre (SPEC §3.7). */
+    tri: Tri;
+    onTri: (tri: Tri) => void;
+    filtre: FilterId;
+    onFiltre: (filtre: FilterId) => void;
 }
 
-type FilterId = 'ALL' | 'TO_ANALYZE' | 'VALID' | 'TOO_BLAND' | 'NEEDS_WORK';
+export type FilterId = 'ALL' | 'TO_ANALYZE' | 'VALID' | 'TOO_BLAND' | 'NEEDS_WORK';
+
+/** Les filtres reconnus — sert à valider ce que la base rend (SPEC §3.7). */
+export const FILTRES_IDEES: readonly FilterId[] = ['ALL', 'TO_ANALYZE', 'VALID', 'TOO_BLAND', 'NEEDS_WORK'];
 
 const FILTER_CHIPS: Array<{ id: FilterId; label: string; activeCls: string }> = [
     { id: 'ALL',        label: 'Tout',       activeCls: 'bg-brand-main border-brand-main text-white shadow-brand-main/20 dark:bg-white dark:border-white dark:text-brand-main' },
@@ -46,7 +55,7 @@ const matchesFilter = (item: ContentItem, filter: FilterId): boolean => {
 
 export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
     items, searchQuery, onSearchChange, onEdit, onQuickAdd, onGlobalAnalyze,
-    isSyncing, isInitializing, displayPrefs
+    isSyncing, isInitializing, displayPrefs, tri, onTri, filtre, onFiltre
 }) => {
     const prefs = { ...DEFAULT_DISPLAY_PREFS, ...(displayPrefs || {}) };
 
@@ -54,7 +63,6 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
     const [newIdeaTitle, setNewIdeaTitle] = useState('');
     const [newIdeaNotes, setNewIdeaNotes] = useState('');
     const [newIdeaFormat, setNewIdeaFormat] = useState<TargetFormat | ''>('');
-    const [filter, setFilter] = useState<FilterId>('ALL');
     const titleInputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
@@ -84,8 +92,8 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
     };
 
     const filteredItems = useMemo(
-        () => items.filter(i => matchesFilter(i, filter)),
-        [items, filter]
+        () => items.filter(i => matchesFilter(i, filtre)),
+        [items, filtre]
     );
 
     const counts = useMemo(() => ({
@@ -191,11 +199,11 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
 
                 <div className="flex gap-2 overflow-x-auto pb-1 xl:pb-0 scrollbar-hide flex-1">
                     {FILTER_CHIPS.map(c => {
-                        const active = filter === c.id;
+                        const active = filtre === c.id;
                         return (
                             <button
                                 key={c.id}
-                                onClick={() => setFilter(c.id)}
+                                onClick={() => onFiltre(c.id)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap transition-all shadow-sm ${
                                     active
                                         ? c.activeCls
@@ -241,6 +249,8 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                     showPublication={false}
                     showStrategicAngle
                     showCreatedAt
+                    tri={tri}
+                    onTri={onTri}
                 />
             )}
         </div>

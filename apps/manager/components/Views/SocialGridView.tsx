@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { PenLine, CheckCircle2, Archive, ChevronRight, Sparkles, MinusCircle, XCircle, HelpCircle, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { PenLine, CheckCircle2, Archive, ChevronRight, Sparkles, MinusCircle, XCircle, HelpCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { bodyJsonToText } from '@luminose/editorial';
 import { ContentItem, TargetFormat, Verdict, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
+import { EnTeteTriable, EnTeteSimple, comparateurFr, triSuivant, type Tri } from '../TriTableau';
 
 const VERDICT_STRIPE: Record<Verdict, string> = {
     [Verdict.VALID]:       'bg-emerald-500',
@@ -30,8 +31,9 @@ const getStatutKey = (item: ContentItem): number => {
     return 5; // pas d'info
 };
 
-type SortColumn = 'statut' | 'contenu' | 'format' | 'createdAt';
-type SortDirection = 'asc' | 'desc';
+/** Les colonnes triables du tableau de contenus. L'ordre n'a pas d'importance. */
+export const COLONNES_CONTENUS = ['statut', 'contenu', 'format', 'createdAt'] as const;
+export const TRI_CONTENUS_DEFAUT: Tri = { colonne: 'contenu', sens: 'asc' };
 
 interface SocialGridViewProps {
     items: ContentItem[];
@@ -41,6 +43,8 @@ interface SocialGridViewProps {
     onEdit: (item: ContentItem) => void;
     onNavigateToIdeas: () => void;
     displayPrefs?: DisplayPrefs;
+    tri: Tri;
+    onTri: (tri: Tri) => void;
 }
 
 export const getHighlightedText = (text: string, highlightTerm?: string): React.ReactNode => {
@@ -127,27 +131,25 @@ export const ContentTable: React.FC<{
     showStrategicAngle: boolean;
     /** Affiche la colonne "Créé le" (date de création) */
     showCreatedAt?: boolean;
-}> = ({ items, searchQuery, onEdit, prefs, showStatut, showPublication, showStrategicAngle, showCreatedAt = false }) => {
+    /**
+     * Le tri est PILOTÉ, pas local : il se conserve d'une visite à l'autre et
+     * c'est l'application qui le tient (SPEC §3.7). Un état interne repartait à
+     * zéro à chaque montage, c'est-à-dire à chaque changement d'onglet.
+     */
+    tri: Tri;
+    onTri: (tri: Tri) => void;
+}> = ({ items, searchQuery, onEdit, prefs, showStatut, showPublication, showStrategicAngle, showCreatedAt = false, tri, onTri }) => {
     const { showPlatforms, showObjectif, showVerdictStripe } = prefs;
 
     // Cellules en mode compact (densité fixée)
     const cellCls = 'px-4 py-2 align-top';
 
-    const [sortColumn, setSortColumn] = useState<SortColumn>('contenu');
-    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-
-    const handleSortClick = (column: SortColumn) => {
-        if (sortColumn === column) {
-            setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortColumn(column);
-            setSortDirection('asc');
-        }
-    };
+    const sortColumn = tri.colonne;
+    const handleSortClick = (colonne: string) => onTri(triSuivant(tri, colonne));
 
     const sortedItems = useMemo(() => {
-        const collator = new Intl.Collator('fr', { sensitivity: 'base', numeric: true });
-        const dir = sortDirection === 'asc' ? 1 : -1;
+        const collator = comparateurFr;
+        const dir = tri.sens === 'asc' ? 1 : -1;
         const arr = [...items];
         const tsOf = (at: number | undefined): number => at ?? 0;
         arr.sort((a, b) => {
@@ -171,40 +173,13 @@ export const ContentTable: React.FC<{
             return cmp * dir;
         });
         return arr;
-    }, [items, sortColumn, sortDirection]);
+    }, [items, sortColumn, tri.sens]);
 
     const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>, item: ContentItem) => {
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             onEdit(item);
         }
-    };
-
-    const SortableTh: React.FC<{
-        column: SortColumn;
-        label: string;
-        className?: string;
-    }> = ({ column, label, className = '' }) => {
-        const active = sortColumn === column;
-        const Icon = !active ? ChevronsUpDown : (sortDirection === 'asc' ? ChevronUp : ChevronDown);
-        return (
-            <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 ${className}`}>
-                <button
-                    type="button"
-                    onClick={() => handleSortClick(column)}
-                    className={`inline-flex items-center gap-1 group transition-colors ${
-                        active
-                            ? 'text-brand-main dark:text-white'
-                            : 'hover:text-brand-main dark:hover:text-white'
-                    }`}
-                    title={active ? `Tri : ${sortDirection === 'asc' ? 'croissant' : 'décroissant'} (clic pour inverser)` : `Trier par ${label}`}
-                    aria-sort={active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-                >
-                    {label}
-                    <Icon className={`w-3 h-3 ${active ? 'opacity-100' : 'opacity-40 group-hover:opacity-70'} transition-opacity`} />
-                </button>
-            </th>
-        );
     };
 
     return (
@@ -217,28 +192,16 @@ export const ContentTable: React.FC<{
                                 <th className="w-1 p-0" aria-hidden="true" />
                             )}
                             {showStatut && (
-                                <SortableTh column="statut" label="Statut" className="whitespace-nowrap" />
+                                <EnTeteTriable colonne="statut" label="Statut" tri={tri} onTri={handleSortClick} className="whitespace-nowrap" />
                             )}
-                            <SortableTh column="contenu" label="Contenu" className="min-w-[18rem]" />
-                            <SortableTh column="format" label="Format" className="whitespace-nowrap" />
-                            {showObjectif && (
-                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
-                                    Objectif
-                                </th>
-                            )}
-                            {showPlatforms && (
-                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">
-                                    Plateformes
-                                </th>
-                            )}
+                            <EnTeteTriable colonne="contenu" label="Contenu" tri={tri} onTri={handleSortClick} className="min-w-[18rem]" />
+                            <EnTeteTriable colonne="format" label="Format" tri={tri} onTri={handleSortClick} className="whitespace-nowrap" />
+                            {showObjectif && <EnTeteSimple label="Objectif" className="whitespace-nowrap" />}
+                            {showPlatforms && <EnTeteSimple label="Plateformes" className="min-w-[12rem]" />}
                             {showCreatedAt && (
-                                <SortableTh column="createdAt" label="Créé le" className="whitespace-nowrap" />
+                                <EnTeteTriable colonne="createdAt" label="Créé le" tri={tri} onTri={handleSortClick} className="whitespace-nowrap" />
                             )}
-                            {showPublication && (
-                                <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 whitespace-nowrap">
-                                    Publication
-                                </th>
-                            )}
+                            {showPublication && <EnTeteSimple label="Publication" className="whitespace-nowrap" />}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
@@ -341,7 +304,7 @@ export const ContentTable: React.FC<{
 // ───────────────────────── Main view ─────────────────────────
 
 export const SocialGridView: React.FC<SocialGridViewProps> = ({
-    items, type, searchQuery, isInitializing, onEdit, onNavigateToIdeas, displayPrefs
+    items, type, searchQuery, isInitializing, onEdit, onNavigateToIdeas, displayPrefs, tri, onTri
 }) => {
     const prefs = { ...DEFAULT_DISPLAY_PREFS, ...(displayPrefs || {}) };
 
@@ -419,6 +382,8 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
                     showStatut={currentConfig.showStatut}
                     showPublication={currentConfig.showPublication}
                     showStrategicAngle={currentConfig.showStrategicAngle}
+                    tri={tri}
+                    onTri={onTri}
                 />
             )}
         </div>

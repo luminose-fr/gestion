@@ -25,6 +25,13 @@ const ACTION_PREFIX = 'action_model:';
 export const settingKeyForAction = (action: string) => `${ACTION_PREFIX}${action}`;
 export const ACTION_PATTERN = `${ACTION_PREFIX}%`;
 
+/** Tri et filtre retenus par une liste (`vue:<id>`), dans la même table. */
+const VUE_PREFIX = 'vue:';
+
+export const settingKeyForVue = (vue: string) => `${VUE_PREFIX}${vue}`;
+export const VUE_PATTERN = `${VUE_PREFIX}%`;
+export const vueFromSettingKey = (key: string) => key.slice(VUE_PREFIX.length);
+
 export const settingKeyFor = (providerId: string) => `${PREFIX}${providerId}`;
 
 /** Les lignes de `app_settings` qui portent une clé — à ne jamais exporter (§9.4). */

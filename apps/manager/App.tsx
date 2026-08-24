@@ -30,9 +30,11 @@ import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 // Components refactorisés
 import { Sidebar } from './components/Layout/Sidebar';
 import { MobileSubTabs } from './components/Layout/MobileSubTabs';
-import { SocialIdeasView } from './components/Views/SocialIdeasView';
-import { SocialGridView } from './components/Views/SocialGridView';
-import { SeriesView } from './components/Series/SeriesView';
+import { SocialIdeasView, FILTRES_IDEES, type FilterId } from './components/Views/SocialIdeasView';
+import { SocialGridView, COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT } from './components/Views/SocialGridView';
+import { SeriesView, COLONNES_SERIES, TRI_SERIES_DEFAUT } from './components/Series/SeriesView';
+import { triValide, type Tri } from './components/TriTableau';
+import type { EtatDeVue, VueId } from '@luminose/shared';
 import { SeriePlanView } from './components/Series/SeriePlanView';
 
 type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'settings';
@@ -134,6 +136,46 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Adaptateurs et état de leur clé — l'écriture seule fait que seule l'empreinte revient (SPEC §5.5). */
   const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
+
+  /**
+   * Ce que chaque liste retient de son tri et de son filtre (SPEC §3.7).
+   *
+   * Le réglage vit sur le compte, pas dans le navigateur : refaire son tri à
+   * chaque poste — et à chaque changement d'onglet — n'est pas un réglage.
+   */
+  const [vues, setVues] = useState<Partial<Record<VueId, EtatDeVue>>>({});
+
+  /**
+   * L'écran suit tout de suite, la base rattrape après. Un échec ne se montre
+   * pas : le tri reste appliqué pour cette session, seule sa mémoire est
+   * perdue — un bandeau d'erreur pour un clic sur un en-tête coûterait plus
+   * d'attention que le réglage n'en vaut.
+   */
+  const majVue = (vue: VueId, etat: EtatDeVue) => {
+      setVues(prev => ({ ...prev, [vue]: etat }));
+      Api.setVue(vue, etat).catch(e => console.warn(`Tri de « ${vue} » non retenu :`, e));
+  };
+
+  /** Le tri d'une liste, ramené à ses colonnes réelles. */
+  const triDe = (vue: VueId, colonnes: readonly string[], defaut: Tri): Tri =>
+      triValide(
+          vues[vue] ? { colonne: vues[vue]!.tri, sens: vues[vue]!.sens } : null,
+          colonnes,
+          defaut,
+      );
+
+  const poserTri = (vue: VueId) => (tri: Tri) =>
+      majVue(vue, { tri: tri.colonne, sens: tri.sens, filtre: vues[vue]?.filtre ?? null });
+
+  /** Le filtre de la boîte à idées — le seul écran qui en a un pour l'instant. */
+  const filtreIdees: FilterId = FILTRES_IDEES.includes(vues.ideas?.filtre as FilterId)
+      ? (vues.ideas!.filtre as FilterId)
+      : 'ALL';
+
+  const poserFiltreIdees = (filtre: FilterId) => {
+      const tri = triDe('ideas', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT);
+      majVue('ideas', { tri: tri.colonne, sens: tri.sens, filtre });
+  };
 
   const [displayPrefs, setDisplayPrefsState] = useState<DisplayPrefs>(() => StorageService.getDisplayPrefs());
 
@@ -337,12 +379,13 @@ function App() {
         const lastSerieSync = Number(StorageService.getLastSync("series")) || 0;
         const sinceSeries = forceFullSync || !lastSerieSync ? undefined : lastSerieSync;
 
-        const [contentRes, modelRes, serieRes, actionRes, providerRes] = await Promise.all([
+        const [contentRes, modelRes, serieRes, actionRes, providerRes, vueRes] = await Promise.all([
             Api.fetchContents(since),
             Api.fetchModels(),
             Api.fetchSeries(sinceSeries),
             Api.fetchActionModels(),
             Api.fetchProviders(),
+            Api.fetchVues(),
         ]);
 
         const baseItems = since ? (baseCache?.items ?? items) : [];
@@ -373,6 +416,7 @@ function App() {
         setSeries(nextSeries);
         setActionModels(actionRes.actions ?? {});
         setProviders(providerRes.providers ?? []);
+        setVues(vueRes.vues ?? {});
 
         await Promise.all([
             StorageService.setCachedContent(nextItems),
@@ -1185,6 +1229,10 @@ function App() {
                                     isInitializing={isInitializing}
                                     onNavigateToIdeas={() => {}}
                                     displayPrefs={displayPrefs}
+                                    tri={triDe('ideas', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
+                                    onTri={poserTri('ideas')}
+                                    filtre={filtreIdees}
+                                    onFiltre={poserFiltreIdees}
                                 />
                             )}
 
@@ -1197,6 +1245,8 @@ function App() {
                                     onEdit={handleEditItem}
                                     onNavigateToIdeas={() => updateRoute('social', 'ideas')}
                                     displayPrefs={displayPrefs}
+                                    tri={triDe('drafts', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
+                                    onTri={poserTri('drafts')}
                                 />
                             )}
 
@@ -1209,6 +1259,8 @@ function App() {
                                     onEdit={handleEditItem}
                                     onNavigateToIdeas={() => updateRoute('social', 'ideas')}
                                     displayPrefs={displayPrefs}
+                                    tri={triDe('ready', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
+                                    onTri={poserTri('ready')}
                                 />
                             )}
 
@@ -1221,6 +1273,8 @@ function App() {
                                     onEdit={handleEditItem}
                                     onNavigateToIdeas={() => updateRoute('social', 'ideas')}
                                     displayPrefs={displayPrefs}
+                                    tri={triDe('archive', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
+                                    onTri={poserTri('archive')}
                                 />
                             )}
 
@@ -1249,6 +1303,8 @@ function App() {
                                         isSyncing={isSyncing}
                                         onOpen={(serie) => updateRoute('social', 'series', serie.id)}
                                         onCreate={async (input) => { await handleCreateSerie(input); }}
+                                        tri={triDe('series', COLONNES_SERIES, TRI_SERIES_DEFAUT)}
+                                        onTri={poserTri('series')}
                                     />
                                 )
                             )}

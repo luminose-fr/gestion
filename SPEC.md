@@ -531,6 +531,41 @@ Maximum **50 requêtes D1 par invocation**. Conséquences normatives :
 - Toute route nouvelle doit pouvoir énoncer son nombre de requêtes, borné et indépendant
   du volume de données.
 
+### 3.7 Ce qu'une liste retient — NORMATIF
+
+**Le tri et le filtre d'une liste vivent sur le compte, pas dans le navigateur.**
+`app_settings`, sous `vue:<liste>` — la même table que les clés et les modèles par
+action, une ligne par liste, sa valeur en JSON `{tri, sens, filtre}`.
+
+Deux routes, une requête chacune : `GET /api/settings/vues` rend toutes les listes d'un
+coup, `PUT /api/settings/vues/:vue` en pose une. Une liste absente n'a jamais été triée.
+
+Pourquoi pas `localStorage` : un tri qu'il faut refaire à chaque poste n'est pas un
+réglage, c'est une corvée qui revient. Et il ne tenait même pas d'un onglet à l'autre —
+l'état vivait dans `ContentTable`, donc il repartait à zéro à chaque montage.
+
+**La colonne n'est PAS validée contre une énumération côté Worker.** Les colonnes
+appartiennent à l'écran et bougent avec lui ; un réglage qui en désigne une disparue doit
+retomber sur le tri par défaut, pas faire échouer l'écriture suivante. Le Worker garde la
+forme (`sens` vaut `asc` ou `desc`, les chaînes sont bornées), le front valide `tri`
+contre ses propres colonnes. Une valeur illisible en base est ignorée **sans emporter les
+autres listes**.
+
+**L'écran suit tout de suite, la base rattrape après.** Un échec d'écriture ne s'affiche
+pas : le tri reste appliqué pour la session, seule sa mémoire est perdue. C'est la seule
+exception assumée à « un échec se voit » — un bandeau pour un clic sur un en-tête
+coûterait plus d'attention que le réglage n'en vaut.
+
+**Le tri est piloté, jamais local.** `ContentTable` et `SeriesView` reçoivent `tri` et
+`onTri` ; le clic ne décide de rien, il demande. La règle du clic — même colonne, on
+inverse ; autre colonne, on repart en croissant — et l'en-tête cliquable vivent dans
+`components/TriTableau.tsx`, seule autorité. Elles étaient enfermées dans `ContentTable`,
+où les Séries ne pouvaient pas les atteindre : leur tableau n'avait donc aucun tri.
+
+Cinq listes en retiennent un : `ideas`, `drafts`, `ready`, `archive`, `series`. Le filtre
+n'existe aujourd'hui que sur la boîte à idées ; le réglage le porte pour toutes, prêt pour
+celles qui en auront un.
+
 ---
 
 ## 4. `packages/editorial` — NORMATIF
