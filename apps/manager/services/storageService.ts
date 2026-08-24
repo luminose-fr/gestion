@@ -165,7 +165,7 @@ export const setDisplayPrefs = (prefs: DisplayPrefs): void => {
   setAppSettings({ ...current, displayPrefs: prefs });
 };
 
-/** Modèle IA actif (vérité runtime côté app). undefined = pas encore choisi → seed depuis Notion. */
+/** Modèle IA actif (vérité runtime côté app). undefined = pas encore choisi → seed depuis le catalogue. */
 export const getActiveModelId = (): string | undefined => {
   return getAppSettings().activeModelId;
 };

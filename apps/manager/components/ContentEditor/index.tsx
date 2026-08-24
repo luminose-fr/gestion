@@ -227,7 +227,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    * (SPEC §3.5.1). Voir `services/activityService.ts`.
    */
 
-  // isDirty : vrai si editedItem diffère du item Notion source
+  // isDirty : vrai si editedItem diffère de l'item source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
 
   if (!editedItem) return null;
@@ -250,7 +250,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       }
   };
 
-  /** Retourne true si Notion a bien accepté l'écriture. Ne lève jamais. */
+  /** Retourne true si le serveur a bien accepté l'écriture. Ne lève jamais. */
   const saveWithStatus = async (itemToSave: ContentItem): Promise<boolean> => {
       if (!isMountedRef.current) return false;
       setSaveStatus('saving');
@@ -261,7 +261,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           triggerSaveStatus('saved');
           return true;
       } catch (e: any) {
-          if (isMountedRef.current) setSaveError(e?.message || "Notion a refusé l'enregistrement.");
+          if (isMountedRef.current) setSaveError(e?.message || "Le serveur a refusé l'enregistrement.");
           triggerSaveStatus('error');
           return false;
       } finally {
@@ -822,7 +822,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           // elles, le Rédacteur réécrivait une slide en ignorant les limites qui
           // avaient gouverné sa propre production (SPEC §3.5.2).
           const systemInstruction = actionConfig.getSystemInstruction(
-              undefined, // pas de contexte Notion additionnel
+              undefined, // pas de contexte additionnel
               currentContent,
               adjustmentText,
               getFormatPromptTemplate(editedItem?.targetFormat as TargetFormat),
@@ -1017,7 +1017,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span className="flex-1 min-w-0">
-                      <strong className="font-bold">Ce contenu n'est pas enregistré dans Notion</strong>
+                      <strong className="font-bold">Ce contenu n'est pas enregistré</strong>
                       {saveError ? ` (${saveError})` : ''}. Il n'existe que sur cet appareil.
                   </span>
                   <button
@@ -1263,8 +1263,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             isOpen={confirmDelete}
             onClose={() => setConfirmDelete(false)}
             onConfirm={handleDelete}
-            title="Supprimer ?"
-            message="Action irréversible (archive Notion)."
+            title="Supprimer ce contenu ?"
+            message="Il disparaît de l'application avec son brouillon et sa session Coach. Aucun écran ne permet de le rétablir — seule une sauvegarde le contient encore."
             isDestructive={true}
             confirmLabel="Supprimer"
         />

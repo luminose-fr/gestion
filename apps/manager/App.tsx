@@ -184,7 +184,7 @@ function App() {
       StorageService.setDisplayPrefs(prefs);
   };
 
-  // Modèle IA actif — vérité runtime localStorage, seedé depuis le modèle Notion « Défaut ».
+  // Modèle IA actif — vérité runtime localStorage, seedé depuis le modèle « Défaut » du catalogue.
   const [activeModelId, setActiveModelIdState] = useState<string>(
       () => StorageService.getActiveModelId() || ''
   );
@@ -221,7 +221,7 @@ function App() {
       });
   }), []);
 
-  // Contenus dont l'écriture Notion a échoué : ils n'existent qu'en local.
+  // Contenus dont l'écriture serveur a échoué : ils n'existent qu'en local.
   // Le ref porte la version à réémettre (toujours à jour, même dans une closure
   // de sync périmée) ; le state ne sert qu'à l'affichage du bandeau.
   const unsavedItemsRef = useRef<Map<string, ContentItem>>(new Map());
@@ -349,11 +349,11 @@ function App() {
           console.error("Erreur lecture cache:", e);
       } finally {
           setIsInitializing(false);
-          syncWithNotion(false, { items: cachedItems, models: cachedModels, series: cachedSeries });
+          synchroniser(false, { items: cachedItems, models: cachedModels, series: cachedSeries });
       }
   };
 
-  const syncWithNotion = async (
+  const synchroniser = async (
       forceFullSync = false,
       baseCache?: { items?: ContentItem[]; models?: AIModel[]; series?: Serie[] }
   ) => {
@@ -467,7 +467,7 @@ function App() {
       StorageService.setCachedModels(newModels);
   };
 
-  // Seed du modèle actif depuis le « Défaut » Notion, tant que l'utilisateur n'a pas choisi explicitement.
+  // Seed du modèle actif depuis le « Défaut » du catalogue, tant que l'utilisateur n'a pas choisi explicitement.
   useEffect(() => {
       if (aiModels.length === 0) return;
 
@@ -484,7 +484,7 @@ function App() {
   const handleActiveModelChange = (modelId: string) => {
       setActiveModelIdState(modelId);
       StorageService.setActiveModelId(modelId);
-      // Write-back Notion best-effort : la case « Défaut » suit le choix.
+      // Write-back best-effort : la case « Défaut » du catalogue suit le choix.
       const chosen = aiModels.find(m => m.id === modelId);
       // Marquer un défaut démarque les autres côté Worker, dans le même batch :
       // plus besoin de démarquer les précédents un par un.
@@ -505,7 +505,7 @@ function App() {
     } catch (e: any) {
         setAlertInfo({
             isOpen: true,
-            title: "Erreur Notion",
+            title: "Création impossible",
             message: e.message || "Erreur lors de la création.",
             type: 'error'
         });
@@ -548,11 +548,11 @@ function App() {
   };
 
   const handleAnalysisComplete = () => {
-      syncWithNotion(); 
+      synchroniser(); 
   };
 
   /**
-   * Écriture optimiste : l'UI et le cache passent en premier, Notion ensuite.
+   * Écriture optimiste : l'UI et le cache passent en premier, le serveur ensuite.
    * En cas d'échec on NE revient PAS en arrière (ce serait effacer la frappe
    * de Florent) : l'item est marqué non sauvegardé, ce qui le protège de la
    * synchronisation et déclenche le bandeau de rattrapage.
@@ -574,7 +574,7 @@ function App() {
     }
   };
 
-  /** Réémet vers Notion tous les contenus restés en échec. */
+  /** Réémet vers le serveur tous les contenus restés en échec. */
   const retryUnsavedItems = async () => {
     if (isRetryingUnsaved) return;
     setIsRetryingUnsaved(true);
@@ -596,13 +596,13 @@ function App() {
         setAlertInfo({
             isOpen: true,
             title: "Sauvegarde réussie",
-            message: "Tous les contenus en attente ont été enregistrés dans Notion.",
+            message: "Tous les contenus en attente ont été enregistrés.",
             type: 'success'
         });
     } else if (lastError) {
         setAlertInfo({
             isOpen: true,
-            title: "Notion refuse toujours l'enregistrement",
+            title: "L'enregistrement échoue toujours",
             message: lastError,
             type: 'error'
         });
@@ -614,7 +614,7 @@ function App() {
     options?: { launchInterview?: boolean }
   ): Promise<void> => {
     // Sauvegarder l'item avec le nouveau statut DRAFTING.
-    // Si Notion refuse, on reste sur place : le bandeau explique pourquoi.
+    // Si le serveur refuse, on reste sur place : le bandeau explique pourquoi.
     try {
         await handleUpdateItem(updatedItem);
     } catch {
@@ -647,8 +647,8 @@ function App() {
               type: 'success'
           });
       } catch (error: any) {
-          console.error("Erreur delete Notion:", error);
-          setError("Impossible de supprimer sur Notion. " + error.message);
+          console.error("Erreur à la suppression :", error);
+          setError("Impossible de supprimer ce contenu. " + error.message);
       }
   };
 
@@ -1081,10 +1081,10 @@ function App() {
                  {/* L'icône tourne, pas le bouton : `disabled:animate-spin` faisait
                      pivoter la zone cliquable entière, halo de survol compris. */}
                  <button
-                    onClick={() => syncWithNotion(true)}
+                    onClick={() => synchroniser(true)}
                     disabled={isSyncing}
                     className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-60"
-                    title={isSyncing ? 'Synchronisation en cours…' : 'Synchroniser avec Notion'}
+                    title={isSyncing ? 'Synchronisation en cours…' : 'Synchroniser'}
                  >
                      <RefreshCw className={`w-[14px] h-[14px] ${isSyncing ? 'animate-spin' : ''}`} />
                  </button>
@@ -1124,20 +1124,20 @@ function App() {
                       <AlertCircle className="w-4 h-4" />
                       {error}
                   </div>
-                  <button onClick={() => syncWithNotion()} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
+                  <button onClick={() => synchroniser()} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
               </span>
           </div>
         )}
 
-        {/* Travail non enregistré : bandeau persistant tant que Notion n'a pas accepté */}
+        {/* Travail non enregistré : bandeau persistant tant que le serveur n'a pas accepté */}
         {unsavedIds.length > 0 && (
           <div className="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-300 dark:border-amber-700 px-4 py-2 text-xs shrink-0 animate-fade-in">
               <div className="text-amber-800 dark:text-amber-200 flex items-center justify-center gap-3 flex-wrap">
                   <span className="flex items-center gap-2 font-medium">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {unsavedIds.length === 1
-                          ? "1 contenu n'a pas pu être enregistré dans Notion — il n'existe que sur cet appareil."
-                          : `${unsavedIds.length} contenus n'ont pas pu être enregistrés dans Notion — ils n'existent que sur cet appareil.`}
+                          ? "1 contenu n'a pas pu être enregistré — il n'existe que sur cet appareil."
+                          : `${unsavedIds.length} contenus n'ont pas pu être enregistrés — ils n'existent que sur cet appareil.`}
                   </span>
                   <button
                       onClick={retryUnsavedItems}

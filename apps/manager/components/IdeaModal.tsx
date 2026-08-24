@@ -397,7 +397,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                 onClose={() => setShowDeleteConfirm(false)}
                 onConfirm={handleDelete}
                 title="Supprimer cette idée ?"
-                message="Elle sera archivée dans Notion."
+                message="Elle disparaît de l'application. Aucun écran ne permet de la rétablir — seule une sauvegarde la contient encore."
                 isDestructive={true}
             />
         </>

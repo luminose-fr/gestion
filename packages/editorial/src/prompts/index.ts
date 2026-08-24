@@ -296,8 +296,8 @@ Retourne UNIQUEMENT le JSON complet modifié, dans le même format exact que l'o
 interface BuildOptions {
     /** L'action IA à exécuter */
     action: AIAction;
-    /** Description du contexte Notion complémentaire (optionnel) */
-    notionContext?: string;
+    /** Contexte libre injecté sous « CONTEXTE ADDITIONNEL » (optionnel) */
+    contexteAdditionnel?: string;
     /** Template de format — injecté dans %%FORMAT_TEMPLATE%% pour DRAFT_CONTENT */
     formatTemplate?: string;
     /** Règles CTA de l'objectif — injectées dans %%OBJECTIF_CTA%% pour DRAFT_CONTENT */
@@ -325,14 +325,14 @@ interface BuildOptions {
 }
 
 export function buildSystemPrompt(options: BuildOptions): string {
-    const { action, notionContext, formatTemplate, objectifCta, serieContext, coldReadParams, coldReadHistory, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
+    const { action, contexteAdditionnel, formatTemplate, objectifCta, serieContext, coldReadParams, coldReadHistory, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
 
     // 1. BASE FIXE : le persona complet (hardcodé)
     const persona = PERSONA_PROMPTS[action] || '';
 
-    // 2. COUCHE DYNAMIQUE OPTIONNELLE : contexte Notion complémentaire
-    const contextSection = notionContext
-        ? `\n\n---\nCONTEXTE ADDITIONNEL :\n${notionContext}`
+    // 2. COUCHE DYNAMIQUE OPTIONNELLE : contexte libre de l'appelant
+    const contextSection = contexteAdditionnel
+        ? `\n\n---\nCONTEXTE ADDITIONNEL :\n${contexteAdditionnel}`
         : '';
 
     // 3. RÈGLES DE SORTIE : spécifiques à chaque action

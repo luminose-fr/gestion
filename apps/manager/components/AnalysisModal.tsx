@@ -109,7 +109,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         throw new Error("L'IA a renvoyé un format invalide.");
       }
 
-      // 5. Mise à jour de Notion
+      // 5. Enregistrement
       if (isMountedRef.current) setProgress(`Enregistrement (0/${results.length})…`);
 
       let updateCount = 0;

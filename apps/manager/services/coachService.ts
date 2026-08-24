@@ -93,7 +93,7 @@ interface SendOptions {
  *
  * Note : cette fonction ne mute pas la session. L'appelant est responsable
  * d'ajouter le message user ET la réponse assistant dans la session,
- * puis de persister côté Notion.
+ * puis de persister côté serveur.
  */
 export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply> => {
     const { session, userMessage, modelId, contexteAdditionnel, aiModels } = opts;

@@ -9,7 +9,7 @@ interface RichTextareaProps {
 
 // --- PARSERS LÉGERS ---
 
-// Convertit le Markdown basique (Notion-friendly) en HTML pour l'affichage
+// Convertit le Markdown basique en HTML pour l'affichage
 const markdownToHtml = (md: string): string => {
     if (!md) return "";
     let html = md
