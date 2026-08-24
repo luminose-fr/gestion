@@ -6,6 +6,7 @@
  * contrat, et vérifient séparément les contorsions propres à 1min.ai — dont
  * l'existence même justifie l'abstraction.
  */
+import { lireUsage } from '../src/providers/openai';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getProvider, PROVIDER_IDS, flattenConversation, extractText, findBusinessError,
@@ -394,5 +395,45 @@ describe('reprise sur échec passager', () => {
       createOneMinProvider(SANS_ATTENTE).chat({ model: 'm', messages: CONVERSATION })
     ).rejects.toThrow(/1min\.ai a refusé/);
     expect(appels).toHaveLength(1);
+  });
+});
+
+/**
+ * Le décompte d'un appel (SPEC §2.6).
+ *
+ * L'invariant : `null` veut dire « le fournisseur n'a rien déclaré », jamais
+ * « zéro ». Un adaptateur qui rendrait 0 ferait passer un fournisseur muet pour
+ * un fournisseur gratuit, et le total d'un contenu deviendrait faux sans que
+ * rien ne le signale.
+ */
+describe('ce qu’un appel a coûté', () => {
+  it('lit les jetons et le prix quand le fournisseur les donne', () => {
+    expect(lireUsage({ usage: { prompt_tokens: 1200, completion_tokens: 340, cost: 0.0142 } }))
+      .toEqual({ entree: 1200, sortie: 340, coutUsd: 0.0142 });
+  });
+
+  it('accepte la forme input/output des API Responses', () => {
+    expect(lireUsage({ usage: { input_tokens: 10, output_tokens: 4 } }))
+      .toEqual({ entree: 10, sortie: 4, coutUsd: null });
+  });
+
+  it('sans bloc usage, on ne sait RIEN — et on ne dit pas zéro', () => {
+    expect(lireUsage({})).toEqual({ entree: null, sortie: null, coutUsd: null });
+    expect(lireUsage({ usage: null })).toEqual({ entree: null, sortie: null, coutUsd: null });
+  });
+
+  it('des jetons sans prix restent des jetons sans prix', () => {
+    expect(lireUsage({ usage: { prompt_tokens: 50, completion_tokens: 5 } }))
+      .toEqual({ entree: 50, sortie: 5, coutUsd: null });
+  });
+
+  it('une valeur qui n’est pas un nombre vaut inconnu', () => {
+    expect(lireUsage({ usage: { prompt_tokens: 'beaucoup', cost: NaN } }))
+      .toEqual({ entree: null, sortie: null, coutUsd: null });
+  });
+
+  it('zéro déclaré reste zéro : un appel gratuit existe', () => {
+    expect(lireUsage({ usage: { prompt_tokens: 0, completion_tokens: 0, cost: 0 } }))
+      .toEqual({ entree: 0, sortie: 0, coutUsd: 0 });
   });
 });

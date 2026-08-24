@@ -4,6 +4,7 @@ import { ContentItem, Verdict, Platform, AIModel, isObjectif, isProfondeur } fro
 import * as AiService from '../services/aiService';
 import { AI_ACTIONS } from '@luminose/editorial';
 import * as Api from '../services/apiService';
+import type { UsageIA } from '@luminose/shared';
 import { useEscapeClose } from './hooks/useEscapeClose';
 import { Patience } from './Feedback';
 
@@ -30,6 +31,24 @@ interface AnalysisResult {
   titre?: string;
   profondeur?: string;
 }
+
+/**
+ * La part d'un appel groupé qui revient à une idée.
+ *
+ * L'analyse en lot est le seul endroit où un appel produit plusieurs lignes de
+ * journal. Sans partage, additionner les coûts par contenu donnerait N fois la
+ * facture du lot — un total faux d'un facteur N, et faux dans le sens qui
+ * inquiète.
+ */
+export const partager = (usage: UsageIA, parts: number) => {
+    const n = Math.max(1, parts);
+    const diviser = (v: number | null) => (v === null ? null : v / n);
+    return {
+        promptTokens: usage.entree === null ? null : Math.round(usage.entree / n),
+        completionTokens: usage.sortie === null ? null : Math.round(usage.sortie / n),
+        costUsd: diviser(usage.coutUsd),
+    };
+};
 
 const AnalysisModal: React.FC<AnalysisModalProps> = ({
   isOpen,
@@ -89,7 +108,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
       if (isMountedRef.current) setProgress(`Interrogation de l'IA (${modelName})…`);
 
       // 3. Appel API 1min.AI
-      const responseText = await AiService.generateContent({
+      const { text: responseText, usage } = await AiService.generateContent({
           modelId: selectedModelId,
           systemInstruction: systemInstruction,
           prompt: JSON.stringify(contentPayload),
@@ -157,6 +176,9 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           // charge utile, elle ne disparaît pas avec elle (SPEC §2.6).
           await Api.recordGeneration(updatedItem.id, {
               kind: 'analysis', modelId: selectedModelId, modelLabel: modelName, payload: JSON.stringify(res),
+              // UN appel a servi N idées : son coût se DIVISE entre elles, sinon
+              // chacune porterait la facture du lot et le total serait faux N fois.
+              ...partager(usage, results.length),
           }).catch(e => console.warn('Analyse non journalisée :', e));
           updateCount++;
           if (isMountedRef.current) {

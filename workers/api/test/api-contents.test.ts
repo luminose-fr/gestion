@@ -326,3 +326,84 @@ describe('session Coach', () => {
     expect(res.status).toBe(401);
   });
 });
+
+/**
+ * Ce qu'un contenu a coûté (SPEC §2.6).
+ *
+ * Ce qui est protégé ici : `null` et `0` ne veulent PAS dire la même chose. Un
+ * fournisseur muet n'est pas un fournisseur gratuit, et un total qui ignorerait
+ * la différence ferait croire à une facture nulle là où on ne sait rien.
+ */
+describe('coût IA d’un contenu', () => {
+  const lire = async (r: Response) => await r.json() as any;
+  const creer = () => createContent();
+
+  const journaliser = (id: string, extra: Record<string, unknown>) =>
+    post(`/api/contents/${id}/generations`, {
+      kind: 'draft', modelLabel: 'Claude Fable 5', payload: '{}', ...extra,
+    });
+
+  it('sans aucun appel, il n’y a rien à additionner', async () => {
+    const content = await creer();
+    const { cout } = await lire(await call(`/api/contents/${content.id}`));
+    expect(cout).toEqual({ appels: 0, tokensEntree: null, tokensSortie: null, usd: null, appelsSansPrix: 0 });
+  });
+
+  it('additionne les jetons et le prix de chaque appel', async () => {
+    const content = await creer();
+    await journaliser(content.id, { promptTokens: 1000, completionTokens: 200, costUsd: 0.012 });
+    await journaliser(content.id, { promptTokens: 500, completionTokens: 100, costUsd: 0.006 });
+
+    const { cout } = await lire(await call(`/api/contents/${content.id}`));
+    expect(cout.appels).toBe(2);
+    expect(cout.tokensEntree).toBe(1500);
+    expect(cout.tokensSortie).toBe(300);
+    expect(cout.usd).toBeCloseTo(0.018, 6);
+    expect(cout.appelsSansPrix).toBe(0);
+  });
+
+  /**
+   * Le cas 1min.ai : il ne déclare aucun décompte. Le total reste vrai pour ce
+   * qu'il couvre, et dit combien d'appels lui échappent.
+   */
+  it('compte les appels dont le prix est inconnu, sans les compter pour zéro', async () => {
+    const content = await creer();
+    await journaliser(content.id, { promptTokens: 1000, completionTokens: 200, costUsd: 0.012 });
+    await journaliser(content.id, {}); // fournisseur muet
+
+    const { cout } = await lire(await call(`/api/contents/${content.id}`));
+    expect(cout.appels).toBe(2);
+    expect(cout.usd).toBeCloseTo(0.012, 6);
+    expect(cout.appelsSansPrix).toBe(1);
+  });
+
+  it('un contenu ne porte que SES appels', async () => {
+    const a = await creer();
+    const b = await creer();
+    await journaliser(a.id, { promptTokens: 100, completionTokens: 10, costUsd: 0.001 });
+    await journaliser(b.id, { promptTokens: 900, completionTokens: 90, costUsd: 0.009 });
+
+    const { cout } = await lire(await call(`/api/contents/${a.id}`));
+    expect(cout.usd).toBeCloseTo(0.001, 6);
+  });
+
+  it('le décompte revient tel qu’il a été posé', async () => {
+    const content = await creer();
+    await journaliser(content.id, { promptTokens: 1234, completionTokens: 567, costUsd: 0.0432 });
+
+    const { generations } = await lire(await call(`/api/contents/${content.id}/generations`));
+    expect(generations[0]).toMatchObject({ promptTokens: 1234, completionTokens: 567, costUsd: 0.0432 });
+  });
+
+  it('sans décompte, les colonnes restent nulles — pas à zéro', async () => {
+    const content = await creer();
+    await journaliser(content.id, {});
+    const { generations } = await lire(await call(`/api/contents/${content.id}/generations`));
+    expect(generations[0]).toMatchObject({ promptTokens: null, completionTokens: null, costUsd: null });
+  });
+
+  it('refuse un décompte négatif', async () => {
+    const content = await creer();
+    expect((await journaliser(content.id, { promptTokens: -5 })).status).toBe(400);
+  });
+});

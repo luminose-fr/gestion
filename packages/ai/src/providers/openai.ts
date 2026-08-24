@@ -9,8 +9,8 @@
  * Il couvre bien plus qu'OpenAI : Groq, Together, OpenRouter, Mistral et la
  * plupart des passerelles exposent la même forme. Seul `baseUrl` change.
  */
-import { avecUneReprise, ErreurFournisseur, STATUTS_PASSAGERS } from '../port';
-import type { AIProvider, ChatRequest, ChatResult, ProviderConfig, TestResult } from '../port';
+import { avecUneReprise, ErreurFournisseur, STATUTS_PASSAGERS, nombreOuNull, USAGE_INCONNU } from '../port';
+import type { AIProvider, ChatRequest, ChatResult, ProviderConfig, TestResult, UsageIA } from '../port';
 import { stripCodeFences } from '../port';
 
 const DEFAULT_BASE = 'https://api.openai.com/v1';
@@ -56,6 +56,24 @@ export const describeError = (data: any, status: number): string => {
   if (code && String(code) !== '200') details.push(`code ${code}`);
 
   return details.length > 0 ? `${entete} (${details.join(' — ')})` : entete;
+};
+
+/**
+ * Le décompte d'une réponse compatible OpenAI.
+ *
+ * `usage.cost` est propre à OpenRouter, qui chiffre en dollars ce que la
+ * requête a réellement coûté — routage compris. On ne le recalcule pas à partir
+ * des jetons : le prix dépend du fournisseur choisi au moment de l'appel, et
+ * une estimation maison finirait par diverger sans qu'on le voie.
+ */
+export const lireUsage = (data: any): UsageIA => {
+  const usage = data?.usage;
+  if (!usage) return USAGE_INCONNU;
+  return {
+    entree: nombreOuNull(usage.prompt_tokens ?? usage.input_tokens),
+    sortie: nombreOuNull(usage.completion_tokens ?? usage.output_tokens),
+    coutUsd: nombreOuNull(usage.cost),
+  };
 };
 
 export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIProvider => {
@@ -105,9 +123,13 @@ export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIP
         messages: buildMessages(req),
         // Mode JSON natif — 1min.ai ne l'a pas, d'où l'option et non l'obligation
         ...(req.json ? { response_format: { type: 'json_object' } } : {}),
+        // Le PRIX ne vient qu'à la demande, et seulement chez OpenRouter. Envoyé
+        // à une API OpenAI stricte, ce champ inconnu ferait refuser la requête —
+        // d'où le test sur l'identifiant plutôt qu'un envoi systématique.
+        ...(id === 'openrouter' ? { usage: { include: true } } : {}),
       });
       const text = String(data?.choices?.[0]?.message?.content ?? '');
-      return { text: stripCodeFences(text), raw: data };
+      return { text: stripCodeFences(text), usage: lireUsage(data), raw: data };
     },
 
     async test(model: string): Promise<TestResult> {

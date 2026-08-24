@@ -12,7 +12,7 @@
  * Rien de tout cela ne doit remonter à l'appelant.
  */
 import type { AIProvider, ChatRequest, ChatResult, ChatMessage, ProviderConfig, TestResult } from '../port';
-import { stripCodeFences, avecUneReprise, ErreurFournisseur, STATUTS_PASSAGERS } from '../port';
+import { stripCodeFences, avecUneReprise, ErreurFournisseur, STATUTS_PASSAGERS, USAGE_INCONNU } from '../port';
 
 const ENDPOINT = 'https://api.1min.ai/api/chat-with-ai';
 
@@ -128,7 +128,8 @@ export const createOneMinProvider = (config: ProviderConfig): AIProvider => {
       const refus = findBusinessError(payload);
       if (refus) throw new Error(`1min.ai a refusé la requête : ${refus}`);
 
-      return { text: stripCodeFences(extractText(payload)), raw: payload };
+      // 1min.ai ne déclare aucun décompte : on ne l'invente pas (voir UsageIA).
+      return { text: stripCodeFences(extractText(payload)), usage: USAGE_INCONNU, raw: payload };
     },
 
     async test(model: string): Promise<TestResult> {

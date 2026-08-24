@@ -68,7 +68,38 @@ contents.get('/:id', async (c) => {
     messages: results.map(rowToCoachMessage),
   };
 
-  return c.json({ content, coachSession });
+  /**
+   * Ce que ce contenu a coûté en IA (SPEC §2.6).
+   *
+   * Une SEULE requête d'agrégat, pas la lecture du journal : additionner trois
+   * nombres ne justifie pas de transporter des charges utiles de plusieurs
+   * kilo-octets chacune. `COUNT` compte les appels chiffrés — pas les lignes,
+   * dont certaines (une reprise, un fournisseur muet) ne coûtent rien ou ne
+   * disent rien.
+   */
+  const cout = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS appels,
+            SUM(prompt_tokens)     AS entree,
+            SUM(completion_tokens) AS sortie,
+            SUM(cost_usd)          AS usd,
+            SUM(CASE WHEN cost_usd IS NULL THEN 1 ELSE 0 END) AS sansPrix
+       FROM generations
+      WHERE content_id = ?`
+  ).bind(id).first();
+
+  return c.json({
+    content,
+    coachSession,
+    cout: {
+      appels: Number(cout?.appels ?? 0),
+      tokensEntree: cout?.entree === null || cout?.entree === undefined ? null : Number(cout.entree),
+      tokensSortie: cout?.sortie === null || cout?.sortie === undefined ? null : Number(cout.sortie),
+      usd: cout?.usd === null || cout?.usd === undefined ? null : Number(cout.usd),
+      // Combien d'appels n'ont pas de prix : sans ce chiffre, un total partiel
+      // se lirait comme un total.
+      appelsSansPrix: Number(cout?.sansPrix ?? 0),
+    },
+  });
 });
 
 // ── Écritures ────────────────────────────────────────────────────────────
@@ -297,11 +328,14 @@ contents.post('/:id/generations', async (c) => {
   const id = newId();
 
   const insert = c.env.DB.prepare(
-    `INSERT INTO generations (id, content_id, kind, target, model_id, model_label, instruction, payload, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO generations (id, content_id, kind, target, model_id, model_label, instruction, payload,
+                              prompt_tokens, completion_tokens, cost_usd, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     id, contentId, input.kind, toSql(input.target ?? null), toSql(input.modelId ?? null),
-    input.modelLabel, toSql(input.instruction ?? null), input.payload, ts
+    input.modelLabel, toSql(input.instruction ?? null), input.payload,
+    toSql(input.promptTokens ?? null), toSql(input.completionTokens ?? null), toSql(input.costUsd ?? null),
+    ts
   );
 
   const statements = [insert];

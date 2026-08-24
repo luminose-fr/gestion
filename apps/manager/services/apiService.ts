@@ -71,9 +71,22 @@ export const fetchContents = (since?: number) =>
     since === undefined ? '/contents' : `/contents?since=${since}`
   );
 
+/**
+ * Ce qu'un contenu a coûté en IA (SPEC §2.6). `usd` à `null` = aucun appel
+ * chiffré, ce qui n'est pas la même chose que gratuit ; `appelsSansPrix` dit
+ * combien d'appels manquent au total.
+ */
+export interface CoutContenu {
+  appels: number;
+  tokensEntree: number | null;
+  tokensSortie: number | null;
+  usd: number | null;
+  appelsSansPrix: number;
+}
+
 /** Le détail porte la session Coach assemblée ; la liste ne l'a pas. */
 export const fetchContent = (id: string) =>
-  api<{ content: Content; coachSession: CoachSession }>(`/contents/${id}`);
+  api<{ content: Content; coachSession: CoachSession; cout?: CoutContenu }>(`/contents/${id}`);
 
 export const createContent = (input: Partial<Content>) =>
   api<{ content: Content }>('/contents', { method: 'POST', ...body(input) });
@@ -282,6 +295,10 @@ export const recordGeneration = (contentId: string, input: {
   modelLabel: string;
   instruction?: string | null;
   payload: string;
+  /** Ce que l'appel a coûté, quand le fournisseur l'a déclaré (SPEC §2.6). */
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+  costUsd?: number | null;
   apply?: boolean;
 }) => api<{ generation: Generation }>(`/contents/${contentId}/generations`, { method: 'POST', ...body(input) });
 

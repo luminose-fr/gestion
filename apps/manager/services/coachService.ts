@@ -8,6 +8,7 @@
 
 import { AI_ACTIONS, extractJsonPayload } from '@luminose/editorial';
 import * as AiService from './aiService';
+import type { UsageIA } from '@luminose/shared';
 import type { CoachMessage, CoachSession, AIModel, ContentItem, TargetFormat } from '../types';
 
 export interface CoachAIReply {
@@ -108,7 +109,7 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
             content: m.content,
         }));
 
-    const responseText = await AiService.generateContent({
+    const { text: responseText } = await AiService.generateContent({
         modelId: modelId,
         prompt: userMessage,
         systemInstruction,
@@ -137,7 +138,7 @@ export const generateLockedBrief = async (opts: {
     session: CoachSession;
     modelId: string;
     contexteSerie?: string | null;
-}): Promise<string> => {
+}): Promise<{ brief: string; usage: UsageIA }> => {
     const { item, session, modelId, contexteSerie } = opts;
 
     const systemInstruction = AI_ACTIONS.LOCK_BRIEF.getSystemInstruction(contexteSerie || undefined);
@@ -157,7 +158,7 @@ export const generateLockedBrief = async (opts: {
             .map(m => ({ role: m.role, content: m.content })),
     };
 
-    const responseText = await AiService.generateContent({
+    const { text: responseText, usage } = await AiService.generateContent({
         modelId: modelId,
         systemInstruction,
         prompt: JSON.stringify(payload),
@@ -169,7 +170,7 @@ export const generateLockedBrief = async (opts: {
     if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.structure)) {
         throw new Error('Brief verrouillé invalide (structure manquante).');
     }
-    return JSON.stringify(parsed);
+    return { brief: JSON.stringify(parsed), usage };
 };
 
 // ── Helpers de session ─────────────────────────────────────────────────

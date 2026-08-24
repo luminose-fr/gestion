@@ -1,4 +1,3 @@
 - Idem Publer ?
 - Conseils basés sur l'analyse des posts passés ?
-- Calcul des créduits utilisés pour tel post ?
-- Utiliser l'API Batch de OpenRouter pour réduire les couts ?
+- Utiliser l'API Batch de OpenRouter pour réduire les couts => peut-être pertinent si gros volume sans urgence (24h de réponse max possible)

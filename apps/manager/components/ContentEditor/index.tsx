@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X, Layers, ChevronLeft, ChevronRight, Coins } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession, CoachMessage } from '../../types';
+import type { UsageIA } from '@luminose/shared';
 import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
 import * as AiService from '../../services/aiService';
 import { generateLockedBrief, createEmptySession } from '../../services/coachService';
@@ -111,11 +112,22 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    */
   const [coachSessionState, setCoachSessionState] = useState<CoachSession | null>(null);
 
+  /**
+   * Ce que ce contenu a coûté en IA (SPEC §2.6). Il arrive avec le détail —
+   * une agrégation de plus dans une route qui en faisait déjà deux, plutôt
+   * qu'un aller-retour dédié.
+   */
+  const [cout, setCout] = useState<Api.CoutContenu | null>(null);
+
   useEffect(() => {
-      if (!item?.id) { setCoachSessionState(null); return; }
+      if (!item?.id) { setCoachSessionState(null); setCout(null); return; }
       let annule = false;
       Api.fetchContent(item.id)
-          .then(({ coachSession }) => { if (!annule) setCoachSessionState(coachSession); })
+          .then(({ coachSession, cout }) => {
+              if (annule) return;
+              setCoachSessionState(coachSession);
+              setCout(cout ?? null);
+          })
           .catch((e) => console.error('Chargement de la session Coach :', e));
       return () => { annule = true; };
   }, [item?.id]);
@@ -357,6 +369,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       instruction?: string | null;
       /** Le modèle QUI A PRODUIT — pas le modèle actif, qui peut être un autre. */
       modelId: string;
+      /** Ce que l'appel a coûté. Absent pour une reprise, qui ne consomme rien. */
+      usage?: UsageIA;
   }): Promise<void> => {
       if (!editedItem) return;
       try {
@@ -367,6 +381,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               modelLabel: modelLabel(input.modelId),
               instruction: input.instruction ?? null,
               payload: input.payload,
+              promptTokens: input.usage?.entree ?? null,
+              completionTokens: input.usage?.sortie ?? null,
+              costUsd: input.usage?.coutUsd ?? null,
               apply: !!input.target,
           });
       } catch (e: any) {
@@ -503,13 +520,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       if (!isMountedRef.current || !editedItem) return;
       setIsGenerating(true);
       let brief: string | null = null;
+      let usageBrief: UsageIA | undefined;
       try {
-          brief = await generateLockedBrief({
+          const verrou = await generateLockedBrief({
               item: editedItem,
               session,
               modelId: modelFor('LOCK_BRIEF'),
               contexteSerie: serieContext,
           });
+          brief = verrou.brief;
+          usageBrief = verrou.usage;
       } catch (e) {
           console.warn('Verrouillage du brief impossible — fallback session brute.', e);
       }
@@ -525,7 +545,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
       try {
           await Api.updateCoach(editedItem.id, { status: 'validated', brief: validated.brief });
-          if (brief) await journalise({ kind: 'brief', payload: brief, modelId: modelFor('LOCK_BRIEF') });
+          if (brief) await journalise({ usage: usageBrief, kind: 'brief', payload: brief, modelId: modelFor('LOCK_BRIEF') });
           triggerSaveStatus('saved');
       } catch (e: any) {
           if (isMountedRef.current) setSaveError(e?.message || "La validation n'a pas pu être enregistrée.");
@@ -593,7 +613,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               historique,
           );
           const modeleRelecture = modelFor('COLD_READ');
-          const responseText = await callAI('COLD_READ', modeleRelecture, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
+          const { text: responseText, usage } = await callAI('COLD_READ', modeleRelecture, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
           const report = JSON.parse(extractJsonPayload(responseText));
           if (isMountedRef.current && report && report.lecture_naive) {
               setColdRead(report as ColdReadReport);
@@ -603,6 +623,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               Api.recordGeneration(item.id, {
                   kind: 'cold_read', modelId: modeleRelecture || null, modelLabel: modelLabel(modeleRelecture),
                   payload: JSON.stringify(report),
+                  promptTokens: usage.entree, completionTokens: usage.sortie, costUsd: usage.coutUsd,
               }).catch((e) => {
                   // Sans cette ligne en base, le rapport ne survit pas à la
                   // fermeture du panneau : c'est exactement la perte qu'on répare.
@@ -657,7 +678,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               getFormatPromptTemplate(editedItem?.targetFormat as TargetFormat),
               getObjectifCtaRules(editedItem?.objectif),
           );
-          const responseText = await callAI('ADJUST_CONTENT', modelFor('ADJUST_CONTENT'), systemInstruction, TOUR_UTILISATEUR.ADJUST_CONTENT, adjustConfig.generationConfig);
+          const { text: responseText } = await callAI('ADJUST_CONTENT', modelFor('ADJUST_CONTENT'), systemInstruction, TOUR_UTILISATEUR.ADJUST_CONTENT, adjustConfig.generationConfig);
           const adjusted = sanitize(responseText);
           // On garde la version ajustée même si un léger dépassement subsiste (une seule passe)
           result = appendSignatureSlide(adjusted, SIGNATURE_SLIDE);
@@ -724,7 +745,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           }
 
           const modeleRedaction = modelFor('DRAFT_CONTENT');
-          const responseText = await callAI('DRAFT_CONTENT', modeleRedaction, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
+          const { text: responseText, usage } = await callAI('DRAFT_CONTENT', modeleRedaction, systemInstruction, JSON.stringify(promptPayload), actionConfig.generationConfig);
           let finalContent = parseDraftResponse(responseText);
 
           // Carrousel : slide Signature (code) + contrôle déterministe des longueurs
@@ -743,7 +764,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               if (previousValue) setLastGeneration({ field: 'draft', previousValue, label: `Rédaction régénérée par ${modelLabel(modeleRedaction)}` });
               // Le brouillon a changé : les slides déjà produites ne collent plus
               if (base.slides) setSlidesStale(true);
-              await journalise({ kind: 'draft', target: 'draft', payload: finalContent, modelId: modeleRedaction });
+              await journalise({ usage, kind: 'draft', target: 'draft', payload: finalContent, modelId: modeleRedaction });
               await saveWithStatus(newItem);
               // Où atterrir après la rédaction : déclaré par format dans le registre
               onStepChange(getEditorTab(base.targetFormat as TargetFormat));
@@ -774,7 +795,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const modeleSlides = modelFor('GENERATE_CARROUSEL_SLIDES');
-          const responseText = await callAI('GENERATE_CARROUSEL_SLIDES', modeleSlides, systemInstruction, TOUR_UTILISATEUR.GENERATE_CARROUSEL_SLIDES, actionConfig.generationConfig);
+          const { text: responseText, usage } = await callAI('GENERATE_CARROUSEL_SLIDES', modeleSlides, systemInstruction, TOUR_UTILISATEUR.GENERATE_CARROUSEL_SLIDES, actionConfig.generationConfig);
 
           const cleaned = sanitizeSlidesResponse(responseText);
 
@@ -784,7 +805,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               setEditedItem(newItem);
               if (previousValue) setLastGeneration({ field: 'slides', previousValue, label: `Slides régénérées par ${modelLabel(modeleSlides)}` });
               setSlidesStale(false);
-              await journalise({ kind: 'slides', target: 'slides', payload: cleaned, modelId: modeleSlides });
+              await journalise({ usage, kind: 'slides', target: 'slides', payload: cleaned, modelId: modeleSlides });
               await saveWithStatus(newItem);
           }
       } catch (error: any) {
@@ -830,7 +851,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const modeleAjustement = modelFor('ADJUST_CONTENT');
-          const responseText = await callAI(
+          const { text: responseText, usage } = await callAI(
               'ADJUST_CONTENT',
               modeleAjustement,
               systemInstruction,
@@ -867,7 +888,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               else if (editedItem?.slides) setSlidesStale(true);
               // L'instruction fait partie du fait daté : sans elle, on relit un
               // texte modifié sans savoir ce qu'on avait demandé.
-              await journalise({ kind: 'adjustment', target: targetField, payload: applied, instruction: adjustmentText, modelId: modeleAjustement });
+              await journalise({ usage, kind: 'adjustment', target: targetField, payload: applied, instruction: adjustmentText, modelId: modeleAjustement });
               await saveWithStatus(newItem);
           }
           return true;
@@ -899,7 +920,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           );
 
           const modelePrompts = modelFor('ADJUST_DZINE_PROMPTS');
-          const responseText = await callAI(
+          const { text: responseText, usage } = await callAI(
               'ADJUST_DZINE_PROMPTS',
               modelePrompts,
               systemInstruction,
@@ -914,6 +935,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           if (isMountedRef.current) {
               setEditedItem(newItem);
               await journalise({
+                  usage,
                   kind: 'adjustment', target: 'slides', payload: cleaned,
                   instruction: `Prompts d'image, ${cible} : ${instruction}`,
                   modelId: modelePrompts,
@@ -942,6 +964,33 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           case Verdict.NEEDS_WORK: return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
           default: return 'bg-gray-100 text-gray-600 border-gray-200';
       }
+  };
+
+  /**
+   * Ce que ce contenu a coûté, en clair.
+   *
+   * Il ne s'affiche QUE si au moins un appel a été chiffré : « 0,00 $ » sur des
+   * appels dont personne n'a compté serait un mensonge chiffré, et c'est pire
+   * qu'un silence. Quand une partie seulement est chiffrée, le titre le dit.
+   */
+  const CoutIndicator = () => {
+      if (!cout || cout.usd === null) return null;
+      const partiel = cout.appelsSansPrix > 0;
+      const montant = cout.usd < 0.01 && cout.usd > 0
+          ? '< 0,01 $'
+          : `${cout.usd.toFixed(2).replace('.', ',')} $`;
+      const jetons = cout.tokensEntree !== null && cout.tokensSortie !== null
+          ? ` · ${(cout.tokensEntree + cout.tokensSortie).toLocaleString('fr-FR')} jetons`
+          : '';
+      return (
+          <span
+              className="hidden lg:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text/70 dark:border-dark-sec-border tabular-nums"
+              title={`${cout.appels} appel${cout.appels > 1 ? 's' : ''} IA${jetons}${partiel ? ` — ${cout.appelsSansPrix} sans prix déclaré, le total est donc un minimum` : ''}`}
+          >
+              <Coins className="w-3 h-3" />
+              {partiel ? `≥ ${montant}` : montant}
+          </span>
+      );
   };
 
   const SaveIndicator = () => {
@@ -1167,6 +1216,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           <div className="flex items-center gap-2 shrink-0">
               <SaveIndicator />
+              <CoutIndicator />
               {editedItem.verdict && (
                   <div className={`hidden lg:block px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getVerdictColor(editedItem.verdict)}`}>
                       {editedItem.verdict}

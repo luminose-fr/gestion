@@ -216,7 +216,7 @@ Réponds UNIQUEMENT avec un JSON valide au format suivant (tableau de strings) :
 
 Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs doit redonner le texte original complet.`;
 
-            const responseText = await AiService.generateContent({ modelId: aiSelectedModel, prompt, action: 'Découpe des sous-titres' });
+            const { text: responseText } = await AiService.generateContent({ modelId: aiSelectedModel, prompt, action: 'Découpe des sous-titres' });
 
             // Parse the JSON array
             const cleaned = responseText.replace(/```json\s?/g, '').replace(/```\s?/g, '').trim();

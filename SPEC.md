@@ -235,6 +235,34 @@ Volume : quelques kilo-octets par génération, quelques générations par conte
 significatif à cette échelle ; si cela changeait, une purge au-delà des N dernières par
 couple (contenu, nature) suffirait.
 
+**Chaque ligne porte ce que l'appel a coûté — NORMATIF.** `prompt_tokens`,
+`completion_tokens`, `cost_usd`. Le journal disait qui a produit quoi ; il ne disait pas
+ce que ça valait, et « ce contenu revient-il cher ? » se répondait à l'intuition.
+
+**Les trois colonnes sont nullables, et le resteront.** `null` veut dire « le fournisseur
+n'a rien déclaré » — **jamais « zéro »**. 1min.ai ne rend aucun décompte ; une API OpenAI
+rend des jetons sans prix ; OpenRouter rend les deux, à condition de le demander
+(`usage: {include: true}`, propre à lui — envoyé à une API OpenAI stricte, ce champ
+inconnu ferait refuser la requête). Confondre inconnu et gratuit ferait passer une
+facture non mesurée pour une facture nulle.
+
+Le prix n'est **jamais recalculé** à partir des jetons et du catalogue : chez OpenRouter
+il dépend du fournisseur réellement routé au moment de l'appel, et une estimation maison
+divergerait sans que rien ne le signale. On stocke ce que le fournisseur facture, ou rien.
+
+`GET /contents/:id` rend l'agrégat en **une** requête (`SUM`, pas la lecture du journal —
+additionner trois nombres ne justifie pas de transporter des charges de plusieurs
+kilo-octets). Il compte aussi les appels **sans prix déclaré** : sans ce chiffre, un total
+partiel se lirait comme un total. L'écran affiche « ≥ » dans ce cas, et n'affiche rien
+plutôt que « 0,00 $ » quand aucun appel n'est chiffré.
+
+**Un appel groupé partage son coût.** L'analyse en lot produit N lignes de journal pour un
+seul appel : sa facture se divise entre les idées. Sans ça, chacune porterait le coût du
+lot entier et le total serait faux d'un facteur N.
+
+Une reprise (`revert`) recopie une charge déjà produite : elle ne consomme rien, et ses
+colonnes de coût restent nulles.
+
 ### 2.7 La conversation Coach est une suite de messages — NORMATIF
 
 `coach_messages` : une ligne par message. L'état de session (statut, brief verrouillé,

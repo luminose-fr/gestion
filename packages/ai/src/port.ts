@@ -25,11 +25,41 @@ export interface ChatRequest {
   json?: boolean;
 }
 
+/**
+ * Ce que l'appel a consommé, tel que le fournisseur le déclare.
+ *
+ * Jumeau structurel de `UsageIA` dans `@luminose/shared` : cette forme traverse
+ * la frontière jusqu'au front, qui n'a pas le droit d'importer ce package
+ * (SPEC §1.1). Les deux se modifient ensemble.
+ *
+ * Tout est NULLABLE, et le restera : les fournisseurs ne comptent pas tous, et
+ * aucun ne compte pareil. 1min.ai ne rend rien ; une API OpenAI rend des jetons
+ * sans prix ; OpenRouter rend les deux quand on le lui demande. `null` veut dire
+ * « on ne sait pas » — jamais « zéro ». Confondre les deux ferait passer un
+ * fournisseur muet pour un fournisseur gratuit.
+ */
+export interface UsageIA {
+  /** Jetons reçus par le modèle. */
+  entree: number | null;
+  /** Jetons produits par le modèle. */
+  sortie: number | null;
+  /** Coût en dollars, quand le fournisseur le chiffre lui-même. */
+  coutUsd: number | null;
+}
+
 export interface ChatResult {
   text: string;
+  usage: UsageIA;
   /** Réponse brute du fournisseur — pour le diagnostic, jamais pour la logique. */
   raw?: unknown;
 }
+
+/** Un nombre du fournisseur, ou `null` — jamais `0` par défaut. */
+export const nombreOuNull = (valeur: unknown): number | null =>
+  typeof valeur === 'number' && Number.isFinite(valeur) ? valeur : null;
+
+/** Aucun décompte : le fournisseur n'en donne pas. */
+export const USAGE_INCONNU: UsageIA = { entree: null, sortie: null, coutUsd: null };
 
 export interface TestResult {
   available: boolean;

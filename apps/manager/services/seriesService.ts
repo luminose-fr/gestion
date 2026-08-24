@@ -44,7 +44,7 @@ export const generateSeriePlan = async (opts: {
     // Pas de `json: true` ici, volontairement : le mode JSON natif des API
     // compatibles OpenAI exige un OBJET en sortie, or un plan est un TABLEAU.
     // Le parsing défensif d'editorial fait le travail, comme pour l'Analyste.
-    const responseText = await AiService.generateContent({
+    const { text: responseText } = await AiService.generateContent({
         modelId,
         systemInstruction: AI_ACTIONS.PLAN_SERIES.getSystemInstruction(),
         prompt: JSON.stringify(payload),

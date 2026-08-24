@@ -93,6 +93,9 @@ export const rowToGeneration = (r: any): Generation => ({
   modelLabel: r.model_label,
   instruction: r.instruction ?? null,
   payload: r.payload,
+  promptTokens: r.prompt_tokens ?? null,
+  completionTokens: r.completion_tokens ?? null,
+  costUsd: r.cost_usd ?? null,
   createdAt: r.created_at,
 });
 

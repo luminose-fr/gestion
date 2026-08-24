@@ -12,7 +12,10 @@ import { WORKER_URL } from '../constants';
 import { getSessionToken } from '../auth';
 import { AI_ACTION_CATALOG } from '@luminose/editorial';
 import * as Activite from './activityService';
-import type { ChatMessage } from '@luminose/shared';
+import type { ChatMessage, UsageIA } from '@luminose/shared';
+
+/** Aucun décompte reçu : on ne l'invente pas (voir `UsageIA`). */
+const USAGE_INCONNU: UsageIA = { entree: null, sortie: null, coutUsd: null };
 
 export interface GenerateRequest {
   /** Identifiant du modèle dans le catalogue — pas son code d'API. */
@@ -101,7 +104,19 @@ const ouvrirSuivi = (request: GenerateRequest) => {
   });
 };
 
-export const generateContent = async (request: GenerateRequest): Promise<string> => {
+/**
+ * Ce qu'un appel rend : le texte, et ce qu'il a coûté.
+ *
+ * Le coût voyage AVEC la réponse, et pas par un canal parallèle comme les
+ * échecs : deux appels peuvent être en vol en même temps, et un « dernier
+ * décompte » global s'attacherait à la mauvaise production une fois sur deux.
+ */
+export interface ReponseIA {
+  text: string;
+  usage: UsageIA;
+}
+
+export const generateContent = async (request: GenerateRequest): Promise<ReponseIA> => {
   const messages: ChatMessage[] = [
     ...(request.history ?? []),
     { role: 'user', content: request.prompt },
@@ -110,14 +125,14 @@ export const generateContent = async (request: GenerateRequest): Promise<string>
   const suivi = ouvrirSuivi(request);
 
   try {
-    const { text } = await post<{ text: string; modelLabel: string }>('/ai/chat', {
+    const { text, usage } = await post<{ text: string; modelLabel: string; usage?: UsageIA }>('/ai/chat', {
       modelId: request.modelId,
       system: request.systemInstruction,
       messages,
       json: request.json,
     });
     suivi.fermer(true);
-    return text;
+    return { text, usage: usage ?? USAGE_INCONNU };
   } catch (e: any) {
     suivi.fermer(false);
     // Marquée d'abord : l'appelant doit pouvoir savoir qu'elle est déjà annoncée,

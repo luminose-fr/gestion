@@ -77,8 +77,10 @@ ai.post('/chat', async (c) => {
   }
 
   // `raw` reste au Worker : le front n'a que faire de la forme du fournisseur,
-  // et la lui exposer inviterait à s'y accrocher.
-  return c.json({ text: result.text, modelLabel: model.name });
+  // et la lui exposer inviterait à s'y accrocher. Le DÉCOMPTE, lui, remonte :
+  // c'est le front qui journalise la production, donc lui qui doit pouvoir y
+  // attacher ce qu'elle a coûté (SPEC §2.6).
+  return c.json({ text: result.text, modelLabel: model.name, usage: result.usage });
 });
 
 /**

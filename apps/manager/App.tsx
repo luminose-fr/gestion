@@ -817,7 +817,7 @@ function App() {
               format_cible: itemToAnalyze.targetFormat || "Non précisé",
           }];
           
-          const responseText = await AiService.generateContent({
+          const { text: responseText, usage } = await AiService.generateContent({
               modelId: modelId,
               systemInstruction: systemInstruction,
               prompt: JSON.stringify(contentPayload),
@@ -878,6 +878,7 @@ function App() {
               // remplit plusieurs : journalisée sans être appliquée.
               Api.recordGeneration(itemToAnalyze.id, {
                   kind: 'analysis', modelId, modelLabel: modelName, payload: JSON.stringify(res),
+                  promptTokens: usage.entree, completionTokens: usage.sortie, costUsd: usage.coutUsd,
               }).catch(e => console.warn('Analyse non journalisée :', e));
           }
       } catch (error: any) {

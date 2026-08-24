@@ -127,9 +127,28 @@ describe('signalement des échecs', () => {
         const desabonner = surEchecIA(e => vus.push(e));
 
         await expect(generateContent({ modelId: 'm1', prompt: 'x', action: 'Rédaction' }))
-            .resolves.toBe('La réponse');
+            .resolves.toMatchObject({ text: 'La réponse' });
         expect(vus).toHaveLength(0);
         desabonner();
+    });
+
+    /**
+     * Un fournisseur muet ne doit pas passer pour un fournisseur gratuit : sans
+     * bloc `usage`, le décompte est inconnu, pas nul (SPEC §2.6).
+     */
+    it('sans décompte du fournisseur, le coût est inconnu — pas zéro', async () => {
+        vi.stubGlobal('fetch', async () => reponse({ text: 'x', modelLabel: 'GPT' }));
+        const { usage } = await generateContent({ modelId: 'm1', prompt: 'x', action: 'Rédaction' });
+        expect(usage).toEqual({ entree: null, sortie: null, coutUsd: null });
+    });
+
+    it('le décompte du fournisseur remonte tel quel', async () => {
+        vi.stubGlobal('fetch', async () => reponse({
+            text: 'x', modelLabel: 'GPT',
+            usage: { entree: 1200, sortie: 340, coutUsd: 0.0142 },
+        }));
+        const { usage } = await generateContent({ modelId: 'm1', prompt: 'x', action: 'Rédaction' });
+        expect(usage).toEqual({ entree: 1200, sortie: 340, coutUsd: 0.0142 });
     });
 
     /** Une coupure réseau n'a pas de corps de réponse : elle doit s'annoncer quand même. */

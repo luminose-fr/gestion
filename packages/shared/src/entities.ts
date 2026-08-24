@@ -118,6 +118,13 @@ export const GenerationSchema = z.object({
   modelLabel: z.string(),
   instruction: z.string().nullable().default(null),
   payload: z.string(),
+  /**
+   * Ce que l'appel a coûté (SPEC §2.6). `null` = le fournisseur n'a rien
+   * déclaré, ce qui n'est pas la même chose que zéro.
+   */
+  promptTokens: z.number().int().nullable().default(null),
+  completionTokens: z.number().int().nullable().default(null),
+  costUsd: z.number().nullable().default(null),
   createdAt: z.number().int(),
 });
 export type Generation = z.infer<typeof GenerationSchema>;
@@ -147,4 +154,18 @@ export interface CoachSession {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+}
+
+/**
+ * Ce qu'un appel IA a consommé — même forme côté front, Worker et adaptateurs,
+ * comme `ChatMessage` (le jumeau vit dans `packages/ai/src/port.ts`, que le
+ * front n'a pas le droit d'importer, SPEC §1.1).
+ *
+ * Tout est nullable : `null` veut dire « le fournisseur n'a rien déclaré »,
+ * jamais « zéro ».
+ */
+export interface UsageIA {
+  entree: number | null;
+  sortie: number | null;
+  coutUsd: number | null;
 }

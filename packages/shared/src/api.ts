@@ -115,6 +115,10 @@ export const CreateGenerationSchema = z.object({
   modelLabel: z.string().min(1),
   instruction: z.string().nullable().optional(),
   payload: z.string(),
+  /** Ce que l'appel a coûté, quand le fournisseur l'a déclaré (SPEC §2.6). */
+  promptTokens: z.number().int().nonnegative().nullable().optional(),
+  completionTokens: z.number().int().nonnegative().nullable().optional(),
+  costUsd: z.number().nonnegative().nullable().optional(),
   /** Écrit aussi la colonne visée sur le contenu. Faux = journalisation seule. */
   apply: z.boolean().optional(),
 });
