@@ -6,7 +6,7 @@ import {
     ContentItem, Serie, SerieStatus, TargetFormat, Objectif,
     TARGET_FORMAT_VALUES, OBJECTIF_VALUES, isTargetFormat, isObjectif,
 } from '../../types';
-import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable } from '@luminose/editorial';
+import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable, isPlanEntryCreatable } from '@luminose/editorial';
 import { ConfirmModal } from '../CommonModals';
 
 interface SeriePlanViewProps {
@@ -70,6 +70,10 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     }, [serie.id, serie.titre, serie.intention]);
 
     const usableRows = rows.filter(isPlanEntryUsable);
+    /** Ce qui peut réellement devenir un contenu : titre ET format. */
+    const creatableRows = rows.filter(isPlanEntryCreatable);
+    /** Les lignes qui ont un titre mais attendent encore un format. */
+    const sansFormat = usableRows.length - creatableRows.length;
 
     const patchRow = (index: number, patch: Partial<PlanSeriesEntry>) => {
         setRows(prev => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -103,15 +107,16 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     };
 
     const handleCreate = async () => {
-        if (usableRows.length === 0 || isCreating) return;
+        if (creatableRows.length === 0 || isCreating) return;
         setIsCreating(true);
         setCreateError(null);
         try {
-            await onCreateContents(usableRows);
+            await onCreateContents(creatableRows);
             // Les lignes créées quittent le plan — les garder inviterait à les
             // créer deux fois. Une ligne encore sans titre reste : c'est du
             // travail en cours, pas un déchet.
-            setRows(prev => prev.filter(row => !isPlanEntryUsable(row)));
+            // Une ligne sans format n'a pas été créée : elle reste, à compléter.
+            setRows(prev => prev.filter(row => !isPlanEntryCreatable(row)));
         } catch (e: any) {
             setCreateError(e?.message || "La création en lot a échoué.");
         } finally {
@@ -238,14 +243,30 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         </button>
                         <button
                             onClick={handleCreate}
-                            disabled={usableRows.length === 0 || isCreating}
+                            disabled={creatableRows.length === 0 || isCreating}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
                         >
                             {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                            {usableRows.length > 1 ? `Créer les ${usableRows.length} contenus` : 'Créer le contenu'}
+                            {creatableRows.length > 1 ? `Créer les ${creatableRows.length} contenus` : 'Créer le contenu'}
                         </button>
                     </div>
                 </div>
+
+                {/* Un bouton grisé sans explication est une énigme : on dit ce qui manque. */}
+                {sansFormat > 0 && (
+                    <div className="flex items-start gap-2 px-4 py-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                            <strong className="font-bold">
+                                {sansFormat > 1
+                                    ? `${sansFormat} publications n'ont pas de format`
+                                    : `1 publication n'a pas de format`}
+                            </strong>{' '}
+                            — choisissez-le ici. Après création, le format se fige dès qu'on passe la
+                            publication en Brouillon.
+                        </span>
+                    </div>
+                )}
 
                 {createError && (
                     <div className="flex items-center gap-2 px-4 py-2 text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800">

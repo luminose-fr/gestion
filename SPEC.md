@@ -20,7 +20,8 @@
 > détruisent plus ce qui les précède, et tout échec s'annonce de la même façon
 > (§3.5.1) ; un tour vide ne part plus chez un fournisseur (§3.5) ; les
 > adaptateurs reprennent une fois sur un échec passager (§5.2) ; la relecture à
-> froid se relit depuis le journal, datée et signée (§2.6).
+> froid se relit depuis le journal, datée et signée (§2.6) ; le format d'une
+> publication est résolu et non comparé, et exigé avant création (§6.2).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -698,6 +699,38 @@ L'ordre du tableau EST la progression (§2.9) : la création en lot y lit le ran
 pilier ou du thème. Elle alimente `contents.notes`, celle-là même que Florent écrirait à
 la main. Sans elle, une publication de série naît avec un titre et rien d'autre, et tout
 est à reconstruire.
+
+**Le format est RÉSOLU, jamais comparé à l'identique — NORMATIF.** `resoudreFormat`
+ramène la désignation à une forme comparable (minuscules, sans accents ni ponctuation),
+accepte les clés courtes du registre, et rattrape un mot décisif isolé — « Reel »,
+« Carrousel », « Newsletter ».
+
+La comparaison était une égalité stricte de chaîne, accents et parenthèses compris. Le
+24/08/2026, un plan est arrivé avec des publications sans format alors que l'Éclateur en
+avait clairement désigné un : son intention était jetée en silence. Le prompt y contribue
+— deux lignes après avoir exigé « la valeur EXACTE », il abrège lui-même en « Post
+Texte », « Carrousel », « Script Vidéo ».
+
+La résolution s'arrête où commence la devinette : « Vidéo » seul ne départage pas le Reel
+du Youtube, et rend `null`. Choisir à la place de Florent sans le lui dire serait pire que
+de ne pas choisir.
+
+**Une ligne de plan ne devient un contenu qu'avec un format — NORMATIF.** Deux notions
+distinctes, et la distinction n'est pas cosmétique :
+
+| Règle | Exige | Sert à |
+| :--- | :--- | :--- |
+| `isPlanEntryUsable` | un titre | garder la ligne au tableau — c'est ce filtre qui s'applique à la réponse de l'Éclateur |
+| `isPlanEntryCreatable` | un titre **et** un format | autoriser la création du contenu |
+
+Les confondre ferait DISPARAÎTRE du plan les lignes sans format au lieu de demander à
+Florent de les compléter. Une ligne non créée reste au tableau, et l'écran dit ce qui lui
+manque : un bouton grisé sans explication est une énigme.
+
+Même exigence à l'ajout rapide d'une idée. Le motif est le même dans les deux cas : le
+format ne se modifie que tant que le statut vaut `Idée`, et « Travailler cette idée »
+referme cette porte. Un contenu créé sans format traverse le flux amputé de son Brouillon,
+de sa Copie et de ses Slides, sans que rien ne le dise.
 
 **L'Éclateur est l'Analyste de sa série — NORMATIF.** Angle, format et objectif sont
 décidés ici, en voyant l'ensemble, et ne sont pas repassés à l'Analyste publication par

@@ -345,6 +345,73 @@ for (const def of Object.values(FORMAT_REGISTRY)) {
 }
 
 /**
+ * Ramène une désignation de format à sa forme comparable : minuscules, sans
+ * accents, sans ponctuation. « Script Vidéo (Reel/Short) », « Script Video
+ * (Reel / Short) » et « script video reel short » deviennent la même clé.
+ */
+const clefDeFormat = (valeur: string): string =>
+    valeur
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+
+/** Les deux vocabulaires du registre, indexés sous leur forme comparable. */
+const FORMATS_PAR_CLEF: Record<string, TargetFormat> = {};
+for (const def of Object.values(FORMAT_REGISTRY)) {
+    FORMATS_PAR_CLEF[clefDeFormat(def.key)] = def.key;
+    FORMATS_PAR_CLEF[clefDeFormat(def.shortKey)] = def.key;
+}
+
+/**
+ * Les mots qui désignent un format SANS ambiguïté. Dernier recours, quand le
+ * modèle a écrit « Reel » ou « un carrousel » au lieu de la valeur du registre.
+ *
+ * « vidéo » et « script » n'y sont volontairement PAS : seuls, ils ne
+ * départagent pas le Reel du Youtube. Deviner là serait pire que rendre null —
+ * on choisirait un format à la place de Florent, sans le lui dire.
+ */
+const MOTS_DECISIFS: ReadonlyArray<[string, TargetFormat]> = [
+    ['carrousel', TargetFormat.CARROUSEL_SLIDE],
+    ['slide', TargetFormat.CARROUSEL_SLIDE],
+    ['newsletter', TargetFormat.NEWSLETTER],
+    ['youtube', TargetFormat.SCRIPT_VIDEO_YOUTUBE],
+    ['reel', TargetFormat.SCRIPT_VIDEO_REEL_SHORT],
+    ['short', TargetFormat.SCRIPT_VIDEO_REEL_SHORT],
+    ['promptimage', TargetFormat.PROMPT_IMAGE],
+    ['seo', TargetFormat.ARTICLE_LONG_SEO],
+    ['article', TargetFormat.ARTICLE_LONG_SEO],
+    ['posttexte', TargetFormat.POST_TEXTE_COURT],
+];
+
+/**
+ * Le format voulu, quelle que soit la façon dont il a été écrit.
+ *
+ * Pourquoi cette tolérance existe : le 24/08/2026, un plan de série est arrivé
+ * avec des publications sans format alors que l'Éclateur en avait clairement
+ * désigné un. La comparaison était une ÉGALITÉ STRICTE de chaîne, accents et
+ * parenthèses compris — et le prompt, deux lignes après avoir exigé « la valeur
+ * EXACTE », abrège lui-même en « Post Texte », « Carrousel », « Script Vidéo ».
+ * L'intention du modèle était jetée en silence.
+ *
+ * Rend `null` quand la désignation reste ambiguë : c'est alors à Florent de
+ * trancher, et l'écran doit le lui demander plutôt que de deviner.
+ */
+export function resoudreFormat(valeur: unknown): TargetFormat | null {
+    if (typeof valeur !== 'string') return null;
+    const clef = clefDeFormat(valeur);
+    if (!clef) return null;
+
+    const exact = FORMATS_PAR_CLEF[clef];
+    if (exact) return exact;
+
+    const trouves = MOTS_DECISIFS.filter(([mot]) => clef.includes(mot)).map(([, format]) => format);
+    const uniques = [...new Set(trouves)];
+    // Deux formats possibles dans la même chaîne : on ne tranche pas.
+    return uniques.length === 1 ? uniques[0] : null;
+}
+
+/**
  * Retrouve la définition de format à partir du TargetFormat enum
  * OU depuis le shortKey dans un JSON IA (ex: "Post Texte", "Carrousel").
  */

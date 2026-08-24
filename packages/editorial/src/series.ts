@@ -10,7 +10,8 @@
  * avant la création en lot.
  */
 
-import { TargetFormat, isTargetFormat, Objectif, isObjectif } from './domain';
+import { TargetFormat, Objectif, isObjectif } from './domain';
+import { resoudreFormat } from './formats';
 
 /**
  * Une ligne du plan de publication : un futur contenu de la série.
@@ -51,8 +52,28 @@ export const emptyPlanEntry = (): PlanSeriesEntry => ({
  * dont l'absence est bloquante. Tout le reste s'ajoute plus tard, à la main
  * comme dans l'Atelier.
  */
+/**
+ * Une ligne qui mérite sa place dans le tableau du plan : elle a un titre.
+ *
+ * Volontairement PLUS LARGE que `isPlanEntryCreatable` — c'est ce filtre qui
+ * s'applique à la réponse de l'Éclateur, et une ligne sans format doit rester
+ * visible pour que Florent la complète. La faire disparaître en silence serait
+ * exactement le contraire de ce qu'on cherche.
+ */
 export const isPlanEntryUsable = (entry: PlanSeriesEntry): boolean =>
     entry.titre.trim().length > 0;
+
+/**
+ * Une ligne qui peut devenir un contenu : titre ET format.
+ *
+ * Le format est exigé ICI, au dernier moment où il est encore gratuit à
+ * choisir. Passé la création, il ne se modifie plus que tant que le statut vaut
+ * Idée — et « Travailler cette idée » referme cette porte définitivement. Un
+ * contenu créé sans format traverse donc le flux amputé de son Brouillon, de sa
+ * Copie, de ses Slides, sans que rien ne le dise.
+ */
+export const isPlanEntryCreatable = (entry: PlanSeriesEntry): boolean =>
+    isPlanEntryUsable(entry) && entry.format !== null;
 
 /** Normalise une ligne de plan venue de l'extérieur (IA ou saisie). */
 export const normalizePlanEntry = (raw: unknown): PlanSeriesEntry => {
@@ -61,9 +82,10 @@ export const normalizePlanEntry = (raw: unknown): PlanSeriesEntry => {
     return {
         titre: str(source.titre),
         angle: str(source.angle),
-        // Un format ou un objectif hors vocabulaire est ramené à null plutôt
-        // que recopié : la ligne reste utilisable, Florent choisira.
-        format: isTargetFormat(source.format) ? source.format : null,
+        // Le format est RÉSOLU, pas comparé à l'identique : « Script Video
+        // (Reel / Short) » désigne le même format que la valeur du registre, et
+        // jeter l'intention du modèle sur un accent serait absurde (§6.2).
+        format: resoudreFormat(source.format),
         objectif: isObjectif(source.objectif) ? source.objectif : null,
         justification: str(source.justification),
         notes: str(source.notes),

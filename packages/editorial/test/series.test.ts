@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildSerieContextSection, buildPlanSeriesPayload, normalizePlanEntry,
-  isPlanEntryUsable, emptyPlanEntry, SERIE_SOURCE_MAX,
+  isPlanEntryUsable, isPlanEntryCreatable, emptyPlanEntry, SERIE_SOURCE_MAX,
 } from '../src/series';
 import { parsePlanSeriesResponse } from '../src/executors';
 import { TargetFormat, Objectif } from '../src/domain';
@@ -122,6 +122,24 @@ describe('lignes de plan', () => {
   it('une ligne vide n’est pas exploitable', () => {
     expect(isPlanEntryUsable(emptyPlanEntry())).toBe(false);
     expect(isPlanEntryUsable({ ...emptyPlanEntry(), titre: 'Un titre' })).toBe(true);
+  });
+
+  /**
+   * Deux notions, et la distinction n'est pas cosmétique : `usable` filtre la
+   * réponse de l'Éclateur, `creatable` garde le bouton de création. Confondre
+   * les deux ferait DISPARAÎTRE du plan les lignes sans format, au lieu de
+   * demander à Florent de les compléter.
+   */
+  it('exige un format pour devenir un contenu, pas pour rester au plan', () => {
+    const sansFormat = { ...emptyPlanEntry(), titre: 'Un titre' };
+    expect(isPlanEntryUsable(sansFormat)).toBe(true);
+    expect(isPlanEntryCreatable(sansFormat)).toBe(false);
+
+    const complet = { ...sansFormat, format: TargetFormat.POST_TEXTE_COURT };
+    expect(isPlanEntryCreatable(complet)).toBe(true);
+
+    // Un format sans titre ne fait pas une ligne pour autant.
+    expect(isPlanEntryCreatable({ ...emptyPlanEntry(), format: TargetFormat.NEWSLETTER })).toBe(false);
   });
 
   it('ramène à null un format ou un objectif hors vocabulaire', () => {

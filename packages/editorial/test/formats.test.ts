@@ -18,6 +18,7 @@ import {
   bodyJsonToText,
   parseBodyJson,
   VALID_SHORT_KEYS,
+  resoudreFormat,
 } from '../src/index';
 
 const ALL_FORMATS = Object.values(TargetFormat);
@@ -90,4 +91,70 @@ describe('lecture du contenu stocké', () => {
     const raw = JSON.stringify({ format: 'Post Texte', edited_raw: 'Texte réécrit à la main' });
     expect(bodyJsonToText(raw)).toBe('Texte réécrit à la main');
   });
+});
+
+/**
+ * La résolution d'un format écrit par un modèle (SPEC §6.2).
+ *
+ * Née d'un fait : le 24/08/2026, un plan de série est arrivé avec des
+ * publications sans format alors que l'Éclateur en avait clairement désigné un.
+ * La comparaison était une ÉGALITÉ STRICTE — et le prompt, deux lignes après
+ * avoir exigé « la valeur EXACTE », abrège lui-même en « Script Vidéo ».
+ */
+describe('résoudre un format écrit à la main', () => {
+    it('accepte la valeur du registre, telle quelle', () => {
+        expect(resoudreFormat('Script Vidéo (Reel/Short)')).toBe(TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        expect(resoudreFormat('Carrousel (Slide par Slide)')).toBe(TargetFormat.CARROUSEL_SLIDE);
+        expect(resoudreFormat('Post Texte (Court)')).toBe(TargetFormat.POST_TEXTE_COURT);
+    });
+
+    it('pardonne l’accent, la casse et l’espacement', () => {
+        expect(resoudreFormat('Script Video (Reel/Short)')).toBe(TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        expect(resoudreFormat('script vidéo (reel / short)')).toBe(TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        expect(resoudreFormat('CARROUSEL (SLIDE PAR SLIDE)')).toBe(TargetFormat.CARROUSEL_SLIDE);
+        expect(resoudreFormat('  Post Texte (Court)  ')).toBe(TargetFormat.POST_TEXTE_COURT);
+    });
+
+    /** Le prompt abrège lui-même : ces formes-là sont celles que le modèle recopie. */
+    it('accepte les clés courtes du registre', () => {
+        expect(resoudreFormat('Post Texte')).toBe(TargetFormat.POST_TEXTE_COURT);
+        expect(resoudreFormat('Carrousel')).toBe(TargetFormat.CARROUSEL_SLIDE);
+        expect(resoudreFormat('Script Reel')).toBe(TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        expect(resoudreFormat('Script Youtube')).toBe(TargetFormat.SCRIPT_VIDEO_YOUTUBE);
+    });
+
+    it('rattrape un mot décisif isolé', () => {
+        expect(resoudreFormat('Reel')).toBe(TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        expect(resoudreFormat('un carrousel de 8 slides')).toBe(TargetFormat.CARROUSEL_SLIDE);
+        expect(resoudreFormat('Newsletter hebdo')).toBe(TargetFormat.NEWSLETTER);
+        expect(resoudreFormat('Article SEO long')).toBe(TargetFormat.ARTICLE_LONG_SEO);
+    });
+
+    /**
+     * Le point qui compte autant que la tolérance : deviner à la place de
+     * Florent serait pire que de rendre null, parce que personne ne le saurait.
+     */
+    it('rend null plutôt que de trancher une ambiguïté', () => {
+        // « Vidéo » ne départage pas le Reel du Youtube.
+        expect(resoudreFormat('Vidéo')).toBeNull();
+        expect(resoudreFormat('Script Vidéo')).toBeNull();
+        // Deux formats nommés dans la même chaîne : on ne choisit pas.
+        expect(resoudreFormat('un carrousel ou une newsletter')).toBeNull();
+    });
+
+    it('rend null sur ce qui n’est pas une désignation', () => {
+        expect(resoudreFormat(null)).toBeNull();
+        expect(resoudreFormat(undefined)).toBeNull();
+        expect(resoudreFormat('')).toBeNull();
+        expect(resoudreFormat('   ')).toBeNull();
+        expect(resoudreFormat(42)).toBeNull();
+        expect(resoudreFormat('Podcast')).toBeNull();
+    });
+
+    it('reconnaît chaque format du registre par ses deux noms', () => {
+        for (const def of Object.values(FORMAT_REGISTRY)) {
+            expect(resoudreFormat(def.key)).toBe(def.key);
+            expect(resoudreFormat(def.shortKey)).toBe(def.key);
+        }
+    });
 });

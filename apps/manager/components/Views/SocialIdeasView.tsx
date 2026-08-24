@@ -67,10 +67,18 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
         setQuickAddOpen(false);
     };
 
+    /**
+     * Le format est OBLIGATOIRE à la création.
+     *
+     * Une idée sans format traverse le flux sans que rien ne le signale, puis
+     * se fige : le format n'est modifiable que tant que le statut vaut Idée, et
+     * « Travailler cette idée » ferme cette porte pour de bon. Exiger le choix
+     * ici coûte un clic ; le découvrir plus tard coûte le contenu.
+     */
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newIdeaTitle.trim()) return;
-        await onQuickAdd(newIdeaTitle, newIdeaNotes, newIdeaFormat || null);
+        if (!newIdeaTitle.trim() || !newIdeaFormat) return;
+        await onQuickAdd(newIdeaTitle, newIdeaNotes, newIdeaFormat);
         resetQuickAdd();
     };
 
@@ -130,13 +138,15 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
 
                         <div className="flex items-center gap-2 bg-brand-light dark:bg-dark-bg rounded-lg px-3 py-2">
                             <ArrowRightFromLine className="w-[11px] h-[11px] text-brand-main/50 dark:text-dark-text/50 shrink-0" />
-                            <label className="text-[11px] font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider shrink-0">Format</label>
+                            <label className="text-[11px] font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider shrink-0">
+                                Format <span className="text-red-500" aria-label="obligatoire">*</span>
+                            </label>
                             <select
                                 value={newIdeaFormat}
                                 onChange={e => setNewIdeaFormat((e.target.value || '') as TargetFormat | '')}
                                 className="flex-1 bg-transparent border-none text-sm text-brand-main dark:text-white outline-hidden cursor-pointer min-w-0"
                             >
-                                <option value="">— Choisir un format —</option>
+                                <option value="">— Choisir un format (obligatoire) —</option>
                                 {TARGET_FORMAT_VALUES.map(f => (
                                     <option key={f} value={f}>{f}</option>
                                 ))}
@@ -153,7 +163,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                             </button>
                             <button
                                 type="submit"
-                                disabled={!newIdeaTitle.trim() || isSyncing}
+                                disabled={!newIdeaTitle.trim() || !newIdeaFormat || isSyncing}
                                 className="flex items-center gap-2 px-4 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
                             >
                                 {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
