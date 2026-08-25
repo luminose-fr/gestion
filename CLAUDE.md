@@ -41,7 +41,9 @@ Aucune CI n'exécute les tests. `npm test` et `npm run typecheck` **avant chaque
 
 5. **Toute évolution d'un prompt exige la mise à jour de sa golden fixture.** La revue de
    la fixture *est* la revue du changement : c'est le seul endroit où l'on voit ce que le
-   modèle recevra réellement.
+   modèle recevra réellement. Elle exige aussi la mise à jour de
+   [FLUX-EDITORIAL.md](FLUX-EDITORIAL.md), qui cite les personas mot pour mot — un test
+   compare les deux, un document qui ment est pire que pas de document.
 
 ## Conventions de code
 

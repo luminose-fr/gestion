@@ -1,3 +1,3 @@
-- Idem Publer ?
 - Conseils basés sur l'analyse des posts passés ?
+- Idem Publer ? => lourd ; il faudrait une bonne raison.
 - Utiliser l'API Batch de OpenRouter pour réduire les couts => peut-être pertinent si gros volume sans urgence (24h de réponse max possible)
