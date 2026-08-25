@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
-    ArrowLeft, Plus, Trash2, Layers, Link2, Rows3, Wand2, CheckCircle2, AlertCircle
+    ArrowLeft, Plus, Trash2, Layers, Link2, Rows3, Wand2, CheckCircle2, AlertCircle,
+    ChevronDown, ChevronRight,
 } from 'lucide-react';
 import {
     ContentItem, Serie, SerieStatus, TargetFormat, Objectif,
@@ -62,6 +63,24 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     const [isPlanning, setIsPlanning] = useState(false);
     const [nombreSouhaite, setNombreSouhaite] = useState(6);
 
+    /**
+     * Le plan se REPLIE dès que la série a des publications, et il ne disparaît
+     * pas.
+     *
+     * Se replier, parce qu'une fois les contenus créés c'est eux qu'on vient
+     * voir : le plan les repoussait sous un grand tableau vide — vide parce
+     * qu'il ne vit qu'en mémoire et repart à zéro à chaque ouverture.
+     *
+     * Ne pas disparaître, parce que régénérer un plan est le SEUL chemin pour
+     * allonger une série existante — et `handleGenerate` est fait pour ça : il
+     * passe à l'Éclateur les publications déjà créées comme angles pris
+     * (SPEC §6.4). Masquer le bloc rendrait cette anti-répétition inatteignable.
+     *
+     * `null` = on suit la règle ; un booléen = Florent a tranché, et son choix
+     * tient pour la visite.
+     */
+    const [planForce, setPlanForce] = useState<boolean | null>(null);
+
     // Champs d'en-tête : édition locale, écriture au blur — une requête par
     // champ quitté, pas une par frappe.
     const [titre, setTitre] = useState(serie.titre);
@@ -77,6 +96,8 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     const creatableRows = rows.filter(isPlanEntryCreatable);
     /** Les lignes qui ont un titre mais attendent encore un format. */
     const sansFormat = usableRows.length - creatableRows.length;
+
+    const planOuvert = planForce ?? contents.length === 0;
 
     const patchRow = (index: number, patch: Partial<PlanSeriesEntry>) => {
         setRows(prev => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -102,6 +123,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
             ];
             const entries = await onGeneratePlan(nombreSouhaite, dejaPrevus);
             setRows(prev => [...prev, ...entries]);
+            setPlanForce(true);
         } catch (e: any) {
             setCreateError(e?.message || "L'Éclateur n'a pas pu produire de plan.");
         } finally {
@@ -210,14 +232,30 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
             </div>
 
             {/* ── Le plan de publication ─────────────────────────────────── */}
-            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg flex items-center gap-2 flex-wrap">
-                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+            <div className={`bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden ${planOuvert ? '' : 'opacity-80'}`}>
+                <div className={`px-4 py-2.5 bg-brand-light dark:bg-dark-bg flex items-center gap-2 flex-wrap ${planOuvert ? 'border-b border-brand-border dark:border-dark-sec-border' : ''}`}>
+                    <button
+                        type="button"
+                        onClick={() => setPlanForce(!planOuvert)}
+                        aria-expanded={planOuvert}
+                        className="flex items-center gap-2 text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase hover:text-brand-main dark:hover:text-white transition-colors"
+                        title={planOuvert ? 'Replier le plan' : 'Déplier le plan pour allonger la série'}
+                    >
+                        {planOuvert ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                         <Rows3 className="w-3 h-3" /> Plan de publication
-                    </p>
+                    </button>
+                    {/*
+                        Replié, l'en-tête doit répondre à « pourquoi j'ouvrirais ça ? ».
+                        Nommer la section ne suffit pas : c'est le geste qu'on annonce.
+                    */}
                     <span className="text-[11px] text-brand-main/50 dark:text-dark-text/50">
-                        {rows.length === 0 ? 'aucune ligne' : `${usableRows.length} contenu${usableRows.length > 1 ? 's' : ''} à créer`}
+                        {rows.length > 0
+                            ? `${usableRows.length} contenu${usableRows.length > 1 ? 's' : ''} à créer`
+                            : planOuvert
+                                ? 'aucune ligne'
+                                : '· allonger la série'}
                     </span>
+                    {planOuvert && (
                     <div className="ml-auto flex items-center gap-2">
                         <select
                             value={nombreSouhaite}
@@ -258,8 +296,12 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                   </>}
                         </button>
                     </div>
+                    )}
                 </div>
 
+                {/* Replié, le bloc se réduit à sa seule ligne d'en-tête : c'est la
+                    liste des publications qu'on vient voir, pas un tableau vide. */}
+                {planOuvert && (<>
                 {/* Un bouton grisé sans explication est une énigme : on dit ce qui manque. */}
                 {sansFormat > 0 && (
                     <div className="flex items-start gap-2 px-4 py-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
@@ -385,6 +427,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         </table>
                     </div>
                 )}
+                </>)}
             </div>
 
             {/* ── Les contenus déjà créés ────────────────────────────────── */}

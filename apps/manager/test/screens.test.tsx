@@ -618,6 +618,47 @@ describe('séries', () => {
   });
 
   /**
+   * Le plan se replie quand la série a déjà des publications, et ne disparaît
+   * jamais : régénérer est le seul chemin pour allonger une série existante.
+   */
+  describe('le plan de publication se replie', () => {
+    const rattache = (id: string, titre: string): ContentItem =>
+      ({ ...ITEM, id, title: titre, serieId: SERIE.id, seriePosition: 1 });
+
+    it('reste ouvert tant que la série est vide — il n’y a rien d’autre à regarder', () => {
+      const { container } = render(<SeriePlanView {...(planProps as any)} serie={SERIE} contents={[]} />);
+      expect(container.textContent).toContain('Le plan est vide');
+    });
+
+    it('se replie dès qu’une publication existe', () => {
+      const { container } = render(
+        <SeriePlanView {...(planProps as any)} serie={SERIE} contents={[rattache('c1', 'Première')]} />
+      );
+      expect(container.textContent).not.toContain('Le plan est vide');
+      // Le bloc reste là, et dit à quoi il sert.
+      expect(container.textContent).toContain('Plan de publication');
+      expect(container.textContent).toContain('allonger la série');
+      // Replié, le bloc n'offre AUCUNE action : la barre n'est pas seulement
+      // masquée, elle n'est pas rendue.
+      expect(container.textContent).not.toContain('Générer un plan');
+      // Ce qu'on vient voir est visible.
+      expect(container.textContent).toContain('Première');
+    });
+
+    it('se déplie au clic, et se replie au second', () => {
+      const { container, getByTitle } = render(
+        <SeriePlanView {...(planProps as any)} serie={SERIE} contents={[rattache('c1', 'Première')]} />
+      );
+      fireEvent.click(getByTitle('Déplier le plan pour allonger la série'));
+      expect(container.textContent).toContain('Le plan est vide');
+      expect(container.textContent).toContain('Générer un plan');
+
+      fireEvent.click(getByTitle('Replier le plan'));
+      expect(container.textContent).not.toContain('Le plan est vide');
+    });
+  });
+
+  /**
    * Une série se relit dans l'ordre où elle a été pensée — y compris quand les
    * contenus arrivent dans le désordre depuis le cache.
    */
