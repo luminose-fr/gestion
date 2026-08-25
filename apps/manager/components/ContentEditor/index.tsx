@@ -122,6 +122,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   useEffect(() => {
       if (!item?.id) { setCoachSessionState(null); setCout(null); return; }
       let annule = false;
+      // On VIDE avant de charger. Sans ça, entre le changement de contenu et la
+      // réponse du serveur, l'atelier affiche la session du contenu précédent —
+      // et tout ce qu'on y écrit part sur le nouveau.
+      setCoachSessionState(null);
+      setCout(null);
       Api.fetchContent(item.id)
           .then(({ coachSession, cout }) => {
               if (annule) return;

@@ -356,7 +356,16 @@ export const DraftView: React.FC<DraftViewProps> = ({
         return (
             <div className="flex-1 bg-brand-light dark:bg-dark-bg flex flex-col h-full min-h-0 relative">
                 {!isDirect && (
+                    /*
+                     * `key` sur l'identifiant : sans elle, React RÉUTILISE l'atelier
+                     * d'une publication à l'autre — on garde alors « la session a
+                     * démarré », le drapeau anti-relance et les messages du contenu
+                     * précédent. Passer d'une publication de série à la suivante
+                     * affichait donc une conversation qui n'était pas la sienne, et
+                     * pouvait y écrire (SPEC §2.7).
+                     */
                     <CoachChat
+                        key={item.id}
                         item={item}
                         aiModels={aiModels}
                         modelId={activeModelId}

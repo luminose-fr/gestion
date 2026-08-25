@@ -421,6 +421,68 @@ describe('Lecteur froid — panneau', () => {
     });
 });
 
+/**
+ * L'atelier n'appartient qu'à SA publication.
+ *
+ * Ce que ce test protège : le 25/08/2026, passer d'une publication de série à
+ * la suivante affichait la conversation de la PRÉCÉDENTE — React réutilisait le
+ * composant faute de `key`, et gardait avec lui « la session a démarré », le
+ * drapeau anti-relance et les messages. Une publication jamais touchée
+ * présentait donc un atelier en cours, et ce qu'on y écrivait partait sur elle.
+ */
+describe('atelier — une publication, une session', () => {
+    const message = (id: string, role: 'user' | 'assistant', content: string): CoachMessage =>
+        ({ id, contentId: 'a', role, content, raw: null, quickReplies: [], readyForEditor: false, createdAt: 1 });
+
+    const SESSION_A: CoachSession = {
+        status: 'in_progress', formatCible: null, brief: null, validatedAt: null,
+        messages: [message('m1', 'user', 'TITRE : A'), message('m2', 'assistant', 'Réponse pour A.')],
+    };
+
+    const publication = (id: string): ContentItem =>
+        ({ ...ITEM, id, targetFormat: 'Post Texte (Court)' as any, depth: null });
+
+    const atelier = (item: ContentItem, coachSession: CoachSession | null) => (
+        <DraftView
+            item={item} onChange={noop}
+            onLaunchDrafting={noop} onLaunchCarrouselSlides={noop}
+            onLaunchAdjustment={asyncNoop} onLaunchPromptsAdjustment={noop}
+            coachSession={coachSession}
+            onChangeStatus={asyncNoop} onSave={asyncNoop} isGenerating={false}
+            aiModels={MODELS} activeModelId="m1"
+            onCoachMessage={noop} onCoachValidate={asyncNoop}
+            onCoachReopen={asyncNoop} onCoachReset={asyncNoop}
+            coldRead={null} onDismissColdRead={noop} onRunColdRead={noop}
+            activeTab="atelier" onTabChange={noop}
+        />
+    );
+
+    it('la conversation d’une publication ne suit pas sur la suivante', () => {
+        const { container, rerender } = render(atelier(publication('a'), SESSION_A));
+        expect(container.textContent).toContain('Réponse pour A.');
+
+        // On passe à une publication jamais touchée, sans démonter l'éditeur.
+        rerender(atelier(publication('b'), null));
+        expect(container.textContent).not.toContain('Réponse pour A.');
+        // Et son sas revient : rien n'a démarré sur elle.
+        expect(container.textContent).toContain('Prêt à démarrer');
+    });
+
+    it('revenir sur la première retrouve sa conversation', () => {
+        const { container, rerender } = render(atelier(publication('a'), SESSION_A));
+        rerender(atelier(publication('b'), null));
+        rerender(atelier(publication('a'), SESSION_A));
+        expect(container.textContent).toContain('Réponse pour A.');
+        expect(container.textContent).not.toContain('Prêt à démarrer');
+    });
+
+    it('une publication neuve attend qu’on démarre — elle ne part jamais seule', () => {
+        const { container } = render(atelier(publication('neuve'), null));
+        expect(container.textContent).toContain('Prêt à démarrer');
+        expect(container.textContent).toContain('Démarrer la session');
+    });
+});
+
 describe('écrans autonomes', () => {
   it('LoginPage se monte', () => {
     expect(() => render(<LoginPage onLoginSuccess={noop} />)).not.toThrow();
