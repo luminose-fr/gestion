@@ -180,7 +180,10 @@ l'inbox n'entre dans aucun profil, et une offre arrêtée est toujours marquée.
   `workers/api/src/genere/corpus.ts`, gitignoré, régénéré avant chaque `dev`, `test`,
   `typecheck` et déploiement. Un seul composeur, deux chargeurs. La console vit dans
   l'espace **Corpus** de `gestion.luminose.fr` et lit `/api/corpus` — **zéro requête D1**.
-- **La table `inbox` en D1** : `content/inbox.md` fait l'affaire tant qu'il fait l'affaire.
+- ~~La table `inbox` en D1~~ — **faite** (migration `0005_inbox.sql`). L'inbox a quitté le
+  corpus : c'est le seul store en écriture de la console, et elle se capture depuis l'espace
+  **Corpus** de `gestion.luminose.fr`. `packages/corpus/inbox-archive-avant-d1.md` peut être
+  supprimé — ses dix captures sont en base.
 - **`socle/`, `voix/`, `canaux/`, `repertoire/`, `outils/`** sont vides : ils se rempliront à
   l'inventaire des quatre surfaces, pas avant.
 

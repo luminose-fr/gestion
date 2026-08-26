@@ -1,6 +1,11 @@
 import type { Document, Profil, Statut } from './types.ts';
 
-/** Jamais composé : ce sont des notes pour Florent, pas pour une IA. */
+/**
+ * Jamais composé. L'inbox a quitté `content/` pour D1 (migration 0005) : elle
+ * n'est plus un document du corpus mais le seul store en écriture de la
+ * console. L'exclusion reste, comme filet — un fichier `inbox.md` qui
+ * réapparaîtrait ici ne doit jamais partir dans un contexte.
+ */
 const EXCLUS = ['inbox'];
 
 /** Un statut qui interdit de proposer l'offre dans un contenu. */

@@ -18,6 +18,9 @@ import React from 'react';
 
 import SettingsSpace from '../components/Settings/SettingsSpace';
 import CorpusSpace from '../components/Corpus/CorpusSpace';
+import DocumentsView from '../components/Corpus/DocumentsView';
+import InboxView from '../components/Corpus/InboxView';
+import Markdown from '../components/Corpus/Markdown';
 import * as Api from '../services/apiService';
 import { SETTINGS_SECTIONS } from '../components/Settings/sections';
 import { LoginPage } from '../components/LoginPage';
@@ -843,6 +846,11 @@ describe('CorpusSpace', () => {
     absencesDeliberees: [{ chemin: 'voix/direction-artistique', revu: '2026-08' }],
   };
 
+  beforeEach(() => {
+    // La coque interroge l'inbox pour la pastille de l'onglet : sans ce mock,
+    // chaque montage part en requête réelle.
+    vi.spyOn(Api, 'fetchInbox').mockResolvedValue({ captures: [], enAttente: 0 } as any);
+  });
   afterEach(() => { vi.restoreAllMocks(); cleanup(); });
 
   it('se monte pendant le chargement', () => {
@@ -877,5 +885,87 @@ describe('CorpusSpace', () => {
     } as any);
     const { container } = render(<CorpusSpace />);
     await waitFor(() => expect(container.textContent).toContain('à jour'));
+  });
+});
+
+describe('Corpus — lecture des documents', () => {
+  afterEach(() => { vi.restoreAllMocks(); cleanup(); });
+
+  it('se monte pendant le chargement de la liste', () => {
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockReturnValue(new Promise(() => {}) as any);
+    const { container } = render(<DocumentsView />);
+    expect(container.textContent).toContain('Lecture des documents');
+  });
+
+  it('se monte en panne', async () => {
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockRejectedValue(new Error('Liste injoignable'));
+    const { container } = render(<DocumentsView />);
+    await waitFor(() => expect(container.textContent).toContain('Liste injoignable'));
+  });
+
+  it('liste par bloc, et ouvre un document', async () => {
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue({
+      documents: [{
+        chemin: 'socle/offres/le-seuil', bloc: 'socle', titre: 'Le Seuil',
+        statut: 'suspendu', type: 'fact', revu: '2026-08', review_at: '2027-08',
+        expose: 'prive', taille: 900,
+      }],
+    } as any);
+    vi.spyOn(Api, 'fetchDocumentCorpus').mockResolvedValue({
+      chemin: 'socle/offres/le-seuil', bloc: 'socle', titre: 'Le Seuil',
+      meta: { statut: 'suspendu' },
+      corps: '# Le Seuil\n\nStatut **suspendu** depuis août.',
+    } as any);
+
+    const { container, getByText } = render(<DocumentsView />);
+    await waitFor(() => expect(container.textContent).toContain('Le Seuil'));
+    fireEvent.click(getByText('Le Seuil'));
+    await waitFor(() => expect(container.textContent).toContain('depuis août'));
+  });
+});
+
+describe('Corpus — inbox', () => {
+  afterEach(() => { vi.restoreAllMocks(); cleanup(); });
+
+  it('se monte vide, et dit que rien n’attend', async () => {
+    vi.spyOn(Api, 'fetchInbox').mockResolvedValue({ captures: [], enAttente: 0 } as any);
+    const { container } = render(<InboxView />);
+    await waitFor(() => expect(container.textContent).toContain('Rien en attente'));
+  });
+
+  it('se monte en panne', async () => {
+    vi.spyOn(Api, 'fetchInbox').mockRejectedValue(new Error('Inbox injoignable'));
+    const { container } = render(<InboxView />);
+    await waitFor(() => expect(container.textContent).toContain('Inbox injoignable'));
+  });
+
+  it('un « remplace » vide se lit « je ne sais pas », jamais « rien »', async () => {
+    vi.spyOn(Api, 'fetchInbox').mockResolvedValue({
+      captures: [{
+        id: 'a', decide: 'On arrête Le Seuil.', remplace: null, source: 'Console',
+        createdAt: 1756080000000, integratedAt: null, integration: null,
+      }],
+      enAttente: 1,
+    } as any);
+    const { container } = render(<InboxView />);
+    await waitFor(() => expect(container.textContent).toContain('je ne sais pas'));
+    expect(container.textContent).not.toContain('Remplace : rien');
+  });
+});
+
+describe('Markdown', () => {
+  it('rend titres, gras, code, listes et tableaux', () => {
+    const { container } = render(
+      <Markdown texte={'# Titre\n\nUn **gras** et du `code`.\n\n- un\n- deux\n\n| A | B |\n| --- | --- |\n| 1 | 2 |'} />,
+    );
+    expect(container.querySelector('strong')?.textContent).toBe('gras');
+    expect(container.querySelector('code')?.textContent).toBe('code');
+    expect(container.querySelectorAll('li')).toHaveLength(2);
+    expect(container.querySelector('table')).not.toBeNull();
+  });
+
+  it('ne perd rien sur un texte vide', () => {
+    const { container } = render(<Markdown texte="" />);
+    expect(container.textContent).toBe('');
   });
 });

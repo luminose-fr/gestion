@@ -249,6 +249,35 @@ export const PoseSchema = z.object({
 
 export type Pose = z.infer<typeof PoseSchema>;
 
+// ── Inbox : capturer sans ranger ─────────────────────────────────────────
+
+/**
+ * Une capture : trois champs, pas plus.
+ *
+ * Ce sont les trois seules choses que Florent est seul à pouvoir fournir. Le
+ * reste — quel bloc, quel statut, quoi d'autre est impacté — se dérive au
+ * moment de l'intégration, qui est une revue d'impact et pas une écriture.
+ */
+export const CaptureSchema = z.object({
+  /** Ce qui a été décidé, dans ses mots. Jamais reformulé. */
+  decide: z.string().trim().min(1).max(4000),
+  /**
+   * Ce que ça rend faux. `null` veut dire « je ne sais pas », JAMAIS « rien » —
+   * la même distinction que les colonnes de coût (SPEC §2.6). Une chaîne vide
+   * est donc ramenée à null : « je n'ai pas répondu » n'est pas « il n'y a rien ».
+   */
+  remplace: z.string().trim().max(4000).nullable().default(null)
+    .transform((v) => (v === '' ? null : v)),
+  source: z.string().trim().max(200).nullable().default(null),
+});
+
+export type Capture = z.infer<typeof CaptureSchema>;
+
+/** Marquer une capture intégrée : où est-elle partie ? */
+export const IntegrationSchema = z.object({
+  integration: z.string().trim().min(1).max(1000),
+});
+
 // ── Synchronisation ──────────────────────────────────────────────────────
 
 /** `since` en epoch ms ; au-delà, les lignes supprimées remontent aussi (SPEC §8). */

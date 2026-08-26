@@ -1,254 +1,67 @@
 /**
  * L'espace Corpus — le poste de pilotage du socle Luminose.
  *
- * **L'écran ne montre pas une arborescence de fichiers.** GitHub le fait déjà,
- * et mieux. Il s'ouvre sur ce qui demande une décision : ce qui a dérivé, ce
- * qui arrive à échéance, ce qui attend une re-confirmation.
+ * Trois vues, et l'ordre encode une priorité : **l'état d'abord**, parce que
+ * c'est ce qui demande une décision ; les documents ensuite, pour savoir
+ * pourquoi une fiche dit ce qu'elle dit ; l'inbox en dernier, parce qu'on y
+ * vient quand on a quelque chose à déposer.
  *
- * Il ne peut rien écrire dans le corpus : celui-ci est embarqué dans le bundle
- * du Worker au déploiement. Ce n'est pas une discipline, c'est une propriété —
- * Git reste le seul endroit où le corpus change.
+ * Une seule des trois écrit quoi que ce soit — l'inbox. Le corpus est une
+ * constante du bundle du Worker : l'application ne PEUT pas le modifier, et
+ * ce n'est pas une discipline mais une propriété.
  */
-import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Copy, RefreshCw, FileText } from 'lucide-react';
-import {
-  fetchEtatCorpus, fetchContexte, fetchPoses, setPose,
-  type EtatCorpus, type PoseSurface,
-} from '../../services/apiService';
-import { SURFACES } from './surfaces';
+import React, { useEffect, useState } from 'react';
+import { BookOpen, Gauge, Inbox } from 'lucide-react';
+import { fetchInbox } from '../../services/apiService';
+import EtatView from './EtatView';
+import DocumentsView from './DocumentsView';
+import InboxView from './InboxView';
 
-const NON_PROPOSABLE = ['suspendu', 'termine', 'candidat'];
+type Vue = 'etat' | 'documents' | 'inbox';
 
-const Carte: React.FC<{ titre: string; children: React.ReactNode }> = ({ titre, children }) => (
-  <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-5">
-    <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-3">
-      {titre}
-    </h2>
-    {children}
-  </section>
-);
+const VUES: Array<{ id: Vue; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { id: 'etat', label: 'État', icon: Gauge },
+  { id: 'documents', label: 'Documents', icon: BookOpen },
+  { id: 'inbox', label: 'Inbox', icon: Inbox },
+];
 
 const CorpusSpace: React.FC = () => {
-  const [etat, setEtat] = useState<EtatCorpus | null>(null);
-  const [poses, setPoses] = useState<Record<string, PoseSurface>>({});
-  const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState<string | null>(null);
-  const [copie, setCopie] = useState<string | null>(null);
+  const [vue, setVue] = useState<Vue>('etat');
+  const [enAttente, setEnAttente] = useState<number | null>(null);
 
-  const recharger = useCallback(async () => {
-    try {
-      const [e, p] = await Promise.all([fetchEtatCorpus(), fetchPoses()]);
-      setEtat(e);
-      setPoses(p.poses ?? {});
-      setErreur(null);
-    } catch (err: any) {
-      setErreur(err?.message ?? 'Le corpus est injoignable.');
-    }
-  }, []);
-
-  useEffect(() => { void recharger(); }, [recharger]);
-
-  /**
-   * Copier, puis enregistrer la pose — dans cet ordre, et seulement si la copie
-   * a abouti. Enregistrer d'abord ferait apparaître à jour une surface où rien
-   * n'a été collé, et c'est précisément le mensonge que cet écran existe pour
-   * empêcher.
-   */
-  const copierEtPoser = async (surfaceId: string, profil: string) => {
-    setEnCours(surfaceId);
-    try {
-      const ctx = await fetchContexte(profil);
-      await navigator.clipboard.writeText(ctx.texte);
-      const { pose } = await setPose(surfaceId, profil, ctx.hash);
-      setPoses((p) => ({ ...p, [surfaceId]: pose }));
-      setCopie(surfaceId);
-      setTimeout(() => setCopie((c) => (c === surfaceId ? null : c)), 2500);
-    } catch (err: any) {
-      setErreur(err?.message ?? 'La copie a échoué — rien n’a été enregistré.');
-    } finally {
-      setEnCours(null);
-    }
-  };
-
-  if (erreur && !etat) {
-    return (
-      <div className="p-6">
-        <p className="text-sm text-red-600 dark:text-red-400">Échec — {erreur}</p>
-      </div>
-    );
-  }
-
-  if (!etat) {
-    return <div className="p-6 text-sm text-brand-main/60 dark:text-dark-text/60">Lecture du corpus…</div>;
-  }
-
-  const hashCourant = (profil: string) => etat.profils.find((p) => p.profil === profil)?.hash ?? '';
-  const arretees = etat.offres.filter((o) => NON_PROPOSABLE.includes(o.statut));
-  const derives = SURFACES.filter(
-    (s) => !s.automatique && poses[s.id]?.hash !== hashCourant(s.profil),
-  ).length;
+  // Le compteur vit ici et non dans l'onglet : une capture en attente doit se
+  // voir depuis l'état, sinon l'inbox se remplit sans que personne y retourne.
+  useEffect(() => {
+    fetchInbox().then((r) => setEnAttente(r.enAttente)).catch(() => setEnAttente(null));
+  }, [vue]);
 
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-5 max-w-5xl">
-      {erreur && (
-        <p className="text-sm text-red-600 dark:text-red-400">Échec — {erreur}</p>
-      )}
-
-      {/* Ce qui demande une décision, avant tout le reste. */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <span className="font-semibold text-brand-main dark:text-white">
-          {etat.documents} documents
-        </span>
-        <span className="text-brand-main/60 dark:text-dark-text/60">
-          {etat.blocs.length} blocs · relevé du {etat.date}
-        </span>
-        {derives > 0 && (
-          <span className="font-semibold text-amber-600 dark:text-amber-400">
-            {derives} surface{derives > 1 ? 's' : ''} à recoller
-          </span>
-        )}
-        {etat.aRevoir.length > 0 && (
-          <span className="font-semibold text-amber-600 dark:text-amber-400">
-            {etat.aRevoir.length} décision{etat.aRevoir.length > 1 ? 's' : ''} à revoir
-          </span>
-        )}
-        <button
-          onClick={() => void recharger()}
-          className="ml-auto inline-flex items-center gap-1.5 text-xs text-brand-main/70 hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white"
-        >
-          <RefreshCw className="w-3.5 h-3.5" /> Actualiser
-        </button>
-      </div>
-
-      <Carte titre="Ce que portent mes IA">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[640px]">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wider text-brand-main/50 dark:text-dark-text/40">
-                <th className="text-left font-semibold pb-2 pr-3">Surface</th>
-                <th className="text-left font-semibold pb-2 pr-3">Profil</th>
-                <th className="text-left font-semibold pb-2 pr-3">Posée</th>
-                <th className="text-left font-semibold pb-2 pr-3">Courante</th>
-                <th className="text-left font-semibold pb-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {SURFACES.map((s) => {
-                const pose = poses[s.id];
-                const courant = hashCourant(s.profil);
-                const aJour = pose?.hash === courant;
-                return (
-                  <tr key={s.id} className="border-t border-brand-light dark:border-dark-sec-bg align-top">
-                    <td className="py-2.5 pr-3">
-                      <div className="font-medium text-brand-main dark:text-white">{s.nom}</div>
-                      <div className="text-xs text-brand-main/50 dark:text-dark-text/50 max-w-md">{s.note}</div>
-                    </td>
-                    <td className="py-2.5 pr-3 font-mono text-xs text-brand-main/70 dark:text-dark-text/60">{s.profil}</td>
-                    <td className="py-2.5 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
-                      {pose?.hash ?? '—'}
-                    </td>
-                    <td className="py-2.5 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
-                      {courant}
-                    </td>
-                    <td className="py-2.5">
-                      {s.automatique ? (
-                        <span className="text-xs text-brand-main/45 dark:text-dark-text/40">automatique</span>
-                      ) : aJour ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                          <Check className="w-3.5 h-3.5" /> à jour
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => void copierEtPoser(s.id, s.profil)}
-                          disabled={enCours === s.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-brand-main"
-                        >
-                          {copie === s.id ? (
-                            <><Check className="w-3.5 h-3.5" /> copié</>
-                          ) : enCours === s.id ? (
-                            <>Composition…</>
-                          ) : (
-                            <><Copy className="w-3.5 h-3.5" /> {pose ? 'Recoller' : 'Copier'}</>
-                          )}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-3">
-          Le texte est copié dans le presse-papier, puis la version est enregistrée. Si la copie
-          échoue, rien n’est enregistré : une surface ne peut pas passer pour à jour sans l’être.
-        </p>
-      </Carte>
-
-      <Carte titre="Les trois profils">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {etat.profils.map((p) => (
-            <div key={p.profil} className="rounded-lg border border-brand-light dark:border-dark-sec-bg p-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-xs font-semibold text-brand-main dark:text-white">{p.profil}</span>
-                <span className="font-mono text-[11px] tabular-nums text-brand-main/50 dark:text-dark-text/50">{p.hash}</span>
-              </div>
-              <p className="text-xs text-brand-main/60 dark:text-dark-text/55 mt-1.5">{p.intention}</p>
-              <p className="text-[11px] tabular-nums text-brand-main/45 dark:text-dark-text/40 mt-2">
-                {p.taille.toLocaleString('fr-FR')} car. · {p.documents} doc.
-                {p.plafond !== null && ` · plafond ${p.plafond.toLocaleString('fr-FR')}`}
-              </p>
-              {p.depasse && (
-                <p className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 mt-1.5">
-                  <AlertTriangle className="w-3 h-3" /> dépasse son plafond
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      </Carte>
-
-      {arretees.length > 0 && (
-        <Carte titre="Offres qui ne doivent pas être proposées">
-          <ul className="text-sm space-y-1.5">
-            {arretees.map((o) => (
-              <li key={o.chemin} className="flex items-center gap-2">
-                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text">
-                  {o.statut}
-                </span>
-                <span className="text-brand-main dark:text-dark-text">{o.titre}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-3">
-            Ce tableau est dérivé du frontmatter et injecté dans les trois profils, avec la mention
-            « NE PAS PROPOSER ». Changer un statut dans le corpus suffit — aucun texte à réécrire.
-          </p>
-        </Carte>
-      )}
-
-      {(etat.aRevoir.length > 0 || etat.absencesDeliberees.length > 0) && (
-        <Carte titre="Échéances">
-          {etat.aRevoir.map((d) => (
-            <div key={d.chemin} className="flex items-baseline gap-2 text-sm py-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 translate-y-0.5" />
-              <span className="text-brand-main dark:text-dark-text">{d.titre}</span>
-              <span className="font-mono text-[11px] text-brand-main/50 dark:text-dark-text/50">
-                à revoir depuis {d.review_at}
+    <div className="space-y-4">
+      <nav className="flex gap-1 border-b border-brand-light dark:border-dark-sec-bg">
+        {VUES.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setVue(id)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+              vue === id
+                ? 'border-brand-main text-brand-main dark:border-white dark:text-white'
+                : 'border-transparent text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+            {id === 'inbox' && !!enAttente && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                {enAttente}
               </span>
-            </div>
-          ))}
-          {etat.absencesDeliberees.map((a) => (
-            <div key={a.chemin} className="flex items-baseline gap-2 text-sm py-1">
-              <FileText className="w-3.5 h-3.5 text-brand-main/40 shrink-0 translate-y-0.5" />
-              <span className="font-mono text-xs text-brand-main/70 dark:text-dark-text/60">{a.chemin}</span>
-              <span className="text-xs text-brand-main/50 dark:text-dark-text/50">
-                absence délibérée, confirmée en {a.revu} — à re-confirmer, jamais à combler
-              </span>
-            </div>
-          ))}
-        </Carte>
-      )}
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {vue === 'etat' && <EtatView />}
+      {vue === 'documents' && <DocumentsView />}
+      {vue === 'inbox' && <InboxView />}
     </div>
   );
 };

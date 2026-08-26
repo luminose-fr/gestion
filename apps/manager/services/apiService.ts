@@ -358,3 +358,54 @@ export const setPose = (surface: string, profil: string, hash: string) =>
     method: 'PUT',
     body: JSON.stringify({ profil, hash }),
   });
+
+export interface DocumentCorpus {
+  chemin: string;
+  bloc: string;
+  titre: string;
+  meta: Record<string, unknown>;
+  corps: string;
+}
+
+export interface DocumentListe {
+  chemin: string; bloc: string; titre: string;
+  statut: string | null; type: string | null;
+  revu: string | null; review_at: string | null; expose: string | null;
+  taille: number;
+}
+
+export const fetchDocumentsCorpus = () =>
+  api<{ documents: DocumentListe[] }>('/corpus/documents');
+
+export const fetchDocumentCorpus = (chemin: string) =>
+  api<DocumentCorpus>(`/corpus/document?chemin=${encodeURIComponent(chemin)}`);
+
+// ── Inbox ────────────────────────────────────────────────────────────────
+
+export interface CaptureInbox {
+  id: string;
+  decide: string;
+  remplace: string | null;
+  source: string | null;
+  createdAt: number;
+  integratedAt: number | null;
+  integration: string | null;
+}
+
+export const fetchInbox = () =>
+  api<{ captures: CaptureInbox[]; enAttente: number }>('/inbox');
+
+export const capturer = (decide: string, remplace: string | null, source: string | null) =>
+  api<{ capture: CaptureInbox }>('/inbox', {
+    method: 'POST',
+    body: JSON.stringify({ decide, remplace, source }),
+  });
+
+export const integrerCapture = (id: string, integration: string) =>
+  api<{ capture: CaptureInbox }>(`/inbox/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ integration }),
+  });
+
+export const supprimerCapture = (id: string) =>
+  api<{ ok: true }>(`/inbox/${id}`, { method: 'DELETE' });

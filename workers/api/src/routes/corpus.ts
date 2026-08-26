@@ -123,3 +123,23 @@ corpus.get('/contexte/:profil', (c) => {
   }
   return c.json(composer(DOCUMENTS, profil, aujourdhui()));
 });
+
+/**
+ * Un document, entier.
+ *
+ * Le chemin passe en query et non en segment : `socle/offres/le-seuil` en
+ * contient déjà deux, et un `/:a/:b/:c` figerait la profondeur de
+ * l'arborescence dans la route.
+ */
+corpus.get('/document', (c) => {
+  const chemin = c.req.query('chemin') ?? '';
+  const doc = DOCUMENTS.find((d) => d.chemin === chemin);
+  if (!doc) return c.json({ error: `Document inconnu : « ${chemin} ».` }, 404);
+  return c.json({
+    chemin: doc.chemin,
+    bloc: doc.bloc,
+    titre: titreDe(doc.corps, doc.chemin),
+    meta: doc.meta,
+    corps: doc.corps,
+  });
+});
