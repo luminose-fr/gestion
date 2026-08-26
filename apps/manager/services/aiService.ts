@@ -28,6 +28,14 @@ export interface GenerateRequest {
   json?: boolean;
   /** Ce que Florent a demandé, en clair — « Relecture à froid ». Sert au message d'échec. */
   action?: string;
+  /**
+   * L'action éditoriale technique — `DRAFT_CONTENT`, `COLD_READ`…
+   *
+   * Elle décide de la feuille de salle que le Worker joindra au prompt.
+   * Absente, l'appel est celui d'avant le corpus, à l'octet près : c'est la
+   * marche arrière, et elle ne demande pas de redéployer le front.
+   */
+  aiAction?: string;
 }
 
 // ── Les échecs se montrent TOUS, et de la même façon ─────────────────────
@@ -130,6 +138,7 @@ export const generateContent = async (request: GenerateRequest): Promise<Reponse
       system: request.systemInstruction,
       messages,
       json: request.json,
+      action: request.aiAction,
     });
     suivi.fermer(true);
     return { text, usage: usage ?? USAGE_INCONNU };

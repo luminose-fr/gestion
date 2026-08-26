@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { charger } from '../src/charger.ts';
-import { composer } from '../src/composer.ts';
+import { composer, composerFeuille } from '../src/composer.ts';
 import { separerFrontmatter } from '../src/frontmatter.ts';
 import { PROFILS } from '../src/profils.ts';
 import type { Document } from '../src/types.ts';
@@ -111,5 +111,50 @@ describe('le garde-fou des offres — NORMATIF', () => {
     expect(ligne).toBeDefined();
     expect(ligne).toContain('suspendu');
     expect(ligne).toContain('NE PAS PROPOSER');
+  });
+});
+
+/**
+ * La feuille de salle — ce que reçoit un rôle du flux éditorial.
+ *
+ * Les deux premiers tests sont NORMATIFS : ils gardent des décisions, pas des
+ * détails d'implémentation. Un rôle qui se met à recevoir quelque chose alors
+ * qu'il ne devait rien recevoir est une régression silencieuse — le prompt ne
+ * plante pas, il devient seulement un peu moins bon.
+ */
+describe('la feuille de salle', () => {
+  it('« ne reçoit rien » rend une feuille VIDE — NORMATIF', () => {
+    for (const rien of [null, []]) {
+      const f = composerFeuille(docs, rien, D);
+      expect(f.texte).toBe('');
+      expect(f.hash).toBe('');
+      expect(f.documents).toEqual([]);
+    }
+  });
+
+  it('sélectionne par préfixe de chemin, pas seulement par bloc', () => {
+    const offres = composerFeuille(docs, ['socle/offres'], D);
+    expect(offres.documents.length).toBeGreaterThan(3);
+    expect(offres.documents.every((p) => p.startsWith('socle/offres/'))).toBe(true);
+    // Le socle entier en contient strictement plus.
+    expect(composerFeuille(docs, ['socle'], D).documents.length)
+      .toBeGreaterThan(offres.documents.length);
+  });
+
+  it('porte le garde-fou des offres même quand elle ne sert que la voix — NORMATIF', () => {
+    const f = composerFeuille(docs, ['voix'], D);
+    expect(f.texte).toContain('NE PAS PROPOSER');
+    expect(f.texte).toContain('Le Seuil');
+  });
+
+  it('écarte les documents « candidat »', () => {
+    const f = composerFeuille(docs, ['strategie'], D);
+    const candidats = docs.filter((d) => d.meta.statut === 'candidat').map((d) => d.chemin);
+    for (const c of candidats) expect(f.documents).not.toContain(c);
+  });
+
+  it('son hash ne dépend pas de la date', () => {
+    expect(composerFeuille(docs, ['socle'], '2026-08-26').hash)
+      .toBe(composerFeuille(docs, ['socle'], '2027-03-01').hash);
   });
 });

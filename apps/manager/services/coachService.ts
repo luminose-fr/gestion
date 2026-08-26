@@ -84,7 +84,8 @@ interface SendOptions {
     userMessage: string;
     modelId: string;
     /** Contexte additionnel injecté dans le persona — aujourd'hui, la série. */
-    contexteAdditionnel?: string;
+    /** L'anti-répétition, si la publication appartient à une série (SPEC §6.4). */
+    serieContext?: string;
     aiModels: AIModel[];
 }
 
@@ -97,9 +98,9 @@ interface SendOptions {
  * puis de persister côté serveur.
  */
 export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply> => {
-    const { session, userMessage, modelId, contexteAdditionnel, aiModels } = opts;
+    const { session, userMessage, modelId, serieContext, aiModels } = opts;
 
-    const systemInstruction = AI_ACTIONS.COACH_CHAT.getSystemInstruction(contexteAdditionnel);
+    const systemInstruction = AI_ACTIONS.COACH_CHAT.getSystemInstruction(serieContext);
 
     // Historique au format ChatMessage (on ignore les éventuels messages system stockés)
     const history = session.messages
@@ -120,6 +121,7 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
         // Absent des actions qui rendent un TABLEAU : ce mode exige un objet.
         json: true,
         action: 'Atelier (conversation)',
+        aiAction: 'COACH_CHAT',
     });
 
     return parseCoachReply(responseText);
@@ -163,6 +165,7 @@ export const generateLockedBrief = async (opts: {
         systemInstruction,
         prompt: JSON.stringify(payload),
         action: 'Brief verrouillé',
+        aiAction: 'LOCK_BRIEF',
     });
 
     const cleaned = extractJson(responseText, (v) => Array.isArray(v?.structure));

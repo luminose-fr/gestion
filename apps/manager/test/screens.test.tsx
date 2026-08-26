@@ -25,6 +25,7 @@ import InboxView from '../components/Corpus/InboxView';
 import Markdown from '../components/Corpus/Markdown';
 import * as Api from '../services/apiService';
 import { SETTINGS_SECTIONS } from '../components/Settings/sections';
+import { AI_ACTION_CATALOG } from '@luminose/editorial';
 import { LoginPage } from '../components/LoginPage';
 import CalendarView from '../components/CalendarView';
 import SubtitleConverter from '../components/SubtitleConverter';
@@ -217,6 +218,59 @@ describe('espace Réglages', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="providers" />);
     expect(container.textContent).toContain('…f4d9');
     expect(container.textContent).toContain('Aucune clé');
+  });
+
+  /**
+   * L'écran Personas a deux états de rendu par rôle — la liste et le détail —
+   * et le détail dépend du réseau. Ce qui compte ici n'est pas le joli : c'est
+   * qu'un rôle sans feuille DISE qu'il n'en a pas. Un vide se lit comme un
+   * oubli, et un écran de vérification qui laisse croire à un oubli est pire
+   * que pas d'écran.
+   */
+  it('la liste des personas couvre les neuf actions du flux', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="personas" />);
+    for (const a of AI_ACTION_CATALOG) {
+      expect(container.textContent).toContain(a.label);
+    }
+    expect(container.textContent).toContain('Règles de voix');
+  });
+
+  it('un rôle sans feuille dit que c’est voulu', async () => {
+    vi.spyOn(Api, 'fetchFeuilleAction').mockResolvedValue({
+      action: 'COLD_READ', chemins: null, neRecoitRien: true,
+      texte: '', hash: '', taille: 0, documents: [],
+    } as any);
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="personas" />);
+    fireEvent.click([...container.querySelectorAll('button')].find(b => b.textContent?.includes('Relecture à froid'))!);
+    await findByText(/ne reçoit rien du corpus/i);
+  });
+
+  it('un rôle avec feuille montre son empreinte et ses documents', async () => {
+    vi.spyOn(Api, 'fetchFeuilleAction').mockResolvedValue({
+      action: 'ANALYZE_BATCH', chemins: ['socle/identite'], neRecoitRien: false,
+      texte: '# Ce qu’il faut savoir', hash: 'abcd1234', taille: 22,
+      documents: ['socle/identite/positionnement'],
+    } as any);
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="personas" />);
+    fireEvent.click([...container.querySelectorAll('button')].find(b => b.textContent?.includes('Analyse des idées'))!);
+    await findByText('abcd1234');
+    expect(container.textContent).toContain('socle/identite/positionnement');
+  });
+
+  /**
+   * Le cas qui ne doit PAS se lire comme « ne reçoit rien » : la table prévoit
+   * une feuille, mais aucun document ne correspond. C'est une dérive du corpus,
+   * pas une décision — l'écran doit la nommer.
+   */
+  it('signale une feuille prévue mais vide', async () => {
+    vi.spyOn(Api, 'fetchFeuilleAction').mockResolvedValue({
+      action: 'ANALYZE_BATCH', chemins: ['socle/disparu'], neRecoitRien: false,
+      texte: '', hash: '', taille: 0, documents: [],
+    } as any);
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="personas" />);
+    fireEvent.click([...container.querySelectorAll('button')].find(b => b.textContent?.includes('Analyse des idées'))!);
+    await findByText(/rien ne partira/i);
+    expect(container.textContent).not.toMatch(/ne reçoit rien du corpus/i);
   });
 });
 

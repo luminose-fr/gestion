@@ -296,8 +296,20 @@ Retourne UNIQUEMENT le JSON complet modifié, dans le même format exact que l'o
 interface BuildOptions {
     /** L'action IA à exécuter */
     action: AIAction;
-    /** Contexte libre injecté sous « CONTEXTE ADDITIONNEL » (optionnel) */
-    contexteAdditionnel?: string;
+    /**
+     * Le contexte de série — l'anti-répétition (SPEC §6.4).
+     *
+     * Il occupait jusqu'au 26/08/2026 un paramètre générique nommé
+     * `contexteAdditionnel`, hérité de l'ère Notion où un champ libre pouvait
+     * y verser n'importe quoi. Ce champ libre n'a jamais servi à autre chose
+     * qu'à ça : un fourre-tout qui ne transporte qu'une seule marchandise n'est
+     * pas un fourre-tout, c'est un paramètre mal nommé.
+     *
+     * `DRAFT_CONTENT` porte le sien à part (`serieContext`), parce qu'il est
+     * injecté DANS les règles de sortie et non en préambule. Les deux chemins
+     * restent distincts — les fusionner déplacerait le bloc dans le prompt.
+     */
+    serieContextPreambule?: string;
     /** Template de format — injecté dans %%FORMAT_TEMPLATE%% pour DRAFT_CONTENT */
     formatTemplate?: string;
     /** Règles CTA de l'objectif — injectées dans %%OBJECTIF_CTA%% pour DRAFT_CONTENT */
@@ -325,14 +337,17 @@ interface BuildOptions {
 }
 
 export function buildSystemPrompt(options: BuildOptions): string {
-    const { action, contexteAdditionnel, formatTemplate, objectifCta, serieContext, coldReadParams, coldReadHistory, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
+    const { action, serieContextPreambule, formatTemplate, objectifCta, serieContext, coldReadParams, coldReadHistory, profondeur, carrouselParams, currentContent, adjustmentRequest, slidesJson, promptTarget, promptInstruction } = options;
 
     // 1. BASE FIXE : le persona complet (hardcodé)
     const persona = PERSONA_PROMPTS[action] || '';
 
-    // 2. COUCHE DYNAMIQUE OPTIONNELLE : contexte libre de l'appelant
-    const contextSection = contexteAdditionnel
-        ? `\n\n---\nCONTEXTE ADDITIONNEL :\n${contexteAdditionnel}`
+    // 2. L'anti-répétition, quand la publication appartient à une série.
+    //    Le libellé de section reste « CONTEXTE ADDITIONNEL » : le changer
+    //    modifierait les prompts du Coach et du Verrouilleur en série, donc
+    //    leur comportement, pour un simple confort de lecture du code.
+    const contextSection = serieContextPreambule
+        ? `\n\n---\nCONTEXTE ADDITIONNEL :\n${serieContextPreambule}`
         : '';
 
     // 3. RÈGLES DE SORTIE : spécifiques à chaque action

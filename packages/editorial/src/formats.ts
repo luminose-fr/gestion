@@ -24,6 +24,26 @@ export interface FormatDefinition {
     /** Étape de l'éditeur où atterrir juste après la rédaction */
     editorTab: EditorTab;
     /** Ce format bénéficie-t-il de la relecture à froid ? */
+    /**
+     * La relecture à froid est-elle ouverte sur ce format ?
+     *
+     * **Le drapeau garde DEUX portes à la fois** : le bouton « Relire à froid »
+     * de l'éditeur, et le déclenchement automatique qui suit chaque rédaction.
+     * `false` ferme les deux — sur ces formats, on ne peut pas relire même en
+     * le voulant.
+     *
+     * **Trois formats sur sept, et c'est une décision, pas une sédimentation**
+     * (tranchée le 26/08/2026). Les formats longs — article SEO, script
+     * YouTube, newsletter — sont relus par Florent lui-même, plusieurs fois,
+     * et un verdict automatique à chaque régénération se paierait
+     * proportionnellement à leur longueur sans rien lui apprendre. Le carrousel
+     * et le post court, écrits d'un jet, sont l'inverse.
+     *
+     * « Prompt d'image » reste dehors pour une autre raison : il n'y a pas de
+     * prose à relire.
+     *
+     * Ne pas « réparer » ce déséquilibre sans rouvrir la question.
+     */
     supportsColdRead: boolean;
     /** Template de production JSON (injecté dans le prompt du Rédacteur) */
     promptTemplate: string;

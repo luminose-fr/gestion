@@ -11,6 +11,7 @@ import React, { useEffect, useState } from 'react';
 import {
     Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
+    FileText, MinusCircle,
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 import * as Api from '../../services/apiService';
@@ -18,10 +19,11 @@ import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
 import { EnCours, Patience } from '../Feedback';
 import {
-    ANALYSTE_PERSONA, COACH_PERSONA, REDACTEUR_PERSONA, ARTISTE_PERSONA, VOICE_RULES,
-    AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE, profilerModele, normaliserNomModele,
+    VOICE_RULES, AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE,
+    profilerModele, normaliserNomModele, feuillePour,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
+import { APERCUS, compterPresences } from './apercus';
 
 interface SettingsSpaceProps {
     section: SettingsSection;
@@ -39,13 +41,58 @@ interface SettingsSpaceProps {
     onProvidersChange: (providers: Api.ProviderKeyState[]) => void;
 }
 
-const HARDCODED_PERSONAS = [
-    { id: 'voice',    name: 'Règles de voix (transverses)',    usage: 'Partagé',          prompt: VOICE_RULES       },
-    { id: 'stratege', name: 'Stratège (ex-Rédacteur en Chef)', usage: 'Analyse',          prompt: ANALYSTE_PERSONA  },
-    { id: 'coach',    name: 'Coach (sparring-partner)',        usage: 'Session chat',     prompt: COACH_PERSONA     },
-    { id: 'editeur',  name: 'Éditeur Littéraire & Scénariste', usage: 'Rédaction finale', prompt: REDACTEUR_PERSONA },
-    { id: 'artiste',  name: 'Directeur Artistique',            usage: 'Prompts image',    prompt: ARTISTE_PERSONA   },
+/**
+ * Ce que l'écran donne à lire.
+ *
+ * L'ancienne liste tenait cinq textes de persona choisis à la main : quatre
+ * rôles sur sept, et le texte brut du persona — jamais ce qu'un modèle reçoit.
+ * Le Verrouilleur, le Lecteur froid et l'Éclateur n'y figuraient pas, si bien
+ * qu'un prompt pouvait dériver sans que rien ici ne le montre.
+ *
+ * La liste se déduit désormais du catalogue des actions : une action ajoutée
+ * apparaît ici sans qu'on y pense, et c'est le prompt COMPOSÉ qui s'affiche.
+ * Les règles de voix gardent une fiche à part — c'est un bloc partagé, rien ne
+ * l'envoie seul, et le lire une fois vaut mieux que le relire dans neuf prompts.
+ */
+interface FichePersona {
+    id: string;
+    titre: string;
+    sousTitre: string;
+    /** L'identifiant d'action, ou `null` pour un bloc partagé. */
+    action: string | null;
+    texte: string;
+    /** Ce qui a été substitué pour l'aperçu. `null` = ce texte ne varie pas. */
+    exemple: string | null;
+}
+
+const PRESENCES_VOIX = compterPresences(VOICE_RULES);
+
+const FICHE_VOIX: FichePersona = {
+    id: 'voice',
+    titre: 'Règles de voix',
+    sousTitre: 'Bloc partagé',
+    action: null,
+    texte: VOICE_RULES,
+    exemple: null,
+};
+
+const FICHES: FichePersona[] = [
+    ...APERCUS.map(a => ({
+        id: a.id,
+        titre: a.persona,
+        sousTitre: a.label,
+        action: a.id,
+        texte: a.prompt,
+        exemple: a.exemple,
+    })),
+    FICHE_VOIX,
 ];
+
+/** La première ligne qui dit quelque chose — les prompts s'ouvrent sur un titre. */
+const premiereLigneUtile = (texte: string): string =>
+    texte.split('\n').find(l => l.trim().length > 25 && !l.trim().endsWith(':')) ?? '';
+
+const signes = (n: number) => `${n.toLocaleString('fr-FR')} signes`;
 
 const CHAMP =
     'w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border ' +
@@ -109,6 +156,15 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
+    /**
+     * La feuille de salle du rôle ouvert, telle que le Worker la composera.
+     *
+     * Demandée, pas recomposée : c'est le Worker qui la préfixe au prompt, et
+     * un écran de vérification qui refait le calcul de son côté finit par
+     * montrer autre chose que ce qui part.
+     */
+    const [feuille, setFeuille] = useState<Api.FeuilleAction | null>(null);
+    const [feuilleErreur, setFeuilleErreur] = useState<string | null>(null);
 
     const [isSaving, setIsSaving] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -184,6 +240,20 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, [editingId, isCreating, selectedPersonaId, exploring, isSaving, isDeleting, deleteId]);
+
+    // La feuille de salle du rôle ouvert. Le bloc partagé n'en a pas : rien ne
+    // l'envoie seul, donc rien ne lui joint de corpus.
+    useEffect(() => {
+        const id = selectedPersonaId;
+        setFeuille(null);
+        setFeuilleErreur(null);
+        if (!id || id === FICHE_VOIX.id) return;
+        let vivant = true;
+        Api.fetchFeuilleAction(id)
+            .then(f => { if (vivant) setFeuille(f); })
+            .catch(e => { if (vivant) setFeuilleErreur(describeError(e)); });
+        return () => { vivant = false; };
+    }, [selectedPersonaId]);
 
     // Le badge « Enregistré » s'efface tout seul.
     useEffect(() => {
@@ -504,7 +574,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const isInPersonaView = section === 'personas' && !!selectedPersonaId;
 
     const groupes = grouperParAdaptateur(aiModels, providers);
-    const persona = HARDCODED_PERSONAS.find(p => p.id === selectedPersonaId);
+    const fiche = FICHES.find(f => f.id === selectedPersonaId);
 
     const FilAriane: React.FC<{ label: string }> = ({ label }) => (
         <button
@@ -1366,50 +1436,148 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {/* ─── PERSONAS ─── */}
                 {section === 'personas' && !isInPersonaView && (
-                    <div className="space-y-4 animate-fade-in max-w-5xl">
+                    <div className="space-y-6 animate-fade-in max-w-5xl">
                         <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70 max-w-2xl">
-                            Les personas sont écrits dans le code — ils font partie de la méthode, pas des réglages.
-                            Ils sont ici en lecture, pour vérifier ce que le modèle reçoit vraiment.
+                            Ce que chaque rôle reçoit vraiment : le prompt composé — persona, règles de voix,
+                            grille de format, règles de CTA — précédé de sa feuille de salle, l'extrait du
+                            corpus qui lui est joint. Rien ne s'édite ici : ces textes font partie de la
+                            méthode, pas des réglages.
                         </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {HARDCODED_PERSONAS.map(p => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => setSelectedPersonaId(p.id)}
-                                    className="text-left p-4 rounded-xl bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-sm transition-all"
-                                >
-                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                        <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{p.name}</h3>
-                                        <span className="shrink-0 text-[10px] bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
-                                            {p.usage}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 leading-relaxed line-clamp-2">
-                                        {p.prompt.split('\n').find(l => l.trim() && !l.endsWith(':')) ?? ''}
-                                    </p>
-                                    <p className="text-[11px] text-brand-main/40 dark:text-dark-text/40 flex items-center gap-1 mt-2">
-                                        <Eye className="w-3 h-3" /> {p.prompt.length.toLocaleString('fr-FR')} signes · lecture seule
-                                    </p>
-                                </button>
-                            ))}
+
+                        <div>
+                            <EnTeteGroupe titre="Les neuf actions du flux" detail="dans l'ordre où elles interviennent" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {APERCUS.map(a => {
+                                    const recoit = feuillePour(a.id) !== null;
+                                    return (
+                                        <button
+                                            key={a.id}
+                                            onClick={() => setSelectedPersonaId(a.id)}
+                                            className="text-left p-4 rounded-xl bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-sm transition-all"
+                                        >
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{a.persona}</h3>
+                                                <span className="shrink-0 text-[10px] bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
+                                                    {a.label}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-brand-main/50 dark:text-dark-text/50 leading-relaxed line-clamp-2">
+                                                {premiereLigneUtile(a.prompt)}
+                                            </p>
+                                            <p className="text-[11px] text-brand-main/40 dark:text-dark-text/40 flex items-center gap-2 flex-wrap mt-2">
+                                                <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {signes(a.prompt.length)}</span>
+                                                <span className="text-brand-main/20 dark:text-dark-text/20">·</span>
+                                                {recoit ? (
+                                                    <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> feuille de salle</span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1 italic"><MinusCircle className="w-3 h-3" /> sans feuille</span>
+                                                )}
+                                            </p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div>
+                            <EnTeteGroupe titre="Bloc partagé" detail={`défini une fois, reproduit dans ${PRESENCES_VOIX} des neuf prompts`} />
+                            <button
+                                onClick={() => setSelectedPersonaId(FICHE_VOIX.id)}
+                                className="w-full md:w-1/2 text-left p-4 rounded-xl bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-sm transition-all"
+                            >
+                                <h3 className="font-semibold text-sm text-brand-main dark:text-white mb-1">{FICHE_VOIX.titre}</h3>
+                                <p className="text-xs text-brand-main/50 dark:text-dark-text/50 leading-relaxed line-clamp-2">
+                                    {premiereLigneUtile(FICHE_VOIX.texte)}
+                                </p>
+                                <p className="text-[11px] text-brand-main/40 dark:text-dark-text/40 flex items-center gap-1 mt-2">
+                                    <Eye className="w-3 h-3" /> {signes(FICHE_VOIX.texte.length)}
+                                </p>
+                            </button>
                         </div>
                     </div>
                 )}
 
-                {isInPersonaView && persona && (
-                    <div className="max-w-3xl animate-fade-in">
-                        <FilAriane label={persona.name} />
-                        <div className="flex items-center gap-2 flex-wrap mb-3">
-                            <span className="text-[10px] bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-2 py-0.5 rounded-full font-bold">
-                                {persona.usage}
-                            </span>
-                            <span className="flex items-center gap-1 text-[10px] text-brand-main/50 dark:text-dark-text/50">
-                                <Eye className="w-3 h-3" /> Lecture seule
-                            </span>
+                {isInPersonaView && fiche && (
+                    <div className="max-w-3xl animate-fade-in space-y-5">
+                        <div>
+                            <FilAriane label={fiche.titre} />
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-2 py-0.5 rounded-full font-bold">
+                                    {fiche.sousTitre}
+                                </span>
+                                {fiche.action && (
+                                    <span className="text-[10px] font-mono text-brand-main/50 dark:text-dark-text/50">{fiche.action}</span>
+                                )}
+                                <span className="flex items-center gap-1 text-[10px] text-brand-main/50 dark:text-dark-text/50">
+                                    <Eye className="w-3 h-3" /> Lecture seule
+                                </span>
+                            </div>
                         </div>
-                        <pre className="whitespace-pre-wrap text-xs text-brand-main dark:text-dark-text leading-relaxed font-sans bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl p-4">
-                            {persona.prompt}
-                        </pre>
+
+                        {/* La feuille part EN TÊTE du prompt : elle se lit donc en premier. */}
+                        {fiche.action && (
+                            <section>
+                                <EnTeteGroupe titre="1 · La feuille de salle" detail="ce que le corpus ajoute en tête" />
+                                {feuilleErreur && (
+                                    <p className="text-xs font-medium text-red-600 dark:text-red-400">{feuilleErreur}</p>
+                                )}
+                                {!feuilleErreur && !feuille && <Patience titre="Composition de la feuille…" aspect="ligne" />}
+                                {feuille?.neRecoitRien && (
+                                    <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl p-4">
+                                        <span className="font-semibold text-brand-main dark:text-white">Ne reçoit rien du corpus — et c'est voulu.</span>{' '}
+                                        Ce rôle travaille sur ce qu'on lui donne, sans savoir d'où ça vient.
+                                    </p>
+                                )}
+                                {feuille && !feuille.neRecoitRien && !feuille.texte && (
+                                    <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl p-4">
+                                        Une feuille est prévue pour ce rôle, mais aucun document du corpus ne correspond
+                                        aux chemins retenus — rien ne partira. À vérifier dans{' '}
+                                        <span className="font-mono text-xs">packages/editorial/src/contexte.ts</span>.
+                                    </p>
+                                )}
+                                {feuille && !!feuille.texte && (
+                                    <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl overflow-hidden">
+                                        <div className="flex items-center gap-2 flex-wrap px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border text-[11px] text-brand-main/60 dark:text-dark-text/60">
+                                            <span className="font-mono">{feuille.hash}</span>
+                                            <span className="text-brand-main/20 dark:text-dark-text/20">·</span>
+                                            <span>{signes(feuille.taille)}</span>
+                                            <span className="text-brand-main/20 dark:text-dark-text/20">·</span>
+                                            <span>{feuille.documents.length} document{feuille.documents.length > 1 ? 's' : ''}</span>
+                                        </div>
+                                        <ul className="px-4 py-3 flex flex-wrap gap-1.5">
+                                            {feuille.documents.map(d => (
+                                                <li key={d} className="text-[10px] font-mono bg-brand-light dark:bg-dark-bg text-brand-main/70 dark:text-dark-text/70 px-1.5 py-0.5 rounded">
+                                                    {d}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        <details className="border-t border-brand-border dark:border-dark-sec-border">
+                                            <summary className="px-4 py-2.5 text-xs font-medium text-brand-main/70 dark:text-dark-text/70 cursor-pointer hover:text-brand-main dark:hover:text-white">
+                                                Lire le texte joint
+                                            </summary>
+                                            <pre className="whitespace-pre-wrap text-xs text-brand-main dark:text-dark-text leading-relaxed font-sans px-4 pb-4">
+                                                {feuille.texte}
+                                            </pre>
+                                        </details>
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
+                        <section>
+                            <EnTeteGroupe
+                                titre={fiche.action ? '2 · Le prompt système' : 'Le texte'}
+                                detail={fiche.action ? "composé à l'appel" : `reproduit dans ${PRESENCES_VOIX} des neuf prompts`}
+                            />
+                            {fiche.exemple && (
+                                <p className="text-xs leading-relaxed text-brand-main/60 dark:text-dark-text/60 mb-2">
+                                    <span className="font-semibold">Aperçu.</span> {fiche.exemple}
+                                </p>
+                            )}
+                            <pre className="whitespace-pre-wrap text-xs text-brand-main dark:text-dark-text leading-relaxed font-sans bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl p-4">
+                                {fiche.texte}
+                            </pre>
+                        </section>
                     </div>
                 )}
 

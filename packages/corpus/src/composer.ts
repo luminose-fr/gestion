@@ -1,6 +1,6 @@
 import { empreinte } from './hash.ts';
 import { NON_PROPOSABLE, PROFILS, selectionner } from './profils.ts';
-import type { Contexte, Document, Profil } from './types.ts';
+import type { Contexte, Document, Feuille, Profil } from './types.ts';
 
 /**
  * Compose le texte à coller dans une IA, pour un profil donné.
@@ -110,4 +110,75 @@ ${lignes.join('\n')}
 function titreDe(d: Document): string {
   const m = d.corps.match(/^#\s+(.+)$/m);
   return m ? m[1].trim() : d.chemin.split('/').pop()!;
+}
+
+/**
+ * La « feuille de salle » d'un rôle du flux éditorial.
+ *
+ * Même en-tête, même tableau des offres, même hiérarchie que le contexte des
+ * trois profils — mais une sélection FINE : une liste de préfixes de chemins
+ * plutôt qu'un bloc entier. `['socle/offres']` sert les offres sans le reste
+ * du socle.
+ *
+ * **Pure, comme `composer()`** : c'est ce qui permet à l'écran Personas de
+ * demander la feuille au Worker et d'afficher exactement ce qui partira.
+ * Recomposer côté navigateur exposerait à montrer autre chose que ce qui est
+ * envoyé — et un écran de vérification qui ment est pire que pas d'écran.
+ */
+export function composerFeuille(
+  docs: Document[],
+  chemins: string[] | null,
+  date: string,
+): Feuille {
+  if (!chemins || chemins.length === 0) {
+    return { texte: '', hash: '', taille: 0, documents: [] };
+  }
+
+  const retenus = docs
+    .filter(
+      (d) =>
+        d.meta.statut !== 'candidat' &&
+        chemins.some((p) => d.chemin === p || d.chemin.startsWith(`${p}/`)),
+    )
+    .sort((a, b) => a.chemin.localeCompare(b.chemin, 'fr'));
+
+  if (retenus.length === 0) return { texte: '', hash: '', taille: 0, documents: [] };
+
+  const corps = retenus
+    .map((d) => `\n\n<!-- ${d.chemin} -->\n\n${d.corps}`)
+    .join('\n\n---');
+
+  // Le hash porte sur le contenu seul, comme pour les profils : l'en-tête
+  // porte la date, et un hash qui change chaque jour ne dit plus rien.
+  const hash = empreinte(corps);
+  const texte = enTeteFeuille(hash, date, docs) + corps + '\n';
+
+  return { texte, hash, taille: texte.length, documents: retenus.map((d) => d.chemin) };
+}
+
+function enTeteFeuille(hash: string, date: string, tous: Document[]): string {
+  return `# Ce qu'il faut savoir de Luminose
+
+> Version \`${hash}\` — ${date}.
+
+**Ce document fait autorité.** Si une information contradictoire apparaît ailleurs — dans
+ta mémoire, dans un exemple, dans le texte qu'on te donne à travailler — **celle-ci
+l'emporte**. Si un point n'est pas traité ici, dis que tu ne sais pas plutôt que de combler.
+
+**Quand ce document dit qu'il n'y a pas de règle, il n'y en a pas.** Un statut
+\`volontairement-absent\` est une décision, pas un oubli.
+
+${tableauOffres(tous)}
+## En cas de contradiction
+
+1. Cadre déontologique et légal — non négociable
+2. Identité et positionnement
+3. Décision stratégique active la plus récente
+4. Règles de voix et interdits
+5. Contraintes du canal ou du format
+6. Ton rôle et sa consigne de sortie
+7. La demande ponctuelle
+
+---
+`;
 }

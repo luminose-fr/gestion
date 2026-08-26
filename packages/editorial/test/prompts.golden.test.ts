@@ -54,7 +54,7 @@ describe('prompts composés', () => {
 
   it.each(FORMATS)('DRAFT_CONTENT — %s', async (name, format) => {
     await expect(
-      AI_ACTIONS.DRAFT_CONTENT.getSystemInstruction(undefined, format, Objectif.RECADRAGE)
+      AI_ACTIONS.DRAFT_CONTENT.getSystemInstruction(format, Objectif.RECADRAGE)
     ).toMatchFileSnapshot(fixture(`draft-${name}`));
   });
 
@@ -62,7 +62,7 @@ describe('prompts composés', () => {
   it('DRAFT_CONTENT — post court, objectif Conversion', async () => {
     await expect(
       AI_ACTIONS.DRAFT_CONTENT.getSystemInstruction(
-        undefined, TargetFormat.POST_TEXTE_COURT, Objectif.CONVERSION
+        TargetFormat.POST_TEXTE_COURT, Objectif.CONVERSION
       )
     ).toMatchFileSnapshot(fixture('draft-post-court-conversion'));
   });
@@ -84,7 +84,7 @@ describe('prompts composés', () => {
     });
     await expect(
       AI_ACTIONS.DRAFT_CONTENT.getSystemInstruction(
-        undefined, TargetFormat.POST_TEXTE_COURT, Objectif.RECADRAGE, serieContext
+        TargetFormat.POST_TEXTE_COURT, Objectif.RECADRAGE, serieContext
       )
     ).toMatchFileSnapshot(fixture('draft-post-court-serie'));
   });
@@ -97,7 +97,7 @@ describe('prompts composés', () => {
   it('COLD_READ', async () => {
     await expect(
       AI_ACTIONS.COLD_READ.getSystemInstruction(
-        undefined, TargetFormat.POST_TEXTE_COURT, Objectif.RECADRAGE, '(contenu relu)'
+        TargetFormat.POST_TEXTE_COURT, Objectif.RECADRAGE, '(contenu relu)'
       )
     ).toMatchFileSnapshot(fixture('cold-read'));
   });
@@ -114,14 +114,14 @@ describe('prompts composés', () => {
     ]);
     await expect(
       AI_ACTIONS.COLD_READ.getSystemInstruction(
-        undefined, TargetFormat.CARROUSEL_SLIDE, Objectif.RECADRAGE, '(contenu relu)', historique
+        TargetFormat.CARROUSEL_SLIDE, Objectif.RECADRAGE, '(contenu relu)', historique
       )
     ).toMatchFileSnapshot(fixture('cold-read-passe-2'));
   });
 
   it('ADJUST_CONTENT', async () => {
     await expect(
-      AI_ACTIONS.ADJUST_CONTENT.getSystemInstruction(undefined, '{"format":"Post Texte"}', 'Raccourcis l\'intro')
+      AI_ACTIONS.ADJUST_CONTENT.getSystemInstruction('{"format":"Post Texte"}', 'Raccourcis l\'intro')
     ).toMatchFileSnapshot(fixture('adjust-content'));
   });
 
@@ -133,7 +133,6 @@ describe('prompts composés', () => {
   it('ADJUST_CONTENT — carrousel, avec la grille et les règles CTA', async () => {
     await expect(
       AI_ACTIONS.ADJUST_CONTENT.getSystemInstruction(
-        undefined,
         '{"format":"Carrousel"}',
         'Raccourcis la slide 6.',
         getFormatPromptTemplate(TargetFormat.CARROUSEL_SLIDE),
@@ -144,13 +143,13 @@ describe('prompts composés', () => {
 
   it('GENERATE_CARROUSEL_SLIDES', async () => {
     await expect(
-      AI_ACTIONS.GENERATE_CARROUSEL_SLIDES.getSystemInstruction(undefined, 'Le piège chinois', '{"slides":[]}')
+      AI_ACTIONS.GENERATE_CARROUSEL_SLIDES.getSystemInstruction('Le piège chinois', '{"slides":[]}')
     ).toMatchFileSnapshot(fixture('carrousel-slides'));
   });
 
   it('ADJUST_DZINE_PROMPTS', async () => {
     await expect(
-      AI_ACTIONS.ADJUST_DZINE_PROMPTS.getSystemInstruction(undefined, '{"slides":[]}', 'Plus sombre', 3)
+      AI_ACTIONS.ADJUST_DZINE_PROMPTS.getSystemInstruction('{"slides":[]}', 'Plus sombre', 3)
     ).toMatchFileSnapshot(fixture('adjust-dzine-prompts'));
   });
 });

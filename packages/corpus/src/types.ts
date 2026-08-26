@@ -44,3 +44,17 @@ export interface Contexte {
   /** chemins retenus, dans l'ordre de composition */
   documents: string[];
 }
+
+/**
+ * Ce qu'un rôle du flux éditorial reçoit du corpus.
+ *
+ * Un texte vide et un hash vide signifient « ce rôle ne reçoit rien », et
+ * c'est un état légitime : le Lecteur froid et l'Artiste sont dans ce cas
+ * par décision, pas par accident.
+ */
+export interface Feuille {
+  texte: string;
+  hash: string;
+  taille: number;
+  documents: string[];
+}

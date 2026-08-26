@@ -49,6 +49,7 @@ export const generateSeriePlan = async (opts: {
         systemInstruction: AI_ACTIONS.PLAN_SERIES.getSystemInstruction(),
         prompt: JSON.stringify(payload),
         action: 'Plan de série',
+        aiAction: 'PLAN_SERIES',
     });
 
     return parsePlanSeriesResponse(responseText);

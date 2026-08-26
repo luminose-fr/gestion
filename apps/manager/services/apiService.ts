@@ -380,6 +380,28 @@ export const fetchDocumentsCorpus = () =>
 export const fetchDocumentCorpus = (chemin: string) =>
   api<DocumentCorpus>(`/corpus/document?chemin=${encodeURIComponent(chemin)}`);
 
+export interface FeuilleAction {
+  action: string;
+  /** Les préfixes retenus, ou `null` si ce rôle ne reçoit rien. */
+  chemins: string[] | null;
+  /** `true` = décision, pas oubli. L'écran doit le dire, pas afficher un vide. */
+  neRecoitRien: boolean;
+  texte: string;
+  hash: string;
+  taille: number;
+  documents: string[];
+}
+
+/**
+ * La feuille de salle telle qu'elle PARTIRA pour cette action.
+ *
+ * On la demande au Worker au lieu de la recomposer ici : c'est lui qui la
+ * préfixe au prompt, et un écran de vérification qui recompose de son côté
+ * finirait par montrer autre chose que ce qui est envoyé.
+ */
+export const fetchFeuilleAction = (action: string) =>
+  api<FeuilleAction>(`/corpus/feuille/${encodeURIComponent(action)}`);
+
 // ── Inbox ────────────────────────────────────────────────────────────────
 
 export interface CaptureInbox {

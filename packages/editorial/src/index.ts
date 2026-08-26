@@ -29,4 +29,7 @@ export * from './shortlist';
 // Composition des prompts et parsing des réponses
 export * from './prompts';
 export * from './actions';
+
+// Qui reçoit quoi du corpus — une table, rien d'autre
+export * from './contexte';
 export * from './executors';

@@ -147,6 +147,18 @@ export const ChatRequestSchema = z.object({
       { message: 'Au moins un message doit porter du contenu : un tour vide est écarté par les fournisseurs.' },
     ),
   json: z.boolean().optional(),
+  /**
+   * L'action éditoriale à l'origine de l'appel — `DRAFT_CONTENT`, `COLD_READ`…
+   *
+   * **Facultatif, et c'est la marche arrière.** Absent, le Worker n'ajoute
+   * rien et l'appel est identique, à l'octet près, à celui d'avant le corpus.
+   * Présent, il fait précéder le prompt système de la feuille de salle du rôle
+   * (`FEUILLE_PAR_ACTION`).
+   *
+   * Ce n'est pas le libellé humain affiché dans le bandeau d'activité — c'est
+   * l'identifiant technique de l'action.
+   */
+  action: z.string().trim().max(60).optional(),
 });
 export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
 

@@ -12,7 +12,8 @@
  * 50 par invocation (SPEC §3.6) n'est pas entamé.
  */
 import { Hono } from 'hono';
-import { composer, PROFILS, type Profil } from '@luminose/corpus';
+import { composer, composerFeuille, PROFILS, type Profil } from '@luminose/corpus';
+import { actionConnue, feuillePour } from '@luminose/editorial';
 import { DOCUMENTS } from '../genere/corpus';
 import type { Env } from '../env';
 
@@ -141,5 +142,31 @@ corpus.get('/document', (c) => {
     titre: titreDe(doc.corps, doc.chemin),
     meta: doc.meta,
     corps: doc.corps,
+  });
+});
+
+/**
+ * La feuille de salle d'un rôle, telle qu'elle partira.
+ *
+ * L'écran Personas la DEMANDE plutôt que de la recomposer : recomposer côté
+ * navigateur exposerait à afficher autre chose que ce qui est envoyé, et un
+ * écran de vérification qui ment est pire que pas d'écran.
+ *
+ * Une feuille vide n'est pas une erreur : le Lecteur froid et l'Artiste ne
+ * reçoivent rien, par décision. La réponse le dit explicitement.
+ */
+corpus.get('/feuille/:action', (c) => {
+  const action = c.req.param('action');
+  if (!actionConnue(action)) {
+    return c.json({ error: `Action inconnue : « ${action} ».` }, 404);
+  }
+  const chemins = feuillePour(action);
+  const feuille = composerFeuille(DOCUMENTS, chemins, aujourdhui());
+  return c.json({
+    action,
+    chemins,
+    /** `true` = ce rôle ne reçoit rien, et c'est voulu. */
+    neRecoitRien: chemins === null,
+    ...feuille,
   });
 });

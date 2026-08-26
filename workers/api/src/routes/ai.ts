@@ -11,6 +11,9 @@
 import { Hono } from 'hono';
 import { getProvider, PROVIDER_IDS, type AIProvider } from '@luminose/ai';
 import { ChatRequestSchema, TestModelSchema } from '@luminose/shared';
+import { composerFeuille } from '@luminose/corpus';
+import { feuillePour } from '@luminose/editorial';
+import { DOCUMENTS } from '../genere/corpus';
 import type { Env } from '../env';
 import { rowToModel } from '../db';
 import { resolveApiKey } from '../keys';
@@ -50,6 +53,32 @@ export const loadModel = async (env: Env, id: string) => {
   return row ? rowToModel(row) : null;
 };
 
+/**
+ * La « feuille de salle » d'un rôle — ce qu'il doit savoir de Luminose.
+ *
+ * Elle est ajoutée ICI, en aval de `buildSystemPrompt`, et jamais dans
+ * `packages/editorial`. La raison est mécanique : les fixtures golden
+ * photographient ce que la composition produit. Si la feuille y entrait, les
+ * dix-neuf fixtures changeraient à chaque modification du corpus — et la règle
+ * n°5 du CLAUDE.md, « la revue du diff de fixture EST la revue du changement »,
+ * deviendrait du bruit qu'on valide sans lire.
+ *
+ * Second effet, celui du §3.5.1 : `/api/ai/chat` est le passage obligé des neuf
+ * actions. Neuf appelants qui doivent chacun penser à joindre la feuille, c'est
+ * neuf occasions d'oublier ; un seul passage, c'est zéro.
+ *
+ * Zéro requête D1 : le corpus est une constante du bundle.
+ */
+const prefixerFeuille = (action: string | undefined, system: string | undefined): string | undefined => {
+  if (!action) return system;
+  const chemins = feuillePour(action);
+  if (!chemins) return system;               // ce rôle ne reçoit rien — décision, pas oubli
+  const date = new Date().toISOString().slice(0, 10);
+  const { texte } = composerFeuille(DOCUMENTS, chemins, date);
+  if (!texte) return system;
+  return system ? `${texte}\n---\n\n${system}` : texte;
+};
+
 ai.post('/chat', async (c) => {
   const input = ChatRequestSchema.parse(await c.req.json());
 
@@ -63,7 +92,7 @@ ai.post('/chat', async (c) => {
   try {
     result = await provider.chat({
       model: model.apiCode,
-      system: input.system,
+      system: prefixerFeuille(input.action, input.system),
       messages: input.messages,
       json: input.json,
     });

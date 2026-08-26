@@ -99,28 +99,18 @@ export const AI_ACTIONS = {
         generationConfig: {
             responseMimeType: "application/json" as const
         },
-        /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
-         */
-        getSystemInstruction: (contexteAdditionnel?: string) =>
-            buildSystemPrompt({
-                action: 'ANALYZE_BATCH',
-                contexteAdditionnel: contexteAdditionnel || undefined,
-            }),
+        getSystemInstruction: () =>
+            buildSystemPrompt({ action: 'ANALYZE_BATCH' }),
     },
 
     GENERATE_INTERVIEW: {
         generationConfig: {
             responseMimeType: "application/json" as const
         },
-        /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
-         * @param profondeur - "Direct", "Légère" ou "Complète"
-         */
-        getSystemInstruction: (contexteAdditionnel?: string, profondeur?: string) =>
+        /** @param profondeur - "Direct", "Légère" ou "Complète" */
+        getSystemInstruction: (profondeur?: string) =>
             buildSystemPrompt({
                 action: 'GENERATE_INTERVIEW',
-                contexteAdditionnel: contexteAdditionnel || undefined,
                 profondeur: profondeur || 'Complète',
             }),
     },
@@ -129,13 +119,11 @@ export const AI_ACTIONS = {
         generationConfig: {
             responseMimeType: "application/json" as const
         },
-        /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
-         */
-        getSystemInstruction: (contexteAdditionnel?: string) =>
+        /** @param serieContext - L'anti-répétition, si la publication est en série */
+        getSystemInstruction: (serieContext?: string) =>
             buildSystemPrompt({
                 action: 'COACH_CHAT',
-                contexteAdditionnel: contexteAdditionnel || undefined,
+                serieContextPreambule: serieContext || undefined,
             }),
     },
 
@@ -143,13 +131,11 @@ export const AI_ACTIONS = {
         generationConfig: {
             responseMimeType: "application/json" as const
         },
-        /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
-         */
-        getSystemInstruction: (contexteAdditionnel?: string) =>
+        /** @param serieContext - L'anti-répétition, si la publication est en série */
+        getSystemInstruction: (serieContext?: string) =>
             buildSystemPrompt({
                 action: 'LOCK_BRIEF',
-                contexteAdditionnel: contexteAdditionnel || undefined,
+                serieContextPreambule: serieContext || undefined,
             }),
     },
 
@@ -158,14 +144,12 @@ export const AI_ACTIONS = {
             responseMimeType: "application/json" as const
         },
         /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
          * @param metaphore - La métaphore centrale du carrousel
          * @param contenu - Le contenu textuel des slides (JSON)
          */
-        getSystemInstruction: (contexteAdditionnel?: string, metaphore?: string, contenu?: string) =>
+        getSystemInstruction: (metaphore?: string, contenu?: string) =>
             buildSystemPrompt({
                 action: 'GENERATE_CARROUSEL_SLIDES',
-                contexteAdditionnel: contexteAdditionnel || undefined,
                 carrouselParams: `Métaphore centrale : ${metaphore || 'Non définie'}\nContenu carrousel : ${contenu || ''}`,
             }),
     },
@@ -175,15 +159,13 @@ export const AI_ACTIONS = {
             responseMimeType: "application/json" as const
         },
         /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
          * @param targetFormat - Le format cible (TargetFormat enum value) — pour injecter le bon template
          * @param objectif - L'objectif du post (Objectif enum value) — pour injecter les règles CTA
          * @param serieContext - Contexte de série (SPEC §6.4), produit par buildSerieContextSection()
          */
-        getSystemInstruction: (contexteAdditionnel?: string, targetFormat?: string, objectif?: string, serieContext?: string) =>
+        getSystemInstruction: (targetFormat?: string, objectif?: string, serieContext?: string) =>
             buildSystemPrompt({
                 action: 'DRAFT_CONTENT',
-                contexteAdditionnel: contexteAdditionnel || undefined,
                 formatTemplate: getFormatPromptTemplate(targetFormat as any) || '',
                 objectifCta: getObjectifCtaRules(objectif),
                 serieContext: serieContext || undefined,
@@ -195,7 +177,6 @@ export const AI_ACTIONS = {
             responseMimeType: "application/json" as const
         },
         /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
          * @param format - Le format du contenu (pour contextualiser les contrôles)
          * @param objectif - L'objectif du post (pour vérifier l'alignement du CTA)
          * @param contenu - Le contenu final, tel qu'un inconnu le lirait (texte formaté)
@@ -205,10 +186,9 @@ export const AI_ACTIONS = {
          *                     Absent, la relecture est sans mémoire — et se met à
          *                     condamner ses propres corrections.
          */
-        getSystemInstruction: (contexteAdditionnel: string | undefined, format: string, objectif: string, contenu: string, historique?: string) =>
+        getSystemInstruction: (format: string, objectif: string, contenu: string, historique?: string) =>
             buildSystemPrompt({
                 action: 'COLD_READ',
-                contexteAdditionnel: contexteAdditionnel || undefined,
                 coldReadParams: `FORMAT DU CONTENU : ${format}\nOBJECTIF DU POST : ${objectif}\n\nCONTENU À RELIRE (tel qu'un inconnu le découvrirait) :\n${contenu}`,
                 coldReadHistory: historique || undefined,
             }),
@@ -219,17 +199,15 @@ export const AI_ACTIONS = {
             responseMimeType: "application/json" as const
         },
         /**
-         * @param contexteAdditionnel - Contexte libre à injecter dans le prompt (optionnel)
          * @param currentContent - Le JSON du contenu actuel
          * @param adjustmentRequest - L'instruction d'ajustement de Florent
          * @param formatTemplate - La grille qui a produit ce contenu, et qui s'applique encore
          * @param objectifCta - Les règles CTA de l'objectif, pour que la retouche juge du CTA
          *                      avec le même mètre que la rédaction
          */
-        getSystemInstruction: (contexteAdditionnel?: string, currentContent?: string, adjustmentRequest?: string, formatTemplate?: string, objectifCta?: string) =>
+        getSystemInstruction: (currentContent?: string, adjustmentRequest?: string, formatTemplate?: string, objectifCta?: string) =>
             buildSystemPrompt({
                 action: 'ADJUST_CONTENT',
-                contexteAdditionnel: contexteAdditionnel || undefined,
                 currentContent,
                 adjustmentRequest,
                 formatTemplate: formatTemplate || undefined,
@@ -245,14 +223,9 @@ export const AI_ACTIONS = {
          * L'Éclateur (SPEC §6.2). Le sujet, l'intention, le texte du contenu
          * pilier et les publications déjà prévues voyagent dans la charge
          * utile, pas dans l'instruction système : seul le persona est fixe.
-         *
-         * @param contexteAdditionnel - Contexte additionnel (optionnel)
          */
-        getSystemInstruction: (contexteAdditionnel?: string) =>
-            buildSystemPrompt({
-                action: 'PLAN_SERIES',
-                contexteAdditionnel: contexteAdditionnel || undefined,
-            }),
+        getSystemInstruction: () =>
+            buildSystemPrompt({ action: 'PLAN_SERIES' }),
     },
 
     ADJUST_DZINE_PROMPTS: {
@@ -260,15 +233,13 @@ export const AI_ACTIONS = {
             responseMimeType: "application/json" as const
         },
         /**
-         * @param contexteAdditionnel - Contexte Notion complémentaire (optionnel — peut affiner le style des prompts)
          * @param slidesJson - JSON courant du carrousel (avec prompts_dzine déjà générés)
          * @param promptInstruction - L'instruction d'ajustement de Florent (FR)
          * @param slideNumero - Cible : numéro de slide à ajuster, ou null pour toutes
          */
-        getSystemInstruction: (contexteAdditionnel: string | undefined, slidesJson: string, promptInstruction: string, slideNumero: number | null) =>
+        getSystemInstruction: (slidesJson: string, promptInstruction: string, slideNumero: number | null) =>
             buildSystemPrompt({
                 action: 'ADJUST_DZINE_PROMPTS',
-                contexteAdditionnel: contexteAdditionnel || undefined,
                 slidesJson,
                 promptInstruction,
                 promptTarget: slideNumero === null

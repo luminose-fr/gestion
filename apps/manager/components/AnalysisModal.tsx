@@ -91,7 +91,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
     try {
       // 1. Préparation du System Prompt
       const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
-      const systemInstruction = actionConfig.getSystemInstruction(undefined);
+      const systemInstruction = actionConfig.getSystemInstruction();
 
       // 2. Préparation du User Prompt
       const contentPayload = itemsToAnalyze.map(item => ({
@@ -113,6 +113,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
           systemInstruction: systemInstruction,
           prompt: JSON.stringify(contentPayload),
           action: 'Analyse des idées',
+          aiAction: 'ANALYZE_BATCH',
       });
 
       if (isMountedRef.current) { setPart(0.5); setProgress("Traitement des réponses…"); }

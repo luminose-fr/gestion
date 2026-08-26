@@ -437,6 +437,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           systemInstruction: systemInstruction,
           prompt: prompt,
           action: fiche?.label ?? String(action),
+          // L'identifiant technique, en plus du libellé : c'est lui qui décide
+          // de la feuille de salle jointe au prompt côté Worker.
+          aiAction: String(action),
       });
   };
 
@@ -611,7 +614,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const actionConfig = AI_ACTIONS.COLD_READ;
           const historique = await lireHistoriqueRelectures(item.id);
           const systemInstruction = actionConfig.getSystemInstruction(
-              undefined,
               fmt,
               item.objectif || "Non défini",
               plain,
@@ -679,7 +681,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const adjustConfig = AI_ACTIONS.ADJUST_CONTENT;
           const systemInstruction = adjustConfig.getSystemInstruction(
-              undefined, result, instruction,
+              result, instruction,
               getFormatPromptTemplate(editedItem?.targetFormat as TargetFormat),
               getObjectifCtaRules(editedItem?.objectif),
           );
@@ -706,7 +708,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           // Le contexte de série n'arrive qu'au moment de rédiger : c'est là
           // que l'anti-répétition compte (SPEC §6.4).
           const systemInstruction = actionConfig.getSystemInstruction(
-              undefined,
               base.targetFormat || undefined,
               base.objectif || undefined,
               serieContext
@@ -794,7 +795,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           // On passe le JSON brouillon brut (non aplati) pour que l'Artiste
           // préserve la trame : titre, texte, type, role, intention_visuelle.
           const systemInstruction = actionConfig.getSystemInstruction(
-              undefined,
               editedItem?.suggestedMetaphor || "Non définie",
               editedItem?.draft || "Non défini"
           );
@@ -848,7 +848,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           // elles, le Rédacteur réécrivait une slide en ignorant les limites qui
           // avaient gouverné sa propre production (SPEC §3.5.2).
           const systemInstruction = actionConfig.getSystemInstruction(
-              undefined, // pas de contexte additionnel
               currentContent,
               adjustmentText,
               getFormatPromptTemplate(editedItem?.targetFormat as TargetFormat),
@@ -918,7 +917,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       try {
           const actionConfig = AI_ACTIONS.ADJUST_DZINE_PROMPTS;
           const systemInstruction = actionConfig.getSystemInstruction(
-              undefined,
               editedItem.slides,
               instruction,
               slideNumero

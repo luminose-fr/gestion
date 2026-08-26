@@ -126,7 +126,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                 session: sessionWithUser,
                 userMessage: text,
                 modelId,
-                contexteAdditionnel: contexteSerie || undefined,
+                serieContext: contexteSerie || undefined,
                 aiModels,
             });
             const assistantMessage = buildAssistantMessage(item.id, reply);

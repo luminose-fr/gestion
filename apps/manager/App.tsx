@@ -858,7 +858,7 @@ function App() {
       setIsSingleAnalyzing(true);
       try {
           const actionConfig = AI_ACTIONS.ANALYZE_BATCH;
-          const systemInstruction = actionConfig.getSystemInstruction(undefined);
+          const systemInstruction = actionConfig.getSystemInstruction();
 
           const contentPayload = [{
               id: itemToAnalyze.id,
@@ -872,6 +872,7 @@ function App() {
               systemInstruction: systemInstruction,
               prompt: JSON.stringify(contentPayload),
               action: 'Analyse des idées',
+              aiAction: 'ANALYZE_BATCH',
           });
 
           let results: any[] = [];
