@@ -2,6 +2,7 @@
 type: fact
 statut: actif
 revu: 2026-08
+noyau: true
 expose: public
 ---
 

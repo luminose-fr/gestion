@@ -122,14 +122,65 @@ Quand deux sources se contredisent, l'ordre est celui-ci. Sans lui, le modèle i
 
 ---
 
+## Le contexte — ce qu'on colle dans une IA
+
+Le corpus n'est jamais collé tel quel : il est **composé**, à la demande, en un texte adapté
+à sa destination. Trois profils :
+
+| Profil | Ce qu'il porte | Où il va |
+| :--- | :--- | :--- |
+| `noyau` | l'essentiel qui doit être présent **en permanence** — identité, cadre légal, tableau des offres, hiérarchie | un champ d'instructions plafonné (celui d'un GPT personnalisé s'arrête à 8 000 caractères) |
+| `complet` | tout le stable : identité, offres, voix, canaux, matière, outils — **sans la stratégie** | un projet Claude, un fichier de connaissance |
+| `strategie` | décisions datées, hypothèses, questions ouvertes | une conversation de stratégie, jamais de rédaction |
+
+### Il n'y a pas de fichier généré — NORMATIF
+
+`composer()` est une **fonction pure** : aucun accès disque, aucun réseau. Elle tourne à
+l'identique dans Node et dans le Worker, et **rien n'est jamais écrit dans le dépôt**.
+
+Deux conséquences :
+
+1. La console de `gestion.luminose.fr` appellera la même fonction au clic. Le hash affiché à
+   l'écran est exactement celui du texte copié — il ne peut pas y avoir d'écart.
+2. Un quatrième profil coûte une entrée dans `src/profils.ts`, pas un fichier de plus à
+   maintenir.
+
+En attendant la console, une commande sert de passerelle. Elle **affiche**, elle n'écrit pas :
+
+```bash
+npm run contexte -w packages/corpus              # l'état des trois profils
+npm run contexte -w packages/corpus -- noyau     # le texte, sur stdout
+npm run contexte -w packages/corpus -- noyau | pbcopy
+```
+
+### Le hash
+
+FNV-1a sur 8 caractères, calculé sur **le contenu seul, jamais sur l'en-tête** : sinon la
+date le ferait changer chaque jour et « périmé » ne voudrait plus rien dire.
+
+**Un hash par profil.** Un changement dans `strategie/` ne doit pas faire apparaître comme
+périmé un GPT qui ne porte que le noyau.
+
+### Deux garde-fous dans l'en-tête, présents dans les trois profils
+
+- **Le tableau des offres est dérivé du frontmatter**, jamais recopié. Toute offre dont le
+  statut n'est pas `actif` y est marquée **NE PAS PROPOSER**. C'est le dispositif
+  anti-dérive le plus important : proposer une offre arrêtée est l'erreur la plus coûteuse
+  qu'une IA puisse commettre ici.
+- **La règle du vide délibéré** : le texte dit explicitement qu'un `volontairement-absent`
+  est une décision, pour qu'aucun modèle ne comble le trou en inventant une charte.
+
+Trois tests NORMATIF gardent ces frontières : `strategie/` n'entre jamais dans `complet`,
+l'inbox n'entre dans aucun profil, et une offre arrêtée est toujours marquée.
+
 ## Ce qui n'existe pas encore, volontairement
 
-- **Le générateur** (`src/build.ts` → module embarqué par le Worker) : il viendra quand il y
-  aura assez de contenu pour qu'il serve. Automatiser avant de connaître la forme, c'est
-  refaire le travail deux fois.
+
+- **L'embarquement dans le Worker** : `charger()` lit le disque et ne tourne que dans Node.
+  Le Worker recevra les mêmes `Document[]` par une autre voie, au déploiement — c'est
+  l'étape suivante. Un seul composeur, deux chargeurs.
 - **La table `inbox` en D1** : `content/inbox.md` fait l'affaire tant qu'il fait l'affaire.
 - **`socle/`, `voix/`, `canaux/`, `repertoire/`, `outils/`** sont vides : ils se rempliront à
   l'inventaire des quatre surfaces, pas avant.
 
-Le corpus contient aujourd'hui **trois fichiers de contenu réels**. C'est peu, et c'est
-honnête.
+Le corpus contient aujourd'hui **26 documents**.
