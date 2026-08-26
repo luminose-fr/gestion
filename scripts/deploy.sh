@@ -82,6 +82,17 @@ else
   warn "SKIP_TESTS=1 : suite de tests ignorée"
 fi
 
+# ─── Corpus embarqué ─────────────────────────────────────────────────────────
+# Le Worker sert le corpus depuis une constante de son bundle : le déploiement
+# EST la synchronisation. Régénéré ici même quand SKIP_TESTS=1 a sauté les
+# hooks pre* — déployer un corpus périmé serait la panne la plus discrète
+# possible, puisque tout continuerait de fonctionner.
+if has api; then
+  step "Corpus -> module embarqué"
+  run npm run embarquer
+  ok "Corpus à jour dans le bundle du Worker"
+fi
+
 # ─── Worker API ──────────────────────────────────────────────────────────────
 if has api && need_dir workers/api api; then
   step "Migrations D1 distantes"

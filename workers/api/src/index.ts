@@ -6,6 +6,7 @@
  *   /api/export   sauvegarde JSON complète (§9.4)
  *   /api/settings clés des fournisseurs — en écriture seule (§5.5)
  *   /api/models/catalogue  explorateur OpenRouter — filtre, ne décide pas (§5.6)
+ *   /api/corpus   le corpus, EN LECTURE SEULE — embarqué au déploiement, 0 requête D1
  *   /v1/*         proxy Notion résiduel — aucun client, gardé comme filet
  *
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
@@ -21,6 +22,7 @@ import { ai } from './routes/ai';
 import { exportRoute } from './routes/export';
 import { settings } from './routes/settings';
 import { catalogue } from './routes/catalogue';
+import { corpus } from './routes/corpus';
 import { legacy } from './routes/legacy';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -68,6 +70,7 @@ app.route('/api/models/catalogue', catalogue);
 app.route('/api/ai', ai);
 app.route('/api/export', exportRoute);
 app.route('/api/settings', settings);
+app.route('/api/corpus', corpus);
 app.route('/', legacy);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));

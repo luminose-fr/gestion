@@ -16,7 +16,8 @@
   "scripts": {
     "contexte": "node bin/contexte.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "embarquer": "node bin/embarquer.ts ../../workers/api/src/genere/corpus.ts"
   },
   "devDependencies": {
     "typescript": "^5.4.2",

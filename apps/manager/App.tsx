@@ -12,6 +12,7 @@ import * as Activite from './services/activityService';
 import { generateSeriePlan } from './services/seriesService';
 
 import SettingsSpace from './components/Settings/SettingsSpace';
+import CorpusSpace from './components/Corpus/CorpusSpace';
 import {
   SettingsSection, isSettingsSection, settingsSectionLabel, settingsSectionSousTitre,
   grouperParAdaptateur,
@@ -37,7 +38,7 @@ import { triValide, type Tri } from './components/TriTableau';
 import type { EtatDeVue, VueId, ModeSuppressionSerie } from '@luminose/shared';
 import { SeriePlanView } from './components/Series/SeriePlanView';
 
-type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'settings';
+type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'corpus' | 'settings';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
 
 const SOCIAL_TABS: SocialTab[] = ['drafts', 'ready', 'ideas', 'series', 'calendar', 'archive'];
@@ -52,6 +53,7 @@ const tabForStatus = (status: ContentStatus): SocialTab => {
 
 const getSpaceHash = (space: SpaceView) => {
     if (space === 'psychedelics') return 'psychedeliques';
+    if (space === 'corpus') return 'corpus';
     if (space === 'settings') return 'reglages';
     return space;
 };
@@ -64,6 +66,7 @@ const getHashState = () => {
     if (parts[0] === 'clients') space = 'clients';
     if (parts[0] === 'videos') space = 'videos';
     if (parts[0] === 'psychedelics' || parts[0] === 'psychedeliques') space = 'psychedelics';
+    if (parts[0] === 'corpus') space = 'corpus';
     if (parts[0] === 'settings' || parts[0] === 'reglages') space = 'settings';
     
     let tab: SocialTab = 'ideas'; 
@@ -1044,6 +1047,7 @@ function App() {
                   {currentSpace === 'clients' && 'Clients'}
                   {currentSpace === 'videos' && 'Sous-titres'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
+                  {currentSpace === 'corpus' && 'Corpus'}
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
               </h1>
               {currentSpace === 'settings' && (
@@ -1188,6 +1192,18 @@ function App() {
                 providers={providers}
                 onProvidersChange={setProviders}
             />
+        )}
+
+        {currentSpace === 'corpus' && (
+            <main className="flex-1 overflow-y-auto">
+                <div className="px-4 md:px-6 py-5">
+                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">
+                        La source de vérité de Luminose — en lecture seule. Le corpus est embarqué au
+                        déploiement ; il se modifie dans Git, jamais ici.
+                    </p>
+                    <CorpusSpace />
+                </div>
+            </main>
         )}
 
         {currentSpace === 'psychedelics' && (

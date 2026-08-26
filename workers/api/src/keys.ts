@@ -32,6 +32,17 @@ export const settingKeyForVue = (vue: string) => `${VUE_PREFIX}${vue}`;
 export const VUE_PATTERN = `${VUE_PREFIX}%`;
 export const vueFromSettingKey = (key: string) => key.slice(VUE_PREFIX.length);
 
+/**
+ * Où en est chaque surface vis-à-vis du corpus.
+ *
+ * Même table que les vues et les clés (`app_settings`) : c'est un réglage du
+ * compte, pas une donnée métier. Une ligne par surface, sa valeur en JSON.
+ */
+const POSE_PREFIX = 'contexte_pose:';
+export const settingKeyForPose = (surface: string) => `${POSE_PREFIX}${surface}`;
+export const POSE_PATTERN = `${POSE_PREFIX}%`;
+export const poseFromSettingKey = (key: string) => key.slice(POSE_PREFIX.length);
+
 export const settingKeyFor = (providerId: string) => `${PREFIX}${providerId}`;
 
 /** Les lignes de `app_settings` qui portent une clé — à ne jamais exporter (§9.4). */

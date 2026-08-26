@@ -15,7 +15,12 @@
     "build": "npm run build -w apps/manager",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "deploy": "./scripts/deploy.sh"
+    "deploy": "./scripts/deploy.sh",
+    "embarquer": "npm run embarquer -w packages/corpus",
+    "prepare": "npm run embarquer",
+    "predev:api": "npm run embarquer",
+    "pretypecheck": "npm run embarquer",
+    "pretest": "npm run embarquer"
   },
   "devDependencies": {
     "typescript": "^5.4.2",

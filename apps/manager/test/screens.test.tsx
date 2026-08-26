@@ -17,6 +17,8 @@ import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import SettingsSpace from '../components/Settings/SettingsSpace';
+import CorpusSpace from '../components/Corpus/CorpusSpace';
+import * as Api from '../services/apiService';
 import { SETTINGS_SECTIONS } from '../components/Settings/sections';
 import { LoginPage } from '../components/LoginPage';
 import CalendarView from '../components/CalendarView';
@@ -812,5 +814,68 @@ describe('témoins d’attente', () => {
 
     suivi.fermer();
     await waitFor(() => expect(container.querySelector('[role="progressbar"]')).toBeNull());
+  });
+});
+
+/**
+ * CorpusSpace a TROIS retours anticipés — chargement, panne, corpus lu. La
+ * règle §10.3 impose de le monter dans chacun : c'est précisément un `useEffect`
+ * placé après un retour anticipé qui a produit la page blanche du 16/08.
+ */
+describe('CorpusSpace', () => {
+  const ETAT: Api.EtatCorpus = {
+    date: '2026-08-26',
+    documents: 26,
+    blocs: ['canaux', 'outils', 'repertoire', 'socle', 'strategie', 'voix'],
+    profils: [
+      { profil: 'noyau', titre: 'Contexte Luminose — noyau', intention: 'x',
+        hash: 'aaaaaaaa', taille: 5999, documents: 2, plafond: 7500, depasse: false },
+      { profil: 'complet', titre: 'Contexte Luminose', intention: 'y',
+        hash: 'bbbbbbbb', taille: 27591, documents: 20, plafond: null, depasse: false },
+      { profil: 'strategie', titre: 'Contexte Luminose — stratégie', intention: 'z',
+        hash: 'cccccccc', taille: 14153, documents: 5, plafond: null, depasse: false },
+    ],
+    offres: [
+      { chemin: 'socle/offres/le-seuil', titre: 'Le Seuil', statut: 'suspendu' },
+      { chemin: 'socle/offres/seance-individuelle', titre: 'Séance individuelle', statut: 'actif' },
+    ],
+    aRevoir: [{ chemin: 'strategie/decisions/x', titre: 'Une décision', review_at: '2026-01' }],
+    absencesDeliberees: [{ chemin: 'voix/direction-artistique', revu: '2026-08' }],
+  };
+
+  afterEach(() => { vi.restoreAllMocks(); cleanup(); });
+
+  it('se monte pendant le chargement', () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockReturnValue(new Promise(() => {}) as any);
+    vi.spyOn(Api, 'fetchPoses').mockReturnValue(new Promise(() => {}) as any);
+    const { container } = render(<CorpusSpace />);
+    expect(container.textContent).toContain('Lecture du corpus');
+  });
+
+  it('se monte en panne, sans page blanche', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockRejectedValue(new Error('Worker injoignable'));
+    vi.spyOn(Api, 'fetchPoses').mockRejectedValue(new Error('Worker injoignable'));
+    const { container } = render(<CorpusSpace />);
+    await waitFor(() => expect(container.textContent).toContain('Worker injoignable'));
+  });
+
+  it('se monte corpus lu, et marque les offres non proposables', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
+    vi.spyOn(Api, 'fetchPoses').mockResolvedValue({ poses: {} } as any);
+    const { container } = render(<CorpusSpace />);
+    await waitFor(() => expect(container.textContent).toContain('26 documents'));
+    expect(container.textContent).toContain('Le Seuil');
+    expect(container.textContent).toContain('suspendu');
+    // Aucune surface posée : tout ce qui n'est pas automatique attend un collage.
+    expect(container.textContent).toContain('Copier');
+  });
+
+  it('une surface dont le hash correspond est dite à jour', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
+    vi.spyOn(Api, 'fetchPoses').mockResolvedValue({
+      poses: { gpt: { profil: 'noyau', hash: 'aaaaaaaa', poseeLe: 1 } },
+    } as any);
+    const { container } = render(<CorpusSpace />);
+    await waitFor(() => expect(container.textContent).toContain('à jour'));
   });
 });

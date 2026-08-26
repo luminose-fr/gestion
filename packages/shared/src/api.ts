@@ -218,6 +218,37 @@ export const EtatDeVueSchema = z.object({
 
 export type EtatDeVue = z.infer<typeof EtatDeVueSchema>;
 
+// ── Corpus : où en est chaque surface ────────────────────────────────────
+
+/**
+ * Les surfaces qui portent un contexte Luminose, et qu'il faut recoller à la
+ * main quand le corpus bouge.
+ *
+ * Le projet Claude y figure bien qu'il se synchronise depuis GitHub : sa
+ * ligne sert à afficher qu'il est à jour tout seul, ce qui est une
+ * information — et évite de se demander chaque fois s'il a été oublié.
+ */
+export const SURFACES = ['projet-claude', 'gpt', 'gem', 'claude-code', 'api'] as const;
+export type Surface = (typeof SURFACES)[number];
+
+/**
+ * Ce qu'une surface porte aujourd'hui.
+ *
+ * On enregistre le hash au moment du collage, jamais l'inverse : c'est
+ * l'écart entre ce hash et le hash courant du même profil qui dit qu'une
+ * surface a décroché. Comparer un profil à un autre n'aurait aucun sens —
+ * un GPT qui ne porte que le noyau ne doit pas passer pour périmé parce que
+ * `strategie/` a bougé.
+ */
+export const PoseSchema = z.object({
+  /** Le profil composé qui a été collé — noyau, complet, strategie. */
+  profil: z.string().trim().min(1).max(40),
+  /** Le hash rendu par le Worker au moment du collage. */
+  hash: z.string().trim().regex(/^[0-9a-f]{8}$/, 'Empreinte attendue : 8 caractères hexadécimaux.'),
+});
+
+export type Pose = z.infer<typeof PoseSchema>;
+
 // ── Synchronisation ──────────────────────────────────────────────────────
 
 /** `since` en epoch ms ; au-delà, les lignes supprimées remontent aussi (SPEC §8). */

@@ -1,12 +1,12 @@
 import React from 'react';
 import {
     Lightbulb, Calendar as CalendarIcon, Archive, Users, Settings,
-    Briefcase, CheckCircle2, PenLine, X, Video, Sparkles, Layers
+    Briefcase, CheckCircle2, PenLine, X, Video, Sparkles, Layers, BookMarked
 } from 'lucide-react';
 
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
 
-type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'settings';
+type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'corpus' | 'settings';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
 
 interface SidebarProps {
@@ -38,6 +38,7 @@ const SPACES: Array<{
     { id: 'clients',      icon: Users,     label: 'Clients',        defaultTab: 'ideas' },
     { id: 'videos',       icon: Video,     label: 'Vidéos',         defaultTab: 'ideas' },
     { id: 'psychedelics', icon: Sparkles,  label: 'Psychédéliques', defaultTab: 'ideas' },
+    { id: 'corpus',       icon: BookMarked, label: 'Corpus',         defaultTab: 'ideas' },
 ];
 
 const SOCIAL_TABS: Array<{

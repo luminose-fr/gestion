@@ -21,6 +21,7 @@
     "@luminose/editorial": "^2.0.0",
     "@luminose/shared": "^2.0.0",
     "hono": "^4.13.3",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@luminose/corpus": "*"
   }
 }

@@ -176,9 +176,10 @@ l'inbox n'entre dans aucun profil, et une offre arrêtée est toujours marquée.
 ## Ce qui n'existe pas encore, volontairement
 
 
-- **L'embarquement dans le Worker** : `charger()` lit le disque et ne tourne que dans Node.
-  Le Worker recevra les mêmes `Document[]` par une autre voie, au déploiement — c'est
-  l'étape suivante. Un seul composeur, deux chargeurs.
+- ~~L'embarquement dans le Worker~~ — **fait.** `npm run embarquer` écrit
+  `workers/api/src/genere/corpus.ts`, gitignoré, régénéré avant chaque `dev`, `test`,
+  `typecheck` et déploiement. Un seul composeur, deux chargeurs. La console vit dans
+  l'espace **Corpus** de `gestion.luminose.fr` et lit `/api/corpus` — **zéro requête D1**.
 - **La table `inbox` en D1** : `content/inbox.md` fait l'affaire tant qu'il fait l'affaire.
 - **`socle/`, `voix/`, `canaux/`, `repertoire/`, `outils/`** sont vides : ils se rempliront à
   l'inventaire des quatre surfaces, pas avant.

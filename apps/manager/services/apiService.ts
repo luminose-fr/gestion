@@ -306,3 +306,55 @@ export const revertGeneration = (contentId: string, generationId: string) =>
   api<{ reverted: boolean }>(`/contents/${contentId}/generations/${generationId}/revert`, {
     method: 'POST', ...body({}),
   });
+
+// ── Corpus ───────────────────────────────────────────────────────────────
+
+export interface ProfilContexte {
+  profil: string;
+  titre: string;
+  intention: string;
+  hash: string;
+  taille: number;
+  documents: number;
+  plafond: number | null;
+  depasse: boolean;
+}
+
+export interface EtatCorpus {
+  date: string;
+  documents: number;
+  blocs: string[];
+  profils: ProfilContexte[];
+  offres: Array<{ chemin: string; titre: string; statut: string }>;
+  aRevoir: Array<{ chemin: string; titre: string; review_at: string }>;
+  absencesDeliberees: Array<{ chemin: string; revu: string }>;
+}
+
+export interface Contexte {
+  profil: string;
+  texte: string;
+  hash: string;
+  taille: number;
+  documents: string[];
+}
+
+export interface PoseSurface { profil: string; hash: string; poseeLe: number }
+
+/** Aucune requête D1 côté Worker : le corpus est embarqué au déploiement. */
+export const fetchEtatCorpus = () => api<EtatCorpus>('/corpus');
+
+/**
+ * Le texte à coller. Nommé dans le bandeau : composer les 27 000 caractères du
+ * profil complet n'est pas instantané, et un bouton « Copier » qui ne dit rien
+ * pendant ce temps passe pour cassé.
+ */
+export const fetchContexte = (profil: string) =>
+  api<Contexte>(`/corpus/contexte/${profil}`, {}, { nature: 'reseau', label: `Contexte — ${profil}` });
+
+export const fetchPoses = () => api<{ poses: Record<string, PoseSurface> }>('/settings/poses');
+
+export const setPose = (surface: string, profil: string, hash: string) =>
+  api<{ surface: string; pose: PoseSurface }>(`/settings/poses/${surface}`, {
+    method: 'PUT',
+    body: JSON.stringify({ profil, hash }),
+  });

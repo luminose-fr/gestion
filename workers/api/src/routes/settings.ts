@@ -11,10 +11,10 @@
 import { Hono } from 'hono';
 import { PROVIDER_IDS } from '@luminose/ai';
 import { CONFIGURABLE_ACTIONS } from '@luminose/editorial';
-import { SetProviderKeySchema, SetActionModelSchema, EtatDeVueSchema, VUES } from '@luminose/shared';
+import { SetProviderKeySchema, SetActionModelSchema, EtatDeVueSchema, VUES, PoseSchema, SURFACES } from '@luminose/shared';
 import type { Env } from '../env';
 import { now } from '../db';
-import { readEnvKey, settingKeyFor, settingKeyForAction, settingKeyForVue, vueFromSettingKey, VUE_PATTERN, fingerprint } from '../keys';
+import { readEnvKey, settingKeyFor, settingKeyForAction, settingKeyForVue, vueFromSettingKey, VUE_PATTERN, settingKeyForPose, poseFromSettingKey, POSE_PATTERN, fingerprint } from '../keys';
 
 export const settings = new Hono<{ Bindings: Env }>();
 
@@ -199,4 +199,49 @@ settings.put('/vues/:vue', async (c) => {
   ).bind(settingKeyForVue(vue), JSON.stringify(etat), ts).run();
 
   return c.json({ vue, etat });
+});
+
+// ── Corpus : où en est chaque surface ────────────────────────────────────
+
+/**
+ * 1 requête. Ce que chaque surface porte aujourd'hui.
+ *
+ * Le Worker ne compare rien : il rend les poses, l'écran les confronte aux
+ * hashs courants qu'il a déjà par `/api/corpus`. Faire la comparaison ici
+ * obligerait à composer les trois profils pour répondre à une question de
+ * réglage.
+ */
+settings.get('/poses', async (c) => {
+  const { results } = await c.env.DB
+    .prepare('SELECT key, value, updated_at FROM app_settings WHERE key LIKE ?')
+    .bind(POSE_PATTERN).all();
+
+  const poses: Record<string, unknown> = {};
+  for (const row of results as any[]) {
+    const surface = poseFromSettingKey(String(row.key));
+    if (!SURFACES.includes(surface as any)) continue;
+    // Une valeur illisible ne doit pas emporter les autres surfaces : on
+    // l'ignore, la surface repart comme jamais posée.
+    const lu = PoseSchema.safeParse(safeJson(row.value));
+    if (lu.success) poses[surface] = { ...lu.data, poseeLe: row.updated_at as number };
+  }
+  return c.json({ poses });
+});
+
+/** 1 requête. « Je viens de coller ce texte sur cette surface. » */
+settings.put('/poses/:surface', async (c) => {
+  const surface = c.req.param('surface');
+  if (!SURFACES.includes(surface as any)) {
+    return c.json({ error: `Surface inconnue : « ${surface} ».` }, 404);
+  }
+
+  const pose = PoseSchema.parse(await c.req.json());
+  const ts = now();
+
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  ).bind(settingKeyForPose(surface), JSON.stringify(pose), ts).run();
+
+  return c.json({ surface, pose: { ...pose, poseeLe: ts } });
 });

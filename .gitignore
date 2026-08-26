@@ -30,3 +30,8 @@ tools/import-notion/import.sql
 # Sources des maquettes (/design) : le canevas publié en est la copie durable,
 # et le fichier assemblé pèse plus de 2 Mo.
 .design/
+
+# Corpus embarqué dans le Worker : régénéré depuis packages/corpus/content
+# par `npm run embarquer -w packages/corpus`, avant chaque dev et chaque
+# déploiement. Le commiter ferait exister deux copies du corpus.
+workers/api/src/genere/
