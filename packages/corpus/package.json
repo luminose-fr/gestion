@@ -1,0 +1,8 @@
+{
+  "name": "@luminose/corpus",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Source de vérité de Luminose : identité, offres, voix, décisions, matière réutilisable.",
+  "files": ["content", "README.md"]
+}
