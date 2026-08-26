@@ -72,7 +72,35 @@ Aucune CI n'exécute les tests. `npm test` et `npm run typecheck` **avant chaque
 - Vérifier dans le navigateur tout écran modifié. Le typecheck et le build ne voient pas
   les erreurs de rendu.
 
+## La machine qui construit
+
+**`npm install`, `npm run build` et `npm run deploy` se lancent depuis la VM Ubuntu.**
+Pas depuis le Mac, pas depuis un agent, pas depuis un conteneur monté sur le dépôt.
+
+Le répertoire de travail est partagé entre plusieurs machines et `node_modules` ne peut
+servir qu'une plateforme à la fois : **le dernier `npm install` gagne**, et la machine
+d'en face échoue sur les binaires natifs — `workerd` pour wrangler, `rollup` et `esbuild`
+pour le build. Le SPEC §10.4 donne la parade (`npm install --no-save
+@cloudflare/workerd-<plateforme>`), mais ne pas avoir à s'en servir vaut mieux.
+
+Cette règle est née le 26/08/2026 : une session travaillant à travers un pont de fichiers
+a lancé `npm install` depuis une troisième machine — ni le Mac, ni la VM — puis un
+`npm run build` qui a échoué sur le vidage de `dist/`. Le diagnostic annoncé était le
+mauvais : ce n'était pas un problème de permissions, c'était une machine qui n'avait rien
+à faire là.
+
+**Ce qu'un agent peut lancer sans risque**, parce que rien n'y est écrit hors du dépôt :
+
+```
+npx tsc --noEmit          # dans un workspace, ou npm run typecheck à la racine
+npx vitest run            # idem
+npm run contexte -w packages/corpus
+```
+
+Tout le reste — `install`, `build`, `deploy`, `wrangler` — appartient à la VM.
+
 ## Déploiement
 
-`./scripts/deploy.sh` — tests et typecheck bloquants, puis migrations D1 distantes, puis
-Worker, puis front. Voir l'en-tête du script pour les cibles partielles.
+`./scripts/deploy.sh` — **depuis la VM Ubuntu** (voir ci-dessus) : tests et typecheck
+bloquants, puis corpus embarqué, puis migrations D1 distantes, puis Worker, puis front.
+Voir l'en-tête du script pour les cibles partielles.
