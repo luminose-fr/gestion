@@ -18,6 +18,7 @@ import React from 'react';
 
 import SettingsSpace from '../components/Settings/SettingsSpace';
 import CorpusSpace from '../components/Corpus/CorpusSpace';
+import { Sidebar } from '../components/Layout/Sidebar';
 import DocumentsView from '../components/Corpus/DocumentsView';
 import InboxView from '../components/Corpus/InboxView';
 import Markdown from '../components/Corpus/Markdown';
@@ -846,31 +847,26 @@ describe('CorpusSpace', () => {
     absencesDeliberees: [{ chemin: 'voix/direction-artistique', revu: '2026-08' }],
   };
 
-  beforeEach(() => {
-    // La coque interroge l'inbox pour la pastille de l'onglet : sans ce mock,
-    // chaque montage part en requête réelle.
-    vi.spyOn(Api, 'fetchInbox').mockResolvedValue({ captures: [], enAttente: 0 } as any);
-  });
   afterEach(() => { vi.restoreAllMocks(); cleanup(); });
 
   it('se monte pendant le chargement', () => {
     vi.spyOn(Api, 'fetchEtatCorpus').mockReturnValue(new Promise(() => {}) as any);
     vi.spyOn(Api, 'fetchPoses').mockReturnValue(new Promise(() => {}) as any);
-    const { container } = render(<CorpusSpace />);
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
     expect(container.textContent).toContain('Lecture du corpus');
   });
 
   it('se monte en panne, sans page blanche', async () => {
     vi.spyOn(Api, 'fetchEtatCorpus').mockRejectedValue(new Error('Worker injoignable'));
     vi.spyOn(Api, 'fetchPoses').mockRejectedValue(new Error('Worker injoignable'));
-    const { container } = render(<CorpusSpace />);
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
     await waitFor(() => expect(container.textContent).toContain('Worker injoignable'));
   });
 
   it('se monte corpus lu, et marque les offres non proposables', async () => {
     vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
     vi.spyOn(Api, 'fetchPoses').mockResolvedValue({ poses: {} } as any);
-    const { container } = render(<CorpusSpace />);
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
     await waitFor(() => expect(container.textContent).toContain('26 documents'));
     expect(container.textContent).toContain('Le Seuil');
     expect(container.textContent).toContain('suspendu');
@@ -883,7 +879,7 @@ describe('CorpusSpace', () => {
     vi.spyOn(Api, 'fetchPoses').mockResolvedValue({
       poses: { gpt: { profil: 'noyau', hash: 'aaaaaaaa', poseeLe: 1 } },
     } as any);
-    const { container } = render(<CorpusSpace />);
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
     await waitFor(() => expect(container.textContent).toContain('à jour'));
   });
 });
@@ -893,13 +889,13 @@ describe('Corpus — lecture des documents', () => {
 
   it('se monte pendant le chargement de la liste', () => {
     vi.spyOn(Api, 'fetchDocumentsCorpus').mockReturnValue(new Promise(() => {}) as any);
-    const { container } = render(<DocumentsView />);
+    const { container } = render(<DocumentsView bloc="socle" />);
     expect(container.textContent).toContain('Lecture des documents');
   });
 
   it('se monte en panne', async () => {
     vi.spyOn(Api, 'fetchDocumentsCorpus').mockRejectedValue(new Error('Liste injoignable'));
-    const { container } = render(<DocumentsView />);
+    const { container } = render(<DocumentsView bloc="socle" />);
     await waitFor(() => expect(container.textContent).toContain('Liste injoignable'));
   });
 
@@ -917,7 +913,7 @@ describe('Corpus — lecture des documents', () => {
       corps: '# Le Seuil\n\nStatut **suspendu** depuis août.',
     } as any);
 
-    const { container, getByText } = render(<DocumentsView />);
+    const { container, getByText } = render(<DocumentsView bloc="socle" />);
     await waitFor(() => expect(container.textContent).toContain('Le Seuil'));
     fireEvent.click(getByText('Le Seuil'));
     await waitFor(() => expect(container.textContent).toContain('depuis août'));
@@ -967,5 +963,60 @@ describe('Markdown', () => {
   it('ne perd rien sur un texte vide', () => {
     const { container } = render(<Markdown texte="" />);
     expect(container.textContent).toBe('');
+  });
+});
+
+/**
+ * La navigation du Corpus vit désormais dans le panneau latéral, à trois
+ * niveaux : espace, section, bloc. Le troisième niveau ne s'ouvre que sous la
+ * section active — un panneau qui déplierait six blocs en permanence
+ * afficherait neuf entrées pour trois destinations.
+ */
+describe('Corpus — navigation à trois niveaux', () => {
+  afterEach(cleanup);
+
+  const props = {
+    currentSpace: 'corpus' as const,
+    currentSocialTab: 'ideas' as const,
+    currentSettingsSection: 'display' as const,
+    onNavigate: () => {},
+    onNavigateSettings: () => {},
+    counts: { ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 },
+    isMobileOpen: false,
+    onMobileClose: () => {},
+  };
+
+  it('affiche les trois sections, et pas les blocs hors Documents', () => {
+    const { container } = render(
+      <Sidebar {...props} currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
+    );
+    expect(container.textContent).toContain('État');
+    expect(container.textContent).toContain('Documents');
+    expect(container.textContent).toContain('Inbox');
+    expect(container.textContent).not.toContain('Répertoire');
+  });
+
+  it('déplie les six blocs sous Documents', () => {
+    const { container } = render(
+      <Sidebar {...props} currentCorpusSection="documents" currentCorpusBloc="socle" onNavigateCorpus={() => {}} />,
+    );
+    for (const b of ['Socle', 'Voix', 'Stratégie', 'Canaux', 'Répertoire', 'Outils']) {
+      expect(container.textContent).toContain(b);
+    }
+  });
+
+  it('porte les captures en attente en pastille', () => {
+    const { container } = render(
+      <Sidebar {...props} currentCorpusSection="etat" currentCorpusBloc={null}
+        onNavigateCorpus={() => {}} corpusCounts={{ inbox: 3, parBloc: { socle: 9 } }} />,
+    );
+    expect(container.textContent).toContain('3');
+  });
+
+  it('la coque route vers la vue demandée', () => {
+    vi.spyOn(Api, 'fetchInbox').mockResolvedValue({ captures: [], enAttente: 0 } as any);
+    const { container } = render(<CorpusSpace section="inbox" bloc={null} />);
+    expect(container.textContent).toContain('inbox');
+    vi.restoreAllMocks();
   });
 });

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
+import { CORPUS_SECTIONS, BLOCS, CorpusSection } from '../Corpus/sections';
 
 type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'corpus' | 'settings';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
@@ -14,8 +15,14 @@ interface SidebarProps {
     currentSocialTab: SocialTab;
     /** Section ouverte dans l'espace Réglages. */
     currentSettingsSection: SettingsSection;
+    /** Section et bloc ouverts dans l'espace Corpus. */
+    currentCorpusSection: CorpusSection;
+    currentCorpusBloc: string | null;
     onNavigate: (space: SpaceView, tab: SocialTab) => void;
     onNavigateSettings: (section: SettingsSection) => void;
+    onNavigateCorpus: (section: CorpusSection, bloc?: string | null) => void;
+    /** Ce que le panneau Corpus affiche en pastille — captures en attente, documents par bloc. */
+    corpusCounts?: { inbox?: number; parBloc?: Record<string, number> };
     counts: {
         ideas: number;
         drafts: number;
@@ -107,13 +114,18 @@ const PanelTab: React.FC<{
 
 export const Sidebar: React.FC<SidebarProps> = ({
     currentSpace, currentSocialTab, currentSettingsSection,
-    onNavigate, onNavigateSettings, counts,
+    currentCorpusSection, currentCorpusBloc,
+    onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts,
     isMobileOpen, onMobileClose
 }) => {
-    // Réglages a ses sections dans le même panneau que les onglets de Contenus :
-    // c'est le même geste, au même endroit, pour deux espaces différents.
-    const showSubPanel = currentSpace === 'social' || currentSpace === 'settings';
+    // Trois espaces partagent le même panneau de deuxième niveau : Contenus,
+    // Réglages et Corpus. C'est le même geste, au même endroit — et c'est ce
+    // qui fait qu'un nouvel espace ne demande pas d'apprendre une navigation.
     const estReglages = currentSpace === 'settings';
+    const estCorpus = currentSpace === 'corpus';
+    const showSubPanel = currentSpace === 'social' || estReglages || estCorpus;
+
+    const titrePanneau = estReglages ? 'Réglages' : estCorpus ? 'Corpus' : 'Contenus';
 
     const tabCount = (id: SocialTab): number | undefined => {
         if (id === 'ideas')    return counts.ideas;
@@ -175,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="w-[210px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex flex-col">
                         <div className="px-4 h-[52px] flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border shrink-0">
                             <p className="font-bold text-sm text-brand-main dark:text-white truncate">
-                                {estReglages ? 'Réglages' : 'Contenus'}
+                                {titrePanneau}
                             </p>
                             <button
                                 onClick={onMobileClose}
@@ -186,7 +198,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-                            {estReglages
+                            {estCorpus
+                                ? CORPUS_SECTIONS.map(s => (
+                                    <React.Fragment key={s.id}>
+                                        <PanelTab
+                                            active={currentCorpusSection === s.id}
+                                            onClick={() => { onNavigateCorpus(s.id); onMobileClose(); }}
+                                            icon={s.icon}
+                                            label={s.label}
+                                            count={s.id === 'inbox' ? corpusCounts?.inbox : undefined}
+                                        />
+                                        {/*
+                                            Le troisième niveau ne s'ouvre que sous la section
+                                            active : déplier les six blocs en permanence ferait
+                                            un panneau de neuf entrées pour trois destinations.
+                                        */}
+                                        {s.id === 'documents' && currentCorpusSection === 'documents' && (
+                                            <div className="pl-3 ml-2 border-l border-brand-border dark:border-dark-sec-border space-y-0.5 py-0.5">
+                                                {BLOCS.map(b => (
+                                                    <PanelTab
+                                                        key={b.id}
+                                                        active={currentCorpusBloc === b.id}
+                                                        onClick={() => { onNavigateCorpus('documents', b.id); onMobileClose(); }}
+                                                        icon={b.icon}
+                                                        label={b.label}
+                                                        count={corpusCounts?.parBloc?.[b.id]}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </React.Fragment>
+                                ))
+                                : estReglages
                                 ? SETTINGS_SECTIONS.map(s => (
                                     <PanelTab
                                         key={s.id}

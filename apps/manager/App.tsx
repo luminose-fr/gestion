@@ -13,6 +13,8 @@ import { generateSeriePlan } from './services/seriesService';
 
 import SettingsSpace from './components/Settings/SettingsSpace';
 import CorpusSpace from './components/Corpus/CorpusSpace';
+import { BLOCS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
+import { fetchDocumentsCorpus, fetchInbox } from './services/apiService';
 import {
   SettingsSection, isSettingsSection, settingsSectionLabel, settingsSectionSousTitre,
   grouperParAdaptateur,
@@ -80,6 +82,16 @@ const getHashState = () => {
         space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'display';
 
     /**
+     * Sur Corpus, deux segments : la section, puis le bloc quand on lit des
+     * documents — `#corpus/documents/socle`. Le bloc est une destination, pas
+     * un filtre : il doit survivre à un rechargement et se partager par URL.
+     */
+    const corpusSection: CorpusSection =
+        space === 'corpus' && parts[1] && isCorpusSection(parts[1]) ? parts[1] : 'etat';
+    const corpusBloc: string | null =
+        corpusSection === 'documents' && parts[2] && isBloc(parts[2]) ? parts[2] : null;
+
+    /**
      * Sur l'onglet Séries, l'URL porte DEUX identifiants :
      * `#social/series/<serie>/<contenu>/<etape>`.
      *
@@ -107,7 +119,7 @@ const getHashState = () => {
         }
     }
 
-    return { space, tab, settingsSection, serieId, itemId, step };
+    return { space, tab, settingsSection, corpusSection, corpusBloc, serieId, itemId, step };
 };
 
 function App() {
@@ -127,6 +139,12 @@ function App() {
   
   const [currentSpace, setCurrentSpace] = useState<SpaceView>('social');
   const [currentSocialTab, setCurrentSocialTab] = useState<SocialTab>('ideas');
+  const [currentCorpusSection, setCurrentCorpusSection] = useState<CorpusSection>('etat');
+  const [currentCorpusBloc, setCurrentCorpusBloc] = useState<string | null>(null);
+  /** Pastilles du panneau Corpus. Chargées à la première ouverture de l'espace,
+   *  pas au démarrage : personne ne paie deux requêtes pour un espace qu'il
+   *  n'ouvrira peut-être pas de la journée. */
+  const [corpusCounts, setCorpusCounts] = useState<{ inbox?: number; parBloc?: Record<string, number> }>({});
   const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('display');
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -275,8 +293,12 @@ function App() {
 
   useEffect(() => {
       const handleHashChange = () => {
-          const { space, tab, settingsSection, serieId, itemId, step } = getHashState();
+          const { space, tab, settingsSection, corpusSection, corpusBloc, serieId, itemId, step } = getHashState();
           setCurrentSpace(space);
+          if (space === 'corpus') {
+              setCurrentCorpusSection(corpusSection);
+              setCurrentCorpusBloc(corpusBloc);
+          }
           if (space === 'social') {
               setCurrentSocialTab(tab);
           }
@@ -308,7 +330,18 @@ function App() {
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
   };
 
+  /**
+   * `#corpus/documents/socle`. Ouvrir Documents sans bloc retombe sur le
+   * premier : un écran de documents sans document est une impasse, pas un état.
+   */
+  const updateCorpusRoute = (section: CorpusSection, bloc?: string | null) => {
+      let hash = `corpus/${section}`;
+      if (section === 'documents') hash += `/${bloc ?? currentCorpusBloc ?? BLOCS[0].id}`;
+      if (window.location.hash !== `#${hash}`) window.location.hash = hash;
+  };
+
   const updateRoute = (space: SpaceView, tab: SocialTab, itemId: string | null = null, step: EditorStep = 'idea') => {
+      if (space === 'corpus') return updateCorpusRoute(currentCorpusSection, currentCorpusBloc);
       let hash = `${getSpaceHash(space)}`;
       if (space === 'social') {
           hash += `/${tab}`;
@@ -332,6 +365,20 @@ function App() {
     setAuthenticated(isAuthenticated());
     setCheckingAuth(false);
   }, []);
+
+  // Les pastilles du panneau Corpus. Rechargées à chaque changement de section :
+  // capturer puis revenir sur l'état doit faire bouger le compteur, sinon la
+  // pastille ment jusqu'au prochain rechargement de page.
+  useEffect(() => {
+    if (currentSpace !== 'corpus' || !authenticated) return;
+    void Promise.all([fetchDocumentsCorpus(), fetchInbox()])
+      .then(([docs, inbox]) => {
+        const parBloc: Record<string, number> = {};
+        for (const d of docs.documents) parBloc[d.bloc] = (parBloc[d.bloc] ?? 0) + 1;
+        setCorpusCounts({ inbox: inbox.enAttente, parBloc });
+      })
+      .catch(() => setCorpusCounts({}));
+  }, [currentSpace, currentCorpusSection, authenticated]);
 
   const initData = async () => {
       let cachedItems: ContentItem[] = [];
@@ -1006,9 +1053,13 @@ function App() {
           currentSpace={currentSpace}
           currentSocialTab={currentSocialTab}
           currentSettingsSection={currentSettingsSection}
+          currentCorpusSection={currentCorpusSection}
+          currentCorpusBloc={currentCorpusBloc}
           onNavigate={(space, tab) => updateRoute(space, tab)}
           onNavigateSettings={updateSettingsRoute}
+          onNavigateCorpus={updateCorpusRoute}
           counts={counts}
+          corpusCounts={corpusCounts}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
       />
@@ -1047,9 +1098,14 @@ function App() {
                   {currentSpace === 'clients' && 'Clients'}
                   {currentSpace === 'videos' && 'Sous-titres'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
-                  {currentSpace === 'corpus' && 'Corpus'}
+                  {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
               </h1>
+              {currentSpace === 'corpus' && (
+                  <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
+                      {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
+                  </p>
+              )}
               {currentSpace === 'settings' && (
                   <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
                       {settingsSectionSousTitre(currentSettingsSection)}
@@ -1197,11 +1253,7 @@ function App() {
         {currentSpace === 'corpus' && (
             <main className="flex-1 overflow-y-auto">
                 <div className="px-4 md:px-6 py-5">
-                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">
-                        La source de vérité de Luminose — en lecture seule. Le corpus est embarqué au
-                        déploiement ; il se modifie dans Git, jamais ici.
-                    </p>
-                    <CorpusSpace />
+                    <CorpusSpace section={currentCorpusSection} bloc={currentCorpusBloc} />
                 </div>
             </main>
         )}

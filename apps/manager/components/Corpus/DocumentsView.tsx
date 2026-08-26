@@ -25,7 +25,12 @@ const COULEUR_STATUT: Record<string, string> = {
   'volontairement-absent': 'text-brand-main/45 dark:text-dark-text/40',
 };
 
-const DocumentsView: React.FC = () => {
+interface Props {
+  /** Le bloc ouvert. `null` avant que la route l'ait résolu. */
+  bloc: string | null;
+}
+
+const DocumentsView: React.FC<Props> = ({ bloc }) => {
   const [liste, setListe] = useState<DocumentListe[] | null>(null);
   const [ouvert, setOuvert] = useState<DocumentCorpus | null>(null);
   const [chargement, setChargement] = useState<string | null>(null);
@@ -37,14 +42,17 @@ const DocumentsView: React.FC = () => {
       .catch((e) => setErreur(e?.message ?? 'Liste injoignable.'));
   }, []);
 
-  const parBloc = useMemo(() => {
-    const m = new Map<string, DocumentListe[]>();
-    for (const d of liste ?? []) {
-      if (!m.has(d.bloc)) m.set(d.bloc, []);
-      m.get(d.bloc)!.push(d);
-    }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
-  }, [liste]);
+  const docs = useMemo(
+    () => (liste ?? []).filter((d) => !bloc || d.bloc === bloc),
+    [liste, bloc],
+  );
+
+  /**
+   * Changer de bloc referme la fiche ouverte. Laisser afficher un document de
+   * `socle/` alors que le panneau dit `canaux/` ferait mentir la navigation —
+   * et c'est exactement le genre d'écart que cet écran existe pour traquer.
+   */
+  useEffect(() => { setOuvert(null); }, [bloc]);
 
   const ouvrir = async (chemin: string) => {
     setChargement(chemin);
@@ -63,9 +71,13 @@ const DocumentsView: React.FC = () => {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_1fr]">
-      <nav className="space-y-4">
-        {parBloc.map(([bloc, docs]) => (
-          <div key={bloc}>
+      <nav>
+        {docs.length === 0 ? (
+          <p className="text-sm text-brand-main/50 dark:text-dark-text/45">
+            Ce bloc est vide — il se remplira quand un cas d'usage l'exigera.
+          </p>
+        ) : (
+          <>
             <p className="font-mono text-[10px] uppercase tracking-wider text-brand-main/45 dark:text-dark-text/40 mb-1.5">
               {bloc}/ <span className="tabular-nums">{docs.length}</span>
             </p>
@@ -91,8 +103,8 @@ const DocumentsView: React.FC = () => {
                 </li>
               ))}
             </ul>
-          </div>
-        ))}
+          </>
+        )}
       </nav>
 
       <article className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-6 min-h-[20rem]">
