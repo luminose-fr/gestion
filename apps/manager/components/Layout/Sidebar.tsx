@@ -200,34 +200,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
                             {estCorpus
                                 ? CORPUS_SECTIONS.map(s => (
-                                    <React.Fragment key={s.id}>
-                                        <PanelTab
-                                            active={currentCorpusSection === s.id}
-                                            onClick={() => { onNavigateCorpus(s.id); onMobileClose(); }}
-                                            icon={s.icon}
-                                            label={s.label}
-                                            count={s.id === 'inbox' ? corpusCounts?.inbox : undefined}
-                                        />
-                                        {/*
-                                            Le troisième niveau ne s'ouvre que sous la section
-                                            active : déplier les six blocs en permanence ferait
-                                            un panneau de neuf entrées pour trois destinations.
-                                        */}
-                                        {s.id === 'documents' && currentCorpusSection === 'documents' && (
-                                            <div className="pl-3 ml-2 border-l border-brand-border dark:border-dark-sec-border space-y-0.5 py-0.5">
-                                                {BLOCS.map(b => (
-                                                    <PanelTab
-                                                        key={b.id}
-                                                        active={currentCorpusBloc === b.id}
-                                                        onClick={() => { onNavigateCorpus('documents', b.id); onMobileClose(); }}
-                                                        icon={b.icon}
-                                                        label={b.label}
-                                                        count={corpusCounts?.parBloc?.[b.id]}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </React.Fragment>
+                                    <PanelTab
+                                        key={s.id}
+                                        active={currentCorpusSection === s.id}
+                                        onClick={() => { onNavigateCorpus(s.id); onMobileClose(); }}
+                                        icon={s.icon}
+                                        label={s.label}
+                                        count={s.id === 'inbox' ? corpusCounts?.inbox : undefined}
+                                    />
                                 ))
                                 : estReglages
                                 ? SETTINGS_SECTIONS.map(s => (
@@ -249,6 +229,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         count={tabCount(t.id)}
                                     />
                                 ))}
+                        </div>
+                    </div>
+                )}
+
+                {/*
+                    Troisième panneau — les blocs de documents.
+                    
+                    Une colonne plutôt qu'un arbre indenté dans le panneau
+                    précédent : à 210 px, une arborescence force à lire un
+                    retrait pour comprendre une hiérarchie, là où deux colonnes
+                    la montrent. Il n'apparaît que sous la section qui en a un,
+                    et disparaît ailleurs plutôt que de rester vide.
+
+                    Masqué sous `md` : trois colonnes ne tiennent pas sur un
+                    téléphone. Les blocs y passent par MobileSubTabs, en
+                    seconde rangée — les mêmes trois niveaux, empilés.
+                */}
+                {estCorpus && currentCorpusSection === 'documents' && (
+                    <div className="hidden md:flex w-[190px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex-col">
+                        <div className="px-4 h-[52px] flex items-center border-b border-brand-border dark:border-dark-sec-border shrink-0">
+                            <p className="font-bold text-sm text-brand-main dark:text-white truncate">Documents</p>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+                            {BLOCS.map(b => (
+                                <PanelTab
+                                    key={b.id}
+                                    active={currentCorpusBloc === b.id}
+                                    onClick={() => { onNavigateCorpus('documents', b.id); onMobileClose(); }}
+                                    icon={b.icon}
+                                    label={b.label}
+                                    count={corpusCounts?.parBloc?.[b.id]}
+                                />
+                            ))}
                         </div>
                     </div>
                 )}

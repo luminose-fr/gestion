@@ -1167,13 +1167,16 @@ function App() {
             depuis l'atelier reste visible quand on revient à la liste (SPEC §3.5.1). */}
         <BandeauActivite />
 
-        {(currentSpace === 'settings' || (currentSpace === 'social' && !isEditorTakeover)) && (
+        {(currentSpace === 'settings' || currentSpace === 'corpus' || (currentSpace === 'social' && !isEditorTakeover)) && (
           <MobileSubTabs
-              space={currentSpace === 'settings' ? 'settings' : 'social'}
+              space={currentSpace === 'settings' ? 'settings' : currentSpace === 'corpus' ? 'corpus' : 'social'}
               currentTab={currentSocialTab}
               currentSettingsSection={currentSettingsSection}
+              currentCorpusSection={currentCorpusSection}
+              currentCorpusBloc={currentCorpusBloc}
               onNavigate={(tab) => updateRoute('social', tab)}
               onNavigateSettings={updateSettingsRoute}
+              onNavigateCorpus={updateCorpusRoute}
               counts={counts}
           />
         )}

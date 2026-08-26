@@ -19,6 +19,7 @@ import React from 'react';
 import SettingsSpace from '../components/Settings/SettingsSpace';
 import CorpusSpace from '../components/Corpus/CorpusSpace';
 import { Sidebar } from '../components/Layout/Sidebar';
+import { MobileSubTabs } from '../components/Layout/MobileSubTabs';
 import DocumentsView from '../components/Corpus/DocumentsView';
 import InboxView from '../components/Corpus/InboxView';
 import Markdown from '../components/Corpus/Markdown';
@@ -986,23 +987,28 @@ describe('Corpus — navigation à trois niveaux', () => {
     onMobileClose: () => {},
   };
 
-  it('affiche les trois sections, et pas les blocs hors Documents', () => {
+  it('le deuxième panneau porte les trois sections, sans les blocs', () => {
     const { container } = render(
       <Sidebar {...props} currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
     );
     expect(container.textContent).toContain('État');
     expect(container.textContent).toContain('Documents');
     expect(container.textContent).toContain('Inbox');
+    // Le troisième panneau n'existe pas hors de la section Documents : il
+    // disparaît plutôt que de rester vide.
     expect(container.textContent).not.toContain('Répertoire');
   });
 
-  it('déplie les six blocs sous Documents', () => {
+  it('un troisième panneau apparaît sous Documents, avec les six blocs', () => {
     const { container } = render(
       <Sidebar {...props} currentCorpusSection="documents" currentCorpusBloc="socle" onNavigateCorpus={() => {}} />,
     );
     for (const b of ['Socle', 'Voix', 'Stratégie', 'Canaux', 'Répertoire', 'Outils']) {
       expect(container.textContent).toContain(b);
     }
+    // Trois colonnes de navigation : le rail, les sections, les blocs.
+    const panneaux = container.querySelectorAll('aside > div');
+    expect(panneaux.length).toBe(3);
   });
 
   it('porte les captures en attente en pastille', () => {
@@ -1018,5 +1024,34 @@ describe('Corpus — navigation à trois niveaux', () => {
     const { container } = render(<CorpusSpace section="inbox" bloc={null} />);
     expect(container.textContent).toContain('inbox');
     vi.restoreAllMocks();
+  });
+});
+
+describe('Corpus — navigation sur téléphone', () => {
+  afterEach(cleanup);
+
+  const props = {
+    currentTab: 'ideas' as const,
+    currentSettingsSection: 'display' as const,
+    onNavigate: () => {},
+    onNavigateSettings: () => {},
+    counts: { ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 },
+  };
+
+  it('une seule rangée hors Documents', () => {
+    const { container } = render(
+      <MobileSubTabs {...props} space="corpus" currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
+    );
+    expect(container.textContent).toContain('État');
+    expect(container.textContent).not.toContain('Répertoire');
+  });
+
+  it('deux rangées sous Documents — les mêmes trois niveaux, empilés', () => {
+    const { container } = render(
+      <MobileSubTabs {...props} space="corpus" currentCorpusSection="documents" currentCorpusBloc="voix" onNavigateCorpus={() => {}} />,
+    );
+    expect(container.textContent).toContain('Documents');
+    expect(container.textContent).toContain('Répertoire');
+    expect(container.querySelectorAll('div.md\\:hidden')).toHaveLength(2);
   });
 });
