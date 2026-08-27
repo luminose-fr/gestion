@@ -59,6 +59,15 @@ Aucune CI n'exécute les tests. `npm test` et `npm run typecheck` **avant chaque
 - **Commentaires en français, sur le *pourquoi*.** Le *quoi* se lit dans le code. Un
   commentaire qui paraphrase la ligne suivante est du bruit ; un commentaire qui explique
   une contrainte non évidente vaut de l'or.
+- **Un refus n'est pas une panne.** Ce que l'appelant peut corriger — une clé absente,
+  un fournisseur inconnu — se lève en `Refus` (`workers/api/src/refus.ts`) : statut 4xx,
+  message dans `error`, **rien dans les journaux**. Le message doit passer par `error`
+  et non par `detail`, parce que c'est `error` qu'affichent `aiService` et `apiService` ;
+  servi en 500 avec `error: 'Erreur interne'`, le conseil le plus utile de l'application
+  (« Renseignez-la dans Réglages → Fournisseurs ») ne s'est jamais affiché. Un `throw`
+  nu reste réservé aux vraies pannes : 500, et la trace part dans les journaux — sans
+  quoi l'indicateur qui devrait réveiller quelqu'un se déclenche pour tout, donc pour
+  rien.
 - **Pas de hook React après un retour anticipé.** Cette règle est née d'une page blanche
   en production : un `useEffect` placé après un `if (!isOpen) return null;`, invisible au
   typecheck comme au build. Tout composant à retour anticipé est monté dans

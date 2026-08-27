@@ -109,8 +109,9 @@ describe('la clé posée est celle qui part au fournisseur', () => {
     });
 
     await seedModel('m-or', 'openrouter');
-    // Sans clé : refus explicite, pas un appel qui échoue plus loin.
-    expect((await post('/api/ai/chat', { modelId: 'm-or', messages: [{ role: 'user', content: 'x' }] })).status).toBe(500);
+    // Sans clé : refus explicite (4xx), pas un appel qui échoue plus loin —
+    // et pas un 500, qui ferait passer une configuration manquante pour une panne.
+    expect((await post('/api/ai/chat', { modelId: 'm-or', messages: [{ role: 'user', content: 'x' }] })).status).toBe(409);
 
     await put('/api/settings/providers/openrouter', { apiKey: CLE });
     const res = await post('/api/ai/chat', { modelId: 'm-or', messages: [{ role: 'user', content: 'x' }] });

@@ -96,18 +96,49 @@ describe('refus explicites', () => {
     expect(res.status).toBe(404);
   });
 
+  /**
+   * Le message doit arriver dans `error`, PAS dans `detail` — c'est `error`
+   * que `aiService` affiche. Servi en 500 avec `error: 'Erreur interne'`,
+   * le message le plus utile de l'application (« Renseignez-la dans
+   * Réglages → Fournisseurs ») ne s'affichait jamais : Florent lisait
+   * « Erreur interne » et n'avait aucun moyen de savoir quoi faire.
+   *
+   * Et pas un 5xx : une clé manquante n'est pas une panne. Confondre les deux
+   * familles, c'est perdre le seul indicateur qui devrait réveiller quelqu'un.
+   */
   it('échoue clairement si le fournisseur n’a pas de clé configurée', async () => {
     await seedModel('m-sans-cle', 'openai');
     env.OPENAI_API_KEY = undefined;
     const res = await call('/api/ai/chat', { modelId: 'm-sans-cle', messages: [{ role: 'user', content: 'x' }] });
-    expect(res.status).toBe(500);
-    expect((await json(res)).detail).toContain('Aucune clé configurée');
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toContain('Réglages → Fournisseurs');
   });
 
   it('échoue clairement si la colonne provider ne correspond à aucun adaptateur', async () => {
     await seedModel('m-inconnu', 'mistral');
     const res = await call('/api/ai/chat', { modelId: 'm-inconnu', messages: [{ role: 'user', content: 'x' }] });
-    expect((await json(res)).detail).toContain('Fournisseur inconnu');
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toContain('Fournisseur inconnu');
+  });
+
+  /**
+   * NORMATIF — aucun refus ne doit passer pour une panne.
+   *
+   * Le garde-fou porte sur les DEUX signaux à la fois : le statut hors des
+   * 5xx, et le silence dans les journaux. Vérifier l'un sans l'autre laisse
+   * revenir la moitié du défaut.
+   */
+  it('un refus ne s’écrit pas dans les journaux — NORMATIF', async () => {
+    const cri = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await seedModel('m-muet', 'openai');
+      env.OPENAI_API_KEY = undefined;
+      const res = await call('/api/ai/chat', { modelId: 'm-muet', messages: [{ role: 'user', content: 'x' }] });
+      expect(res.status).toBeLessThan(500);
+      expect(cri).not.toHaveBeenCalled();
+    } finally {
+      cri.mockRestore();
+    }
   });
 
   /**

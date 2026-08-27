@@ -14,6 +14,7 @@
  */
 import { Hono } from 'hono';
 import { ZodError } from 'zod';
+import { Refus } from './refus';
 import type { Env } from './env';
 import { createSessionToken, verifySessionToken, getSessionSecret } from './auth';
 import { contents } from './routes/contents';
@@ -79,12 +80,26 @@ app.route('/', legacy);
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 
 /**
+ * Trois familles, et une seule mérite d'être journalisée.
+ *
  * Une entrée invalide est une erreur du client (400), pas une panne (500) :
  * on renvoie le détail zod pour que l'appelant sache quoi corriger.
+ *
+ * Un `Refus` porte son propre statut et son propre message : il passe dans
+ * `error`, que le front affiche, et non dans `detail`, que personne ne lit.
+ * Il ne s'écrit PAS dans les journaux — « aucune clé configurée » n'est pas
+ * un incident, et une ligne d'erreur qui se déclenche pour tout ne réveille
+ * plus personne. C'est le même raisonnement que le point de passage unique du
+ * §3.5.1, pris par l'autre bout : ne signaler que ce qui mérite un regard.
+ *
+ * Le reste est une vraie panne : 500, et la trace part dans les journaux.
  */
 app.onError((err, c) => {
   if (err instanceof ZodError) {
     return c.json({ error: 'Entrée invalide', detail: err.issues }, 400);
+  }
+  if (err instanceof Refus) {
+    return c.json({ error: err.message }, err.status);
   }
   console.error('Erreur non gérée :', err);
   return c.json({ error: 'Erreur interne', detail: err.message }, 500);

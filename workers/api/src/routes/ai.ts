@@ -15,6 +15,7 @@ import { composerFeuille } from '@luminose/corpus';
 import { feuillePour } from '@luminose/editorial';
 import { DOCUMENTS } from '../genere/corpus';
 import type { Env } from '../env';
+import { Refus } from '../refus';
 import { rowToModel } from '../db';
 import { resolveApiKey } from '../keys';
 
@@ -30,16 +31,21 @@ export const ai = new Hono<{ Bindings: Env }>();
  */
 const resolve = async (providerId: string, env: Env): Promise<AIProvider> => {
   if (!PROVIDER_IDS.includes(providerId)) {
-    throw new Error(
-      `Fournisseur inconnu : « ${providerId} ». Connus : ${PROVIDER_IDS.join(', ')}.`
+    // La ligne du modèle nomme un adaptateur que le code ne connaît pas :
+    // l'état stocké contredit ce qui est servi, d'où 409 plutôt que 400 —
+    // rien à corriger dans la requête, tout à corriger dans le catalogue.
+    throw new Refus(
+      `Fournisseur inconnu : « ${providerId} ». Connus : ${PROVIDER_IDS.join(', ')}.`,
+      409,
     );
   }
 
   const apiKey = await resolveApiKey(env, providerId);
   if (!apiKey) {
-    throw new Error(
+    throw new Refus(
       `Aucune clé configurée pour le fournisseur « ${providerId} ». ` +
-      `Renseignez-la dans Réglages → Fournisseurs.`
+      `Renseignez-la dans Réglages → Fournisseurs.`,
+      409,
     );
   }
   return getProvider(providerId, { apiKey });
