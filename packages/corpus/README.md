@@ -19,6 +19,33 @@ Corollaire côté application : **`gestion.luminose.fr` lit le corpus et n'écri
 l'inbox.** Deux copies modifiables, c'est le problème qu'on cherche à résoudre réinstallé à
 l'intérieur de la solution.
 
+### Le geste, concrètement
+
+Il n'y a **qu'une** façon de modifier le corpus : éditer le markdown, commiter, déployer.
+L'inbox n'est pas un second chemin — c'est la salle d'attente du premier.
+
+| | Capture (l'inbox) | Intégration (ici) |
+| :--- | :--- | :--- |
+| Quand | au moment où la décision se dit | plus tard, groupé |
+| Durée | quelques secondes | quelques minutes |
+| Effet sur le corpus | **aucun** | c'est là que ça devient vrai |
+| Le geste | trois champs | éditer, commiter, `git pull`, déployer, puis cocher |
+
+Le bouton « Intégrée » de l'écran Inbox ne range rien tout seul : il se coche **après**
+l'édition, et il demande où c'est parti — c'est ce qui garde la chaîne entre les mots
+d'origine et le fichier qui les porte.
+
+Aller droit à l'édition est légitime quand on sait quelle ligne changer ; `Corpus →
+Documents` porte un lien vers le fichier exact dans l'éditeur web de GitHub. L'inbox sert
+aux deux autres cas : on est ailleurs (téléphone, conversation en cours), ou la décision a
+des ricochets qu'on ne veut pas dérouler maintenant — « ma cible devient X » n'est pas une
+ligne, c'est `socle/audiences`, `canaux/linkedin`, `voix/exemples-valides`,
+`canaux/google-ads` et peut-être une offre.
+
+**Une correction ne se voit dans l'application qu'au déploiement suivant.** Le corpus est
+une constante du bundle du Worker : c'est ce qui interdit à l'application de l'écrire, et
+ça se paie ici.
+
 ---
 
 ## Les six blocs

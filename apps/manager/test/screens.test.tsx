@@ -976,6 +976,44 @@ describe('Corpus — lecture des documents', () => {
     fireEvent.click(getByText('Le Seuil'));
     await waitFor(() => expect(container.textContent).toContain('depuis août'));
   });
+
+  /**
+   * Le lien d'édition doit viser LE fichier ouvert.
+   *
+   * Il pointait sur l'organisation GitHub : il annonçait « modifier » et
+   * déposait sur une liste de dépôts. Un lien mort ne fait échouer aucun
+   * test et ne lève aucune erreur — il déçoit en silence, une fois par clic.
+   * D'où ce garde-fou : le chemin du document, la racine du corpus et
+   * l'extension, reconstitués tels que GitHub les attend.
+   */
+  it('le lien d’édition vise le fichier ouvert, pas le dépôt — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue({
+      documents: [{
+        chemin: 'canaux/google-ads', bloc: 'canaux', titre: 'Google Ads',
+        statut: 'actif', type: 'fact', revu: null, review_at: null, expose: 'prive', taille: 10,
+      }],
+    } as any);
+    vi.spyOn(Api, 'fetchDocumentCorpus').mockResolvedValue({
+      chemin: 'canaux/google-ads', bloc: 'canaux', titre: 'Google Ads',
+      meta: {}, corps: '# Google Ads',
+    } as any);
+
+    const { container, getByText } = render(<DocumentsView bloc="canaux" />);
+    await waitFor(() => expect(container.textContent).toContain('Google Ads'));
+    fireEvent.click(getByText('Google Ads'));
+
+    const lien = await waitFor(() => {
+      const a = container.querySelector('article a') as HTMLAnchorElement | null;
+      expect(a).not.toBeNull();
+      return a!;
+    });
+    expect(lien.href).toBe(
+      'https://github.com/luminose-fr/gestion/edit/main/packages/corpus/content/canaux/google-ads.md',
+    );
+    // Et l'écran doit dire que la correction ne se verra qu'au déploiement :
+    // sans ça, on corrige, on revient, on ne voit rien, on croit que c'est cassé.
+    expect(container.textContent).toContain('déploiement');
+  });
 });
 
 describe('Corpus — inbox', () => {

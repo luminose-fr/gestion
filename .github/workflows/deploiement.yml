@@ -1,0 +1,121 @@
+# Déploiement Cloudflare, depuis GitHub.
+#
+# POURQUOI : le déploiement demandait un accès à la VM Ubuntu. Corriger une
+# ligne du corpus depuis un téléphone était donc impossible — on pouvait
+# commiter, pas publier. Ce workflow ouvre la deuxième moitié du geste.
+#
+# CE QUI LE DÉCLENCHE : rien d'automatique, par décision du 27/08/2026. Un
+# `git push` ne publie pas. L'historique porte des commits d'étape (« VM »,
+# « UI », « Build fixes ») ; les faire partir en production parce qu'ils
+# touchent `main` transformerait chaque sauvegarde en mise en ligne.
+#
+# CE QU'IL FAIT : il APPELLE `scripts/deploy.sh`. Il ne le réécrit pas. Le
+# script connaît déjà l'ordre (Worker avant front — l'API est rétro-compatible
+# le temps d'un déploiement, l'inverse n'est pas vrai), la régénération du
+# corpus embarqué et les migrations D1. Deux chemins de déploiement finiraient
+# par diverger, et c'est celui qu'on emprunte le moins qui serait faux.
+#
+# CE QU'IL LUI FAUT, une seule fois, dans Settings → Secrets and variables →
+# Actions :
+#   CLOUDFLARE_API_TOKEN   — modèle « Edit Cloudflare Workers », plus D1:Edit
+#                            et Cloudflare Pages:Edit (le Worker déploie une
+#                            base et un projet Pages en plus du script)
+#   CLOUDFLARE_ACCOUNT_ID  — Cloudflare → Workers & Pages → Account ID
+#
+# Les secrets d'exécution du Worker (SESSION_SECRET, ONE_MIN_API_KEY,
+# AUTH_USERNAME, AUTH_PASSWORD) ne sont PAS ici : ils vivent chez Cloudflare,
+# posés par `wrangler secret put`, et `wrangler deploy` ne les touche pas.
+# Vérification en dix secondes après le premier passage : se connecter.
+
+name: Déploiement Cloudflare
+
+on:
+  workflow_dispatch:
+    inputs:
+      cible:
+        description: "Ce qui part"
+        type: choice
+        default: tout
+        options:
+          - tout
+          - api
+          - app
+      repetition:
+        description: "Répétition — joue les tests, affiche les commandes sans les exécuter"
+        type: boolean
+        default: false
+
+# Deux déploiements qui se chevauchent, c'est une migration D1 jouée deux fois
+# et un ordre Worker/front qui ne veut plus rien dire. On fait la queue.
+concurrency:
+  group: deploiement-cloudflare
+  cancel-in-progress: false
+
+jobs:
+  deployer:
+    name: ${{ inputs.repetition && 'Répétition' || 'Déploiement' }} — ${{ inputs.cible }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 24 et pas 20 : jsdom 30 exige ^24.15, et la VM tourne sur cette branche.
+      # Une CI qui teste sur un autre Node que la machine de développement ne
+      # vérifie pas la même chose.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # Nommer ce qui manque plutôt que de laisser wrangler échouer trois
+      # minutes plus tard sur une erreur d'authentification illisible.
+      - name: Vérifier les secrets
+        if: ${{ !inputs.repetition }}
+        env:
+          JETON: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          COMPTE: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          manquants=""
+          [ -z "$JETON" ]  && manquants="$manquants CLOUDFLARE_API_TOKEN"
+          [ -z "$COMPTE" ] && manquants="$manquants CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$manquants" ]; then
+            echo "::error::Secrets absents :$manquants — Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+
+      # `npm ci` plutôt que `npm install` : il installe le lock à la lettre et
+      # refuse de le réécrire. C'est aussi lui qui joue `prepare`, donc
+      # `embarquer` — le corpus est dans le bundle avant même les tests.
+      - run: npm ci
+
+      # Le script joue lui-même `npm test` et `npm run typecheck`, et s'arrête
+      # dessus. La barrière n'est pas dupliquée ici : elle est là où elle vaut
+      # aussi quand on déploie à la main.
+      - name: Déployer
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CIBLE: ${{ inputs.cible }}
+          DRY_RUN: ${{ inputs.repetition && '1' || '0' }}
+        run: |
+          if [ "$CIBLE" = "tout" ]; then
+            ./scripts/deploy.sh
+          else
+            ./scripts/deploy.sh "$CIBLE"
+          fi
+
+      - name: Récapitulatif
+        if: always()
+        env:
+          CIBLE: ${{ inputs.cible }}
+          REPETITION: ${{ inputs.repetition }}
+          ETAT: ${{ job.status }}
+        run: |
+          {
+            echo "### ${ETAT} — cible \`${CIBLE}\`"
+            [ "$REPETITION" = "true" ] && echo "> Répétition : **rien n'a été publié**."
+            echo ""
+            echo "- https://gestion.luminose.fr"
+            echo "- Corpus → État : l'empreinte doit avoir changé si le corpus a bougé"
+          } >> "$GITHUB_STEP_SUMMARY"

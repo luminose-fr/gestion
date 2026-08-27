@@ -116,6 +116,19 @@ const InboxView: React.FC = () => {
         <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
           En attente — {attente.length}
         </h2>
+        {/*
+          « Intégrer » est le mot qui prête à confusion : il a l'air d'un
+          bouton qui range la capture dans le corpus, alors que c'est une case
+          qu'on coche APRÈS être allé éditer le markdown. Sans cette ligne, on
+          croit que le bouton fait le travail, et le corpus ne change jamais.
+        */}
+        {attente.length > 0 && (
+          <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-2 leading-relaxed">
+            Intégrer, c'est aller corriger le markdown dans le dépôt, commiter, déployer —
+            puis revenir cocher ici en disant où c'est parti. Le bouton ne range rien tout
+            seul : il ferme la boucle entre tes mots d'origine et le fichier qui les porte.
+          </p>
+        )}
         {attente.length === 0 ? (
           <p className="inline-flex items-center gap-2 text-sm text-brand-main/50 dark:text-dark-text/45">
             <InboxIcon className="w-4 h-4" /> Rien en attente.

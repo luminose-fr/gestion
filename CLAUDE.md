@@ -110,6 +110,21 @@ Tout le reste — `install`, `build`, `deploy`, `wrangler` — appartient à la 
 
 ## Déploiement
 
-`./scripts/deploy.sh` — **depuis la VM Ubuntu** (voir ci-dessus) : tests et typecheck
-bloquants, puis corpus embarqué, puis migrations D1 distantes, puis Worker, puis front.
-Voir l'en-tête du script pour les cibles partielles.
+`./scripts/deploy.sh` : tests et typecheck bloquants, puis corpus embarqué, puis migrations
+D1 distantes, puis Worker, puis front. Voir l'en-tête du script pour les cibles partielles.
+
+**Deux façons de le lancer, un seul script.**
+
+| | |
+| :--- | :--- |
+| `npm run deploy` | **depuis la VM Ubuntu** (voir ci-dessus) |
+| Actions → « Déploiement Cloudflare » → *Run workflow* | depuis n'importe où, y compris un téléphone |
+
+Le workflow (`.github/workflows/deploiement.yml`) **appelle** `deploy.sh`, il ne le
+réécrit pas : deux chemins de déploiement finiraient par diverger, et c'est celui qu'on
+emprunte le moins qui serait faux. Il ne se déclenche sur aucun push — décision du
+27/08/2026 : l'historique porte des commits d'étape, et les publier parce qu'ils touchent
+`main` transformerait chaque sauvegarde en mise en ligne.
+
+Il accepte une **répétition** (`DRY_RUN`) : les tests tournent, les commandes s'affichent,
+rien ne part. C'est le passage obligé avant de faire confiance à une nouvelle CI.

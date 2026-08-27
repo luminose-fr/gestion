@@ -14,7 +14,18 @@ import { ExternalLink } from 'lucide-react';
 import { fetchDocumentsCorpus, fetchDocumentCorpus, type DocumentCorpus, type DocumentListe } from '../../services/apiService';
 import Markdown from './Markdown';
 
-const DEPOT = 'https://github.com/luminose-fr';
+/**
+ * Le fichier, ouvert dans l'éditeur web de GitHub.
+ *
+ * Le lien pointait sur l'organisation : il annonçait « modifier » et déposait
+ * sur une liste de dépôts. Ici, un clic ouvre LA fiche affichée, prête à être
+ * corrigée et commitée — c'est le seul chemin par lequel le corpus change.
+ *
+ * `chemin` est le chemin relatif à `content/`, sans l'extension : le même
+ * identifiant que celui servi par l'API, d'où l'absence de conversion.
+ */
+const EDITEUR = (chemin: string) =>
+  `https://github.com/luminose-fr/gestion/edit/main/packages/corpus/content/${chemin}.md`;
 
 const COULEUR_STATUT: Record<string, string> = {
   actif: 'text-emerald-600 dark:text-emerald-400',
@@ -136,14 +147,26 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                     </span>
                   ))}
               </div>
-              <a
-                href={`${DEPOT}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 mt-2 text-[11px] text-brand-main/50 hover:text-brand-main dark:text-dark-text/45 dark:hover:text-white"
-              >
-                <ExternalLink className="w-3 h-3" /> modifier dans le dépôt
-              </a>
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-[11px]">
+                <a
+                  href={EDITEUR(ouvert.chemin)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold text-brand-main/70 hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white"
+                >
+                  <ExternalLink className="w-3 h-3" /> Modifier ce fichier sur GitHub
+                </a>
+                {/*
+                  Dit à voix haute ce que la mécanique impose : le corpus est
+                  une constante du bundle du Worker, donc une correction
+                  commitée ne se voit ici qu'au déploiement suivant. Sans cette
+                  ligne, on corrige, on revient, on ne voit rien, et on conclut
+                  que c'est cassé.
+                */}
+                <span className="text-brand-main/40 dark:text-dark-text/35">
+                  visible ici après <span className="font-mono">git pull</span> et un déploiement
+                </span>
+              </p>
             </header>
             <Markdown texte={ouvert.corps} />
           </>
