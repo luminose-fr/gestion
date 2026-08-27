@@ -10,15 +10,23 @@
  * Git reste le seul endroit où le corpus change.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Copy, RefreshCw, FileText } from 'lucide-react';
+import { AlertTriangle, Check, Copy, RefreshCw, FileText, Rocket, Loader2, ExternalLink } from 'lucide-react';
 import { copyTextToClipboard } from '../ContentEditor/renderers/shared';
 import {
   fetchEtatCorpus, fetchContexte, fetchPoses, setPose,
-  type EtatCorpus, type PoseSurface,
+  fetchDeploiement, lancerDeploiement,
+  type EtatCorpus, type PoseSurface, type EtatDeploiement,
 } from '../../services/apiService';
 import { SURFACES } from './surfaces';
 
 const NON_PROPOSABLE = ['suspendu', 'termine', 'candidat'];
+
+const ETIQUETTE_DEPLOIEMENT: Record<string, { mot: string; classe: string }> = {
+  en_attente: { mot: 'en attente', classe: 'text-brand-main/70 dark:text-dark-text/60' },
+  en_cours:   { mot: 'en cours',   classe: 'text-brand-main/70 dark:text-dark-text/60' },
+  reussi:     { mot: 'réussi',     classe: 'text-emerald-600 dark:text-emerald-400' },
+  echoue:     { mot: 'échoué',     classe: 'text-red-600 dark:text-red-400' },
+};
 
 const Carte: React.FC<{ titre: string; children: React.ReactNode }> = ({ titre, children }) => (
   <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-5">
@@ -35,6 +43,8 @@ const EtatView: React.FC = () => {
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [copie, setCopie] = useState<string | null>(null);
+  const [deploiement, setDeploiement] = useState<EtatDeploiement | null>(null);
+  const [lancement, setLancement] = useState(false);
 
   const recharger = useCallback(async () => {
     try {
@@ -42,6 +52,9 @@ const EtatView: React.FC = () => {
       setEtat(e);
       setPoses(p.poses ?? {});
       setErreur(null);
+      // À part, et sans `await` bloquant : le dépôt peut être injoignable ou
+      // sans jeton, et ça ne doit pas empêcher l'écran de s'afficher.
+      fetchDeploiement().then(setDeploiement).catch(() => setDeploiement(null));
     } catch (err: any) {
       setErreur(err?.message ?? 'Le corpus est injoignable.');
     }
@@ -89,6 +102,38 @@ const EtatView: React.FC = () => {
   }
 
   const hashCourant = (profil: string) => etat.profils.find((p) => p.profil === profil)?.hash ?? '';
+
+  /** Un déploiement est en vol : le bouton doit attendre plutôt qu'en empiler un second. */
+  const enVol = deploiement?.etat?.statut === 'en_cours' || deploiement?.etat?.statut === 'en_attente';
+
+  /**
+   * Un commit postérieur au dernier lancement n'est pas servi.
+   *
+   * Approximation assumée : un commit poussé PENDANT un déploiement sera
+   * signalé « en avance » alors qu'il est peut-être passé. Se tromper dans ce
+   * sens fait proposer un déploiement de trop ; se tromper dans l'autre
+   * laisserait croire qu'une correction est en ligne alors qu'elle ne l'est pas.
+   */
+  const sourceEnAvance = Boolean(
+    deploiement?.source?.date &&
+    deploiement?.etat?.lance_le &&
+    deploiement.source.date > deploiement.etat.lance_le,
+  );
+
+  const deployer = async () => {
+    setLancement(true);
+    setErreur(null);
+    try {
+      await lancerDeploiement('api');
+      // On rafraîchit tout de suite pour que le bouton passe en « en cours »
+      // sans attendre un clic de plus.
+      setDeploiement(await fetchDeploiement());
+    } catch (e: any) {
+      setErreur(e?.message ?? "Le déploiement n'a pas démarré.");
+    } finally {
+      setLancement(false);
+    }
+  };
   const arretees = etat.offres.filter((o) => NON_PROPOSABLE.includes(o.statut));
   const derives = SURFACES.filter(
     (s) => !s.automatique && poses[s.id]?.hash !== hashCourant(s.profil),
@@ -98,6 +143,60 @@ const EtatView: React.FC = () => {
     <div className="space-y-4 md:space-y-5 max-w-5xl">
       {erreur && (
         <p className="text-sm text-red-600 dark:text-red-400">Échec — {erreur}</p>
+      )}
+
+      {/*
+        Le déploiement, et l'écart avec la source.
+
+        C'est la même question que les « poses » de ChatGPT et Gemini plus bas,
+        tournée vers la maison : ce que le Worker sert est-il ce que le dépôt
+        contient ? Sans elle, on corrige une fiche, on revient, on lit
+        l'ancienne version et on croit que c'est cassé.
+      */}
+      {deploiement?.configure && (
+        <Carte titre="Déploiement">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {sourceEnAvance ? (
+              <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="w-4 h-4 inline -mt-0.5" /> La source a de l'avance sur ce qui est servi.
+              </span>
+            ) : (
+              <span className="text-sm text-brand-main/70 dark:text-dark-text/60">
+                {deploiement.etat?.statut === 'reussi'
+                  ? 'Ce qui est servi correspond au dépôt.'
+                  : 'Aucun écart connu.'}
+              </span>
+            )}
+
+            {deploiement.etat?.statut && (
+              <span className="text-xs text-brand-main/55 dark:text-dark-text/50">
+                Dernier déploiement : <strong className={ETIQUETTE_DEPLOIEMENT[deploiement.etat.statut].classe}>
+                  {ETIQUETTE_DEPLOIEMENT[deploiement.etat.statut].mot}
+                </strong>
+                {deploiement.etat.lance_le ? ` · ${new Date(deploiement.etat.lance_le).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+                {deploiement.etat.lien && (
+                  <> · <a href={deploiement.etat.lien} target="_blank" rel="noreferrer" className="underline hover:text-brand-main dark:hover:text-white">
+                    <ExternalLink className="w-3 h-3 inline -mt-0.5" /> le journal
+                  </a></>
+                )}
+              </span>
+            )}
+
+            <button
+              onClick={() => void deployer()}
+              disabled={lancement || enVol}
+              className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
+            >
+              {lancement || enVol
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {enVol ? 'En cours…' : 'Lancement…'}</>
+                : <><Rocket className="w-3.5 h-3.5" /> Déployer</>}
+            </button>
+          </div>
+          <p className="text-[11px] text-brand-main/45 dark:text-dark-text/40 mt-2.5 leading-relaxed">
+            Tests et typecheck tournent d'abord ; comptez deux minutes. Seul le Worker repart —
+            une correction du corpus ne touche pas le front. « Actualiser » rafraîchit l'état.
+          </p>
+        </Carte>
       )}
 
       {/* Ce qui demande une décision, avant tout le reste. */}

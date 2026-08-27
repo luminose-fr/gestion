@@ -12,9 +12,15 @@
  * 50 par invocation (SPEC §3.6) n'est pas entamé.
  */
 import { Hono } from 'hono';
-import { composer, composerFeuille, PROFILS, type Profil } from '@luminose/corpus';
+import { composer, composerFeuille, separerFrontmatter, PROFILS, type Profil } from '@luminose/corpus';
 import { actionConnue, feuillePour } from '@luminose/editorial';
+import { SourceCorpusSchema, DeploiementSchema } from '@luminose/shared';
 import { DOCUMENTS } from '../genere/corpus';
+import { Refus } from '../refus';
+import {
+  lireSource, ecrireSource, lienEdition, depotConfigure,
+  lancerDeploiement, etatDeploiement, dernierCommitCorpus,
+} from '../github';
 import type { Env } from '../env';
 
 export const corpus = new Hono<{ Bindings: Env }>();
@@ -169,4 +175,109 @@ corpus.get('/feuille/:action', (c) => {
     neRecoitRien: chemins === null,
     ...feuille,
   });
+});
+
+/* ══ Écriture — et pourquoi ça ne contredit pas l'en-tête de ce fichier ══
+ *
+ * Les routes ci-dessous n'écrivent pas le corpus SERVI : elles écrivent dans
+ * Git, qui reste la copie unique et modifiable. Le bundle, lui, ne change
+ * qu'au déploiement. L'invariant tenait à « une seule copie modifiable », pas
+ * à « l'application ne parle jamais à Git » — et le zigzag qu'imposait la
+ * seconde lecture coûtait un aller-retour par correction.
+ *
+ * Elles restent à **zéro requête D1** : tout passe par l'API GitHub.
+ */
+
+/** Les statuts que le composeur sait interpréter. Un autre passerait en silence. */
+const STATUTS = ['actif', 'active', 'suspendu', 'termine', 'candidat', 'volontairement-absent'];
+
+/**
+ * Ce qu'on refuse de commiter.
+ *
+ * Un frontmatter cassé ne fait échouer aucun test et ne lève aucune erreur :
+ * le parseur est tolérant par conception, donc le document part dans les
+ * prompts amputé de son statut. `statut: actiff` rendrait Le Seuil proposable
+ * sans que rien ne l'annonce. On vérifie ici, avant que ce soit dans l'histoire
+ * du dépôt.
+ */
+function refusDeContenu(contenu: string): string | null {
+  const { meta, corps } = separerFrontmatter(contenu);
+
+  if (!contenu.trimStart().startsWith('---')) {
+    return 'Le frontmatter a disparu — le fichier doit commencer par une ligne « --- ».';
+  }
+  if (!corps.trim()) {
+    return 'Le corps est vide : il ne resterait que des métadonnées.';
+  }
+  if (!/^#\s+\S/m.test(corps)) {
+    return 'Aucun titre « # … » dans le corps — c\'est lui qui nomme la fiche dans les écrans et les prompts.';
+  }
+  const statut = meta.statut;
+  if (statut !== undefined && !STATUTS.includes(String(statut))) {
+    return `Statut « ${statut} » inconnu. Attendus : ${STATUTS.join(', ')}.`;
+  }
+  return null;
+}
+
+/** Le fichier tel qu'il est sur GitHub — la seule version qu'on ait le droit d'éditer. */
+corpus.get('/source', async (c) => {
+  const chemin = c.req.query('chemin');
+  if (!chemin || !DOCUMENTS.some((d) => d.chemin === chemin)) {
+    return c.json({ error: `Document inconnu : « ${chemin ?? ''} ».` }, 404);
+  }
+  const source = await lireSource(c.env, chemin);
+  return c.json({ ...source, lien: lienEdition(chemin) });
+});
+
+corpus.put('/source', async (c) => {
+  const chemin = c.req.query('chemin');
+  if (!chemin || !DOCUMENTS.some((d) => d.chemin === chemin)) {
+    return c.json({ error: `Document inconnu : « ${chemin ?? ''} ».` }, 404);
+  }
+
+  const { contenu, sha, message } = SourceCorpusSchema.parse(await c.req.json());
+
+  const refus = refusDeContenu(contenu);
+  if (refus) throw new Refus(refus, 409);
+
+  const ecrit = await ecrireSource(
+    c.env,
+    chemin,
+    // Un fichier sans saut de ligne final se voit dans tous les diffs à venir.
+    contenu.endsWith('\n') ? contenu : `${contenu}\n`,
+    sha,
+    message?.trim() || `Corpus : ${chemin}`,
+  );
+
+  // Le commit ne déploie rien : le bundle porte encore l'ancienne version, et
+  // l'écran doit pouvoir le dire plutôt que de laisser croire que c'est fait.
+  return c.json({ ...ecrit, deploiementRequis: true });
+});
+
+/* ── Déploiement ────────────────────────────────────────────────────── */
+
+/**
+ * L'écart entre ce qui est servi et ce qui est commité.
+ *
+ * Même question que les « poses » de ChatGPT et Gemini, tournée vers la
+ * maison : le corpus que le Worker sert est-il celui du dépôt ? Le Worker
+ * connaît le commit sur lequel il a été construit — il compare.
+ */
+corpus.get('/deploiement', async (c) => {
+  if (!depotConfigure(c.env)) {
+    return c.json({ configure: false, etat: null, source: null });
+  }
+  const [etat, source] = await Promise.all([
+    etatDeploiement(c.env),
+    dernierCommitCorpus(c.env),
+  ]);
+  return c.json({ configure: true, etat, source });
+});
+
+corpus.post('/deploiement', async (c) => {
+  const brut = await c.req.json().catch(() => ({}));
+  const { cible } = DeploiementSchema.parse(brut);
+  await lancerDeploiement(c.env, cible);
+  // GitHub rend 204 sans corps : rien à renvoyer d'utile, sinon que c'est parti.
+  return c.json({ lance: true, cible });
 });

@@ -24,6 +24,13 @@ l'intérieur de la solution.
 Il n'y a **qu'une** façon de modifier le corpus : éditer le markdown, commiter, déployer.
 L'inbox n'est pas un second chemin — c'est la salle d'attente du premier.
 
+Depuis le 27/08/2026, les trois se font **dans `gestion.luminose.fr`** : `Corpus →
+Documents → Modifier` charge le fichier depuis GitHub, l'enregistrement est un commit, et
+un bouton déploie. Ça n'affaiblit pas la règle ci-dessus — l'application écrit dans **Git**,
+qui reste la copie unique et versionnée ; elle n'écrit toujours pas le bundle qu'elle sert.
+Ce qu'on donne à éditer se lit d'ailleurs sur GitHub et non dans le bundle : le bundle est
+la photo du dernier déploiement, et éditer la photo écraserait tout commit intervenu depuis.
+
 | | Capture (l'inbox) | Intégration (ici) |
 | :--- | :--- | :--- |
 | Quand | au moment où la décision se dit | plus tard, groupé |

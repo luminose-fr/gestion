@@ -10,8 +10,12 @@
  * constante du bundle du Worker. On modifie dans Git, jamais ici.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
-import { fetchDocumentsCorpus, fetchDocumentCorpus, type DocumentCorpus, type DocumentListe } from '../../services/apiService';
+import { ExternalLink, PenLine, Check, X, Rocket, Loader2 } from 'lucide-react';
+import {
+  fetchDocumentsCorpus, fetchDocumentCorpus, fetchSourceCorpus, enregistrerSourceCorpus,
+  fetchDeploiement, lancerDeploiement,
+  type DocumentCorpus, type DocumentListe,
+} from '../../services/apiService';
 import Markdown from './Markdown';
 
 /**
@@ -41,11 +45,29 @@ interface Props {
   bloc: string | null;
 }
 
+/**
+ * L'édition, en trois états et pas un de plus.
+ *
+ * `null` : on lit. `edition` : on écrit, et `sha` est l'empreinte lue à
+ * l'ouverture — c'est elle qui fera échouer l'enregistrement si le fichier a
+ * bougé sur GitHub entre-temps, plutôt que d'écraser en silence.
+ * `commit` : c'est parti dans Git, et il reste à déployer — un état à part
+ * entière, parce que la fiche affichée vient du bundle et ne montre donc PAS
+ * encore ce qu'on vient d'écrire.
+ */
+interface Edition { contenu: string; initial: string; sha: string }
+
 const DocumentsView: React.FC<Props> = ({ bloc }) => {
   const [liste, setListe] = useState<DocumentListe[] | null>(null);
   const [ouvert, setOuvert] = useState<DocumentCorpus | null>(null);
   const [chargement, setChargement] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  const [edition, setEdition] = useState<Edition | null>(null);
+  const [message, setMessage] = useState('');
+  const [occupe, setOccupe] = useState<'ouverture' | 'enregistrement' | 'deploiement' | null>(null);
+  const [commit, setCommit] = useState<string | null>(null);
+  const [depotOuvert, setDepotOuvert] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetchDocumentsCorpus()
@@ -65,7 +87,73 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
    */
   useEffect(() => { setOuvert(null); }, [bloc]);
 
+  // Le jeton GitHub est facultatif : sans lui, la console lit le corpus et ne
+  // l'écrit pas. On demande une fois, et on cache le bouton plutôt que de le
+  // laisser échouer au clic.
+  useEffect(() => {
+    fetchDeploiement()
+      .then((d) => setDepotOuvert(d.configure))
+      .catch(() => setDepotOuvert(false));
+  }, []);
+
+  /** Changer de fiche abandonne l'édition en cours — et le dit avant. */
+  const quitterEdition = () => { setEdition(null); setMessage(''); setCommit(null); };
+
+  const ouvrirEdition = async () => {
+    if (!ouvert) return;
+    setOccupe('ouverture');
+    setErreur(null);
+    try {
+      // Depuis GitHub, jamais depuis la fiche affichée : celle-ci vient du
+      // bundle, donc du dernier déploiement.
+      const src = await fetchSourceCorpus(ouvert.chemin);
+      setEdition({ contenu: src.contenu, initial: src.contenu, sha: src.sha });
+      setCommit(null);
+    } catch (e: any) {
+      setErreur(e?.message ?? 'Source injoignable.');
+    } finally {
+      setOccupe(null);
+    }
+  };
+
+  const enregistrer = async () => {
+    if (!ouvert || !edition) return;
+    setOccupe('enregistrement');
+    setErreur(null);
+    try {
+      const r = await enregistrerSourceCorpus(ouvert.chemin, edition.contenu, edition.sha, message);
+      // On garde le texte écrit à l'écran : la fiche du bundle porte encore
+      // l'ancienne version, et la remettre ferait croire que rien n'a pris.
+      setEdition({ ...edition, initial: edition.contenu, sha: r.sha });
+      setCommit(r.commit.slice(0, 7));
+      setMessage('');
+    } catch (e: any) {
+      setErreur(e?.message ?? "L'enregistrement a échoué.");
+    } finally {
+      setOccupe(null);
+    }
+  };
+
+  const deployer = async () => {
+    setOccupe('deploiement');
+    setErreur(null);
+    try {
+      // `api` seul : une correction de corpus ne touche pas le front.
+      await lancerDeploiement('api');
+      setCommit(null);
+      quitterEdition();
+    } catch (e: any) {
+      setErreur(e?.message ?? 'Le déploiement n\'a pas démarré.');
+    } finally {
+      setOccupe(null);
+    }
+  };
+
+  const modifie = !!edition && edition.contenu !== edition.initial;
+
   const ouvrir = async (chemin: string) => {
+    if (modifie && !window.confirm('Des modifications non enregistrées seront perdues. Continuer ?')) return;
+    quitterEdition();
     setChargement(chemin);
     try {
       setOuvert(await fetchDocumentCorpus(chemin));
@@ -147,14 +235,25 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                     </span>
                   ))}
               </div>
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-[11px]">
+              <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                {depotOuvert && !edition && (
+                  <button
+                    onClick={() => void ouvrirEdition()}
+                    disabled={occupe === 'ouverture'}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
+                  >
+                    {occupe === 'ouverture'
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lecture…</>
+                      : <><PenLine className="w-3.5 h-3.5" /> Modifier</>}
+                  </button>
+                )}
                 <a
                   href={EDITEUR(ouvert.chemin)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 font-semibold text-brand-main/70 hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white"
+                  className="inline-flex items-center gap-1 text-[11px] text-brand-main/55 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white"
                 >
-                  <ExternalLink className="w-3 h-3" /> Modifier ce fichier sur GitHub
+                  <ExternalLink className="w-3 h-3" /> {depotOuvert ? 'ou sur GitHub' : 'Modifier sur GitHub'}
                 </a>
                 {/*
                   Dit à voix haute ce que la mécanique impose : le corpus est
@@ -163,12 +262,89 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   ligne, on corrige, on revient, on ne voit rien, et on conclut
                   que c'est cassé.
                 */}
-                <span className="text-brand-main/40 dark:text-dark-text/35">
-                  visible ici après <span className="font-mono">git pull</span> et un déploiement
-                </span>
-              </p>
+                {!edition && (
+                  <span className="text-[11px] text-brand-main/40 dark:text-dark-text/35">
+                    une correction n'entre dans les prompts qu'au déploiement
+                  </span>
+                )}
+              </div>
             </header>
-            <Markdown texte={ouvert.corps} />
+
+            {!edition ? (
+              <Markdown texte={ouvert.corps} />
+            ) : (
+              <div className="space-y-3">
+                {/*
+                  Le fichier ENTIER, frontmatter compris : c'est là que vit
+                  `statut`, et « Le Seuil repasse actif » est précisément le
+                  genre de correction qu'on vient faire.
+                */}
+                <textarea
+                  value={edition.contenu}
+                  onChange={(e) => setEdition({ ...edition, contenu: e.target.value })}
+                  spellCheck={false}
+                  rows={26}
+                  className="w-full font-mono text-xs leading-relaxed p-3 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-brand-light/40 dark:bg-dark-bg text-brand-main dark:text-dark-text resize-y outline-hidden focus:border-brand-main dark:focus:border-white"
+                />
+
+                {commit ? (
+                  /* Commité, pas déployé — l'état que rien n'annonçait avant. */
+                  <div className="rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 p-3 space-y-2">
+                    <p className="text-sm text-emerald-900 dark:text-emerald-200">
+                      <Check className="w-3.5 h-3.5 inline -mt-0.5" />{' '}
+                      Commité (<span className="font-mono text-xs">{commit}</span>).{' '}
+                      <strong>Les prompts reçoivent encore l'ancienne version</strong> tant que le Worker n'est pas redéployé.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => void deployer()}
+                        disabled={occupe === 'deploiement'}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
+                      >
+                        {occupe === 'deploiement'
+                          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lancement…</>
+                          : <><Rocket className="w-3.5 h-3.5" /> Déployer maintenant</>}
+                      </button>
+                      <button
+                        onClick={quitterEdition}
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold text-brand-main/60 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white"
+                      >
+                        Plus tard
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-emerald-800/70 dark:text-emerald-300/60">
+                      « Plus tard » est légitime : on groupe plusieurs corrections, puis on déploie une fois.
+                      Corpus → État dira que la source a de l'avance.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder={`Message de commit — défaut : « Corpus : ${ouvert.chemin} »`}
+                      className="flex-1 min-w-[16rem] text-xs p-2 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-transparent text-brand-main dark:text-dark-text placeholder:text-brand-main/35 dark:placeholder:text-dark-text/30"
+                    />
+                    <button
+                      onClick={() => void enregistrer()}
+                      disabled={!modifie || occupe === 'enregistrement'}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
+                    >
+                      {occupe === 'enregistrement'
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi…</>
+                        : <><Check className="w-3.5 h-3.5" /> Enregistrer</>}
+                    </button>
+                    <button
+                      onClick={quitterEdition}
+                      title="Abandonner les modifications"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-brand-main/50 hover:text-brand-main dark:text-dark-text/40 dark:hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" /> Annuler
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </article>

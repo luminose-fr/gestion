@@ -118,7 +118,14 @@ D1 distantes, puis Worker, puis front. Voir l'en-tête du script pour les cibles
 | | |
 | :--- | :--- |
 | `npm run deploy` | **depuis la VM Ubuntu** (voir ci-dessus) |
-| Actions → « Déploiement Cloudflare » → *Run workflow* | depuis n'importe où, y compris un téléphone |
+| `Corpus → État → Déployer`, dans l'application | le chemin normal pour une correction de corpus |
+| Actions → « Déploiement Cloudflare » → *Run workflow* | depuis GitHub, y compris un téléphone |
+
+Les deux derniers passent par le même workflow : l'application ne fait que le déclencher via
+l'API GitHub (`workers/api/src/github.ts`), avec `GITHUB_TOKEN` en secret Cloudflare. Ce
+jeton est **facultatif** — absent, tout ce qui LIT le corpus fonctionne à l'identique et
+seuls les boutons d'écriture se taisent. Une fonctionnalité en plus ne doit jamais pouvoir
+emporter celles d'avant, et un test le vérifie.
 
 Le workflow (`.github/workflows/deploiement.yml`) **appelle** `deploy.sh`, il ne le
 réécrit pas : deux chemins de déploiement finiraient par diverger, et c'est celui qu'on

@@ -402,6 +402,54 @@ export interface FeuilleAction {
 export const fetchFeuilleAction = (action: string) =>
   api<FeuilleAction>(`/corpus/feuille/${encodeURIComponent(action)}`);
 
+// ── Écriture du corpus : on commite dans Git, on n'écrit pas le bundle ────
+
+export interface SourceCorpus {
+  chemin: string;
+  /** Le fichier entier, frontmatter compris, tel qu'il est sur GitHub. */
+  contenu: string;
+  /** L'empreinte du blob, à rendre à l'enregistrement — c'est elle qui détecte le conflit. */
+  sha: string;
+  lien: string;
+}
+
+/**
+ * Le fichier tel qu'il est SUR GITHUB.
+ *
+ * Et non celui qu'affiche la fiche : celui-là vient du bundle, c'est-à-dire du
+ * dernier déploiement. Éditer cette photo écraserait tout commit intervenu
+ * depuis, sans qu'on le voie passer.
+ */
+export const fetchSourceCorpus = (chemin: string) =>
+  api<SourceCorpus>(`/corpus/source?chemin=${encodeURIComponent(chemin)}`,
+    {}, { nature: 'reseau', label: 'Lecture de la source' });
+
+export const enregistrerSourceCorpus = (
+  chemin: string,
+  contenu: string,
+  sha: string,
+  message?: string,
+) =>
+  api<{ sha: string; commit: string; deploiementRequis: boolean }>(
+    `/corpus/source?chemin=${encodeURIComponent(chemin)}`,
+    { method: 'PUT', body: JSON.stringify({ contenu, sha, message }) },
+    { nature: 'reseau', label: 'Enregistrement' },
+  );
+
+export interface EtatDeploiement {
+  /** `false` = aucun jeton GitHub posé : la console lit le corpus mais ne l'écrit pas. */
+  configure: boolean;
+  etat: { statut: 'en_attente' | 'en_cours' | 'reussi' | 'echoue' | null; lance_le: number | null; lien: string | null } | null;
+  source: { sha: string; date: number | null } | null;
+}
+
+export const fetchDeploiement = () => api<EtatDeploiement>('/corpus/deploiement');
+
+export const lancerDeploiement = (cible: 'tout' | 'api' | 'app' = 'api') =>
+  api<{ lance: boolean; cible: string }>('/corpus/deploiement',
+    { method: 'POST', body: JSON.stringify({ cible }) },
+    { nature: 'reseau', label: 'Déploiement' });
+
 // ── Inbox ────────────────────────────────────────────────────────────────
 
 export interface CaptureInbox {

@@ -986,6 +986,98 @@ describe('Corpus — lecture des documents', () => {
    * D'où ce garde-fou : le chemin du document, la racine du corpus et
    * l'extension, reconstitués tels que GitHub les attend.
    */
+  /**
+   * L'édition dans la console.
+   *
+   * Trois garanties, et la troisième est la raison d'être de tout le
+   * chantier : après un commit, l'écran doit DIRE que les prompts reçoivent
+   * encore l'ancienne version. Sans ça, on corrige, on croit que c'est fait,
+   * et le corpus servi diverge de la source sans que rien ne l'annonce — soit
+   * exactement le problème qu'on cherchait à supprimer.
+   */
+  const ouvrirUneFiche = async () => {
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue({
+      documents: [{
+        chemin: 'socle/offres/le-seuil', bloc: 'socle', titre: 'Le Seuil',
+        statut: 'suspendu', type: 'fact', revu: null, review_at: null, expose: 'prive', taille: 900,
+      }],
+    } as any);
+    vi.spyOn(Api, 'fetchDocumentCorpus').mockResolvedValue({
+      chemin: 'socle/offres/le-seuil', bloc: 'socle', titre: 'Le Seuil',
+      meta: { statut: 'suspendu' }, corps: '# Le Seuil\n\nCorps du bundle.',
+    } as any);
+    const vue = render(<DocumentsView bloc="socle" />);
+    await waitFor(() => expect(vue.container.textContent).toContain('Le Seuil'));
+    fireEvent.click(vue.getByText('Le Seuil'));
+    await waitFor(() => expect(vue.container.textContent).toContain('Corps du bundle'));
+    return vue;
+  };
+
+  it('sans jeton GitHub, la fiche se lit et le bouton Modifier ne s’affiche pas', async () => {
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({ configure: false, etat: null, source: null } as any);
+    const { container } = await ouvrirUneFiche();
+    await waitFor(() => expect(container.textContent).toContain('Modifier sur GitHub'));
+    expect([...container.querySelectorAll('button')].some(b => b.textContent?.trim() === 'Modifier')).toBe(false);
+  });
+
+  it('« Modifier » charge la source du dépôt, pas la fiche du bundle — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({ configure: true, etat: null, source: null } as any);
+    const source = vi.spyOn(Api, 'fetchSourceCorpus').mockResolvedValue({
+      chemin: 'socle/offres/le-seuil',
+      contenu: '---\nstatut: suspendu\n---\n\n# Le Seuil\n\nCorps du DÉPÔT.',
+      sha: 'sha-1', lien: 'https://github.com/…',
+    } as any);
+
+    const { container, findByText } = await ouvrirUneFiche();
+    fireEvent.click(await findByText('Modifier'));
+
+    const zone = await waitFor(() => {
+      const t = container.querySelector('textarea') as HTMLTextAreaElement | null;
+      expect(t).not.toBeNull();
+      return t!;
+    });
+    expect(source).toHaveBeenCalledWith('socle/offres/le-seuil');
+    // Le fichier ENTIER : c'est dans le frontmatter que vit `statut`.
+    expect(zone.value).toContain('statut: suspendu');
+    expect(zone.value).toContain('Corps du DÉPÔT');
+    expect(zone.value).not.toContain('Corps du bundle');
+  });
+
+  it('après le commit, l’écran dit que ce n’est pas encore déployé — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({ configure: true, etat: null, source: null } as any);
+    vi.spyOn(Api, 'fetchSourceCorpus').mockResolvedValue({
+      chemin: 'socle/offres/le-seuil',
+      contenu: '---\nstatut: suspendu\n---\n\n# Le Seuil\n\nCorps.',
+      sha: 'sha-1', lien: 'https://github.com/…',
+    } as any);
+    const ecrire = vi.spyOn(Api, 'enregistrerSourceCorpus').mockResolvedValue({
+      sha: 'sha-2', commit: 'abcdef1234567890', deploiementRequis: true,
+    } as any);
+
+    const { container, findByText } = await ouvrirUneFiche();
+    fireEvent.click(await findByText('Modifier'));
+    // L'assertion DANS le waitFor : sans elle, il rend `null` du premier coup
+    // au lieu de réessayer, et l'échec se lit « fournissez un élément du DOM ».
+    const zone = await waitFor(() => {
+      const t = container.querySelector('textarea') as HTMLTextAreaElement | null;
+      expect(t).not.toBeNull();
+      return t!;
+    });
+
+    // Sans modification, on ne peut pas enregistrer : rien à commiter.
+    const bouton = () => [...container.querySelectorAll('button')].find(b => b.textContent?.includes('Enregistrer')) as HTMLButtonElement;
+    expect(bouton().disabled).toBe(true);
+
+    fireEvent.change(zone, { target: { value: '---\nstatut: actif\n---\n\n# Le Seuil\n\nCorps.' } });
+    expect(bouton().disabled).toBe(false);
+    fireEvent.click(bouton());
+
+    await findByText(/reçoivent encore l’ancienne version|reçoivent encore l'ancienne version/);
+    expect(container.textContent).toContain('abcdef1');
+    expect(ecrire).toHaveBeenCalledWith('socle/offres/le-seuil', expect.stringContaining('statut: actif'), 'sha-1', '');
+    expect([...container.querySelectorAll('button')].some(b => b.textContent?.includes('Déployer maintenant'))).toBe(true);
+  });
+
   it('le lien d’édition vise le fichier ouvert, pas le dépôt — NORMATIF', async () => {
     vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue({
       documents: [{

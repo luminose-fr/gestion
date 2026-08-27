@@ -290,6 +290,29 @@ export const IntegrationSchema = z.object({
   integration: z.string().trim().min(1).max(1000),
 });
 
+// ── Écriture du corpus ───────────────────────────────────────────────────
+
+/**
+ * Enregistrer une fiche du corpus — c'est-à-dire commiter sur GitHub.
+ *
+ * `sha` est celui lu à l'ouverture de la fiche. Il n'est pas décoratif : c'est
+ * lui qui fait échouer l'écriture si le fichier a bougé entre-temps, plutôt
+ * que d'écraser en silence le commit de quelqu'un d'autre — ou celui qu'on a
+ * soi-même poussé depuis un autre appareil.
+ */
+export const SourceCorpusSchema = z.object({
+  contenu: z.string().min(1).max(200_000),
+  sha: z.string().trim().min(1).max(100),
+  /** Le message de commit. Vide, la route en compose un depuis le chemin. */
+  message: z.string().trim().max(200).optional(),
+});
+export type SourceCorpus = z.infer<typeof SourceCorpusSchema>;
+
+/** Ce qui part au déploiement. Les mêmes cibles que `scripts/deploy.sh`. */
+export const DeploiementSchema = z.object({
+  cible: z.enum(['tout', 'api', 'app']).default('api'),
+});
+
 // ── Synchronisation ──────────────────────────────────────────────────────
 
 /** `since` en epoch ms ; au-delà, les lignes supprimées remontent aussi (SPEC §8). */
