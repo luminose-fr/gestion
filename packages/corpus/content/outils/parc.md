@@ -14,7 +14,7 @@ expose: prive
 | Encaissement — **stages en groupe** | **Stripe** |
 | Automatisation | Make |
 | Programmation réseaux sociaux | Publer |
-| Mesure | Google Analytics, Google Tag Manager |
+| Mesure | Google Analytics, Google Tag Manager, Mixpanel |
 | Site | Jekyll sur GitHub Pages `www.luminose.fr` |
 | Production éditoriale | `gestion.luminose.fr` |
 | Transcription et sous-titrage | Whisper (sans filtre particulier — ce fonctionnement convient) |
