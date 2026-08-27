@@ -15,7 +15,7 @@ expose: prive
 | Automatisation | Make |
 | Programmation réseaux sociaux | Publer |
 | Mesure | Google Analytics, Google Tag Manager |
-| Site | Jekyll sur GitHub Pages |
+| Site | Jekyll sur GitHub Pages `www.luminose.fr` |
 | Production éditoriale | `gestion.luminose.fr` |
 | Transcription et sous-titrage | Whisper (sans filtre particulier — ce fonctionnement convient) |
 
