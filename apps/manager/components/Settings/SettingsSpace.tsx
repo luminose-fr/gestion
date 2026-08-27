@@ -11,7 +11,6 @@ import React, { useEffect, useState } from 'react';
 import {
     Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
-    FileText, MinusCircle,
 } from 'lucide-react';
 import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 import * as Api from '../../services/apiService';
@@ -20,13 +19,15 @@ import { ConfirmModal } from '../CommonModals';
 import { EnCours, Patience } from '../Feedback';
 import {
     VOICE_RULES, AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE,
-    profilerModele, normaliserNomModele, feuillePour,
+    profilerModele, normaliserNomModele,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
-import { APERCUS, compterPresences } from './apercus';
+import { APERCUS, compterPresences, VOIX_ID } from './apercus';
 
 interface SettingsSpaceProps {
     section: SettingsSection;
+    /** Le rôle ouvert sous Personas — il vient de la route, comme le bloc du Corpus. */
+    persona: string | null;
     displayPrefs: DisplayPrefs;
     onDisplayPrefsChange: (prefs: DisplayPrefs) => void;
     aiModels: AIModel[];
@@ -42,22 +43,26 @@ interface SettingsSpaceProps {
 }
 
 /**
- * Ce que l'écran donne à lire.
+ * Ce que l'écran donne à lire, rôle par rôle.
  *
  * L'ancienne liste tenait cinq textes de persona choisis à la main : quatre
  * rôles sur sept, et le texte brut du persona — jamais ce qu'un modèle reçoit.
  * Le Verrouilleur, le Lecteur froid et l'Éclateur n'y figuraient pas, si bien
  * qu'un prompt pouvait dériver sans que rien ici ne le montre.
  *
- * La liste se déduit désormais du catalogue des actions : une action ajoutée
- * apparaît ici sans qu'on y pense, et c'est le prompt COMPOSÉ qui s'affiche.
- * Les règles de voix gardent une fiche à part — c'est un bloc partagé, rien ne
- * l'envoie seul, et le lire une fois vaut mieux que le relire dans neuf prompts.
+ * Les fiches se déduisent désormais du catalogue des actions : une action
+ * ajoutée apparaît sans qu'on y pense, et c'est le prompt COMPOSÉ qui
+ * s'affiche. Les règles de voix gardent une fiche à part — c'est un bloc
+ * partagé, rien ne l'envoie seul, et le lire une fois vaut mieux que le relire
+ * dans neuf prompts.
+ *
+ * Le CHOIX du rôle, lui, ne vit plus ici : il est passé dans le panneau de
+ * troisième niveau et voyage par la route (`#reglages/personas/<role>`).
  */
 interface FichePersona {
     id: string;
+    /** Le rôle joué — « Rédacteur ». Le libellé de l'action est dans le panneau. */
     titre: string;
-    sousTitre: string;
     /** L'identifiant d'action, ou `null` pour un bloc partagé. */
     action: string | null;
     texte: string;
@@ -68,9 +73,8 @@ interface FichePersona {
 const PRESENCES_VOIX = compterPresences(VOICE_RULES);
 
 const FICHE_VOIX: FichePersona = {
-    id: 'voice',
-    titre: 'Règles de voix',
-    sousTitre: 'Bloc partagé',
+    id: VOIX_ID,
+    titre: 'Bloc partagé',
     action: null,
     texte: VOICE_RULES,
     exemple: null,
@@ -80,17 +84,12 @@ const FICHES: FichePersona[] = [
     ...APERCUS.map(a => ({
         id: a.id,
         titre: a.persona,
-        sousTitre: a.label,
         action: a.id,
         texte: a.prompt,
         exemple: a.exemple,
     })),
     FICHE_VOIX,
 ];
-
-/** La première ligne qui dit quelque chose — les prompts s'ouvrent sur un titre. */
-const premiereLigneUtile = (texte: string): string =>
-    texte.split('\n').find(l => l.trim().length > 25 && !l.trim().endsWith(':')) ?? '';
 
 const signes = (n: number) => `${n.toLocaleString('fr-FR')} signes`;
 
@@ -149,13 +148,12 @@ const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.Re
 // ─── Composant ────────────────────────────────────────────────────────────
 
 export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
-    section, displayPrefs, onDisplayPrefsChange,
+    section, persona, displayPrefs, onDisplayPrefsChange,
     aiModels, onModelsChange, activeModelId, onActiveModelChange,
     actionModels, onActionModelsChange, providers, onProvidersChange,
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-    const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
     /**
      * La feuille de salle du rôle ouvert, telle que le Worker la composera.
      *
@@ -224,7 +222,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     useEffect(() => {
         setEditingId(null);
         setIsCreating(false);
-        setSelectedPersonaId(null);
         setExploring(false);
         setSaveError(null);
         setSaveSuccess(false);
@@ -235,25 +232,25 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         const handler = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             if (isSaving || isDeleting || deleteId) return;
-            if (editingId || isCreating || selectedPersonaId || exploring) backToList();
+            if (editingId || isCreating || exploring) backToList();
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [editingId, isCreating, selectedPersonaId, exploring, isSaving, isDeleting, deleteId]);
+    }, [editingId, isCreating, exploring, isSaving, isDeleting, deleteId]);
 
     // La feuille de salle du rôle ouvert. Le bloc partagé n'en a pas : rien ne
     // l'envoie seul, donc rien ne lui joint de corpus.
     useEffect(() => {
-        const id = selectedPersonaId;
+        const id = persona;
         setFeuille(null);
         setFeuilleErreur(null);
-        if (!id || id === FICHE_VOIX.id) return;
+        if (!id || id === VOIX_ID) return;
         let vivant = true;
         Api.fetchFeuilleAction(id)
             .then(f => { if (vivant) setFeuille(f); })
             .catch(e => { if (vivant) setFeuilleErreur(describeError(e)); });
         return () => { vivant = false; };
-    }, [selectedPersonaId]);
+    }, [persona]);
 
     // Le badge « Enregistré » s'efface tout seul.
     useEffect(() => {
@@ -270,7 +267,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const backToList = () => {
         setEditingId(null);
         setIsCreating(false);
-        setSelectedPersonaId(null);
         setExploring(false);
         setSaveError(null);
         setSaveSuccess(false);
@@ -571,10 +567,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
     const isInModelEditor = section === 'models' && (isCreating || !!editingId);
     const isInExplorer = section === 'models' && exploring && !isInModelEditor;
-    const isInPersonaView = section === 'personas' && !!selectedPersonaId;
 
     const groupes = grouperParAdaptateur(aiModels, providers);
-    const fiche = FICHES.find(f => f.id === selectedPersonaId);
+    const fiche = FICHES.find(f => f.id === persona) ?? FICHES[0];
 
     const FilAriane: React.FC<{ label: string }> = ({ label }) => (
         <button
@@ -1434,84 +1429,26 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     </div>
                 )}
 
-                {/* ─── PERSONAS ─── */}
-                {section === 'personas' && !isInPersonaView && (
-                    <div className="space-y-6 animate-fade-in max-w-5xl">
-                        <p className="text-sm leading-relaxed text-brand-main/70 dark:text-dark-text/70 max-w-2xl">
-                            Ce que chaque rôle reçoit vraiment : le prompt composé — persona, règles de voix,
-                            grille de format, règles de CTA — précédé de sa feuille de salle, l'extrait du
-                            corpus qui lui est joint. Rien ne s'édite ici : ces textes font partie de la
-                            méthode, pas des réglages.
-                        </p>
+                {/*
+                    ─── PERSONAS ───
 
-                        <div>
-                            <EnTeteGroupe titre="Les neuf actions du flux" detail="dans l'ordre où elles interviennent" />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {APERCUS.map(a => {
-                                    const recoit = feuillePour(a.id) !== null;
-                                    return (
-                                        <button
-                                            key={a.id}
-                                            onClick={() => setSelectedPersonaId(a.id)}
-                                            className="text-left p-4 rounded-xl bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-sm transition-all"
-                                        >
-                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{a.persona}</h3>
-                                                <span className="shrink-0 text-[10px] bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
-                                                    {a.label}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-brand-main/50 dark:text-dark-text/50 leading-relaxed line-clamp-2">
-                                                {premiereLigneUtile(a.prompt)}
-                                            </p>
-                                            <p className="text-[11px] text-brand-main/40 dark:text-dark-text/40 flex items-center gap-2 flex-wrap mt-2">
-                                                <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {signes(a.prompt.length)}</span>
-                                                <span className="text-brand-main/20 dark:text-dark-text/20">·</span>
-                                                {recoit ? (
-                                                    <span className="flex items-center gap-1"><FileText className="w-3 h-3" /> feuille de salle</span>
-                                                ) : (
-                                                    <span className="flex items-center gap-1 italic"><MinusCircle className="w-3 h-3" /> sans feuille</span>
-                                                )}
-                                            </p>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div>
-                            <EnTeteGroupe titre="Bloc partagé" detail={`défini une fois, reproduit dans ${PRESENCES_VOIX} des neuf prompts`} />
-                            <button
-                                onClick={() => setSelectedPersonaId(FICHE_VOIX.id)}
-                                className="w-full md:w-1/2 text-left p-4 rounded-xl bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border hover:border-brand-main dark:hover:border-white hover:shadow-sm transition-all"
-                            >
-                                <h3 className="font-semibold text-sm text-brand-main dark:text-white mb-1">{FICHE_VOIX.titre}</h3>
-                                <p className="text-xs text-brand-main/50 dark:text-dark-text/50 leading-relaxed line-clamp-2">
-                                    {premiereLigneUtile(FICHE_VOIX.texte)}
-                                </p>
-                                <p className="text-[11px] text-brand-main/40 dark:text-dark-text/40 flex items-center gap-1 mt-2">
-                                    <Eye className="w-3 h-3" /> {signes(FICHE_VOIX.texte.length)}
-                                </p>
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {isInPersonaView && fiche && (
+                    Plus de grille de cartes : la liste est passée dans le
+                    panneau de troisième niveau. Ce qui reste ici est le détail
+                    d'un rôle, dans l'ordre où le modèle le reçoit — la feuille
+                    de salle d'abord, le prompt composé ensuite.
+                */}
+                {section === 'personas' && fiche && (
                     <div className="max-w-3xl animate-fade-in space-y-5">
-                        <div>
-                            <FilAriane label={fiche.titre} />
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-2 py-0.5 rounded-full font-bold">
-                                    {fiche.sousTitre}
-                                </span>
-                                {fiche.action && (
-                                    <span className="text-[10px] font-mono text-brand-main/50 dark:text-dark-text/50">{fiche.action}</span>
-                                )}
-                                <span className="flex items-center gap-1 text-[10px] text-brand-main/50 dark:text-dark-text/50">
-                                    <Eye className="w-3 h-3" /> Lecture seule
-                                </span>
-                            </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-2 py-0.5 rounded-full font-bold">
+                                {fiche.titre}
+                            </span>
+                            {fiche.action && (
+                                <span className="text-[10px] font-mono text-brand-main/50 dark:text-dark-text/50">{fiche.action}</span>
+                            )}
+                            <span className="flex items-center gap-1 text-[10px] text-brand-main/50 dark:text-dark-text/50">
+                                <Eye className="w-3 h-3" /> Lecture seule · {signes(fiche.texte.length)}
+                            </span>
                         </div>
 
                         {/* La feuille part EN TÊTE du prompt : elle se lit donc en premier. */}

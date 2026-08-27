@@ -70,40 +70,47 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
   if (!liste) return <p className="text-sm text-brand-main/60 dark:text-dark-text/60">Lecture des documents…</p>;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_1fr]">
+    /*
+      La colonne de gauche fait 210 px — la largeur des deux panneaux de
+      navigation qui la précèdent. Quatre niveaux côte à côte qui ne font pas
+      la même largeur se lisent comme une hiérarchie qui n'existe pas.
+    */
+    <div className="grid gap-5 lg:grid-cols-[210px_1fr]">
       <nav>
         {docs.length === 0 ? (
           <p className="text-sm text-brand-main/50 dark:text-dark-text/45">
             Ce bloc est vide — il se remplira quand un cas d'usage l'exigera.
           </p>
         ) : (
-          <>
-            <p className="font-mono text-[10px] uppercase tracking-wider text-brand-main/45 dark:text-dark-text/40 mb-1.5">
-              {bloc}/ <span className="tabular-nums">{docs.length}</span>
-            </p>
-            <ul className="space-y-0.5">
-              {docs.map((d) => (
-                <li key={d.chemin}>
-                  <button
-                    onClick={() => void ouvrir(d.chemin)}
-                    className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                      ouvert?.chemin === d.chemin
-                        ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                        : 'hover:bg-brand-light dark:hover:bg-dark-sec-bg text-brand-main dark:text-dark-text'
-                    }`}
-                  >
-                    <span className="block truncate">{d.titre}</span>
-                    <span className={`block text-[10px] font-mono ${
-                      ouvert?.chemin === d.chemin ? 'opacity-70' : COULEUR_STATUT[d.statut ?? ''] ?? 'text-brand-main/40 dark:text-dark-text/35'
-                    }`}>
-                      {d.statut ?? d.type ?? '—'}
-                      {chargement === d.chemin && ' · ouverture…'}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
+          /*
+            Pas d'en-tête ici : le panneau précédent montre déjà le bloc
+            sélectionné et son compte. Le répéter à 20 px de distance ne dit
+            rien de plus et pousse la liste vers le bas.
+          */
+          <ul className="space-y-0.5">
+            {docs.map((d) => (
+              <li key={d.chemin}>
+                <button
+                  onClick={() => void ouvrir(d.chemin)}
+                  /* La colonne tronque : le titre entier reste lisible au survol. */
+                  title={d.titre}
+                  className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                    ouvert?.chemin === d.chemin
+                      ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
+                      : 'hover:bg-brand-light dark:hover:bg-dark-sec-bg text-brand-main dark:text-dark-text'
+                  }`}
+                >
+                  <span className="block truncate">{d.titre}</span>
+                  <span className={`block text-[10px] font-mono ${
+                    ouvert?.chemin === d.chemin ? 'opacity-70' : COULEUR_STATUT[d.statut ?? ''] ?? 'text-brand-main/40 dark:text-dark-text/35'
+                  }`}>
+                    {d.statut ?? d.type ?? '—'}
+                    {chargement === d.chemin && ' · ouverture…'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </nav>
 

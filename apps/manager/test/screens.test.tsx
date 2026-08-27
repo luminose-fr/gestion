@@ -25,6 +25,7 @@ import InboxView from '../components/Corpus/InboxView';
 import Markdown from '../components/Corpus/Markdown';
 import * as Api from '../services/apiService';
 import { SETTINGS_SECTIONS } from '../components/Settings/sections';
+import { PERSONAS_NAV } from '../components/Settings/apercus';
 import { AI_ACTION_CATALOG } from '@luminose/editorial';
 import { LoginPage } from '../components/LoginPage';
 import CalendarView from '../components/CalendarView';
@@ -221,38 +222,39 @@ describe('espace Réglages', () => {
   });
 
   /**
-   * L'écran Personas a deux états de rendu par rôle — la liste et le détail —
-   * et le détail dépend du réseau. Ce qui compte ici n'est pas le joli : c'est
-   * qu'un rôle sans feuille DISE qu'il n'en a pas. Un vide se lit comme un
-   * oubli, et un écran de vérification qui laisse croire à un oubli est pire
-   * que pas d'écran.
+   * L'écran Personas ne liste plus rien : la liste est passée dans le panneau
+   * de troisième niveau, et l'écran montre le détail du rôle que porte la
+   * route. Ce qui compte ici est qu'un rôle sans feuille DISE qu'il n'en a
+   * pas — un vide se lit comme un oubli, et un écran de vérification qui
+   * laisse croire à un oubli est pire que pas d'écran.
    */
-  it('la liste des personas couvre les neuf actions du flux', () => {
-    const { container } = render(<SettingsSpace {...(props as any)} section="personas" />);
-    for (const a of AI_ACTION_CATALOG) {
-      expect(container.textContent).toContain(a.label);
-    }
-    expect(container.textContent).toContain('Règles de voix');
+  it('sans role dans la route, ouvre le premier plutot qu\u2019un ecran vide', () => {
+    vi.spyOn(Api, 'fetchFeuilleAction').mockReturnValue(new Promise(() => {}) as any);
+    const { container } = render(<SettingsSpace {...(props as any)} section="personas" persona={null} />);
+    expect(container.textContent).toContain(PERSONAS_NAV[0].persona);
+    expect(container.textContent).toContain(AI_ACTION_CATALOG[0].id);
   });
 
-  it('un rôle sans feuille dit que c’est voulu', async () => {
+  it('un role sans feuille dit que c\u2019est voulu', async () => {
     vi.spyOn(Api, 'fetchFeuilleAction').mockResolvedValue({
       action: 'COLD_READ', chemins: null, neRecoitRien: true,
       texte: '', hash: '', taille: 0, documents: [],
     } as any);
-    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="personas" />);
-    fireEvent.click([...container.querySelectorAll('button')].find(b => b.textContent?.includes('Relecture à froid'))!);
-    await findByText(/ne reçoit rien du corpus/i);
+    const { findByText } = render(
+      <SettingsSpace {...(props as any)} section="personas" persona="COLD_READ" />,
+    );
+    await findByText(/ne re\u00e7oit rien du corpus/i);
   });
 
-  it('un rôle avec feuille montre son empreinte et ses documents', async () => {
+  it('un role avec feuille montre son empreinte et ses documents', async () => {
     vi.spyOn(Api, 'fetchFeuilleAction').mockResolvedValue({
       action: 'ANALYZE_BATCH', chemins: ['socle/identite'], neRecoitRien: false,
-      texte: '# Ce qu’il faut savoir', hash: 'abcd1234', taille: 22,
+      texte: '# Ce qu\u2019il faut savoir', hash: 'abcd1234', taille: 22,
       documents: ['socle/identite/positionnement'],
     } as any);
-    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="personas" />);
-    fireEvent.click([...container.querySelectorAll('button')].find(b => b.textContent?.includes('Analyse des idées'))!);
+    const { container, findByText } = render(
+      <SettingsSpace {...(props as any)} section="personas" persona="ANALYZE_BATCH" />,
+    );
     await findByText('abcd1234');
     expect(container.textContent).toContain('socle/identite/positionnement');
   });
@@ -262,15 +264,16 @@ describe('espace Réglages', () => {
    * une feuille, mais aucun document ne correspond. C'est une dérive du corpus,
    * pas une décision — l'écran doit la nommer.
    */
-  it('signale une feuille prévue mais vide', async () => {
+  it('signale une feuille prevue mais vide', async () => {
     vi.spyOn(Api, 'fetchFeuilleAction').mockResolvedValue({
       action: 'ANALYZE_BATCH', chemins: ['socle/disparu'], neRecoitRien: false,
       texte: '', hash: '', taille: 0, documents: [],
     } as any);
-    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="personas" />);
-    fireEvent.click([...container.querySelectorAll('button')].find(b => b.textContent?.includes('Analyse des idées'))!);
+    const { container, findByText } = render(
+      <SettingsSpace {...(props as any)} section="personas" persona="ANALYZE_BATCH" />,
+    );
     await findByText(/rien ne partira/i);
-    expect(container.textContent).not.toMatch(/ne reçoit rien du corpus/i);
+    expect(container.textContent).not.toMatch(/ne re\u00e7oit rien du corpus/i);
   });
 });
 
@@ -1034,6 +1037,7 @@ describe('Corpus — navigation à trois niveaux', () => {
     currentSpace: 'corpus' as const,
     currentSocialTab: 'ideas' as const,
     currentSettingsSection: 'display' as const,
+    currentSettingsPersona: null,
     onNavigate: () => {},
     onNavigateSettings: () => {},
     counts: { ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 },
@@ -1071,6 +1075,36 @@ describe('Corpus — navigation à trois niveaux', () => {
         onNavigateCorpus={() => {}} corpusCounts={{ inbox: 3, parBloc: { socle: 9 } }} />,
     );
     expect(container.textContent).toContain('3');
+  });
+
+  it('le troisième panneau des rôles apparaît sous Personas, et pas ailleurs', () => {
+    const sansRoles = render(
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="display"
+        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
+    );
+    expect(sansRoles.container.querySelectorAll('aside > div').length).toBe(2);
+    cleanup();
+
+    const { container } = render(
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="personas"
+        currentSettingsPersona="DRAFT_CONTENT"
+        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
+    );
+    expect(container.querySelectorAll('aside > div').length).toBe(3);
+    for (const p of PERSONAS_NAV) expect(container.textContent).toContain(p.label);
+  });
+
+  /**
+   * Les quatre niveaux doivent faire la même largeur — sinon deux colonnes de
+   * navigation côte à côte se lisent comme une hiérarchie qui n'existe pas.
+   */
+  it('les deux panneaux de navigation font la même largeur', () => {
+    const { container } = render(
+      <Sidebar {...props} currentCorpusSection="documents" currentCorpusBloc="socle" onNavigateCorpus={() => {}} />,
+    );
+    const [, deuxieme, troisieme] = [...container.querySelectorAll('aside > div')];
+    expect(deuxieme.className).toContain('w-[210px]');
+    expect(troisieme.className).toContain('w-[210px]');
   });
 
   it('la coque route vers la vue demandée', () => {

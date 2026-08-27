@@ -16,10 +16,18 @@
  * La feuille de salle, elle, n'est pas recomposée ici : elle est demandée au
  * Worker (`/api/corpus/feuille/:action`), qui est celui qui la préfixe.
  */
+import type React from 'react';
+import {
+    Scale, MessagesSquare, Lock, PenLine, Wand2, Glasses, Images, Palette,
+    Layers, Mic, Bot,
+} from 'lucide-react';
 import {
     AI_ACTION_CATALOG, AI_ACTIONS, TargetFormat, Objectif,
     getFormatPromptTemplate, getObjectifCtaRules,
 } from '@luminose/editorial';
+
+/** L'identifiant du bloc partagé — il n'est pas une action, il a donc le sien. */
+export const VOIX_ID = 'voix';
 
 export interface ApercuAction {
     /** L'identifiant technique — celui qui décide de la feuille de salle. */
@@ -128,3 +136,58 @@ export const APERCUS: ApercuAction[] = AI_ACTION_CATALOG.map(a => {
 /** Combien de ces neuf prompts contiennent ce bloc — pour les règles de voix. */
 export const compterPresences = (bloc: string): number =>
     APERCUS.filter(a => a.prompt.includes(bloc.trim().slice(0, 120))).length;
+
+// ── La navigation de troisième niveau ────────────────────────────────────
+
+/**
+ * Les rôles, tels que le panneau latéral les liste.
+ *
+ * Le libellé est celui de l'ACTION, pas du persona : le Rédacteur tient deux
+ * postes (rédiger, ajuster) et l'Artiste aussi, si bien qu'une colonne de noms
+ * de personas afficherait deux fois « Rédacteur » sans qu'on sache lequel on
+ * ouvre. Ce sont d'ailleurs les mots déjà employés par le bandeau d'activité.
+ *
+ * Le bloc partagé ferme la marche — il n'est pas une action, rien ne l'envoie
+ * seul, mais on doit pouvoir le lire sans le chercher dans neuf prompts.
+ */
+export interface PersonaNav {
+    id: string;
+    label: string;
+    /** Le rôle derrière l'action, montré dans le détail. */
+    persona: string;
+    icon: React.ComponentType<{ className?: string }>;
+}
+
+const ICONES: Record<string, React.ComponentType<{ className?: string }>> = {
+    ANALYZE_BATCH: Scale,
+    COACH_CHAT: MessagesSquare,
+    LOCK_BRIEF: Lock,
+    DRAFT_CONTENT: PenLine,
+    ADJUST_CONTENT: Wand2,
+    COLD_READ: Glasses,
+    GENERATE_CARROUSEL_SLIDES: Images,
+    ADJUST_DZINE_PROMPTS: Palette,
+    PLAN_SERIES: Layers,
+};
+
+export const PERSONAS_NAV: PersonaNav[] = [
+    ...APERCUS.map(a => ({
+        id: a.id,
+        label: a.label,
+        persona: a.persona,
+        icon: ICONES[a.id] ?? Bot,
+    })),
+    { id: VOIX_ID, label: 'Règles de voix', persona: 'Bloc partagé', icon: Mic },
+];
+
+/**
+ * Retrouve un rôle depuis un segment d'URL, sans distinguer la casse.
+ *
+ * L'URL porte `#reglages/personas/draft_content` — minuscule, comme partout
+ * ailleurs dans les routes — là où le code manipule l'identifiant technique.
+ */
+export const personaParId = (v: string | null | undefined): PersonaNav | null =>
+    PERSONAS_NAV.find(p => p.id.toLowerCase() === String(v ?? '').toLowerCase()) ?? null;
+
+/** Le segment d'URL d'un rôle. */
+export const cheminPersona = (id: string) => id.toLowerCase();

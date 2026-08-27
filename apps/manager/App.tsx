@@ -12,6 +12,7 @@ import * as Activite from './services/activityService';
 import { generateSeriePlan } from './services/seriesService';
 
 import SettingsSpace from './components/Settings/SettingsSpace';
+import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings/apercus';
 import CorpusSpace from './components/Corpus/CorpusSpace';
 import { BLOCS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
 import { fetchDocumentsCorpus, fetchInbox } from './services/apiService';
@@ -77,9 +78,15 @@ const getHashState = () => {
     }
 
     // Sur Réglages, le deuxième segment nomme la section — même place que
-    // l'onglet de Contenus, pour que l'URL reste lisible.
+    // l'onglet de Contenus, pour que l'URL reste lisible. Un troisième segment
+    // nomme le rôle ouvert sous Personas, comme le bloc sous Documents :
+    // une destination, pas un filtre — elle survit au rechargement.
     const settingsSection: SettingsSection =
         space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'display';
+    const settingsPersona: string | null =
+        settingsSection === 'personas'
+            ? (personaParId(parts[2])?.id ?? PERSONAS_NAV[0].id)
+            : null;
 
     /**
      * Sur Corpus, deux segments : la section, puis le bloc quand on lit des
@@ -119,7 +126,7 @@ const getHashState = () => {
         }
     }
 
-    return { space, tab, settingsSection, corpusSection, corpusBloc, serieId, itemId, step };
+    return { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, serieId, itemId, step };
 };
 
 function App() {
@@ -146,6 +153,7 @@ function App() {
    *  n'ouvrira peut-être pas de la journée. */
   const [corpusCounts, setCorpusCounts] = useState<{ inbox?: number; parBloc?: Record<string, number> }>({});
   const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('display');
+  const [currentSettingsPersona, setCurrentSettingsPersona] = useState<string | null>(null);
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingSerieId, setEditingSerieId] = useState<string | null>(null);
@@ -293,7 +301,7 @@ function App() {
 
   useEffect(() => {
       const handleHashChange = () => {
-          const { space, tab, settingsSection, corpusSection, corpusBloc, serieId, itemId, step } = getHashState();
+          const { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, serieId, itemId, step } = getHashState();
           setCurrentSpace(space);
           if (space === 'corpus') {
               setCurrentCorpusSection(corpusSection);
@@ -304,6 +312,7 @@ function App() {
           }
           if (space === 'settings') {
               setCurrentSettingsSection(settingsSection);
+              setCurrentSettingsPersona(settingsPersona);
           }
           setEditingItemId(itemId);
           setEditingSerieId(serieId);
@@ -324,9 +333,18 @@ function App() {
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
   };
 
-  /** Réglages : `#reglages/<section>`. */
-  const updateSettingsRoute = (section: SettingsSection) => {
-      const hash = `reglages/${section}`;
+  /**
+   * Réglages : `#reglages/<section>`, et `#reglages/personas/<role>`.
+   *
+   * Ouvrir Personas sans rôle retombe sur le premier — comme Documents sans
+   * bloc. Un écran de vérification qui s'ouvre vide oblige à un clic pour ne
+   * rien apprendre.
+   */
+  const updateSettingsRoute = (section: SettingsSection, persona?: string | null) => {
+      let hash = `reglages/${section}`;
+      if (section === 'personas') {
+          hash += `/${cheminPersona(persona ?? currentSettingsPersona ?? PERSONAS_NAV[0].id)}`;
+      }
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
   };
 
@@ -1054,6 +1072,7 @@ function App() {
           currentSpace={currentSpace}
           currentSocialTab={currentSocialTab}
           currentSettingsSection={currentSettingsSection}
+          currentSettingsPersona={currentSettingsPersona}
           currentCorpusSection={currentCorpusSection}
           currentCorpusBloc={currentCorpusBloc}
           onNavigate={(space, tab) => updateRoute(space, tab)}
@@ -1173,6 +1192,7 @@ function App() {
               space={currentSpace === 'settings' ? 'settings' : currentSpace === 'corpus' ? 'corpus' : 'social'}
               currentTab={currentSocialTab}
               currentSettingsSection={currentSettingsSection}
+              currentSettingsPersona={currentSettingsPersona}
               currentCorpusSection={currentCorpusSection}
               currentCorpusBloc={currentCorpusBloc}
               onNavigate={(tab) => updateRoute('social', tab)}
@@ -1241,6 +1261,7 @@ function App() {
         {currentSpace === 'settings' && (
             <SettingsSpace
                 section={currentSettingsSection}
+                persona={currentSettingsPersona}
                 displayPrefs={displayPrefs}
                 onDisplayPrefsChange={handleDisplayPrefsChange}
                 aiModels={aiModels}

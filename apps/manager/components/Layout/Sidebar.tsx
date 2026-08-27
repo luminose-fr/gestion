@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
+import { PERSONAS_NAV } from '../Settings/apercus';
 import { CORPUS_SECTIONS, BLOCS, CorpusSection } from '../Corpus/sections';
 
 type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'corpus' | 'settings';
@@ -13,13 +14,14 @@ type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive
 interface SidebarProps {
     currentSpace: SpaceView;
     currentSocialTab: SocialTab;
-    /** Section ouverte dans l'espace Réglages. */
+    /** Section ouverte dans l'espace Réglages, et le rôle ouvert sous Personas. */
     currentSettingsSection: SettingsSection;
+    currentSettingsPersona: string | null;
     /** Section et bloc ouverts dans l'espace Corpus. */
     currentCorpusSection: CorpusSection;
     currentCorpusBloc: string | null;
     onNavigate: (space: SpaceView, tab: SocialTab) => void;
-    onNavigateSettings: (section: SettingsSection) => void;
+    onNavigateSettings: (section: SettingsSection, persona?: string | null) => void;
     onNavigateCorpus: (section: CorpusSection, bloc?: string | null) => void;
     /** Ce que le panneau Corpus affiche en pastille — captures en attente, documents par bloc. */
     corpusCounts?: { inbox?: number; parBloc?: Record<string, number> };
@@ -60,6 +62,18 @@ const SOCIAL_TABS: Array<{
     { id: 'calendar', icon: CalendarIcon, label: 'Calendrier'      },
     { id: 'archive',  icon: Archive,      label: 'Archives'        },
 ];
+
+/**
+ * Le troisième panneau, dans la largeur du deuxième.
+ *
+ * Masqué sous `md` : trois colonnes ne tiennent pas sur un téléphone. Les
+ * niveaux y passent par MobileSubTabs, en seconde rangée.
+ */
+const PANNEAU_3 =
+    'hidden md:flex w-[210px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex-col';
+
+const ENTETE_3 =
+    'px-4 h-[52px] flex items-center border-b border-brand-border dark:border-dark-sec-border shrink-0';
 
 const RailButton: React.FC<{
     active: boolean;
@@ -113,7 +127,7 @@ const PanelTab: React.FC<{
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({
-    currentSpace, currentSocialTab, currentSettingsSection,
+    currentSpace, currentSocialTab, currentSettingsSection, currentSettingsPersona,
     currentCorpusSection, currentCorpusBloc,
     onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts,
     isMobileOpen, onMobileClose
@@ -242,13 +256,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     la montrent. Il n'apparaît que sous la section qui en a un,
                     et disparaît ailleurs plutôt que de rester vide.
 
-                    Masqué sous `md` : trois colonnes ne tiennent pas sur un
-                    téléphone. Les blocs y passent par MobileSubTabs, en
-                    seconde rangée — les mêmes trois niveaux, empilés.
+                    Même largeur que le deuxième — 210 px : deux colonnes de
+                    navigation côte à côte qui ne font pas la même largeur se
+                    lisent comme une hiérarchie qui n'existe pas.
                 */}
                 {estCorpus && currentCorpusSection === 'documents' && (
-                    <div className="hidden md:flex w-[190px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex-col">
-                        <div className="px-4 h-[52px] flex items-center border-b border-brand-border dark:border-dark-sec-border shrink-0">
+                    <div className={PANNEAU_3}>
+                        <div className={ENTETE_3}>
                             <p className="font-bold text-sm text-brand-main dark:text-white truncate">Documents</p>
                         </div>
                         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
@@ -260,6 +274,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     icon={b.icon}
                                     label={b.label}
                                     count={corpusCounts?.parBloc?.[b.id]}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/*
+                    Le même troisième niveau pour les rôles du flux éditorial.
+                    Ils tenaient dans une grille de cartes au milieu de l'écran ;
+                    en colonne, on passe de l'un à l'autre sans revenir en
+                    arrière — et c'est exactement ce qu'on fait quand on compare
+                    ce que deux rôles reçoivent.
+                */}
+                {estReglages && currentSettingsSection === 'personas' && (
+                    <div className={PANNEAU_3}>
+                        <div className={ENTETE_3}>
+                            <p className="font-bold text-sm text-brand-main dark:text-white truncate">Rôles</p>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+                            {PERSONAS_NAV.map(p => (
+                                <PanelTab
+                                    key={p.id}
+                                    active={currentSettingsPersona === p.id}
+                                    onClick={() => { onNavigateSettings('personas', p.id); onMobileClose(); }}
+                                    icon={p.icon}
+                                    label={p.label}
                                 />
                             ))}
                         </div>
