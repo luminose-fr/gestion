@@ -67,16 +67,22 @@ const maximum = (groupes: any[], chemin: (g: any) => unknown): number | null => 
 };
 
 /**
- * Une seule requête réseau, deux jeux de données.
+ * DEUX requêtes, et pas une — ce que le 01/09/2026 a appris.
+ *
+ * La taille de la base ne vit pas dans le dataset des requêtes : elle a le
+ * sien, `d1StorageAdaptiveGroups`. Réunies dans un seul appel, une erreur sur
+ * l'un des deux — un champ qui change de nom, un dataset non ouvert au compte —
+ * fait échouer TOUTE la requête : `unknown field "max"` a suffi à vider les
+ * quatre postes d'un coup. Séparées, un poste tombe seul, et il dit pourquoi.
  *
  * Les valeurs sont interpolées plutôt que passées en variables GraphQL : les
- * deux datasets ne déclarent pas leurs scalaires sous les mêmes noms
- * (`string` ici, `Date` là), et une variable mal typée fait échouer toute la
- * requête avec un message qui ne désigne rien. Rien de ce qui est interpolé ne
- * vient de l'appelant — le compte sort de l'environnement, le script et la
- * base sont des constantes.
+ * datasets ne déclarent pas leurs scalaires sous les mêmes noms (`string` ici,
+ * `Date` là), et une variable mal typée fait échouer la requête entière avec un
+ * message qui ne désigne rien. Rien de ce qui est interpolé ne vient de
+ * l'appelant — le compte sort de l'environnement, le script et la base sont des
+ * constantes.
  */
-const requete = (compte: string, debutIso: string, finIso: string, jour: string) => `
+const REQUETE_CONSOMMATION = (compte: string, debutIso: string, finIso: string, jour: string) => `
   query {
     viewer {
       accounts(filter: { accountTag: ${JSON.stringify(compte)} }) {
@@ -96,13 +102,55 @@ const requete = (compte: string, debutIso: string, finIso: string, jour: string)
             date_geq: ${JSON.stringify(jour)},
             date_leq: ${JSON.stringify(jour)}
           }
-        ) {
-          sum { rowsRead rowsWritten }
-          max { databaseSizeBytes }
-        }
+        ) { sum { rowsRead rowsWritten } }
       }
     }
   }`;
+
+const REQUETE_STOCKAGE = (compte: string, jour: string) => `
+  query {
+    viewer {
+      accounts(filter: { accountTag: ${JSON.stringify(compte)} }) {
+        d1StorageAdaptiveGroups(
+          limit: 100,
+          filter: {
+            databaseId: ${JSON.stringify(BASE_D1)},
+            date_geq: ${JSON.stringify(jour)},
+            date_leq: ${JSON.stringify(jour)}
+          }
+        ) { max { databaseSizeBytes } }
+      }
+    }
+  }`;
+
+/**
+ * Un appel à l'API GraphQL, dont l'échec est une VALEUR et non une exception.
+ *
+ * Le piège que ça referme : l'API sert ses refus en 200, avec un tableau
+ * `errors` à côté d'un `data` vide. Traité comme un succès, ça donne un écran
+ * de zéros — c'est-à-dire, sur un tableau de quotas, exactement le contraire
+ * de la vérité.
+ */
+const interroger = async (
+  jeton: string,
+  query: string,
+): Promise<{ compte: any; erreur: string | null }> => {
+  try {
+    const res = await fetch(GRAPHQL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${jeton}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    const charge: any = await res.json().catch(() => null);
+    if (!res.ok) return { compte: null, erreur: `Cloudflare a répondu ${res.status}` };
+    if (Array.isArray(charge?.errors) && charge.errors.length) {
+      return { compte: null, erreur: String(charge.errors[0]?.message ?? 'requête refusée') };
+    }
+    return { compte: charge?.data?.viewer?.accounts?.[0] ?? {}, erreur: null };
+  } catch (e: any) {
+    return { compte: null, erreur: e?.message ?? 'Cloudflare n’a pas répondu.' };
+  }
+};
 
 quotas.get('/', async (c) => {
   const jeton = c.env.CLOUDFLARE_ANALYTICS_TOKEN;
@@ -130,32 +178,19 @@ quotas.get('/', async (c) => {
   const debut = debutDuJourUtc(maintenant);
   const jour = debut.toISOString().slice(0, 10);
 
-  let charge: any;
-  try {
-    const res = await fetch(GRAPHQL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${jeton}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: requete(compte, debut.toISOString(), maintenant.toISOString(), jour) }),
-    });
-    charge = await res.json();
-    if (!res.ok) throw new Error(`Cloudflare a répondu ${res.status}`);
-  } catch (e: any) {
-    // Une panne de Cloudflare n'est pas une panne du Worker : 502, message en
-    // clair, même règle que pour les fournisseurs d'IA.
-    return c.json({ error: e?.message ?? 'Cloudflare n’a pas répondu.' }, 502);
-  }
+  // Les deux appels partent ensemble : ils ne dépendent pas l'un de l'autre, et
+  // l'écran attend déjà une seconde de trop.
+  const [consommation, stockage] = await Promise.all([
+    interroger(jeton, REQUETE_CONSOMMATION(compte, debut.toISOString(), maintenant.toISOString(), jour)),
+    interroger(jeton, REQUETE_STOCKAGE(compte, jour)),
+  ]);
 
-  // L'API GraphQL rend 200 avec un tableau `errors` — un échec qui se présente
-  // comme un succès. Sans cette lecture, l'écran afficherait des tirets partout
-  // en laissant croire à une consommation nulle.
-  const plainte = Array.isArray(charge?.errors) && charge.errors.length
-    ? String(charge.errors[0]?.message ?? 'Requête refusée par Cloudflare')
-    : null;
-  if (plainte) return c.json({ error: `Cloudflare : ${plainte}` }, 502);
+  // La consommation, elle, est indispensable : sans elle il n'y a pas d'écran.
+  if (consommation.erreur) return c.json({ error: `Cloudflare : ${consommation.erreur}` }, 502);
 
-  const compteCf = charge?.data?.viewer?.accounts?.[0] ?? {};
-  const workers: any[] = compteCf.workersInvocationsAdaptive ?? [];
-  const d1: any[] = compteCf.d1AnalyticsAdaptiveGroups ?? [];
+  const workers: any[] = consommation.compte?.workersInvocationsAdaptive ?? [];
+  const d1: any[] = consommation.compte?.d1AnalyticsAdaptiveGroups ?? [];
+  const tailles: any[] = stockage.compte?.d1StorageAdaptiveGroups ?? [];
 
   const postes: QuotaPoste[] = [
     {
@@ -175,8 +210,11 @@ quotas.get('/', async (c) => {
     },
     {
       id: 'd1-stockage', service: 'D1', libelle: 'Stockage',
-      valeur: maximum(d1, g => g?.max?.databaseSizeBytes),
+      valeur: stockage.erreur ? null : maximum(tailles, g => g?.max?.databaseSizeBytes),
       seuil: PLAFONDS.d1Stockage, unite: 'octets', periode: 'total',
+      // Le message part jusqu'à l'écran : un poste muet doit dire ce qui lui
+      // manque, sinon il se lit comme un poste à zéro.
+      note: stockage.erreur ? `Cloudflare : ${stockage.erreur}` : null,
     },
   ];
 

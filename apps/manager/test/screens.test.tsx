@@ -174,7 +174,8 @@ describe('espace Réglages', () => {
   it('dit « non communiqué » plutôt que zéro — NORMATIF', async () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify(QUOTAS([
       { id: 'workers-requetes', service: 'Workers', libelle: 'Requêtes',
-        valeur: null, seuil: 100_000, unite: 'requetes', periode: 'jour' },
+        valeur: null, seuil: 100_000, unite: 'requetes', periode: 'jour',
+        note: 'Cloudflare : unknown field "max"' },
     ])), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="quotas" />);
@@ -182,6 +183,8 @@ describe('espace Réglages', () => {
 
     expect(container.textContent).toContain('non communiqué');
     expect(container.textContent).not.toContain('0 %');
+    // Et la raison voyage jusqu'au lecteur : un poste muet dit ce qui lui manque.
+    expect(container.textContent).toContain('unknown field');
   });
 
   /**

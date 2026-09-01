@@ -1797,6 +1797,12 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                     <span>·</span>
                                                     <span>{etat.mot}</span>
                                                 </div>
+
+                                                {poste.note && (
+                                                    <p className="mt-1 text-[11px] text-brand-main/40 dark:text-dark-text/40">
+                                                        {poste.note}
+                                                    </p>
+                                                )}
                                             </div>
                                         );
                                     })}

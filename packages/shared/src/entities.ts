@@ -180,6 +180,14 @@ export interface QuotaPoste {
   unite: 'requetes' | 'lignes' | 'octets';
   /** `jour` : remis à zéro à 00:00 UTC. `total` : cumulé, sans remise à zéro. */
   periode: 'jour' | 'total';
+  /**
+   * Pourquoi ce poste n'a pas de valeur, quand il n'en a pas.
+   *
+   * Un poste muet et un poste à zéro se ressemblent à l'écran ; ce champ est ce
+   * qui les sépare pour de bon, en portant le message de Cloudflare jusqu'au
+   * lecteur au lieu de le laisser dans les journaux du Worker.
+   */
+  note?: string | null;
 }
 
 export interface QuotasReponse {

@@ -24,15 +24,31 @@ const lire = async () => {
   return { res, body: (await res.json()) as any };
 };
 
-/** La forme que rend Cloudflare, réduite à ce que la route lit. */
-const stubCloudflare = (donnees: unknown, options: { errors?: unknown[]; status?: number } = {}) =>
-  vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
-    data: donnees,
-    ...(options.errors ? { errors: options.errors } : {}),
-  }), { status: options.status ?? 200 }));
+type Reponse = { data?: unknown; errors?: unknown[]; status?: number };
+
+/**
+ * La route fait DEUX appels — consommation et stockage vivent dans des
+ * datasets distincts. Le stub répond donc selon la requête envoyée, ce qui
+ * permet d'en faire échouer un seul.
+ */
+const stubCloudflare = (consommation: Reponse, stockageRep: Reponse = { data: null }) =>
+  vi.stubGlobal('fetch', async (_url: string, init: any) => {
+    const query = String(JSON.parse(init.body).query);
+    const r = query.includes('d1StorageAdaptiveGroups') ? stockageRep : consommation;
+    return new Response(
+      JSON.stringify({ data: r.data ?? null, ...(r.errors ? { errors: r.errors } : {}) }),
+      { status: r.status ?? 200 },
+    );
+  });
 
 const COMPTE = (workers: unknown, d1: unknown) => ({
   viewer: { accounts: [{ workersInvocationsAdaptive: workers, d1AnalyticsAdaptiveGroups: d1 }] },
+});
+
+const STOCKAGE_VIDE = { viewer: { accounts: [{ d1StorageAdaptiveGroups: [] }] } };
+
+const STOCKAGE = (octets: number) => ({
+  viewer: { accounts: [{ d1StorageAdaptiveGroups: [{ max: { databaseSizeBytes: octets } }] }] },
 });
 
 beforeEach(async () => {
@@ -42,10 +58,13 @@ beforeEach(async () => {
 
 describe('quotas Cloudflare', () => {
   it('compose les quatre postes à partir des deux jeux de données', async () => {
-    stubCloudflare(COMPTE(
-      [{ sum: { requests: 1200 } }, { sum: { requests: 300 } }],
-      [{ sum: { rowsRead: 40_000, rowsWritten: 900 }, max: { databaseSizeBytes: 12_500_000 } }],
-    ));
+    stubCloudflare(
+      { data: COMPTE(
+        [{ sum: { requests: 1200 } }, { sum: { requests: 300 } }],
+        [{ sum: { rowsRead: 40_000, rowsWritten: 900 } }],
+      ) },
+      { data: STOCKAGE(12_500_000) },
+    );
 
     const { res, body } = await lire();
     expect(res.status).toBe(200);
@@ -68,7 +87,7 @@ describe('quotas Cloudflare', () => {
    * « je ne sais pas ce que je consomme ». Sur cet écran, l'erreur rassure.
    */
   it('rend null, et jamais zéro, quand Cloudflare ne dit rien — NORMATIF', async () => {
-    stubCloudflare(COMPTE([], []));
+    stubCloudflare({ data: COMPTE([], []) }, { data: STOCKAGE_VIDE });
 
     const { body } = await lire();
     for (const poste of body.postes) expect(poste.valeur).toBeNull();
@@ -80,11 +99,36 @@ describe('quotas Cloudflare', () => {
    * « — » en laissant croire à une consommation nulle.
    */
   it('traite un refus GraphQL servi en 200 comme un échec', async () => {
-    stubCloudflare(null, { errors: [{ message: 'not entitled to access this dataset' }] });
+    stubCloudflare({ errors: [{ message: 'not entitled to access this dataset' }] });
 
     const { res, body } = await lire();
     expect(res.status).toBe(502);
     expect(body.error).toContain('not entitled');
+  });
+
+  /**
+   * NORMATIF — le stockage tombe SEUL.
+   *
+   * Le 01/09/2026, `unknown field "max"` a vidé les quatre postes d'un coup :
+   * la taille de la base était demandée dans le dataset des requêtes, et son
+   * refus emportait toute la requête. Un dataset qui change de forme, ou qu'un
+   * compte n'a pas, ne doit coûter que son propre poste — et ce poste doit dire
+   * ce qui lui manque au lieu de se lire comme un zéro.
+   */
+  it('perd le seul poste de stockage quand son dataset refuse — NORMATIF', async () => {
+    stubCloudflare(
+      { data: COMPTE([{ sum: { requests: 1200 } }], [{ sum: { rowsRead: 40_000, rowsWritten: 900 } }]) },
+      { errors: [{ message: 'unknown field "max"' }] },
+    );
+
+    const { res, body } = await lire();
+    expect(res.status).toBe(200);
+
+    const par = Object.fromEntries(body.postes.map((p: any) => [p.id, p]));
+    expect(par['workers-requetes'].valeur).toBe(1200);
+    expect(par['d1-lignes-lues'].valeur).toBe(40_000);
+    expect(par['d1-stockage'].valeur).toBeNull();
+    expect(par['d1-stockage'].note).toContain('unknown field');
   });
 
   it('remonte une panne de Cloudflare en 502, avec son message', async () => {
