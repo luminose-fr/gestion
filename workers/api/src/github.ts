@@ -221,3 +221,33 @@ export async function dernierCommitCorpus(env: Env): Promise<{ sha: string; date
   const d = c.commit?.committer?.date ?? c.commit?.author?.date;
   return { sha: c.sha, date: d ? Date.parse(d) : null };
 }
+
+/**
+ * Les empreintes git des fichiers du corpus, telles que le DÉPÔT les porte.
+ *
+ * UN seul appel. L'arbre d'un sous-dossier se demande par `<branche>:<chemin>`,
+ * ce qui évite de rapatrier l'arbre entier du dépôt — et donc, au passage, le
+ * risque qu'il revienne tronqué.
+ *
+ * Le sha d'un blob ne dépend que de son contenu : comparer ces empreintes à
+ * celles enregistrées à l'embarquement dit exactement ce que le Worker sert,
+ * sans télécharger une ligne et sans dépendre de la façon dont on a déployé.
+ * C'est ce qui remplace la comparaison de dates contre les runs GitHub
+ * Actions, aveugle à `npm run deploy` — voir le 01/09/2026.
+ */
+export async function empreintesDepot(
+  env: Env,
+): Promise<{ empreintes: Record<string, string>; tronque: boolean }> {
+  const ref = encodeURIComponent(`${BRANCHE}:${RACINE}`);
+  const arbre = await appeler(env, `/git/trees/${ref}?recursive=1`);
+
+  const empreintes: Record<string, string> = {};
+  for (const e of arbre?.tree ?? []) {
+    if (e?.type !== 'blob' || typeof e.path !== 'string') continue;
+    // Les mêmes filtres que `charger()` : un filtre qui diverge invente des
+    // écarts, et un écart imaginaire coûte un déploiement pour rien.
+    if (!e.path.endsWith('.md') || e.path.endsWith('README.md')) continue;
+    empreintes[e.path.replace(/\.md$/, '')] = String(e.sha);
+  }
+  return { empreintes, tronque: Boolean(arbre?.truncated) };
+}

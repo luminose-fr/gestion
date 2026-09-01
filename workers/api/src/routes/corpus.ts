@@ -15,11 +15,11 @@ import { Hono } from 'hono';
 import { composer, composerFeuille, separerFrontmatter, PROFILS, type Profil } from '@luminose/corpus';
 import { actionConnue, feuillePour } from '@luminose/editorial';
 import { SourceCorpusSchema, DeploiementSchema } from '@luminose/shared';
-import { DOCUMENTS } from '../genere/corpus';
+import { DOCUMENTS, EMPREINTES } from '../genere/corpus';
 import { Refus } from '../refus';
 import {
   lireSource, ecrireSource, lienEdition, depotConfigure,
-  lancerDeploiement, etatDeploiement, dernierCommitCorpus,
+  lancerDeploiement, etatDeploiement, dernierCommitCorpus, empreintesDepot,
 } from '../github';
 import type { Env } from '../env';
 
@@ -263,15 +263,74 @@ corpus.put('/source', async (c) => {
  * maison : le corpus que le Worker sert est-il celui du dépôt ? Le Worker
  * connaît le commit sur lequel il a été construit — il compare.
  */
+interface Ecart {
+  /** Faux = on ne sait pas. Ce n'est PAS « pas d'écart » : voir ci-dessous. */
+  comparable: boolean;
+  raison: string | null;
+  differents: { chemin: string; etat: 'modifie' | 'ajoute' | 'supprime' }[];
+}
+
+/**
+ * Ce que le Worker sert, comparé à ce que le dépôt contient.
+ *
+ * NORMATIF — un état inconnu ne se rend jamais comme un état sain.
+ *
+ * L'écran affichait « Aucun écart connu » chaque fois qu'il manquait un point
+ * de comparaison, c'est-à-dire tout le temps : il comparait la date du dernier
+ * commit à celle du dernier run GitHub Actions, alors que la voie normale de
+ * déploiement est `npm run deploy` depuis la VM, qui n'en produit aucun. Une
+ * fiche corrigée depuis la console s'affichait donc dans son ancienne version
+ * pendant que l'écran se disait rassurant.
+ *
+ * La comparaison porte maintenant sur les CONTENUS — empreintes git de part et
+ * d'autre — et quand elle est impossible, elle le dit.
+ */
+const calculerEcart = async (env: Env): Promise<Ecart> => {
+  // Un bundle embarqué avant cette version ne porte pas d'empreintes. On ne
+  // peut rien affirmer, et le prochain déploiement règlera le cas tout seul.
+  if (Object.keys(EMPREINTES ?? {}).length === 0) {
+    return {
+      comparable: false,
+      differents: [],
+      raison: 'Le corpus servi date d’avant les empreintes. Le prochain déploiement les posera.',
+    };
+  }
+
+  let depot: Record<string, string>;
+  try {
+    const r = await empreintesDepot(env);
+    if (r.tronque) {
+      return { comparable: false, differents: [], raison: 'GitHub a renvoyé un arbre tronqué.' };
+    }
+    depot = r.empreintes;
+  } catch (e: any) {
+    return { comparable: false, differents: [], raison: e?.message ?? 'Le dépôt est injoignable.' };
+  }
+
+  const differents: Ecart['differents'] = [];
+  for (const [chemin, sha] of Object.entries(EMPREINTES)) {
+    const distant = depot[chemin];
+    if (!distant) differents.push({ chemin, etat: 'supprime' });
+    else if (distant !== sha) differents.push({ chemin, etat: 'modifie' });
+  }
+  for (const chemin of Object.keys(depot)) {
+    if (!(chemin in EMPREINTES)) differents.push({ chemin, etat: 'ajoute' });
+  }
+  differents.sort((a, b) => a.chemin.localeCompare(b.chemin, 'fr'));
+
+  return { comparable: true, raison: null, differents };
+};
+
 corpus.get('/deploiement', async (c) => {
   if (!depotConfigure(c.env)) {
-    return c.json({ configure: false, etat: null, source: null });
+    return c.json({ configure: false, etat: null, source: null, ecart: null });
   }
-  const [etat, source] = await Promise.all([
+  const [etat, source, ecart] = await Promise.all([
     etatDeploiement(c.env),
     dernierCommitCorpus(c.env),
+    calculerEcart(c.env),
   ]);
-  return c.json({ configure: true, etat, source });
+  return c.json({ configure: true, etat, source, ecart });
 });
 
 corpus.post('/deploiement', async (c) => {

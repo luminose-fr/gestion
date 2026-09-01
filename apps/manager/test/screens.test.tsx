@@ -1028,6 +1028,46 @@ describe('CorpusSpace', () => {
     expect(container.textContent).toContain('Copier');
   });
 
+  /**
+   * NORMATIF — « je ne sais pas » ne se rend jamais comme « tout va bien ».
+   *
+   * L'écran affichait « Aucun écart connu » dès qu'il lui manquait un point de
+   * comparaison, c'est-à-dire toujours : il comparait la date du dernier commit
+   * à celle du dernier run GitHub Actions, que `npm run deploy` ne produit pas.
+   * Une fiche corrigée depuis la console restait invisible, et l'écran s'en
+   * portait garant.
+   */
+  it('dit son ignorance plutôt que de rassurer — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
+    vi.spyOn(Api, 'fetchPoses').mockResolvedValue({ poses: {} } as any);
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({
+      configure: true, etat: null, source: null,
+      ecart: { comparable: false, raison: 'Le dépôt est injoignable.', differents: [] },
+    } as any);
+
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('Impossible de savoir'));
+    expect(container.textContent).toContain('Le dépôt est injoignable.');
+    expect(container.textContent).not.toContain('correspond au dépôt');
+  });
+
+  it('nomme les fiches commitées qui ne sont pas encore servies', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
+    vi.spyOn(Api, 'fetchPoses').mockResolvedValue({ poses: {} } as any);
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({
+      configure: true, etat: null, source: null,
+      ecart: {
+        comparable: true, raison: null,
+        differents: [{ chemin: 'socle/offres/le-seuil', etat: 'modifie' }],
+      },
+    } as any);
+
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('n’est pas encore servie'));
+    // Un booléen ne dirait pas laquelle rouvrir.
+    expect(container.textContent).toContain('socle/offres/le-seuil');
+  });
+
   it('une surface dont le hash correspond est dite à jour', async () => {
     vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
     vi.spyOn(Api, 'fetchPoses').mockResolvedValue({

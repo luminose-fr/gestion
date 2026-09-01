@@ -10,7 +10,7 @@
  * Git reste le seul endroit où le corpus change.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Copy, RefreshCw, FileText, Rocket, Loader2, ExternalLink } from 'lucide-react';
+import { AlertTriangle, Check, Copy, RefreshCw, FileText, Rocket, Loader2, ExternalLink, HelpCircle } from 'lucide-react';
 import { copyTextToClipboard } from '../ContentEditor/renderers/shared';
 import {
   fetchEtatCorpus, fetchContexte, fetchPoses, setPose,
@@ -107,18 +107,20 @@ const EtatView: React.FC = () => {
   const enVol = deploiement?.etat?.statut === 'en_cours' || deploiement?.etat?.statut === 'en_attente';
 
   /**
-   * Un commit postérieur au dernier lancement n'est pas servi.
+   * L'écart se lit sur les CONTENUS, plus sur les dates.
    *
-   * Approximation assumée : un commit poussé PENDANT un déploiement sera
-   * signalé « en avance » alors qu'il est peut-être passé. Se tromper dans ce
-   * sens fait proposer un déploiement de trop ; se tromper dans l'autre
-   * laisserait croire qu'une correction est en ligne alors qu'elle ne l'est pas.
+   * Ce qui précédait comparait la date du dernier commit à celle du dernier run
+   * GitHub Actions — un compteur que `npm run deploy` depuis la VM ne fait
+   * jamais avancer. Sans run, l'expression valait `false` et l'écran affichait
+   * « Aucun écart connu » : une fiche corrigée depuis la console pouvait rester
+   * invisible sans que rien ne le signale.
+   *
+   * Trois états, et le troisième est le seul ajout qui compte : **on ne sait
+   * pas** n'est pas **tout va bien**.
    */
-  const sourceEnAvance = Boolean(
-    deploiement?.source?.date &&
-    deploiement?.etat?.lance_le &&
-    deploiement.source.date > deploiement.etat.lance_le,
-  );
+  const ecart = deploiement?.ecart ?? null;
+  const enRetard = Boolean(ecart?.comparable && ecart.differents.length > 0);
+  const incertain = Boolean(deploiement?.configure && !ecart?.comparable);
 
   const deployer = async () => {
     setLancement(true);
@@ -156,15 +158,20 @@ const EtatView: React.FC = () => {
       {deploiement?.configure && (
         <Carte titre="Déploiement">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            {sourceEnAvance ? (
+            {enRetard ? (
               <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="w-4 h-4 inline -mt-0.5" /> La source a de l'avance sur ce qui est servi.
+                <AlertTriangle className="w-4 h-4 inline -mt-0.5" />{' '}
+                {ecart!.differents.length === 1
+                  ? 'Une fiche commitée n’est pas encore servie.'
+                  : `${ecart!.differents.length} fiches commitées ne sont pas encore servies.`}
+              </span>
+            ) : incertain ? (
+              <span className="text-sm text-brand-main/70 dark:text-dark-text/60">
+                <HelpCircle className="w-4 h-4 inline -mt-0.5" /> Impossible de savoir si un écart existe.
               </span>
             ) : (
               <span className="text-sm text-brand-main/70 dark:text-dark-text/60">
-                {deploiement.etat?.statut === 'reussi'
-                  ? 'Ce qui est servi correspond au dépôt.'
-                  : 'Aucun écart connu.'}
+                Ce qui est servi correspond au dépôt.
               </span>
             )}
 
@@ -192,6 +199,28 @@ const EtatView: React.FC = () => {
                 : <><Rocket className="w-3.5 h-3.5" /> Déployer</>}
             </button>
           </div>
+          {enRetard && (
+            <ul className="mt-2.5 space-y-0.5">
+              {ecart!.differents.slice(0, 6).map((d) => (
+                <li key={d.chemin} className="text-[11px] text-brand-main/60 dark:text-dark-text/50">
+                  <code className="font-mono">{d.chemin}</code>
+                  {d.etat !== 'modifie' && <span className="ml-1.5 opacity-70">({d.etat === 'ajoute' ? 'nouvelle' : 'supprimée'})</span>}
+                </li>
+              ))}
+              {ecart!.differents.length > 6 && (
+                <li className="text-[11px] text-brand-main/45 dark:text-dark-text/40">
+                  et {ecart!.differents.length - 6} autre{ecart!.differents.length - 6 > 1 ? 's' : ''}…
+                </li>
+              )}
+            </ul>
+          )}
+
+          {incertain && ecart?.raison && (
+            <p className="mt-2.5 text-[11px] text-brand-main/50 dark:text-dark-text/45 leading-relaxed">
+              {ecart.raison}
+            </p>
+          )}
+
           <p className="text-[11px] text-brand-main/45 dark:text-dark-text/40 mt-2.5 leading-relaxed">
             Tests et typecheck tournent d'abord ; comptez deux minutes. Seul le Worker repart —
             une correction du corpus ne touche pas le front. « Actualiser » rafraîchit l'état.

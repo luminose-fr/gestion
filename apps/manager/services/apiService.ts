@@ -465,6 +465,20 @@ export interface EtatDeploiement {
   configure: boolean;
   etat: { statut: 'en_attente' | 'en_cours' | 'reussi' | 'echoue' | null; lance_le: number | null; lien: string | null } | null;
   source: { sha: string; date: number | null } | null;
+  /**
+   * L'écart entre ce qui est SERVI et ce qui est commité, par comparaison des
+   * empreintes git — et non plus par comparaison de dates.
+   *
+   * `comparable: false` veut dire « je ne sais pas », ce qui n'est pas « pas
+   * d'écart ». L'écran doit rendre les deux différemment : c'est la confusion
+   * exacte qui a laissé croire, le 01/09/2026, qu'une fiche corrigée était en
+   * ligne alors qu'elle ne l'était pas.
+   */
+  ecart: {
+    comparable: boolean;
+    raison: string | null;
+    differents: { chemin: string; etat: 'modifie' | 'ajoute' | 'supprime' }[];
+  } | null;
 }
 
 export const fetchDeploiement = () => api<EtatDeploiement>('/corpus/deploiement');
