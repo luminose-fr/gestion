@@ -9,12 +9,16 @@
  * passage ; les charges éditoriales (`draft`, `slides`, `payload`) restent des
  * chaînes — seul @luminose/editorial sait les lire (SPEC §2.3).
  */
-import type { Content, Serie, AIModel, Generation, CoachMessage } from '@luminose/shared';
+import type { Content, Serie, AIModel, Generation, CoachMessage, MesureSynthese } from '@luminose/shared';
 
 export const now = () => Date.now();
 export const newId = () => crypto.randomUUID();
 
 const bool = (v: unknown) => v === 1 || v === true;
+
+/** Un nombre de la base, ou `null` — jamais `0` par défaut (cf. 0004). */
+const nombre = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null;
 const jsonArray = (v: unknown): string[] => {
   if (typeof v !== 'string') return [];
   try {
@@ -194,3 +198,37 @@ export const buildUpdate = (
 };
 
 export { toSql };
+
+/**
+ * Une ligne de synthèse des mesures (migration 0006).
+ *
+ * Le DÉBIT se calcule ICI et pas en SQL, pour une raison de justesse : une
+ * division par zéro ou par un `null` doit rendre `null` — « on ne sait pas » —
+ * et non un nombre inventé que l'écran afficherait sans sourciller. C'est
+ * pourtant la colonne qui décide : elle sépare « le modèle produit trop » de
+ * « l'hébergeur est lent », et les deux ne se corrigent pas au même endroit.
+ */
+export const rowToMesureSynthese = (r: any): MesureSynthese => {
+  const sortieMoy = nombre(r.sortie_moy);
+  const dureeMoyMs = nombre(r.duree_moy);
+  return {
+    action: r.action ?? null,
+    format: r.format ?? null,
+    modelLabel: r.model_label,
+    provider: r.provider,
+    appels: Number(r.appels ?? 0),
+    echecs: Number(r.echecs ?? 0),
+    entreeMoy: nombre(r.entree_moy),
+    sortieMoy,
+    sortieMax: nombre(r.sortie_max),
+    dureeMoyMs,
+    dureeMaxMs: nombre(r.duree_max),
+    feuilleCarMoy: nombre(r.feuille_moy),
+    coutTotal: nombre(r.cout_total),
+    jetonsParSeconde:
+      sortieMoy !== null && dureeMoyMs !== null && dureeMoyMs > 0
+        ? sortieMoy / (dureeMoyMs / 1000)
+        : null,
+    dernier: Number(r.dernier ?? 0),
+  };
+};

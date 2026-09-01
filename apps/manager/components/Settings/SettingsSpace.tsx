@@ -12,7 +12,7 @@ import {
     Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
 } from 'lucide-react';
-import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
+import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS, MesureSynthese } from '../../types';
 import * as Api from '../../services/apiService';
 import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
@@ -92,6 +92,26 @@ const FICHES: FichePersona[] = [
 ];
 
 const signes = (n: number) => `${n.toLocaleString('fr-FR')} signes`;
+
+/**
+ * Une durée en clair. La bascule à la minute n'est pas cosmétique : « 594 s »
+ * ne dit rien, « 9,9 min » dit qu'on a attendu.
+ */
+const decimal = (n: number, chiffres = 1) =>
+    n.toLocaleString('fr-FR', { minimumFractionDigits: chiffres, maximumFractionDigits: chiffres });
+
+const duree = (ms: number | null) => {
+    if (ms === null) return '—';
+    const s = ms / 1000;
+    return s >= 60 ? `${decimal(s / 60)} min` : `${Math.round(s)} s`;
+};
+
+/** `null` s'affiche « — » et jamais « 0 » : le fournisseur n'a rien déclaré. */
+const entier = (n: number | null) =>
+    n === null ? '—' : Math.round(n).toLocaleString('fr-FR');
+
+const dollars = (n: number | null) =>
+    n === null ? '—' : `${decimal(n, n < 1 ? 3 : 2)} $`;
 
 const CHAMP =
     'w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border ' +
@@ -182,6 +202,11 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState<string | null>(null);
 
+    // `null` = pas encore lu ; `[]` = lu, et il n'y a rien. Les deux états
+    // n'appellent pas le même écran.
+    const [mesures, setMesures] = useState<MesureSynthese[] | null>(null);
+    const [mesuresErreur, setMesuresErreur] = useState<string | null>(null);
+
     const [editModel, setEditModel] = useState<Partial<AIModel>>({
         name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3,
     });
@@ -251,6 +276,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
             .catch(e => { if (vivant) setFeuilleErreur(describeError(e)); });
         return () => { vivant = false; };
     }, [persona]);
+
+    /**
+     * Les mesures se relisent à CHAQUE entrée dans la section, sans cache :
+     * c'est un tableau de bord, et une rédaction lancée entre deux visites
+     * doit s'y voir. Le coût est d'une requête agrégée, pas d'un balayage.
+     */
+    useEffect(() => {
+        if (section !== 'mesures') return;
+        let vivant = true;
+        setMesuresErreur(null);
+        Api.fetchMesures()
+            .then(m => { if (vivant) setMesures(m); })
+            .catch(e => { if (vivant) setMesuresErreur(describeError(e)); });
+        return () => { vivant = false; };
+    }, [section]);
 
     // Le badge « Enregistré » s'efface tout seul.
     useEffect(() => {
@@ -1519,6 +1559,107 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 )}
 
                 {/* ─── SAUVEGARDE ─── */}
+                {section === 'mesures' && (
+                    <div className="animate-fade-in space-y-4">
+                        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
+                            <p className="text-sm leading-relaxed text-brand-main/75 dark:text-dark-text/75">
+                                Chaque appel au modèle laisse une ligne : jetons, durée, coût, issue. La colonne qui
+                                décide est <strong className="font-semibold text-brand-main dark:text-white">jetons/s</strong> —
+                                elle sépare un modèle qui produit trop d'un hébergeur qui produit lentement, et les deux
+                                ne se corrigent pas au même endroit.
+                            </p>
+                            <p className="mt-2 text-[11px] text-brand-main/45 dark:text-dark-text/45">
+                                Les moyennes ne portent que sur les appels réussis. Les échecs sont comptés à part :
+                                un refus rendu en trois secondes ferait passer un modèle lent pour un modèle rapide.
+                            </p>
+                        </div>
+
+                        {mesuresErreur && (
+                            <p className="text-xs font-medium text-red-600 dark:text-red-400">{mesuresErreur}</p>
+                        )}
+
+                        {!mesures && !mesuresErreur && (
+                            <div className="px-1"><EnCours label="Lecture des mesures…" /></div>
+                        )}
+
+                        {mesures?.length === 0 && (
+                            <div className="rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-8 text-center">
+                                <p className="text-sm text-brand-main/60 dark:text-dark-text/60">
+                                    Aucun appel mesuré pour l'instant.
+                                </p>
+                                <p className="mt-1 text-[11px] text-brand-main/45 dark:text-dark-text/45">
+                                    La mesure commence au premier appel suivant le déploiement — rien n'est reconstitué
+                                    rétroactivement.
+                                </p>
+                            </div>
+                        )}
+
+                        {!!mesures?.length && (
+                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface overflow-x-auto">
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="border-b border-brand-border dark:border-dark-sec-border text-left">
+                                            <th className="px-4 py-3 font-semibold text-brand-main dark:text-white">Action</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Appels</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Entrée</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Sortie</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Durée</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Jetons/s</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Coût</th>
+                                            <th className="px-4 py-3 font-semibold text-right text-brand-main dark:text-white">Échecs</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {mesures.map((m, i) => (
+                                            <tr
+                                                key={`${m.action}-${m.format}-${m.modelLabel}-${i}`}
+                                                className="border-b border-brand-border/50 dark:border-dark-sec-border/50 last:border-0"
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-brand-main dark:text-white">
+                                                        {m.action ?? 'sans action'}
+                                                    </div>
+                                                    <div className="text-[11px] text-brand-main/50 dark:text-dark-text/50">
+                                                        {m.format ?? 'tous formats'} · {m.modelLabel}
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main/75 dark:text-dark-text/75">
+                                                    {m.appels}
+                                                </td>
+                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main/75 dark:text-dark-text/75">
+                                                    {entier(m.entreeMoy)}
+                                                </td>
+                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main/75 dark:text-dark-text/75">
+                                                    {entier(m.sortieMoy)}
+                                                    {m.sortieMax !== null && (
+                                                        <span className="ml-1 text-[11px] text-brand-main/40 dark:text-dark-text/40">
+                                                            max {entier(m.sortieMax)}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main/75 dark:text-dark-text/75">
+                                                    {duree(m.dureeMoyMs)}
+                                                </td>
+                                                <td className="px-3 py-3 text-right tabular-nums font-semibold text-brand-main dark:text-white">
+                                                    {m.jetonsParSeconde === null ? '—' : decimal(m.jetonsParSeconde)}
+                                                </td>
+                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main/75 dark:text-dark-text/75">
+                                                    {dollars(m.coutTotal)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right tabular-nums">
+                                                    {m.echecs === 0
+                                                        ? <span className="text-brand-main/30 dark:text-dark-text/30">0</span>
+                                                        : <span className="font-semibold text-red-600 dark:text-red-400">{m.echecs}</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {section === 'backup' && (
                     <div className="max-w-2xl animate-fade-in">
                         <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5 space-y-3">

@@ -129,6 +129,39 @@ export const GenerationSchema = z.object({
 });
 export type Generation = z.infer<typeof GenerationSchema>;
 
+/**
+ * Une ligne de la synthèse des mesures d'appels (migration 0006).
+ *
+ * Pas de schéma Zod : « Zod à la frontière » vaut pour ce qui ENTRE. Ceci ne
+ * fait que sortir, agrégé par le Worker, et se valider soi-même n'apprendrait
+ * rien à personne.
+ *
+ * Tout est nullable pour la raison de 0004, qui n'a pas changé : les
+ * fournisseurs ne comptent pas tous. `null` veut dire « on ne sait pas »,
+ * jamais « zéro » — un modèle muet n'est pas un modèle gratuit, et un débit
+ * inconnu n'est pas un débit nul.
+ */
+export interface MesureSynthese {
+  /** L'action éditoriale, ou `null` pour un appel qui n'en déclarait pas. */
+  action: string | null;
+  format: string | null;
+  modelLabel: string;
+  provider: string;
+  appels: number;
+  echecs: number;
+  entreeMoy: number | null;
+  sortieMoy: number | null;
+  sortieMax: number | null;
+  dureeMoyMs: number | null;
+  dureeMaxMs: number | null;
+  feuilleCarMoy: number | null;
+  coutTotal: number | null;
+  /** Jetons de sortie par seconde — ce qui sépare un modèle bavard d'un hébergeur lent. */
+  jetonsParSeconde: number | null;
+  /** Dernier appel de ce groupe, pour savoir si la mesure est encore d'actualité. */
+  dernier: number;
+}
+
 export const CoachMessageSchema = z.object({
   id: z.string(),
   contentId: z.string(),

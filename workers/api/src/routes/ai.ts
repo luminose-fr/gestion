@@ -8,15 +8,15 @@
  * Conséquence : faire passer un modèle de 1min.ai à un accès direct se fait en
  * changeant une valeur en base, sans toucher au code ni redéployer le front.
  */
-import { Hono } from 'hono';
-import { getProvider, PROVIDER_IDS, type AIProvider } from '@luminose/ai';
-import { ChatRequestSchema, TestModelSchema } from '@luminose/shared';
+import { Hono, type Context } from 'hono';
+import { getProvider, PROVIDER_IDS, type AIProvider, type UsageIA } from '@luminose/ai';
+import { ChatRequestSchema, TestModelSchema, type ChatRequestInput } from '@luminose/shared';
 import { composerFeuille } from '@luminose/corpus';
 import { feuillePour } from '@luminose/editorial';
 import { DOCUMENTS } from '../genere/corpus';
 import type { Env } from '../env';
 import { Refus } from '../refus';
-import { rowToModel } from '../db';
+import { rowToModel, newId, now } from '../db';
 import { resolveApiKey } from '../keys';
 
 export const ai = new Hono<{ Bindings: Env }>();
@@ -75,14 +75,69 @@ export const loadModel = async (env: Env, id: string) => {
  *
  * Zéro requête D1 : le corpus est une constante du bundle.
  */
-const prefixerFeuille = (action: string | undefined, system: string | undefined): string | undefined => {
-  if (!action) return system;
+const prefixerFeuille = (
+  action: string | undefined,
+  system: string | undefined,
+): { system: string | undefined; car: number } => {
+  if (!action) return { system, car: 0 };
   const chemins = feuillePour(action);
-  if (!chemins) return system;               // ce rôle ne reçoit rien — décision, pas oubli
+  if (!chemins) return { system, car: 0 };   // ce rôle ne reçoit rien — décision, pas oubli
   const date = new Date().toISOString().slice(0, 10);
   const { texte } = composerFeuille(DOCUMENTS, chemins, date);
-  if (!texte) return system;
-  return system ? `${texte}\n---\n\n${system}` : texte;
+  if (!texte) return { system, car: 0 };
+  return { system: system ? `${texte}\n---\n\n${system}` : texte, car: texte.length };
+};
+
+/**
+ * Écrit la mesure de l'appel : jetons, durée, issue.
+ *
+ * ICI, et pas chez les appelants, pour la raison qui vaut déjà pour la feuille
+ * de salle et pour le signalement des échecs (§3.5.1) : neuf actions qui
+ * doivent chacune penser à se mesurer, c'est neuf occasions d'oublier ; un
+ * seul passage, c'est zéro. Le Coach, qui n'écrit jamais dans `generations`,
+ * se trouve mesuré sans avoir rien à faire — et c'était précisément le trou.
+ *
+ * Deux garanties, et la seconde compte davantage que la première :
+ *   - l'appel n'attend pas sa propre mesure (`waitUntil`) ;
+ *   - une mesure qui échoue ne fait échouer personne. Une fonctionnalité en
+ *     plus ne doit jamais pouvoir emporter celles d'avant — c'est ce que
+ *     garantit déjà le test du jeton GitHub, et ça vaut ici mot pour mot.
+ */
+const consigner = (
+  c: Context<{ Bindings: Env }>,
+  m: {
+    input: ChatRequestInput;
+    model: { id: string; name: string; provider: string };
+    feuilleCar: number;
+    dureeMs: number;
+    /** `null` pour un échec : le fournisseur n'a rien déclaré. */
+    usage: UsageIA | null;
+    ok: boolean;
+    erreur: string | null;
+  },
+) => {
+  // UN seul try, et il couvre tout : la base peut refuser à la préparation
+  // (synchrone, elle échapperait au `.then`), et `executionCtx` n'existe pas
+  // hors du runtime Workers — les tests appellent `app.fetch(request, env)`
+  // sans lui. Dans ce dernier cas l'écriture est déjà partie quand la réserve
+  // de temps échoue : personne ne l'attend, et c'est exactement ce qu'on veut.
+  try {
+    const ecriture = c.env.DB.prepare(
+      `INSERT INTO mesures_ia (id, action, format, model_id, model_label, provider,
+                               prompt_tokens, completion_tokens, cost_usd,
+                               duree_ms, feuille_car, ok, erreur, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      newId(), m.input.action ?? null, m.input.format ?? null,
+      m.model.id, m.model.name, m.model.provider,
+      m.usage?.entree ?? null, m.usage?.sortie ?? null, m.usage?.coutUsd ?? null,
+      m.dureeMs, m.feuilleCar, m.ok ? 1 : 0, m.erreur, now(),
+    ).run().then(() => undefined, () => undefined);
+
+    c.executionCtx.waitUntil(ecriture);
+  } catch {
+    /* mesurer ne doit jamais coûter un appel : une mesure perdue est perdue */
+  }
 };
 
 ai.post('/chat', async (c) => {
@@ -94,22 +149,39 @@ ai.post('/chat', async (c) => {
   // L'ordre compte : on valide d'abord que l'adaptateur existe (voir resolve)
   const provider = await resolve(model.provider, c.env);
 
+  const { system, car: feuilleCar } = prefixerFeuille(input.action, input.system);
+  const depart = Date.now();
+
   let result;
   try {
     result = await provider.chat({
       model: model.apiCode,
-      system: prefixerFeuille(input.action, input.system),
+      system,
       messages: input.messages,
       json: input.json,
     });
   } catch (e: any) {
+    const message = e?.message ?? 'Le fournisseur IA n’a pas répondu.';
+    // L'échec se mesure comme le succès, et c'est tout l'intérêt : un appel qui
+    // meurt au bout de cinq minutes ne produit rien, donc n'apparaît nulle part
+    // ailleurs. C'est pourtant la seule trace qui montrera une reprise en train
+    // de doubler une attente.
+    consigner(c, {
+      input, model, feuilleCar, dureeMs: Date.now() - depart,
+      usage: null, ok: false, erreur: message,
+    });
     // Une panne du fournisseur n'est pas une panne du Worker : 502, et son
     // message EN CLAIR. Passer par le gestionnaire générique le reléguerait
     // dans `detail`, et le front afficherait « Erreur interne » là où le
     // fournisseur disait précisément ce qui manquait (crédits, quota, modèle
     // retiré). C'est la différence entre un diagnostic et une devinette.
-    return c.json({ error: e?.message ?? 'Le fournisseur IA n’a pas répondu.' }, 502);
+    return c.json({ error: message }, 502);
   }
+
+  consigner(c, {
+    input, model, feuilleCar, dureeMs: Date.now() - depart,
+    usage: result.usage, ok: true, erreur: null,
+  });
 
   // `raw` reste au Worker : le front n'a que faire de la forme du fournisseur,
   // et la lui exposer inviterait à s'y accrocher. Le DÉCOMPTE, lui, remonte :

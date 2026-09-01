@@ -440,6 +440,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           // L'identifiant technique, en plus du libellé : c'est lui qui décide
           // de la feuille de salle jointe au prompt côté Worker.
           aiAction: String(action),
+          // Posé ici plutôt que chez les six appelants de `callAI`, pour la
+          // raison habituelle : six endroits, six occasions de l'oublier.
+          format: editedItem?.targetFormat ?? undefined,
       });
   };
 

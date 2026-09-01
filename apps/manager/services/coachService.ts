@@ -122,6 +122,7 @@ export const sendCoachMessage = async (opts: SendOptions): Promise<CoachAIReply>
         json: true,
         action: 'Atelier (conversation)',
         aiAction: 'COACH_CHAT',
+        format: session.formatCible ?? undefined,
     });
 
     return parseCoachReply(responseText);
@@ -166,6 +167,7 @@ export const generateLockedBrief = async (opts: {
         prompt: JSON.stringify(payload),
         action: 'Brief verrouillé',
         aiAction: 'LOCK_BRIEF',
+        format: item.targetFormat ?? undefined,
     });
 
     const cleaned = extractJson(responseText, (v) => Array.isArray(v?.structure));

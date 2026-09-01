@@ -220,3 +220,143 @@ describe('test d’un code avant enregistrement', () => {
     expect((await call('/api/ai/test', { apiCode: '' })).status).toBe(400);
   });
 });
+
+/**
+ * La mesure des appels (migration 0006).
+ *
+ * Ce qui est vérifié ici n'est pas qu'une ligne s'écrive. C'est que la mesure
+ * couvre précisément ce que `generations` ne voit pas — le Coach et les échecs
+ * — et qu'elle ne puisse JAMAIS faire tomber l'appel qu'elle mesure.
+ */
+describe('mesure des appels', () => {
+  const mesures = () => (env.DB as any).query('SELECT * FROM mesures_ia');
+
+  it('consigne un appel réussi : action, format, modèle, jetons', async () => {
+    await seedModel('m-openai', 'openai');
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
+      choices: [{ message: { content: 'un article' } }],
+      usage: { prompt_tokens: 16264, completion_tokens: 18073, cost: 0.319887 },
+    }), { status: 200 }));
+
+    const res = await call('/api/ai/chat', {
+      modelId: 'm-openai',
+      action: 'DRAFT_CONTENT',
+      format: 'Article (long/SEO)',
+      messages: [{ role: 'user', content: 'Écris' }],
+    });
+    expect(res.status).toBe(200);
+
+    const [m] = mesures();
+    expect(m.action).toBe('DRAFT_CONTENT');
+    expect(m.format).toBe('Article (long/SEO)');
+    expect(m.model_id).toBe('m-openai');
+    expect(m.model_label).toBe('Modèle m-openai');
+    expect(m.provider).toBe('openai');
+    expect(m.prompt_tokens).toBe(16264);
+    expect(m.completion_tokens).toBe(18073);
+    expect(m.ok).toBe(1);
+    expect(m.duree_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  /**
+   * Le trou que cette table vient boucher : les tours de Coach vivent dans
+   * `coach_messages` et n'ont jamais rien écrit dans le journal des
+   * générations. L'action dont Florent s'est plaint en premier était la seule
+   * qu'on ne pouvait pas mesurer.
+   */
+  it('mesure le Coach, que le journal des générations ne voit pas', async () => {
+    await seedModel('m-onemin', 'onemin');
+    await call('/api/ai/chat', {
+      modelId: 'm-onemin', action: 'COACH_CHAT',
+      messages: [{ role: 'user', content: 'Bonjour' }],
+    });
+
+    const [m] = mesures();
+    expect(m.action).toBe('COACH_CHAT');
+    // Le Coach reçoit une feuille de salle : sa taille est mesurée, et c'est
+    // elle qui permettra de répondre « la feuille pèse-t-elle ? » autrement
+    // que par une intuition.
+    expect(m.feuille_car).toBeGreaterThan(0);
+  });
+
+  /**
+   * NORMATIF — le Lecteur froid ne reçoit rien, et la mesure doit le dire.
+   * Une feuille non nulle sur cette action signalerait que la décision du
+   * 26/08 (« son persona repose sur l'ignorance délibérée ») a été défaite.
+   */
+  it('la feuille mesurée vaut zéro pour un rôle qui n’en reçoit pas — NORMATIF', async () => {
+    await seedModel('m-onemin', 'onemin');
+    await call('/api/ai/chat', {
+      modelId: 'm-onemin', action: 'COLD_READ',
+      messages: [{ role: 'user', content: 'Relis' }],
+    });
+    expect(mesures()[0].feuille_car).toBe(0);
+  });
+
+  /**
+   * Un appel qui meurt ne produit rien, donc n'apparaît nulle part ailleurs.
+   * C'est pourtant la trace la plus utile qui soit : elle seule montrera une
+   * reprise de `avecUneReprise` en train de doubler une attente.
+   */
+  it('consigne aussi un échec, avec le message du fournisseur', async () => {
+    await seedModel('m-onemin', 'onemin');
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
+      aiRecord: {
+        status: 'FAILURE',
+        aiRecordDetail: { resultObject: { code: 'INSUFFICIENT_CREDITS', message: 'only has 0 credits' } },
+      },
+    }), { status: 200 }));
+
+    const res = await call('/api/ai/chat', {
+      modelId: 'm-onemin', action: 'DRAFT_CONTENT',
+      messages: [{ role: 'user', content: 'x' }],
+    });
+    expect(res.status).toBe(502);
+
+    const [m] = mesures();
+    expect(m.ok).toBe(0);
+    expect(String(m.erreur)).toContain('0 credits');
+    // Aucun décompte : le fournisseur n'a rien déclaré. `null` veut dire « on
+    // ne sait pas », jamais « zéro » (0004).
+    expect(m.completion_tokens).toBeNull();
+    expect(m.duree_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  /**
+   * NORMATIF — une fonctionnalité en plus ne doit jamais pouvoir emporter
+   * celles d'avant. La base peut refuser dès la préparation, qui est
+   * synchrone : sans le try qui l'enveloppe, mesurer ferait tomber l'appel
+   * mesuré, et l'application perdrait la rédaction pour un journal.
+   */
+  it('une mesure qui échoue ne fait pas échouer l’appel — NORMATIF', async () => {
+    await seedModel('m-onemin', 'onemin');
+    const vraiPrepare = (env.DB as any).prepare.bind(env.DB);
+    (env.DB as any).prepare = (sql: string) => {
+      if (sql.includes('mesures_ia')) throw new Error('base indisponible');
+      return vraiPrepare(sql);
+    };
+
+    const res = await call('/api/ai/chat', {
+      modelId: 'm-onemin', messages: [{ role: 'user', content: 'x' }],
+    });
+
+    expect(res.status).toBe(200);
+    expect((await json(res)).text).toBe('réponse 1min');
+  });
+
+  /**
+   * La marche arrière du corpus vaut aussi pour la mesure : un appelant qui
+   * n'envoie ni action ni format obtient l'appel d'avant, et une ligne qui le
+   * dit — plutôt que pas de ligne du tout.
+   */
+  it('consigne un appel sans action ni format', async () => {
+    await seedModel('m-onemin', 'onemin');
+    await call('/api/ai/chat', { modelId: 'm-onemin', messages: [{ role: 'user', content: 'x' }] });
+
+    const [m] = mesures();
+    expect(m.action).toBeNull();
+    expect(m.format).toBeNull();
+    expect(m.feuille_car).toBe(0);
+    expect(m.ok).toBe(1);
+  });
+});

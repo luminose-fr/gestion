@@ -36,6 +36,14 @@ export interface GenerateRequest {
    * marche arrière, et elle ne demande pas de redéployer le front.
    */
   aiAction?: string;
+  /**
+   * Le format visé, quand l'appelant le connaît.
+   *
+   * Il ne part PAS chez le fournisseur : il ne sert qu'à la mesure côté Worker,
+   * où il permettra de régler les budgets format par format. Un appelant qui
+   * l'oublie perd une colonne dans le journal, jamais un appel.
+   */
+  format?: string | null;
 }
 
 // ── Les échecs se montrent TOUS, et de la même façon ─────────────────────
@@ -139,6 +147,9 @@ export const generateContent = async (request: GenerateRequest): Promise<Reponse
       messages,
       json: request.json,
       action: request.aiAction,
+      // `?? undefined` et non `?? null` : le schéma déclare le champ facultatif,
+      // et un `null` explicite s'y ferait refuser.
+      format: request.format ?? undefined,
     });
     suivi.fermer(true);
     return { text, usage: usage ?? USAGE_INCONNU };

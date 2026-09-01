@@ -26,6 +26,7 @@ import { settings } from './routes/settings';
 import { catalogue } from './routes/catalogue';
 import { corpus } from './routes/corpus';
 import { inbox } from './routes/inbox';
+import { mesures } from './routes/mesures';
 import { legacy } from './routes/legacy';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -75,6 +76,7 @@ app.route('/api/export', exportRoute);
 app.route('/api/settings', settings);
 app.route('/api/corpus', corpus);
 app.route('/api/inbox', inbox);
+app.route('/api/mesures', mesures);
 app.route('/', legacy);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));

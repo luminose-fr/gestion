@@ -159,6 +159,15 @@ export const ChatRequestSchema = z.object({
    * l'identifiant technique de l'action.
    */
   action: z.string().trim().max(60).optional(),
+  /**
+   * Le format visé par l'appel — `Article (long/SEO)`, `Carrousel`…
+   *
+   * Il ne change RIEN à ce qui part chez le fournisseur : il n'existe que pour
+   * la mesure (`mesures_ia`), où il permettra de régler les budgets format par
+   * format. Facultatif au même titre que `action`, et pour la même raison : un
+   * appelant qui l'ignore obtient l'appel d'avant, à l'octet près.
+   */
+  format: z.string().trim().max(80).optional(),
 });
 export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
 

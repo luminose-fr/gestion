@@ -7,7 +7,7 @@ export {
 } from '@luminose/shared';
 export type {
   Content, Serie, AIModel, Generation, CoachMessage, CoachSession,
-  SerieStatus, GenerationKind,
+  SerieStatus, GenerationKind, MesureSynthese,
 } from '@luminose/shared';
 import type { Content } from '@luminose/shared';
 

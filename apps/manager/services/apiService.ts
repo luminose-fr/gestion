@@ -12,7 +12,7 @@ import { getSessionToken } from '../auth';
 import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
-  ModeSuppressionSerie,
+  ModeSuppressionSerie, MesureSynthese,
 } from '@luminose/shared';
 
 /**
@@ -401,6 +401,20 @@ export interface FeuilleAction {
  */
 export const fetchFeuilleAction = (action: string) =>
   api<FeuilleAction>(`/corpus/feuille/${encodeURIComponent(action)}`);
+
+// ── Mesure des appels (migration 0006) ───────────────────────────────────
+
+/**
+ * La synthèse des appels au modèle, agrégée par le Worker.
+ *
+ * Nommée dans le bandeau d'activité : c'est une lecture qu'on DEMANDE, et
+ * elle balaie toute la table. Les requêtes anonymes sont celles qu'on n'a pas
+ * demandées.
+ */
+export const fetchMesures = () =>
+  api<{ mesures: MesureSynthese[] }>(
+    '/mesures', {}, { label: 'Lecture des mesures', cle: 'api:mesures' },
+  ).then(r => r.mesures);
 
 // ── Écriture du corpus : on commite dans Git, on n'écrit pas le bundle ────
 

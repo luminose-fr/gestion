@@ -106,6 +106,39 @@ describe('espace Réglages', () => {
     expect(() => render(<SettingsSpace {...(props as any)} section={section} />)).not.toThrow();
   });
 
+  /**
+   * L'écran de mesures a un métier précis : rendre lisible le DÉBIT. C'est lui
+   * qui sépare « le modèle produit trop » de « l'hébergeur est lent », et les
+   * deux ne se corrigent pas au même endroit — l'un dans un budget de
+   * réflexion, l'autre dans un suffixe de routage.
+   */
+  it('affiche le débit, la durée et les échecs de chaque action', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
+      mesures: [{
+        action: 'DRAFT_CONTENT', format: 'Article (long/SEO)', modelLabel: 'Kimi K3',
+        provider: 'openrouter', appels: 3, echecs: 1,
+        entreeMoy: 16264, sortieMoy: 18073, sortieMax: 19000,
+        dureeMoyMs: 594_000, dureeMaxMs: 600_000, feuilleCarMoy: 24178,
+        coutTotal: 0.96, jetonsParSeconde: 30.4, dernier: now,
+      }],
+    }), { status: 200 }));
+
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="mesures" />);
+    await findByText('DRAFT_CONTENT');
+
+    expect(container.textContent).toContain('Article (long/SEO)');
+    expect(container.textContent).toContain('Kimi K3');
+    expect(container.textContent).toContain('30,4');      // jetons par seconde
+    expect(container.textContent).toContain('9,9 min');   // la durée, en clair
+    expect(container.textContent).toContain('0,960 $');
+  });
+
+  it('dit qu’il n’y a rien, plutôt que de montrer un tableau vide', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ mesures: [] }), { status: 200 }));
+    const { findByText } = render(<SettingsSpace {...(props as any)} section="mesures" />);
+    await findByText(/Aucun appel mesuré/);
+  });
+
   it('range le catalogue sous ses adaptateurs', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="models" />);
     expect(container.textContent).toContain('1min.ai');
