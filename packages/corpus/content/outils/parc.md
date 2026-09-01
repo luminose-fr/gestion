@@ -12,6 +12,7 @@ expose: prive
 | Rendez-vous | Calendly |
 | Encaissement — **séances individuelles** | **Stancer** |
 | Encaissement — **stages en groupe** | **Stripe** |
+| Base de données de clients et séances | Notion |
 | Automatisation | Make |
 | Programmation réseaux sociaux | Publer |
 | Mesure | Google Tag Manager, Mixpanel |
