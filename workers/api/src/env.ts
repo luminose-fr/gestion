@@ -27,4 +27,17 @@ export type Env = {
    * déploiement se taisent, en le disant.
    */
   GITHUB_TOKEN?: string;
+
+  /**
+   * Lecture des analytics Cloudflare — portée « Account Analytics: Read », et
+   * rien d'autre. Il ne peut ni écrire, ni déployer, ni lire une donnée
+   * applicative.
+   *
+   * FACULTATIF, comme `GITHUB_TOKEN` et pour la même raison : absent, tout le
+   * reste de l'application fonctionne à l'identique et seul l'écran des quotas
+   * se tait, en disant ce qui lui manque.
+   */
+  CLOUDFLARE_ANALYTICS_TOKEN?: string;
+  /** L'identifiant du compte Cloudflare — `accountTag` dans l'API GraphQL. */
+  CLOUDFLARE_ACCOUNT_ID?: string;
 };

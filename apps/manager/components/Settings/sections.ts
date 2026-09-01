@@ -3,12 +3,12 @@
  * mobiles et l'écran lui-même — pour qu'une section ajoutée le soit à un
  * seul endroit.
  */
-import { SlidersHorizontal, Cpu, Crosshair, KeyRound, User, Download, Gauge } from 'lucide-react';
+import { SlidersHorizontal, Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud } from 'lucide-react';
 import type { AIModel } from '../../types';
 import type { ProviderKeyState } from '../../services/apiService';
 
 export type SettingsSection =
-    | 'display' | 'models' | 'presets' | 'mesures' | 'providers' | 'personas' | 'backup';
+    | 'display' | 'models' | 'presets' | 'mesures' | 'quotas' | 'providers' | 'personas' | 'backup';
 
 export const SETTINGS_SECTIONS: Array<{
     id: SettingsSection;
@@ -21,6 +21,7 @@ export const SETTINGS_SECTIONS: Array<{
     { id: 'models',    label: 'Modèles IA',             sousTitre: 'Le catalogue, rangé par adaptateur',     icon: Cpu },
     { id: 'presets',   label: 'Modèle par action',      sousTitre: 'Quel modèle sert quelle tâche',          icon: Crosshair },
     { id: 'mesures',   label: 'Mesures',                sousTitre: 'Ce que chaque action consomme, et en combien de temps', icon: Gauge },
+    { id: 'quotas',    label: 'Quotas Cloudflare',      sousTitre: 'La consommation du jour, face au plan gratuit', icon: Cloud },
     { id: 'providers', label: 'Clés des fournisseurs',  sousTitre: 'Écriture seule — rien ne revient',       icon: KeyRound },
     { id: 'personas',  label: 'Personas',               sousTitre: 'Les prompts système, en lecture',        icon: User },
     { id: 'backup',    label: 'Sauvegarde',             sousTitre: 'Export JSON complet',                    icon: Download },

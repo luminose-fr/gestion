@@ -12,7 +12,7 @@ import {
     Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
 } from 'lucide-react';
-import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS, MesureSynthese } from '../../types';
+import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
 import * as Api from '../../services/apiService';
 import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
@@ -113,6 +113,56 @@ const entier = (n: number | null) =>
 const dollars = (n: number | null) =>
     n === null ? '—' : `${decimal(n, n < 1 ? 3 : 2)} $`;
 
+/** Des octets en unité lisible. Base 1000, comme les plafonds annoncés. */
+const taille = (octets: number) => {
+    if (octets < 1_000_000) return `${decimal(octets / 1000, 0)} ko`;
+    if (octets < 1_000_000_000) return `${decimal(octets / 1_000_000)} Mo`;
+    return `${decimal(octets / 1_000_000_000, 2)} Go`;
+};
+
+const quantite = (n: number, unite: QuotaPoste['unite']) =>
+    unite === 'octets' ? taille(n) : Math.round(n).toLocaleString('fr-FR');
+
+/**
+ * L'état d'un poste, en trois paliers.
+ *
+ * Le mot compte autant que la couleur, et c'est délibéré : un écran qui ne
+ * signale un dépassement imminent que par une teinte le cache à qui ne
+ * distingue pas cette teinte. La couleur accompagne l'état, elle ne le porte
+ * jamais seule.
+ */
+/** Une part sous le millième s'écrit « < 0,1 % » : « 0,0 % » se lit comme zéro. */
+const pourcent = (part: number | null) => {
+    if (part === null) return '—';
+    if (part > 0 && part < 0.001) return '< 0,1 %';
+    return `${decimal(part * 100, part < 0.1 ? 1 : 0)} %`;
+};
+
+/**
+ * La couleur du remplissage suit l'état, et le TRACK reste le même pour les
+ * quatre postes : une jauge se lit par sa longueur, pas par sa teinte.
+ */
+const TON_TEXTE: Record<string, string> = {
+    calme: 'text-brand-main/55 dark:text-dark-text/55',
+    attention: 'text-amber-700 dark:text-amber-400',
+    critique: 'text-red-600 dark:text-red-400',
+    inconnu: 'text-brand-main/40 dark:text-dark-text/40',
+};
+
+const TON_REMPLISSAGE: Record<string, string> = {
+    calme: 'bg-brand-main/60 dark:bg-white/60',
+    attention: 'bg-amber-500',
+    critique: 'bg-red-500',
+    inconnu: 'bg-transparent',
+};
+
+const etatDuPoste = (part: number | null) => {
+    if (part === null) return { mot: 'non communiqué', ton: 'inconnu' as const };
+    if (part >= 0.9) return { mot: 'proche du plafond', ton: 'critique' as const };
+    if (part >= 0.75) return { mot: 'à surveiller', ton: 'attention' as const };
+    return { mot: 'dans le plan gratuit', ton: 'calme' as const };
+};
+
 const CHAMP =
     'w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border ' +
     'focus:border-brand-main rounded-lg text-sm text-brand-main dark:text-white outline-hidden transition-colors';
@@ -207,6 +257,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [mesures, setMesures] = useState<MesureSynthese[] | null>(null);
     const [mesuresErreur, setMesuresErreur] = useState<string | null>(null);
 
+    const [quotas, setQuotas] = useState<QuotasReponse | null>(null);
+    const [quotasErreur, setQuotasErreur] = useState<string | null>(null);
+
     const [editModel, setEditModel] = useState<Partial<AIModel>>({
         name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3,
     });
@@ -289,6 +342,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         Api.fetchMesures()
             .then(m => { if (vivant) setMesures(m); })
             .catch(e => { if (vivant) setMesuresErreur(describeError(e)); });
+        return () => { vivant = false; };
+    }, [section]);
+
+    /**
+     * Les quotas se relisent à chaque entrée, comme les mesures. Ici la raison
+     * est plus forte encore : les compteurs se remettent à zéro à 00:00 UTC, et
+     * un chiffre gardé en cache traverserait cette frontière sans le dire.
+     */
+    useEffect(() => {
+        if (section !== 'quotas') return;
+        let vivant = true;
+        setQuotasErreur(null);
+        Api.fetchQuotas()
+            .then(q => { if (vivant) setQuotas(q); })
+            .catch(e => { if (vivant) setQuotasErreur(describeError(e)); });
         return () => { vivant = false; };
     }, [section]);
 
@@ -1656,6 +1724,90 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     </tbody>
                                 </table>
                             </div>
+                        )}
+                    </div>
+                )}
+
+                {section === 'quotas' && (
+                    <div className="animate-fade-in space-y-4 max-w-3xl">
+                        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
+                            <p className="text-sm leading-relaxed text-brand-main/75 dark:text-dark-text/75">
+                                La consommation depuis <strong className="font-semibold text-brand-main dark:text-white">00:00 UTC</strong>,
+                                face aux plafonds du plan gratuit. L'heure compte : les compteurs de Cloudflare se
+                                remettent à zéro à minuit UTC, pas à minuit à Paris.
+                            </p>
+                            <p className="mt-2 text-[11px] text-brand-main/45 dark:text-dark-text/45">
+                                Les constructions de Pages n'y figurent pas — l'API d'analytics ne les expose pas.
+                                Et ce n'est pas ici que se lit la dépense : les modèles se facturent à part, dans Mesures.
+                            </p>
+                        </div>
+
+                        {quotasErreur && (
+                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
+                                <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-start gap-1.5">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                    <span>{quotasErreur}</span>
+                                </p>
+                            </div>
+                        )}
+
+                        {!quotas && !quotasErreur && (
+                            <div className="px-1"><EnCours label="Lecture des quotas…" /></div>
+                        )}
+
+                        {quotas && (
+                            <>
+                                <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface divide-y divide-brand-border/50 dark:divide-dark-sec-border/50">
+                                    {quotas.postes.map(poste => {
+                                        const part = poste.valeur === null ? null : poste.valeur / poste.seuil;
+                                        const etat = etatDuPoste(part);
+                                        return (
+                                            <div key={poste.id} className="p-5">
+                                                <div className="flex items-baseline justify-between gap-4 mb-2">
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-brand-main dark:text-white">
+                                                            {poste.libelle}
+                                                        </span>
+                                                        <span className="ml-2 text-[11px] text-brand-main/45 dark:text-dark-text/45">
+                                                            {poste.service} · {poste.periode === 'jour' ? 'par jour' : 'au total'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs tabular-nums text-brand-main/75 dark:text-dark-text/75 shrink-0">
+                                                        {poste.valeur === null ? '—' : quantite(poste.valeur, poste.unite)}
+                                                        <span className="text-brand-main/40 dark:text-dark-text/40">
+                                                            {' / '}{quantite(poste.seuil, poste.unite)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="h-1.5 rounded-full bg-brand-light dark:bg-dark-bg overflow-hidden">
+                                                    {part !== null && (
+                                                        <div
+                                                            className={`h-full rounded-full ${TON_REMPLISSAGE[etat.ton]}`}
+                                                            style={{ width: `${Math.max(Math.min(part, 1) * 100, part > 0 ? 1 : 0)}%` }}
+                                                        />
+                                                    )}
+                                                </div>
+
+                                                <div className={`mt-2 flex items-center gap-1.5 text-[11px] ${TON_TEXTE[etat.ton]}`}>
+                                                    {(etat.ton === 'attention' || etat.ton === 'critique') && (
+                                                        <AlertCircle className="w-3 h-3 shrink-0" />
+                                                    )}
+                                                    <span className="tabular-nums font-medium">{pourcent(part)}</span>
+                                                    <span>·</span>
+                                                    <span>{etat.mot}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <p className="text-[11px] text-brand-main/45 dark:text-dark-text/45 px-1">
+                                    Plafonds du plan gratuit relevés à la main dans la documentation Cloudflare le{' '}
+                                    {new Date(quotas.seuilsReleves).toLocaleDateString('fr-FR')} — aucune API ne les
+                                    expose, ils ne se mettent pas à jour tout seuls.
+                                </p>
+                            </>
                         )}
                     </div>
                 )}

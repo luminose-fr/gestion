@@ -162,6 +162,34 @@ export interface MesureSynthese {
   dernier: number;
 }
 
+/**
+ * Un poste de consommation face au plafond du plan gratuit Cloudflare.
+ *
+ * `valeur` est nullable comme partout ailleurs : Cloudflare peut ne rien
+ * renvoyer pour un poste (métrique trop récente, dataset momentanément muet),
+ * et « on ne sait pas » ne doit jamais s'afficher « zéro » — sur un écran de
+ * quotas, la confusion se lit exactement à l'envers du danger.
+ */
+export interface QuotaPoste {
+  id: string;
+  /** Le service Cloudflare — « Workers », « D1 ». */
+  service: string;
+  libelle: string;
+  valeur: number | null;
+  seuil: number;
+  unite: 'requetes' | 'lignes' | 'octets';
+  /** `jour` : remis à zéro à 00:00 UTC. `total` : cumulé, sans remise à zéro. */
+  periode: 'jour' | 'total';
+}
+
+export interface QuotasReponse {
+  postes: QuotaPoste[];
+  /** Début de la fenêtre observée, en UTC — c'est là que les compteurs repartent. */
+  depuis: string;
+  /** Date à laquelle les plafonds ont été relevés dans la documentation. */
+  seuilsReleves: string;
+}
+
 export const CoachMessageSchema = z.object({
   id: z.string(),
   contentId: z.string(),

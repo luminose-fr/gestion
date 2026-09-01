@@ -12,7 +12,7 @@ import { getSessionToken } from '../auth';
 import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
-  ModeSuppressionSerie, MesureSynthese,
+  ModeSuppressionSerie, MesureSynthese, QuotasReponse,
 } from '@luminose/shared';
 
 /**
@@ -415,6 +415,16 @@ export const fetchMesures = () =>
   api<{ mesures: MesureSynthese[] }>(
     '/mesures', {}, { label: 'Lecture des mesures', cle: 'api:mesures' },
   ).then(r => r.mesures);
+
+/**
+ * La consommation Cloudflare du jour, face aux plafonds du plan gratuit.
+ *
+ * Nommée dans le bandeau : elle sort du Worker pour aller interroger l'API
+ * GraphQL de Cloudflare, et une seconde d'attente sans rien à l'écran passe
+ * pour une panne.
+ */
+export const fetchQuotas = () =>
+  api<QuotasReponse>('/quotas', {}, { label: 'Lecture des quotas', cle: 'api:quotas' });
 
 // ── Écriture du corpus : on commite dans Git, on n'écrit pas le bundle ────
 

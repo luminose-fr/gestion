@@ -139,6 +139,66 @@ describe('espace Réglages', () => {
     await findByText(/Aucun appel mesuré/);
   });
 
+  const QUOTAS = (postes: unknown[]) => ({
+    postes, depuis: '2026-09-01T00:00:00.000Z', seuilsReleves: '2026-09-01',
+  });
+
+  it('affiche chaque poste avec sa part et son état', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(QUOTAS([
+      { id: 'workers-requetes', service: 'Workers', libelle: 'Requêtes',
+        valeur: 1500, seuil: 100_000, unite: 'requetes', periode: 'jour' },
+      { id: 'd1-lignes-ecrites', service: 'D1', libelle: 'Lignes écrites',
+        valeur: 92_000, seuil: 100_000, unite: 'lignes', periode: 'jour' },
+      { id: 'd1-stockage', service: 'D1', libelle: 'Stockage',
+        valeur: 12_500_000, seuil: 5_000_000_000, unite: 'octets', periode: 'total' },
+    ])), { status: 200 }));
+
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="quotas" />);
+    await findByText('Requêtes');
+
+    expect(container.textContent).toContain('1,5 %');
+    expect(container.textContent).toContain('dans le plan gratuit');
+    // Un poste à 92 % doit le DIRE, pas seulement changer de teinte : une
+    // alerte portée par la seule couleur n'existe pas pour tout le monde.
+    expect(container.textContent).toContain('92 %');
+    expect(container.textContent).toContain('proche du plafond');
+    // Les octets se lisent en unité, pas en chiffre brut.
+    expect(container.textContent).toContain('12,5 Mo');
+  });
+
+  /**
+   * NORMATIF — un poste non renseigné ne s'affiche jamais comme un poste à
+   * zéro. « Je ne sais pas ce que je consomme » et « je ne consomme rien » se
+   * lisent à l'envers l'un de l'autre, et c'est le second qui rassure à tort.
+   */
+  it('dit « non communiqué » plutôt que zéro — NORMATIF', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(QUOTAS([
+      { id: 'workers-requetes', service: 'Workers', libelle: 'Requêtes',
+        valeur: null, seuil: 100_000, unite: 'requetes', periode: 'jour' },
+    ])), { status: 200 }));
+
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="quotas" />);
+    await findByText('Requêtes');
+
+    expect(container.textContent).toContain('non communiqué');
+    expect(container.textContent).not.toContain('0 %');
+  });
+
+  /**
+   * Un jeton absent est un refus, pas une panne : l'écran doit afficher la
+   * commande à taper, pas « Erreur interne ». C'est le défaut qui avait rendu
+   * invisible le conseil le plus utile de l'application (§ refus.ts).
+   */
+  it('affiche la commande à taper quand le jeton manque', async () => {
+    vi.stubGlobal('fetch', async () => new Response(
+      JSON.stringify({ error: 'Aucun jeton d’analytics Cloudflare. Posez-le en secret : npx wrangler secret put CLOUDFLARE_ANALYTICS_TOKEN (portée « Account Analytics: Read »).' }),
+      { status: 409 },
+    ));
+
+    const { findByText } = render(<SettingsSpace {...(props as any)} section="quotas" />);
+    expect(await findByText(/CLOUDFLARE_ANALYTICS_TOKEN/)).toBeTruthy();
+  });
+
   it('range le catalogue sous ses adaptateurs', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="models" />);
     expect(container.textContent).toContain('1min.ai');
