@@ -1149,6 +1149,58 @@ describe('Corpus — lecture des documents', () => {
     return vue;
   };
 
+  /**
+   * NORMATIF — une fiche périmée le dit, en lecture, après rechargement.
+   *
+   * L'encart vert « commité, pas déployé » ne connaît que le commit qu'on vient
+   * de faire : il ne survit pas à un F5. Le 01/09/2026, Florent a corrigé une
+   * fiche depuis la console, rafraîchi, et relu l'ancienne version sans qu'aucun
+   * écran ne le signale. Ce que l'on lit ici EST ce que reçoivent les prompts,
+   * et c'est ça qu'il faut dire.
+   */
+  it('une fiche en retard sur le dépôt le dit en lecture — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({
+      configure: true, etat: null, source: null,
+      ecart: {
+        comparable: true, raison: null,
+        differents: [{ chemin: 'socle/offres/le-seuil', etat: 'modifie' }],
+      },
+    } as any);
+
+    const { container } = await ouvrirUneFiche();
+    await waitFor(() => expect(container.textContent).toContain('version plus récente'));
+    expect(container.textContent).toContain('celle que reçoivent les prompts');
+    // Et le geste est là où le constat se fait.
+    expect([...container.querySelectorAll('button')].some(b => b.textContent?.includes('Déployer maintenant'))).toBe(true);
+  });
+
+  /** Une fiche à jour ne porte aucun avertissement — seulement le rappel général. */
+  it('une fiche à jour ne s’alarme pas', async () => {
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({
+      configure: true, etat: null, source: null,
+      ecart: { comparable: true, raison: null, differents: [] },
+    } as any);
+
+    const { container } = await ouvrirUneFiche();
+    await waitFor(() => expect(container.textContent).toContain("n'entre dans les prompts qu'au déploiement"));
+    expect(container.textContent).not.toContain('version plus récente');
+  });
+
+  /**
+   * Comparaison impossible : on n'invente rien, dans un sens comme dans l'autre.
+   * Pas d'alarme, et pas non plus d'acquittement.
+   */
+  it('ne s’alarme pas quand l’écart n’est pas calculable', async () => {
+    vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({
+      configure: true, etat: null, source: null,
+      ecart: { comparable: false, raison: 'Le dépôt est injoignable.', differents: [] },
+    } as any);
+
+    const { container } = await ouvrirUneFiche();
+    await waitFor(() => expect(container.textContent).toContain('Le Seuil'));
+    expect(container.textContent).not.toContain('version plus récente');
+  });
+
   it('sans jeton GitHub, la fiche se lit et le bouton Modifier ne s’affiche pas', async () => {
     vi.spyOn(Api, 'fetchDeploiement').mockResolvedValue({ configure: false, etat: null, source: null } as any);
     const { container } = await ouvrirUneFiche();

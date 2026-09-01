@@ -10,11 +10,11 @@
  * constante du bundle du Worker. On modifie dans Git, jamais ici.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, PenLine, Check, X, Rocket, Loader2 } from 'lucide-react';
+import { ExternalLink, PenLine, Check, X, Rocket, Loader2, AlertTriangle } from 'lucide-react';
 import {
   fetchDocumentsCorpus, fetchDocumentCorpus, fetchSourceCorpus, enregistrerSourceCorpus,
   fetchDeploiement, lancerDeploiement,
-  type DocumentCorpus, type DocumentListe,
+  type DocumentCorpus, type DocumentListe, type EtatDeploiement,
 } from '../../services/apiService';
 import Markdown from './Markdown';
 
@@ -68,6 +68,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
   const [occupe, setOccupe] = useState<'ouverture' | 'enregistrement' | 'deploiement' | null>(null);
   const [commit, setCommit] = useState<string | null>(null);
   const [depotOuvert, setDepotOuvert] = useState<boolean | null>(null);
+  const [ecart, setEcart] = useState<EtatDeploiement['ecart']>(null);
 
   useEffect(() => {
     fetchDocumentsCorpus()
@@ -90,11 +91,31 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
   // Le jeton GitHub est facultatif : sans lui, la console lit le corpus et ne
   // l'écrit pas. On demande une fois, et on cache le bouton plutôt que de le
   // laisser échouer au clic.
-  useEffect(() => {
+  /**
+   * Le même appel sert deux choses : savoir si le dépôt est ouvert en écriture,
+   * et savoir CE QUI diffère entre le dépôt et ce que le Worker sert.
+   *
+   * L'écart était déjà dans la réponse et se perdait ici — d'où une fiche qui
+   * s'affichait dans sa version servie, périmée, sans que rien ne le dise dès
+   * lors qu'on avait rafraîchi la page. L'encart vert ne connaît que le commit
+   * qu'on vient de faire ; il ne survit pas à un rechargement.
+   */
+  const relireDeploiement = () =>
     fetchDeploiement()
-      .then((d) => setDepotOuvert(d.configure))
-      .catch(() => setDepotOuvert(false));
-  }, []);
+      .then((d) => { setDepotOuvert(d.configure); setEcart(d.ecart); })
+      .catch(() => { setDepotOuvert(false); setEcart(null); });
+
+  useEffect(() => { void relireDeploiement(); }, []);
+
+  /**
+   * Cette fiche-ci est-elle en retard sur le dépôt ?
+   *
+   * `comparable` faux veut dire « on ne sait pas » : on n'affiche alors rien de
+   * particulier, plutôt qu'un silence qui vaudrait acquittement.
+   */
+  const retardDeLaFiche = ecart?.comparable
+    ? ecart.differents.find((d) => d.chemin === ouvert?.chemin)
+    : undefined;
 
   /** Changer de fiche abandonne l'édition en cours — et le dit avant. */
   const quitterEdition = () => { setEdition(null); setMessage(''); setCommit(null); };
@@ -127,6 +148,10 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
       setEdition({ ...edition, initial: edition.contenu, sha: r.sha });
       setCommit(r.commit.slice(0, 7));
       setMessage('');
+      // L'écart date de l'ouverture de l'écran : sans cette relecture, revenir
+      // en lecture après « Plus tard » n'afficherait aucun retard, alors qu'on
+      // vient soi-même de le créer.
+      void relireDeploiement();
     } catch (e: any) {
       setErreur(e?.message ?? "L'enregistrement a échoué.");
     } finally {
@@ -262,13 +287,39 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   ligne, on corrige, on revient, on ne voit rien, et on conclut
                   que c'est cassé.
                 */}
-                {!edition && (
+                {!edition && !retardDeLaFiche && (
                   <span className="text-[11px] text-brand-main/40 dark:text-dark-text/35">
                     une correction n'entre dans les prompts qu'au déploiement
                   </span>
                 )}
               </div>
             </header>
+
+            {!edition && retardDeLaFiche && (
+              /*
+                Ce qu'on lit ici vient du bundle — donc de ce que les prompts
+                reçoivent. Le dépôt, lui, a déjà autre chose. C'est l'exacte
+                situation qui faisait conclure « ma correction n'a pas été
+                enregistrée » alors qu'elle l'était.
+              */
+              <div className="mb-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  <AlertTriangle className="w-3.5 h-3.5 inline -mt-0.5" />{' '}
+                  {retardDeLaFiche.etat === 'supprime'
+                    ? <>Cette fiche <strong>n'existe plus dans le dépôt</strong>, mais le Worker la sert encore.</>
+                    : <>Le dépôt porte une version plus récente. <strong>Ce que vous lisez ici est celle que reçoivent les prompts.</strong></>}
+                </p>
+                <button
+                  onClick={() => void deployer()}
+                  disabled={occupe === 'deploiement'}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
+                >
+                  {occupe === 'deploiement'
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lancement…</>
+                    : <><Rocket className="w-3.5 h-3.5" /> Déployer maintenant</>}
+                </button>
+              </div>
+            )}
 
             {!edition ? (
               <Markdown texte={ouvert.corps} />
