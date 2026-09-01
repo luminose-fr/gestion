@@ -58,12 +58,18 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      # 24 et pas 20 : jsdom 30 exige ^24.15, et la VM tourne sur cette branche.
-      # Une CI qui teste sur un autre Node que la machine de développement ne
-      # vérifie pas la même chose.
-      - uses: actions/setup-node@v4
+      # Les actions sont en v6 : depuis le 16/06/2026 les runners forcent Node 24,
+      # et les versions v4 tournaient encore sur Node 20 — d'où l'avertissement.
+      # Node 20 disparaît des runners le 23/09/2026 ; passé cette date, une
+      # action restée en v4 ne s'exécute plus du tout.
+      #
+      # 24 et pas 20 : jsdom 30 exige ^24.15. Le principe reste qu'une CI qui
+      # teste sur un autre Node que la machine de développement ne vérifie pas
+      # la même chose — et depuis le 27/08/2026 la VM est passée à Node 25 : à
+      # rapprocher, ici ou là-bas, mais pas à laisser diverger en silence.
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: npm
