@@ -31,8 +31,6 @@ Les campagnes visent les séances individuelles : **80 €** pour une séance si
 pour le breathwork. **Les valeurs de conversion des trackers sont à jour** (confirmé le
 25/08/2026) — l'ancienne valeur de 1 470 €, héritée du Seuil, ne s'applique plus.
 
-Test
-
 ## Préférence technique
 
 Déclencheurs GTM basés sur des attributs **`data-track`** plutôt que sur des sélecteurs CSS
