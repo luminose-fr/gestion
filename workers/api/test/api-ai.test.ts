@@ -294,6 +294,27 @@ describe('mesure des appels', () => {
   });
 
   /**
+   * NORMATIF — l'Artiste reçoit RÉELLEMENT sa direction artistique.
+   *
+   * La table des feuilles peut nommer un chemin que le corpus ne porte plus :
+   * `composerFeuille` rendrait alors une chaîne vide, et le persona
+   * travaillerait sans charte sans que rien ne le dise. C'est exactement le
+   * silence qui l'a fait dériver, des mois durant, dans les couleurs du Seuil.
+   * Ce test vérifie la chaîne entière, du mappage jusqu'au texte composé.
+   */
+  it('l’Artiste reçoit une feuille non vide — NORMATIF', async () => {
+    await seedModel('m-onemin', 'onemin');
+    await call('/api/ai/chat', {
+      modelId: 'm-onemin', action: 'GENERATE_CARROUSEL_SLIDES',
+      messages: [{ role: 'user', content: 'Traduis les intentions visuelles' }],
+    });
+
+    const [m] = mesures();
+    expect(m.action).toBe('GENERATE_CARROUSEL_SLIDES');
+    expect(m.feuille_car).toBeGreaterThan(0);
+  });
+
+  /**
    * Un appel qui meurt ne produit rien, donc n'apparaît nulle part ailleurs.
    * C'est pourtant la trace la plus utile qui soit : elle seule montrera une
    * reprise de `avecUneReprise` en train de doubler une attente.

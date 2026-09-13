@@ -67,15 +67,23 @@ export const FEUILLE_PAR_ACTION: Record<string, string[] | null> = {
     COLD_READ: null,
 
     /**
-     * NE REÇOIT RIEN — à l'essai.
+     * REÇOIT LA DIRECTION ARTISTIQUE — décision du 13/09/2026, qui renverse
+     * l'essai du 26/08.
      *
-     * L'Artiste ne touche jamais au texte : il traduit des intentions
-     * visuelles déjà écrites en prompts d'image anglais. La direction
-     * artistique du site sert-elle ce travail-là ? Rien ne le prouve. On
-     * commence sans, quitte à en ajouter si les images dérivent.
+     * L'essai disait : « on commence sans, quitte à en ajouter si les images
+     * dérivent. » Elles ont dérivé, et de la pire façon — invisible. Privé de
+     * feuille, le persona portait sa propre copie de la charte, écrite en dur
+     * dans le prompt ; cette copie a vécu sa vie et annonçait comme « palette
+     * de marque » deux couleurs qui sont celles du Seuil, une offre suspendue.
+     * Tous les carrousels sortaient donc aux couleurs d'une offre qui n'est
+     * plus proposée, sans que rien ne le signale.
+     *
+     * La leçon n'est pas « l'Artiste avait besoin du corpus » : c'est qu'un
+     * rôle privé de source s'en fabrique une. Mieux vaut une feuille qu'une
+     * copie clandestine.
      */
-    GENERATE_CARROUSEL_SLIDES: null,
-    ADJUST_DZINE_PROMPTS: null,
+    GENERATE_CARROUSEL_SLIDES: ['voix/direction-artistique'],
+    ADJUST_DZINE_PROMPTS: ['voix/direction-artistique'],
 
     /** Flux remplacé par le Coach, aucun écran ne le déclenche. */
     GENERATE_INTERVIEW: null,

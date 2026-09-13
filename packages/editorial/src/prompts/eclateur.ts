@@ -14,6 +14,7 @@
  * - Les règles de sortie JSON (depuis ai/prompts/index.ts)
  */
 
+import { IDENTITE } from '../config';
 import { VOICE_RULES } from '../voice';
 import { buildObjectifsPromptSection } from '../objectives';
 import { FORMAT_REGISTRY } from '../formats';
@@ -26,7 +27,7 @@ const FORMATS_DISPONIBLES = Object.values(FORMAT_REGISTRY)
 
 export const ECLATEUR_PERSONA = `
 TON IDENTITÉ :
-Tu es l'Éclateur, le planificateur éditorial de Florent Jaouali, psychopraticien transpersonnel à Villefranche-de-Lauragais (hypnose, respiration holotropique, méditation — luminose.fr). On te donne un sujet, et tu en sors un plan de publication : plusieurs contenus qui traitent chacun UNE facette, et une seule.
+Tu es l'Éclateur, le planificateur éditorial de ${IDENTITE} à Villefranche-de-Lauragais (hypnose, respiration holotropique, méditation — luminose.fr). On te donne un sujet, et tu en sors un plan de publication : plusieurs contenus qui traitent chacun UNE facette, et une seule.
 
 CE QUE TU REÇOIS :
 • Soit un thème et une intention : la série se construit à partir de rien d'écrit.

@@ -37,18 +37,52 @@ describe('la table des feuilles de salle', () => {
 
 describe('ce qui ne reçoit rien — NORMATIF', () => {
   /**
-   * Décidé le 26/08/2026. Le Lecteur froid juge « comme un inconnu le
-   * découvrirait » : lui donner le corpus, c'est lui retirer précisément ce
-   * qui fait sa valeur. L'Artiste est à l'essai — sans feuille, on verra si
-   * les prompts d'image en souffrent.
+   * Décidé le 26/08/2026, et toujours vrai : le Lecteur froid juge « comme un
+   * inconnu le découvrirait ». Lui donner le corpus, c'est lui retirer
+   * précisément ce qui fait sa valeur.
+   *
+   * Il est désormais SEUL dans ce cas. L'Artiste y figurait « à l'essai » — cet
+   * essai s'est conclu le 13/09/2026, voir ci-dessous.
    */
-  it.each(['COLD_READ', 'GENERATE_CARROUSEL_SLIDES', 'ADJUST_DZINE_PROMPTS'])(
-    '%s ne reçoit rien, et c\'est écrit',
+  it('COLD_READ ne reçoit rien, et c\'est écrit', () => {
+    expect(Object.prototype.hasOwnProperty.call(FEUILLE_PAR_ACTION, 'COLD_READ')).toBe(true);
+    expect(feuillePour('COLD_READ')).toBeNull();
+  });
+
+  it('le Lecteur froid est le seul rôle sans feuille — NORMATIF', () => {
+    const sansFeuille = Object.entries(FEUILLE_PAR_ACTION)
+      .filter(([id, chemins]) => chemins === null && id !== 'GENERATE_INTERVIEW')
+      .map(([id]) => id);
+    expect(sansFeuille).toEqual(['COLD_READ']);
+  });
+});
+
+describe('l\'Artiste reçoit la direction artistique — NORMATIF', () => {
+  /**
+   * Décision du 13/09/2026, qui renverse l'essai du 26/08.
+   *
+   * Privé de feuille, le persona s'était fabriqué sa propre charte, écrite en
+   * dur dans le prompt — et elle a dérivé jusqu'à annoncer comme « palette de
+   * marque » deux couleurs appartenant au Seuil, une offre suspendue. Ce test
+   * empêche le retour en arrière silencieux : retirer la feuille sans retirer
+   * ce test fait échouer la suite.
+   */
+  it.each(['GENERATE_CARROUSEL_SLIDES', 'ADJUST_DZINE_PROMPTS'])(
+    '%s reçoit la fiche de direction artistique',
     (action) => {
-      expect(Object.prototype.hasOwnProperty.call(FEUILLE_PAR_ACTION, action)).toBe(true);
-      expect(feuillePour(action)).toBeNull();
+      expect(feuillePour(action)).toEqual(['voix/direction-artistique']);
     },
   );
+
+  it('et rien d\'autre : l\'Artiste ne touche pas au texte', () => {
+    for (const action of ['GENERATE_CARROUSEL_SLIDES', 'ADJUST_DZINE_PROMPTS']) {
+      const chemins = feuillePour(action) ?? [];
+      // Ni socle, ni voix au complet : il traduit des intentions visuelles,
+      // il n'écrit pas et ne propose aucune offre.
+      expect(chemins.filter(c => c.startsWith('socle'))).toEqual([]);
+      expect(chemins).not.toContain('voix');
+    }
+  });
 });
 
 describe('ce qui reçoit', () => {
