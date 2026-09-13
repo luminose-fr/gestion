@@ -4,6 +4,15 @@ Dépouillement de ce qui définit Luminose aujourd'hui, source par source, class
 **conservé / obsolète / contradictoire / à trancher**. C'est l'étape 00 : on ne conçoit pas
 le rangement d'un savoir dont on n'a pas regardé les contradictions.
 
+> **Ce document est daté et ne se réécrit pas** — même règle que `content/strategie/decisions/`.
+> Il dit ce qui était vrai le 25/08/2026. Ce qui a changé depuis se lit ici :
+>
+> - **La voix a rejoint le corpus** (13/09/2026). `VOICE_RULES` ne vit plus dans
+>   `packages/editorial/src/voice.ts` : ce fichier est désormais **engendré** depuis
+>   `content/voix/regles-de-voix.md`. Le « à terme » de la section 5 est fait.
+> - L'identité, la palette de marque et le cadre de fonctionnement ont été dédupliqués entre
+>   le corpus et `packages/editorial` — voir le doc projet `corpus-et-module-editorial.md`.
+
 **Sources croisées :** export ChatGPT (27 sections) · export Gemini (3 Gems : *Blog*,
 *Le Seuil — aide générale*, *Stratégie de contenus*) · projet Claude « Luminose » ·
 `FLUX-EDITORIAL.md` + `packages/editorial/`.

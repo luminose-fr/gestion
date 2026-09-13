@@ -85,5 +85,6 @@ Conservée bien que l'offre soit suspendue : c'est de la matière, pas une offre
 
 ## Ce qui ne vit pas ici
 
-`VOICE_RULES` — les règles de voix écrite — vit dans `packages/editorial/src/voice.ts`, avec
-une fixture golden et un test de concordance avec `FLUX-EDITORIAL.md` §4. **Ne pas recopier.**
+Les règles de voix écrite vivent dans `regles-de-voix.md`, juste à côté : c'est la source, et
+`packages/editorial/src/voice.ts` en est engendré au build. Une fixture golden et un test de
+concordance avec `FLUX-EDITORIAL.md` §4 gardent la chaîne. **Ne pas recopier ici.**

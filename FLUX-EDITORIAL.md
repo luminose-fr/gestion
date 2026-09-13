@@ -160,7 +160,11 @@ tâche** plutôt qu'un tour vide, qu'un fournisseur peut refuser :
 ## 4. Les règles de voix
 
 Elles s'appliquent à **tout texte proposé**, quel que soit le persona et quel que
-soit le format. Texte exact :
+soit le format.
+
+Leur source est une fiche du corpus — `packages/corpus/content/voix/regles-de-voix.md` —
+d'où `packages/editorial/src/voice.ts` est engendré par `npm run embarquer`. Le bloc
+ci-dessous en est une copie, et un test vérifie qu'elle n'a pas dérivé. Texte exact :
 
 
 ```text

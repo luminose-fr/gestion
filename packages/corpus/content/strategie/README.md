@@ -2,29 +2,17 @@
 
 Décisions datées, hypothèses en cours, concurrents, ce qui n'a pas marché.
 
-**Ne doit JAMAIS entrer dans un prompt de rédaction.** Chargé par la réflexion stratégique et
-la veille, et par rien d'autre.
+**Ne doit JAMAIS entrer dans un prompt de rédaction.** Chargé par le profil `strategie`, et
+par rien d'autre.
 
 - `decisions/` — le journal. Une décision est un fait daté : elle ne se réécrit pas, elle est
   supersédée par une plus récente qui la cite.
 - `hypotheses.md` — ce qui n'est pas tranché. C'est ici que vivent les noms candidats
   (« Le Souffle des Étoiles ») : un nom sans statut dans `socle/` finira dans un post.
+- `a-lire-d-abord.md` — la règle de lecture du bloc. Le nom porte sa place : la
+  composition ordonne les fiches par chemin, et une règle de lecture qui arrive après
+  les décisions qu'elle encadre ne sert plus à rien. Un test tient cette place.
 
-Deux décisions écrites à ce jour, et elles partagent leur condition de reprise — la relance
-des activités de groupe. **Elles se rouvrent dans la même passe.**
-
----
-
-## Un biais à connaître — NORMATIF
-
-**Le journal des décisions sur-représente les échecs par construction.** Un arrêt produit une
-fiche datée ; le fonctionnement normal n'en produit aucune. Un lecteur — humain ou modèle —
-qui ne lirait que `decisions/` conclurait que rien ne marche.
-
-C'est arrivé dès la première passe : une hypothèse stratégique bâtie sur trois fiches d'arrêt
-a été réfutée en une phrase par les chiffres du quotidien, qui n'étaient écrits nulle part.
-
-Conséquence : **écrire aussi ce qui tourne.** Un fait de fonctionnement régulier vaut une
-ligne dans `socle/`, même s'il ne fait pas de bruit. C'est fait depuis le 13/09/2026 :
-`../socle/ce-qui-fonctionne.md` est le contrepoids de ce dossier, et il est chargé là où ce
-dossier ne l'est pas.
+**Pourquoi cette règle-là est une fiche et pas un paragraphe de ce README.** Elle protège le
+lecteur du pack `strategie` contre un biais de l'échantillon ; or ce lecteur ne lit jamais ce
+fichier — `charger()` ignore les README. Écrite ici, elle n'avait aucun effet sur personne.

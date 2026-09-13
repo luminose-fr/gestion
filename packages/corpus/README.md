@@ -147,8 +147,16 @@ Quand deux sources se contredisent, l'ordre est celui-ci. Sans lui, le modèle i
 - **Pas de préfixes numérotés.** L'ordre n'est pas une information ici, et renommer devient
   pénible.
 - **Un fait, un fichier, une fois.** Ce qui vit déjà dans `packages/editorial`
-  (`FORMAT_REGISTRY`, `OBJECTIF_REGISTRY`, les personas) n'est pas recopié. À terme,
-  `voice.ts` sera **généré depuis** `voix/` — on édite de la prose, pas du TypeScript.
+  (`FORMAT_REGISTRY`, `OBJECTIF_REGISTRY`, les personas) n'est pas recopié. L'inverse vaut
+  aussi, et il est en place : `voice.ts` est **engendré depuis** `voix/regles-de-voix.md` par
+  `npm run embarquer` — on édite de la prose, pas du TypeScript.
+- **Un README décrit la règle du bloc, jamais son contenu.** `charger()` ignore les README :
+  ils ne parlent qu'à un humain, et un inventaire écrit là dérive en silence, sans qu'aucun
+  test ne s'en aperçoive. Ça s'est vu — cinq blocs annonçaient encore « Vide aujourd'hui »
+  avec vingt-sept fiches en place, un README comptait deux décisions quand il y en avait
+  trois, et deux autres se disaient chargés par un seul cas d'usage alors que `complet` les
+  emporte partout. Une règle qui doit atteindre un modèle n'a rien à faire dans un README :
+  elle va dans une fiche.
 - **Le corpus indexe, il n'avale pas.** Une source qui porte mieux que son résumé est
   référencée, pas recopiée : le document des ateliers, l'image de référence du site.
 - **Découpage par exposition.** `expose: public` pour les offres et le positionnement,

@@ -621,8 +621,8 @@ Le cœur du produit. **Zéro dépendance.** Contient, repris tel quel de l'exist
 
 | Module | Rôle |
 | :--- | :--- |
-| `prompts/` | les personas (Analyste, Coach, Verrouilleur, Rédacteur, Lecteur froid, Artiste, Éclateur) et `buildSystemPrompt()` |
-| `voice.ts` | `VOICE_RULES` — règles de voix transverses |
+| `prompts/` | les personas (Analyste, Interviewer, Coach, Verrouilleur, Rédacteur, Lecteur froid, Artiste, Éclateur) et `buildSystemPrompt()` |
+| `voice.ts` | `VOICE_RULES` — règles de voix transverses. **Engendré** depuis `packages/corpus/content/voix/regles-de-voix.md` par `npm run embarquer` ; gitignoré. |
 | `formats.ts` | `FORMAT_REGISTRY` — source unique de vérité du routage par format |
 | `objectives.ts` | `OBJECTIF_REGISTRY` — guidance Analyste + règles CTA |
 | `actions.ts` | composition des instructions système par action |

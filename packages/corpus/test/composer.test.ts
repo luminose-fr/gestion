@@ -35,6 +35,41 @@ describe('le corpus se charge', () => {
   });
 });
 
+describe('la règle de lecture du bloc stratégie — NORMATIF', () => {
+  /**
+   * Le journal des décisions sur-représente les échecs par construction : un
+   * arrêt produit une fiche datée, le fonctionnement normal n'en produit
+   * aucune. La règle qui met le lecteur en garde a longtemps vécu dans
+   * `strategie/README.md` — que `charger()` ignore. Elle ne protégeait donc
+   * personne.
+   *
+   * Elle est maintenant une fiche, et sa PLACE compte : la composition ordonne
+   * par chemin, et une mise en garde qui arrive après les trois fiches d'arrêt
+   * qu'elle encadre a déjà échoué. Le nom du fichier est ce qui la tient en
+   * tête — un renommage « plus descriptif » la ferait glisser en silence.
+   */
+  const strategie = composer(docs, 'strategie', D);
+
+  it('la fiche existe et ouvre le profil', () => {
+    expect(strategie.documents[0]).toBe('strategie/a-lire-d-abord');
+  });
+
+  it('elle précède la première décision', () => {
+    const garde = strategie.documents.indexOf('strategie/a-lire-d-abord');
+    const premiereDecision = strategie.documents.findIndex((c) =>
+      c.startsWith('strategie/decisions/'),
+    );
+    expect(premiereDecision).toBeGreaterThan(garde);
+  });
+
+  it('elle nomme son contrepoids, qui vit dans un autre profil', () => {
+    const fiche = docs.find((d) => d.chemin === 'strategie/a-lire-d-abord');
+    expect(fiche?.corps).toContain('socle/ce-qui-fonctionne');
+    expect(docs.some((d) => d.chemin === 'socle/ce-qui-fonctionne')).toBe(true);
+    expect(strategie.documents).not.toContain('socle/ce-qui-fonctionne');
+  });
+});
+
 describe('le hash', () => {
   it('ne dépend pas de la date — sinon « périmé » ne voudrait rien dire', () => {
     const a = composer(docs, 'complet', '2026-08-26');

@@ -44,9 +44,17 @@ export const SURFACES: DefinitionSurface[] = [
   },
   {
     id: 'api',
+    /**
+     * PAS UN PROFIL. Cette surface ne reçoit ni `noyau`, ni `complet` : le
+     * Worker compose une **feuille de salle** propre à l'action appelée
+     * (`FEUILLE_PAR_ACTION`, dans `packages/editorial`) et la préfixe au
+     * prompt. Il n'y a donc pas un hash à comparer mais neuf, et la colonne
+     * « Courante » reste vide à dessein — afficher `noyau` ici, comme ce
+     * fichier l'a longtemps fait, annonçait un contexte qui n'est jamais parti.
+     */
     nom: 'Appels API (OpenRouter, 1min.ai)',
-    profil: 'noyau',
-    note: "Injecté à l'appel par le code qui compose le prompt, pas collé à la main.",
+    profil: 'feuille de salle',
+    note: "Une feuille par action, composée et préfixée au prompt par le Worker à chaque appel. Le Lecteur froid, lui, ne reçoit rien — et c'est une décision.",
     automatique: true,
   },
 ];

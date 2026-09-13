@@ -32,5 +32,6 @@ Elles ont déjà porté un contenu et fonctionné. À réutiliser plutôt qu'à 
 
 ## Ce qui ne vit pas ici
 
-Les règles de voix et les personas ne sont pas dans le corpus — voir
-`../voix/direction-artistique.md`, qui dit où elles vivent.
+Les règles de voix sont dans le corpus, et elles y sont la source :
+`../voix/regles-de-voix.md`. Les personas, eux, n'y sont pas — ils vivent dans
+`packages/editorial/src/prompts/`, avec leurs fixtures.

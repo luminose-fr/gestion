@@ -1,16 +1,18 @@
 # voix/
 
-Voix, ton, vocabulaire, interdits, direction artistique, exemples validés, contenus à ne pas
-reproduire.
+Voix, ton, vocabulaire, interdits de langue, direction artistique.
 
 Chargé par la rédaction, les visuels et les pages du site. Pas par la stratégie.
 
-Deux sujets distincts en direction artistique, avec deux traitements opposés :
+`regles-de-voix.md` est la **source unique** des règles de voix : `packages/editorial/src/voice.ts`
+en est engendré par `npm run embarquer`. Les interdits de langue — les anti-patterns — y
+vivent aussi, dans la même fiche : deux listes séparées finiraient par diverger, et c'est la
+divergence qu'on essaie d'éliminer.
 
-- **le site** — piloté par une image de référence et la consigne « dans le même style que… ».
-  Le fichier portera le **chemin de l'image et la formule exacte**, pas une description
-  textuelle du style : une description d'un style visuel est toujours pire que l'image.
-- **les réseaux** — `statut: volontairement-absent`, `revu: 2026-08`. Pas de règle, et c'est
-  délibéré. Sans cette ligne, n'importe quelle IA comblera le vide en inventant une charte.
+**Aucune feuille de salle ne sert `regles-de-voix.md`.** Les prompts de rédaction la portent
+déjà ; la servir en plus reviendrait à la payer deux fois à chaque appel. Un test NORMATIF
+vérifie qu'aucune feuille ne la nomme.
 
-Vide aujourd'hui.
+`direction-artistique.md` porte trois sujets et trois traitements, dont une **absence
+délibérée** : les illustrations réseaux sociaux n'ont pas de règle, et la ligne qui le dit
+existe pour empêcher qu'une IA comble le vide en inventant une charte.
