@@ -1078,6 +1078,140 @@ describe('CorpusSpace', () => {
   });
 });
 
+/**
+ * La carte — la documentation interne du corpus.
+ *
+ * CE QUE CES TESTS PROTÈGENT, ET C'EST TOUT LEUR OBJET. Cet écran a été écrit
+ * le 13/09/2026, le jour même où on retirait des README du corpus cinq
+ * annonces « Vide aujourd'hui » qui dataient d'un corpus vide. Une
+ * documentation qui recopie des chiffres les fige, et rien ne la contredit
+ * quand ils bougent.
+ *
+ * D'où la règle de `CarteView` : aucun effectif n'est écrit dans le composant.
+ * Le test le plus important ci-dessous est celui qui le vérifie — il sert un
+ * corpus inventé et exige que l'écran affiche CES chiffres-là.
+ */
+describe('Corpus — la carte', () => {
+  const ETAT_CARTE: Api.EtatCorpus = {
+    date: '2026-09-13',
+    documents: 4,
+    blocs: ['socle', 'voix'],
+    profils: [
+      { profil: 'noyau', titre: 'n', intention: 'x', hash: 'aaaaaaaa', taille: 1234, documents: 1, plafond: 7500, depasse: false },
+      { profil: 'complet', titre: 'c', intention: 'y', hash: 'bbbbbbbb', taille: 5678, documents: 4, plafond: null, depasse: false },
+      { profil: 'strategie', titre: 's', intention: 'z', hash: 'cccccccc', taille: 91011, documents: 0, plafond: null, depasse: false },
+    ],
+    offres: [],
+    aRevoir: [],
+    absencesDeliberees: [],
+  };
+
+  const DOCS = {
+    documents: [
+      { chemin: 'socle/identite', bloc: 'socle', titre: 'Identité', statut: 'actif', type: 'fact', revu: '2026-08', review_at: null, expose: 'public', taille: 10 },
+      { chemin: 'socle/audiences', bloc: 'socle', titre: 'Audiences', statut: 'actif', type: 'fact', revu: '2026-08', review_at: null, expose: 'prive', taille: 10 },
+      { chemin: 'socle/offres/oracle', bloc: 'socle', titre: 'Oracle', statut: 'actif', type: 'fact', revu: '2026-08', review_at: null, expose: 'public', taille: 10 },
+      { chemin: 'voix/regles-de-voix', bloc: 'voix', titre: 'Regles de voix', statut: 'actif', type: 'instruction', revu: '2026-09', review_at: null, expose: 'prive', taille: 10 },
+    ],
+  } as any;
+
+  const FEUILLES = {
+    feuilles: [
+      { action: 'DRAFT_CONTENT', chemins: ['socle'], neRecoitRien: false, taille: 42424, documents: 3 },
+      { action: 'COLD_READ', chemins: null, neRecoitRien: true, taille: 0, documents: 0 },
+    ],
+  } as any;
+
+  afterEach(() => { vi.restoreAllMocks(); cleanup(); });
+
+  it('se monte pendant le chargement', () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockReturnValue(new Promise(() => {}) as any);
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockReturnValue(new Promise(() => {}) as any);
+    vi.spyOn(Api, 'fetchFeuilles').mockReturnValue(new Promise(() => {}) as any);
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    expect(container.textContent).toContain('Lecture du corpus');
+  });
+
+  it('se monte en panne, sans page blanche', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockRejectedValue(new Error('Worker injoignable'));
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockRejectedValue(new Error('Worker injoignable'));
+    vi.spyOn(Api, 'fetchFeuilles').mockRejectedValue(new Error('Worker injoignable'));
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('Worker injoignable'));
+  });
+
+  /**
+   * NORMATIF — la carte compte, elle ne récite pas.
+   *
+   * Le corpus servi ici est inventé : 4 fiches, 3 dans `socle`, 1 dans `voix`,
+   * un profil `strategie` à 91 011 caractères. Si l'écran affichait les vrais
+   * chiffres du jour où il a été écrit, ce test le dirait.
+   */
+  it('affiche les chiffres du corpus servi, jamais les siens — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT_CARTE);
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue(DOCS);
+    vi.spyOn(Api, 'fetchFeuilles').mockResolvedValue(FEUILLES);
+
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('4 fiches'));
+
+    const texte = container.textContent ?? '';
+    expect(texte).toContain('socle/ \u00b7 3');
+    expect(texte).toContain('voix/ \u00b7 1');
+    expect(texte).toContain('canaux/ \u00b7 0');
+    expect(texte).toMatch(/91.011/);
+    expect(texte).toMatch(/42.424/);
+  });
+
+  /**
+   * Cette route est plus récente que le reste de l'API : un Worker déployé
+   * avant elle ne doit pas vider la page, seulement laisser les poids en
+   * attente.
+   */
+  it('survit à un Worker qui ne sert pas encore les feuilles', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT_CARTE);
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue(DOCS);
+    vi.spyOn(Api, 'fetchFeuilles').mockRejectedValue(new Error('404'));
+
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('4 fiches'));
+    expect(container.textContent).toContain('Le flux \u00e9ditorial');
+  });
+
+  /**
+   * Le Lecteur froid ne reçoit rien, et la carte doit le DIRE. Un tableau qui
+   * laisse la case vide se lit comme un oubli — c'est exactement la confusion
+   * que la décision du 26/08 cherche à empêcher.
+   */
+  it('dit qu\u2019un r\u00f4le ne re\u00e7oit rien par d\u00e9cision — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT_CARTE);
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue(DOCS);
+    vi.spyOn(Api, 'fetchFeuilles').mockResolvedValue(FEUILLES);
+
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('4 fiches'));
+    expect(container.textContent).toContain('rien \u2014 d\u00e9cision');
+    expect(container.textContent).toContain("et c'est voulu");
+  });
+
+  /**
+   * Les rôles et leurs feuilles viennent de `@luminose/editorial`. Ajouter une
+   * action au catalogue sans qu'elle apparaisse ici rendrait la carte muette
+   * sur un pan du flux, sans que rien ne le signale.
+   */
+  it('nomme toutes les actions du catalogue', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT_CARTE);
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue(DOCS);
+    vi.spyOn(Api, 'fetchFeuilles').mockResolvedValue(FEUILLES);
+
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('4 fiches'));
+    for (const a of AI_ACTION_CATALOG) {
+      expect(container.textContent, `${a.id} manque \u00e0 la carte`).toContain(a.id);
+    }
+  });
+});
+
 describe('Corpus — lecture des documents', () => {
   afterEach(() => { vi.restoreAllMocks(); cleanup(); });
 

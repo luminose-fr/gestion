@@ -402,6 +402,25 @@ export interface FeuilleAction {
 export const fetchFeuilleAction = (action: string) =>
   api<FeuilleAction>(`/corpus/feuille/${encodeURIComponent(action)}`);
 
+/** Le résumé d'une feuille : ce qu'elle porte et ce qu'elle pèse, sans son texte. */
+export interface ResumeFeuille {
+  action: string;
+  chemins: string[] | null;
+  neRecoitRien: boolean;
+  taille: number;
+  documents: number;
+}
+
+/**
+ * Les neuf feuilles en un appel, chiffres seuls.
+ *
+ * L'écran Carte les affiche côte à côte ; `fetchFeuilleAction` rendrait neuf
+ * fois un texte pouvant atteindre 30 000 caractères pour n'en montrer que la
+ * longueur.
+ */
+export const fetchFeuilles = () =>
+  api<{ feuilles: ResumeFeuille[] }>('/corpus/feuilles');
+
 // ── Mesure des appels (migration 0006) ───────────────────────────────────
 
 /**

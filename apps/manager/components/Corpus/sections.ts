@@ -8,10 +8,10 @@
  * information de navigation, pas un filtre d'écran.
  */
 import {
-    Gauge, BookOpen, Inbox, Landmark, Mic, Compass, Radio, Library, Wrench,
+    Gauge, BookOpen, Inbox, Map as MapIcon, Landmark, Mic, Compass, Radio, Library, Wrench,
 } from 'lucide-react';
 
-export type CorpusSection = 'etat' | 'documents' | 'inbox';
+export type CorpusSection = 'etat' | 'documents' | 'inbox' | 'carte';
 
 export const CORPUS_SECTIONS: Array<{
     id: CorpusSection;
@@ -23,6 +23,7 @@ export const CORPUS_SECTIONS: Array<{
     { id: 'etat',      label: 'État',      sousTitre: 'Ce qui demande une décision',              icon: Gauge },
     { id: 'documents', label: 'Documents', sousTitre: 'Le corpus, en lecture seule',             icon: BookOpen },
     { id: 'inbox',     label: 'Inbox',     sousTitre: 'Capturer sans ranger — trois champs',     icon: Inbox },
+    { id: 'carte',     label: 'Carte',     sousTitre: 'Comment le corpus atteint un modèle',      icon: MapIcon },
 ];
 
 /**

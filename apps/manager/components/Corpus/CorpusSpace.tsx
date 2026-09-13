@@ -14,6 +14,7 @@ import type { CorpusSection } from './sections';
 import EtatView from './EtatView';
 import DocumentsView from './DocumentsView';
 import InboxView from './InboxView';
+import CarteView from './CarteView';
 
 interface Props {
   section: CorpusSection;
@@ -24,6 +25,7 @@ interface Props {
 const CorpusSpace: React.FC<Props> = ({ section, bloc }) => {
   if (section === 'documents') return <DocumentsView bloc={bloc} />;
   if (section === 'inbox') return <InboxView />;
+  if (section === 'carte') return <CarteView />;
   return <EtatView />;
 };
 

@@ -13,7 +13,7 @@
  */
 import { Hono } from 'hono';
 import { composer, composerFeuille, separerFrontmatter, PROFILS, type Profil } from '@luminose/corpus';
-import { actionConnue, feuillePour } from '@luminose/editorial';
+import { actionConnue, feuillePour, FEUILLE_PAR_ACTION } from '@luminose/editorial';
 import { SourceCorpusSchema, DeploiementSchema } from '@luminose/shared';
 import { DOCUMENTS, EMPREINTES } from '../genere/corpus';
 import { Refus } from '../refus';
@@ -161,6 +161,39 @@ corpus.get('/document', (c) => {
  * Une feuille vide n'est pas une erreur : le Lecteur froid et l'Artiste ne
  * reçoivent rien, par décision. La réponse le dit explicitement.
  */
+/**
+ * Toutes les feuilles d'un coup — leurs CHIFFRES, jamais leur texte.
+ *
+ * L'écran Carte affiche ce que chaque rôle reçoit et ce que ça pèse. Le faire
+ * avec `/feuille/:action` demanderait neuf appels rendant chacun jusqu'à
+ * 30 000 caractères de texte dont l'écran n'affiche rien : ~180 ko pour
+ * afficher neuf nombres.
+ *
+ * POURQUOI CETTE ROUTE EXISTE PLUTÔT QU'UN TABLEAU RECOPIÉ DANS L'ÉCRAN. Une
+ * documentation qui recopie des chiffres les fige au jour où elle a été
+ * écrite, et rien ne la contredit quand ils bougent — c'est exactement le
+ * défaut qu'on a passé une journée à retirer des README du corpus, le
+ * 13/09/2026. Ici les nombres sont composés à la demande : l'écran ne PEUT pas
+ * annoncer une feuille périmée.
+ */
+corpus.get('/feuilles', (c) => {
+  const date = aujourdhui();
+  const feuilles = Object.entries(FEUILLE_PAR_ACTION).map(([action, chemins]) => {
+    if (!chemins) {
+      return { action, chemins: null, neRecoitRien: true, taille: 0, documents: 0 };
+    }
+    const f = composerFeuille(DOCUMENTS, chemins, date);
+    return {
+      action,
+      chemins,
+      neRecoitRien: false,
+      taille: f.taille,
+      documents: f.documents.length,
+    };
+  });
+  return c.json({ feuilles });
+});
+
 corpus.get('/feuille/:action', (c) => {
   const action = c.req.param('action');
   if (!actionConnue(action)) {
