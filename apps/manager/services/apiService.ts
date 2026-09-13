@@ -324,6 +324,8 @@ export interface EtatCorpus {
   date: string;
   documents: number;
   blocs: string[];
+  /** Le vocabulaire des statuts, tel que la garde d'écriture du Worker le connaît. */
+  statuts?: string[];
   profils: ProfilContexte[];
   offres: Array<{ chemin: string; titre: string; statut: string }>;
   aRevoir: Array<{ chemin: string; titre: string; review_at: string }>;

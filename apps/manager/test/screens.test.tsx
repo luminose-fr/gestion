@@ -1096,6 +1096,7 @@ describe('Corpus — la carte', () => {
     date: '2026-09-13',
     documents: 4,
     blocs: ['socle', 'voix'],
+    statuts: ['actif', 'candidat', 'statut-inconnu-de-l-ecran'],
     profils: [
       { profil: 'noyau', titre: 'n', intention: 'x', hash: 'aaaaaaaa', taille: 1234, documents: 1, plafond: 7500, depasse: false },
       { profil: 'complet', titre: 'c', intention: 'y', hash: 'bbbbbbbb', taille: 5678, documents: 4, plafond: null, depasse: false },
@@ -1199,6 +1200,46 @@ describe('Corpus — la carte', () => {
    * action au catalogue sans qu'elle apparaisse ici rendrait la carte muette
    * sur un pan du flux, sans que rien ne le signale.
    */
+  /**
+   * NORMATIF — le vocabulaire des statuts vient du Worker.
+   *
+   * La garde qui refuse un statut inconnu au commit et la documentation qui
+   * l'explique doivent nommer la même liste. Si l'écran tenait sa propre
+   * liste, un septième statut entrerait dans le corpus sans jamais apparaître
+   * ici — et personne ne saurait ce qu'il veut dire.
+   */
+  it('sert la liste de statuts du Worker, et signale celui qu’il ne sait pas décrire', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT_CARTE);
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue(DOCS);
+    vi.spyOn(Api, 'fetchFeuilles').mockResolvedValue(FEUILLES);
+
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('4 fiches'));
+
+    const texte = container.textContent ?? '';
+    expect(texte).toContain('statut-inconnu-de-l-ecran');
+    expect(texte).toContain('ajouter sa d\u00e9finition');
+    // Un statut que le Worker ne sert pas n'est pas inventé par l'écran.
+    expect(texte).not.toContain('volontairement-absent');
+  });
+
+  /**
+   * La première version de ce schéma rangeait la relecture à froid et
+   * l'ajustement en file, comme si on relisait une fois avant de passer à la
+   * suite. Le Lecteur froid JUGE et ne produit aucun texte : avec l'Ajustement
+   * il forme une boucle qui tourne tant que le verdict n'est pas « publiable ».
+   */
+  it('montre la boucle de relecture, pas une file — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT_CARTE);
+    vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue(DOCS);
+    vi.spyOn(Api, 'fetchFeuilles').mockResolvedValue(FEUILLES);
+
+    const { container } = render(<CorpusSpace section="carte" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('4 fiches'));
+    expect(container.textContent).toContain('puis on relit');
+    expect(container.textContent).toContain('une branche,');
+  });
+
   it('nomme toutes les actions du catalogue', async () => {
     vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT_CARTE);
     vi.spyOn(Api, 'fetchDocumentsCorpus').mockResolvedValue(DOCS);

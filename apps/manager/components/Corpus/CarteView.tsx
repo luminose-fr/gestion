@@ -60,6 +60,23 @@ const CHAINE: Array<{ id: string; court: string }> = [
 const personaDe = (action: string) =>
   AI_ACTION_CATALOG.find(a => a.id === action)?.persona ?? '';
 
+/**
+ * Ce que chaque statut VEUT DIRE.
+ *
+ * La liste, elle, vient du Worker (`/api/corpus`), qui la tient d'un seul
+ * endroit : la garde qui refuse un statut inconnu au commit. Un statut ajouté
+ * là-bas apparaît donc ici sans rien de plus — et l'écran signale qu'il lui
+ * manque sa définition, plutôt que de le passer sous silence.
+ */
+const SENS_DES_STATUTS: Record<string, string> = {
+  'actif': "Proposable aujourd'hui. Chargé partout.",
+  'active': "La forme que prennent les décisions datées : la décision est en vigueur.",
+  'suspendu': "Relançable tel quel. Exclu en rédaction, gardé en réflexion stratégique. — Le Seuil",
+  'termine': "Ne se reproposera pas ; sa matière part dans repertoire/. — les ateliers archétypes",
+  'candidat': "N'est pas un fait. Ne doit jamais sortir dans un contenu. — « Le Souffle des Étoiles »",
+  'volontairement-absent': "Pas de règle ici, et c'est délibéré. À re-confirmer à la revue, jamais à combler.",
+};
+
 /* ── Habillage ───────────────────────────────────────────────────────── */
 
 const Section: React.FC<{ titre: string; chapeau?: string; children: React.ReactNode }> = ({ titre, chapeau, children }) => (
@@ -115,12 +132,50 @@ const Puce: React.FC<{ children: React.ReactNode; ton?: 'neutre' | 'attention' }
   }`}>{children}</span>
 );
 
+/**
+ * Une liste numérotée — à n'employer que quand l'ordre porte une information.
+ * Ici il en porte une : les couches d'un prompt sont empilées dans cet ordre,
+ * et une consigne de sortie placée avant le rôle ne se lirait pas pareil.
+ */
+const Couches: React.FC<{ items: Array<{ titre: string; texte: string; option?: boolean }> }> = ({ items }) => (
+  <ol className="mt-4 space-y-0 list-none p-0 max-w-3xl">
+    {items.map((c, i) => (
+      <li key={c.titre} className="grid grid-cols-[1.8rem_1fr] gap-x-3 py-2.5 border-b border-brand-light dark:border-dark-sec-bg last:border-b-0">
+        <span className="font-mono text-xs tabular-nums text-brand-main/45 dark:text-dark-text/40 pt-0.5">
+          {String(i + 1).padStart(2, '0')}
+        </span>
+        <span className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+          <strong className="font-semibold">{c.titre}</strong>
+          {c.option && <span className="ml-2 align-middle"><Puce>seulement si</Puce></span>}
+          <span className="block text-brand-main/70 dark:text-dark-text/60">{c.texte}</span>
+        </span>
+      </li>
+    ))}
+  </ol>
+);
+
 const Points: React.FC<{ items: Array<{ titre: string; texte: string }> }> = ({ items }) => (
   <ul className="mt-4 space-y-3 list-none p-0 max-w-3xl">
     {items.map(p => (
       <li key={p.titre} className="relative pl-5 text-sm leading-relaxed text-brand-main dark:text-dark-text">
         <span className="absolute left-0 top-[0.62em] w-2.5 h-px bg-brand-main dark:bg-dark-text" />
         <strong className="font-semibold">{p.titre}</strong> {p.texte}
+      </li>
+    ))}
+  </ul>
+);
+
+const Refus: React.FC<{ items: Array<{ titre: string; texte: string; renverse?: boolean }> }> = ({ items }) => (
+  <ul className="mt-4 space-y-3 list-none p-0 max-w-3xl">
+    {items.map(x => (
+      <li key={x.titre} className="grid grid-cols-[1.1rem_1fr] gap-x-2.5 text-sm leading-relaxed text-brand-main dark:text-dark-text">
+        <span className={`font-mono leading-relaxed ${x.renverse ? 'text-amber-700 dark:text-amber-300' : 'text-brand-main/45 dark:text-dark-text/40'}`}>
+          {x.renverse ? '~' : '\u00d7'}
+        </span>
+        <span>
+          <strong className="font-semibold">{x.titre}</strong>{' '}
+          <span className="text-brand-main/70 dark:text-dark-text/60">{x.texte}</span>
+        </span>
       </li>
     ))}
   </ul>
@@ -222,6 +277,47 @@ const CarteView: React.FC = () => {
             ))}
           </tbody>
         </Tableau>
+
+        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">Le vocabulaire des statuts</h3>
+        <Prose>
+          <p>
+            Le <Mono>statut</Mono> d'une fiche décide si elle entre dans un contexte et si l'offre
+            qu'elle porte peut être proposée. Le Worker refuse au commit tout statut hors de cette
+            liste : un <Mono>actiff</Mono> mal tapé rendrait Le Seuil proposable sans que rien ne
+            l'annonce.
+          </p>
+        </Prose>
+
+        <Tableau>
+          <thead>
+            <tr>
+              <Th>Statut</Th>
+              <Th>Ce qu'il veut dire</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {(etat.statuts ?? Object.keys(SENS_DES_STATUTS)).map(s => (
+              <tr key={s}>
+                <Td className="whitespace-nowrap"><Mono>{s}</Mono></Td>
+                <Td className="text-brand-main/70 dark:text-dark-text/60">
+                  {SENS_DES_STATUTS[s] ?? (
+                    <span className="text-amber-700 dark:text-amber-300">
+                      Statut connu du Worker mais pas décrit ici — ajouter sa définition.
+                    </span>
+                  )}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Tableau>
+
+        <div className="mt-4 max-w-2xl text-sm leading-relaxed text-brand-main dark:text-dark-text">
+          <p>
+            Le dernier est le moins évident et le plus utile : sans lui, une IA qui lit le corpus
+            comble le vide en inventant une charte, et l'incohérence revient là où il y avait une
+            liberté assumée.
+          </p>
+        </div>
 
         <Figure
           titre="Une source, trois chemins de distribution."
@@ -351,19 +447,44 @@ const CarteView: React.FC = () => {
           </p>
         </Prose>
 
+        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">L'anatomie d'un appel</h3>
+        <Prose>
+          <p>
+            Un appel se compose toujours dans le même ordre : le rôle d'abord, les circonstances
+            ensuite, la forme de la réponse en dernier. C'est <Mono>buildSystemPrompt()</Mono> qui
+            assemble, et c'est ce résultat-là que la fixture golden photographie.
+          </p>
+        </Prose>
+
+        <Couches items={[
+          { titre: 'Le rôle', texte: 'Le persona, figé dans le code — jamais recomposé.' },
+          { titre: 'La grille du format', texte: 'Rédaction et ajustement seulement : longueurs, bascules, rôle de chaque partie.', option: true },
+          { titre: 'Les règles de CTA', texte: "Celles que l'objectif commande." },
+          { titre: 'Le contexte de série', texte: "Seulement si la publication appartient à une série. Anciennement « contexte additionnel », un fourre-tout qui ne transportait qu'une chose — l'étiquette envoyée au modèle, elle, n'a pas changé.", option: true },
+          { titre: 'La forme de la réponse', texte: "Le JSON attendu, propre à l'action." },
+          { titre: 'La feuille de salle', texte: "Ajoutée en dernier et AILLEURS : dans le Worker, en tête du prompt déjà composé. C'est ce qui la met hors du champ de la fixture." },
+        ]} />
+
+        <Prose>
+          <p className="mt-4">
+            La dernière couche est <strong>facultative</strong> : sans elle, l'appel est celui
+            d'avant à l'octet près. On peut donc couper un rôle à la fois — une ligne dans la
+            table — sans rien redéployer du front. Ça compte, parce qu'un prompt ne tombe pas en
+            panne : il rend un texte un peu moins bon, ce qui est bien plus difficile à voir.
+          </p>
+        </Prose>
+
         <Figure
           titre="Qui reçoit le corpus, et qui n'en reçoit rien."
           legende={<>
             Le Lecteur froid lit « avec les yeux d'un inconnu » : lui donner le positionnement le
             rendrait moins inconnu, donc moins utile. Mais l'inverse a un prix — privé de source,
             un rôle s'en fabrique une. C'est arrivé à l'Artiste, qui portait sa propre copie de
-            la charte et a peint des mois durant aux couleurs du Seuil, une offre suspendue.{' '}
-            <Mono>PLAN_SERIES</Mono>, absent de cette chaîne, est le seul rôle à recevoir le bloc{' '}
-            <Mono>strategie</Mono> : c'est le seul qui décide en voyant l'ensemble.
+            la charte et a peint des mois durant aux couleurs du Seuil, une offre suspendue.
           </>}
         >
-          <svg viewBox="0 0 980 300" className="block w-full min-w-[680px] h-auto" role="img"
-               aria-label="Le corpus, en barre au sommet, descend vers six des sept étapes du flux éditorial avec le poids de chaque feuille. La relecture à froid ne reçoit aucune ligne : elle est volontairement privée de contexte.">
+          <svg viewBox="0 0 980 360" className="block w-full min-w-[680px] h-auto" role="img"
+               aria-label="Le corpus, en barre au sommet, descend vers six des sept étapes du flux éditorial avec le poids de chaque feuille. La relecture à froid ne reçoit aucune ligne : elle est volontairement privée de contexte. La relecture et l'ajustement forment une boucle qui tourne tant que le verdict n'est pas publiable ; le carrousel est une branche, pas une suite.">
             <defs>
               <marker id="carte-fl2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
@@ -404,14 +525,33 @@ const CarteView: React.FC = () => {
                   <text x={cx} y="222" textAnchor="middle" fontSize="13" fontWeight="600" fill="currentColor">{e.court}</text>
                   <text x={cx} y="240" textAnchor="middle" fontSize="10.5" fill="currentColor" opacity="0.62">{personaDe(e.id)}</text>
                   {i < CHAINE.length - 1 && (
-                    <line x1={x + 120} y1="227" x2={x + 132} y2="227" stroke="currentColor" strokeWidth="1.2" opacity="0.5" markerEnd="url(#carte-fl2)" />
+                    <line x1={x + 120} y1="227" x2={x + 132} y2="227" stroke="currentColor" strokeWidth="1.2"
+                          opacity="0.5" strokeDasharray={i === 5 ? '4 3' : undefined} markerEnd="url(#carte-fl2)" />
                   )}
                 </g>
               );
             })}
 
-            <text x="490" y="288" textAnchor="middle" fontSize="11.5" fill="currentColor" opacity="0.7">
+            {/*
+              LA BOUCLE. Le Lecteur froid JUGE et ne produit aucune version du
+              texte ; l'Ajustement corrige, puis on relit. Dessiner ces deux-là
+              en file laisserait croire qu'on relit une fois et qu'on passe à la
+              suite — c'est l'erreur de la première version de ce schéma.
+            */}
+            <path d="M 766 258 L 766 292 L 628 292 L 628 264" fill="none" stroke="currentColor"
+                  strokeWidth="1.2" opacity="0.5" markerEnd="url(#carte-fl2)" />
+            <text x="697" y="286" textAnchor="middle" fontSize="10.5" fill="currentColor" opacity="0.7">
+              puis on relit, tant que le verdict n'est pas « publiable »
+            </text>
+
+            <text x="904" y="278" textAnchor="middle" fontSize="10.5" fill="currentColor" opacity="0.7">une branche,</text>
+            <text x="904" y="292" textAnchor="middle" fontSize="10.5" fill="currentColor" opacity="0.7">pas une suite</text>
+
+            <text x="490" y="328" textAnchor="middle" fontSize="11.5" fill="currentColor" opacity="0.7">
               Le trait épais marque l'action où se disent le tarif, le titre et l'appel à l'action.
+            </text>
+            <text x="490" y="348" textAnchor="middle" fontSize="11.5" fill="currentColor" opacity="0.7">
+              L'Éclateur, hors chaîne, décide en une fois pour toute une série — et reçoit seul le bloc stratégie.
             </text>
           </svg>
         </Figure>
@@ -448,6 +588,17 @@ const CarteView: React.FC = () => {
             })}
           </tbody>
         </Tableau>
+        <div className="mt-6 max-w-2xl rounded-lg border-l-2 border-brand-main dark:border-dark-text bg-brand-light dark:bg-dark-sec-bg px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1.5">
+            Où voir ce qui part vraiment
+          </p>
+          <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+            <strong>Réglages → Personas.</strong> Chaque rôle y montre sa feuille de salle en
+            premier — demandée au Worker, jamais recomposée dans le navigateur, sans quoi l'écran
+            de vérification pourrait montrer autre chose que ce qui est envoyé — puis le prompt
+            composé qui suit.
+          </p>
+        </div>
       </Section>
 
       {/* ══════ LE FLUX DE MISE À JOUR ══════ */}
@@ -463,6 +614,54 @@ const CarteView: React.FC = () => {
             Conséquence à connaître : <strong>ce qu'on donne à éditer se lit sur GitHub, jamais
             dans le bundle.</strong> Le bundle est la photo du dernier déploiement ; éditer la
             photo écraserait sans le voir tout commit intervenu depuis.
+          </p>
+          <p>
+            Autre conséquence, côté coût : lire une fiche ne coûte <strong>aucune requête D1</strong>.
+            Le budget des cinquante par invocation n'est pas entamé par le corpus. Et chaque fiche
+            porte un lien « ou sur GitHub » : pour éditer à la main, voir l'historique, ou régler
+            un conflit.
+          </p>
+        </Prose>
+
+        <div className="mt-5 max-w-2xl rounded-lg border-l-2 border-amber-500 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-1.5">
+            Le piège
+          </p>
+          <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+            <strong>Enregistrer ne déploie pas.</strong> Corriger une fiche puis relancer une
+            rédaction dans la foulée, c'est envoyer l'ancienne version au modèle. L'écran le dit
+            après l'enregistrement ; si vous avez choisi « plus tard », c'est à vous de revenir.
+            <strong> Corpus → État</strong> le rappelle et nomme les fiches concernées.
+          </p>
+        </div>
+
+        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">L'inbox est une salle d'attente, pas un chemin</h3>
+        <Prose>
+          <p>
+            Le mot « intégrer » laisse croire que le bouton range la capture dans le corpus. Il ne
+            range rien : il se coche <em>après</em> la modification, et sert à garder le fil entre
+            les mots d'origine et le fichier qui les porte. Si vous savez quelle ligne changer et
+            que vous êtes devant l'écran, l'inbox n'apporte rien — allez droit à la fiche.
+          </p>
+          <p>
+            Ce qu'elle sert vraiment : ne pas perdre une décision prise au milieu d'autre chose, ou
+            dont les ricochets demandent du temps.
+          </p>
+        </Prose>
+
+        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">Intégrer, ce n'est pas écrire : c'est réviser l'impact</h3>
+        <Prose>
+          <p>
+            « À partir d'aujourd'hui ma cible principale devient X » ne touche pas un fichier. Ça
+            touche l'audience dans le socle, la décision qui supersède la précédente, la fiche
+            LinkedIn dont la cible n'est peut-être plus la bonne, et les campagnes Ads en cours.
+          </p>
+          <p>
+            <strong>Si l'audience change et que la fiche LinkedIn ne bouge pas, la divergence n'a
+            pas disparu : elle a déménagé à l'intérieur du corpus.</strong> Ce serait le pire
+            résultat possible de tout ce chantier — le travail fait, et le même problème, mieux
+            rangé. C'est précisément là qu'une IA qui lit <em>tout</em> le corpus sert à quelque
+            chose : elle sort la liste de ce qui devient douteux, vous tranchez, elle écrit.
           </p>
         </Prose>
 
@@ -542,6 +741,18 @@ const CarteView: React.FC = () => {
         </Figure>
       </Section>
 
+      {/* ══════ LES PRINCIPES ══════ */}
+      <Section titre="Les principes" chapeau="Les règles de départ. Les garde-fous ci-dessous ne font que les rendre vérifiables par une machine.">
+        <Points items={[
+          { titre: "Rien ne s'édite dans une IA.", texte: "Une correction écrite dans une conversation ChatGPT est perdue. La conversation propose, on porte dans le corpus, on redéploie. Sens unique." },
+          { titre: "L'état dans le fichier, le pourquoi dans une décision datée.", texte: "Git donne la chronologie, mais aucun modèle ne lit git log. La fiche porte son statut et se réécrit librement ; la décision porte le motif et n'est jamais réécrite — elle est supersédée par une plus récente qui la cite." },
+          { titre: "Une capture ne change rien tant qu'elle n'est pas intégrée.", texte: "On peut donc déposer une idée dont on n'est pas sûr, et une note bâclée ne peut pas casser un prompt de production." },
+          { titre: "Le corpus sait dire « pas de règle, et c'est voulu ».", texte: "Une absence déclarée et datée vaut mieux qu'un trou, qu'un modèle comblera toujours." },
+          { titre: "Ce qui n'a besoin de rien ne charge rien.", texte: "Transcription, sous-titrage, automatisation : zéro contexte Luminose. Une absence de besoin est une information, pas un oubli." },
+          { titre: "Une fonctionnalité en plus ne peut pas emporter celles d'avant.", texte: "Sans jeton GitHub, le corpus se lit comme avant et seuls les boutons d'écriture se taisent. Une mesure qui échoue ne fait échouer aucun appel. Des tests le vérifient, route par route." },
+        ]} />
+      </Section>
+
       {/* ══════ LES GARDE-FOUS ══════ */}
       <Section titre="Les garde-fous" chapeau="Ce qui empêche les copies de diverger sans que personne ne s'en aperçoive.">
         <Points items={[
@@ -550,8 +761,23 @@ const CarteView: React.FC = () => {
           { titre: 'Aucune feuille ne sert les règles de voix.', texte: "Les personas les portent déjà. Un test NORMATIF refuse qu'une feuille nomme voix/regles-de-voix, sans quoi ~3 900 caractères partiraient deux fois par rédaction." },
           { titre: 'La règle de lecture ouvre le bloc stratégie.', texte: "La composition ordonne par chemin ; un test vérifie que a-lire-d-abord précède la première décision. Un renommage « plus descriptif » la ferait glisser en silence." },
           { titre: 'Le tableau des offres est dérivé du frontmatter.', texte: "Jamais recopié, donc jamais oublié — et présent dans les trois profils, parce que proposer une offre arrêtée est l'erreur la plus coûteuse qu'une IA puisse commettre ici." },
+          { titre: "Ce qu'on refuse de commiter.", texte: "Le parseur de frontmatter est tolérant par conception : un statut mal tapé ne fait échouer aucun test, la fiche part simplement dans les prompts amputée de son statut — et « actiff » rendrait Le Seuil proposable. Le Worker vérifie donc avant l'entrée dans l'histoire du dépôt : frontmatter présent, corps non vide, titre, statut connu." },
           { titre: 'Les README sont ignorés par le chargeur.', texte: "Et un test le vérifie. Corollaire : une règle écrite dans un README ne protège personne." },
           { titre: 'Le jeton GitHub est facultatif.', texte: "Absent, tout ce qui lit le corpus fonctionne à l'identique ; seuls les boutons d'écriture se taisent. Une fonctionnalité en plus ne doit jamais pouvoir emporter celles d'avant." },
+        ]} />
+      </Section>
+
+      {/* ══════ CE QU'ON NE FAIT PAS ══════ */}
+      <Section titre="Ce qu'on ne fait pas, et pourquoi" chapeau="Des portes fermées volontairement. Les rouvrir demande de reprendre l'argument, pas de l'ignorer.">
+        <Refus items={[
+          { titre: 'Pas de RAG ni de base vectorielle.', texte: "Le corpus entier tient dans une fenêtre de contexte. Ça résoudrait un problème qui n'existe pas — et une base mal rangée avec des embeddings reste mal rangée, mais répond avec assurance." },
+          { titre: 'Pas de synchronisation automatique des GPT et des Gems.', texte: "Ce n'est pas possible côté plateforme. On recolle un pack daté, et le hash dit s'il est périmé." },
+          { titre: "Pas de « consulte systématiquement cette URL » dans les consignes ChatGPT ou Gemini.", texte: "La navigation est un appel d'outil que le modèle décide de faire ou non. On remplacerait quatre vérités par une vérité intermittente." },
+          { titre: 'Pas de serveur MCP en premier.', texte: "Il ne couvre ni Gemini grand public, ni OpenRouter, ni 1min.ai — la moitié du parc ne verrait rien. Il servira à écrire depuis une conversation, pas à lire un socle stable : un bloc de contexte fait ça mieux." },
+          { titre: "Pas d'arborescence à huit dossiers.", texte: "Six blocs, chacun justifié par un cas d'usage qui le charge et un cas d'usage qui doit l'ignorer." },
+          { titre: 'Pas de corpus dans packages/editorial.', texte: "Rythmes différents : ajouter un témoignage y deviendrait une revue de fixture golden. Le sens de la dépendance est l'inverse — c'est le corpus qui engendre voice.ts." },
+          { titre: "Pas d'édition du corpus depuis l'application — RENVERSÉ le 30/08/2026.", renverse: true,
+            texte: "La règle disait « deux copies modifiables, c'est la maladie réinstallée dans le remède ». Elle a été relue : ce qui compte est « une seule copie modifiable », pas « l'application ne parle jamais à Git ». L'application écrit dans Git — copie unique, versionnée — et toujours pas dans le bundle qu'elle sert. La lecture stricte coûtait un aller-retour par correction." },
         ]} />
       </Section>
 
@@ -563,6 +789,9 @@ const CarteView: React.FC = () => {
           { titre: 'Les modules du répertoire attendent.', texte: "Report délibéré : la matière des 9 ateliers animés se dépouillera quand la forme du futur format de groupe sera décidée, pas avant. Trier contre un format connu vaut dix fois mieux qu'indexer dans l'abstrait." },
           { titre: 'Les budgets de raisonnement par format ne sont pas réglés.', texte: "Réglages → Mesures enregistre durée, jetons et coût à chaque appel ; quelques semaines de production diront où plafonner." },
           { titre: 'La feuille du Rédacteur double son prompt.', texte: "Le poste discutable est canaux : il reçoit toutes les fiches de canal alors qu'il écrit pour un seul, et le format cible est connu à l'appel. Le jour où ça pèse, c'est là qu'il faut couper — et nulle part ailleurs." },
+          { titre: "Le hash du corpus n'est pas figé dans les générations.", texte: "model_label l'est déjà, pour survivre à la suppression d'un modèle. Faire pareil avec le hash du corpus rendrait « pourquoi ce contenu dit-il ça ? » répondable des mois plus tard. Proposé le 26/08, jamais fait." },
+          { titre: 'Les URLs en texte brut du corpus.', texte: "Le plus petit dénominateur commun, servi depuis le même bundle et découpé par exposition : public pour les offres et le positionnement, privé pour la stratégie et les objections. En complément d'un pack collé, jamais à sa place." },
+          { titre: "Le serveur MCP, pour l'écriture.", texte: "Créer une idée ou rattacher une déclinaison depuis une conversation. Volontairement le dernier de la liste ; le point dur n'est pas le protocole, c'est OAuth." },
         ]} />
       </Section>
 

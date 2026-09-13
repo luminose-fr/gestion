@@ -30,6 +30,16 @@ const PROFILS_VALIDES = Object.keys(PROFILS) as Profil[];
 /** Le jour courant, en ISO — l'en-tête du contexte le porte. */
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Les statuts que le composeur sait interpréter.
+ *
+ * Un seul propriétaire, deux usages : la garde d'écriture refuse tout ce qui
+ * n'est pas dans cette liste, et `GET /` la rend pour que l'écran Carte
+ * documente le vocabulaire sans le recopier. Un septième statut ajouté ici
+ * apparaît des deux côtés le même jour.
+ */
+const STATUTS = ['actif', 'active', 'suspendu', 'termine', 'candidat', 'volontairement-absent'];
+
 /** `2027-08` ou `2027-08-15` → est-ce dépassé ? Une forme illisible ne l'est jamais. */
 function echu(valeur: unknown, ref: string): boolean {
   if (typeof valeur !== 'string' || !/^\d{4}-\d{2}/.test(valeur)) return false;
@@ -88,6 +98,7 @@ corpus.get('/', (c) => {
     date,
     documents: DOCUMENTS.length,
     blocs: [...new Set(DOCUMENTS.map((d) => d.bloc))].sort(),
+    statuts: STATUTS,
     profils,
     offres,
     aRevoir,
@@ -220,9 +231,6 @@ corpus.get('/feuille/:action', (c) => {
  *
  * Elles restent à **zéro requête D1** : tout passe par l'API GitHub.
  */
-
-/** Les statuts que le composeur sait interpréter. Un autre passerait en silence. */
-const STATUTS = ['actif', 'active', 'suspendu', 'termine', 'candidat', 'volontairement-absent'];
 
 /**
  * Ce qu'on refuse de commiter.
