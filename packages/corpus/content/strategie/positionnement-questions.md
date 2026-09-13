@@ -19,14 +19,9 @@ expose: prive
 Le 25/08, ce fichier affirmait : *« ce qui part de gens qui le connaissent fonctionne, ce qui
 vise des inconnus fait zéro »*, sur la foi de trois échecs — Le Seuil, les ateliers, Reliance.
 
-**C'est faux.** Les faits, une heure plus tard :
-
-- **plus de 20 Oracles vendus**, à distance, en cabinet et par bouche-à-oreille ;
-- **de nouveaux clients en séance individuelle tous les mois** ;
-- des **inconnus** sont venus essayer les ateliers, une ou deux fois.
-
-Des gens qui ne connaissaient pas Florent achètent, régulièrement. Le haut du tunnel n'est
-pas bouché.
+**C'est faux.** Les faits qui l'ont réfutée une heure plus tard font désormais foi dans
+`../socle/ce-qui-fonctionne.md` : des gens qui ne connaissaient pas Florent achètent,
+régulièrement. Le haut du tunnel n'est pas bouché.
 
 ### Pourquoi l'erreur, et ce qu'elle apprend au corpus
 

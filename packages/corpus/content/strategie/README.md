@@ -25,4 +25,6 @@ C'est arrivé dès la première passe : une hypothèse stratégique bâtie sur t
 a été réfutée en une phrase par les chiffres du quotidien, qui n'étaient écrits nulle part.
 
 Conséquence : **écrire aussi ce qui tourne.** Un fait de fonctionnement régulier vaut une
-ligne dans `socle/`, même s'il ne fait pas de bruit.
+ligne dans `socle/`, même s'il ne fait pas de bruit. C'est fait depuis le 13/09/2026 :
+`../socle/ce-qui-fonctionne.md` est le contrepoids de ce dossier, et il est chargé là où ce
+dossier ne l'est pas.
