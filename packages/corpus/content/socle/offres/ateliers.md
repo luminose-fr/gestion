@@ -27,5 +27,5 @@ une imprécision :
 
 Formats pratiqués : méditation guidée, auto-hypnose, exploration archétypale.
 
-La matière des 9 ateliers est conservée dans un document personnel de Florent — à dépouiller
-vers `repertoire/` **quand la forme du futur format de groupe sera décidée**, pas avant.
+Le sort de la matière des 9 ateliers, et le moment de la dépouiller, font foi dans
+`../../strategie/decisions/2026-08-ateliers-archetypes-termines.md`.

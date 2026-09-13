@@ -19,13 +19,15 @@ Il ne charge **pas** la voix éditoriale longue : l'annonce a ses propres contra
 format, et les règles d'oralité écrite et de métaphore filée n'y ont pas la place de
 s'exprimer.
 
-**Aucune promesse de guérison, explicite ou suggérée.** Dans une annonce payante, c'est un
-risque réel, pas une faute de goût.
+**Aucune promesse de guérison, explicite ou suggérée.** La règle et son motif font foi dans
+`../socle/cadre-deontologique.md` ; elle s'applique ici sans exception.
 
 ## Valeurs de conversion
 
 Les campagnes visent les séances individuelles : **80 €** (séance simple) et **140 €**
-(breathwork). **Les trackers sont à jour** — confirmé le 25/08/2026. L'ancienne valeur de
+(breathwork) — tarifs définis dans `../socle/offres/seance-individuelle.md` et
+`../socle/offres/breathwork-individuel.md`, repris ici parce que la valeur de conversion
+**est** le sujet. **Les trackers sont à jour** — confirmé le 25/08/2026. L'ancienne valeur de
 1 470 €, héritée du Seuil, ne s'applique plus.
 
 ## Historique

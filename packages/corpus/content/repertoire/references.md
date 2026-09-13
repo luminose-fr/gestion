@@ -32,5 +32,5 @@ Elles ont déjà porté un contenu et fonctionné. À réutiliser plutôt qu'à 
 
 ## Ce qui ne vit pas ici
 
-Les règles de voix (`VOICE_RULES`) et les personas vivent dans `packages/editorial/`, avec
-leurs fixtures golden. Le corpus ne les recopie pas.
+Les règles de voix et les personas ne sont pas dans le corpus — voir
+`../voix/direction-artistique.md`, qui dit où elles vivent.

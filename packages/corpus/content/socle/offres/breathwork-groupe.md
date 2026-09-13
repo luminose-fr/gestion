@@ -15,10 +15,8 @@ Questionnaire de santé **obligatoire** — voir `../cadre-deontologique.md`.
 ## Indicateur avancé
 
 Le remplissage de ces journées est la **condition de reprise** du Seuil et des activités de
-groupe : voir `../../strategie/decisions/2026-08-seuil-suspendu.md`. Tant qu'un format court
-ne se remplit pas de façon fiable, un format long n'a pas de public.
-
-C'est le seul chiffre du corpus qui commande directement d'autres décisions.
+groupe. Ce qu'il commande, et pourquoi, fait foi dans
+`../../strategie/decisions/2026-08-seuil-suspendu.md`.
 
 ## Rythme de communication
 

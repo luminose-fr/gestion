@@ -36,6 +36,8 @@ La règle en une phrase : **l'hypnose est une porte d'entrée, elle ne définit 
 ouvrir les bonnes portes. Rôle symbolique : **gardien du seuil** — garant du cadre et de la
 sécurité, **non-gourou**, travail en co-création.
 
+*Cette posture fait foi ici. `cadre-deontologique.md` s'appuie dessus sans la redire.*
+
 ## La métaphore fondatrice
 
 Issue du passé en recherche UX : plutôt que de vouloir adapter toutes les poignées de porte

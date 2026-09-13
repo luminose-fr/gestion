@@ -9,6 +9,9 @@ expose: prive
 
 **Rien ici n'est tranché.** `statut: candidat` : ce fichier n'alimente aucun contenu.
 
+*Les tarifs et les chiffres de vente cités plus bas sont repris des fiches de
+`socle/offres/`, qui seules font foi. S'ils divergent, ce sont elles qui ont raison.*
+
 ---
 
 ## L'hypothèse précédente est réfutée — et on la garde

@@ -18,18 +18,14 @@ expose: prive
 | Mesure | Mixpanel (via Google Tag Manager) |
 | Site | Jekyll sur GitHub Pages `www.luminose.fr` |
 | Production éditoriale | `gestion.luminose.fr` |
+| Publicité | Google Ads — son état et ses valeurs de conversion vivent dans `../canaux/google-ads.md` |
 | Transcription et sous-titrage | Whisper (sans filtre particulier — ce fonctionnement convient) |
 
 > Les deux encaissements coexistent : ni « Stripe » ni « Stancer » seuls n'étaient exacts.
-
-## Google Ads — état au 25/08/2026
-
-**Deux campagnes actives uniquement**, vers `luminose.fr`, sur les **séances individuelles**,
-à **10 € / jour**. Tout le reste est en pause ou supprimé.
-
-Les campagnes visent les séances individuelles : **80 €** pour une séance simple, **140 €**
-pour le breathwork. **Les valeurs de conversion des trackers sont à jour** (confirmé le
-25/08/2026) — l'ancienne valeur de 1 470 €, héritée du Seuil, ne s'applique plus.
+>
+> **Ce fichier fait foi sur le prestataire d'encaissement.** Les deux noms sont repris dans
+> `../socle/offres/seance-individuelle.md` et `../socle/offres/breathwork-groupe.md` : un
+> changement de prestataire se répercute dans les trois.
 
 ## Préférence technique
 

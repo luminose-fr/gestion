@@ -12,8 +12,8 @@ conscience. C'est le format long : articles de fond, étayés, avec des référe
 (voir `../repertoire/references.md`).
 
 Registre : pédagogique, humain, étayé scientifiquement, enrichi d'humour léger et de
-métaphores concrètes. Les règles de voix transverses s'appliquent intégralement
-(`packages/editorial/src/voice.ts`).
+métaphores concrètes. Les règles de voix transverses s'appliquent intégralement — voir
+`../voix/direction-artistique.md`.
 
 ## FrontMatter Jekyll — NORMATIF
 

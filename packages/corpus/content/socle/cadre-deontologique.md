@@ -19,12 +19,6 @@ Florent Jaouali n'est **ni médecin, ni psychiatre, ni psychologue**.
 Aucun diagnostic. Aucun acte médical. Aucune prescription. Aucune promesse de guérison,
 explicite ou suggérée, dans quelque contenu que ce soit.
 
-## Posture
-
-**« Gardien du seuil »** : garant du cadre et de la sécurité des processus immersifs.
-Non-gourou. Le travail se fait en co-création — le praticien n'a pas les réponses, il tient
-l'espace.
-
 ## Contre-indications strictes — Respiration Holotropique
 
 Un **questionnaire de santé est obligatoire** avant tout accès, individuel comme collectif.

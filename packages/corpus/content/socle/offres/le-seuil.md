@@ -65,11 +65,9 @@ l'écriture, le dessin, le mouvement et la parole.
 Questionnaire d'adéquation en ligne (3-5 min) · entretien visio offert d'1 h · décision
 mutuelle et réservation des dates.
 
-## Format de retour
+## Le retour
 
-**Pas à l'identique.** Le retour se fera en **groupe fermé**, pas en individuel.
-
-## Matière conservée
-
-La progression en 7 étapes et la logique des transitions partent dans `repertoire/` le jour
-où le format groupe fermé se construit.
+**Pas à l'identique.** La forme du retour, ses deux conditions de reprise et le sort de la
+matière du parcours font foi dans
+`../../strategie/decisions/2026-08-seuil-suspendu.md` — cette fiche n'en porte que le
+statut.
