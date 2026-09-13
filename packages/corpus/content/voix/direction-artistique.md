@@ -25,6 +25,11 @@ délibérée** : ne pas la combler.
 Registre visé : violet, profondeur, douceur, intériorité, spiritualité **non générique**,
 élégance, atmosphère contemplative.
 
+> **Cette palette fait foi.** Elle est recopiée dans le persona Artiste
+> (`packages/editorial/src/prompts/artiste.ts`), qui compose les visuels de carrousel : une
+> couleur modifiée ici se reporte là, sinon les deux divergent. C'est arrivé — le persona a
+> travaillé un temps dans les couleurs du Seuil, une offre suspendue.
+
 **Typographies** — Futura Book · Abril Display Italic.
 
 **Refusées explicitement : Fraunces, Satoshi.** C'est une interdiction, pas une préférence :
