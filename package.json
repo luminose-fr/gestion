@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "npm run dev -w apps/manager",
     "dev:api": "npm run dev -w workers/api",
+    "prebuild": "npm run embarquer",
     "build": "npm run build -w apps/manager",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

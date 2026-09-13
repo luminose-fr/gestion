@@ -31,6 +31,10 @@ tools/import-notion/import.sql
 # et le fichier assemblé pèse plus de 2 Mo.
 .design/
 
+# Règles de voix : engendrées depuis packages/corpus/content/voix/regles-de-voix.md
+# par le même `embarquer`. La fiche est la source ; ce fichier en est la copie.
+packages/editorial/src/voice.ts
+
 # Corpus embarqué dans le Worker : régénéré depuis packages/corpus/content
 # par `npm run embarquer -w packages/corpus`, avant chaque dev et chaque
 # déploiement. Le commiter ferait exister deux copies du corpus.

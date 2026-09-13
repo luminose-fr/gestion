@@ -102,6 +102,22 @@ describe('ce qui reçoit', () => {
     expect(avecStrategie).toEqual(['PLAN_SERIES']);
   });
 
+  /**
+   * NORMATIF — les règles de voix ne partent jamais deux fois.
+   *
+   * Les personas embarquent `VOICE_RULES`. Servir le bloc `voix` en entier
+   * ajouterait la fiche source au même prompt : près de 3 900 caractères
+   * facturés en double à chaque rédaction, sans rien apporter.
+   */
+  it('aucune feuille ne sert les règles de voix — NORMATIF', () => {
+    const doublons = Object.entries(FEUILLE_PAR_ACTION)
+      .filter(([, chemins]) => (chemins ?? []).some(
+        c => c === 'voix' || c.startsWith('voix/regles-de-voix'),
+      ))
+      .map(([id]) => id);
+    expect(doublons).toEqual([]);
+  });
+
   it('aucun chemin ne pointe vers l\'inbox ni le répertoire', () => {
     const suspects = Object.values(FEUILLE_PAR_ACTION)
       .flatMap(c => c ?? [])

@@ -29,6 +29,19 @@
  * ne prend que les offres. `null` veut dire « ce rôle ne reçoit rien », et
  * c'est une décision, jamais un trou à combler.
  */
+/**
+ * POURQUOI LES FEUILLES NOMMENT `voix/direction-artistique` ET NON `voix`.
+ *
+ * Depuis le 13/09/2026, le bloc `voix/` porte aussi `regles-de-voix.md` — la
+ * source dont `voice.ts` est engendré. Or les personas embarquent déjà
+ * `VOICE_RULES` dans leur prompt : servir le bloc entier enverrait les règles
+ * DEUX FOIS dans le même appel, près de 3 900 caractères payés en double à
+ * chaque rédaction.
+ *
+ * La fiche, elle, entre bien dans le profil `complet` — celui qu'on colle chez
+ * ChatGPT et Gemini, qui n'ont pas de persona pour la porter. Une source, deux
+ * chemins de distribution, et aucun des deux ne double l'autre.
+ */
 export const FEUILLE_PAR_ACTION: Record<string, string[] | null> = {
 
     /** Juger si une idée sert quelque chose qui existe encore. */
@@ -42,19 +55,19 @@ export const FEUILLE_PAR_ACTION: Record<string, string[] | null> = {
     COACH_CHAT: ['socle/identite', 'socle/offres'],
 
     /** Sa liste d'interdits ne doit pas contredire celle qui existe déjà. */
-    LOCK_BRIEF: ['socle/identite', 'socle/offres', 'socle/cadre-deontologique', 'voix'],
+    LOCK_BRIEF: ['socle/identite', 'socle/offres', 'socle/cadre-deontologique', 'voix/direction-artistique'],
 
     /** Le cœur : c'est là que se disent le tarif, le titre, le CTA. */
-    DRAFT_CONTENT: ['socle', 'voix', 'canaux'],
+    DRAFT_CONTENT: ['socle', 'voix/direction-artistique', 'canaux'],
 
     /** La retouche reçoit ce qui a gouverné la production (SPEC §3.5.2, point 3). */
-    ADJUST_CONTENT: ['socle', 'voix', 'canaux'],
+    ADJUST_CONTENT: ['socle', 'voix/direction-artistique', 'canaux'],
 
     /**
      * Le seul rôle qui décide en voyant l'ensemble, donc le seul qui a besoin
      * des décisions passées : ce qui a été arrêté, ce qui n'a pas marché.
      */
-    PLAN_SERIES: ['socle', 'voix', 'strategie'],
+    PLAN_SERIES: ['socle', 'voix/direction-artistique', 'strategie'],
 
     /**
      * NE REÇOIT RIEN — et c'est voulu, pas oublié.

@@ -1,12 +1,18 @@
-// Généré par `npm run embarquer -w packages/corpus`. Ne pas éditer.
-// Source : packages/corpus/content/voix/regles-de-voix.md — c'est là qu'on corrige.
-//
-// Ce fichier est la copie de travail des règles de voix, pour que
-// @luminose/editorial reste sans dépendance : il lit une constante, pas un
-// disque. La fiche, elle, part aussi dans les paquets collés chez ChatGPT et
-// Gemini — une seule source, deux chemins de distribution.
+---
+type: instruction
+statut: actif
+revu: 2026-09
+expose: prive
+---
 
-export const VOICE_RULES = `
+# Règles de voix
+
+> **Ce fichier est la source unique des règles de voix.** `packages/editorial/src/voice.ts`
+> en est engendré par `npm run embarquer -w packages/corpus` : on corrige ici, jamais là-bas.
+>
+> Le corps ci-dessous part MOT POUR MOT dans les prompts. Sa mise en forme est celle d'un
+> prompt, pas celle d'un document — c'est voulu : ce qu'on lit ici est ce que le modèle reçoit.
+
 RÈGLES DE VOIX (TRANSVERSES — s'appliquent à tout texte que tu proposes, même un brouillon ou une ébauche) :
 
 • Vouvoiement systématique : Florent s'adresse TOUJOURS à son audience au "vous", jamais au "tu". Que ce soit un post, un article, une newsletter, un script vidéo ou un carrousel — c'est TOUJOURS "vous". Le tutoiement du lecteur est interdit dans tous les formats, sans exception. Cette règle s'applique aussi à tout brouillon, ébauche ou proposition que tu formulerais avant le texte final.
@@ -34,4 +40,3 @@ PIÈGES À ÉVITER (anti-patterns) :
 • Sermonner le lecteur : "vous êtes coincé", "admettez que vous auriez pu bouger" → Il ne dit jamais au lecteur ce qu'il est. Il pose une image et le lecteur se reconnaît seul.
 • New-age non ancré : "énergie", "vibration", "univers" comme mots-valises → à proscrire.
 • Jargon plat non incarné : "Les études montrent...", "Il est important de noter que..." → pas Florent.
-`.trim();
