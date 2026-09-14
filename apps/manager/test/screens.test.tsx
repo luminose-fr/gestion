@@ -1076,6 +1076,79 @@ describe('CorpusSpace', () => {
     const { container } = render(<CorpusSpace section="etat" bloc={null} />);
     await waitFor(() => expect(container.textContent).toContain('à jour'));
   });
+
+  /**
+   * NORMATIF — « à jour » est un état, pas une raison de retirer le geste.
+   *
+   * L'écran affichait « à jour » À LA PLACE du bouton : une surface posée
+   * n'avait plus aucun moyen d'être reprise. Signalé le 14/09 — le collage
+   * dans le Gem avait échoué alors que la pose était déjà enregistrée, et il
+   * n'y avait plus de bouton pour recommencer. On redépose aussi pour
+   * vérifier, ou pour un deuxième Gem.
+   */
+  it('une surface à jour garde son bouton — NORMATIF', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
+    vi.spyOn(Api, 'fetchPoses').mockResolvedValue({
+      poses: { gpt: { profil: 'noyau', hash: 'aaaaaaaa', poseeLe: 1 } },
+    } as any);
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('à jour'));
+
+    const lignes = [...container.querySelectorAll('tr')];
+    const ligneGpt = lignes.find(l => l.textContent?.includes('GPT personnalisé — instructions'));
+    expect(ligneGpt, 'la ligne du GPT est introuvable').toBeTruthy();
+    expect(ligneGpt!.textContent).toContain('à jour');
+    expect(ligneGpt!.querySelector('button'), 'plus aucun geste possible').toBeTruthy();
+  });
+
+  /**
+   * Un espace de connaissance ne se colle pas : il s'alimente en fichiers. Le
+   * profil complet fait 35 000 caractères et n'entre dans aucun champ
+   * d'instructions — c'est ce qui a échoué le 14/09.
+   */
+  it('un dépôt en fichier propose de télécharger, pas de copier', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
+    vi.spyOn(Api, 'fetchPoses').mockResolvedValue({ poses: {} } as any);
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('Gem Gemini'));
+
+    const lignes = [...container.querySelectorAll('tr')];
+    const fichier = lignes.find(l => l.textContent?.includes('Gem Gemini — fichier de connaissance'));
+    const instructions = lignes.find(l => l.textContent?.includes('Gem Gemini — instructions'));
+    expect(fichier!.querySelector('button')!.textContent).toContain('Télécharger');
+    expect(instructions!.querySelector('button')!.textContent).toContain('Copier');
+  });
+
+  it('télécharger enregistre la pose sans passer par le presse-papier', async () => {
+    vi.spyOn(Api, 'fetchEtatCorpus').mockResolvedValue(ETAT);
+    vi.spyOn(Api, 'fetchPoses').mockResolvedValue({ poses: {} } as any);
+    const contexte = vi.spyOn(Api, 'fetchContexte').mockResolvedValue({
+      profil: 'complet', texte: '# Contexte Luminose', hash: 'bbbbbbbb', taille: 19, documents: [],
+    } as any);
+    const pose = vi.spyOn(Api, 'setPose').mockResolvedValue({
+      surface: 'gem-fichier', pose: { profil: 'complet', hash: 'bbbbbbbb', poseeLe: 2 },
+    } as any);
+
+    // jsdom n'a ni URL d'objet ni navigation : on remplace les deux.
+    const creerURL = vi.fn(() => 'blob:test');
+    (URL as any).createObjectURL = creerURL;
+    (URL as any).revokeObjectURL = vi.fn();
+    const clic = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    const { container } = render(<CorpusSpace section="etat" bloc={null} />);
+    await waitFor(() => expect(container.textContent).toContain('Gem Gemini'));
+
+    const ligne = [...container.querySelectorAll('tr')]
+      .find(l => l.textContent?.includes('Gem Gemini — fichier de connaissance'))!;
+    fireEvent.click(ligne.querySelector('button')!);
+
+    await waitFor(() => expect(pose).toHaveBeenCalledWith('gem-fichier', 'complet', 'bbbbbbbb'));
+    expect(contexte).toHaveBeenCalledWith('complet');
+    expect(creerURL).toHaveBeenCalled();
+    // Le nom porte le hash : deux fichiers dans un dossier se ressemblent.
+    const lien = clic.mock.instances[0] as HTMLAnchorElement;
+    expect(lien.download).toBe('luminose-complet-bbbbbbbb.txt');
+  });
 });
 
 /**

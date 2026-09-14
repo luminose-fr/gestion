@@ -10,14 +10,14 @@
  * Git reste le seul endroit où le corpus change.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Copy, RefreshCw, FileText, Rocket, Loader2, ExternalLink, HelpCircle } from 'lucide-react';
+import { AlertTriangle, Check, Copy, Download, RefreshCw, FileText, Rocket, Loader2, ExternalLink, HelpCircle } from 'lucide-react';
 import { copyTextToClipboard } from '../ContentEditor/renderers/shared';
 import {
   fetchEtatCorpus, fetchContexte, fetchPoses, setPose,
   fetchDeploiement, lancerDeploiement,
   type EtatCorpus, type PoseSurface, type EtatDeploiement,
 } from '../../services/apiService';
-import { SURFACES } from './surfaces';
+import { SURFACES, EXTENSION_CONNAISSANCE, type DefinitionSurface } from './surfaces';
 
 const NON_PROPOSABLE = ['suspendu', 'termine', 'candidat'];
 
@@ -26,6 +26,27 @@ const ETIQUETTE_DEPLOIEMENT: Record<string, { mot: string; classe: string }> = {
   en_cours:   { mot: 'en cours',   classe: 'text-brand-main/70 dark:text-dark-text/60' },
   reussi:     { mot: 'réussi',     classe: 'text-emerald-600 dark:text-emerald-400' },
   echoue:     { mot: 'échoué',     classe: 'text-red-600 dark:text-red-400' },
+};
+
+/** Ce que le bouton fait, et comment il le dit une fois fait. */
+const GESTE = {
+  copier: { verbe: 'Copier', fait: 'copié', Icone: Copy },
+  telecharger: { verbe: 'Télécharger', fait: 'téléchargé', Icone: Download },
+} as const;
+
+/**
+ * Faire descendre un texte en fichier.
+ *
+ * Même mécanique que la sauvegarde des Réglages : le navigateur ne sait pas
+ * poser d'en-tête sur un clic de lien, on passe donc par un blob.
+ */
+const telecharger = (texte: string, nom: string) => {
+  const url = URL.createObjectURL(new Blob([texte], { type: 'text/plain;charset=utf-8' }));
+  const lien = document.createElement('a');
+  lien.href = url;
+  lien.download = nom;
+  lien.click();
+  URL.revokeObjectURL(url);
 };
 
 const Carte: React.FC<{ titre: string; children: React.ReactNode }> = ({ titre, children }) => (
@@ -63,27 +84,41 @@ const EtatView: React.FC = () => {
   useEffect(() => { void recharger(); }, [recharger]);
 
   /**
-   * Copier, puis enregistrer la pose — dans cet ordre, et seulement si la copie
-   * a abouti. Enregistrer d'abord ferait apparaître à jour une surface où rien
-   * n'a été collé, et c'est précisément le mensonge que cet écran existe pour
-   * empêcher.
+   * Prendre le contexte, puis enregistrer la pose — dans cet ordre, et
+   * seulement si le geste a abouti. Enregistrer d'abord ferait apparaître à
+   * jour une surface où rien n'a été déposé, et c'est précisément le mensonge
+   * que cet écran existe pour empêcher.
+   *
+   * Ce que la pose dit, et ce qu'elle ne dit pas : « j'ai pris cette
+   * version-là pour cette surface ». Elle ne peut pas savoir que le texte a
+   * été collé, ni qu'un fichier téléchargé a été importé — ce dernier pas
+   * appartient à Florent, et la note de chaque surface le rappelle.
    */
-  const copierEtPoser = async (surfaceId: string, profil: string) => {
-    setEnCours(surfaceId);
+  const deposerEtPoser = async (s: DefinitionSurface) => {
+    setEnCours(s.id);
     try {
-      const ctx = await fetchContexte(profil);
-      // Le repli de l'app plutôt que `navigator.clipboard` nu : sur une origine
-      // non sécurisée l'API échoue en silence, et une copie qu'on croit faite
-      // est pire qu'une copie refusée.
-      if (!(await copyTextToClipboard(ctx.texte))) {
-        throw new Error('Le presse-papier a refusé la copie — rien n’a été enregistré.');
+      const ctx = await fetchContexte(s.profil);
+
+      if (s.geste === 'copier') {
+        // Le repli de l'app plutôt que `navigator.clipboard` nu : sur une origine
+        // non sécurisée l'API échoue en silence, et une copie qu'on croit faite
+        // est pire qu'une copie refusée.
+        if (!(await copyTextToClipboard(ctx.texte))) {
+          throw new Error('Le presse-papier a refusé la copie — rien n’a été enregistré.');
+        }
+      } else {
+        // Le hash dans le nom : deux fichiers dans un dossier de téléchargements
+        // se ressemblent, et la liste des fichiers du Gem doit dire laquelle des
+        // versions y est chargée.
+        telecharger(ctx.texte, `luminose-${s.profil}-${ctx.hash}.${EXTENSION_CONNAISSANCE}`);
       }
-      const { pose } = await setPose(surfaceId, profil, ctx.hash);
-      setPoses((p) => ({ ...p, [surfaceId]: pose }));
-      setCopie(surfaceId);
-      setTimeout(() => setCopie((c) => (c === surfaceId ? null : c)), 2500);
+
+      const { pose } = await setPose(s.id, s.profil, ctx.hash);
+      setPoses((p) => ({ ...p, [s.id]: pose }));
+      setCopie(s.id);
+      setTimeout(() => setCopie((c) => (c === s.id ? null : c)), 2500);
     } catch (err: any) {
-      setErreur(err?.message ?? 'La copie a échoué — rien n’a été enregistré.');
+      setErreur(err?.message ?? 'Le geste a échoué — rien n’a été enregistré.');
     } finally {
       setEnCours(null);
     }
@@ -263,6 +298,7 @@ const EtatView: React.FC = () => {
                 <th className="text-left font-semibold pb-2 pr-3">Profil</th>
                 <th className="text-left font-semibold pb-2 pr-3">Posée</th>
                 <th className="text-left font-semibold pb-2 pr-3">Courante</th>
+                <th className="text-left font-semibold pb-2 pr-3">État</th>
                 <th className="text-left font-semibold pb-2"></th>
               </tr>
             </thead>
@@ -284,7 +320,18 @@ const EtatView: React.FC = () => {
                     <td className="py-2.5 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
                       {courant}
                     </td>
-                    <td className="py-2.5">
+                    {/*
+                      L'ÉTAT ET L'ACTION SONT DEUX COLONNES, ET C'EST LE POINT.
+
+                      L'écran affichait « à jour » À LA PLACE du bouton : une
+                      surface posée n'avait plus aucun moyen d'être reprise.
+                      Signalé le 14/09 — le collage dans le Gem avait échoué, et
+                      la pose était déjà enregistrée. Or « à jour » est un état,
+                      pas une raison de retirer le geste : on redépose pour
+                      vérifier, pour un deuxième Gem, ou parce que le premier
+                      collage n'est pas passé.
+                    */}
+                    <td className="py-2.5 pr-3">
                       {s.automatique ? (
                         <span className="text-xs text-brand-main/45 dark:text-dark-text/40">automatique</span>
                       ) : aJour ? (
@@ -292,20 +339,34 @@ const EtatView: React.FC = () => {
                           <Check className="w-3.5 h-3.5" /> à jour
                         </span>
                       ) : (
-                        <button
-                          onClick={() => void copierEtPoser(s.id, s.profil)}
-                          disabled={enCours === s.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-50 dark:bg-white dark:text-brand-main"
-                        >
-                          {copie === s.id ? (
-                            <><Check className="w-3.5 h-3.5" /> copié</>
-                          ) : enCours === s.id ? (
-                            <>Composition…</>
-                          ) : (
-                            <><Copy className="w-3.5 h-3.5" /> {pose ? 'Recoller' : 'Copier'}</>
-                          )}
-                        </button>
+                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                          {pose ? 'à redéposer' : 'jamais déposée'}
+                        </span>
                       )}
+                    </td>
+                    <td className="py-2.5">
+                      {!s.automatique && (() => {
+                        const { verbe, fait, Icone } = GESTE[s.geste];
+                        return (
+                          <button
+                            onClick={() => void deposerEtPoser(s)}
+                            disabled={enCours === s.id}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold disabled:opacity-50 ${
+                              aJour
+                                ? 'border border-brand-border text-brand-main hover:bg-brand-light dark:border-dark-sec-bg dark:text-dark-text dark:hover:bg-dark-sec-bg'
+                                : 'bg-brand-main text-white hover:opacity-90 dark:bg-white dark:text-brand-main'
+                            }`}
+                          >
+                            {copie === s.id ? (
+                              <><Check className="w-3.5 h-3.5" /> {fait}</>
+                            ) : enCours === s.id ? (
+                              <>Composition…</>
+                            ) : (
+                              <><Icone className="w-3.5 h-3.5" /> {verbe}</>
+                            )}
+                          </button>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );

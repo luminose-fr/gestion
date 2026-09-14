@@ -404,6 +404,20 @@ const CarteView: React.FC = () => {
             <strong>Corpus → État</strong> compare le hash posé sur une surface au hash courant :
             c'est ce qui rend visible qu'un Gem est resté sur une version d'il y a trois semaines.
           </p>
+          <p>
+            <strong>Un GPT et un Gem comptent chacun pour deux dépôts.</strong> Leur champ
+            d'instructions est plafonné — le profil complet, 35 000 caractères, n'y entre pas —
+            et ils ont à côté un espace de fichiers de connaissance. Le montage qui marche est
+            donc : le <Mono>noyau</Mono> collé dans les instructions, le <Mono>complet</Mono>
+            importé en fichier. Les deux se périment séparément, d'où une ligne pour chacun.
+          </p>
+          <p>
+            Le fichier descend en <Mono>.txt</Mono> et non en <Mono>.md</Mono> : la liste des
+            types acceptés par un Gem — TXT, DOC, DOCX, PDF, RTF, Google Docs — ne comprend pas
+            le markdown. Le contenu, lui, reste du markdown, qu'un modèle lit sans peine. Et un
+            fichier importé <strong>ne se met pas à jour tout seul</strong> : à chaque
+            changement du corpus, il faut le retélécharger et remplacer l'ancien.
+          </p>
         </Prose>
 
         <Tableau>
@@ -417,12 +431,12 @@ const CarteView: React.FC = () => {
           <tbody>
             {SURFACES.map(s => (
               <tr key={s.id}>
-                <Td className="font-semibold whitespace-nowrap text-brand-main dark:text-white">{s.nom}</Td>
+                <Td className="font-semibold text-brand-main dark:text-white">{s.nom}</Td>
                 <Td><Mono>{s.profil}</Mono></Td>
                 <Td className="text-brand-main/70 dark:text-dark-text/60">
                   {s.automatique
                     ? <><Puce>automatique</Puce> {s.note}</>
-                    : <><Puce ton="attention">à la main</Puce> {s.note}</>}
+                    : <><Puce ton="attention">{s.geste === 'telecharger' ? 'fichier à importer' : 'à coller'}</Puce> {s.note}</>}
                 </Td>
               </tr>
             ))}
