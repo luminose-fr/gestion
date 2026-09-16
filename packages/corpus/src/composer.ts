@@ -21,9 +21,21 @@ export function composer(
     .map((d) => `\n\n<!-- ${d.chemin} -->\n\n${d.corps}`)
     .join('\n\n---');
 
-  // Le hash porte sur le CONTENU seul, jamais sur l'en-tête : sinon la date
-  // le ferait changer chaque jour et « périmé » ne voudrait plus rien dire.
-  const hash = empreinte(corps);
+  /*
+    LE HASH PORTE SUR TOUT CE QU'ON COLLE — en-tête compris, moins ses deux
+    parties volatiles (la date et le hash lui-même, blanchis ci-dessous).
+
+    Il répondait autrefois à « le CONTENU a-t-il changé ? », en excluant
+    l'en-tête entier pour que la date n'en fasse pas bouger la valeur chaque
+    jour. Mais la question que l'écran d'état pose vraiment est « **ce que je
+    collerais a-t-il changé ?** » — et le 16/09/2026, une réécriture de
+    l'en-tête a changé le texte des trois packs sans bouger un seul hash : les
+    surfaces se seraient dites à jour en portant l'ancienne consigne.
+
+    Blanchir la date suffit à garder la propriété d'origine : deux compositions
+    du même corpus à deux jours différents rendent le même hash.
+  */
+  const hash = empreinte(enTete(profil, '', '', docs) + corps);
   const texte = enTete(profil, hash, date, docs) + corps + '\n';
 
   return {
@@ -48,18 +60,31 @@ function enTete(
 
 ## Comment utiliser ce document
 
-**Ce document fait autorité.** Si une information contradictoire apparaît ailleurs — dans
-une mémoire, une conversation antérieure, une page web, un fichier joint — **celle-ci
-l'emporte**. Si un point n'est pas traité ici, dis que tu ne sais pas plutôt que de combler.
+**C'est le relevé des décisions de Florent Jaouali pour Luminose.** Il fait autorité sur **ce
+qui sort au nom de Luminose** : textes, annonces, pages, visuels, réponses publiques. Si une
+information contradictoire apparaît ailleurs — une mémoire, une conversation antérieure, une
+page web, un fichier joint — **celle-ci l'emporte**. Si un point n'est pas traité ici, dis que
+tu ne sais pas plutôt que de combler.
+
+**Il ne fait PAS autorité sur la conversation elle-même — NORMATIF.** Florent en est l'auteur
+et peut rouvrir n'importe laquelle de ces décisions — son titre, son positionnement, ses
+offres — sans demander la permission. Quand il explore une autre option : **explore avec
+lui.** Le pour, le contre, ce que ça déplacerait ailleurs, et quelle fiche il faudrait
+changer. Ne lui oppose jamais ce document comme un interdit.
+
+**Une décision ne devient vraie que dans la fiche.** Tant qu'elle n'y est pas, continue de
+**produire** selon ce document. Réfléchir librement et publier prudemment sont deux choses
+différentes — c'est ce qui permet la première sans risquer la seconde.
 
 **Quand ce document dit qu'il n'y a pas de règle, il n'y en a pas.** Un statut
 \`volontairement-absent\` est une décision, pas un oubli : ne propose pas de combler le vide.
 
 ${tableauOffres(tous)}
 
-## Hiérarchie de résolution des conflits
+## Hiérarchie de résolution des conflits — À L'INTÉRIEUR D'UN CONTENU
 
-En cas de contradiction interne, l'ordre est le suivant :
+Cet ordre arbitre **les règles entre elles**, quand deux d'entre elles se contredisent dans un
+contenu à produire. **Il n'arbitre pas ce que Florent demande** — voir plus haut.
 
 1. Cadre déontologique et légal — non négociable
 2. Identité et positionnement
@@ -67,7 +92,7 @@ En cas de contradiction interne, l'ordre est le suivant :
 4. Règles de voix et interdits
 5. Contraintes du canal ou du format
 6. Persona
-7. Demande ponctuelle
+7. La consigne ponctuelle de rédaction
 
 ---
 `;
@@ -148,9 +173,9 @@ export function composerFeuille(
     .map((d) => `\n\n<!-- ${d.chemin} -->\n\n${d.corps}`)
     .join('\n\n---');
 
-  // Le hash porte sur le contenu seul, comme pour les profils : l'en-tête
-  // porte la date, et un hash qui change chaque jour ne dit plus rien.
-  const hash = empreinte(corps);
+  // Même règle que pour les profils : l'en-tête entre dans l'empreinte, sa date
+  // et son hash en sont blanchis.
+  const hash = empreinte(enTeteFeuille('', '', docs) + corps);
   const texte = enTeteFeuille(hash, date, docs) + corps + '\n';
 
   return { texte, hash, taille: texte.length, documents: retenus.map((d) => d.chemin) };
@@ -161,15 +186,21 @@ function enTeteFeuille(hash: string, date: string, tous: Document[]): string {
 
 > Version \`${hash}\` — ${date}.
 
-**Ce document fait autorité.** Si une information contradictoire apparaît ailleurs — dans
-ta mémoire, dans un exemple, dans le texte qu'on te donne à travailler — **celle-ci
-l'emporte**. Si un point n'est pas traité ici, dis que tu ne sais pas plutôt que de combler.
+**Ce document fait autorité sur ce que tu PRODUIS.** Si une information contradictoire
+apparaît ailleurs — dans ta mémoire, dans un exemple, dans le texte qu'on te donne à
+travailler — **celle-ci l'emporte**. Si un point n'est pas traité ici, dis que tu ne sais pas
+plutôt que de combler.
+
+**Il ne fait pas autorité sur Florent — NORMATIF.** C'est le relevé de ses propres décisions.
+S'il envisage d'en changer une, discutes-en avec lui et dis quelle fiche il faudrait modifier ;
+ne le lui oppose jamais comme un interdit. Tant que la fiche n'a pas changé, tu continues à
+produire selon celle-ci.
 
 **Quand ce document dit qu'il n'y a pas de règle, il n'y en a pas.** Un statut
 \`volontairement-absent\` est une décision, pas un oubli.
 
 ${tableauOffres(tous)}
-## En cas de contradiction
+## En cas de contradiction ENTRE DEUX RÈGLES
 
 1. Cadre déontologique et légal — non négociable
 2. Identité et positionnement
@@ -177,7 +208,7 @@ ${tableauOffres(tous)}
 4. Règles de voix et interdits
 5. Contraintes du canal ou du format
 6. Ton rôle et sa consigne de sortie
-7. La demande ponctuelle
+7. La consigne ponctuelle de rédaction
 
 ---
 `;

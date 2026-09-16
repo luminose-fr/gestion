@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { charger } from '../src/charger.ts';
 import { composer, composerFeuille } from '../src/composer.ts';
+import { empreinte } from '../src/hash.ts';
 import { separerFrontmatter } from '../src/frontmatter.ts';
 import { PROFILS } from '../src/profils.ts';
 import type { Document } from '../src/types.ts';
@@ -70,6 +71,65 @@ describe('la règle de lecture du bloc stratégie — NORMATIF', () => {
   });
 });
 
+describe('l’en-tête ne doit pas verrouiller Florent — NORMATIF', () => {
+  /**
+   * CE QUE CE TEST EMPÊCHE, ET POURQUOI IL EXISTE.
+   *
+   * Le 16/09/2026, Florent a voulu réfléchir avec un Gem à d'autres intitulés
+   * que « psychopraticien transpersonnel ». Le Gem a refusé : il citait la
+   * hiérarchie de l'en-tête — « Identité » en priorité 2, « demande
+   * ponctuelle » en priorité 7 — et en concluait que la demande de Florent
+   * perdait contre le corpus. Même après « je définis le cadre de Luminose
+   * puisque je suis Florent Jaouali », il n'a pas cédé.
+   *
+   * Il lisait correctement ce qui était écrit. Deux confusions, dans le texte :
+   *   - la hiérarchie arbitrait « les règles entre elles » mais ne le disait
+   *     pas, et se lisait donc comme arbitrant la conversation ;
+   *   - le corpus ne disait nulle part QUI l'écrit, donc rien ne distinguait
+   *     un inconnu qui contourne le cadre de l'auteur qui le révise.
+   *
+   * Un corpus qui empêche son auteur de le rouvrir est une prison, pas une
+   * source de vérité.
+   */
+  const entetes = (['noyau', 'complet', 'strategie'] as const).map(
+    (p) => composer(docs, p, D).texte.split('---\n\n\n')[0],
+  );
+
+  it('dit qu’il ne fait pas autorité sur la conversation', () => {
+    for (const e of entetes) {
+      expect(e).toMatch(/ne fait PAS autorité sur la conversation/);
+    }
+  });
+
+  it('nomme Florent comme auteur, pas comme destinataire de la règle', () => {
+    for (const e of entetes) {
+      expect(e).toContain('Florent Jaouali');
+      expect(e).toMatch(/il en est l’auteur|Florent en est l'auteur/i);
+    }
+  });
+
+  it('borne la hiérarchie aux règles, pas aux demandes', () => {
+    for (const e of entetes) {
+      expect(e).toContain("À L'INTÉRIEUR D'UN CONTENU");
+      // Le mot qui a fait basculer la lecture : « demande ponctuelle » se lisait
+      // comme « la demande de Florent ».
+      expect(e).not.toMatch(/\d\.\s*Demande ponctuelle/);
+      expect(e).toContain('La consigne ponctuelle de rédaction');
+    }
+  });
+
+  it('garde le garde-fou : une intention dite n’est pas encore un fait', () => {
+    for (const e of entetes) {
+      expect(e).toMatch(/ne devient vraie que dans la fiche/);
+    }
+  });
+
+  it('la feuille de salle porte la même réserve', () => {
+    const f = composerFeuille(docs, ['socle/identite'], D);
+    expect(f.texte).toMatch(/ne fait pas autorité sur Florent/);
+  });
+});
+
 describe('le hash', () => {
   it('ne dépend pas de la date — sinon « périmé » ne voudrait rien dire', () => {
     const a = composer(docs, 'complet', '2026-08-26');
@@ -85,6 +145,21 @@ describe('le hash', () => {
     expect(composer(modifie, 'complet', D).hash).not.toBe(
       composer(docs, 'complet', D).hash,
     );
+  });
+
+  /**
+   * NORMATIF — le hash répond à « ce que je collerais a-t-il changé ? ».
+   *
+   * Il ne portait que sur le corps : une réécriture de l'en-tête changeait le
+   * texte des trois packs sans bouger un seul hash, et l'écran d'état aurait
+   * annoncé « à jour » des surfaces portant l'ancienne consigne. C'est arrivé
+   * le 16/09/2026, sur la consigne qui verrouillait Florent — la pire à
+   * laisser traîner.
+   */
+  it('couvre aussi l’en-tête, pas seulement le corps — NORMATIF', () => {
+    const c = composer(docs, 'complet', D);
+    const corpsSeul = c.texte.slice(c.texte.indexOf('---\n\n\n') + 6);
+    expect(empreinte(corpsSeul)).not.toBe(c.hash);
   });
 
   it('est propre à chaque profil', () => {

@@ -127,7 +127,8 @@ liberté assumée. Il porte toujours une date de `revu:`.
 
 ## Hiérarchie de résolution des conflits
 
-Quand deux sources se contredisent, l'ordre est celui-ci. Sans lui, le modèle improvise.
+Quand deux RÈGLES se contredisent **à l'intérieur d'un contenu à produire**, l'ordre est
+celui-ci. Sans lui, le modèle improvise.
 
 1. **Cadre déontologique et juridique** — non négociable
 2. **Constitution** (identité, positionnement, ce que Luminose n'est pas)
@@ -135,7 +136,14 @@ Quand deux sources se contredisent, l'ordre est celui-ci. Sans lui, le modèle i
 4. **Règles de voix et interdits**
 5. **Contraintes du canal / format**
 6. **Persona**
-7. **Demande ponctuelle**
+7. **La consigne ponctuelle de rédaction**
+
+> **Ce classement n'arbitre pas ce que Florent demande — NORMATIF.** Le 16/09/2026, un Gem a
+> refusé de réfléchir avec lui à d'autres intitulés que « psychopraticien transpersonnel », en
+> citant cette hiérarchie : « identité » en priorité 2 contre « demande ponctuelle » en
+> priorité 7. Il lisait correctement ce qui était écrit. Un corpus qui empêche son auteur de
+> le rouvrir est une prison, pas une source de vérité — l'en-tête composé le dit maintenant
+> explicitement, et un test le tient.
 
 ---
 
