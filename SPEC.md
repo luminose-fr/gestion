@@ -1025,8 +1025,8 @@ valeur D1, et affiché zéro écart. Ce script fait partie du livrable de la pha
 ### 9.4 Filet
 
 - **Avant tout** : export JSON complet des deux bases Notion, versionné dans le dépôt.
-  C'est la phase 0. Produit le 19/08/2026 par `tools/export-notion`, il portait pour chaque
-  base le `schema` de la data source — le **type réel** de chaque colonne, qu'aucune page ne
+  C'est la phase 0. Produit le 19/08/2026 par un outil `tools/export-notion` retiré depuis,
+  il portait pour chaque base le `schema` de la data source — le **type réel** de chaque colonne, qu'aucune page ne
   porte à elle seule et sans lequel l'import interprète mal les valeurs.
   **Retiré du dépôt le 20/09/2026**, un mois après la bascule (voir la ligne suivante). Il
   reste dans l'histoire, intact — 1 716 190 octets :

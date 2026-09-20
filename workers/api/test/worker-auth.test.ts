@@ -6,6 +6,12 @@
  * public, n'importe qui pouvait fabriquer un jeton et obtenir un accès complet
  * en lecture ET écriture sur Notion. Les cas « tokens forgés » ci-dessous sont
  * la garantie que ce trou ne se rouvre pas.
+ *
+ * LA ROUTE VISÉE A CHANGÉ, PAS CE QUI EST TESTÉ. Ces cas passaient par le proxy
+ * Notion `/v1/*`, retiré le 20/09/2026. Ils visent maintenant `/api/corpus` —
+ * choisie parce qu'elle est derrière le même contrôle de jeton et qu'elle ne
+ * touche pas D1 : l'environnement de ce fichier n'a pas de binding. Ce qu'on
+ * vérifie reste le jeton, jamais la route.
  */
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 // @ts-ignore — le Worker est du JS sans types
@@ -15,7 +21,6 @@ const ENV = {
   AUTH_USERNAME: 'florent',
   AUTH_PASSWORD: 'motdepasse-de-test',
   SESSION_SECRET: 'secret-de-signature-de-test',
-  NOTION_API_KEY: 'notion-key',
   ONE_MIN_API_KEY: '1min-key',
 };
 
@@ -30,8 +35,8 @@ const login = (username: string, password: string, origin = ORIGIN, env: any = E
     body: JSON.stringify({ username, password }),
   }), env);
 
-const callNotion = (token: string | null, env: any = ENV) =>
-  worker.fetch(new Request('https://w.dev/v1/databases/abc', {
+const appelAuthentifie = (token: string | null, env: any = ENV) =>
+  worker.fetch(new Request('https://w.dev/api/corpus', {
     method: 'GET',
     headers: { 'X-Session-Token': token ?? '', Origin: ORIGIN },
   }), env);
@@ -45,7 +50,8 @@ const signPayload = async (payloadB64: string, secret = ENV.SESSION_SECRET) => {
 };
 
 beforeAll(() => {
-  // Toute requête sortante (Notion / 1min) est neutralisée
+  // Filet : aucune de ces routes ne sort, mais un appel réseau qui
+  // réapparaîtrait ne doit pas faire dépendre ces tests d'Internet.
   vi.stubGlobal('fetch', async () =>
     new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
   );
@@ -64,50 +70,50 @@ describe('login', () => {
   });
 });
 
-describe('accès au proxy', () => {
+describe('accès à une route authentifiée', () => {
   it('accepte un jeton légitime', async () => {
     const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
-    expect((await callNotion(sessionToken)).status).toBe(200);
+    expect((await appelAuthentifie(sessionToken)).status).toBe(200);
   });
 
   it('rejette un jeton expiré, pourtant correctement signé', async () => {
     const payload = btoa(JSON.stringify({ token: 'x', expiresAt: Date.now() - 1000 }));
     const token = `${payload}.${await signPayload(payload)}`;
-    expect((await callNotion(token)).status).toBe(401);
+    expect((await appelAuthentifie(token)).status).toBe(401);
   });
 });
 
 describe('jetons forgés — le trou d’avant', () => {
   it('rejette l’ancien format non signé', async () => {
     const oldStyle = btoa(JSON.stringify({ token: 'x', expiresAt: 9999999999999 }));
-    expect((await callNotion(oldStyle)).status).toBe(401);
+    expect((await appelAuthentifie(oldStyle)).status).toBe(401);
   });
 
   it('rejette un payload valide sans signature', async () => {
     const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
-    expect((await callNotion(sessionToken.split('.')[0])).status).toBe(401);
+    expect((await appelAuthentifie(sessionToken.split('.')[0])).status).toBe(401);
   });
 
   it('rejette une signature invalide', async () => {
     const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
     const wrong = `${sessionToken.split('.')[0]}.${btoa('signature-bidon')}`;
-    expect((await callNotion(wrong)).status).toBe(401);
+    expect((await appelAuthentifie(wrong)).status).toBe(401);
   });
 
   it('rejette un payload retouché avec une signature recyclée', async () => {
     const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD)).json() as LoginBody;
     const tampered = btoa(JSON.stringify({ token: 'x', expiresAt: 9999999999999 }));
-    expect((await callNotion(`${tampered}.${sessionToken.split('.')[1]}`)).status).toBe(401);
+    expect((await appelAuthentifie(`${tampered}.${sessionToken.split('.')[1]}`)).status).toBe(401);
   });
 
   it('rejette un jeton signé avec un autre secret', async () => {
     const other = { ...ENV, SESSION_SECRET: 'un-autre-secret' };
     const { sessionToken } = await (await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, ORIGIN, other)).json() as LoginBody;
-    expect((await callNotion(sessionToken)).status).toBe(401);
+    expect((await appelAuthentifie(sessionToken)).status).toBe(401);
   });
 
   it('rejette l’absence de jeton', async () => {
-    expect((await callNotion('')).status).toBe(401);
+    expect((await appelAuthentifie('')).status).toBe(401);
   });
 });
 
@@ -117,7 +123,7 @@ describe('repli sur AUTH_PASSWORD', () => {
     const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD, ORIGIN, env);
     expect(res.status).toBe(200);
     const { sessionToken } = await res.json() as LoginBody;
-    expect((await callNotion(sessionToken, env)).status).toBe(200);
+    expect((await appelAuthentifie(sessionToken, env)).status).toBe(200);
   });
 });
 

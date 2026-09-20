@@ -1,4 +1,7 @@
-# Worker API — proxy historique (Notion, 1min.ai) ET nouvelle API D1.
+# Worker API — l'API sur D1, et elle seule.
+#
+# Les proxys historiques (Notion, 1min.ai) ont été retirés : 1min.ai en phase 6 avec
+# l'abstraction fournisseur, Notion le 20/09/2026, un mois après la bascule.
 #
 # Le nom reste `gestion-luminose-worker` : le front pointe dessus via
 # constants.ts jusqu'à la bascule de la phase 5. Le renommer casserait

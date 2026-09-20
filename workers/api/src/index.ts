@@ -8,7 +8,6 @@
  *   /api/models/catalogue  explorateur OpenRouter — filtre, ne décide pas (§5.6)
  *   /api/corpus   le corpus, EN LECTURE SEULE — embarqué au déploiement, 0 requête D1
  *   /api/inbox    les captures — le SEUL store en écriture de la console
- *   /v1/*         proxy Notion résiduel — aucun client, gardé comme filet
  *
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
  */
@@ -28,7 +27,6 @@ import { corpus } from './routes/corpus';
 import { inbox } from './routes/inbox';
 import { mesures } from './routes/mesures';
 import { quotas } from './routes/quotas';
-import { legacy } from './routes/legacy';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -79,7 +77,6 @@ app.route('/api/corpus', corpus);
 app.route('/api/inbox', inbox);
 app.route('/api/mesures', mesures);
 app.route('/api/quotas', quotas);
-app.route('/', legacy);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

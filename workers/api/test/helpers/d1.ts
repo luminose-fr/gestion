@@ -90,5 +90,4 @@ export const makeEnv = () => ({
   AUTH_USERNAME: 'florent',
   AUTH_PASSWORD: 'mot-de-passe',
   ONE_MIN_API_KEY: 'cle-1min',
-  NOTION_API_KEY: 'cle-notion',
 });
