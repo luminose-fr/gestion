@@ -55,25 +55,45 @@ export const EXTENSION_CONNAISSANCE = 'txt';
 export const SURFACES: DefinitionSurface[] = [
   {
     id: 'projet-claude',
+    /**
+     * AUTOMATIQUE DEPUIS LE 20/09/2026, ET PAS AVANT.
+     *
+     * Cette ligne s'annonçait « automatique » depuis le premier jour, avec une
+     * condition en note : « à condition que packages/corpus soit dans les
+     * filtres ». La condition n'était pas remplie — le projet ne synchronisait
+     * que le dépôt du SITE, et une recherche dans sa base de connaissance sur
+     * « gardien du seuil » ou « 20+ Oracles » ne rendait pas une seule fiche.
+     * La surface que l'écran disait la mieux tenue était la seule qui n'avait
+     * jamais rien reçu.
+     *
+     * La leçon vaut plus que le correctif : **une condition écrite en note ne
+     * vaut rien.** Personne ne la vérifie, et l'étiquette rassure pendant ce
+     * temps. C'est le seul état de cet écran qu'aucune comparaison de hash ne
+     * peut contredire — « automatique » ne se vérifie pas d'ici.
+     *
+     * Depuis, la source `luminose-fr/gestion` est en place. Ce que le projet
+     * reçoit, ce sont les FICHES BRUTES : ni l'en-tête, ni le tableau des
+     * offres dérivé, ni le filtre qui écarte le bloc `strategie`.
+     */
     nom: 'Projet Claude « Luminose »',
     profil: 'complet',
     geste: 'copier',
-    note: 'Se synchronise depuis GitHub — rien à redéposer, à condition que packages/corpus soit dans les filtres.',
+    note: "Synchronisé depuis `luminose-fr/gestion` — les fiches arrivent seules, à jour. Mais brutes : sans l'en-tête ni le tableau des offres. Coller le noyau dans les instructions du projet le lui donne.",
     automatique: true,
   },
   {
     id: 'gpt',
-    nom: 'GPT personnalisé — instructions',
+    nom: 'Projet ChatGPT — instructions',
     profil: 'noyau',
     geste: 'copier',
-    note: "Le champ d'instructions plafonne à 8 000 caractères : c'est le noyau qui va là, et lui seul. À coller dans « Instructions ».",
+    note: "À coller dans les instructions du projet. OpenAI ne publie pas de plafond pour ce champ — le noyau y va parce qu'un champ d'instructions est toujours court, pas parce qu'un chiffre l'impose.",
   },
   {
     id: 'gpt-fichier',
-    nom: 'GPT personnalisé — fichier de connaissance',
+    nom: 'Projet ChatGPT — fichier du projet',
     profil: 'complet',
     geste: 'telecharger',
-    note: "Le contexte complet, en fichier, dans « Knowledge ». Il complète les instructions, il ne les remplace pas : un fichier de connaissance est consulté, les instructions sont toujours présentes.",
+    note: "Le contexte complet, en fichier du projet (25 fichiers en Plus, 40 en Pro, 10 par envoi). Il complète les instructions, il ne les remplace pas : un fichier est consulté, les instructions sont toujours là.",
   },
   {
     id: 'gem',

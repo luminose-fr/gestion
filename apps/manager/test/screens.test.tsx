@@ -1095,8 +1095,8 @@ describe('CorpusSpace', () => {
     await waitFor(() => expect(container.textContent).toContain('à jour'));
 
     const lignes = [...container.querySelectorAll('tr')];
-    const ligneGpt = lignes.find(l => l.textContent?.includes('GPT personnalisé — instructions'));
-    expect(ligneGpt, 'la ligne du GPT est introuvable').toBeTruthy();
+    const ligneGpt = lignes.find(l => l.textContent?.includes('Projet ChatGPT — instructions'));
+    expect(ligneGpt, 'la ligne du projet ChatGPT est introuvable').toBeTruthy();
     expect(ligneGpt!.textContent).toContain('à jour');
     expect(ligneGpt!.querySelector('button'), 'plus aucun geste possible').toBeTruthy();
   });
