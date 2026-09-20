@@ -1024,8 +1024,15 @@ valeur D1, et affiché zéro écart. Ce script fait partie du livrable de la pha
 
 ### 9.4 Filet
 
-- **Avant tout** : export JSON complet des deux bases Notion, versionné dans le dépôt
-  (`fixtures/notion-export-<date>.json`). C'est la phase 0.
+- **Avant tout** : export JSON complet des deux bases Notion, versionné dans le dépôt.
+  C'est la phase 0. Produit le 19/08/2026 par `tools/export-notion`, il portait pour chaque
+  base le `schema` de la data source — le **type réel** de chaque colonne, qu'aucune page ne
+  porte à elle seule et sans lequel l'import interprète mal les valeurs.
+  **Retiré du dépôt le 20/09/2026**, un mois après la bascule (voir la ligne suivante). Il
+  reste dans l'histoire, intact — 1 716 190 octets :
+  `git show 84c08ee:fixtures/notion-export-2026-08-19-19-24-09.json`
+  (`84c08ee` est le dernier commit qui le portait ; la commande a été vérifiée avant d'être
+  écrite ici). Un filet qu'on décroche ne se jette pas — on note où il est accroché.
 - **Après bascule** : Notion reste intact, en lecture seule, pendant au moins un mois.
 - **En régime** : une route d'export (`GET /api/export`) produit un JSON complet
   téléchargeable, lignes supprimées comprises. Time Travel (7 jours en gratuit) ne
