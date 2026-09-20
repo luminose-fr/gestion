@@ -107,8 +107,6 @@ gestion.luminose.fr/
 │   └── api/                Hono + D1 + auth
 │       ├── migrations/     NNNN_description.sql
 │       └── src/routes/
-├── tools/
-│   └── import-notion/      migration one-shot, produit un SQL idempotent
 └── scripts/
     └── deploy.sh
 ```
@@ -992,6 +990,20 @@ bandeau. Ce comportement a été construit pour une bonne raison ; il survit à 
 ---
 
 ## 9. Migration des données
+
+> **Exécutée, et ses outils retirés le 20/09/2026.** Ce chapitre reste comme **record** de la
+> façon dont les données sont arrivées dans D1 — utile le jour où une valeur paraîtra louche.
+> Les commandes ci-dessous ne s'exécutent plus telles quelles : `tools/import-notion` et
+> `tools/export-notion` ont quitté le dépôt un mois après la bascule.
+>
+> Ils restent dans l'histoire, intacts et vérifiés :
+> `git show f7f7e9f:tools/import-notion/import.mjs` (14 824 octets) ·
+> `git show f7f7e9f:tools/import-notion/verify.mjs` (11 050 octets) ·
+> `git show 84c08ee:fixtures/notion-export-2026-08-19-19-24-09.json` (1 716 190 octets).
+>
+> Partent avec eux les 13 tests de `splitSignature` — l'analyse des signatures « Généré par :
+> … » collées aux brouillons Notion. Logique de migration uniquement : rien de vivant ne
+> l'importait, et D1 porte `model_label` en colonne plutôt qu'en suffixe de texte.
 
 ### 9.1 Principe
 
