@@ -15,13 +15,18 @@ passent pas par ici.
 
 ---
 
-`deploy.yml.disabled` — ancien déploiement vers GitHub Pages.
+## Ce qu'on ne remet pas — NORMATIF
 
-Désactivé le 20/08/2026 : `gestion.luminose.fr` est désormais servi par
-Cloudflare Pages, et le Worker capte `/api/*` sur cette même origine (SPEC §1.2).
-Laisser le workflow actif publierait à chaque push sur une branche `gh-pages`
-que plus rien ne consulte — deux déploiements qui se croisent sans se rencontrer.
+**Pas de déploiement déclenché par un push**, et pas de retour vers GitHub Pages.
 
-Le déploiement se fait maintenant par `./scripts/deploy.sh` (Worker puis front).
-Conservé plutôt que supprimé : il documente d'où l'on vient, et il resterait le
-chemin de repli si l'on devait revenir à GitHub Pages.
+`gestion.luminose.fr` est servi par Cloudflare Pages, et le Worker capte `/api/*` sur la
+même origine (SPEC §1.2). Un workflow qui publierait à chaque push sur une branche
+`gh-pages` que plus rien ne consulte, ce serait deux déploiements qui se croisent sans se
+rencontrer.
+
+Et l'historique porte des commits d'étape : les publier parce qu'ils touchent `main`
+transformerait chaque sauvegarde en mise en ligne.
+
+*Un `deploy.yml.disabled` traînait ici depuis le 20/08/2026, gardé « au cas où ». Supprimé
+le 20/09 : un fichier inerte n'est pas un chemin de repli, git l'est. Il visait GitHub
+Pages, passait des variables Notion qui n'existent plus, et épinglait Node 20.*
