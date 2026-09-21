@@ -59,6 +59,10 @@ reconversion.
 
 La motivation · l'engagement · une relation de qualité (collaboration, confiance, sécurité).
 
+## Ce que Luminose est
+
+L'âme est une réalité, et le spirituel n'est pas un mécanisme causal du symptôme
+
 ## Ce que Luminose n'est pas
 
 Ni du développement personnel générique, ni de la spiritualité new age, ni une offre réduite
