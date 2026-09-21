@@ -31,6 +31,7 @@ import { LoginPage } from '../components/LoginPage';
 import CalendarView from '../components/CalendarView';
 import SubtitleConverter from '../components/SubtitleConverter';
 import PsychedelicsCalculator from '../components/PsychedelicsCalculator';
+import RdvView from '../components/Clients/RdvView';
 import { SocialIdeasView } from '../components/Views/SocialIdeasView';
 import { SocialGridView, TRI_CONTENUS_DEFAUT } from '../components/Views/SocialGridView';
 import { SeriesView, TRI_SERIES_DEFAUT } from '../components/Series/SeriesView';
@@ -658,6 +659,43 @@ describe('écrans autonomes', () => {
 
   it('PsychedelicsCalculator se monte', () => {
     expect(() => render(<PsychedelicsCalculator />)).not.toThrow();
+  });
+});
+
+/**
+ * L'écran de prise de rendez-vous a un retour anticipé — la confirmation
+ * remplace tout le formulaire. Les deux états se montent donc ici, et le
+ * formulaire est monté deux fois de plus : avec Calendly qui répond, et avec
+ * Calendly qui refuse. C'est le second cas qui compte : un jeton absent est la
+ * situation NORMALE d'un déploiement neuf, et l'écran doit le dire au lieu de
+ * rester blanc.
+ */
+describe('prise de rendez-vous', () => {
+  it('se monte, liste les types, et affiche le refus du Worker', async () => {
+    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({
+      types: [{ uri: 'https://api.calendly.com/event_types/E1', nom: 'Séance', duree: 90, couleur: '#17e885', secret: false, lieu: null }],
+    } as any);
+    const { container } = render(<RdvView />);
+    await waitFor(() => expect(container.textContent).toContain('Séance'));
+    cleanup();
+
+    vi.spyOn(Api, 'fetchRdvTypes').mockRejectedValue(new Error('Aucun jeton Calendly'));
+    const refus = render(<RdvView />);
+    await waitFor(() => expect(refus.container.textContent).toContain('Aucun jeton Calendly'));
+  });
+
+  it('reprend nom, e-mail et téléphone depuis la query string', async () => {
+    const avant = window.location.search;
+    window.history.replaceState({}, '', '/?prenom=Marie&nom=Durand&email=marie@exemple.fr&tel=0612345678');
+    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [] } as any);
+
+    const { container } = render(<RdvView />);
+    const valeurs = [...container.querySelectorAll('input')].map((i) => (i as HTMLInputElement).value);
+    expect(valeurs).toContain('Marie Durand');
+    expect(valeurs).toContain('marie@exemple.fr');
+    expect(valeurs).toContain('0612345678');
+
+    window.history.replaceState({}, '', `/${avant}`);
   });
 });
 

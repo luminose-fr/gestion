@@ -238,3 +238,42 @@ export interface UsageIA {
   sortie: number | null;
   coutUsd: number | null;
 }
+
+// ── Prise de rendez-vous Calendly (routes/rdv.ts) ────────────────────────
+
+/** Un type d'événement Calendly, réduit à ce dont l'écran a besoin. */
+export interface RdvType {
+  uri: string;
+  nom: string;
+  /** Durée en minutes. */
+  duree: number;
+  couleur: string;
+  secret: boolean;
+  /**
+   * Le `kind` de lieu imposé par le type, quand il n'en a qu'un. Calendly exige
+   * ce champ à la création dès que le type déclare un lieu.
+   */
+  lieu: string | null;
+}
+
+/** Un créneau libre — son début, en UTC. Le reste se déduit de la durée du type. */
+export interface RdvCreneau {
+  debut: string;
+}
+
+/** Ce que Calendly confirme après avoir posé le rendez-vous. */
+export interface RdvConfirme {
+  uri: string;
+  evenement: string;
+  debut: string;
+  nom: string;
+  email: string;
+  /**
+   * Le numéro retenu par Calendly pour les rappels SMS, `null` s'il n'en a pas
+   * retenu. C'est le seul témoin fiable : c'est toute la raison d'être de
+   * l'écran, et « envoyé » ne vaut pas « accepté ».
+   */
+  telephone: string | null;
+  annulation: string;
+  report: string;
+}
