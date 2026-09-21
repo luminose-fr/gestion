@@ -604,10 +604,18 @@ l'administration Calendly, et **le numéro est sa seule raison d'être**.
 - L'écran rend le numéro **retenu par Calendly**, pas celui qui a été envoyé : sur la
   seule promesse de la fonctionnalité, « envoyé » ne vaut pas « accepté ».
 
-**Dépendance externe, hors du code :** un rappel SMS ne part que si un *workflow* Calendly
-« Envoyer un SMS à l'invité » est rattaché au type d'événement. Au 21/09/2026, les types
-de séance n'en portent aucun — seulement un rappel e-mail à sept jours. Sans ce workflow,
-le numéro est bien enregistré et rien n'est envoyé.
+**Dépendance externe, hors du code.** Le numéro enregistré ne sert qu'à ce que Calendly
+décide d'envoyer, et deux mécanismes distincts peuvent le faire : le **rappel SMS natif**
+du type d'événement (Notifications et annulation → Rappel par SMS) et un **workflow**
+« Envoyer un SMS à l'invité ». Ils s'ajoutent l'un à l'autre ; aucun des deux n'est
+impliqué par l'autre.
+
+Relevé le 21/09/2026 sur les treize types du compte : `invitee_sms_reminder.enabled` est
+à `false` partout, et le seul workflow rattaché aux séances est un rappel **e-mail** à
+sept jours. Dans cet état, le numéro part bien à Calendly et aucun SMS n'est émis —
+**la route fait son travail, et la configuration du compte ne suit pas**. C'est un
+réglage Calendly, pas un défaut du code, et c'est la première chose à vérifier si un
+rendez-vous posé ici ne déclenche aucun rappel.
 
 ### 3.7 Ce qu'une liste retient — NORMATIF
 
