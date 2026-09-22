@@ -46,6 +46,27 @@ const NOM_DU_LIEU: Record<string, string> = {
   ask_invitee: 'À demander à l’invité',
 };
 
+/**
+ * Le « + » d'un numéro international, rendu à sa place.
+ *
+ * Dans une query string, `+` VEUT DIRE espace : c'est la règle des formulaires
+ * HTML, et `URLSearchParams` l'applique. Un lien Notion portant
+ * `tel=+33 6 37…` arrive donc dans le champ sous la forme ` 33 6 37…`, amputé
+ * du seul caractère qui disait que le numéro est international.
+ *
+ * Plutôt que d'exiger `%2B` dans chaque lien — une discipline qu'on oublie une
+ * fois sur deux — on regarde la chaîne BRUTE : si la valeur y commence par un
+ * `+`, on le remet. Les espaces encodés de la même façon, eux, restent des
+ * espaces : c'est ce qui distingue ce rattrapage d'un décodage refait à la main.
+ */
+const plusInitial = (noms: string[]): boolean => {
+  for (const n of noms) {
+    const m = new RegExp(`[?&]${n}=([^&#]*)`).exec(window.location.search);
+    if (m?.[1]?.startsWith('+')) return true;
+  }
+  return false;
+};
+
 const lireParametres = () => {
   const p = new URLSearchParams(window.location.search);
   const champ = (...noms: string[]) => {
@@ -57,11 +78,13 @@ const lireParametres = () => {
   };
   const prenom = champ('prenom', 'firstname', 'first_name');
   const nom = champ('nom', 'lastname', 'last_name');
+  const NOMS_TEL = ['tel', 'telephone', 'phone', 'mobile'];
+  const telephone = champ(...NOMS_TEL);
   return {
     // Notion peut envoyer le nom complet d'un bloc ou les deux champs séparés.
     nom: champ('nomComplet', 'name') || [prenom, nom].filter(Boolean).join(' '),
     email: champ('email', 'mail'),
-    telephone: champ('tel', 'telephone', 'phone', 'mobile'),
+    telephone: telephone && plusInitial(NOMS_TEL) ? `+${telephone}` : telephone,
   };
 };
 

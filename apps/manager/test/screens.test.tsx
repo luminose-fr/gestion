@@ -712,6 +712,24 @@ describe('prise de rendez-vous', () => {
   });
 
   /**
+   * Dans une query string, `+` veut dire espace — un numéro international y
+   * perd donc le seul caractère qui le désigne comme tel. Le lien Notion écrit
+   * « tel=+33 6 37… » et le champ doit afficher « +33 6 37… », pas « 33 6 37… ».
+   */
+  it('rend le « + » d’un numéro international écrit tel quel dans l’URL', async () => {
+    const avant = window.location.search;
+    window.history.replaceState({}, '', '/?email=a@b.fr&tel=+33%206%2037%2033%2026%2055');
+    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [] } as any);
+    vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [] } as any);
+
+    const { container } = render(<RdvView />);
+    const valeurs = [...container.querySelectorAll('input')].map((i) => (i as HTMLInputElement).value);
+    expect(valeurs).toContain('+33 6 37 33 26 55');
+
+    window.history.replaceState({}, '', `/${avant}`);
+  });
+
+  /**
    * La sélection décide de ce qui s'affiche, et une sélection VIDE affiche
    * tout : c'est l'état d'un déploiement neuf, et un écran qui ne proposerait
    * rien s'y lirait comme une panne.
