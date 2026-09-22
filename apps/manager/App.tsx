@@ -31,6 +31,7 @@ import { BandeauActivite, EnCours, FiletActivite, Patience } from './components/
 import SubtitleConverter from './components/SubtitleConverter';
 import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 import RdvView from './components/Clients/RdvView';
+import { ecran } from './components/ui';
 
 // Components refactorisés
 import { Sidebar } from './components/Layout/Sidebar';
@@ -1315,7 +1316,7 @@ function App() {
                     />
                 ) : (
                     <div className="flex-1 overflow-y-auto">
-                        <div className="px-4 md:px-6 py-5 max-w-6xl mx-auto">
+                        <div className={ecran('liste')}>
 
                             {currentSocialTab === 'ideas' && (
                                 <SocialIdeasView

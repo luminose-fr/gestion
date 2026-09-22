@@ -12,6 +12,7 @@ import { CharCounter } from '../CommonModals';
 import { EnCours } from '../Feedback';
 import { ContentTable } from './SocialGridView';
 import type { Tri } from '../TriTableau';
+import { Bouton, Carte, Champ, Etiquette, type TonBouton } from '../ui';
 
 interface SocialIdeasViewProps {
     items: ContentItem[];
@@ -36,12 +37,16 @@ export type FilterId = 'ALL' | 'TO_ANALYZE' | 'VALID' | 'TOO_BLAND' | 'NEEDS_WOR
 /** Les filtres reconnus — sert à valider ce que la base rend (SPEC §3.7). */
 export const FILTRES_IDEES: readonly FilterId[] = ['ALL', 'TO_ANALYZE', 'VALID', 'TOO_BLAND', 'NEEDS_WORK'];
 
-const FILTER_CHIPS: Array<{ id: FilterId; label: string; activeCls: string }> = [
-    { id: 'ALL',        label: 'Tout',       activeCls: 'bg-brand-main border-brand-main text-white shadow-brand-main/20 dark:bg-white dark:border-white dark:text-brand-main' },
-    { id: 'TO_ANALYZE', label: 'À analyser', activeCls: 'bg-brand-hover border-brand-hover text-white shadow-brand-hover/20' },
-    { id: 'VALID',      label: 'Valide',     activeCls: 'bg-emerald-600 border-emerald-600 text-white shadow-emerald-600/20' },
-    { id: 'TOO_BLAND',  label: 'Trop lisse', activeCls: 'bg-amber-500 border-amber-500 text-white shadow-amber-500/20' },
-    { id: 'NEEDS_WORK', label: 'À revoir',   activeCls: 'bg-red-500 border-red-500 text-white shadow-red-500/20' },
+/*
+  Un filtre actif prend la couleur du verdict qu'il isole. « À analyser »
+  n'est pas un verdict : il reste à la marque, comme « Tout ».
+*/
+const FILTER_CHIPS: Array<{ id: FilterId; label: string; ton: TonBouton }> = [
+    { id: 'ALL',        label: 'Tout',       ton: 'neutre' },
+    { id: 'TO_ANALYZE', label: 'À analyser', ton: 'neutre' },
+    { id: 'VALID',      label: 'Valide',     ton: 'succes' },
+    { id: 'TOO_BLAND',  label: 'Trop lisse', ton: 'alerte' },
+    { id: 'NEEDS_WORK', label: 'À revoir',   ton: 'erreur' },
 ];
 
 const matchesFilter = (item: ContentItem, filter: FilterId): boolean => {
@@ -108,26 +113,30 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
         <div className="space-y-4 animate-fade-in">
 
             {/* QUICK ADD — état replié = bouton seul, ouvert = formulaire complet */}
-            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden transition-all">
+            <Carte densite="tableau" className="transition-all">
                 {!quickAddOpen ? (
+                    /*
+                      Pas un `Bouton` : c'est la carte entière qui se déplie,
+                      une ligne de la hauteur d'une ligne de tableau.
+                    */
                     <button
                         onClick={() => setQuickAddOpen(true)}
-                        className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors group"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors group"
                     >
                         <span className="w-6 h-6 rounded-md bg-brand-light dark:bg-dark-bg flex items-center justify-center shrink-0 group-hover:bg-brand-main dark:group-hover:bg-white transition-colors">
-                            <Plus className="w-3 h-3 text-brand-main dark:text-white group-hover:text-white dark:group-hover:text-brand-main transition-colors" />
+                            <Plus className="w-3.5 h-3.5 text-brand-main dark:text-white group-hover:text-white dark:group-hover:text-brand-main transition-colors" />
                         </span>
                         Ajouter une idée…
                     </button>
                 ) : (
                     <form onSubmit={handleAdd} className="p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <input
+                        <Champ
                             ref={titleInputRef}
                             type="text"
                             value={newIdeaTitle}
                             onChange={e => setNewIdeaTitle(e.target.value)}
                             placeholder="Titre de l'idée…"
-                            className="w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-white rounded-lg text-sm font-semibold text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 outline-hidden transition-colors"
+                            className="font-semibold"
                         />
 
                         <div className="flex flex-col w-full border border-brand-border dark:border-dark-sec-border rounded-lg bg-brand-light dark:bg-dark-bg focus-within:border-brand-main dark:focus-within:border-white overflow-hidden transition-colors">
@@ -139,17 +148,17 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                                 placeholder="Notes, sources, premières idées… (optionnel)"
                             />
                             {newIdeaNotes.length > 80 && (
-                                <div className="p-1 px-3 border-t border-brand-border/50 dark:border-dark-sec-border/50">
+                                <div className="px-3 py-1 border-t border-brand-border/50 dark:border-dark-sec-border/50">
                                     <CharCounter current={newIdeaNotes.length} max={2000} />
                                 </div>
                             )}
                         </div>
 
                         <div className="flex items-center gap-2 bg-brand-light dark:bg-dark-bg rounded-lg px-3 py-2">
-                            <ArrowRightFromLine className="w-[11px] h-[11px] text-brand-main/50 dark:text-dark-text/50 shrink-0" />
-                            <label className="text-[11px] font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider shrink-0">
-                                Format <span className="text-red-500" aria-label="obligatoire">*</span>
-                            </label>
+                            <ArrowRightFromLine className="w-3 h-3 text-brand-main/50 dark:text-dark-text/50 shrink-0" />
+                            <Etiquette as="label" className="shrink-0">
+                                Format <span className="text-erreur" aria-label="obligatoire">*</span>
+                            </Etiquette>
                             <select
                                 value={newIdeaFormat}
                                 onChange={e => setNewIdeaFormat((e.target.value || '') as TargetFormat | '')}
@@ -163,37 +172,34 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                         </div>
 
                         <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
-                                type="button"
-                                onClick={resetQuickAdd}
-                                className="px-3 py-1.5 text-sm text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white transition-colors"
-                            >
+                            <Bouton type="button" intention="discrete" onClick={resetQuickAdd}>
                                 Annuler
-                            </button>
-                            <button
+                            </Bouton>
+                            <Bouton
                                 type="submit"
+                                intention="principale"
+                                posee
                                 disabled={!newIdeaTitle.trim() || !newIdeaFormat || isSyncing}
-                                className="flex items-center gap-2 px-4 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
                             >
                                 {isSyncing
                                     ? <EnCours label="Ajout…" />
-                                    : <><Plus className="w-3.5 h-3.5" /> Ajouter</>}
-                            </button>
+                                    : <><Plus /> Ajouter</>}
+                            </Bouton>
                         </div>
                     </form>
                 )}
-            </div>
+            </Carte>
 
             {/* TOOLBAR */}
             <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-3">
                 <div className="relative shrink-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-main/50 dark:text-dark-text/50" />
-                    <input
+                    <Champ
                         type="text"
                         placeholder="Rechercher…"
                         value={searchQuery}
                         onChange={e => onSearchChange(e.target.value)}
-                        className="w-full xl:w-56 pl-8 pr-4 py-2 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-white rounded-lg text-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 outline-hidden transition-colors"
+                        className="xl:w-56 pl-8"
                     />
                 </div>
 
@@ -201,34 +207,32 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
                     {FILTER_CHIPS.map(c => {
                         const active = filtre === c.id;
                         return (
-                            <button
+                            <Bouton
                                 key={c.id}
+                                taille="petit"
+                                intention={active ? 'principale' : 'secondaire'}
+                                ton={active ? c.ton : 'neutre'}
                                 onClick={() => onFiltre(c.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap transition-all shadow-sm ${
-                                    active
-                                        ? c.activeCls
-                                        : 'bg-white dark:bg-dark-surface text-brand-main/70 dark:text-dark-text/70 border-brand-border dark:border-dark-sec-border hover:border-brand-main/40 dark:hover:border-white/40 shadow-none'
-                                }`}
                             >
                                 {c.label}
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                                    active ? 'bg-white/25 dark:bg-brand-main/15' : 'bg-brand-light dark:bg-dark-bg'
+                                <span className={`text-micro font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                                    active ? 'bg-white/25 dark:bg-dark-bg/15' : 'bg-brand-light dark:bg-dark-bg'
                                 }`}>
                                     {counts[c.id]}
                                 </span>
-                            </button>
+                            </Bouton>
                         );
                     })}
                 </div>
 
-                <button
+                <Bouton
                     onClick={onGlobalAnalyze}
-                    className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs font-semibold rounded-lg border border-purple-200 dark:border-purple-800/50 transition-colors whitespace-nowrap shadow-sm shrink-0"
+                    className="shrink-0"
                     title="Analyser toutes les nouvelles idées avec l'IA"
                 >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Sparkles />
                     Analyser tout
-                </button>
+                </Bouton>
             </div>
 
             {/* LIST — table unifié (même rendu que "Prêts" + Statut + stripe verdict) */}

@@ -1,21 +1,26 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { PenLine, CheckCircle2, Archive, ChevronRight, Sparkles, MinusCircle, XCircle, HelpCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { bodyJsonToText } from '@luminose/editorial';
 import { ContentItem, TargetFormat, Verdict, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 import { EnTeteTriable, EnTeteSimple, comparateurFr, triSuivant, type Tri } from '../TriTableau';
+import { Bouton, Carte, Etiquette, type TonEtiquette } from '../ui';
 
+/*
+  Le verdict est un sens, pas une décoration : il passe par les trois tokens,
+  qui changent de valeur d'eux-mêmes en sombre.
+*/
 const VERDICT_STRIPE: Record<Verdict, string> = {
-    [Verdict.VALID]:       'bg-emerald-500',
-    [Verdict.TOO_BLAND]:   'bg-amber-500',
-    [Verdict.NEEDS_WORK]:  'bg-red-500',
+    [Verdict.VALID]:       'bg-succes',
+    [Verdict.TOO_BLAND]:   'bg-alerte',
+    [Verdict.NEEDS_WORK]:  'bg-erreur',
 };
 
-const VERDICT_BADGE_CFG: Record<string, { Icon: React.ComponentType<{ className?: string }>; cls: string }> = {
-    [Verdict.VALID]:      { Icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50' },
-    [Verdict.TOO_BLAND]:  { Icon: MinusCircle,  cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800/50' },
-    [Verdict.NEEDS_WORK]: { Icon: XCircle,      cls: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800/50' },
+const VERDICT_BADGE_CFG: Record<string, { Icon: React.ComponentType<{ className?: string }>; ton: TonEtiquette }> = {
+    [Verdict.VALID]:      { Icon: CheckCircle2, ton: 'succes' },
+    [Verdict.TOO_BLAND]:  { Icon: MinusCircle,  ton: 'alerte' },
+    [Verdict.NEEDS_WORK]: { Icon: XCircle,      ton: 'erreur' },
 };
 
 // Ordre logique pour le tri "Statut" : Valide → Trop lisse → À revoir → À analyser → (rien)
@@ -53,7 +58,7 @@ export const getHighlightedText = (text: string, highlightTerm?: string): React.
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return parts.map((part, i) =>
         part.toLowerCase() === highlightTerm.toLowerCase() ? (
-            <span key={`${part}-${i}`} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded-sm px-0.5">
+            <span key={`${part}-${i}`} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-semibold rounded-md px-0.5">
                 {part}
             </span>
         ) : part
@@ -88,27 +93,29 @@ const formatCreatedAt = (at: number | undefined): string => {
     }
 };
 
+const Vide: React.FC = () => <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>;
+
 // ───────────────────────── VerdictBadge ─────────────────────────
 
 const VerdictBadgeCell: React.FC<{ verdict?: string; analyzed?: boolean }> = ({ verdict, analyzed }) => {
     if (verdict && VERDICT_BADGE_CFG[verdict]) {
-        const { Icon, cls } = VERDICT_BADGE_CFG[verdict];
+        const { Icon, ton } = VERDICT_BADGE_CFG[verdict];
         return (
-            <span className={`inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold whitespace-nowrap ${cls}`}>
-                <Icon className="w-2.5 h-2.5" />
+            <Etiquette as="span" forme="pastille" ton={ton}>
+                <Icon />
                 {verdict}
-            </span>
+            </Etiquette>
         );
     }
     if (analyzed === false) {
         return (
-            <span className="inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold whitespace-nowrap bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                <HelpCircle className="w-2.5 h-2.5" />
+            <Etiquette as="span" forme="pastille">
+                <HelpCircle />
                 À analyser
-            </span>
+            </Etiquette>
         );
     }
-    return <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>;
+    return <Vide />;
 };
 
 // ───────────────────────── Content Table (unifié) ─────────────────────────
@@ -183,7 +190,7 @@ export const ContentTable: React.FC<{
     };
 
     return (
-        <div className="overflow-hidden rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-sm">
+        <Carte densite="tableau" posee>
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                     <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
@@ -230,35 +237,27 @@ export const ContentTable: React.FC<{
                                             {getHighlightedText(item.title || 'Nouvelle idée', searchQuery)}
                                         </div>
                                         {showStrategicAngle && item.strategicAngle && (
-                                            <div className="mt-1 flex items-start gap-1.5 text-xs text-brand-main/70 dark:text-brand-light/70 italic leading-snug max-w-2xl line-clamp-1">
+                                            <div className="mt-1 flex items-start gap-1.5 text-xs text-brand-main/70 dark:text-brand-light/70 italic leading-snug max-w-3xl line-clamp-1">
                                                 <Sparkles className="w-3 h-3 mt-0.5 shrink-0 not-italic" />
                                                 <span>{item.strategicAngle.replace(/\*\*/g, '').split('\n')[0]}</span>
                                             </div>
                                         )}
-                                        <div className="mt-1 max-w-2xl text-xs leading-5 text-brand-main/60 dark:text-dark-text/60 line-clamp-2">
+                                        <div className="mt-1 max-w-3xl text-xs leading-5 text-brand-main/60 dark:text-dark-text/60 line-clamp-2">
                                             {getHighlightedText(getPreviewText(item), searchQuery)}
                                         </div>
                                     </td>
 
                                     <td className={`${cellCls} whitespace-nowrap`}>
-                                        {item.targetFormat ? (
-                                            <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
-                                                {item.targetFormat}
-                                            </span>
-                                        ) : (
-                                            <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
-                                        )}
+                                        {item.targetFormat
+                                            ? <Etiquette as="span" forme="pastille">{item.targetFormat}</Etiquette>
+                                            : <Vide />}
                                     </td>
 
                                     {showObjectif && (
                                         <td className={`${cellCls} whitespace-nowrap`}>
-                                            {item.objectif ? (
-                                                <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                    {item.objectif}
-                                                </span>
-                                            ) : (
-                                                <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
-                                            )}
+                                            {item.objectif
+                                                ? <Etiquette as="span" forme="pastille">{item.objectif}</Etiquette>
+                                                : <Vide />}
                                         </td>
                                     )}
 
@@ -267,17 +266,10 @@ export const ContentTable: React.FC<{
                                             {item.platforms.length > 0 ? (
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {item.platforms.map(p => (
-                                                        <span
-                                                            key={`${item.id}-${p}`}
-                                                            className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
-                                                        >
-                                                            {p}
-                                                        </span>
+                                                        <Etiquette as="span" forme="pastille" key={`${item.id}-${p}`}>{p}</Etiquette>
                                                     ))}
                                                 </div>
-                                            ) : (
-                                                <span className="text-sm text-brand-main/40 dark:text-dark-text/40">—</span>
-                                            )}
+                                            ) : <Vide />}
                                         </td>
                                     )}
 
@@ -297,7 +289,7 @@ export const ContentTable: React.FC<{
                     </tbody>
                 </table>
             </div>
-        </div>
+        </Carte>
     );
 };
 
@@ -315,9 +307,7 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
             emptyText: "Vous n'avez aucun post en rédaction.",
             emptySearch: 'Aucun brouillon ne correspond à votre recherche.',
             showIdeaButton: true,
-            iconBg: 'bg-white dark:bg-dark-surface',
-            iconColor: 'text-brand-main/50 dark:text-dark-text/50',
-            iconBorder: 'border-brand-border dark:border-dark-sec-border',
+            pastille: 'bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border text-brand-main/50 dark:text-dark-text/50',
             showStatut: true,
             showPublication: false,
             showStrategicAngle: true,
@@ -328,9 +318,7 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
             emptyText: 'Les posts validés et prêts apparaîtront ici.',
             emptySearch: 'Aucun post prêt ne correspond à votre recherche.',
             showIdeaButton: false,
-            iconBg: 'bg-emerald-50 dark:bg-emerald-900/20',
-            iconColor: 'text-emerald-500 dark:text-emerald-400',
-            iconBorder: 'border-emerald-200 dark:border-emerald-800/50',
+            pastille: 'bg-succes/10 border-succes/30 text-succes',
             showStatut: false,
             showPublication: true,
             showStrategicAngle: false,
@@ -341,9 +329,7 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
             emptyText: 'Vos publications passées apparaîtront ici.',
             emptySearch: 'Aucune archive ne correspond à votre recherche.',
             showIdeaButton: false,
-            iconBg: 'bg-white dark:bg-dark-surface',
-            iconColor: 'text-brand-main/50 dark:text-dark-text/50',
-            iconBorder: 'border-brand-border dark:border-dark-sec-border',
+            pastille: 'bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border text-brand-main/50 dark:text-dark-text/50',
             showStatut: false,
             showPublication: true,
             showStrategicAngle: false,
@@ -354,23 +340,22 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
     const Icon = currentConfig.icon;
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-4 animate-fade-in">
             {!isInitializing && items.length === 0 ? (
                 <div className="text-center py-20">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border shadow-xs ${currentConfig.iconBg} ${currentConfig.iconBorder}`}>
-                        <Icon className={`w-8 h-8 ${currentConfig.iconColor}`} />
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border shadow-xs ${currentConfig.pastille}`}>
+                        <Icon className="w-8 h-8" />
                     </div>
                     <h3 className="text-lg font-semibold text-brand-main dark:text-white">{currentConfig.emptyTitle}</h3>
-                    <p className="text-sm text-brand-main/60 dark:text-dark-text/60 max-w-xs mx-auto mt-2">
+                    <p className="text-sm text-brand-main/60 dark:text-dark-text/60 text-balance mx-auto mt-2">
                         {searchQuery ? currentConfig.emptySearch : currentConfig.emptyText}
                     </p>
                     {currentConfig.showIdeaButton && (
-                        <button
-                            onClick={onNavigateToIdeas}
-                            className="mt-6 text-brand-main dark:text-white font-medium hover:underline flex items-center justify-center gap-1 mx-auto"
-                        >
-                            Choisir une idée <ChevronRight className="w-4 h-4" />
-                        </button>
+                        <div className="mt-6 flex justify-center">
+                            <Bouton intention="discrete" onClick={onNavigateToIdeas}>
+                                Choisir une idée <ChevronRight />
+                            </Bouton>
+                        </div>
                     )}
                 </div>
             ) : (

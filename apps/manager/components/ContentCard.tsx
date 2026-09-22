@@ -5,6 +5,7 @@ import { bodyJsonToText } from '@luminose/editorial';
 import { STATUS_COLORS } from '../constants';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Carte, Etiquette } from './ui';
 
 interface ContentCardProps {
   item: ContentItem;
@@ -25,18 +26,21 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return parts.map((part, i) => 
         part.toLowerCase() === highlightTerm.toLowerCase() ? (
-            <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-medium rounded-sm px-0.5">{part}</span>
+            <span key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-gray-900 dark:text-white font-semibold rounded-md px-0.5">{part}</span>
         ) : part
     );
   };
 
+  /*
+    Plus d'ombre au survol : `shadow-md` est hors échelle. Le survol se lit à la
+    bordure, qui passe à la marque — c'est ce que font les lignes de tableau.
+  */
   return (
-    <div 
+    <Carte
+      densite="liste"
+      posee
       onClick={() => onClick(item)}
-      className={`
-        bg-white dark:bg-dark-surface rounded-lg p-4 shadow-xs border border-brand-border dark:border-dark-sec-border cursor-pointer 
-        hover:shadow-md hover:border-brand-main dark:hover:border-white transition-all duration-200 group
-      `}
+      className="cursor-pointer hover:border-brand-main dark:hover:border-white transition-colors duration-200 group"
     >
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-semibold text-brand-main dark:text-white line-clamp-2 leading-tight group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors">
@@ -54,18 +58,18 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
           {item.platforms.length > 0 ? (
              <div className="flex flex-wrap gap-1">
                  {item.platforms.slice(0, 2).map((p, i) => (
-                    <span key={i} className="text-[10px] uppercase font-bold text-brand-main/50 dark:text-dark-text/50 bg-brand-light dark:bg-dark-bg px-1.5 py-0.5 rounded-sm">
+                    <Etiquette as="span" forme="pastille" key={i}>
                         {p}
-                    </span>
+                    </Etiquette>
                  ))}
                  {item.platforms.length > 2 && (
-                    <span className="text-[10px] text-brand-main/40 dark:text-dark-text/40 px-1">+{item.platforms.length - 2}</span>
+                    <span className="text-micro text-brand-main/40 dark:text-dark-text/40 px-1">+{item.platforms.length - 2}</span>
                  )}
              </div>
           ) : (
-            <div className="flex items-center text-xs font-medium">
+            <div className="flex items-center text-xs font-semibold">
                 {item.status === ContentStatus.READY ? (
-                    <div className="text-green-600 dark:text-green-400 flex items-center">
+                    <div className="text-succes flex items-center">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Prêt
                     </div>
@@ -81,9 +85,9 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
 
         <div className="flex items-center gap-1.5 shrink-0">
           {item.targetFormat && (
-            <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300">
-              <LayoutTemplate className="w-2.5 h-2.5" />{item.targetFormat}
-            </span>
+            <Etiquette as="span" forme="pastille">
+              <LayoutTemplate />{item.targetFormat}
+            </Etiquette>
           )}
           {formattedDate && (
             <div className="flex items-center gap-1 text-xs text-brand-main/60 dark:text-dark-text/60 bg-brand-light dark:bg-dark-bg px-2 py-1 rounded-md">
@@ -93,7 +97,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ item, onClick, highlight }) =
           )}
         </div>
       </div>
-    </div>
+    </Carte>
   );
 };
 

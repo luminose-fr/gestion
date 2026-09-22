@@ -44,7 +44,7 @@ export const triValide = (
 };
 
 const TH_BASE =
-  'px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55';
+  'px-4 py-3 text-left text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50';
 
 export const EnTeteTriable: React.FC<{
   colonne: string;

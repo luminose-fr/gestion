@@ -25,6 +25,7 @@ import type { ColdReadReport } from './DraftView';
 import { EditorLayout } from './EditorLayout';
 import { DraftView } from './DraftView';
 import { PreviewView } from './PreviewView';
+import { Bouton } from '../ui';
 
 export type EditorStep = 'idea' | 'atelier' | 'brouillon' | 'slides' | 'postcourt' | 'script';
 
@@ -965,10 +966,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   const getVerdictColor = (verdict?: string | null) => {
       switch (verdict) {
-          case Verdict.VALID: return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
-          case Verdict.TOO_BLAND: return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
-          case Verdict.NEEDS_WORK: return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
-          default: return 'bg-gray-100 text-gray-600 border-gray-200';
+          case Verdict.VALID: return 'bg-succes/10 text-succes border-succes/30';
+          case Verdict.TOO_BLAND: return 'bg-alerte/10 text-alerte border-alerte/30';
+          case Verdict.NEEDS_WORK: return 'bg-erreur/10 text-erreur border-erreur/30';
+          default: return 'bg-brand-light text-brand-main border-brand-border';
       }
   };
 
@@ -990,7 +991,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           : '';
       return (
           <span
-              className="hidden lg:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[10px] font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text/70 dark:border-dark-sec-border tabular-nums"
+              className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-micro font-semibold bg-brand-main/10 text-brand-main dark:bg-white/15 dark:text-white tabular-nums"
               title={`${cout.appels} appel${cout.appels > 1 ? 's' : ''} IA${jetons}${partiel ? ` — ${cout.appelsSansPrix} sans prix déclaré, le total est donc un minimum` : ''}`}
           >
               <Coins className="w-3 h-3" />
@@ -1006,19 +1007,19 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           </span>
       );
       if (saveStatus === 'saved') return (
-          <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+          <span className="flex items-center gap-1.5 text-xs text-succes">
               <CheckCircle2 className="w-3.5 h-3.5" />
               Enregistré
           </span>
       );
       if (saveStatus === 'error') return (
-          <span className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 font-medium">
+          <span className="flex items-center gap-1.5 text-xs text-erreur font-semibold">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               Non enregistré
               <button
                   onClick={retrySave}
                   disabled={isSaving}
-                  className="underline font-bold hover:text-red-800 dark:hover:text-red-200 disabled:opacity-50"
+                  className="underline font-bold hover:text-erreur disabled:opacity-50"
               >
                   Réessayer
               </button>
@@ -1029,7 +1030,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   /** Situe la publication dans sa série, et permet d'enchaîner sans repasser par le plan. */
   const SerieBanner = serieNav ? (
-      <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-violet-50 dark:bg-violet-900/20 border-b border-violet-200 dark:border-violet-800/50 text-xs text-violet-900 dark:text-violet-100">
+      <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
           <button
               onClick={onOpenSerie}
               className="flex items-center gap-1.5 font-bold hover:underline shrink-0"
@@ -1039,27 +1040,25 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               {serieNav.titre}
           </button>
           {serieNav.position !== null && (
-              <span className="text-violet-700/80 dark:text-violet-200/70 shrink-0">
+              <span className="text-brand-main/80 dark:text-dark-text/70 shrink-0">
                   publication {serieNav.position} sur {serieNav.total}
               </span>
           )}
           <div className="ml-auto flex items-center gap-1 shrink-0">
-              <button
+              <Bouton
                   onClick={() => serieNav.precedent && onOpenSerieContent?.(serieNav.precedent)}
                   disabled={!serieNav.precedent}
                   title={serieNav.precedent ? `Précédente : ${serieNav.precedent.title}` : 'Première de la série'}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg font-medium hover:bg-violet-100 dark:hover:bg-violet-900/40 disabled:opacity-30 disabled:hover:bg-transparent"
-              >
+                  taille="petit">
                   <ChevronLeft className="w-3.5 h-3.5" /> Précédente
-              </button>
-              <button
+              </Bouton>
+              <Bouton
                   onClick={() => serieNav.suivant && onOpenSerieContent?.(serieNav.suivant)}
                   disabled={!serieNav.suivant}
                   title={serieNav.suivant ? `Suivante : ${serieNav.suivant.title}` : 'Dernière de la série'}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg font-medium hover:bg-violet-100 dark:hover:bg-violet-900/40 disabled:opacity-30 disabled:hover:bg-transparent"
-              >
+                  taille="petit">
                   Suivante <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              </Bouton>
           </div>
       </div>
   ) : null;
@@ -1069,7 +1068,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       <div className="flex flex-col">
           {SerieBanner}
           {saveStatus === 'error' && (
-              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800 text-xs text-red-800 dark:text-red-200">
+              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-erreur/10 border-b border-erreur/30 text-xs text-erreur">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span className="flex-1 min-w-0">
                       <strong className="font-bold">Ce contenu n'est pas enregistré</strong>
@@ -1078,26 +1077,26 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   <button
                       onClick={retrySave}
                       disabled={isSaving}
-                      className="shrink-0 inline-flex items-center gap-1.5 underline font-bold hover:text-red-950 dark:hover:text-white disabled:opacity-50"
+                      className="shrink-0 inline-flex items-center gap-1.5 underline font-bold hover:text-erreur dark:hover:text-white disabled:opacity-50"
                   >
                       {isSaving ? <EnCours label="Enregistrement…" taille="xs" /> : 'Réessayer'}
                   </button>
               </div>
           )}
           {lastGeneration && (
-              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-blue-50 dark:bg-blue-900/25 border-b border-blue-200 dark:border-blue-800 text-xs text-blue-800 dark:text-blue-200">
+              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
                   <Undo2 className="w-4 h-4 shrink-0" />
                   <span className="flex-1 min-w-0">{lastGeneration.label} — la version précédente est encore récupérable.</span>
                   <button
                       onClick={undoLastGeneration}
                       disabled={isGenerating || isSaving}
-                      className="shrink-0 underline font-bold hover:text-blue-950 dark:hover:text-white disabled:opacity-50"
+                      className="shrink-0 underline font-bold hover:text-brand-main dark:hover:text-white disabled:opacity-50"
                   >
                       Revenir à la version précédente
                   </button>
                   <button
                       onClick={() => setLastGeneration(null)}
-                      className="shrink-0 text-blue-500 hover:text-blue-800 dark:hover:text-blue-100"
+                      className="shrink-0 text-brand-main/60 hover:text-brand-main dark:hover:text-dark-text"
                       title="Masquer"
                   >
                       <X className="w-3.5 h-3.5" />
@@ -1147,7 +1146,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                       onClick={() => onStepChange(step.id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
                           isActive
-                              ? 'bg-white dark:bg-dark-surface text-brand-main dark:text-white shadow-sm'
+                              ? 'bg-white dark:bg-dark-surface text-brand-main dark:text-white shadow-xs'
                               : 'text-brand-main/50 dark:text-dark-text/50 hover:text-brand-main dark:hover:text-white'
                       }`}
                   >
@@ -1173,7 +1172,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                       onClick={() => onStepChange(step.id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                           isActive
-                              ? 'bg-brand-main text-white shadow-sm dark:bg-white dark:text-brand-main'
+                              ? 'bg-brand-main text-white shadow-xs dark:bg-white dark:text-brand-main'
                               : 'text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg'
                       }`}
                   >
@@ -1205,13 +1204,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   {editedItem.platforms?.slice(0, 2).map(p => (
                       <span
                           key={p}
-                          className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
+                          className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
                       >
                           {p}
                       </span>
                   ))}
                   {editedItem.targetFormat && (
-                      <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
+                      <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
                           {editedItem.targetFormat}
                       </span>
                   )}
@@ -1224,11 +1223,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               <SaveIndicator />
               <CoutIndicator />
               {editedItem.verdict && (
-                  <div className={`hidden lg:block px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getVerdictColor(editedItem.verdict)}`}>
+                  <div className={`hidden lg:block px-1.5 py-0.5 rounded-full text-micro font-semibold ${getVerdictColor(editedItem.verdict)}`}>
                       {editedItem.verdict}
                   </div>
               )}
-              <div className={`hidden lg:block px-2.5 py-0.5 rounded-full border text-xs font-medium ${STATUS_COLORS[editedItem.status]}`}>
+              <div className={`hidden lg:block px-1.5 py-0.5 rounded-full text-micro font-semibold border ${STATUS_COLORS[editedItem.status]}`}>
                   {editedItem.status}
               </div>
           </div>
@@ -1239,23 +1238,19 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       const canSave = isDirty && !isSaving;
       return (
           <>
-              <button onClick={() => setConfirmDelete(true)} className="text-red-500 p-2 rounded-sm hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 text-sm font-medium mr-auto">
-                  <Trash2 className="w-4 h-4" /> Supprimer
-              </button>
-              <button
+              <Bouton onClick={() => setConfirmDelete(true)} intention="discrete" ton="erreur" className="mr-auto">
+                  <Trash2 /> Supprimer
+              </Bouton>
+              <Bouton
                   onClick={handleManualSave}
                   disabled={!canSave}
                   title={!isDirty ? "Aucune modification à enregistrer" : undefined}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${
-                      canSave
-                          ? 'text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-bg cursor-pointer'
-                          : 'text-brand-main/30 dark:text-dark-text/30 cursor-not-allowed'
-                  }`}
+                  intention="principale"
               >
                   {isSaving
                       ? <EnCours label="Enregistrement…" taille="md" />
-                      : <><Save className="w-4 h-4" /> Enregistrer</>}
-              </button>
+                      : <><Save /> Enregistrer</>}
+              </Bouton>
           </>
       );
   };
