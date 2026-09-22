@@ -15,6 +15,7 @@ import { Check, Inbox as InboxIcon, Trash2 } from 'lucide-react';
 import {
   fetchInbox, capturer, integrerCapture, supprimerCapture, type CaptureInbox,
 } from '../../services/apiService';
+import { Bouton, Champ } from '../ui';
 
 const jour = (ms: number) => new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
@@ -71,11 +72,11 @@ const InboxView: React.FC = () => {
   const integrees = (captures ?? []).filter((c) => c.integratedAt !== null);
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      {erreur && <p className="text-sm text-red-600 dark:text-red-400">Échec — {erreur}</p>}
+    <div className="space-y-4 max-w-3xl mx-auto">
+      {erreur && <p className="text-sm text-erreur">Échec — {erreur}</p>}
 
-      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-5">
-        <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1">
+      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
+        <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1">
           Capturer
         </h2>
         <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-3">
@@ -84,36 +85,33 @@ const InboxView: React.FC = () => {
         <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
           Ce qui a été décidé, dans mes mots
         </label>
-        <textarea
+        <Champ multiligne
           value={decide}
           onChange={(e) => setDecide(e.target.value)}
           rows={3}
-          className="w-full text-sm p-2.5 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-transparent text-brand-main dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-brand-main/30"
         />
         <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mt-3 mb-1">
           Ce que ça rend faux
         </label>
-        <input
+        <Champ
           value={remplace}
           onChange={(e) => setRemplace(e.target.value)}
           placeholder="Laisser vide si je ne sais pas — c'est une réponse acceptable"
-          className="w-full text-sm p-2.5 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-transparent text-brand-main dark:text-dark-text placeholder:text-brand-main/35 dark:placeholder:text-dark-text/30 focus:outline-none focus:ring-2 focus:ring-brand-main/30"
         />
-        <p className="text-[11px] text-brand-main/45 dark:text-dark-text/40 mt-1.5">
+        <p className="text-micro text-brand-main/45 dark:text-dark-text/40 mt-1.5">
           Vide veut dire « je ne sais pas », jamais « rien ». Ce champ coûte cinq secondes
           maintenant et une heure d'archéologie plus tard s'il manque.
         </p>
-        <button
+        <Bouton
           onClick={() => void envoyer()}
           disabled={!decide.trim() || envoi}
-          className="mt-3 px-3 py-1.5 rounded-lg text-sm font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
-        >
+          className="mt-3" intention="principale">
           {envoi ? 'Capture…' : 'Capturer'}
-        </button>
+        </Bouton>
       </section>
 
       <section>
-        <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
+        <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
           En attente — {attente.length}
         </h2>
         {/*
@@ -136,36 +134,34 @@ const InboxView: React.FC = () => {
         ) : (
           <ul className="space-y-2">
             {attente.map((c) => (
-              <li key={c.id} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-3.5">
+              <li key={c.id} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4">
                 <p className="text-sm text-brand-main dark:text-dark-text">{c.decide}</p>
                 <p className="text-xs mt-1.5 text-brand-main/55 dark:text-dark-text/50">
                   <span className="font-semibold">Remplace :</span>{' '}
                   {c.remplace ?? <em className="opacity-70">je ne sais pas</em>}
                 </p>
-                <p className="text-[11px] font-mono text-brand-main/40 dark:text-dark-text/35 mt-1">
+                <p className="text-micro font-mono text-brand-main/40 dark:text-dark-text/35 mt-1">
                   {jour(c.createdAt)}{c.source ? ` · ${c.source}` : ''}
                 </p>
-                <div className="flex flex-wrap gap-2 mt-2.5">
-                  <input
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Champ
                     value={integration[c.id] ?? ''}
                     onChange={(e) => setIntegration((m) => ({ ...m, [c.id]: e.target.value }))}
                     placeholder="Où est-ce parti ? chemins, commit"
-                    className="flex-1 min-w-[14rem] text-xs p-2 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-transparent text-brand-main dark:text-dark-text placeholder:text-brand-main/35 dark:placeholder:text-dark-text/30"
+                    className="flex-1 min-w-[14rem]"
                   />
-                  <button
+                  <Bouton
                     onClick={() => void marquer(c.id)}
                     disabled={!integration[c.id]?.trim()}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
-                  >
+                    taille="petit" intention="principale">
                     <Check className="w-3.5 h-3.5" /> Intégrée
-                  </button>
-                  <button
+                  </Bouton>
+                  <Bouton
                     onClick={() => void jeter(c.id)}
                     title="Capture saisie deux fois ou à côté de la plaque"
-                    className="px-2 py-1 rounded-lg text-brand-main/40 hover:text-red-600 dark:text-dark-text/35 dark:hover:text-red-400"
-                  >
+                    taille="petit" intention="discrete">
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </Bouton>
                 </div>
               </li>
             ))}
@@ -175,7 +171,7 @@ const InboxView: React.FC = () => {
 
       {integrees.length > 0 && (
         <section>
-          <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
+          <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
             Intégrées — {integrees.length}
           </h2>
           <p className="text-xs text-brand-main/50 dark:text-dark-text/45 mb-2">
@@ -184,9 +180,9 @@ const InboxView: React.FC = () => {
           </p>
           <ul className="space-y-1.5">
             {integrees.map((c) => (
-              <li key={c.id} className="text-xs border-l-2 border-brand-light dark:border-dark-sec-bg pl-3 py-1">
+              <li key={c.id} className="text-xs border-l-2 border-brand-border dark:border-dark-sec-border pl-3 py-1">
                 <p className="text-brand-main/75 dark:text-dark-text/70">{c.decide}</p>
-                <p className="font-mono text-[10px] text-brand-main/40 dark:text-dark-text/35 mt-0.5">
+                <p className="font-mono text-micro text-brand-main/40 dark:text-dark-text/35 mt-0.5">
                   {jour(c.createdAt)} → {c.integration}
                 </p>
               </li>
