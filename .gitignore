@@ -39,3 +39,6 @@ packages/editorial/src/voice.ts
 # par `npm run embarquer -w packages/corpus`, avant chaque dev et chaque
 # déploiement. Le commiter ferait exister deux copies du corpus.
 workers/api/src/genere/
+
+# Exports de Claude Design — matériau de travail, jamais versionné
+_design/
