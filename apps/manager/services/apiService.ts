@@ -13,6 +13,7 @@ import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
+  RdvType, RdvCreneau, RdvConfirme,
 } from '@luminose/shared';
 
 /**
@@ -538,3 +539,23 @@ export const integrerCapture = (id: string, integration: string) =>
 
 export const supprimerCapture = (id: string) =>
   api<{ ok: true }>(`/inbox/${id}`, { method: 'DELETE' });
+
+// ── Rendez-vous Calendly ─────────────────────────────────────────────────
+
+export const fetchRdvTypes = () =>
+  api<{ types: RdvType[] }>('/rdv/types', {}, { label: 'Types de rendez-vous', cle: 'api:rdv-types' });
+
+/** `jours` : la fenêtre, sept au maximum — c'est Calendly qui plafonne. */
+export const fetchRdvCreneaux = (type: string, debut: string, jours: number) =>
+  api<{ creneaux: RdvCreneau[]; depuis: string; jusqua: string }>(
+    `/rdv/creneaux?type=${encodeURIComponent(type)}&debut=${encodeURIComponent(debut)}&jours=${jours}`,
+    {},
+    { label: 'Recherche des créneaux', cle: 'api:rdv-creneaux' },
+  );
+
+export const creerRdv = (payload: {
+  type: string; debut: string; nom: string; email: string;
+  telephone: string | null; lieu: string | null;
+}) =>
+  api<{ rdv: RdvConfirme }>('/rdv', { method: 'POST', ...body(payload) },
+    { label: 'Création du rendez-vous', cle: 'api:rdv-creation' });

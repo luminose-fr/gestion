@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { RefreshCw, LogOut, AlertCircle, Users, Menu, Cpu, ChevronDown } from 'lucide-react';
+import { RefreshCw, LogOut, AlertCircle, Menu, Cpu, ChevronDown } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
@@ -30,6 +30,7 @@ import { AlertModal } from './components/CommonModals';
 import { BandeauActivite, EnCours, FiletActivite, Patience } from './components/Feedback';
 import SubtitleConverter from './components/SubtitleConverter';
 import PsychedelicsCalculator from './components/PsychedelicsCalculator';
+import RdvView from './components/Clients/RdvView';
 
 // Components refactorisés
 import { Sidebar } from './components/Layout/Sidebar';
@@ -1238,13 +1239,9 @@ function App() {
         )}
 
         {currentSpace === 'clients' && (
-            <div className="flex-1 flex flex-col items-center justify-center text-brand-main/50 dark:text-dark-text/50 relative overflow-y-auto">
-                <div className="bg-white dark:bg-dark-surface p-12 rounded-2xl shadow-xs border border-brand-border dark:border-dark-sec-border text-center max-w-md mx-4">
-                    <Users className="w-16 h-16 mx-auto mb-6 text-brand-200 dark:text-dark-text/30" />
-                    <h2 className="text-xl font-bold text-brand-main dark:text-white mb-2">Espace Clients</h2>
-                    <p className="text-sm">Cet espace est en cours de construction. Bientôt, vous pourrez gérer vos CRM et vos projets clients ici.</p>
-                </div>
-            </div>
+            <main className="flex-1 overflow-y-auto">
+                <RdvView />
+            </main>
         )}
 
         {currentSpace === 'videos' && (

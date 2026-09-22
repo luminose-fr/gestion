@@ -576,6 +576,47 @@ Maximum **50 requêtes D1 par invocation**. Conséquences normatives :
 - Toute route nouvelle doit pouvoir énoncer son nombre de requêtes, borné et indépendant
   du volume de données.
 
+### 3.8 Prise de rendez-vous Calendly — NORMATIF
+
+`GET /api/rdv/types` · `GET /api/rdv/creneaux` · `POST /api/rdv`. **Zéro requête D1** :
+cette route ne parle qu'à Calendly.
+
+**Pourquoi elle existe, et pourquoi elle n'existe que pour ça.** Depuis le milieu de
+l'année 2026, Calendly demande à l'invité de confirmer son numéro par SMS avant de lui
+envoyer le moindre rappel. Quand l'invité réserve lui-même, il confirme ; quand le
+rendez-vous est posé pour lui — au téléphone, en fin de séance — personne n'est là pour
+répondre, et **aucun rappel ne part**. La Scheduling API accepte, elle, un numéro fourni
+par le compte (`text_reminder_number`) : le titulaire du compte atteste du consentement,
+comme le fait déjà le panneau « Réserver une réunion » de l'administration Calendly.
+
+Ce n'est donc pas un agenda, ni un CRM. C'est un raccourci qui remplace quatre écrans de
+l'administration Calendly, et **le numéro est sa seule raison d'être**.
+
+- Le jeton vit dans `CALENDLY_TOKEN`, secret du Worker, portée
+  `scheduled_events:write`. **Facultatif** : absent, l'écran se tait en disant ce qui
+  lui manque (`Refus` 409), et rien d'autre dans l'application ne bouge.
+- Un refus de Calendly revient avec **son** message (`Refus`, 4xx) : « ce créneau n'est
+  plus disponible » se corrige, « Erreur interne » ne se corrige pas.
+- La fenêtre de disponibilités est plafonnée à **sept jours** et ne commence jamais dans
+  le passé — deux contraintes de Calendly, traduites ici plutôt que remontées en 400.
+- Le numéro est normalisé en E.164 avant l'appel ; un numéro incompréhensible est refusé
+  **avant** d'appeler Calendly.
+- L'écran rend le numéro **retenu par Calendly**, pas celui qui a été envoyé : sur la
+  seule promesse de la fonctionnalité, « envoyé » ne vaut pas « accepté ».
+
+**Dépendance externe, hors du code.** Le numéro enregistré ne sert qu'à ce que Calendly
+décide d'envoyer, et deux mécanismes distincts peuvent le faire : le **rappel SMS natif**
+du type d'événement (Notifications et annulation → Rappel par SMS) et un **workflow**
+« Envoyer un SMS à l'invité ». Ils s'ajoutent l'un à l'autre ; aucun des deux n'est
+impliqué par l'autre.
+
+Relevé le 21/09/2026 sur les treize types du compte : `invitee_sms_reminder.enabled` est
+à `false` partout, et le seul workflow rattaché aux séances est un rappel **e-mail** à
+sept jours. Dans cet état, le numéro part bien à Calendly et aucun SMS n'est émis —
+**la route fait son travail, et la configuration du compte ne suit pas**. C'est un
+réglage Calendly, pas un défaut du code, et c'est la première chose à vérifier si un
+rendez-vous posé ici ne déclenche aucun rappel.
+
 ### 3.7 Ce qu'une liste retient — NORMATIF
 
 **Le tri et le filtre d'une liste vivent sur le compte, pas dans le navigateur.**

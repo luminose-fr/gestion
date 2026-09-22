@@ -38,4 +38,14 @@ export type Env = {
   CLOUDFLARE_ANALYTICS_TOKEN?: string;
   /** L'identifiant du compte Cloudflare — `accountTag` dans l'API GraphQL. */
   CLOUDFLARE_ACCOUNT_ID?: string;
+
+  /**
+   * Jeton d'accès personnel Calendly — portée « scheduled_events:write », pour
+   * poser un rendez-vous à la place d'un invité (voir routes/rdv.ts).
+   *
+   * FACULTATIF, comme les deux précédents et pour la même raison : absent, tout
+   * le reste de l'application fonctionne à l'identique et seul l'écran de prise
+   * de rendez-vous se tait, en disant ce qui lui manque.
+   */
+  CALENDLY_TOKEN?: string;
 };
