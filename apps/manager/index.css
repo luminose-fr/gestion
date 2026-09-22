@@ -8,6 +8,14 @@
   --font-sans: 'Futura LT', Futura, Century Gothic, sans-serif;
   --font-display: 'Abril Display', Georgia, serif;
 
+  /*
+    L'étiquette — la plus petite taille de l'échelle. Elle remplace à elle
+    seule text-[9px], text-[10px] et text-[11px]. Sa hauteur de ligne est
+    déclarée avec elle, sans quoi Tailwind v4 garde celle du parent.
+  */
+  --text-micro: 0.6875rem;      /* 11 px */
+  --text-micro--line-height: 1rem;
+
   --color-brand-main: #6163a5;
   --color-brand-hover: #60407f;
   --color-brand-light: #f9f5ff;
@@ -17,6 +25,17 @@
   --color-dark-text: #bb95dd;
   --color-dark-sec-border: #613f7f;
   --color-dark-sec-bg: rgba(63, 34, 88, 0.5);
+
+  /*
+    Les trois sens que l'interface porte en couleur. Ils remplacent green-*,
+    emerald-*, amber-* et red-*, écrits à la main dans une trentaine de fichiers.
+    Un seul token par sens : sa valeur sombre est posée plus bas, si bien
+    qu'un écran écrit `text-succes` et jamais `dark:text-…`. Les surfaces
+    s'en déduisent par opacité (`bg-succes/10`, `border-succes/30`).
+  */
+  --color-succes: #047857;
+  --color-alerte: #b45309;
+  --color-erreur: #b91c1c;
 
   /*
     Les témoins d'attente. `animate-fade-in` était utilisé depuis longtemps sans
@@ -37,6 +56,19 @@
   @keyframes balayage {
     from { transform: translateX(-110%); }
     to   { transform: translateX(360%); }
+  }
+}
+
+/*
+  Les valeurs claires passent 4.5:1 sur blanc et sur brand-light ; ces valeurs
+  sombres les passent sur dark-bg et dark-surface. Même mécanisme que la
+  variante `dark` : la préférence système.
+*/
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-succes: #6ee7b7;
+    --color-alerte: #fcd34d;
+    --color-erreur: #fca5a5;
   }
 }
 
