@@ -250,14 +250,29 @@ export interface RdvType {
   couleur: string;
   secret: boolean;
   /**
-   * Le lieu imposé par le type, quand il en déclare un.
+   * Les lieux déclarés par le type. Il peut y en avoir plusieurs — visio OU
+   * appel sortant, par exemple — et c'est alors l'invité qui choisit d'ordinaire.
    *
    * Le `kind` seul ne suffit pas : Calendly exige AUSSI le texte du lieu dès
    * que le kind vaut `custom`, `physical`, `ask_invitee` ou `outbound_call` —
    * un 400 en production l'a appris. Le texte vient du type lui-même
    * (« 2 Avenue de Verdun… ») et reste corrigeable à l'écran.
    */
-  lieu: { kind: string; texte: string } | null;
+  lieux: Array<{ kind: string; texte: string }>;
+  /** Le formulaire d'invité. Une question `requis` l'est aussi pour l'API. */
+  questions: RdvQuestion[];
+}
+
+/** Une question du formulaire d'invité, telle que le type la déclare. */
+export interface RdvQuestion {
+  nom: string;
+  /** `string`, `text`, `phone_number`, `single_select`, `multi_select`. */
+  type: string;
+  requis: boolean;
+  /** Ce que Calendly utilise pour rattacher une réponse à sa question. */
+  position: number;
+  choix: string[];
+  autre: boolean;
 }
 
 /** Un créneau libre — son début, en UTC. Le reste se déduit de la durée du type. */
@@ -278,6 +293,12 @@ export interface RdvConfirme {
    * l'écran, et « envoyé » ne vaut pas « accepté ».
    */
   telephone: string | null;
+  /**
+   * Le lieu relu sur l'événement créé — `texte` porte l'URL de visioconférence
+   * quand il y en a une. C'est la seule façon de savoir si le lien Google Meet
+   * a bien été fabriqué : la réponse de création ne le dit pas.
+   */
+  lieu: { type: string; texte: string } | null;
   annulation: string;
   report: string;
 }

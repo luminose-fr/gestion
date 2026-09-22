@@ -565,6 +565,7 @@ export const enregistrerRdvSelection = (types: string[]) =>
 export const creerRdv = (payload: {
   type: string; debut: string; nom: string; email: string;
   telephone: string | null; lieu: { kind: string; texte: string } | null;
+  reponses: Array<{ question: string; answer: string; position: number }>;
 }) =>
   api<{ rdv: RdvConfirme }>('/rdv', { method: 'POST', ...body(payload) },
     { label: 'Création du rendez-vous', cle: 'api:rdv-creation' });

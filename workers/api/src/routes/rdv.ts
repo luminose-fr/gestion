@@ -143,12 +143,36 @@ const moi = async (jeton: string): Promise<{ uri: string; fuseau: string }> => {
  */
 const KINDS_AVEC_TEXTE = ['custom', 'physical', 'ask_invitee', 'outbound_call'];
 
-const lieuDuType = (t: any): { kind: string; texte: string } | null => {
-  const l = t?.locations?.[0];
-  if (!l?.kind) return null;
-  const texte = String(l.location ?? l.phone_number ?? l.additional_info ?? '');
-  return { kind: String(l.kind), texte };
-};
+const lieuxDuType = (t: any): Array<{ kind: string; texte: string }> =>
+  (t?.locations ?? [])
+    .filter((l: any) => l?.kind)
+    .map((l: any) => ({
+      kind: String(l.kind),
+      texte: String(l.location ?? l.phone_number ?? l.additional_info ?? ''),
+    }));
+
+/**
+ * Les questions du formulaire d'invité.
+ *
+ * Appris d'un 400 en production : « Required Questions and Answers cannot be
+ * blank ». Une question obligatoire l'est aussi pour l'API — les conditions
+ * d'annulation, l'âge de l'enfant, le motif de la démarche. L'écran doit donc
+ * les poser, et il ne peut les poser que s'il les connaît.
+ *
+ * `position` voyage avec : c'est elle, et non l'intitulé, que Calendly utilise
+ * pour rattacher une réponse à sa question.
+ */
+const questionsDuType = (t: any) =>
+  (t?.custom_questions ?? [])
+    .filter((q: any) => q?.enabled !== false)
+    .map((q: any) => ({
+      nom: String(q.name ?? ''),
+      type: String(q.type ?? 'string'),
+      requis: Boolean(q.required),
+      position: Number(q.position ?? 0),
+      choix: (q.answer_choices ?? []).map((x: any) => String(x)),
+      autre: Boolean(q.include_other),
+    }));
 
 // ── Types d'événements ───────────────────────────────────────────────────
 
@@ -173,7 +197,8 @@ rdv.get('/types', async (c) => {
     duree: Number(t.duration ?? 0),
     couleur: String(t.color ?? '#0069ff'),
     secret: Boolean(t.secret),
-    lieu: lieuDuType(t),
+    lieux: lieuxDuType(t),
+    questions: questionsDuType(t),
   }));
 
   return c.json({ types });
@@ -424,6 +449,12 @@ const RdvSchema = z.object({
   fuseau: z.string().max(60).optional(),
   /** Le lieu attendu par le type : son `kind`, et le texte que Calendly exige avec. */
   lieu: z.object({ kind: z.string().max(60), texte: z.string().max(500) }).nullable().optional(),
+  /** Les réponses au formulaire d'invité — obligatoires dès que la question l'est. */
+  reponses: z.array(z.object({
+    question: z.string().max(500),
+    answer: z.string().max(2000),
+    position: z.number().int().min(0),
+  })).max(20).optional(),
 });
 
 /**
@@ -467,6 +498,11 @@ rdv.post('/', async (c) => {
     }
   }
 
+  // Une réponse vide n'est pas une réponse : Calendly refuse la liste entière
+  // si elle porte un blanc, y compris pour une question facultative.
+  const reponses = (entree.reponses ?? []).filter((r) => r.answer.trim() !== '');
+  if (reponses.length) base.questions_and_answers = reponses;
+
   const avecInvitee = telephone
     ? { ...base, invitee: { ...base.invitee, text_reminder_number: telephone } }
     : base;
@@ -484,6 +520,28 @@ rdv.post('/', async (c) => {
   }
 
   const invite = rep?.resource ?? rep;
+
+  /**
+   * Le lieu FINAL, relu sur l'événement créé.
+   *
+   * C'est la seule façon de savoir si Calendly a bien fabriqué le lien Google
+   * Meet : la réponse de création ne le porte pas. Un appel de plus, et
+   * l'écran peut afficher le lien — ou dire qu'il n'y en a pas, ce qui est
+   * l'information utile quand la visioconférence devait être là.
+   */
+  let lieu: { type: string; texte: string } | null = null;
+  if (invite?.event) {
+    const evenement = await appeler<any>(jeton, `/scheduled_events/${String(invite.event).split('/').pop()}`)
+      .catch(() => null);
+    const l = evenement?.resource?.location;
+    if (l) {
+      lieu = {
+        type: String(l.type ?? ''),
+        texte: String(l.join_url ?? l.location ?? l.status ?? ''),
+      };
+    }
+  }
+
   return c.json({
     rdv: {
       uri: String(invite?.uri ?? ''),
@@ -493,6 +551,7 @@ rdv.post('/', async (c) => {
       email: entree.email,
       /** Le numéro RETENU par Calendly, pas celui qu'on a envoyé : c'est la différence entre croire et savoir. */
       telephone: (invite?.text_reminder_number as string | null) ?? telephone ?? null,
+      lieu,
       annulation: String(invite?.cancel_url ?? ''),
       report: String(invite?.reschedule_url ?? ''),
     },

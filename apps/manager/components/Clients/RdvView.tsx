@@ -23,14 +23,28 @@
  * repli, chaque liste déroulante y coûte une hésitation devant quelqu'un.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, Check, MessageSquare, RefreshCw, Settings2, TriangleAlert } from 'lucide-react';
+import { CalendarClock, Check, MessageSquare, RefreshCw, Settings2, TriangleAlert, Video } from 'lucide-react';
 import {
   fetchRdvTypes, fetchRdvCreneaux, creerRdv, fetchRdvSelection, enregistrerRdvSelection,
 } from '../../services/apiService';
-import type { RdvType, RdvCreneau, RdvConfirme } from '@luminose/shared';
+import type { RdvType, RdvCreneau, RdvConfirme, RdvQuestion } from '@luminose/shared';
 
 /** Trois mois, d'un seul tenant : le Worker découpe, l'écran ne le sait pas. */
 const JOURS = 92;
+
+const KINDS_AVEC_TEXTE = ['custom', 'physical', 'ask_invitee', 'outbound_call'];
+
+/** Le vocabulaire de Calendly, dans celui du produit. */
+const NOM_DU_LIEU: Record<string, string> = {
+  google_conference: 'Google Meet',
+  zoom_conference: 'Zoom',
+  microsoft_teams_conference: 'Teams',
+  custom: 'Lieu indiqué',
+  physical: 'Adresse',
+  outbound_call: 'J’appelle l’invité',
+  inbound_call: 'L’invité m’appelle',
+  ask_invitee: 'À demander à l’invité',
+};
 
 const lireParametres = () => {
   const p = new URLSearchParams(window.location.search);
@@ -75,12 +89,21 @@ const parMois = (creneaux: RdvCreneau[]) => {
   return [...mois.values()];
 };
 
+/**
+ * Ce qu'une question vaut au départ.
+ *
+ * Une question à choix unique qui n'a qu'une seule réponse possible — les
+ * conditions d'annulation — se coche d'elle-même : la faire cliquer serait
+ * demander d'approuver à la place de l'invité un texte qu'il a déjà accepté
+ * ailleurs, et ralentir le seul moment où l'écran doit être rapide.
+ */
+const reponseInitiale = (q: RdvQuestion): string[] =>
+  q.type === 'single_select' && q.choix.length === 1 ? [q.choix[0]] : [];
+
 const champClasses =
   'w-full text-sm p-2.5 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-transparent ' +
   'text-brand-main dark:text-dark-text placeholder:text-brand-main/35 dark:placeholder:text-dark-text/30 ' +
   'focus:outline-none focus:ring-2 focus:ring-brand-main/30';
-
-const KINDS_AVEC_TEXTE = ['custom', 'physical', 'ask_invitee', 'outbound_call'];
 
 const RdvView: React.FC = () => {
   const initial = useMemo(lireParametres, []);
@@ -93,7 +116,9 @@ const RdvView: React.FC = () => {
   const [selection, setSelection] = useState<string[]>([]);
   const [reglage, setReglage] = useState(false);
   const [typeUri, setTypeUri] = useState<string>('');
-  const [lieu, setLieu] = useState('');
+  const [lieuKind, setLieuKind] = useState('');
+  const [lieuTexte, setLieuTexte] = useState('');
+  const [reponses, setReponses] = useState<Record<number, string[]>>({});
   const [libre, setLibre] = useState(false);
 
   const [creneaux, setCreneaux] = useState<RdvCreneau[] | null>(null);
@@ -103,6 +128,7 @@ const RdvView: React.FC = () => {
   const [confirme, setConfirme] = useState<RdvConfirme | null>(null);
 
   const type = types?.find((t) => t.uri === typeUri) ?? null;
+  const lieu = type?.lieux.find((l) => l.kind === lieuKind) ?? null;
 
   /** Une sélection vide veut dire « tous » : un déploiement neuf doit montrer quelque chose. */
   const affiches = useMemo(
@@ -116,9 +142,16 @@ const RdvView: React.FC = () => {
       .catch((e) => { setTypes([]); setErreur(e?.message ?? 'Calendly injoignable.'); });
   }, []);
 
-  // Le lieu suit le type : il est pré-rempli par ce que Calendly en dit, et
-  // reste corrigeable — c'est lui que Calendly exige à la création.
-  useEffect(() => { setLieu(type?.lieu?.texte ?? ''); }, [typeUri]);
+  // Le lieu et le formulaire suivent le type : Calendly exige les deux à la
+  // création, et il les exige tels que CE type les déclare.
+  useEffect(() => {
+    const premier = type?.lieux[0] ?? null;
+    setLieuKind(premier?.kind ?? '');
+    setLieuTexte(premier?.texte ?? '');
+    setReponses(Object.fromEntries((type?.questions ?? []).map((q) => [q.position, reponseInitiale(q)])));
+  }, [typeUri]);
+
+  useEffect(() => { setLieuTexte(lieu?.texte ?? ''); }, [lieuKind]);
 
   useEffect(() => {
     if (!typeUri) { setCreneaux(null); return; }
@@ -131,8 +164,12 @@ const RdvView: React.FC = () => {
     return () => { abandonne = true; };
   }, [typeUri, libre]);
 
-  const lieuManquant = Boolean(type?.lieu && KINDS_AVEC_TEXTE.includes(type.lieu.kind) && !lieu.trim());
-  const pret = Boolean(typeUri && nom.trim() && email.trim() && !lieuManquant);
+  const lieuManquant = Boolean(lieuKind && KINDS_AVEC_TEXTE.includes(lieuKind) && !lieuTexte.trim());
+  const questionsManquantes = (type?.questions ?? [])
+    .filter((q) => q.requis && !(reponses[q.position] ?? []).join('').trim());
+  const pret = Boolean(
+    typeUri && nom.trim() && email.trim() && !lieuManquant && questionsManquantes.length === 0,
+  );
 
   const recharger = () => {
     if (!typeUri) return;
@@ -152,7 +189,12 @@ const RdvView: React.FC = () => {
         nom: nom.trim(),
         email: email.trim(),
         telephone: telephone.trim() || null,
-        lieu: type.lieu ? { kind: type.lieu.kind, texte: lieu.trim() } : null,
+        lieu: lieuKind ? { kind: lieuKind, texte: lieuTexte.trim() } : null,
+        reponses: type.questions.map((q) => ({
+          question: q.nom,
+          answer: (reponses[q.position] ?? []).join(', '),
+          position: q.position,
+        })),
       });
       setConfirme(r.rdv);
     } catch (e: any) {
@@ -164,6 +206,16 @@ const RdvView: React.FC = () => {
       setEnvoi(null);
     }
   };
+
+  const repondre = (q: RdvQuestion, valeur: string, multiple: boolean) =>
+    setReponses((r) => {
+      const avant = r[q.position] ?? [];
+      if (!multiple) return { ...r, [q.position]: valeur ? [valeur] : [] };
+      return {
+        ...r,
+        [q.position]: avant.includes(valeur) ? avant.filter((x) => x !== valeur) : [...avant, valeur],
+      };
+    });
 
   const basculerSelection = (uri: string) =>
     setSelection((s) => (s.includes(uri) ? s.filter((x) => x !== uri) : [...s, uri]));
@@ -184,6 +236,14 @@ const RdvView: React.FC = () => {
               ? <>Rappels SMS au {confirme.telephone}, sans confirmation à demander.</>
               : <>Aucun numéro retenu par Calendly : il n’y aura pas de rappel SMS.</>}
           </p>
+          {confirme.lieu && (
+            <p className="text-xs mt-2 inline-flex items-center gap-1.5 text-brand-main/60 dark:text-dark-text/60">
+              <Video className="w-3.5 h-3.5" />
+              {confirme.lieu.texte.startsWith('http')
+                ? <a href={confirme.lieu.texte} target="_blank" rel="noreferrer" className="underline">{confirme.lieu.texte}</a>
+                : <>{NOM_DU_LIEU[confirme.lieu.type] ?? confirme.lieu.type} — {confirme.lieu.texte || 'lien en cours de création'}</>}
+            </p>
+          )}
           <div className="flex gap-3 mt-4 text-xs">
             {confirme.annulation && (
               <a href={confirme.annulation} target="_blank" rel="noreferrer" className="underline text-brand-main/70 dark:text-dark-text/70">Annuler</a>
@@ -290,12 +350,84 @@ const RdvView: React.FC = () => {
           </div>
         )}
 
-        {type?.lieu && KINDS_AVEC_TEXTE.includes(type.lieu.kind) && !reglage && (
+        {type && !reglage && (type.lieux.length > 1 || KINDS_AVEC_TEXTE.includes(lieuKind)) && (
           <div className="mt-3">
             <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
-              Lieu — Calendly l’exige pour ce type
+              Lieu
             </label>
-            <input value={lieu} onChange={(e) => setLieu(e.target.value)} placeholder="Adresse, ou numéro à appeler" className={champClasses} />
+            {type.lieux.length > 1 && (
+              <div className="flex flex-wrap gap-3 mb-2">
+                {type.lieux.map((l) => (
+                  <label key={l.kind} className="inline-flex items-center gap-1.5 text-sm text-brand-main dark:text-dark-text">
+                    <input
+                      type="radio"
+                      name="lieu-rdv"
+                      checked={lieuKind === l.kind}
+                      onChange={() => setLieuKind(l.kind)}
+                      className="accent-brand-main"
+                    />
+                    {NOM_DU_LIEU[l.kind] ?? l.kind}
+                  </label>
+                ))}
+              </div>
+            )}
+            {KINDS_AVEC_TEXTE.includes(lieuKind) && (
+              <input
+                value={lieuTexte}
+                onChange={(e) => setLieuTexte(e.target.value)}
+                placeholder="Adresse, ou numéro à appeler"
+                className={champClasses}
+              />
+            )}
+          </div>
+        )}
+
+        {type && !reglage && type.questions.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
+              Formulaire de l’invité
+            </p>
+            {type.questions.map((q) => {
+              const valeur = reponses[q.position] ?? [];
+              const multiple = q.type === 'multi_select';
+              return (
+                <div key={q.position}>
+                  <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
+                    {q.nom}
+                    {!q.requis && <span className="font-normal text-brand-main/45 dark:text-dark-text/40"> — facultatif</span>}
+                  </label>
+                  {q.choix.length > 0 ? (
+                    <div className="space-y-1">
+                      {q.choix.map((choix) => (
+                        <label key={choix} className="flex items-start gap-2 text-sm text-brand-main dark:text-dark-text">
+                          <input
+                            type={multiple ? 'checkbox' : 'radio'}
+                            name={`q-${q.position}`}
+                            checked={valeur.includes(choix)}
+                            onChange={() => repondre(q, choix, multiple)}
+                            className="accent-brand-main mt-0.5"
+                          />
+                          <span className="leading-snug">{choix}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : q.type === 'text' ? (
+                    <textarea
+                      rows={2}
+                      value={valeur[0] ?? ''}
+                      onChange={(e) => repondre(q, e.target.value, false)}
+                      className={champClasses}
+                    />
+                  ) : (
+                    <input
+                      value={valeur[0] ?? ''}
+                      onChange={(e) => repondre(q, e.target.value, false)}
+                      className={champClasses}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -326,6 +458,12 @@ const RdvView: React.FC = () => {
               </p>
             )}
 
+            {questionsManquantes.length > 0 && (
+              <p className="text-[11px] text-brand-main/50 dark:text-dark-text/45 mb-3">
+                À renseigner avant de choisir une heure : {questionsManquantes.map((q) => q.nom).join(' · ')}
+              </p>
+            )}
+
             {!chargement && creneaux && creneaux.length === 0 && (
               <p className="text-sm text-brand-main/55 dark:text-dark-text/50">
                 Aucun créneau libre sur les trois prochains mois.
@@ -352,7 +490,7 @@ const RdvView: React.FC = () => {
                                 key={iso}
                                 onClick={() => poser(iso)}
                                 disabled={!pret || envoi !== null}
-                                title={pret ? undefined : 'Renseignez le nom, l’e-mail et le lieu.'}
+                                title={pret ? undefined : 'Renseignez le nom, l’e-mail, le lieu et le formulaire.'}
                                 className="px-2.5 py-1.5 rounded-lg text-sm border border-brand-light dark:border-dark-sec-bg text-brand-main dark:text-dark-text hover:bg-brand-main hover:text-white dark:hover:bg-white dark:hover:text-brand-main disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-brand-main"
                               >
                                 {envoi === iso ? 'Création…' : HEURE.format(h)}

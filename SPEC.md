@@ -606,7 +606,18 @@ l'administration Calendly, et **le numéro est sa seule raison d'être**.
   `location.location is required when location.kind is 'outbound_call', 'ask_invitee',
   'physical' or 'custom'`. Le `kind` voyage donc avec le TEXTE du lieu, pré-rempli
   depuis le type d'événement et corrigeable à l'écran ; pour un appel sortant, le numéro
-  de l'invité sert de repli.
+  de l'invité sert de repli. Un type qui déclare plusieurs lieux — visio ou appel
+  sortant — les propose tous, puisque c'est l'invité qui trancherait d'ordinaire.
+- **Le formulaire d'invité se remplit ici.** Second 400 : « Required Questions and
+  Answers cannot be blank ». Les questions du type sont donc remontées avec lui et
+  posées à l'écran ; une question à choix unique qui n'a qu'une réponse possible — les
+  conditions d'annulation — se coche d'elle-même. `position` voyage avec chaque réponse :
+  c'est elle, et non l'intitulé, qui rattache une réponse à sa question. Une réponse
+  vide n'est jamais envoyée : elle ferait refuser la liste entière.
+- **Le lieu final est relu sur l'événement créé.** La réponse de création ne porte pas
+  l'URL de visioconférence ; un appel de plus la rapporte, et l'écran affiche le lien
+  Google Meet — ou son absence, qui est l'information utile quand la séance est à
+  distance. Cette relecture ne peut pas faire échouer une réservation déjà acquise.
 
 #### Deux façons de lister les créneaux, et pourquoi la seconde existe
 
