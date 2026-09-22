@@ -47,6 +47,7 @@ const RDV = {
   email: 'marie@exemple.fr',
   telephone: '06 12 34 56 78',
   lieu: null,
+  reponses: [],
 };
 
 beforeEach(async () => {
@@ -126,6 +127,13 @@ describe('prise de rendez-vous', () => {
         {
           uri: TYPE, name: 'Séance', duration: 90, color: '#17e885', secret: false,
           locations: [{ kind: 'custom', location: '2 Avenue de Verdun, 31290 Villefranche de Lauragais' }],
+          custom_questions: [
+            { name: 'Masquée', type: 'string', position: 0, enabled: false, required: false, answer_choices: [] },
+            {
+              name: 'Conditions d’annulation', type: 'single_select', position: 1,
+              enabled: true, required: true, answer_choices: ['Toute séance oubliée…'],
+            },
+          ],
         },
       ] } },
     });
@@ -138,7 +146,8 @@ describe('prise de rendez-vous', () => {
     expect(res.status).toBe(200);
     expect(body.types[0]).toMatchObject({
       nom: 'Séance', duree: 90,
-      lieu: { kind: 'custom', texte: '2 Avenue de Verdun, 31290 Villefranche de Lauragais' },
+      lieux: [{ kind: 'custom', texte: '2 Avenue de Verdun, 31290 Villefranche de Lauragais' }],
+      questions: [{ nom: 'Conditions d’annulation', requis: true, position: 1 }],
     });
   });
 
@@ -268,5 +277,66 @@ describe('prise de rendez-vous', () => {
       headers: { 'X-Session-Token': token },
     }), env as any);
     expect((await get.json() as any).types).toEqual([TYPE]);
+  });
+
+  /**
+   * Appris d'un 400 : « Required Questions and Answers cannot be blank ». Une
+   * question obligatoire du formulaire d'invité l'est aussi pour l'API, et une
+   * réponse laissée vide fait échouer la liste ENTIÈRE — y compris quand elle
+   * appartient à une question facultative.
+   */
+  it('joint les réponses au formulaire, et écarte celles qui sont vides', async () => {
+    const appels = stubCalendly({ '/invitees': { status: 201, body: { resource: { uri: 'u' } } } });
+
+    await poster({
+      ...RDV,
+      reponses: [
+        { question: 'Conditions d’annulation', answer: 'Toute séance oubliée…', position: 1 },
+        { question: 'Liste d’attente', answer: '', position: 0 },
+      ],
+    });
+
+    expect(appels[0].charge.questions_and_answers).toEqual([
+      { question: 'Conditions d’annulation', answer: 'Toute séance oubliée…', position: 1 },
+    ]);
+  });
+
+  it('n’envoie aucune liste de réponses quand il n’y en a pas', async () => {
+    const appels = stubCalendly({ '/invitees': { status: 201, body: { resource: { uri: 'u' } } } });
+    await poster(RDV);
+    expect(appels[0].charge).not.toHaveProperty('questions_and_answers');
+  });
+
+  /**
+   * La réponse de création ne porte pas le lien de visioconférence : il faut
+   * relire l'événement. Sans ça, impossible de dire si Google Meet a bien
+   * fabriqué le lien — or c'est toute la question pour une séance à distance.
+   */
+  it('relit l’événement pour rendre le lien de visioconférence', async () => {
+    stubCalendly({
+      '/invitees': { status: 201, body: { resource: {
+        uri: 'https://api.calendly.com/scheduled_events/S1/invitees/I1',
+        event: 'https://api.calendly.com/scheduled_events/S1',
+      } } },
+      '/scheduled_events/S1': { body: { resource: { location: {
+        type: 'google_conference', status: 'pushed', join_url: 'https://meet.google.com/abc-defg-hij',
+      } } } },
+    });
+
+    const { body } = await poster(RDV);
+
+    expect(body.rdv.lieu).toEqual({ type: 'google_conference', texte: 'https://meet.google.com/abc-defg-hij' });
+  });
+
+  it('rend le rendez-vous même si l’événement est illisible', async () => {
+    stubCalendly({
+      '/invitees': { status: 201, body: { resource: { uri: 'u', event: 'https://api.calendly.com/scheduled_events/S1' } } },
+      '/scheduled_events/S1': { status: 500, body: { message: 'boom' } },
+    });
+
+    const { res, body } = await poster(RDV);
+
+    expect(res.status).toBe(200);
+    expect(body.rdv.lieu).toBeNull();
   });
 });

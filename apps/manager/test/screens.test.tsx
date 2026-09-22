@@ -671,8 +671,18 @@ describe('écrans autonomes', () => {
  * rester blanc.
  */
 describe('prise de rendez-vous', () => {
-  const TYPE_A = { uri: 'https://api.calendly.com/event_types/E1', nom: 'Séance', duree: 90, couleur: '#17e885', secret: false, lieu: { kind: 'custom', texte: '2 Avenue de Verdun' } };
-  const TYPE_B = { uri: 'https://api.calendly.com/event_types/E2', nom: 'Séance enfant', duree: 60, couleur: '#ccf000', secret: false, lieu: null };
+  const QUESTION = {
+    nom: 'Conditions d’annulation', type: 'single_select', requis: true, position: 1,
+    choix: ['Toute séance oubliée, déplacée ou annulée moins de 48h avant est due.'], autre: false,
+  };
+  const TYPE_A = {
+    uri: 'https://api.calendly.com/event_types/E1', nom: 'Séance', duree: 90, couleur: '#17e885', secret: false,
+    lieux: [{ kind: 'custom', texte: '2 Avenue de Verdun' }], questions: [QUESTION],
+  };
+  const TYPE_B = {
+    uri: 'https://api.calendly.com/event_types/E2', nom: 'Séance enfant', duree: 60, couleur: '#ccf000', secret: false,
+    lieux: [], questions: [],
+  };
 
   it('se monte, liste les types, et affiche le refus du Worker', async () => {
     vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [TYPE_A] } as any);
@@ -720,8 +730,13 @@ describe('prise de rendez-vous', () => {
     await waitFor(() => expect(tous.container.querySelectorAll('input[type="radio"]')).toHaveLength(2));
   });
 
-  /** Le lieu est exigé par Calendly pour un type « custom » : il doit arriver pré-rempli. */
-  it('pré-remplit le lieu du type choisi', async () => {
+  /**
+   * Le lieu est exigé par Calendly pour un type « custom », et la question
+   * obligatoire l'est tout autant — un 400 « Required Questions and Answers
+   * cannot be blank » l'a appris. Les deux arrivent donc pré-remplis : le lieu
+   * depuis le type, et la question à choix unique cochée d'office.
+   */
+  it('pré-remplit le lieu et la question à choix unique du type choisi', async () => {
     vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [TYPE_A] } as any);
     vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [] } as any);
     vi.spyOn(Api, 'fetchRdvCreneaux').mockResolvedValue({ creneaux: [], depuis: '', jusqua: '', libre: false } as any);
@@ -733,7 +748,11 @@ describe('prise de rendez-vous', () => {
     await waitFor(() => {
       const valeurs = [...container.querySelectorAll('input')].map((i) => (i as HTMLInputElement).value);
       expect(valeurs).toContain('2 Avenue de Verdun');
+      expect(container.textContent).toContain('Conditions d’annulation');
     });
+
+    const coches = [...container.querySelectorAll('input[name="q-1"]')] as HTMLInputElement[];
+    expect(coches.some((c) => c.checked)).toBe(true);
   });
 });
 
