@@ -37,7 +37,7 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
                                 key={i}
                                 className="grid grid-cols-[160px_minmax(0,1.4fr)_minmax(0,1fr)] gap-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/40 p-4"
                             >
-                                <div className="text-sm font-medium text-brand-main dark:text-white whitespace-pre-wrap">
+                                <div className="text-sm font-semibold text-brand-main dark:text-white whitespace-pre-wrap">
                                     {[t(s.timing), t(s.role)].filter(Boolean).join(' - ')}
                                 </div>
                                 <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
@@ -56,7 +56,7 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
 
         return (
             <div className="p-6 space-y-4">
-                {data.contrainte && <p className="text-[10px] font-bold text-amber-600/60 dark:text-amber-400/60 uppercase">{t(data.contrainte)}</p>}
+                {data.contrainte && <p className="text-micro font-bold text-amber-600/60 dark:text-amber-400/60 uppercase">{t(data.contrainte)}</p>}
                 {(data.sections || []).map((s: any, i: number) => (
                     <BlockPre key={i} label={`${t(s.timing)} ${t(s.role)}`} color={
                         i === 0 ? "border-amber-400" :

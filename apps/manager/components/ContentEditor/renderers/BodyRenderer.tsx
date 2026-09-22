@@ -26,7 +26,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
     if (data.edited_raw) {
         return (
             <div className="p-6 space-y-3">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">
+                <div className="flex items-center gap-2 text-micro font-bold text-amber-600 dark:text-amber-400 uppercase">
                     <Pencil className="w-3 h-3" /> Contenu édité manuellement
                 </div>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed text-brand-main dark:text-dark-text">
@@ -54,7 +54,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
                 <Block label="Hashtags" color="border-blue-400">
                     <div className="flex flex-wrap gap-1.5">
                         {data.hashtags.map(t).filter(Boolean).map((tag: string, i: number) => (
-                            <span key={i} className="text-xs font-medium text-blue-600 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/30 rounded-md px-2 py-0.5">
+                            <span key={i} className="text-xs font-semibold text-blue-600 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/30 rounded-md px-2 py-0.5">
                                 {tag}
                             </span>
                         ))}
@@ -68,11 +68,11 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
 
     if (isArticle) return (
         <div className="p-6 space-y-4">
-            {data.titre_h1    && <h2 className="text-xl font-bold text-brand-main dark:text-white">{t(data.titre_h1)}</h2>}
+            {data.titre_h1    && <h2 className="text-lg font-bold text-brand-main dark:text-white">{t(data.titre_h1)}</h2>}
             {data.introduction && <Block label="Introduction" color="border-blue-400">{t(data.introduction)}</Block>}
             {(data.sections || []).map((s: any, i: number) => (
                 <div key={i} className="space-y-2">
-                    {s.sous_titre_h2 && <h3 className="text-base font-bold text-brand-main dark:text-white">{t(s.sous_titre_h2)}</h3>}
+                    {s.sous_titre_h2 && <h3 className="text-sm font-bold text-brand-main dark:text-white">{t(s.sous_titre_h2)}</h3>}
                     {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{t(s.contenu)}</p>}
                 </div>
             ))}
@@ -83,7 +83,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
 
     if (isReelShort) return (
         <div className="p-6 space-y-4">
-            {data.contrainte && <p className="text-[10px] font-bold text-brand-main/40 dark:text-dark-text/40 uppercase">{t(data.contrainte)}</p>}
+            {data.contrainte && <p className="text-micro font-bold text-brand-main/40 dark:text-dark-text/40 uppercase">{t(data.contrainte)}</p>}
             {(data.sections || []).map((s: any, i: number) => (
                 <BlockPre key={i} label={`${t(s.timing)} ${t(s.role)}`} color={
                     i === 0 ? "border-pink-400" :
@@ -118,10 +118,10 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
                 return (
                     <div key={i} className={`bg-brand-light dark:bg-dark-bg rounded-lg p-3 border ${isIllustree ? 'border-amber-300 dark:border-amber-700' : 'border-brand-border dark:border-dark-sec-border'}`}>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
+                            <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-micro font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
                             {s.titre && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.titre)}</span>}
                             {s.type && (
-                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${isIllustree ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-brand-border/50 dark:bg-dark-sec-border/50 text-brand-main/70 dark:text-dark-text/70'}`}>
+                                <span className={`px-1.5 py-0.5 rounded-full text-micro font-semibold ${isIllustree ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-brand-border/50 dark:bg-dark-sec-border/50 text-brand-main/70 dark:text-dark-text/70'}`}>
                                     {isIllustree ? 'Illustrée' : 'Typo'}
                                 </span>
                             )}

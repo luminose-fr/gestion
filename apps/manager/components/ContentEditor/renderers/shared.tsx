@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { Profondeur, TargetFormat } from '../../../types';
+import { Bouton } from '../../ui';
 
 // ── Helpers partagés entre les renderers ──
 
@@ -53,7 +54,7 @@ export const copyTextToClipboard = async (text: string): Promise<boolean> => {
 /** Bloc structuré avec border-left colorée — utilisé par tous les renderers */
 export const Block = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
     <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
+        <p className="text-micro font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
         <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{children}</div>
     </div>
 );
@@ -61,7 +62,7 @@ export const Block = ({ label, color, children }: { label: string; color: string
 /** Bloc identique mais avec whitespace-pre-wrap (pour le script vidéo) */
 export const BlockPre = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
     <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
+        <p className="text-micro font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
         <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{children}</div>
     </div>
 );
@@ -167,23 +168,18 @@ export const CarrouselLegende: React.FC<{ legende?: LegendeCarrousel | null }> =
     };
 
     return (
-        <div className="rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10 p-5">
+        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5">
             <div className="flex items-center justify-between gap-2 mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-700 dark:text-blue-300">
+                <p className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">
                     Légende de publication
                 </p>
-                <button
-                    onClick={handleCopy}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        copied
-                            ? 'border-emerald-700 bg-emerald-600 text-white'
-                            : 'border-blue-300 bg-white text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/30'
-                    }`}
-                    title="Copier la légende complète (texte + CTA + hashtags)"
-                >
+                <Bouton taille="petit" intention={copied ? 'principale' : 'secondaire'} ton={copied ? 'succes' : 'neutre'}
+                onClick={handleCopy}
+                title="Copier la légende complète (texte + CTA + hashtags)"
+            >
                     {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     {copied ? 'Copié' : 'Copier'}
-                </button>
+                </Bouton>
             </div>
             {t(legende?.texte) && (
                 <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
@@ -198,7 +194,7 @@ export const CarrouselLegende: React.FC<{ legende?: LegendeCarrousel | null }> =
             {tags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                     {tags.map((tag, i) => (
-                        <span key={i} className="text-xs font-medium text-blue-600 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/30 rounded-md px-2 py-0.5">
+                        <span key={i} className="text-xs font-semibold text-brand-main dark:text-dark-text bg-brand-light dark:bg-dark-bg rounded-md px-2 py-0.5">
                             {tag}
                         </span>
                     ))}
