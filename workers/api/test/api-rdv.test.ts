@@ -123,7 +123,10 @@ describe('prise de rendez-vous', () => {
     stubCalendly({
       '/users/me': { body: MOI },
       '/event_types': { body: { collection: [
-        { uri: TYPE, name: 'Séance', duration: 90, color: '#17e885', secret: false, locations: [{ kind: 'custom' }] },
+        {
+          uri: TYPE, name: 'Séance', duration: 90, color: '#17e885', secret: false,
+          locations: [{ kind: 'custom', location: '2 Avenue de Verdun, 31290 Villefranche de Lauragais' }],
+        },
       ] } },
     });
 
@@ -133,7 +136,10 @@ describe('prise de rendez-vous', () => {
     const body = (await res.json()) as any;
 
     expect(res.status).toBe(200);
-    expect(body.types[0]).toMatchObject({ nom: 'Séance', duree: 90, lieu: 'custom' });
+    expect(body.types[0]).toMatchObject({
+      nom: 'Séance', duree: 90,
+      lieu: { kind: 'custom', texte: '2 Avenue de Verdun, 31290 Villefranche de Lauragais' },
+    });
   });
 
   it('ne demande jamais de créneaux dans le passé', async () => {
@@ -146,5 +152,121 @@ describe('prise de rendez-vous', () => {
 
     const url = new URL(appels[0].url);
     expect(new Date(url.searchParams.get('start_time')!).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('joint le TEXTE du lieu, pas seulement son kind', async () => {
+    const appels = stubCalendly({ '/invitees': { status: 201, body: { resource: { uri: 'u', event: 'e' } } } });
+
+    await poster({ ...RDV, lieu: { kind: 'custom', texte: '2 Avenue de Verdun' } });
+
+    expect(appels[0].charge.location).toEqual({ kind: 'custom', location: '2 Avenue de Verdun' });
+  });
+
+  it('retombe sur le numéro de l’invité pour un appel sortant', async () => {
+    const appels = stubCalendly({ '/invitees': { status: 201, body: { resource: { uri: 'u', event: 'e' } } } });
+
+    await poster({ ...RDV, lieu: { kind: 'outbound_call', texte: '' } });
+
+    expect(appels[0].charge.location).toEqual({ kind: 'outbound_call', location: '+33612345678' });
+  });
+
+  it('refuse plutôt que d’envoyer un lieu vide que Calendly rejettera', async () => {
+    const appels = stubCalendly({});
+    const { res, body } = await poster({ ...RDV, telephone: null, lieu: { kind: 'custom', texte: '  ' } });
+
+    expect(res.status).toBe(400);
+    expect(body.error).toContain('demande un lieu');
+    expect(appels).toHaveLength(0);
+  });
+
+  it('découpe trois mois en tranches de sept jours', async () => {
+    const appels = stubCalendly({ '/event_type_available_times': { body: { collection: [] } } });
+
+    await app.fetch(new Request(
+      `https://api.test/api/rdv/creneaux?type=${encodeURIComponent(TYPE)}&jours=92`,
+      { headers: { 'X-Session-Token': token } },
+    ), env as any);
+
+    expect(appels.length).toBe(14);
+    for (const a of appels) {
+      const u = new URL(a.url);
+      const duree = new Date(u.searchParams.get('end_time')!).getTime()
+        - new Date(u.searchParams.get('start_time')!).getTime();
+      expect(duree).toBeLessThanOrEqual(7 * 86_400_000);
+    }
+  });
+
+  /**
+   * Le mode libre ne demande RIEN à `event_type_available_times` : c'est ce
+   * qui lui permet d'ignorer le délai minimum et l'horizon de réservation.
+   * Il recompose depuis le planning et les plages occupées — et le créneau
+   * déjà pris doit disparaître, sinon le mode ne vaut rien.
+   */
+  it('recompose les créneaux depuis l’agenda, sans le délai minimum', async () => {
+    const demain = new Date(Date.now() + 26 * 3600_000);
+    const jour = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][demain.getUTCDay()];
+
+    stubCalendly({
+      '/users/me': { body: MOI },
+      '/event_types/': { body: { resource: { duration: 60 } } },
+      '/user_availability_schedules': { body: { collection: [{
+        default: true, timezone: 'UTC',
+        rules: [{ type: 'wday', wday: jour, intervals: [{ from: '09:00', to: '12:00' }] }],
+      }] } },
+      '/user_busy_times': { body: { collection: [] } },
+    });
+
+    const res = await app.fetch(new Request(
+      `https://api.test/api/rdv/creneaux?type=${encodeURIComponent(TYPE)}&jours=3&libre=1`,
+      { headers: { 'X-Session-Token': token } },
+    ), env as any);
+    const body = (await res.json()) as any;
+
+    expect(body.libre).toBe(true);
+    // 9 h, 10 h et 11 h le jour visé — dans les 48 h, donc invisibles autrement.
+    const heures = body.creneaux.map((c: any) => new Date(c.debut).getUTCHours());
+    expect(heures).toContain(9);
+    expect(heures).toContain(11);
+  });
+
+  it('écarte un créneau qui chevauche une plage occupée', async () => {
+    const demain = new Date(Date.now() + 26 * 3600_000);
+    const jour = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][demain.getUTCDay()];
+    const neufHeures = new Date(Date.UTC(demain.getUTCFullYear(), demain.getUTCMonth(), demain.getUTCDate(), 9));
+
+    stubCalendly({
+      '/users/me': { body: MOI },
+      '/event_types/': { body: { resource: { duration: 60 } } },
+      '/user_availability_schedules': { body: { collection: [{
+        default: true, timezone: 'UTC',
+        rules: [{ type: 'wday', wday: jour, intervals: [{ from: '09:00', to: '12:00' }] }],
+      }] } },
+      '/user_busy_times': { body: { collection: [{
+        start_time: neufHeures.toISOString(),
+        end_time: new Date(neufHeures.getTime() + 3600_000).toISOString(),
+      }] } },
+    });
+
+    const res = await app.fetch(new Request(
+      `https://api.test/api/rdv/creneaux?type=${encodeURIComponent(TYPE)}&jours=3&libre=1`,
+      { headers: { 'X-Session-Token': token } },
+    ), env as any);
+    const body = (await res.json()) as any;
+
+    expect(body.creneaux.map((c: any) => c.debut)).not.toContain(neufHeures.toISOString());
+  });
+
+  it('garde la sélection des types affichés', async () => {
+    const put = await app.fetch(new Request('https://api.test/api/rdv/selection', {
+      method: 'PUT',
+      headers: { 'X-Session-Token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ types: [TYPE] }),
+    }), env as any);
+    expect(put.status).toBe(200);
+
+    const get = await app.fetch(new Request('https://api.test/api/rdv/selection', {
+      headers: { 'X-Session-Token': token },
+    }), env as any);
+    expect((await get.json() as any).types).toEqual([TYPE]);
   });
 });

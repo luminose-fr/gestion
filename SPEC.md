@@ -578,8 +578,9 @@ Maximum **50 requêtes D1 par invocation**. Conséquences normatives :
 
 ### 3.8 Prise de rendez-vous Calendly — NORMATIF
 
-`GET /api/rdv/types` · `GET /api/rdv/creneaux` · `POST /api/rdv`. **Zéro requête D1** :
-cette route ne parle qu'à Calendly.
+`GET /api/rdv/types` · `GET|PUT /api/rdv/selection` · `GET /api/rdv/creneaux` · `POST
+/api/rdv`. **Une requête D1, et seulement sur `/selection`** : le reste ne parle qu'à
+Calendly.
 
 **Pourquoi elle existe, et pourquoi elle n'existe que pour ça.** Depuis le milieu de
 l'année 2026, Calendly demande à l'invité de confirmer son numéro par SMS avant de lui
@@ -597,25 +598,56 @@ l'administration Calendly, et **le numéro est sa seule raison d'être**.
   lui manque (`Refus` 409), et rien d'autre dans l'application ne bouge.
 - Un refus de Calendly revient avec **son** message (`Refus`, 4xx) : « ce créneau n'est
   plus disponible » se corrige, « Erreur interne » ne se corrige pas.
-- La fenêtre de disponibilités est plafonnée à **sept jours** et ne commence jamais dans
-  le passé — deux contraintes de Calendly, traduites ici plutôt que remontées en 400.
 - Le numéro est normalisé en E.164 avant l'appel ; un numéro incompréhensible est refusé
   **avant** d'appeler Calendly.
 - L'écran rend le numéro **retenu par Calendly**, pas celui qui a été envoyé : sur la
   seule promesse de la fonctionnalité, « envoyé » ne vaut pas « accepté ».
+- **Le lieu se transmet en entier.** Un 400 en production l'a appris :
+  `location.location is required when location.kind is 'outbound_call', 'ask_invitee',
+  'physical' or 'custom'`. Le `kind` voyage donc avec le TEXTE du lieu, pré-rempli
+  depuis le type d'événement et corrigeable à l'écran ; pour un appel sortant, le numéro
+  de l'invité sert de repli.
 
-**Dépendance externe, hors du code.** Le numéro enregistré ne sert qu'à ce que Calendly
-décide d'envoyer, et deux mécanismes distincts peuvent le faire : le **rappel SMS natif**
-du type d'événement (Notifications et annulation → Rappel par SMS) et un **workflow**
-« Envoyer un SMS à l'invité ». Ils s'ajoutent l'un à l'autre ; aucun des deux n'est
-impliqué par l'autre.
+#### Deux façons de lister les créneaux, et pourquoi la seconde existe
 
-Relevé le 21/09/2026 sur les treize types du compte : `invitee_sms_reminder.enabled` est
-à `false` partout, et le seul workflow rattaché aux séances est un rappel **e-mail** à
-sept jours. Dans cet état, le numéro part bien à Calendly et aucun SMS n'est émis —
-**la route fait son travail, et la configuration du compte ne suit pas**. C'est un
-réglage Calendly, pas un défaut du code, et c'est la première chose à vérifier si un
-rendez-vous posé ici ne déclenche aucun rappel.
+Le mode normal interroge `event_type_available_times`, donc **ce que Calendly publie** :
+délai minimum et horizon de réservation compris. Relevé sur « Séance » au 22/09/2026 :
+48 h de délai, horizon glissant de 21 jours.
+
+Ces deux garde-fous protègent la page publique. Ils n'ont aucun sens quand c'est le
+praticien qui pose le rendez-vous, au téléphone, pour demain ou pour dans deux mois. Le
+mode `libre=1` recompose donc les créneaux à partir de deux sources publiques — le
+planning de disponibilité et les plages occupées — et **ignore les deux**. Calendly
+lui-même offre l'équivalent dans son administration (« Remplacer les heures de
+disponibilité »).
+
+Ce que ce mode ne sait pas faire, et qui doit rester écrit : c'est le planning **par
+défaut** qui sert, l'API v2 ne disant pas quel planning suit un type d'événement ; les
+tampons avant et après ne sont pas appliqués ; le pas vaut la durée de l'événement. Il
+**propose**, il ne garantit pas — Calendly reste seul juge au moment de créer, et son
+refus s'affiche tel quel.
+
+Les deux modes couvrent **trois mois**, découpés en tranches de sept jours (le plafond
+de Calendly, disponibilités comme occupations) et envoyés par paquets de quatre : treize
+requêtes d'un coup sont une limite de débit assurée.
+
+#### Ce que l'écran affiche
+
+Les types retenus vivent dans `app_settings` sous `rdv:types` et s'affichent en boutons
+radio, tous visibles. **Une sélection vide veut dire « tous »** : c'est l'état d'un
+déploiement neuf, et un écran qui ne proposerait rien s'y lirait comme une panne.
+
+#### Dépendance externe, hors du code
+
+Le numéro enregistré ne sert qu'à ce que Calendly décide d'envoyer. Deux familles de
+réglages s'en chargent, et elles s'ajoutent : les **notifications du type d'événement**
+(Notifications et annulation) et les **workflows**.
+
+Relevé le 22/09/2026 sur « Séance » : le rappel SMS à l'invité est **actif**, un jour
+avant, avec un corps personnalisé ; le rappel e-mail l'est aussi, trois jours avant ; un
+workflow ajoute un e-mail à sept jours. Attention à la lecture : ces réglages vivent
+dans les notifications **personnalisées** du type, et les gabarits par défaut
+apparaissent alors désactivés — les confondre fait conclure à l'inverse de la réalité.
 
 ### 3.7 Ce qu'une liste retient — NORMATIF
 
