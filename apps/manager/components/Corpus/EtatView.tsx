@@ -18,14 +18,15 @@ import {
   type EtatCorpus, type PoseSurface, type EtatDeploiement,
 } from '../../services/apiService';
 import { SURFACES, EXTENSION_CONNAISSANCE, type DefinitionSurface } from './surfaces';
+import { Bouton } from '../ui';
 
 const NON_PROPOSABLE = ['suspendu', 'termine', 'candidat'];
 
 const ETIQUETTE_DEPLOIEMENT: Record<string, { mot: string; classe: string }> = {
   en_attente: { mot: 'en attente', classe: 'text-brand-main/70 dark:text-dark-text/60' },
   en_cours:   { mot: 'en cours',   classe: 'text-brand-main/70 dark:text-dark-text/60' },
-  reussi:     { mot: 'réussi',     classe: 'text-emerald-600 dark:text-emerald-400' },
-  echoue:     { mot: 'échoué',     classe: 'text-red-600 dark:text-red-400' },
+  reussi:     { mot: 'réussi',     classe: 'text-succes' },
+  echoue:     { mot: 'échoué',     classe: 'text-erreur' },
 };
 
 /** Ce que le bouton fait, et comment il le dit une fois fait. */
@@ -50,8 +51,8 @@ const telecharger = (texte: string, nom: string) => {
 };
 
 const Carte: React.FC<{ titre: string; children: React.ReactNode }> = ({ titre, children }) => (
-  <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-5">
-    <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-3">
+  <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
+    <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-3">
       {titre}
     </h2>
     {children}
@@ -127,7 +128,7 @@ const EtatView: React.FC = () => {
   if (erreur && !etat) {
     return (
       <div>
-        <p className="text-sm text-red-600 dark:text-red-400">Échec — {erreur}</p>
+        <p className="text-sm text-erreur">Échec — {erreur}</p>
       </div>
     );
   }
@@ -177,9 +178,9 @@ const EtatView: React.FC = () => {
   ).length;
 
   return (
-    <div className="space-y-4 md:space-y-5 max-w-5xl">
+    <div className="space-y-4">
       {erreur && (
-        <p className="text-sm text-red-600 dark:text-red-400">Échec — {erreur}</p>
+        <p className="text-sm text-erreur">Échec — {erreur}</p>
       )}
 
       {/*
@@ -194,7 +195,7 @@ const EtatView: React.FC = () => {
         <Carte titre="Déploiement">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {enRetard ? (
-              <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+              <span className="text-sm font-semibold text-alerte">
                 <AlertTriangle className="w-4 h-4 inline -mt-0.5" />{' '}
                 {ecart!.differents.length === 1
                   ? 'Une fiche commitée n’est pas encore servie.'
@@ -224,26 +225,25 @@ const EtatView: React.FC = () => {
               </span>
             )}
 
-            <button
+            <Bouton
               onClick={() => void deployer()}
               disabled={lancement || enVol}
-              className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-main text-white hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-brand-main"
-            >
+              className="ml-auto" taille="petit" intention="principale">
               {lancement || enVol
                 ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {enVol ? 'En cours…' : 'Lancement…'}</>
                 : <><Rocket className="w-3.5 h-3.5" /> Déployer</>}
-            </button>
+            </Bouton>
           </div>
           {enRetard && (
-            <ul className="mt-2.5 space-y-0.5">
+            <ul className="mt-3 space-y-0.5">
               {ecart!.differents.slice(0, 6).map((d) => (
-                <li key={d.chemin} className="text-[11px] text-brand-main/60 dark:text-dark-text/50">
+                <li key={d.chemin} className="text-micro text-brand-main/60 dark:text-dark-text/50">
                   <code className="font-mono">{d.chemin}</code>
                   {d.etat !== 'modifie' && <span className="ml-1.5 opacity-70">({d.etat === 'ajoute' ? 'nouvelle' : 'supprimée'})</span>}
                 </li>
               ))}
               {ecart!.differents.length > 6 && (
-                <li className="text-[11px] text-brand-main/45 dark:text-dark-text/40">
+                <li className="text-micro text-brand-main/45 dark:text-dark-text/40">
                   et {ecart!.differents.length - 6} autre{ecart!.differents.length - 6 > 1 ? 's' : ''}…
                 </li>
               )}
@@ -251,12 +251,12 @@ const EtatView: React.FC = () => {
           )}
 
           {incertain && ecart?.raison && (
-            <p className="mt-2.5 text-[11px] text-brand-main/50 dark:text-dark-text/45 leading-relaxed">
+            <p className="mt-3 text-micro text-brand-main/50 dark:text-dark-text/45 leading-relaxed">
               {ecart.raison}
             </p>
           )}
 
-          <p className="text-[11px] text-brand-main/45 dark:text-dark-text/40 mt-2.5 leading-relaxed">
+          <p className="text-micro text-brand-main/45 dark:text-dark-text/40 mt-3 leading-relaxed">
             Tests et typecheck tournent d'abord ; comptez deux minutes. Seul le Worker repart —
             une correction du corpus ne touche pas le front. « Actualiser » rafraîchit l'état.
           </p>
@@ -272,12 +272,12 @@ const EtatView: React.FC = () => {
           {etat.blocs.length} blocs · relevé du {etat.date}
         </span>
         {derives > 0 && (
-          <span className="font-semibold text-amber-600 dark:text-amber-400">
+          <span className="font-semibold text-alerte">
             {derives} surface{derives > 1 ? 's' : ''} à recoller
           </span>
         )}
         {etat.aRevoir.length > 0 && (
-          <span className="font-semibold text-amber-600 dark:text-amber-400">
+          <span className="font-semibold text-alerte">
             {etat.aRevoir.length} décision{etat.aRevoir.length > 1 ? 's' : ''} à revoir
           </span>
         )}
@@ -293,7 +293,7 @@ const EtatView: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">
             <thead>
-              <tr className="text-[10px] uppercase tracking-wider text-brand-main/50 dark:text-dark-text/40">
+              <tr className="text-micro uppercase tracking-wider text-brand-main/50 dark:text-dark-text/40">
                 <th className="text-left font-semibold pb-2 pr-3">Surface</th>
                 <th className="text-left font-semibold pb-2 pr-3">Profil</th>
                 <th className="text-left font-semibold pb-2 pr-3">Posée</th>
@@ -308,16 +308,16 @@ const EtatView: React.FC = () => {
                 const courant = hashCourant(s.profil);
                 const aJour = pose?.hash === courant;
                 return (
-                  <tr key={s.id} className="border-t border-brand-light dark:border-dark-sec-bg align-top">
-                    <td className="py-2.5 pr-3">
-                      <div className="font-medium text-brand-main dark:text-white">{s.nom}</div>
-                      <div className="text-xs text-brand-main/50 dark:text-dark-text/50 max-w-md">{s.note}</div>
+                  <tr key={s.id} className="border-t border-brand-border dark:border-dark-sec-border align-top">
+                    <td className="py-2 pr-3">
+                      <div className="font-semibold text-brand-main dark:text-white">{s.nom}</div>
+                      <div className="text-xs text-brand-main/50 dark:text-dark-text/50">{s.note}</div>
                     </td>
-                    <td className="py-2.5 pr-3 font-mono text-xs text-brand-main/70 dark:text-dark-text/60">{s.profil}</td>
-                    <td className="py-2.5 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
+                    <td className="py-2 pr-3 font-mono text-xs text-brand-main/70 dark:text-dark-text/60">{s.profil}</td>
+                    <td className="py-2 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
                       {pose?.hash ?? '—'}
                     </td>
-                    <td className="py-2.5 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
+                    <td className="py-2 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
                       {courant}
                     </td>
                     {/*
@@ -331,32 +331,29 @@ const EtatView: React.FC = () => {
                       vérifier, pour un deuxième Gem, ou parce que le premier
                       collage n'est pas passé.
                     */}
-                    <td className="py-2.5 pr-3">
+                    <td className="py-2 pr-3">
                       {s.automatique ? (
                         <span className="text-xs text-brand-main/45 dark:text-dark-text/40">automatique</span>
                       ) : aJour ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                        <span className="inline-flex items-center gap-1 text-xs text-succes">
                           <Check className="w-3.5 h-3.5" /> à jour
                         </span>
                       ) : (
-                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                        <span className="text-xs font-semibold text-alerte">
                           {pose ? 'à redéposer' : 'jamais déposée'}
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5">
+                    <td className="py-2">
                       {!s.automatique && (() => {
                         const { verbe, fait, Icone } = GESTE[s.geste];
                         return (
-                          <button
-                            onClick={() => void deposerEtPoser(s)}
-                            disabled={enCours === s.id}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold disabled:opacity-50 ${
-                              aJour
-                                ? 'border border-brand-border text-brand-main hover:bg-brand-light dark:border-dark-sec-bg dark:text-dark-text dark:hover:bg-dark-sec-bg'
-                                : 'bg-brand-main text-white hover:opacity-90 dark:bg-white dark:text-brand-main'
-                            }`}
-                          >
+                          <Bouton
+                                            onClick={() => void deposerEtPoser(s)}
+                                            disabled={enCours === s.id}
+                                            taille="petit"
+                                            intention={aJour ? 'secondaire' : 'principale'}
+                                        >
                             {copie === s.id ? (
                               <><Check className="w-3.5 h-3.5" /> {fait}</>
                             ) : enCours === s.id ? (
@@ -364,7 +361,7 @@ const EtatView: React.FC = () => {
                             ) : (
                               <><Icone className="w-3.5 h-3.5" /> {verbe}</>
                             )}
-                          </button>
+                          </Bouton>
                         );
                       })()}
                     </td>
@@ -383,18 +380,18 @@ const EtatView: React.FC = () => {
       <Carte titre="Les trois profils">
         <div className="grid gap-3 sm:grid-cols-3">
           {etat.profils.map((p) => (
-            <div key={p.profil} className="rounded-lg border border-brand-light dark:border-dark-sec-bg p-3">
+            <div key={p.profil} className="rounded-lg border border-brand-border dark:border-dark-sec-border p-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-mono text-xs font-semibold text-brand-main dark:text-white">{p.profil}</span>
-                <span className="font-mono text-[11px] tabular-nums text-brand-main/50 dark:text-dark-text/50">{p.hash}</span>
+                <span className="font-mono text-micro tabular-nums text-brand-main/50 dark:text-dark-text/50">{p.hash}</span>
               </div>
               <p className="text-xs text-brand-main/60 dark:text-dark-text/55 mt-1.5">{p.intention}</p>
-              <p className="text-[11px] tabular-nums text-brand-main/45 dark:text-dark-text/40 mt-2">
+              <p className="text-micro tabular-nums text-brand-main/45 dark:text-dark-text/40 mt-2">
                 {p.taille.toLocaleString('fr-FR')} car. · {p.documents} doc.
                 {p.plafond !== null && ` · plafond ${p.plafond.toLocaleString('fr-FR')}`}
               </p>
               {p.depasse && (
-                <p className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 mt-1.5">
+                <p className="inline-flex items-center gap-1 text-micro text-alerte mt-1.5">
                   <AlertTriangle className="w-3 h-3" /> dépasse son plafond
                 </p>
               )}
@@ -408,7 +405,7 @@ const EtatView: React.FC = () => {
           <ul className="text-sm space-y-1.5">
             {arretees.map((o) => (
               <li key={o.chemin} className="flex items-center gap-2">
-                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text">
+                <span className="font-mono text-micro px-1.5 py-0.5 rounded-md bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text">
                   {o.statut}
                 </span>
                 <span className="text-brand-main dark:text-dark-text">{o.titre}</span>
@@ -426,9 +423,9 @@ const EtatView: React.FC = () => {
         <Carte titre="Échéances">
           {etat.aRevoir.map((d) => (
             <div key={d.chemin} className="flex items-baseline gap-2 text-sm py-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 translate-y-0.5" />
+              <AlertTriangle className="w-3.5 h-3.5 text-alerte shrink-0 translate-y-0.5" />
               <span className="text-brand-main dark:text-dark-text">{d.titre}</span>
-              <span className="font-mono text-[11px] text-brand-main/50 dark:text-dark-text/50">
+              <span className="font-mono text-micro text-brand-main/50 dark:text-dark-text/50">
                 à revoir depuis {d.review_at}
               </span>
             </div>

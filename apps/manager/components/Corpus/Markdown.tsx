@@ -21,7 +21,7 @@ const inline = (texte: string, cle: string): React.ReactNode[] =>
       }
       if (p.startsWith('`') && p.endsWith('`')) {
         return (
-          <code key={`${cle}-${i}`} className="font-mono text-[0.85em] px-1 py-0.5 rounded bg-brand-light dark:bg-dark-sec-bg">
+          <code key={`${cle}-${i}`} className="font-mono text-[0.85em] px-1 py-0.5 rounded-md bg-brand-light dark:bg-dark-sec-bg">
             {p.slice(1, -1)}
           </code>
         );
@@ -44,7 +44,7 @@ export const Markdown: React.FC<{ texte: string }> = ({ texte }) => {
 
     // Filet
     if (/^---+$/.test(l.trim())) {
-      out.push(<hr key={i} className="my-4 border-brand-light dark:border-dark-sec-bg" />);
+      out.push(<hr key={i} className="my-4 border-brand-border dark:border-dark-sec-border" />);
       i++; continue;
     }
 
@@ -52,7 +52,7 @@ export const Markdown: React.FC<{ texte: string }> = ({ texte }) => {
     const titre = l.match(/^(#{1,4})\s+(.*)$/);
     if (titre) {
       const n = titre[1].length;
-      const taille = ['text-lg', 'text-base', 'text-sm', 'text-sm'][n - 1];
+      const taille = ['text-lg', 'text-sm', 'text-sm', 'text-sm'][n - 1];
       out.push(
         <p key={i} className={`${taille} font-bold text-brand-main dark:text-white mt-4 mb-1.5 first:mt-0`}>
           {inline(titre[2], `h${i}`)}
@@ -66,7 +66,7 @@ export const Markdown: React.FC<{ texte: string }> = ({ texte }) => {
       const debut = ++i;
       while (i < lignes.length && !lignes[i].startsWith('```')) i++;
       out.push(
-        <pre key={debut} className="my-2 p-3 rounded-lg bg-brand-light dark:bg-dark-sec-bg overflow-x-auto text-[11px] font-mono leading-relaxed">
+        <pre key={debut} className="my-2 p-3 rounded-lg bg-brand-light dark:bg-dark-sec-bg overflow-x-auto text-micro font-mono leading-relaxed">
           {lignes.slice(debut, i).join('\n')}
         </pre>,
       );
@@ -83,13 +83,13 @@ export const Markdown: React.FC<{ texte: string }> = ({ texte }) => {
         <div key={`t${i}`} className="my-3 overflow-x-auto">
           <table className="text-xs w-full">
             <thead>
-              <tr className="text-[10px] uppercase tracking-wider text-brand-main/50 dark:text-dark-text/40">
+              <tr className="text-micro uppercase tracking-wider text-brand-main/50 dark:text-dark-text/40">
                 {entete.map((c, k) => <th key={k} className="text-left font-semibold pb-1.5 pr-3">{inline(c, `th${k}`)}</th>)}
               </tr>
             </thead>
             <tbody>
               {corps.map((r, k) => (
-                <tr key={k} className="border-t border-brand-light dark:border-dark-sec-bg">
+                <tr key={k} className="border-t border-brand-border dark:border-dark-sec-border">
                   {r.map((c, j) => <td key={j} className="py-1.5 pr-3 align-top text-brand-main/80 dark:text-dark-text/75">{inline(c, `td${k}${j}`)}</td>)}
                 </tr>
               ))}

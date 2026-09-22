@@ -80,25 +80,25 @@ const SENS_DES_STATUTS: Record<string, string> = {
 /* ── Habillage ───────────────────────────────────────────────────────── */
 
 const Section: React.FC<{ titre: string; chapeau?: string; children: React.ReactNode }> = ({ titre, chapeau, children }) => (
-  <section className="pt-7 first:pt-0 border-t first:border-t-0 border-brand-border/70 dark:border-dark-sec-bg">
+  <section className="pt-8 first:pt-0 border-t first:border-t-0 border-brand-border/70 dark:border-dark-sec-border">
     <h2 className="text-lg font-bold text-brand-main dark:text-white">{titre}</h2>
     {chapeau && (
-      <p className="mt-1 text-sm text-brand-main/60 dark:text-dark-text/60 max-w-2xl">{chapeau}</p>
+      <p className="mt-1 text-sm text-brand-main/60 dark:text-dark-text/60 max-w-3xl">{chapeau}</p>
     )}
     <div className="mt-4">{children}</div>
   </section>
 );
 
 const Prose: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="max-w-2xl text-sm leading-relaxed text-brand-main dark:text-dark-text space-y-3">
+  <div className="max-w-3xl text-sm leading-relaxed text-brand-main dark:text-dark-text space-y-3">
     {children}
   </div>
 );
 
 const Figure: React.FC<{ titre: string; legende: React.ReactNode; children: React.ReactNode }> = ({ titre, legende, children }) => (
-  <figure className="m-0 mt-5 rounded-xl border border-brand-border dark:border-dark-sec-bg bg-white dark:bg-dark-surface p-4 md:p-5">
+  <figure className="m-0 mt-5 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 md:p-5">
     <div className="overflow-x-auto text-brand-main dark:text-dark-text">{children}</div>
-    <figcaption className="mt-4 pt-3 border-t border-brand-light dark:border-dark-sec-bg text-xs leading-relaxed text-brand-main/70 dark:text-dark-text/60 max-w-3xl">
+    <figcaption className="mt-4 pt-3 border-t border-brand-border dark:border-dark-sec-border text-xs leading-relaxed text-brand-main/70 dark:text-dark-text/60 max-w-3xl">
       <strong className="text-brand-main dark:text-dark-text">{titre}</strong>{' '}{legende}
     </figcaption>
   </figure>
@@ -111,13 +111,13 @@ const Tableau: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const Th: React.FC<{ children?: React.ReactNode; droite?: boolean }> = ({ children, droite }) => (
-  <th className={`pb-2 pr-4 text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 border-b border-brand-border dark:border-dark-sec-bg whitespace-nowrap ${droite ? 'text-right' : 'text-left'}`}>
+  <th className={`pb-2 pr-4 text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 border-b border-brand-border dark:border-dark-sec-border whitespace-nowrap ${droite ? 'text-right' : 'text-left'}`}>
     {children}
   </th>
 );
 
 const Td: React.FC<{ children?: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <td className={`py-2.5 pr-4 align-top border-b border-brand-light dark:border-dark-sec-bg ${className}`}>{children}</td>
+  <td className={`py-2 pr-4 align-top border-b border-brand-border dark:border-dark-sec-border ${className}`}>{children}</td>
 );
 
 const Mono: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -125,10 +125,10 @@ const Mono: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const Puce: React.FC<{ children: React.ReactNode; ton?: 'neutre' | 'attention' }> = ({ children, ton = 'neutre' }) => (
-  <span className={`inline-block font-mono text-[11px] px-1.5 py-0.5 rounded border ${
+  <span className={`inline-block font-mono text-micro px-1.5 py-0.5 rounded-md border ${
     ton === 'attention'
-      ? 'text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-500/40'
-      : 'text-brand-main/70 border-brand-border dark:text-dark-text/70 dark:border-dark-sec-bg'
+      ? 'text-alerte border-alerte/30'
+      : 'text-brand-main/70 border-brand-border dark:text-dark-text/70 dark:border-dark-sec-border'
   }`}>{children}</span>
 );
 
@@ -140,7 +140,7 @@ const Puce: React.FC<{ children: React.ReactNode; ton?: 'neutre' | 'attention' }
 const Couches: React.FC<{ items: Array<{ titre: string; texte: string; option?: boolean }> }> = ({ items }) => (
   <ol className="mt-4 space-y-0 list-none p-0 max-w-3xl">
     {items.map((c, i) => (
-      <li key={c.titre} className="grid grid-cols-[1.8rem_1fr] gap-x-3 py-2.5 border-b border-brand-light dark:border-dark-sec-bg last:border-b-0">
+      <li key={c.titre} className="grid grid-cols-[1.8rem_1fr] gap-x-3 py-2 border-b border-brand-border dark:border-dark-sec-border last:border-b-0">
         <span className="font-mono text-xs tabular-nums text-brand-main/45 dark:text-dark-text/40 pt-0.5">
           {String(i + 1).padStart(2, '0')}
         </span>
@@ -169,7 +169,7 @@ const Refus: React.FC<{ items: Array<{ titre: string; texte: string; renverse?: 
   <ul className="mt-4 space-y-3 list-none p-0 max-w-3xl">
     {items.map(x => (
       <li key={x.titre} className="grid grid-cols-[1.1rem_1fr] gap-x-2.5 text-sm leading-relaxed text-brand-main dark:text-dark-text">
-        <span className={`font-mono leading-relaxed ${x.renverse ? 'text-amber-700 dark:text-amber-300' : 'text-brand-main/45 dark:text-dark-text/40'}`}>
+        <span className={`font-mono leading-relaxed ${x.renverse ? 'text-alerte' : 'text-brand-main/45 dark:text-dark-text/40'}`}>
           {x.renverse ? '~' : '\u00d7'}
         </span>
         <span>
@@ -210,7 +210,7 @@ const CarteView: React.FC = () => {
   }, []);
 
   if (erreur && !etat) {
-    return <p className="text-sm text-red-600 dark:text-red-400">Échec — {erreur}</p>;
+    return <p className="text-sm text-erreur">Échec — {erreur}</p>;
   }
   if (!etat) {
     return <div className="text-sm text-brand-main/60 dark:text-dark-text/60">Lecture du corpus…</div>;
@@ -221,11 +221,11 @@ const CarteView: React.FC = () => {
   const poids = (action: string) => feuilles[action];
 
   return (
-    <div className="space-y-7 pb-6">
+    <div className="space-y-8 pb-6">
 
       {/* ── Le propos, et les chiffres du jour ── */}
       <div>
-        <p className="max-w-2xl text-sm leading-relaxed text-brand-main dark:text-dark-text">
+        <p className="max-w-3xl text-sm leading-relaxed text-brand-main dark:text-dark-text">
           Le corpus est une seule copie modifiable — {nb(etat.documents)} fiches markdown dans
           le dépôt. Cette page dit par quels chemins elles atteignent un modèle, et ce qui les
           empêche de diverger. <strong>Aucun chiffre n'y est recopié :</strong> tout ce qui est
@@ -301,7 +301,7 @@ const CarteView: React.FC = () => {
                 <Td className="whitespace-nowrap"><Mono>{s}</Mono></Td>
                 <Td className="text-brand-main/70 dark:text-dark-text/60">
                   {SENS_DES_STATUTS[s] ?? (
-                    <span className="text-amber-700 dark:text-amber-300">
+                    <span className="text-alerte">
                       Statut connu du Worker mais pas décrit ici — ajouter sa définition.
                     </span>
                   )}
@@ -311,7 +311,7 @@ const CarteView: React.FC = () => {
           </tbody>
         </Tableau>
 
-        <div className="mt-4 max-w-2xl text-sm leading-relaxed text-brand-main dark:text-dark-text">
+        <div className="mt-4 max-w-3xl text-sm leading-relaxed text-brand-main dark:text-dark-text">
           <p>
             Le dernier est le moins évident et le plus utile : sans lui, une IA qui lit le corpus
             comble le vide en inventant une charte, et l'incohérence revient là où il y avait une
@@ -602,8 +602,8 @@ const CarteView: React.FC = () => {
             })}
           </tbody>
         </Tableau>
-        <div className="mt-6 max-w-2xl rounded-lg border-l-2 border-brand-main dark:border-dark-text bg-brand-light dark:bg-dark-sec-bg px-4 py-3">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1.5">
+        <div className="mt-6 max-w-3xl rounded-lg border-l-2 border-brand-main dark:border-dark-text bg-brand-light dark:bg-dark-sec-bg px-4 py-3">
+          <p className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1.5">
             Où voir ce qui part vraiment
           </p>
           <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
@@ -637,8 +637,8 @@ const CarteView: React.FC = () => {
           </p>
         </Prose>
 
-        <div className="mt-5 max-w-2xl rounded-lg border-l-2 border-amber-500 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-1.5">
+        <div className="mt-5 max-w-3xl rounded-lg border-l-2 border-alerte bg-alerte/10 px-4 py-3">
+          <p className="text-micro font-bold uppercase tracking-wider text-alerte mb-1.5">
             Le piège
           </p>
           <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
