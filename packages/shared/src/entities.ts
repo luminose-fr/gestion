@@ -250,10 +250,14 @@ export interface RdvType {
   couleur: string;
   secret: boolean;
   /**
-   * Le `kind` de lieu imposé par le type, quand il n'en a qu'un. Calendly exige
-   * ce champ à la création dès que le type déclare un lieu.
+   * Le lieu imposé par le type, quand il en déclare un.
+   *
+   * Le `kind` seul ne suffit pas : Calendly exige AUSSI le texte du lieu dès
+   * que le kind vaut `custom`, `physical`, `ask_invitee` ou `outbound_call` —
+   * un 400 en production l'a appris. Le texte vient du type lui-même
+   * (« 2 Avenue de Verdun… ») et reste corrigeable à l'écran.
    */
-  lieu: string | null;
+  lieu: { kind: string; texte: string } | null;
 }
 
 /** Un créneau libre — son début, en UTC. Le reste se déduit de la durée du type. */

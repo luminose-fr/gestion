@@ -17,14 +17,20 @@
  * hash porte déjà la navigation de l'application. Ils sont lus une seule fois,
  * au montage : une fois l'écran ouvert, c'est la saisie qui fait foi — sans
  * quoi un rechargement effacerait une correction.
+ *
+ * Tout est visible d'un coup — types en boutons radio, trois mois de créneaux
+ * à la suite. C'est un écran qu'on utilise le téléphone à l'oreille : chaque
+ * repli, chaque liste déroulante y coûte une hésitation devant quelqu'un.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, Check, MessageSquare, RefreshCw, TriangleAlert } from 'lucide-react';
-import { fetchRdvTypes, fetchRdvCreneaux, creerRdv } from '../../services/apiService';
+import { CalendarClock, Check, MessageSquare, RefreshCw, Settings2, TriangleAlert } from 'lucide-react';
+import {
+  fetchRdvTypes, fetchRdvCreneaux, creerRdv, fetchRdvSelection, enregistrerRdvSelection,
+} from '../../services/apiService';
 import type { RdvType, RdvCreneau, RdvConfirme } from '@luminose/shared';
 
-/** La fenêtre interrogée d'un coup. Sept jours : c'est le plafond de Calendly. */
-const FENETRE = 7;
+/** Trois mois, d'un seul tenant : le Worker découpe, l'écran ne le sait pas. */
+const JOURS = 92;
 
 const lireParametres = () => {
   const p = new URLSearchParams(window.location.search);
@@ -45,25 +51,36 @@ const lireParametres = () => {
   };
 };
 
+const MOIS = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
 const JOUR = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 const HEURE = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-/** Les créneaux regroupés par journée locale, dans l'ordre. */
-const parJour = (creneaux: RdvCreneau[]) => {
-  const groupes = new Map<string, { date: Date; heures: Date[] }>();
+/** Les créneaux regroupés par journée, les journées par mois — dans l'ordre. */
+const parMois = (creneaux: RdvCreneau[]) => {
+  const jours = new Map<string, { date: Date; heures: Date[] }>();
   for (const c of creneaux) {
     const d = new Date(c.debut);
     const cle = d.toLocaleDateString('fr-FR');
-    if (!groupes.has(cle)) groupes.set(cle, { date: d, heures: [] });
-    groupes.get(cle)!.heures.push(d);
+    if (!jours.has(cle)) jours.set(cle, { date: d, heures: [] });
+    jours.get(cle)!.heures.push(d);
   }
-  return [...groupes.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const ordonnes = [...jours.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const mois = new Map<string, { titre: string; jours: typeof ordonnes }>();
+  for (const j of ordonnes) {
+    const cle = `${j.date.getFullYear()}-${j.date.getMonth()}`;
+    if (!mois.has(cle)) mois.set(cle, { titre: MOIS.format(j.date), jours: [] });
+    mois.get(cle)!.jours.push(j);
+  }
+  return [...mois.values()];
 };
 
 const champClasses =
   'w-full text-sm p-2.5 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-transparent ' +
   'text-brand-main dark:text-dark-text placeholder:text-brand-main/35 dark:placeholder:text-dark-text/30 ' +
   'focus:outline-none focus:ring-2 focus:ring-brand-main/30';
+
+const KINDS_AVEC_TEXTE = ['custom', 'physical', 'ask_invitee', 'outbound_call'];
 
 const RdvView: React.FC = () => {
   const initial = useMemo(lireParametres, []);
@@ -73,8 +90,12 @@ const RdvView: React.FC = () => {
   const [telephone, setTelephone] = useState(initial.telephone);
 
   const [types, setTypes] = useState<RdvType[] | null>(null);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [reglage, setReglage] = useState(false);
   const [typeUri, setTypeUri] = useState<string>('');
-  const [semaine, setSemaine] = useState(0);
+  const [lieu, setLieu] = useState('');
+  const [libre, setLibre] = useState(false);
+
   const [creneaux, setCreneaux] = useState<RdvCreneau[] | null>(null);
   const [chargement, setChargement] = useState(false);
   const [envoi, setEnvoi] = useState<string | null>(null);
@@ -83,25 +104,42 @@ const RdvView: React.FC = () => {
 
   const type = types?.find((t) => t.uri === typeUri) ?? null;
 
+  /** Une sélection vide veut dire « tous » : un déploiement neuf doit montrer quelque chose. */
+  const affiches = useMemo(
+    () => (types ?? []).filter((t) => selection.length === 0 || selection.includes(t.uri)),
+    [types, selection],
+  );
+
   useEffect(() => {
-    fetchRdvTypes()
-      .then((r) => { setTypes(r.types); setErreur(null); })
+    Promise.all([fetchRdvTypes(), fetchRdvSelection().catch(() => ({ types: [] }))])
+      .then(([t, s]) => { setTypes(t.types); setSelection(s.types); setErreur(null); })
       .catch((e) => { setTypes([]); setErreur(e?.message ?? 'Calendly injoignable.'); });
   }, []);
+
+  // Le lieu suit le type : il est pré-rempli par ce que Calendly en dit, et
+  // reste corrigeable — c'est lui que Calendly exige à la création.
+  useEffect(() => { setLieu(type?.lieu?.texte ?? ''); }, [typeUri]);
 
   useEffect(() => {
     if (!typeUri) { setCreneaux(null); return; }
     let abandonne = false;
     setChargement(true);
-    const debut = new Date(Date.now() + semaine * FENETRE * 24 * 3600_000).toISOString();
-    fetchRdvCreneaux(typeUri, debut, FENETRE)
+    fetchRdvCreneaux(typeUri, JOURS, libre)
       .then((r) => { if (!abandonne) { setCreneaux(r.creneaux); setErreur(null); } })
       .catch((e) => { if (!abandonne) { setCreneaux([]); setErreur(e?.message ?? 'Créneaux indisponibles.'); } })
       .finally(() => { if (!abandonne) setChargement(false); });
     return () => { abandonne = true; };
-  }, [typeUri, semaine]);
+  }, [typeUri, libre]);
 
-  const pret = Boolean(typeUri && nom.trim() && email.trim());
+  const lieuManquant = Boolean(type?.lieu && KINDS_AVEC_TEXTE.includes(type.lieu.kind) && !lieu.trim());
+  const pret = Boolean(typeUri && nom.trim() && email.trim() && !lieuManquant);
+
+  const recharger = () => {
+    if (!typeUri) return;
+    fetchRdvCreneaux(typeUri, JOURS, libre)
+      .then((x) => setCreneaux(x.creneaux))
+      .catch(() => { /* l'erreur affichée est déjà la bonne */ });
+  };
 
   const poser = async (debut: string) => {
     if (!pret || !type) return;
@@ -114,21 +152,21 @@ const RdvView: React.FC = () => {
         nom: nom.trim(),
         email: email.trim(),
         telephone: telephone.trim() || null,
-        lieu: type.lieu,
+        lieu: type.lieu ? { kind: type.lieu.kind, texte: lieu.trim() } : null,
       });
       setConfirme(r.rdv);
     } catch (e: any) {
       setErreur(e?.message ?? 'La création a échoué.');
       // Un créneau peut avoir été pris entre l'affichage et le clic : on
       // rafraîchit plutôt que de laisser cliquer une seconde fois dans le vide.
-      setSemaine((s) => s);
-      fetchRdvCreneaux(type.uri, new Date(Date.now() + semaine * FENETRE * 24 * 3600_000).toISOString(), FENETRE)
-        .then((x) => setCreneaux(x.creneaux))
-        .catch(() => { /* l'erreur affichée est déjà la bonne */ });
+      recharger();
     } finally {
       setEnvoi(null);
     }
   };
+
+  const basculerSelection = (uri: string) =>
+    setSelection((s) => (s.includes(uri) ? s.filter((x) => x !== uri) : [...s, uri]));
 
   if (confirme) {
     return (
@@ -137,7 +175,7 @@ const RdvView: React.FC = () => {
           <h2 className="flex items-center gap-2 text-sm font-bold text-brand-main dark:text-white">
             <Check className="w-4 h-4" /> Rendez-vous posé
           </h2>
-          <p className="text-sm text-brand-main/70 dark:text-dark-text/70 mt-2">
+          <p className="text-sm text-brand-main/70 dark:text-dark-text/70 mt-2 first-letter:uppercase">
             {confirme.nom} — {JOUR.format(new Date(confirme.debut))} à {HEURE.format(new Date(confirme.debut))}
           </p>
           <p className="text-xs mt-3 inline-flex items-center gap-1.5 text-brand-main/60 dark:text-dark-text/60">
@@ -155,7 +193,7 @@ const RdvView: React.FC = () => {
             )}
           </div>
           <button
-            onClick={() => { setConfirme(null); setSemaine(0); }}
+            onClick={() => { setConfirme(null); recharger(); }}
             className="mt-5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-brand-main text-white hover:opacity-90 dark:bg-white dark:text-brand-main"
           >
             Poser un autre rendez-vous
@@ -183,22 +221,82 @@ const RdvView: React.FC = () => {
       </section>
 
       <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-5">
-        <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
-          Le rendez-vous
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
+            Le rendez-vous
+          </h2>
+          {types && types.length > 0 && (
+            <button
+              onClick={() => setReglage((r) => !r)}
+              className="inline-flex items-center gap-1.5 text-[11px] text-brand-main/60 dark:text-dark-text/60 hover:underline"
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              {reglage ? 'Terminer' : 'Types affichés'}
+            </button>
+          )}
+        </div>
+
         {types === null ? (
           <p className="text-sm text-brand-main/60 dark:text-dark-text/60">Lecture des types d’événements…</p>
+        ) : reglage ? (
+          <div>
+            <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-2">
+              Cochez ce qui doit apparaître ici. Rien de coché : tout s’affiche.
+            </p>
+            <div className="grid gap-1.5 md:grid-cols-2">
+              {types.map((t) => (
+                <label key={t.uri} className="flex items-center gap-2 text-sm text-brand-main dark:text-dark-text">
+                  <input
+                    type="checkbox"
+                    checked={selection.includes(t.uri)}
+                    onChange={() => basculerSelection(t.uri)}
+                    className="accent-brand-main"
+                  />
+                  {t.nom} <span className="text-xs text-brand-main/45 dark:text-dark-text/40">{t.duree} min</span>
+                </label>
+              ))}
+            </div>
+            <button
+              onClick={() => { void enregistrerRdvSelection(selection).catch((e) => setErreur(e?.message ?? null)); setReglage(false); }}
+              className="mt-3 px-3 py-1.5 rounded-lg text-sm font-semibold bg-brand-main text-white hover:opacity-90 dark:bg-white dark:text-brand-main"
+            >
+              Enregistrer
+            </button>
+          </div>
         ) : (
-          <select
-            value={typeUri}
-            onChange={(e) => { setTypeUri(e.target.value); setSemaine(0); }}
-            className={champClasses}
-          >
-            <option value="">Choisir un type d’événement…</option>
-            {types.map((t) => (
-              <option key={t.uri} value={t.uri}>{t.nom} — {t.duree} min{t.secret ? ' (masqué)' : ''}</option>
+          <div className="flex flex-wrap gap-2">
+            {affiches.map((t) => (
+              <label
+                key={t.uri}
+                className={`cursor-pointer px-3 py-2 rounded-lg text-sm border transition-colors ${
+                  typeUri === t.uri
+                    ? 'bg-brand-main text-white border-brand-main dark:bg-white dark:text-brand-main dark:border-white'
+                    : 'border-brand-light dark:border-dark-sec-bg text-brand-main dark:text-dark-text hover:border-brand-main/40'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="type-rdv"
+                  className="sr-only"
+                  checked={typeUri === t.uri}
+                  onChange={() => setTypeUri(t.uri)}
+                />
+                {t.nom}
+                <span className={typeUri === t.uri ? 'opacity-70 ml-1.5 text-xs' : 'ml-1.5 text-xs text-brand-main/45 dark:text-dark-text/40'}>
+                  {t.duree} min
+                </span>
+              </label>
             ))}
-          </select>
+          </div>
+        )}
+
+        {type?.lieu && KINDS_AVEC_TEXTE.includes(type.lieu.kind) && !reglage && (
+          <div className="mt-3">
+            <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
+              Lieu — Calendly l’exige pour ce type
+            </label>
+            <input value={lieu} onChange={(e) => setLieu(e.target.value)} placeholder="Adresse, ou numéro à appeler" className={champClasses} />
+          </div>
         )}
 
         {erreur && (
@@ -207,56 +305,63 @@ const RdvView: React.FC = () => {
           </p>
         )}
 
-        {typeUri && (
+        {typeUri && !reglage && (
           <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <button
-                onClick={() => setSemaine((s) => Math.max(0, s - 1))}
-                disabled={semaine === 0 || chargement}
-                className="text-xs underline text-brand-main/70 dark:text-dark-text/70 disabled:opacity-30 disabled:no-underline"
-              >
-                Sept jours avant
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <label className="inline-flex items-center gap-2 text-xs text-brand-main/70 dark:text-dark-text/70">
+                <input type="checkbox" checked={libre} onChange={(e) => setLibre(e.target.checked)} className="accent-brand-main" />
+                Ignorer le délai minimum et l’horizon de réservation
+              </label>
               <span className="inline-flex items-center gap-1.5 text-[11px] text-brand-main/50 dark:text-dark-text/45">
                 {chargement ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CalendarClock className="w-3 h-3" />}
-                {semaine === 0 ? 'Sept prochains jours' : `Semaine +${semaine}`}
+                trois mois
               </span>
-              <button
-                onClick={() => setSemaine((s) => s + 1)}
-                disabled={chargement}
-                className="text-xs underline text-brand-main/70 dark:text-dark-text/70 disabled:opacity-30"
-              >
-                Sept jours après
-              </button>
             </div>
 
-            {!chargement && creneaux && creneaux.length === 0 && (
-              <p className="text-sm text-brand-main/55 dark:text-dark-text/50">
-                Aucun créneau libre sur cette fenêtre.
+            {libre && (
+              <p className="text-[11px] text-brand-main/50 dark:text-dark-text/45 mb-3 leading-relaxed">
+                Créneaux recomposés depuis le planning de disponibilité par défaut et les plages déjà occupées :
+                ni délai de 48 h, ni limite à 21 jours. Les tampons et les règles propres à un type d’événement
+                ne sont pas appliqués — Calendly reste seul juge au moment de poser le rendez-vous.
               </p>
             )}
 
-            <div className="space-y-3">
-              {parJour(creneaux ?? []).map((groupe) => (
-                <div key={groupe.date.toISOString()}>
-                  <p className="text-xs font-semibold text-brand-main dark:text-dark-text mb-1.5 first-letter:uppercase">
-                    {JOUR.format(groupe.date)}
+            {!chargement && creneaux && creneaux.length === 0 && (
+              <p className="text-sm text-brand-main/55 dark:text-dark-text/50">
+                Aucun créneau libre sur les trois prochains mois.
+              </p>
+            )}
+
+            <div className="space-y-5">
+              {parMois(creneaux ?? []).map((mois) => (
+                <div key={mois.titre}>
+                  <p className="sticky top-0 bg-white dark:bg-dark-surface py-1 text-[11px] font-bold uppercase tracking-wider text-brand-main/45 dark:text-dark-text/40 first-letter:uppercase">
+                    {mois.titre}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {groupe.heures.map((h) => {
-                      const iso = h.toISOString();
-                      return (
-                        <button
-                          key={iso}
-                          onClick={() => poser(iso)}
-                          disabled={!pret || envoi !== null}
-                          title={pret ? undefined : 'Renseignez d’abord le nom et l’e-mail.'}
-                          className="px-3 py-1.5 rounded-lg text-sm border border-brand-light dark:border-dark-sec-bg text-brand-main dark:text-dark-text hover:bg-brand-main hover:text-white dark:hover:bg-white dark:hover:text-brand-main disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-brand-main"
-                        >
-                          {envoi === iso ? 'Création…' : HEURE.format(h)}
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-2.5 mt-1">
+                    {mois.jours.map((groupe) => (
+                      <div key={groupe.date.toISOString()} className="md:flex md:gap-3">
+                        <p className="md:w-48 md:shrink-0 text-xs font-semibold text-brand-main dark:text-dark-text mb-1 md:mb-0 md:pt-2 first-letter:uppercase">
+                          {JOUR.format(groupe.date)}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {groupe.heures.map((h) => {
+                            const iso = h.toISOString();
+                            return (
+                              <button
+                                key={iso}
+                                onClick={() => poser(iso)}
+                                disabled={!pret || envoi !== null}
+                                title={pret ? undefined : 'Renseignez le nom, l’e-mail et le lieu.'}
+                                className="px-2.5 py-1.5 rounded-lg text-sm border border-brand-light dark:border-dark-sec-bg text-brand-main dark:text-dark-text hover:bg-brand-main hover:text-white dark:hover:bg-white dark:hover:text-brand-main disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-brand-main"
+                              >
+                                {envoi === iso ? 'Création…' : HEURE.format(h)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

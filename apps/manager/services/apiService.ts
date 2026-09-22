@@ -545,17 +545,26 @@ export const supprimerCapture = (id: string) =>
 export const fetchRdvTypes = () =>
   api<{ types: RdvType[] }>('/rdv/types', {}, { label: 'Types de rendez-vous', cle: 'api:rdv-types' });
 
-/** `jours` : la fenêtre, sept au maximum — c'est Calendly qui plafonne. */
-export const fetchRdvCreneaux = (type: string, debut: string, jours: number) =>
-  api<{ creneaux: RdvCreneau[]; depuis: string; jusqua: string }>(
-    `/rdv/creneaux?type=${encodeURIComponent(type)}&debut=${encodeURIComponent(debut)}&jours=${jours}`,
+/**
+ * `jours` : la fenêtre, quatre-vingt-douze au maximum. `libre` recompose les
+ * créneaux depuis l'agenda, sans le délai minimum ni l'horizon de réservation.
+ */
+export const fetchRdvCreneaux = (type: string, jours: number, libre: boolean) =>
+  api<{ creneaux: RdvCreneau[]; depuis: string; jusqua: string; libre: boolean }>(
+    `/rdv/creneaux?type=${encodeURIComponent(type)}&jours=${jours}${libre ? '&libre=1' : ''}`,
     {},
-    { label: 'Recherche des créneaux', cle: 'api:rdv-creneaux' },
+    { label: 'Recherche des créneaux', cle: `api:rdv-creneaux${libre ? '-libre' : ''}` },
   );
+
+export const fetchRdvSelection = () =>
+  api<{ types: string[] }>('/rdv/selection');
+
+export const enregistrerRdvSelection = (types: string[]) =>
+  api<{ types: string[] }>('/rdv/selection', { method: 'PUT', ...body({ types }) });
 
 export const creerRdv = (payload: {
   type: string; debut: string; nom: string; email: string;
-  telephone: string | null; lieu: string | null;
+  telephone: string | null; lieu: { kind: string; texte: string } | null;
 }) =>
   api<{ rdv: RdvConfirme }>('/rdv', { method: 'POST', ...body(payload) },
     { label: 'Création du rendez-vous', cle: 'api:rdv-creation' });

@@ -671,10 +671,12 @@ describe('écrans autonomes', () => {
  * rester blanc.
  */
 describe('prise de rendez-vous', () => {
+  const TYPE_A = { uri: 'https://api.calendly.com/event_types/E1', nom: 'Séance', duree: 90, couleur: '#17e885', secret: false, lieu: { kind: 'custom', texte: '2 Avenue de Verdun' } };
+  const TYPE_B = { uri: 'https://api.calendly.com/event_types/E2', nom: 'Séance enfant', duree: 60, couleur: '#ccf000', secret: false, lieu: null };
+
   it('se monte, liste les types, et affiche le refus du Worker', async () => {
-    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({
-      types: [{ uri: 'https://api.calendly.com/event_types/E1', nom: 'Séance', duree: 90, couleur: '#17e885', secret: false, lieu: null }],
-    } as any);
+    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [TYPE_A] } as any);
+    vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [] } as any);
     const { container } = render(<RdvView />);
     await waitFor(() => expect(container.textContent).toContain('Séance'));
     cleanup();
@@ -688,6 +690,7 @@ describe('prise de rendez-vous', () => {
     const avant = window.location.search;
     window.history.replaceState({}, '', '/?prenom=Marie&nom=Durand&email=marie@exemple.fr&tel=0612345678');
     vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [] } as any);
+    vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [] } as any);
 
     const { container } = render(<RdvView />);
     const valeurs = [...container.querySelectorAll('input')].map((i) => (i as HTMLInputElement).value);
@@ -696,6 +699,41 @@ describe('prise de rendez-vous', () => {
     expect(valeurs).toContain('0612345678');
 
     window.history.replaceState({}, '', `/${avant}`);
+  });
+
+  /**
+   * La sélection décide de ce qui s'affiche, et une sélection VIDE affiche
+   * tout : c'est l'état d'un déploiement neuf, et un écran qui ne proposerait
+   * rien s'y lirait comme une panne.
+   */
+  it('n’affiche que les types retenus, et tout quand rien n’est retenu', async () => {
+    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [TYPE_A, TYPE_B] } as any);
+    vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [TYPE_B.uri] } as any);
+
+    const retenus = render(<RdvView />);
+    await waitFor(() => expect(retenus.container.textContent).toContain('Séance enfant'));
+    expect([...retenus.container.querySelectorAll('input[type="radio"]')]).toHaveLength(1);
+    cleanup();
+
+    vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [] } as any);
+    const tous = render(<RdvView />);
+    await waitFor(() => expect(tous.container.querySelectorAll('input[type="radio"]')).toHaveLength(2));
+  });
+
+  /** Le lieu est exigé par Calendly pour un type « custom » : il doit arriver pré-rempli. */
+  it('pré-remplit le lieu du type choisi', async () => {
+    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [TYPE_A] } as any);
+    vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [] } as any);
+    vi.spyOn(Api, 'fetchRdvCreneaux').mockResolvedValue({ creneaux: [], depuis: '', jusqua: '', libre: false } as any);
+
+    const { container } = render(<RdvView />);
+    await waitFor(() => expect(container.querySelector('input[type="radio"]')).not.toBeNull());
+    fireEvent.click(container.querySelector('input[type="radio"]')!);
+
+    await waitFor(() => {
+      const valeurs = [...container.querySelectorAll('input')].map((i) => (i as HTMLInputElement).value);
+      expect(valeurs).toContain('2 Avenue de Verdun');
+    });
   });
 });
 
