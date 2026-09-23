@@ -11,6 +11,7 @@ Journées collectives récurrentes, portées par la dynamique de groupe. Encaiss
 (les stages en groupe passent par Stripe ; les séances individuelles par Stancer).
 
 Questionnaire de santé **obligatoire** — voir `../cadre-deontologique.md`.
+Précédé d'une **rencontre de 20 minutes offerte** — voir `rencontre.md`.
 
 ## Indicateur avancé
 
