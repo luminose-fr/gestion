@@ -168,7 +168,7 @@ const Points: React.FC<{ items: Array<{ titre: string; texte: string }> }> = ({ 
 const Refus: React.FC<{ items: Array<{ titre: string; texte: string; renverse?: boolean }> }> = ({ items }) => (
   <ul className="mt-4 space-y-3 list-none p-0 max-w-3xl">
     {items.map(x => (
-      <li key={x.titre} className="grid grid-cols-[1.1rem_1fr] gap-x-2.5 text-sm leading-relaxed text-brand-main dark:text-dark-text">
+      <li key={x.titre} className="grid grid-cols-[1.1rem_1fr] gap-x-3 text-sm leading-relaxed text-brand-main dark:text-dark-text">
         <span className={`font-mono leading-relaxed ${x.renverse ? 'text-alerte' : 'text-brand-main/45 dark:text-dark-text/40'}`}>
           {x.renverse ? '~' : '\u00d7'}
         </span>

@@ -1143,7 +1143,7 @@ function App() {
                         value={activeModelId}
                         onChange={(e) => handleActiveModelChange(e.target.value)}
                         title="Modèle IA utilisé par toutes les actions"
-                        className="appearance-none pl-7 pr-7 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
+                        className="appearance-none pl-6 pr-6 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
                      >
                         {aiModels.length === 0 && <option value="">Aucun modèle configuré</option>}
                         {/* Groupé par adaptateur : le même modèle peut être joignable

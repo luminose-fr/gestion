@@ -210,6 +210,8 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | `ContentEditor/renderers/` (`BodyRenderer`, `ScriptVideoRenderer`, `shared.tsx`) | liserés et couleurs de blocs, profondeurs, « Illustrée » | un codage de lecture, ni un sens ni une couleur d'outil |
 | `PsychedelicsCalculator` | la couleur de chaque substance et ses encadrés | de l'identification |
 | `RichTextarea` | `text-base`, `text-xl`, `text-2xl` des titres rendus | c'est le contenu mis en forme, pas l'interface |
+| `LoginPage`, champ du mot de passe | `pr-11` | la place du bouton qui affiche le mot de passe (`right-3`, 28 px) : à `pr-8`, le texte passerait dessous |
+| `LoginPage`, logo | `shadow-brand-main/30` et le dégradé | l'identité : c'est le logo, pas un bouton |
 
 ## Comment on saura que c'est fini
 

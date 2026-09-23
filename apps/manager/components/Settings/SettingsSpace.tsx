@@ -1097,7 +1097,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                         value={recherche}
                                         onChange={e => setRecherche(e.target.value)}
                                         placeholder="Chercher un modèle ou un fabricant…"
-                                        className={`${CHAMP} pl-9`}
+                                        className={`${CHAMP} pl-8`}
                                     />
                                 </div>
                                 <select
