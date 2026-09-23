@@ -8,6 +8,7 @@ import {
 import { AIModel } from '../types';
 import * as AiService from '../services/aiService';
 import { EnCours } from './Feedback';
+import { Bouton, CLASSES_CHAMP } from './ui';
 
 const FONT_OPTIONS = [
     'Futura', 'Helvetica Neue', 'Arial', 'Avenir', 'Montserrat',
@@ -333,18 +334,18 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
 
     // ── Shared input styles ─────────────────────────────────────────
     const labelCls = "text-xs text-brand-main/60 dark:text-dark-text/60";
-    const inputCls = "mt-1 w-full text-sm bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg px-3 py-2 text-brand-main dark:text-white";
+    const inputCls = `mt-1 ${CLASSES_CHAMP}`;
     const toggleCls = (on: boolean) => `px-3 py-2 text-sm font-bold rounded-lg border-2 transition-colors ${on ? 'bg-brand-main text-white border-brand-main dark:bg-white dark:text-brand-main dark:border-white' : 'border-brand-border dark:border-dark-sec-border text-brand-main/30 dark:text-dark-text/30'}`;
-    const fmtBtnCls = (on: boolean) => `flex items-center justify-center w-11 h-11 rounded-lg border-2 transition-all ${on ? 'border-brand-main dark:border-white text-brand-main dark:text-white bg-brand-light dark:bg-dark-sec-bg' : 'border-brand-border dark:border-dark-sec-border text-brand-main/30 dark:text-dark-text/30 hover:border-brand-main/50 dark:hover:border-white/50 hover:text-brand-main/60'}`;
+    const fmtBtnCls = (on: boolean) => `flex items-center justify-center w-11 h-11 rounded-lg border-2 transition-colors ${on ? 'border-brand-main dark:border-white text-brand-main dark:text-white bg-brand-light dark:bg-dark-sec-bg' : 'border-brand-border dark:border-dark-sec-border text-brand-main/30 dark:text-dark-text/30 hover:border-brand-main/50 dark:hover:border-white/50 hover:text-brand-main/60'}`;
 
     return (
         <div className="mx-auto space-y-6" onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
 
             {/* Upload zone */}
             {!srtContent || isDragging ? (
-                <label className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-2xl cursor-pointer transition-colors ${isDragging ? 'border-brand-main dark:border-white bg-brand-light dark:bg-dark-sec-bg scale-[1.01]' : 'border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface hover:bg-brand-light dark:hover:bg-dark-sec-bg'}`}>
+                <label className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${isDragging ? 'border-brand-main dark:border-white bg-brand-light dark:bg-dark-sec-bg scale-[1.01]' : 'border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface hover:bg-brand-light dark:hover:bg-dark-sec-bg'}`}>
                     <Upload className={`w-12 h-12 mb-4 transition-colors ${isDragging ? 'text-brand-main dark:text-white' : 'text-brand-main/30 dark:text-dark-text/30'}`} />
-                    <span className={`text-sm font-medium transition-colors ${isDragging ? 'text-brand-main dark:text-white' : 'text-brand-main/70 dark:text-dark-text/70'}`}>
+                    <span className={`text-sm font-semibold transition-colors ${isDragging ? 'text-brand-main dark:text-white' : 'text-brand-main/70 dark:text-dark-text/70'}`}>
                         {isDragging ? 'Déposez le fichier .srt ici' : 'Glissez un fichier .srt ou cliquez pour sélectionner'}
                     </span>
                     <span className="text-xs text-brand-main/40 dark:text-dark-text/40 mt-1">Fichier généré par WhisperTranscript</span>
@@ -360,25 +361,25 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                 <p className="text-sm font-semibold text-brand-main dark:text-white">{fileName}</p>
                                 <p className="text-xs text-brand-main/50 dark:text-dark-text/50">
                                     {srtBlocks.length} blocs SRT → {subtitles.length} sous-titres
-                                    {hasManualEdits && <span className="ml-1 text-amber-500">(modifié)</span>}
+                                    {hasManualEdits && <span className="ml-1 text-alerte">(modifié)</span>}
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setShowAIModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors" title="Découpage intelligent par IA">
+                            <Bouton onClick={() => setShowAIModal(true)} taille="petit" title="Découpage intelligent par IA">
                                 <Sparkles className="w-3.5 h-3.5" /> Découpage IA
-                            </button>
+                            </Bouton>
                             {hasManualEdits && (
-                                <button onClick={handleReset} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors" title="Réinitialiser">
+                                <Bouton onClick={handleReset} taille="petit" title="Réinitialiser">
                                     <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser
-                                </button>
+                                </Bouton>
                             )}
-                            <label className="px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors cursor-pointer">
+                            <label className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors cursor-pointer">
                                 Remplacer <input type="file" accept=".srt" className="hidden" onChange={handleFileUpload} />
                             </label>
-                            <button onClick={handleDownload} disabled={subtitles.length === 0} className="flex items-center gap-2 px-4 py-1.5 bg-brand-main text-white rounded-lg text-sm font-medium hover:bg-brand-hover transition-colors disabled:opacity-50 dark:bg-white dark:text-brand-main dark:hover:bg-gray-100">
+                            <Bouton onClick={handleDownload} disabled={subtitles.length === 0} intention="principale">
                                 <Download className="w-4 h-4" /> Télécharger .fcpxml
-                            </button>
+                            </Bouton>
                         </div>
                     </div>
 
@@ -393,7 +394,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                 <label className={labelCls}>Mots par sous-titre</label>
                                 <div className="flex items-center gap-3 mt-1.5">
                                     <input type="range" min={1} max={10} value={wordsPerBlock} onChange={e => handleWordsChange(parseInt(e.target.value))} className="flex-1 accent-brand-main dark:accent-white" />
-                                    <span className="text-xl font-bold text-brand-main dark:text-white w-6 text-center">{wordsPerBlock}</span>
+                                    <span className="text-lg font-bold text-brand-main dark:text-white w-6 text-center">{wordsPerBlock}</span>
                                 </div>
                             </div>
 
@@ -411,13 +412,13 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                             <div>
                                 <label className={labelCls}>Retour à la ligne ({style.maxCharsPerLine === 0 ? 'off' : style.maxCharsPerLine + ' car.'})</label>
                                 <input type="range" min={0} max={60} value={style.maxCharsPerLine} onChange={e => handleStyleChange('maxCharsPerLine', parseInt(e.target.value))} className="mt-1 w-full accent-brand-main dark:accent-white" />
-                                <div className="flex justify-between text-[10px] text-brand-main/40 dark:text-dark-text/40"><span>Désactivé</span><span>Long</span></div>
+                                <div className="flex justify-between text-micro text-brand-main/40 dark:text-dark-text/40"><span>Désactivé</span><span>Long</span></div>
                             </div>
 
                             <div>
                                 <label className={labelCls}>Position verticale ({style.positionY})</label>
                                 <input type="range" min={-500} max={500} value={style.positionY} onChange={e => handleStyleChange('positionY', parseInt(e.target.value))} className="mt-1 w-full accent-brand-main dark:accent-white" />
-                                <div className="flex justify-between text-[10px] text-brand-main/40 dark:text-dark-text/40"><span>Bas</span><span>Centre</span><span>Haut</span></div>
+                                <div className="flex justify-between text-micro text-brand-main/40 dark:text-dark-text/40"><span>Bas</span><span>Centre</span><span>Haut</span></div>
                             </div>
                         </div>
 
@@ -443,7 +444,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                     <label className={labelCls}>Couleur</label>
                                     <div className="mt-1 flex items-center gap-2">
                                         <input type="color" value={style.fontColor} onChange={e => handleStyleChange('fontColor', e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border border-brand-border dark:border-dark-sec-border" />
-                                        <span className="text-[10px] font-mono text-brand-main/40 dark:text-dark-text/40">{style.fontColor}</span>
+                                        <span className="text-micro font-mono text-brand-main/40 dark:text-dark-text/40">{style.fontColor}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -461,7 +462,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                     <label className={labelCls}>Ombre portée</label>
                                     <button
                                         onClick={() => handleShadowChange('enabled', !style.shadow.enabled)}
-                                        className={`relative w-9 h-5 rounded-full transition-colors ${style.shadow.enabled ? 'bg-brand-main dark:bg-white' : 'bg-gray-300 dark:bg-dark-sec-border'}`}
+                                        className={`relative w-9 h-5 rounded-full transition-colors ${style.shadow.enabled ? 'bg-brand-main dark:bg-white' : 'bg-brand-light dark:bg-dark-sec-border'}`}
                                     >
                                         <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white dark:bg-dark-bg transition-transform ${style.shadow.enabled ? 'translate-x-4' : ''}`} />
                                     </button>
@@ -472,8 +473,8 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                             <div>
                                                 <label className={labelCls}>Couleur</label>
                                                 <div className="mt-1 flex items-center gap-2">
-                                                    <input type="color" value={style.shadow.color} onChange={e => handleShadowChange('color', e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-brand-border dark:border-dark-sec-border" />
-                                                    <span className="text-[10px] font-mono text-brand-main/40 dark:text-dark-text/40">{style.shadow.color}</span>
+                                                    <input type="color" value={style.shadow.color} onChange={e => handleShadowChange('color', e.target.value)} className="w-8 h-8 rounded-md cursor-pointer border border-brand-border dark:border-dark-sec-border" />
+                                                    <span className="text-micro font-mono text-brand-main/40 dark:text-dark-text/40">{style.shadow.color}</span>
                                                 </div>
                                             </div>
                                             <div className="flex-1">
@@ -515,7 +516,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                             </button>
                             {showPreview && (
                                 <div className="px-4 pb-4 border-t border-brand-border dark:border-dark-sec-border pt-2">
-                                    <p className="text-[10px] text-brand-main/40 dark:text-dark-text/40 mb-2 px-2">
+                                    <p className="text-micro text-brand-main/40 dark:text-dark-text/40 mb-2 px-2">
                                         Cliquez pour modifier. Entrée = couper. Retour arrière en début = fusionner. Suppr en fin = fusionner.
                                     </p>
                                     <div className="max-h-[32rem] overflow-y-auto space-y-0.5">
@@ -524,7 +525,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                                 className={`group flex items-center gap-2 py-1 px-2 rounded-lg transition-colors cursor-pointer ${editingIndex === sub.index ? 'bg-brand-light dark:bg-dark-sec-bg' : 'hover:bg-brand-light/50 dark:hover:bg-dark-sec-bg/50'}`}
                                                 onClick={() => setPreviewIndex(idx)}
                                             >
-                                                <span className="text-[10px] font-mono text-brand-main/30 dark:text-dark-text/30 w-14 shrink-0 text-right">{fmtTime(sub.startMs)}</span>
+                                                <span className="text-micro font-mono text-brand-main/30 dark:text-dark-text/30 w-14 shrink-0 text-right">{fmtTime(sub.startMs)}</span>
                                                 <input
                                                     ref={el => { if (el) inputRefs.current.set(sub.index, el); }}
                                                     type="text" value={sub.text}
@@ -532,13 +533,13 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                                     onFocus={() => { setEditingIndex(sub.index); setPreviewIndex(idx); }}
                                                     onBlur={() => setTimeout(() => setEditingIndex(prev => prev === sub.index ? null : prev), 150)}
                                                     onKeyDown={e => handleKeyDown(e, sub)}
-                                                    className="flex-1 min-w-0 text-sm text-brand-main dark:text-white bg-transparent border-0 outline-none focus:bg-white dark:focus:bg-dark-bg focus:ring-1 focus:ring-brand-main/20 dark:focus:ring-white/20 rounded px-1.5 py-0.5 transition-all"
+                                                    className="flex-1 min-w-0 text-sm text-brand-main dark:text-white bg-transparent border-0 outline-none focus:bg-white dark:focus:bg-dark-bg focus:ring-1 focus:ring-brand-main/20 dark:focus:ring-white/20 rounded-md px-1.5 py-0.5 transition-colors"
                                                 />
-                                                <span className="text-[10px] font-mono text-brand-main/30 dark:text-dark-text/30 w-14 shrink-0">{fmtTime(sub.endMs)}</span>
+                                                <span className="text-micro font-mono text-brand-main/30 dark:text-dark-text/30 w-14 shrink-0">{fmtTime(sub.endMs)}</span>
                                                 <div className={`flex items-center gap-0.5 shrink-0 transition-opacity ${editingIndex === sub.index ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                                                    <button onClick={() => handleSplit(sub.index)} disabled={sub.text.split(/\s+/).length < 2} className="p-1 rounded text-brand-main/40 hover:text-brand-main hover:bg-brand-light dark:text-dark-text/40 dark:hover:text-white dark:hover:bg-dark-bg transition-colors disabled:opacity-20 disabled:cursor-not-allowed" title="Couper"><Scissors className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => handleSplit(sub.index)} disabled={sub.text.split(/\s+/).length < 2} className="p-1 rounded-md text-brand-main/40 hover:text-brand-main hover:bg-brand-light dark:text-dark-text/40 dark:hover:text-white dark:hover:bg-dark-bg transition-colors disabled:opacity-20 disabled:cursor-not-allowed" title="Couper"><Scissors className="w-3.5 h-3.5" /></button>
                                                     {idx < subtitles.length - 1 && (
-                                                        <button onClick={() => handleMerge(sub.index)} className="p-1 rounded text-brand-main/40 hover:text-brand-main hover:bg-brand-light dark:text-dark-text/40 dark:hover:text-white dark:hover:bg-dark-bg transition-colors" title="Fusionner"><Merge className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => handleMerge(sub.index)} className="p-1 rounded-md text-brand-main/40 hover:text-brand-main hover:bg-brand-light dark:text-dark-text/40 dark:hover:text-white dark:hover:bg-dark-bg transition-colors" title="Fusionner"><Merge className="w-3.5 h-3.5" /></button>
                                                     )}
                                                 </div>
                                             </div>
@@ -552,12 +553,12 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                         <div className="hidden md:block sticky top-6 shrink-0">
                             <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Aperçu</span>
+                                    <span className="text-micro font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Aperçu</span>
                                     {subtitles.length > 1 && (
                                         <div className="flex items-center gap-1">
-                                            <button onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))} disabled={previewIndex === 0} className="text-[10px] px-1.5 py-0.5 rounded text-brand-main/40 hover:text-brand-main dark:text-dark-text/40 dark:hover:text-white disabled:opacity-20">&larr;</button>
-                                            <span className="text-[10px] text-brand-main/40 dark:text-dark-text/40 font-mono">{previewIndex + 1}/{subtitles.length}</span>
-                                            <button onClick={() => setPreviewIndex(Math.min(subtitles.length - 1, previewIndex + 1))} disabled={previewIndex >= subtitles.length - 1} className="text-[10px] px-1.5 py-0.5 rounded text-brand-main/40 hover:text-brand-main dark:text-dark-text/40 dark:hover:text-white disabled:opacity-20">&rarr;</button>
+                                            <Bouton onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))} disabled={previewIndex === 0} taille="petit" intention="discrete">&larr;</Bouton>
+                                            <span className="text-micro text-brand-main/40 dark:text-dark-text/40 font-mono">{previewIndex + 1}/{subtitles.length}</span>
+                                            <Bouton onClick={() => setPreviewIndex(Math.min(subtitles.length - 1, previewIndex + 1))} disabled={previewIndex >= subtitles.length - 1} taille="petit" intention="discrete">&rarr;</Bouton>
                                         </div>
                                     )}
                                 </div>
@@ -571,11 +572,11 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
             {/* ═══ AI Model Selection Modal ═══ */}
             {showAIModal && (
                 <div className="fixed inset-0 z-80 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => !aiLoading && setShowAIModal(false)}>
-                    <div className="bg-white dark:bg-dark-bg rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white dark:bg-dark-bg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-brand-border dark:border-dark-sec-border">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-bold text-brand-main dark:text-white flex items-center gap-2">
-                                    <Sparkles className="w-5 h-5 text-purple-500" />
+                                    <Sparkles className="w-5 h-5 text-brand-main/60" />
                                     Découpage intelligent
                                 </h3>
                                 <button onClick={() => !aiLoading && setShowAIModal(false)} className="p-1 rounded-lg hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors">
@@ -590,19 +591,19 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {Object.entries(aiGroupedModels).map(([provider, models]) => (
                                 <div key={provider}>
-                                    <div className="text-[10px] font-bold text-brand-main/40 dark:text-dark-text/40 uppercase mb-1.5 ml-1">{provider}</div>
+                                    <div className="text-micro font-bold text-brand-main/40 dark:text-dark-text/40 uppercase mb-1.5 ml-1">{provider}</div>
                                     <div className="space-y-1.5">
                                         {models.map((model: any) => (
                                             <div
                                                 key={model.id}
                                                 onClick={() => !aiLoading && setAiSelectedModel(model.id)}
-                                                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border ${
+                                                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors border ${
                                                     aiSelectedModel === model.id
-                                                        ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 ring-1 ring-purple-300 dark:ring-purple-700'
+                                                        ? 'bg-brand-light dark:bg-dark-bg border-brand-border dark:border-dark-sec-border ring-1 ring-brand-main dark:ring-white'
                                                         : 'bg-white/50 dark:bg-dark-surface/50 border-transparent hover:bg-brand-light dark:hover:bg-dark-sec-bg'
                                                 }`}
                                             >
-                                                <div className="flex items-center gap-2.5">
+                                                <div className="flex items-center gap-3">
                                                     <Cpu className="w-4 h-4 text-brand-main/30 dark:text-dark-text/30" />
                                                     <div>
                                                         <div className="text-sm font-semibold text-brand-main dark:text-white">{model.name}</div>
@@ -610,9 +611,9 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                                 </div>
                                                 {model.cost && (() => {
                                                     const c = (model.cost || '').toLowerCase();
-                                                    if (c.includes('low')) return <span className="text-green-500 text-[10px] font-bold"><DollarSign className="w-3 h-3 inline" /></span>;
-                                                    if (c.includes('medium') || c === 'medium') return <span className="text-yellow-600 text-[10px] font-bold"><DollarSign className="w-3 h-3 inline" /><DollarSign className="w-3 h-3 inline" /></span>;
-                                                    if (c.includes('high')) return <span className="text-orange-500 text-[10px] font-bold"><DollarSign className="w-3 h-3 inline" /><DollarSign className="w-3 h-3 inline" /><DollarSign className="w-3 h-3 inline" /></span>;
+                                                    if (c.includes('low')) return <span className="text-succes text-micro font-bold"><DollarSign className="w-3 h-3 inline" /></span>;
+                                                    if (c.includes('medium') || c === 'medium') return <span className="text-alerte text-micro font-bold"><DollarSign className="w-3 h-3 inline" /><DollarSign className="w-3 h-3 inline" /></span>;
+                                                    if (c.includes('high')) return <span className="text-erreur text-micro font-bold"><DollarSign className="w-3 h-3 inline" /><DollarSign className="w-3 h-3 inline" /><DollarSign className="w-3 h-3 inline" /></span>;
                                                     return null;
                                                 })()}
                                             </div>
@@ -623,18 +624,17 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                         </div>
 
                         <div className="p-4 border-t border-brand-border dark:border-dark-sec-border flex justify-end gap-3">
-                            <button onClick={() => setShowAIModal(false)} disabled={aiLoading} className="px-5 py-2 text-sm font-medium text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg rounded-lg transition-colors disabled:opacity-50">
+                            <Bouton onClick={() => setShowAIModal(false)} disabled={aiLoading} intention="discrete">
                                 Annuler
-                            </button>
-                            <button
+                            </Bouton>
+                            <Bouton
                                 onClick={handleAISmartSplit}
                                 disabled={aiLoading}
-                                className="flex items-center gap-2 px-6 py-2 text-sm font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-700 shadow-lg shadow-purple-600/20 transition-all hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0"
-                            >
+                                intention="principale">
                                 {aiLoading
                                     ? <EnCours label="Découpage…" taille="md" />
                                     : <><Sparkles className="w-4 h-4" /> Lancer le découpage</>}
-                            </button>
+                            </Bouton>
                         </div>
                     </div>
                 </div>

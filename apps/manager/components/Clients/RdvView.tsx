@@ -28,6 +28,7 @@ import {
   fetchRdvTypes, fetchRdvCreneaux, creerRdv, fetchRdvSelection, enregistrerRdvSelection,
 } from '../../services/apiService';
 import type { RdvType, RdvCreneau, RdvConfirme, RdvQuestion } from '@luminose/shared';
+import { Bouton, CLASSES_CHAMP, ecran } from '../ui';
 
 /** Trois mois, d'un seul tenant : le Worker découpe, l'écran ne le sait pas. */
 const JOURS = 92;
@@ -123,10 +124,8 @@ const parMois = (creneaux: RdvCreneau[]) => {
 const reponseInitiale = (q: RdvQuestion): string[] =>
   q.type === 'single_select' && q.choix.length === 1 ? [q.choix[0]] : [];
 
-const champClasses =
-  'w-full text-sm p-2.5 rounded-lg border border-brand-light dark:border-dark-sec-bg bg-transparent ' +
-  'text-brand-main dark:text-dark-text placeholder:text-brand-main/35 dark:placeholder:text-dark-text/30 ' +
-  'focus:outline-none focus:ring-2 focus:ring-brand-main/30';
+/* Le champ de l'application : fond, bordure et hauteur partagés avec tous les écrans. */
+const champClasses = CLASSES_CHAMP;
 
 const RdvView: React.FC = () => {
   const initial = useMemo(lireParametres, []);
@@ -245,8 +244,8 @@ const RdvView: React.FC = () => {
 
   if (confirme) {
     return (
-      <div className="max-w-2xl mx-auto p-4 md:p-6">
-        <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-5">
+      <div className={ecran('travail')}>
+        <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-5">
           <h2 className="flex items-center gap-2 text-sm font-bold text-brand-main dark:text-white">
             <Check className="w-4 h-4" /> Rendez-vous posé
           </h2>
@@ -275,21 +274,20 @@ const RdvView: React.FC = () => {
               <a href={confirme.report} target="_blank" rel="noreferrer" className="underline text-brand-main/70 dark:text-dark-text/70">Reprogrammer</a>
             )}
           </div>
-          <button
+          <Bouton
             onClick={() => { setConfirme(null); recharger(); }}
-            className="mt-5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-brand-main text-white hover:opacity-90 dark:bg-white dark:text-brand-main"
-          >
+            className="mt-5" intention="principale">
             Poser un autre rendez-vous
-          </button>
+          </Bouton>
         </section>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
-      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-5">
-        <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1">
+    <div className={`${ecran('travail')} space-y-4`}>
+      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
+        <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1">
           L’invité
         </h2>
         <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-3">
@@ -303,15 +301,15 @@ const RdvView: React.FC = () => {
         </div>
       </section>
 
-      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-light dark:border-dark-sec-bg p-4 md:p-5">
+      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
+          <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
             Le rendez-vous
           </h2>
           {types && types.length > 0 && (
             <button
               onClick={() => setReglage((r) => !r)}
-              className="inline-flex items-center gap-1.5 text-[11px] text-brand-main/60 dark:text-dark-text/60 hover:underline"
+              className="inline-flex items-center gap-1.5 text-micro text-brand-main/60 dark:text-dark-text/60 hover:underline"
             >
               <Settings2 className="w-3.5 h-3.5" />
               {reglage ? 'Terminer' : 'Types affichés'}
@@ -339,12 +337,11 @@ const RdvView: React.FC = () => {
                 </label>
               ))}
             </div>
-            <button
+            <Bouton
               onClick={() => { void enregistrerRdvSelection(selection).catch((e) => setErreur(e?.message ?? null)); setReglage(false); }}
-              className="mt-3 px-3 py-1.5 rounded-lg text-sm font-semibold bg-brand-main text-white hover:opacity-90 dark:bg-white dark:text-brand-main"
-            >
+              className="mt-3" intention="principale">
               Enregistrer
-            </button>
+            </Bouton>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -354,7 +351,7 @@ const RdvView: React.FC = () => {
                 className={`cursor-pointer px-3 py-2 rounded-lg text-sm border transition-colors ${
                   typeUri === t.uri
                     ? 'bg-brand-main text-white border-brand-main dark:bg-white dark:text-brand-main dark:border-white'
-                    : 'border-brand-light dark:border-dark-sec-bg text-brand-main dark:text-dark-text hover:border-brand-main/40'
+                    : 'border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main/40'
                 }`}
               >
                 <input
@@ -407,7 +404,7 @@ const RdvView: React.FC = () => {
 
         {type && !reglage && type.questions.length > 0 && (
           <div className="mt-4 space-y-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
+            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
               Formulaire de l’invité
             </p>
             {type.questions.map((q) => {
@@ -455,7 +452,7 @@ const RdvView: React.FC = () => {
         )}
 
         {erreur && (
-          <p className="mt-3 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
+          <p className="mt-3 flex items-start gap-2 text-xs text-alerte">
             <TriangleAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />{erreur}
           </p>
         )}
@@ -467,14 +464,14 @@ const RdvView: React.FC = () => {
                 <input type="checkbox" checked={libre} onChange={(e) => setLibre(e.target.checked)} className="accent-brand-main" />
                 Ignorer le délai minimum et l’horizon de réservation
               </label>
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-brand-main/50 dark:text-dark-text/45">
+              <span className="inline-flex items-center gap-1.5 text-micro text-brand-main/50 dark:text-dark-text/45">
                 {chargement ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CalendarClock className="w-3 h-3" />}
                 trois mois
               </span>
             </div>
 
             {libre && (
-              <p className="text-[11px] text-brand-main/50 dark:text-dark-text/45 mb-3 leading-relaxed">
+              <p className="text-micro text-brand-main/50 dark:text-dark-text/45 mb-3 leading-relaxed">
                 Créneaux recomposés depuis le planning de disponibilité par défaut et les plages déjà occupées :
                 ni délai de 48 h, ni limite à 21 jours. Les tampons et les règles propres à un type d’événement
                 ne sont pas appliqués — Calendly reste seul juge au moment de poser le rendez-vous.
@@ -482,7 +479,7 @@ const RdvView: React.FC = () => {
             )}
 
             {questionsManquantes.length > 0 && (
-              <p className="text-[11px] text-brand-main/50 dark:text-dark-text/45 mb-3">
+              <p className="text-micro text-brand-main/50 dark:text-dark-text/45 mb-3">
                 À renseigner avant de choisir une heure : {questionsManquantes.map((q) => q.nom).join(' · ')}
               </p>
             )}
@@ -496,10 +493,10 @@ const RdvView: React.FC = () => {
             <div className="space-y-5">
               {parMois(creneaux ?? []).map((mois) => (
                 <div key={mois.titre}>
-                  <p className="sticky top-0 bg-white dark:bg-dark-surface py-1 text-[11px] font-bold uppercase tracking-wider text-brand-main/45 dark:text-dark-text/40 first-letter:uppercase">
+                  <p className="sticky top-0 bg-white dark:bg-dark-surface py-1 text-micro font-bold uppercase tracking-wider text-brand-main/45 dark:text-dark-text/40 first-letter:uppercase">
                     {mois.titre}
                   </p>
-                  <div className="space-y-2.5 mt-1">
+                  <div className="space-y-3 mt-1">
                     {mois.jours.map((groupe) => (
                       <div key={groupe.date.toISOString()} className="md:flex md:gap-3">
                         <p className="md:w-48 md:shrink-0 text-xs font-semibold text-brand-main dark:text-dark-text mb-1 md:mb-0 md:pt-2 first-letter:uppercase">
@@ -509,15 +506,13 @@ const RdvView: React.FC = () => {
                           {groupe.heures.map((h) => {
                             const iso = h.toISOString();
                             return (
-                              <button
+                              <Bouton
                                 key={iso}
                                 onClick={() => poser(iso)}
                                 disabled={!pret || envoi !== null}
-                                title={pret ? undefined : 'Renseignez le nom, l’e-mail, le lieu et le formulaire.'}
-                                className="px-2.5 py-1.5 rounded-lg text-sm border border-brand-light dark:border-dark-sec-bg text-brand-main dark:text-dark-text hover:bg-brand-main hover:text-white dark:hover:bg-white dark:hover:text-brand-main disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-brand-main"
-                              >
+                                title={pret ? undefined : 'Renseignez le nom, l’e-mail, le lieu et le formulaire.'}>
                                 {envoi === iso ? 'Création…' : HEURE.format(h)}
-                              </button>
+                              </Bouton>
                             );
                           })}
                         </div>
