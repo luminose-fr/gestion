@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Check, Copy, Wand2, X, Send } from 'lucide-react';
 import { EnCours } from '../../Feedback';
 import { copyTextToClipboard, CarrouselLegende } from './shared';
-import { Bouton, Champ } from '../../ui';
+import { Bouton, Champ, Etiquette } from '../../ui';
 
 interface SlidesRendererProps {
     slidesRaw: string;
@@ -91,12 +91,10 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                 <div className="sticky top-0 z-10 -mx-2 px-2">
                     <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg backdrop-blur-sm p-4 shadow-xs animate-in fade-in slide-in-from-top-1 duration-200">
                         <div className="flex items-center justify-between gap-3 mb-3">
-                            <div className="flex items-center gap-2">
-                                <Wand2 className="w-3.5 h-3.5 text-brand-main dark:text-dark-text" />
-                                <p className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">
-                                    Ajuster {adjustTarget === 'all' ? 'tous les prompts' : `le prompt de la slide ${adjustTarget}`}
-                                </p>
-                            </div>
+                            <Etiquette forme="entete" avecIcone>
+                                <Wand2 />
+                                Ajuster {adjustTarget === 'all' ? 'tous les prompts' : `le prompt de la slide ${adjustTarget}`}
+                            </Etiquette>
                             <button
                                 onClick={closeAdjustForm}
                                 className="p-1 rounded-md text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-bg transition-colors"
@@ -210,9 +208,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                                 <div className="h-full rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5">
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                         <div>
-                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">
-                                                Prompt Dzine
-                                            </p>
+                                            <Etiquette forme="entete">Prompt Dzine</Etiquette>
                                             <p className="mt-1 text-xs text-brand-main/70 dark:text-dark-text/70">
                                                 Slide illustrée
                                             </p>
