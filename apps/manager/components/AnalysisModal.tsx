@@ -7,6 +7,7 @@ import * as Api from '../services/apiService';
 import type { UsageIA } from '@luminose/shared';
 import { useEscapeClose } from './hooks/useEscapeClose';
 import { Patience } from './Feedback';
+import { Bouton } from './ui';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -217,13 +218,13 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         onClick={isAnalyzing ? undefined : onClose}
     >
       <div 
-        className="bg-white dark:bg-dark-surface w-full max-w-lg rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
+        className="bg-white dark:bg-dark-surface w-full max-w-lg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="p-6 border-b border-brand-border dark:border-dark-sec-border bg-brand-light/30 dark:bg-dark-bg/30 flex items-center justify-between">
             <div className="flex items-center gap-3">
-                <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg text-purple-600 dark:text-purple-300">
+                <div className="bg-brand-light dark:bg-dark-bg p-2 rounded-lg text-brand-main dark:text-dark-text">
                     <Brain className="w-6 h-6" />
                 </div>
                 <div>
@@ -254,7 +255,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
                     <div className="grid grid-cols-1 gap-4">
                         <div className="p-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg">
-                            <div className="flex items-center gap-2 mb-1 text-brand-main/50 dark:text-dark-text/50 text-[10px] uppercase font-bold">
+                            <div className="flex items-center gap-2 mb-1 text-brand-main/50 dark:text-dark-text/50 text-micro uppercase font-bold">
                                 <Cpu className="w-3 h-3" /> Modèle
                             </div>
                             <div className="text-sm font-semibold text-brand-main dark:text-white truncate" title={modelName}>
@@ -264,7 +265,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                     </div>
 
                     {error && (
-                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 text-erreur text-sm bg-erreur/10 p-3 rounded-lg">
                             <AlertCircle className="w-4 h-4 shrink-0" />
                             {error}
                         </div>
@@ -284,19 +285,17 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         {/* Footer */}
         {!isAnalyzing && (
             <div className="p-6 border-t border-brand-border dark:border-dark-sec-border flex justify-end gap-3 bg-brand-light/30 dark:bg-dark-bg/30">
-                <button 
+                <Bouton
                     onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-brand-main dark:text-dark-text hover:bg-brand-border/50 dark:hover:bg-dark-sec-border/50 rounded-lg transition-colors"
-                >
+                    intention="discrete">
                     Annuler
-                </button>
-                <button 
+                </Bouton>
+                <Bouton
                     onClick={handleStartAnalysis}
-                    className="flex items-center gap-2 px-6 py-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white rounded-lg font-medium shadow-lg shadow-brand-main/20 dark:shadow-none transition-all hover:-translate-y-0.5"
-                >
+                    intention="principale" posee>
                     <Sparkles className="w-4 h-4" />
                     Confirmer & Lancer
-                </button>
+                </Bouton>
             </div>
         )}
       </div>

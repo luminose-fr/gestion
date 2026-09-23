@@ -13,6 +13,7 @@ import {
 import { renderMdText } from './ContentEditor/renderers/shared';
 import { ConfirmModal } from './CommonModals';
 import { Barre, EnCours } from './Feedback';
+import { Bouton, Champ } from './ui';
 
 interface CoachChatProps {
     item: ContentItem;
@@ -222,41 +223,39 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                     <MessageCircle className="w-4 h-4 text-brand-main dark:text-dark-text" />
                     <h4 className="text-sm font-bold text-brand-main dark:text-white">Session Coach</h4>
                     {item.targetFormat && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-light dark:bg-dark-bg text-brand-main/70 dark:text-dark-text/70 border border-brand-border dark:border-dark-sec-border">
+                        <span className="text-micro font-bold px-2 py-0.5 rounded-full bg-brand-light dark:bg-dark-bg text-brand-main/70 dark:text-dark-text/70 border border-brand-border dark:border-dark-sec-border">
                             {item.targetFormat}
                         </span>
                     )}
                     {isValidated && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 flex items-center gap-1">
+                        <span className="text-micro font-bold px-2 py-0.5 rounded-full bg-succes/10 text-succes flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" /> Validée
                         </span>
                     )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {isValidated && (
-                        <button
+                        <Bouton
                             onClick={handleReopen}
                             disabled={isResetting}
-                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70 hover:border-brand-main hover:text-brand-main dark:hover:text-white transition-colors whitespace-nowrap disabled:opacity-40 flex items-center gap-1.5"
-                            title="Repasser la session en cours pour continuer la conversation"
-                        >
+                            taille="petit"
+                            title="Repasser la session en cours pour continuer la conversation">
                             <Undo2 className="w-3 h-3" />
                             Rouvrir
-                        </button>
+                        </Bouton>
                     )}
                     {session.messages.length > 0 && (
-                        <button
+                        <Bouton
                             onClick={() => setConfirmReset(true)}
                             disabled={isResetting}
-                            className="text-[11px] font-bold px-2.5 py-1 rounded-lg border border-transparent text-red-600/80 dark:text-red-400/80 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800 transition-colors whitespace-nowrap disabled:opacity-40 flex items-center gap-1.5"
-                            title="Jeter cette conversation et repartir de zéro"
-                        >
+                            taille="petit" ton="erreur"
+                            title="Jeter cette conversation et repartir de zéro">
                             {isResetting
                                 ? <EnCours label="Réinitialisation…" taille="xs" />
                                 : <><RotateCcw className="w-3 h-3" /> Réinitialiser</>}
-                        </button>
+                        </Bouton>
                     )}
-                    <span className="text-[10px] font-medium text-brand-main/50 dark:text-dark-text/50 whitespace-nowrap">
+                    <span className="text-micro font-semibold text-brand-main/50 dark:text-dark-text/50 whitespace-nowrap">
                         {aiModels.find(m => m.id === modelId)?.name || modelId}
                     </span>
                 </div>
@@ -274,35 +273,34 @@ export const CoachChat: React.FC<CoachChatProps> = ({
 
             {/* MESSAGES */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-                <div className="max-w-2xl mx-auto space-y-3">
+                <div className="max-w-3xl mx-auto space-y-3">
                 {/* SAS DE DÉMARRAGE — choix du modèle avant le premier appel IA */}
                 {!hasStarted && (
                     <div className="h-full flex items-center justify-center py-8">
-                        <div className="text-center max-w-md">
+                        <div className="text-center text-balance">
                             <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-brand-main/10 dark:bg-brand-main/20 flex items-center justify-center">
                                 <MessageCircle className="w-6 h-6 text-brand-main dark:text-dark-text" />
                             </div>
-                            <h3 className="text-base font-bold text-brand-main dark:text-white mb-2">Prêt à démarrer ?</h3>
+                            <h3 className="text-sm font-bold text-brand-main dark:text-white mb-2">Prêt à démarrer ?</h3>
                             <p className="text-xs text-brand-main/70 dark:text-dark-text/70 mb-5 leading-relaxed">
                                 Lancez la session quand vous le souhaitez.
                                 {item.targetFormat && (
                                     <> Le Coach vous proposera une première direction calibrée au format <strong>{item.targetFormat}</strong>.</>
                                 )}
                             </p>
-                            <div className="text-[11px] text-brand-main/50 dark:text-dark-text/50 mb-4 px-4 py-2 rounded-md bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border inline-block">
+                            <div className="text-micro text-brand-main/50 dark:text-dark-text/50 mb-4 px-4 py-2 rounded-md bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border inline-block">
                                 Modèle : <strong className="text-brand-main dark:text-dark-text">
                                     {aiModels.find(m => m.id === modelId)?.name || modelId}
                                 </strong>
                                 <span className="text-brand-main/40 dark:text-dark-text/40"> · modifiable en haut de l'app</span>
                             </div>
                             <div>
-                                <button
+                                <Bouton
                                     onClick={() => setHasStarted(true)}
-                                    className="px-5 py-2.5 bg-brand-main text-white rounded-lg hover:bg-brand-hover font-bold text-sm inline-flex items-center gap-2 shadow-sm"
-                                >
+                                    intention="principale" posee>
                                     <Sparkles className="w-4 h-4" />
                                     Démarrer la session
-                                </button>
+                                </Bouton>
                             </div>
                         </div>
                     </div>
@@ -320,18 +318,17 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                         className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
                     >
                         {msg.role === 'assistant' && (
-                            <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
-                                <Brain className="w-3 h-3 text-violet-600 dark:text-violet-300" />
+                            <div className="w-7 h-7 rounded-full bg-brand-light dark:bg-dark-bg flex items-center justify-center shrink-0 mt-0.5">
+                                <Brain className="w-3 h-3 text-brand-main dark:text-dark-text" />
                             </div>
                         )}
                         <div
                             className={`
-                                max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed
+                                max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed
                                 ${msg.role === 'user'
-                                    ? 'bg-brand-main text-white rounded-tr-sm'
-                                    : 'bg-white dark:bg-dark-surface text-brand-main dark:text-white border border-brand-border dark:border-dark-sec-border rounded-tl-sm'
-                                }
-                            `}
+                                    ? 'bg-brand-main text-white rounded-tr-md'
+                                    : 'bg-white dark:bg-dark-surface text-brand-main dark:text-white border border-brand-border dark:border-dark-sec-border rounded-tl-md'
+                                } `}
                         >
                             {msg.role === 'assistant' ? (
                                 <div className="whitespace-pre-wrap">
@@ -351,10 +348,10 @@ export const CoachChat: React.FC<CoachChatProps> = ({
 
                 {isSending && (
                     <div className="flex gap-3">
-                        <div className="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0 mt-0.5">
-                            <Brain className="w-3 h-3 text-violet-600 dark:text-violet-300" />
+                        <div className="w-7 h-7 rounded-full bg-brand-light dark:bg-dark-bg flex items-center justify-center shrink-0 mt-0.5">
+                            <Brain className="w-3 h-3 text-brand-main dark:text-dark-text" />
                         </div>
-                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-2xl rounded-tl-sm px-4 py-3 min-w-44 text-xs text-brand-main/60 dark:text-dark-text/60">
+                        <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl rounded-tl-md px-4 py-3 min-w-44 text-xs text-brand-main/60 dark:text-dark-text/60">
                             <div className="flex items-center gap-2">
                                 <EnCours label="Le Coach réfléchit…" />
                             </div>
@@ -367,10 +364,10 @@ export const CoachChat: React.FC<CoachChatProps> = ({
 
                 {error && (
                     <div className="flex gap-3">
-                        <div className="w-7 h-7 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0 mt-0.5">
-                            <AlertCircle className="w-3 h-3 text-red-600 dark:text-red-300" />
+                        <div className="w-7 h-7 rounded-full bg-erreur/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <AlertCircle className="w-3 h-3 text-erreur" />
                         </div>
-                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl rounded-tl-sm px-4 py-3 flex items-start gap-2 text-xs text-red-700 dark:text-red-300">
+                        <div className="bg-erreur/10 border border-erreur/30 rounded-xl rounded-tl-md px-4 py-3 flex items-start gap-2 text-xs text-erreur">
                             <span>{error}</span>
                         </div>
                     </div>
@@ -380,27 +377,23 @@ export const CoachChat: React.FC<CoachChatProps> = ({
 
             {/* GO ÉDITEUR (visible si ready ou toujours cliquable par Florent) */}
             {!isValidated && lastAssistant && (
-                <div className={`px-4 py-2 border-t border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex items-center justify-between gap-3 ${lastAssistant.readyForEditor ? 'bg-green-50 dark:bg-green-900/10' : ''}`}>
-                    <div className="text-[11px] text-brand-main/60 dark:text-dark-text/60">
+                <div className={`px-4 py-2 border-t border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex items-center justify-between gap-3 ${lastAssistant.readyForEditor ? 'bg-succes/10' : ''}`}>
+                    <div className="text-micro text-brand-main/60 dark:text-dark-text/60">
                         {lastAssistant.readyForEditor
                             ? 'Le Coach pense que la direction est prête. Vous validez ?'
                             : 'Vous pouvez valider à tout moment.'}
                     </div>
-                    <button
+                    <Bouton
                         onClick={handleValidate}
                         disabled={isSending}
-                        className={`
-                            flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg transition-all shadow-sm
-                            ${lastAssistant.readyForEditor
-                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-600/20'
-                                : 'bg-brand-main text-white hover:bg-brand-hover shadow-brand-main/20'
-                            }
-                            disabled:opacity-40 disabled:cursor-not-allowed
-                        `}
+                        taille="petit"
+                        intention="principale"
+                        ton={lastAssistant.readyForEditor ? 'succes' : 'neutre'}
+                        posee
                     >
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight />
                         Go Éditeur
-                    </button>
+                    </Bouton>
                 </div>
             )}
 
@@ -408,15 +401,14 @@ export const CoachChat: React.FC<CoachChatProps> = ({
             {!isValidated && lastAssistant && lastAssistant.quickReplies && lastAssistant.quickReplies.length > 0 && (
                 <div className="px-4 pt-3 flex flex-wrap gap-2 border-t border-brand-border dark:border-dark-sec-border bg-brand-light/40 dark:bg-dark-bg/40">
                     {lastAssistant.quickReplies.map((qr, i) => (
-                        <button
+                        <Bouton
                             key={i}
                             onClick={() => handleQuickReply(qr)}
                             disabled={isSending}
-                            className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main hover:bg-brand-main hover:text-white transition-all disabled:opacity-40"
-                            title="Cliquer pour pré-remplir le champ de saisie"
-                        >
+                            taille="petit"
+                            title="Cliquer pour pré-remplir le champ de saisie">
                             {qr}
-                        </button>
+                        </Bouton>
                     ))}
                 </div>
             )}
@@ -425,20 +417,20 @@ export const CoachChat: React.FC<CoachChatProps> = ({
             {!isValidated && hasStarted && (
                 <div className="p-3 border-t border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
                     <div className="flex items-end gap-2">
-                        <textarea
+                        <Champ multiligne
                             value={input}
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder="Votre réponse... (⌘+Entrée pour envoyer)"
                             rows={2}
                             disabled={isSending}
-                            className="flex-1 resize-none text-sm bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg px-3 py-2 text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 focus:outline-hidden focus:ring-2 focus:ring-brand-main/30 disabled:opacity-40"
+                            className="flex-1 resize-none"
                         />
                         <div className="flex flex-col gap-1">
                             <button
                                 onClick={() => void handleSend()}
                                 disabled={isSending || !input.trim()}
-                                className="p-2.5 bg-brand-main text-white rounded-lg hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+                                className="p-3 bg-brand-main text-white rounded-lg hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-xs"
                                 title="Envoyer (⌘+Entrée)"
                             >
                                 <Send className="w-4 h-4" />
@@ -446,7 +438,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
                             <button
                                 onClick={() => void handleRegenerate()}
                                 disabled={isSending || session.messages.length < 2}
-                                className="p-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text rounded-lg hover:border-brand-main disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                className="p-3 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text rounded-lg hover:border-brand-main disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                 title="Faire reformuler la dernière proposition du Coach"
                             >
                                 <RefreshCw className="w-4 h-4" />
@@ -459,7 +451,7 @@ export const CoachChat: React.FC<CoachChatProps> = ({
             {/* Une session validée ne se referme plus sur elle-même : le chemin
                 du retour est écrit là où l'on constate qu'il manque. */}
             {isValidated && (
-                <div className="p-4 border-t border-brand-border dark:border-dark-sec-border bg-green-50 dark:bg-green-900/10 text-xs text-green-800 dark:text-green-300 flex items-center justify-between gap-3 flex-wrap">
+                <div className="p-4 border-t border-brand-border dark:border-dark-sec-border bg-succes/10 text-xs text-succes flex items-center justify-between gap-3 flex-wrap">
                     <span className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 shrink-0" />
                         Session validée et transmise au Rédacteur. La rédaction se trouve dans les autres onglets.
