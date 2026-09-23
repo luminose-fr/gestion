@@ -1283,7 +1283,7 @@ function App() {
 
         {currentSpace === 'psychedelics' && (
             <main className="flex-1 overflow-y-auto">
-                <div className="px-4 md:px-6 py-5">
+                <div className={ecran('liste')}>
                     <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">
                         Calculateur de repères de dosage et aide à la réduction des risques
                     </p>
