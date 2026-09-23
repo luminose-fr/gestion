@@ -231,7 +231,7 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | surlignage de la recherche (`getHighlightedText`, `SocialGridView`) | `bg-yellow-*` et `text-gray-900` | le marqueur de ce qu'on cherche : ni un sens, ni une couleur d'outil (arbitré en phase 2, écrit à l'audit) |
 | `LoginPage`, champ du mot de passe | `pr-11` | la place du bouton qui affiche le mot de passe (`right-3`, 28 px) : à `pr-8`, le texte passerait dessous |
 | `LoginPage`, logo | `shadow-brand-main/30` et le dégradé | l'identité : c'est le logo, pas un bouton |
-| `ContentEditor/renderers/` | sur-titres et pastilles en capitales écrits à la main | hors périmètre de la phase 8 (arbitré le 23/09/2026) : l'aperçu de slide reproduit le visuel publié. Les deux en-têtes d'interface de `SlidesRenderer` (« Ajuster… », « Prompt Dzine ») restent à passer par `Etiquette forme="entete"` |
+| `ContentEditor/renderers/` | sur-titres et pastilles en capitales écrits à la main **dans l'aperçu des slides** | l'aperçu reproduit le visuel publié, pas l'interface (arbitré le 23/09/2026). Les en-têtes d'interface, eux, passent par `Etiquette` — dans `SlidesRenderer`, « Ajuster… » et « Prompt Dzine » y sont passés le 23/09/2026 |
 
 ## Comment on saura que c'est fini
 
