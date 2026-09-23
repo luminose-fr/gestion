@@ -3,7 +3,7 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, fo
 import { fr } from 'date-fns/locale';
 import { ContentItem, ContentStatus } from '../types';
 import { STATUS_COLORS } from '../constants';
-import { Bouton } from './ui';
+import { Bouton, Etiquette, TitreSection } from './ui';
 
 interface CalendarViewProps {
   items: ContentItem[];
@@ -33,37 +33,36 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-dark-surface rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border transition-colors">
-      <div className="flex items-center justify-between p-4 border-b border-brand-border dark:border-dark-sec-border shrink-0">
-        <h2 className="text-lg font-bold text-brand-main dark:text-white capitalize">
-          {format(currentMonth, 'MMMM yyyy', { locale: fr })}
-        </h2>
-        <div className="flex gap-2">
-            <Bouton taille="petit" 
-                onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-            >
-                ←
-            </Bouton>
-            <Bouton taille="petit" 
-                onClick={() => setCurrentMonth(today)}
-            >
-                Aujourd'hui
-            </Bouton>
-            <Bouton taille="petit" 
-                onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-            >
-                →
-            </Bouton>
-        </div>
-      </div>
+      <TitreSection
+                className="p-4 border-b border-brand-border dark:border-dark-sec-border shrink-0 capitalize"
+                titre={format(currentMonth, 'MMMM yyyy', { locale: fr })}
+                action={<>
+                    <Bouton taille="petit"
+                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                    >
+                        ←
+                    </Bouton>
+                    <Bouton taille="petit"
+                        onClick={() => setCurrentMonth(today)}
+                    >
+                        Aujourd'hui
+                    </Bouton>
+                    <Bouton taille="petit"
+                        onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                    >
+                        →
+                    </Bouton>
+                </>}
+            />
 
       <div className="flex-1 overflow-auto">
           {/* Min-width ensures it triggers scroll on mobile instead of squashing */}
           <div className="min-w-[800px] h-full flex flex-col">
               <div className="grid grid-cols-7 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
                 {weekDays.map(day => (
-                  <div key={day} className="py-2 text-center text-xs font-semibold text-brand-main/60 dark:text-dark-text/60 uppercase tracking-wide">
+                  <Etiquette as="div" className="py-2 text-center" key={day}>
                     {day}
-                  </div>
+                  </Etiquette>
                 ))}
               </div>
 

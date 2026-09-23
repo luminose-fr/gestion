@@ -8,7 +8,7 @@ import {
 import { AIModel } from '../types';
 import * as AiService from '../services/aiService';
 import { EnCours } from './Feedback';
-import { Bouton, CLASSES_CHAMP } from './ui';
+import { Bouton, CLASSES_CHAMP, Etiquette, CLASSES_TITRE } from './ui';
 
 const FONT_OPTIONS = [
     'Futura', 'Helvetica Neue', 'Arial', 'Avenir', 'Montserrat',
@@ -388,7 +388,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
 
                         {/* ── Left: Réglages ── */}
                         <div className="bg-white dark:bg-dark-surface rounded-xl p-4 border border-brand-border dark:border-dark-sec-border space-y-4">
-                            <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Réglages</div>
+                            <Etiquette as="div" forme="entete">Réglages</Etiquette>
 
                             <div>
                                 <label className={labelCls}>Mots par sous-titre</label>
@@ -424,7 +424,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
 
                         {/* ── Right: Style ── */}
                         <div className="bg-white dark:bg-dark-surface rounded-xl p-4 border border-brand-border dark:border-dark-sec-border space-y-4">
-                            <div className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Style des sous-titres</div>
+                            <Etiquette as="div" forme="entete">Style des sous-titres</Etiquette>
 
                             <div className="flex gap-3">
                                 <div className="flex-1">
@@ -514,7 +514,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                             <button onClick={() => setShowPreview(!showPreview)} className="w-full flex items-center justify-between p-4">
                                 <div className="flex items-center gap-2">
                                     <Eye className="w-4 h-4 text-brand-main/50 dark:text-dark-text/50" />
-                                    <span className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Sous-titres ({subtitles.length})</span>
+                                    <Etiquette as="span" forme="entete">Sous-titres ({subtitles.length})</Etiquette>
                                 </div>
                                 {showPreview ? <ChevronUp className="w-4 h-4 text-brand-main/50 dark:text-dark-text/50" /> : <ChevronDown className="w-4 h-4 text-brand-main/50 dark:text-dark-text/50" />}
                             </button>
@@ -557,7 +557,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                         <div className="hidden md:block sticky top-6 shrink-0">
                             <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-micro font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider">Aperçu</span>
+                                    <Etiquette as="span" forme="entete">Aperçu</Etiquette>
                                     {subtitles.length > 1 && (
                                         <div className="flex items-center gap-1">
                                             <Bouton onClick={() => setPreviewIndex(Math.max(0, previewIndex - 1))} disabled={previewIndex === 0} taille="petit" intention="discrete">&larr;</Bouton>
@@ -579,7 +579,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                     <div className="bg-white dark:bg-dark-bg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-brand-border dark:border-dark-sec-border">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-bold text-brand-main dark:text-white flex items-center gap-2">
+                                <h3 className={`${CLASSES_TITRE} flex items-center gap-2`}>
                                     <Sparkles className="w-5 h-5 text-brand-main/60" />
                                     Découpage intelligent
                                 </h3>
@@ -595,7 +595,7 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {Object.entries(aiGroupedModels).map(([provider, models]) => (
                                 <div key={provider}>
-                                    <div className="text-micro font-bold text-brand-main/40 dark:text-dark-text/40 uppercase mb-1.5 ml-1">{provider}</div>
+                                    <Etiquette as="div" className="mb-1.5 ml-1">{provider}</Etiquette>
                                     <div className="space-y-1.5">
                                         {models.map((model: any) => (
                                             <div

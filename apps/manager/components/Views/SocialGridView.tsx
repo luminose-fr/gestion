@@ -5,7 +5,7 @@ import { fr } from 'date-fns/locale';
 import { bodyJsonToText } from '@luminose/editorial';
 import { ContentItem, TargetFormat, Verdict, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from '../../types';
 import { EnTeteTriable, EnTeteSimple, comparateurFr, triSuivant, type Tri } from '../TriTableau';
-import { Bouton, Carte, Etiquette, type TonEtiquette } from '../ui';
+import { Bouton, Carte, Etiquette, type TonEtiquette, CLASSES_TITRE } from '../ui';
 
 /*
   Le verdict est un sens, pas une décoration : il passe par les trois tokens,
@@ -346,7 +346,7 @@ export const SocialGridView: React.FC<SocialGridViewProps> = ({
                     <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border shadow-xs ${currentConfig.pastille}`}>
                         <Icon className="w-8 h-8" />
                     </div>
-                    <h3 className="text-lg font-semibold text-brand-main dark:text-white">{currentConfig.emptyTitle}</h3>
+                    <h3 className={CLASSES_TITRE}>{currentConfig.emptyTitle}</h3>
                     <p className="text-sm text-brand-main/60 dark:text-dark-text/60 text-balance mx-auto mt-2">
                         {searchQuery ? currentConfig.emptySearch : currentConfig.emptyText}
                     </p>

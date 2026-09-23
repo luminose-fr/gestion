@@ -14,10 +14,10 @@ export type { CarteProps, DensiteCarte } from './Carte';
 export { Champ, CLASSES_CHAMP } from './Champ';
 export type { ChampProps } from './Champ';
 
-export { Etiquette } from './Etiquette';
+export { Etiquette, CLASSES_SURTITRE } from './Etiquette';
 export type { EtiquetteProps, FormeEtiquette, TonEtiquette } from './Etiquette';
 
-export { TitreSection } from './TitreSection';
+export { TitreSection, CLASSES_TITRE } from './TitreSection';
 export type { TitreSectionProps } from './TitreSection';
 
 export { GOUTTIERE, GABARITS, ecran } from './gabarits';

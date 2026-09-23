@@ -15,7 +15,7 @@ import { Check, Inbox as InboxIcon, Trash2 } from 'lucide-react';
 import {
   fetchInbox, capturer, integrerCapture, supprimerCapture, type CaptureInbox,
 } from '../../services/apiService';
-import { Bouton, Champ } from '../ui';
+import { Bouton, Champ, Etiquette } from '../ui';
 
 const jour = (ms: number) => new Date(ms).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
@@ -76,9 +76,9 @@ const InboxView: React.FC = () => {
       {erreur && <p className="text-sm text-erreur">Échec — {erreur}</p>}
 
       <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
-        <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1">
+        <Etiquette as="h2" forme="entete" className="mb-1">
           Capturer
-        </h2>
+        </Etiquette>
         <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-3">
           Trois champs, quelques secondes. Rien n'entre dans le corpus tant que ce n'est pas intégré.
         </p>
@@ -111,9 +111,9 @@ const InboxView: React.FC = () => {
       </section>
 
       <section>
-        <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
+        <Etiquette as="h2" className="mb-2">
           En attente — {attente.length}
-        </h2>
+        </Etiquette>
         {/*
           « Intégrer » est le mot qui prête à confusion : il a l'air d'un
           bouton qui range la capture dans le corpus, alors que c'est une case
@@ -171,9 +171,9 @@ const InboxView: React.FC = () => {
 
       {integrees.length > 0 && (
         <section>
-          <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-2">
+          <Etiquette as="h2" className="mb-2">
             Intégrées — {integrees.length}
-          </h2>
+          </Etiquette>
           <p className="text-xs text-brand-main/50 dark:text-dark-text/45 mb-2">
             Jamais supprimées : chacune porte ce qui l'a absorbée. La chaîne se remonte — le
             fichier, le commit, la capture, les mots d'origine.

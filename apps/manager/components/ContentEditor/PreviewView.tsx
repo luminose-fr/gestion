@@ -5,7 +5,7 @@ import { BodyRenderer } from './renderers/BodyRenderer';
 import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
 import { DEPTH_COLORS, buildPostCourtText, copyTextToClipboard, getPostCourtDzinePrompt, getPostCourtSuggestedVisual } from './renderers/shared';
-import { Bouton, Champ } from '../ui';
+import { Bouton, Champ, Etiquette } from '../ui';
 
 // ── Publish button with date picker popover ────────────────────────
 
@@ -152,7 +152,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-2">
                             <Eye className="w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
-                            <h3 className="text-xs font-bold text-brand-main/40 dark:text-dark-text/40 uppercase tracking-wider">Aperçu</h3>
+                            <Etiquette as="h3">Aperçu</Etiquette>
                         </div>
                         {!usesWorkedLayout && item.targetFormat && (
                             <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border">
@@ -210,9 +210,9 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-xs overflow-hidden flex flex-col">
                             <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                    <Etiquette forme="entete" avecIcone>
                                         <Video className="w-3 h-3" /> Script
-                                    </p>
+                                    </Etiquette>
                                 </div>
                             </div>
 
@@ -235,17 +235,17 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
 
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-xs overflow-hidden flex flex-col min-h-[200px]">
                             <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between">
-                                <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                <Etiquette forme="entete" avecIcone>
                                     <Copy className="w-3 h-3" /> Copie
-                                </p>
+                                </Etiquette>
                             </div>
 
                             <div className={`flex-1 overflow-y-auto custom-scrollbar p-6 grid gap-6 ${(dzinePrompt || suggestedVisual) ? 'xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]' : 'grid-cols-1'}`}>
                                 <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                                     <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
-                                        <span className="inline-flex items-center rounded-full bg-brand-main px-3 py-1 text-micro font-bold uppercase tracking-wider text-white">
+                                        <Etiquette as="span" forme="entete">
                                             Texte à copier
-                                        </span>
+                                        </Etiquette>
                                         <Bouton taille="petit" intention={copied ? 'principale' : 'secondaire'} ton={copied ? 'succes' : 'neutre'}
                                 onClick={handleCopy}
                                 disabled={!postCourtText}
@@ -274,9 +274,9 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
                                             <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div>
-                                                        <p className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">
+                                                        <Etiquette forme="entete">
                                                             Prompt Dzine
-                                                        </p>
+                                                        </Etiquette>
                                                     </div>
                                                     <Bouton taille="petit" intention={copiedDzine ? 'principale' : 'secondaire'} ton={copiedDzine ? 'succes' : 'neutre'}
                                 onClick={handleDzineCopy}
@@ -297,9 +297,9 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
                                         {suggestedVisual && (
                                             <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                                                 <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center gap-2">
-                                                    <p className="text-xs font-bold text-brand-main dark:text-dark-text uppercase flex items-center gap-2">
+                                                    <Etiquette forme="entete" avecIcone>
                                                         <FileText className="w-3 h-3" /> Visuel suggéré
-                                                    </p>
+                                                    </Etiquette>
                                                 </div>
                                                 <div className="p-6">
                                                     <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
@@ -322,9 +322,9 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-xs overflow-hidden flex flex-col flex-1 min-h-[500px]">
                             <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                    <Etiquette forme="entete" avecIcone>
                                         <Images className="w-3 h-3" /> Slides
-                                    </p>
+                                    </Etiquette>
                                 </div>
                             </div>
 

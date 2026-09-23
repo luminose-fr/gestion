@@ -23,7 +23,7 @@ import {
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
 import { APERCUS, compterPresences, VOIX_ID } from './apercus';
-import { Bouton, CLASSES_CHAMP, ecran } from '../ui';
+import { Bouton, CLASSES_CHAMP, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
 
 interface SettingsSpaceProps {
     section: SettingsSection;
@@ -171,12 +171,6 @@ const etatDuPoste = (part: number | null) => {
   pas dans celui de l'attribut, et c'était la source des hauteurs divergentes.
 */
 const CHAMP = CLASSES_CHAMP;
-
-const ETIQUETTE =
-    'block text-micro font-bold text-brand-main/60 dark:text-dark-text/50 uppercase tracking-wider mb-2';
-
-const TITRE_GROUPE =
-    'text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50';
 
 // ─── Atomes ───────────────────────────────────────────────────────────────
 
@@ -728,7 +722,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 {section === 'display' && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-fade-in">
                         <div className="space-y-2">
-                            <p className={`${TITRE_GROUPE} mb-3`}>Espace Contenus</p>
+                            <Etiquette className="mb-3">Espace Contenus</Etiquette>
                             <ToggleSwitch
                                 label="Bande verdict colorée"
                                 description="Trait coloré à gauche de chaque idée"
@@ -756,7 +750,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         </div>
 
                         <div>
-                            <p className={`${TITRE_GROUPE} mb-3`}>Aperçu</p>
+                            <Etiquette className="mb-3">Aperçu</Etiquette>
                             <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface overflow-hidden flex">
                                 {prefs.showVerdictStripe && <div className="w-1 bg-succes shrink-0" />}
                                 <div className="p-4 min-w-0">
@@ -917,10 +911,10 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                         {/* Testeur */}
                         <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/40 dark:bg-dark-bg/40 p-4 space-y-3">
-                            <p className={`${TITRE_GROUPE} flex items-center gap-1.5`}>
+                            <Etiquette forme="entete" avecIcone>
                                 <FlaskConical className="w-3 h-3" />
                                 Tester un code API
-                            </p>
+                            </Etiquette>
                             <p className="text-micro text-brand-main/50 dark:text-dark-text/50 leading-relaxed">
                                 Vérifie si un modèle répond, chez l'adaptateur choisi. Requête mini, ~1 token de coût.
                             </p>
@@ -1031,7 +1025,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
                                 : 'text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg'
                         }`;
-                    const TH = 'px-3 py-2 text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 whitespace-nowrap';
+                    const TH = `${CLASSES_SURTITRE} px-3 py-2 whitespace-nowrap`;
 
                     return (
                         <div className="animate-fade-in">
@@ -1144,9 +1138,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                     <p className="font-semibold text-sm text-brand-main dark:text-white">{m.name}</p>
                                                                     {m.palierLibelle && vueCatalogue === 'tout' && (
-                                                                        <span className="text-micro font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-brand-main/10 text-brand-main dark:bg-white/15 dark:text-white whitespace-nowrap">
+                                                                        <Etiquette as="span" forme="pastille">
                                                                             sélection · {m.palierLibelle}
-                                                                        </span>
+                                                                        </Etiquette>
                                                                     )}
                                                                 </div>
                                                                 <p className="font-mono text-micro text-brand-main/50 dark:text-dark-text/50">{m.id}</p>
@@ -1258,7 +1252,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className={ETIQUETTE}>Nom commercial</label>
+                                    <Etiquette as="label" className="mb-1">Nom commercial</Etiquette>
                                     <input
                                         type="text"
                                         value={editModel.name || ''}
@@ -1269,7 +1263,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </div>
 
                                 <div>
-                                    <label className={ETIQUETTE}>Code API</label>
+                                    <Etiquette as="label" className="mb-1">Code API</Etiquette>
                                     <input
                                         type="text"
                                         value={editModel.apiCode || ''}
@@ -1285,7 +1279,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     ne sert qu'à l'affichage.
                                 */}
                                 <div>
-                                    <label className={ETIQUETTE}>Adaptateur</label>
+                                    <Etiquette as="label" className="mb-1">Adaptateur</Etiquette>
                                     <select
                                         value={editModel.provider || 'onemin'}
                                         onChange={e => setEditModel({ ...editModel, provider: e.target.value })}
@@ -1306,7 +1300,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </div>
 
                                 <div>
-                                    <label className={ETIQUETTE}>Fabricant</label>
+                                    <Etiquette as="label" className="mb-1">Fabricant</Etiquette>
                                     <input
                                         type="text"
                                         value={editModel.vendor || ''}
@@ -1317,7 +1311,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </div>
 
                                 <div>
-                                    <label className={ETIQUETTE}>Coût / Crédits</label>
+                                    <Etiquette as="label" className="mb-1">Coût / Crédits</Etiquette>
                                     <select
                                         value={editModel.cost || 'medium'}
                                         onChange={e => setEditModel({ ...editModel, cost: e.target.value as any })}
@@ -1332,7 +1326,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </div>
 
                                 <div>
-                                    <label className={ETIQUETTE}>Qualité rédaction (1-5)</label>
+                                    <Etiquette as="label" className="mb-1">Qualité rédaction (1-5)</Etiquette>
                                     <div className="flex gap-1.5 p-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg">
                                         {[1, 2, 3, 4, 5].map(v => (
                                             <button
@@ -1352,7 +1346,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             </div>
 
                             <div>
-                                <label className={ETIQUETTE}>Forces &amp; cas d'usage</label>
+                                <Etiquette as="label" className="mb-1">Forces &amp; cas d'usage</Etiquette>
                                 <textarea
                                     value={editModel.strengths || ''}
                                     onChange={e => setEditModel({ ...editModel, strengths: e.target.value })}

@@ -10,6 +10,7 @@
  */
 import React from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { CLASSES_SURTITRE } from './ui';
 
 export interface Tri {
   colonne: string;
@@ -44,7 +45,7 @@ export const triValide = (
 };
 
 const TH_BASE =
-  'px-4 py-3 text-left text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50';
+  `${CLASSES_SURTITRE} px-4 py-3 text-left`;
 
 export const EnTeteTriable: React.FC<{
   colonne: string;

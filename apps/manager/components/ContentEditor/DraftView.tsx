@@ -13,7 +13,7 @@ import { SlidesRenderer } from './renderers/SlidesRenderer';
 import { parseBodyJson, renderMdText, DEPTH_COLORS, buildPostCourtText, copyTextToClipboard, getPostCourtDzinePrompt, getPostCourtSuggestedVisual } from './renderers/shared';
 // Type-only : erasé à la compilation, pas de cycle de modules à l'exécution
 import type { EditorStep } from './index';
-import { Bouton, Champ } from '../ui';
+import { Bouton, Champ, Etiquette } from '../ui';
 
 // ── Rapport du Lecteur Froid (relecture "yeux d'un inconnu") ──
 
@@ -227,9 +227,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
         return (
             <div className="bg-brand-light dark:bg-dark-bg rounded-xl border border-brand-border dark:border-dark-sec-border p-4 space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
-                    <span className="flex items-center gap-1.5 text-micro font-bold text-brand-main dark:text-dark-text uppercase tracking-wider">
+                    <Etiquette as="span" forme="entete" avecIcone>
                         <Brain className="w-3 h-3" /> Lecteur froid — ce qu'un inconnu comprend
-                    </span>
+                    </Etiquette>
                     <span className={`px-1.5 py-0.5 rounded-full text-micro font-semibold ${verdictColor}`}>{verdict}</span>
                     <button onClick={onDismissColdRead} className="ml-auto text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-dark-text">
                         <X className="w-3.5 h-3.5" />
@@ -372,9 +372,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                     <div className="m-6 bg-brand-light dark:bg-dark-bg rounded-xl border border-brand-border dark:border-dark-sec-border p-4 flex items-start gap-3 max-w-3xl">
                         <Zap className="w-4 h-4 text-brand-main dark:text-dark-text mt-0.5 shrink-0" />
                         <div>
-                            <p className="text-xs font-bold text-brand-main dark:text-dark-text uppercase mb-1">
+                            <Etiquette forme="entete" className="mb-1">
                                 Mode direct activé
-                            </p>
+                            </Etiquette>
                             <p className="text-xs text-brand-main/80 dark:text-dark-text/70 leading-relaxed">
                                 Cette idée est marquée comme « Direct » : la session Coach n'est pas nécessaire. Naviguez vers les autres onglets pour rédiger directement.
                             </p>
@@ -401,9 +401,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         {/* 1. Notes initiales */}
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden focus-within:ring-2 focus-within:ring-brand-main transition-shadow flex flex-col min-h-[200px]">
                             <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border">
-                                <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                <Etiquette forme="entete" avecIcone>
                                     <FileText className="w-3 h-3" /> Notes initiales
-                                </p>
+                                </Etiquette>
                             </div>
                             <RichTextarea
                                 value={item.notes}
@@ -417,9 +417,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         {(item.analyzedAt || item.verdict || item.targetFormat || item.objectif || item.depth) && (
                             <div className="bg-brand-light dark:bg-dark-bg rounded-xl border border-brand-border dark:border-dark-sec-border p-4 space-y-3">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="flex items-center gap-1 text-micro font-bold text-brand-main dark:text-dark-text uppercase tracking-wider">
+                                    <Etiquette as="span" forme="entete" avecIcone>
                                         <Brain className="w-3 h-3" /> Analyse IA
-                                    </span>
+                                    </Etiquette>
                                     {item.verdict && (
                                         <span className={`px-1.5 py-0.5 rounded-full text-micro font-semibold ${
                                             item.verdict === 'Valide'    ? 'bg-succes/10 text-succes border-succes/30' :
@@ -463,15 +463,15 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-brand-border dark:border-dark-sec-border pt-3">
                                         {item.suggestedMetaphor && (
                                             <div className="bg-white dark:bg-dark-bg rounded-lg p-3 border border-brand-border dark:border-dark-sec-border">
-                                                <p className="text-micro font-bold text-brand-main/60 dark:text-dark-text uppercase mb-1 flex items-center gap-1">
+                                                <Etiquette avecIcone className="mb-1">
                                                     <Quote className="w-2.5 h-2.5" /> Métaphore
-                                                </p>
+                                                </Etiquette>
                                                 <p className="text-xs text-brand-main dark:text-dark-text/80 italic leading-relaxed">{item.suggestedMetaphor}</p>
                                             </div>
                                         )}
                                         {item.justification && (
                                             <div className="bg-white dark:bg-dark-bg rounded-lg p-3 border border-brand-border dark:border-dark-sec-border">
-                                                <p className="text-micro font-bold text-brand-main/60 dark:text-dark-text uppercase mb-1">Justification</p>
+                                                <Etiquette className="mb-1">Justification</Etiquette>
                                                 <p className="text-xs text-brand-main dark:text-dark-text/80 leading-relaxed">{item.justification}</p>
                                             </div>
                                         )}
@@ -519,7 +519,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                             <div className="bg-brand-light dark:bg-dark-bg rounded-xl border border-brand-border dark:border-dark-sec-border p-4 flex items-start gap-3 order-1">
                                 <Images className="w-5 h-5 text-brand-main dark:text-dark-text mt-0.5 shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold text-brand-main dark:text-dark-text uppercase mb-1">Étape suivante</p>
+                                    <Etiquette forme="entete" className="mb-1">Étape suivante</Etiquette>
                                     <p className="text-xs text-brand-main dark:text-dark-text leading-relaxed">
                                         Relisez et corrigez la trame ci-dessous si nécessaire. Une fois prête, transformez-la en slides structurées.
                                     </p>
@@ -549,7 +549,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 {/* Header brouillon */}
                                 <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase">Brouillon</p>
+                                        <Etiquette forme="entete">Brouillon</Etiquette>
                                         {item.targetFormat && (
                                             <span className="text-micro font-semibold px-2 py-0.5 rounded-full bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border">
                                                 {item.targetFormat}
@@ -601,9 +601,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 {/* Formulaire d'ajustement */}
                                 {showAdjustmentForm && (
                                     <div className="px-4 py-3 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg animate-in fade-in slide-in-from-top-1 duration-200">
-                                        <p className="text-micro font-bold text-brand-main dark:text-dark-text uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <Etiquette forme="entete" avecIcone className="mb-2">
                                             <MessageSquare className="w-3 h-3" /> Demande d'ajustement
-                                        </p>
+                                        </Etiquette>
                                         <div className="flex gap-2">
                                             <Champ multiligne
                                                 value={adjustmentText}
@@ -726,9 +726,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-xs overflow-hidden flex flex-col">
                             <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                    <Etiquette forme="entete" avecIcone>
                                         <Video className="w-3 h-3" /> Script
-                                    </p>
+                                    </Etiquette>
                                 </div>
                                 <SecBtn
                                     onClick={onLaunchDrafting}
@@ -814,9 +814,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                             <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-xs overflow-hidden flex flex-col min-h-[200px]">
                                 <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between">
-                                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                    <Etiquette forme="entete" avecIcone>
                                         <Copy className="w-3 h-3" /> Copie
-                                    </p>
+                                    </Etiquette>
                                     <SecBtn
                                         onClick={onLaunchDrafting}
                                         disabled={isGenerating}
@@ -831,9 +831,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 <div className={`flex-1 overflow-y-auto custom-scrollbar p-6 grid gap-6 ${(dzinePrompt || suggestedVisual) ? 'xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]' : 'grid-cols-1'}`}>
                                     <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                                         <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
-                                            <span className="inline-flex items-center rounded-full bg-brand-main px-3 py-1 text-micro font-bold uppercase tracking-wider text-white">
+                                            <Etiquette as="span" forme="entete">
                                                 Texte à copier
-                                            </span>
+                                            </Etiquette>
                                             <Bouton taille="petit" intention={copied ? 'principale' : 'secondaire'} ton={copied ? 'succes' : 'neutre'}
                                 onClick={handleCopy}
                                 disabled={!postText}
@@ -873,9 +873,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                                 <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5">
                                                     <div className="flex items-center justify-between gap-4">
                                                         <div>
-                                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">
+                                                            <Etiquette forme="entete">
                                                                 Prompt Dzine
-                                                            </p>
+                                                            </Etiquette>
                                                         </div>
                                                         <Bouton taille="petit" intention={copiedDzine ? 'principale' : 'secondaire'} ton={copiedDzine ? 'succes' : 'neutre'}
                                 onClick={handleDzineCopy}
@@ -896,9 +896,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                             {suggestedVisual && (
                                                 <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                                                     <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center gap-2">
-                                                        <p className="text-xs font-bold text-brand-main dark:text-dark-text uppercase flex items-center gap-2">
+                                                        <Etiquette forme="entete" avecIcone>
                                                             <FileText className="w-3 h-3" /> Visuel suggéré
-                                                        </p>
+                                                        </Etiquette>
                                                     </div>
                                                     <div className="p-6">
                                                         <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
@@ -935,9 +935,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
                         <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border shadow-xs ring-1 ring-brand-main overflow-hidden flex flex-col flex-1 min-h-[500px]">
                             <div className="bg-brand-light dark:bg-dark-bg px-4 py-2 border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                                    <Etiquette forme="entete" avecIcone>
                                         <Images className="w-3 h-3" /> Slides
-                                    </p>
+                                    </Etiquette>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {item.slides && (
@@ -979,9 +979,9 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                             {showAdjustmentForm && item.slides && (
                                 <div className="px-4 py-3 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg animate-in fade-in slide-in-from-top-1 duration-200">
-                                    <p className="text-micro font-bold text-brand-main dark:text-dark-text uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <Etiquette forme="entete" avecIcone className="mb-2">
                                         <MessageSquare className="w-3 h-3" /> Demande d'ajustement
-                                    </p>
+                                    </Etiquette>
                                     <div className="flex gap-2">
                                         <Champ multiligne
                                             value={adjustmentText}

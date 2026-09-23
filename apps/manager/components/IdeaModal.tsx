@@ -6,7 +6,7 @@ import { RichTextarea } from './RichTextarea';
 import { CharCounter, ConfirmModal } from './CommonModals';
 import { EnCours } from './Feedback';
 import { useEscapeClose } from './hooks/useEscapeClose';
-import { Bouton } from './ui';
+import { Bouton, Etiquette } from './ui';
 
 interface IdeaModalProps {
     item: ContentItem;
@@ -159,10 +159,10 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                     {/* Format cible */}
                     <div className="flex items-center gap-3 bg-brand-light dark:bg-dark-bg rounded-xl px-4 py-3">
-                        <label className="flex items-center gap-1.5 text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase tracking-wider whitespace-nowrap shrink-0">
+                        <Etiquette as="label" avecIcone className="whitespace-nowrap shrink-0">
                             <ArrowRightFromLine className="w-3 h-3" />
                             Format
-                        </label>
+                        </Etiquette>
                         <select
                             value={localItem.targetFormat || ''}
                             onChange={(e) => {
@@ -184,10 +184,10 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                     {/* Notes & Inspiration */}
                     <div className="rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                         <div className="px-4 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
-                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 flex items-center gap-1.5">
+                            <Etiquette forme="entete" avecIcone>
                                 <NotebookPen className="w-3 h-3" />
                                 Notes & Inspiration
-                            </p>
+                            </Etiquette>
                             <MarkdownToolbar className="border-none bg-transparent p-0" />
                         </div>
                         <RichTextarea
@@ -252,9 +252,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                 <div className="space-y-4 animate-in fade-in duration-200">
                                     {localItem.angle && (
                                         <div>
-                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                            <Etiquette className="mb-2">
                                                 Angle dans la série
-                                            </p>
+                                            </Etiquette>
                                             <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
                                                 {localItem.angle}
                                             </p>
@@ -263,9 +263,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.strategicAngle && (
                                         <div>
-                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                            <Etiquette className="mb-2">
                                                 Angle recommandé
-                                            </p>
+                                            </Etiquette>
                                             <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
                                                 {localItem.strategicAngle.replace(/\*\*/g, '')}
                                             </p>
@@ -274,9 +274,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {(localItem.platforms?.length || 0) > 0 && (
                                         <div>
-                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                            <Etiquette className="mb-2">
                                                 Plateformes
-                                            </p>
+                                            </Etiquette>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {localItem.platforms.map(p => (
                                                     <span
@@ -292,9 +292,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.objectif && (
                                         <div>
-                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                            <Etiquette className="mb-1.5">
                                                 Objectif
-                                            </p>
+                                            </Etiquette>
                                             <span className="inline-flex text-micro px-1.5 py-0.5 rounded-full border font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
                                                 {localItem.objectif}
                                             </span>
@@ -303,9 +303,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.justification && (
                                         <div>
-                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                            <Etiquette className="mb-1.5">
                                                 Justification
-                                            </p>
+                                            </Etiquette>
                                             <p className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed whitespace-pre-wrap">
                                                 {localItem.justification}
                                             </p>
@@ -314,9 +314,9 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.suggestedMetaphor && (
                                         <div>
-                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                            <Etiquette className="mb-1.5">
                                                 Métaphore suggérée
-                                            </p>
+                                            </Etiquette>
                                             <p className="text-xs text-brand-main/70 dark:text-dark-text/70 italic leading-relaxed">
                                                 « {localItem.suggestedMetaphor} »
                                             </p>

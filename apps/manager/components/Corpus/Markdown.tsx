@@ -10,6 +10,7 @@
  * un lecteur doit voir la syntaxe brute d'une forme non reconnue, pas un trou.
  */
 import React from 'react';
+import { CLASSES_SURTITRE } from '../ui';
 
 const inline = (texte: string, cle: string): React.ReactNode[] =>
   texte
@@ -83,8 +84,8 @@ export const Markdown: React.FC<{ texte: string }> = ({ texte }) => {
         <div key={`t${i}`} className="my-3 overflow-x-auto">
           <table className="text-xs w-full">
             <thead>
-              <tr className="text-micro uppercase tracking-wider text-brand-main/50 dark:text-dark-text/40">
-                {entete.map((c, k) => <th key={k} className="text-left font-semibold pb-1.5 pr-3">{inline(c, `th${k}`)}</th>)}
+              <tr className={CLASSES_SURTITRE}>
+                {entete.map((c, k) => <th key={k} className="text-left pb-1.5 pr-3">{inline(c, `th${k}`)}</th>)}
               </tr>
             </thead>
             <tbody>

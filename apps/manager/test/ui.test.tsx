@@ -13,7 +13,10 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
 
-import { Bouton, Carte, Champ, Etiquette, TitreSection, GABARITS, GOUTTIERE, ecran } from '../components/ui';
+import {
+  Bouton, Carte, Champ, Etiquette, TitreSection, GABARITS, GOUTTIERE, ecran,
+  CLASSES_SURTITRE, CLASSES_TITRE,
+} from '../components/ui';
 
 afterEach(cleanup);
 
@@ -232,14 +235,72 @@ describe('Etiquette', () => {
   });
 });
 
+describe('Etiquette — les deux sur-titres', () => {
+  const classes = (c: HTMLElement) => Array.from(c.children).map(e => (e as HTMLElement).className);
+
+  it('distingue le sur-titre discret de l\'en-tête plein, et rien d\'autre', () => {
+    const { container } = render(
+      <>
+        <Etiquette>Colonne</Etiquette>
+        <Etiquette forme="entete">Script</Etiquette>
+      </>,
+    );
+    const [surtitre, entete] = classes(container);
+    for (const c of [surtitre, entete]) expect(c).toContain('text-micro font-bold uppercase tracking-wider');
+    expect(surtitre).toContain('text-brand-main/60 dark:text-dark-text/50');
+    expect(entete).toContain('text-brand-main dark:text-dark-text');
+    expect(entete).not.toMatch(/text-brand-main\//);
+  });
+
+  it('passe en ligne avec son icône, sans cumuler block et flex', () => {
+    const { container } = render(
+      <>
+        <Etiquette>Sans</Etiquette>
+        <Etiquette forme="entete" avecIcone><svg /> Avec</Etiquette>
+      </>,
+    );
+    const [sans, avec] = classes(container).map(c => c.split(/\s+/));
+    expect(sans).toContain('block');
+    expect(sans).not.toContain('flex');
+    expect(avec).toContain('flex');
+    expect(avec).not.toContain('block');
+    expect(avec).toContain('[&_svg]:size-3');
+  });
+
+  it('porte un sens par le token, à la place de la couleur du rôle', () => {
+    const { container } = render(<Etiquette forme="entete" ton="alerte">Le piège</Etiquette>);
+    const [c] = classes(container);
+    expect(c).toContain('text-alerte');
+    expect(c).not.toMatch(/text-brand-main|dark:/);
+  });
+
+  it('prête ses classes aux en-têtes de tableau, sans disposition', () => {
+    expect(CLASSES_SURTITRE).toBe('text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50');
+    expect(CLASSES_SURTITRE).not.toMatch(/\b(block|flex)\b/);
+  });
+});
+
 describe('TitreSection', () => {
-  it('titre en text-lg, sous-titre en text-xs', () => {
+  it('titre en text-lg font-bold, sous-titre en text-xs', () => {
     const { getByText } = render(
       <TitreSection titre="Documents" sousTitre="Le socle du corpus" action={<Bouton>Ajouter</Bouton>} />,
     );
-    expect(getByText('Documents').className).toContain('text-lg');
+    expect(getByText('Documents').className).toBe(CLASSES_TITRE);
+    expect(CLASSES_TITRE).toContain('text-lg font-bold');
     expect(getByText('Le socle du corpus').className).toContain('text-xs');
     expect(getByText('Ajouter').tagName).toBe('BUTTON');
+  });
+
+  it('aligne les actions sur le milieu du titre quand il est seul', () => {
+    const { container } = render(
+      <>
+        <TitreSection titre="Seul" action={<Bouton>Action</Bouton>} />
+        <TitreSection titre="Précisé" sousTitre="Une précision" action={<Bouton>Action</Bouton>} />
+      </>,
+    );
+    const [seul, precise] = Array.from(container.children).map(c => (c as HTMLElement).className);
+    expect(seul).toContain('items-center');
+    expect(precise).toContain('items-start');
   });
 });
 

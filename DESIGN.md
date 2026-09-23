@@ -63,6 +63,23 @@ ce qui existe aujourd'hui doit s'y ramener, vers la valeur la plus proche.
 ligne. Le 9, le 10 et le 11 deviennent `text-micro` ; le 13 et `text-base` deviennent
 `text-sm` ; le 20, `text-xl`, `text-2xl` et `text-3xl` deviennent `text-lg`.
 
+**Deux sur-titres, départagés par l'endroit où ils sont.** Tous deux en
+`text-micro font-bold uppercase tracking-wider`, tous deux par `Etiquette` :
+
+| Forme | Couleur | Emploi |
+| :--- | :--- | :--- |
+| `entete` | `text-brand-main dark:text-dark-text` | nomme **la carte ou l'encadré où il se trouve** : bandeau d'en-tête (« Script », « Copie »), première ligne d'un encadré (« Lecteur froid », « Le piège ») |
+| `surtitre` | `text-brand-main/60 dark:text-dark-text/50` | nomme **ce qui suit** : un champ, une colonne de tableau, un groupe de cartes, une métadonnée |
+
+`entete` tient lieu de titre et reste plein : un `/50` sur le fond `brand-light` d'un
+bandeau ne se lit plus. `surtitre` s'efface devant le contenu. Un sens (`ton`) remplace
+la couleur du rôle. Un en-tête de tableau prend `CLASSES_SURTITRE`, puisqu'un `<th>` ne
+peut pas devenir une `Etiquette`. Un sur-titre ne s'écrit jamais en `text-xs`.
+
+**Le titre** (`text-lg`) est `font-bold`, par `TitreSection` pour l'en-tête d'une carte
+ou d'un écran, par `CLASSES_TITRE` là où la ligne titre–actions n'a pas de sens (vide,
+fenêtre, titre précédé d'une icône, titre éditable).
+
 Le titre éditorial en `font-display` (Abril Display) relève de l'identité et n'est pas
 concerné.
 
@@ -214,6 +231,7 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | surlignage de la recherche (`getHighlightedText`, `SocialGridView`) | `bg-yellow-*` et `text-gray-900` | le marqueur de ce qu'on cherche : ni un sens, ni une couleur d'outil (arbitré en phase 2, écrit à l'audit) |
 | `LoginPage`, champ du mot de passe | `pr-11` | la place du bouton qui affiche le mot de passe (`right-3`, 28 px) : à `pr-8`, le texte passerait dessous |
 | `LoginPage`, logo | `shadow-brand-main/30` et le dégradé | l'identité : c'est le logo, pas un bouton |
+| `ContentEditor/renderers/` | sur-titres et pastilles en capitales écrits à la main | hors périmètre de la phase 8 (arbitré le 23/09/2026) : l'aperçu de slide reproduit le visuel publié. Les deux en-têtes d'interface de `SlidesRenderer` (« Ajuster… », « Prompt Dzine ») restent à passer par `Etiquette forme="entete"` |
 
 ## Comment on saura que c'est fini
 
@@ -233,7 +251,13 @@ grep $OPTS $MODALES "max-w-(xs|sm|md|lg|2xl|4xl|5xl|64)\b" apps/manager | sort -
 grep $OPTS "border-brand-light|dark:border-dark-sec-bg" apps/manager | sort -u
 grep $OPTS $LECTURE "\b(green|emerald|amber|red|rose)-[0-9]+" apps/manager | sort -u
 grep $OPTS "font-medium" apps/manager | sort -u
+grep $OPTS --exclude-dir=renderers "(^|[^:a-z-])uppercase\b" apps/manager | sort -u
 ```
+
+La dernière attrape un sur-titre écrit à la main : les capitales n'existent que dans
+`components/ui/`. Elle cherche `uppercase` et non le couple `text-micro` + `uppercase`,
+parce qu'une partie des sur-titres dérivés étaient en `text-xs`. `first-letter:uppercase`
+(une majuscule initiale, pas un sur-titre) n'est pas pris.
 
 Et celles-ci doivent rendre une liste **courte et fermée** :
 
