@@ -34,8 +34,8 @@ export interface BarreProps {
 
 const TONS = {
   brand:  { piste: 'bg-brand-main/15 dark:bg-white/10',   remplissage: 'bg-brand-main dark:bg-dark-text' },
-  violet: { piste: 'bg-violet-500/15 dark:bg-violet-300/15', remplissage: 'bg-violet-600 dark:bg-violet-300' },
-  ambre:  { piste: 'bg-amber-500/15 dark:bg-amber-300/15',   remplissage: 'bg-amber-500 dark:bg-amber-300' },
+  violet: { piste: 'bg-brand-main dark:bg-dark-bg', remplissage: 'bg-brand-main dark:bg-dark-bg' },
+  ambre:  { piste: 'bg-alerte/15',   remplissage: 'bg-alerte' },
 };
 
 export const Barre: React.FC<BarreProps> = ({
@@ -115,7 +115,7 @@ export const Patience: React.FC<{
 
   if (aspect === 'bloc') {
     return (
-      <div className="flex flex-col items-center justify-center text-center p-6 w-64 bg-white dark:bg-dark-surface rounded-2xl shadow-xl border border-brand-border dark:border-dark-sec-border animate-fade-in">
+      <div className="flex flex-col items-center justify-center text-center p-6 w-64 bg-white dark:bg-dark-surface rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border animate-fade-in">
         {corps}
       </div>
     );
@@ -235,7 +235,7 @@ const LigneActivite: React.FC<{ tache: Tache; maintenant: number }> = ({ tache, 
           )}
         </span>
         {long && (
-          <span className="shrink-0 text-amber-700 dark:text-amber-300 font-medium">
+          <span className="shrink-0 text-alerte font-semibold">
             plus long que d'habitude
           </span>
         )}

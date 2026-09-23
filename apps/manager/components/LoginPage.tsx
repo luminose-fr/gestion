@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { login } from '../auth';
 import { EnCours } from './Feedback';
+import { Bouton, CLASSES_CHAMP } from './ui';
 
 export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
   const [username, setUsername] = useState('');
@@ -32,10 +33,10 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
       <div className="w-full max-w-md">
         {/* Logo + Title */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-main to-brand-hover flex items-center justify-center shadow-lg shadow-brand-main/30 mb-4">
-            <span className="font-display italic text-white text-2xl leading-none">L</span>
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-main to-brand-hover flex items-center justify-center shadow-lg shadow-brand-main/30 mb-4">
+            <span className="font-display italic text-white text-lg leading-none">L</span>
           </div>
-          <h1 className="font-display italic text-3xl text-brand-main dark:text-white">
+          <h1 className="font-display italic text-lg text-brand-main dark:text-white">
             Gestion Luminose
           </h1>
           <p className="text-sm text-brand-main/60 dark:text-dark-text/60 mt-1">
@@ -44,13 +45,13 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
         </div>
 
         {/* Card */}
-        <div className="bg-white dark:bg-dark-surface rounded-2xl shadow-xl shadow-brand-main/5 border border-brand-border dark:border-dark-sec-border p-8">
+        <div className="bg-white dark:bg-dark-surface rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error */}
             {error && (
-              <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300 text-sm">
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-erreur/10 border border-erreur/30 text-erreur text-sm">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span className="font-medium">{error}</span>
+                <span className="font-semibold">{error}</span>
               </div>
             )}
 
@@ -63,7 +64,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white placeholder:text-brand-main/30 dark:placeholder:text-dark-text/30 focus:outline-none focus:border-brand-main focus:ring-2 focus:ring-brand-main/15 transition-all"
+                className={CLASSES_CHAMP}
                 placeholder="florent"
                 required
                 autoComplete="username"
@@ -82,7 +83,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-11 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg text-brand-main dark:text-white placeholder:text-brand-main/30 dark:placeholder:text-dark-text/30 focus:outline-none focus:border-brand-main focus:ring-2 focus:ring-brand-main/15 transition-all"
+                  className={`${CLASSES_CHAMP} pr-11`}
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
@@ -100,13 +101,15 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
             </div>
 
             {/* Submit */}
-            <button
+            <Bouton
               type="submit"
               disabled={loading || !username || !password}
-              className="w-full flex items-center justify-center gap-2 bg-brand-main hover:bg-brand-hover dark:bg-brand-light dark:text-brand-hover dark:hover:bg-white text-white py-3 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-brand-main/20"
+              intention="principale"
+              posee
+              className="w-full"
             >
               {loading ? <EnCours label="Connexion…" taille="md" /> : 'Se connecter'}
-            </button>
+            </Bouton>
           </form>
         </div>
 

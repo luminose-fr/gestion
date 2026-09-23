@@ -3,6 +3,7 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, fo
 import { fr } from 'date-fns/locale';
 import { ContentItem, ContentStatus } from '../types';
 import { STATUS_COLORS } from '../constants';
+import { Bouton } from './ui';
 
 interface CalendarViewProps {
   items: ContentItem[];
@@ -37,24 +38,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
           {format(currentMonth, 'MMMM yyyy', { locale: fr })}
         </h2>
         <div className="flex gap-2">
-            <button 
+            <Bouton taille="petit" 
                 onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                className="p-1 px-3 bg-brand-light dark:bg-dark-bg hover:bg-brand-border dark:hover:bg-dark-sec-border rounded-md text-sm font-medium text-brand-main dark:text-dark-text transition-colors"
             >
                 ←
-            </button>
-            <button 
+            </Bouton>
+            <Bouton taille="petit" 
                 onClick={() => setCurrentMonth(today)}
-                className="p-1 px-3 bg-brand-light dark:bg-dark-bg text-brand-main dark:text-white hover:bg-brand-border dark:hover:bg-dark-sec-border rounded-md text-sm font-medium transition-colors"
             >
                 Aujourd'hui
-            </button>
-            <button 
+            </Bouton>
+            <Bouton taille="petit" 
                 onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                className="p-1 px-3 bg-brand-light dark:bg-dark-bg hover:bg-brand-border dark:hover:bg-dark-sec-border rounded-md text-sm font-medium text-brand-main dark:text-dark-text transition-colors"
             >
                 →
-            </button>
+            </Bouton>
         </div>
       </div>
 
@@ -80,14 +78,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
                       key={day.toString()}
                       className={`
                         min-h-[100px] border-b border-r border-brand-border dark:border-dark-sec-border p-2 relative transition-colors
-                        ${!isSelectedMonth ? 'bg-brand-light/50 dark:bg-dark-bg/50 text-brand-main/30 dark:text-dark-text/30' : 'bg-white dark:bg-dark-surface'}
-                        ${isToday ? 'bg-brand-light dark:bg-dark-sec-bg' : ''}
-                      `}
+                        ${!isSelectedMonth ? 'bg-brand-light/50 dark:bg-dark-bg/50 text-brand-main/30 dark:text-dark-text/30' : 'bg-white dark:bg-dark-surface'} ${isToday ? 'bg-brand-light dark:bg-dark-sec-bg' : ''} `}
                     >
                       <div className={`
-                        text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full transition-colors
-                        ${isToday ? 'bg-brand-main text-white dark:bg-brand-light dark:text-brand-hover' : 'text-brand-main dark:text-dark-text'}
-                      `}>
+                        text-xs font-semibold mb-1 w-6 h-6 flex items-center justify-center rounded-full transition-colors
+                        ${isToday ? 'bg-brand-main text-white dark:bg-brand-light dark:text-brand-hover' : 'text-brand-main dark:text-dark-text'} `}>
                         {format(day, dateFormat)}
                       </div>
                       
@@ -97,9 +92,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
                                 key={item.id}
                                 onClick={() => onItemClick(item)}
                                 className={`
-                                    text-[10px] p-1 rounded border truncate cursor-pointer hover:opacity-80 transition-colors
-                                    ${STATUS_COLORS[item.status]}
-                                `}
+                                    text-micro p-1 rounded-md border truncate cursor-pointer hover:opacity-80 transition-colors
+                                    ${STATUS_COLORS[item.status]} `}
                                 title={item.title}
                             >
                                 {item.title}

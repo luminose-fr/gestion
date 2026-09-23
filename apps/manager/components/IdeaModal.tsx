@@ -6,6 +6,7 @@ import { RichTextarea } from './RichTextarea';
 import { CharCounter, ConfirmModal } from './CommonModals';
 import { EnCours } from './Feedback';
 import { useEscapeClose } from './hooks/useEscapeClose';
+import { Bouton } from './ui';
 
 interface IdeaModalProps {
     item: ContentItem;
@@ -19,9 +20,9 @@ interface IdeaModalProps {
 }
 
 const DEPTH_COLORS: Record<string, string> = {
-    [Profondeur.DIRECT]:   'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-    [Profondeur.LEGERE]:   'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-    [Profondeur.COMPLETE]: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+    [Profondeur.DIRECT]:   'bg-succes/10 text-succes border-succes/30',
+    [Profondeur.LEGERE]:   'bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border-brand-border dark:border-dark-sec-border',
+    [Profondeur.COMPLETE]: 'bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border-brand-border dark:border-dark-sec-border',
 };
 
 export const IdeaModal: React.FC<IdeaModalProps> = ({
@@ -113,10 +114,10 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
     const getVerdictColor = (verdict?: string | null) => {
         switch (verdict) {
-            case Verdict.VALID: return 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800';
-            case Verdict.TOO_BLAND: return 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800';
-            case Verdict.NEEDS_WORK: return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
-            default: return 'bg-gray-100 text-gray-600';
+            case Verdict.VALID: return 'bg-succes/10 text-succes border-succes/30';
+            case Verdict.TOO_BLAND: return 'bg-alerte/10 text-alerte border-alerte/30';
+            case Verdict.NEEDS_WORK: return 'bg-erreur/10 text-erreur border-erreur/30';
+            default: return 'bg-brand-light text-brand-main';
         }
     };
 
@@ -130,18 +131,18 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
             {/* Drawer latéral droit */}
             <aside
-                className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-[480px] bg-white dark:bg-dark-surface border-l border-brand-border dark:border-dark-sec-border flex flex-col shadow-2xl shadow-black/20 animate-in slide-in-from-right duration-300"
+                className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-[480px] bg-white dark:bg-dark-surface border-l border-brand-border dark:border-dark-sec-border flex flex-col shadow-lg  animate-in slide-in-from-right duration-300"
             >
                 {/* Header */}
                 <div className="flex items-start gap-3 px-5 py-4 border-b border-brand-border dark:border-dark-sec-border shrink-0">
-                    <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0 mt-0.5">
-                        <Lightbulb className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                    <div className="w-8 h-8 rounded-xl bg-alerte/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <Lightbulb className="w-4 h-4 text-alerte" />
                     </div>
                     <input
                         type="text"
                         value={localItem.title}
                         onChange={(e) => setLocalItem({...localItem, title: e.target.value})}
-                        className="flex-1 text-base font-bold text-brand-main dark:text-white bg-transparent outline-hidden placeholder-brand-main/30 dark:placeholder-dark-text/30 min-w-0"
+                        className="flex-1 text-sm font-bold text-brand-main dark:text-white bg-transparent outline-hidden placeholder-brand-main/30 dark:placeholder-dark-text/30 min-w-0"
                         placeholder="Titre de l'idée…"
                     />
                     <button
@@ -182,8 +183,8 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                     {/* Notes & Inspiration */}
                     <div className="rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
-                        <div className="px-4 py-2.5 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 flex items-center gap-1.5">
+                        <div className="px-4 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border flex items-center justify-between gap-2">
+                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 flex items-center gap-1.5">
                                 <NotebookPen className="w-3 h-3" />
                                 Notes & Inspiration
                             </p>
@@ -201,44 +202,43 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                     </div>
 
                     {/* Bloc Analyse IA */}
-                    <div className="rounded-xl border border-violet-200/60 dark:border-violet-800/40 overflow-hidden">
-                        <div className="flex items-center justify-between gap-2 px-4 py-3 bg-violet-50 dark:bg-violet-900/15 border-b border-violet-200/60 dark:border-violet-800/40 flex-wrap">
+                    <div className="rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
+                        <div className="flex items-center justify-between gap-2 px-4 py-3 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border flex-wrap">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-bold text-violet-800 dark:text-violet-200 flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-brand-main dark:text-dark-text flex items-center gap-1.5">
                                     <Brain className="w-3.5 h-3.5" />
                                     {localItem.serieId
                                         ? 'Décidé par le plan de série'
                                         : (localItem.analyzedAt ? 'Analyse Stratégique' : "Analyser avec l'IA")}
                                 </span>
                                 {localItem.serieId && localItem.seriePosition && (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-800/50">
+                                    <span className="text-micro font-bold px-1.5 py-0.5 rounded-full border bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
                                         publication {localItem.seriePosition}
                                     </span>
                                 )}
                                 {localItem.verdict && (
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${getVerdictColor(localItem.verdict)}`}>
+                                    <span className={`text-micro px-1.5 py-0.5 rounded-full border font-bold ${getVerdictColor(localItem.verdict)}`}>
                                         {localItem.verdict}
                                     </span>
                                 )}
                                 {localItem.depth && (
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${DEPTH_COLORS[localItem.depth] || ''}`}>
+                                    <span className={`text-micro font-bold px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${DEPTH_COLORS[localItem.depth] || ''}`}>
                                         <Zap className="w-2.5 h-2.5" />
                                         {localItem.depth}
                                     </span>
                                 )}
                             </div>
-                            <button
+                            <Bouton
                                 onClick={onAnalyze}
                                 disabled={isReanalyzing}
                                 title={localItem.serieId
                                     ? "L'objectif et le format viennent du plan de série et ne seront pas modifiés."
                                     : undefined}
-                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white dark:bg-violet-900/40 hover:bg-violet-50 dark:hover:bg-violet-800/40 text-violet-700 dark:text-violet-200 border border-violet-200 dark:border-violet-700 transition-colors disabled:opacity-50 whitespace-nowrap shadow-sm"
-                            >
+                                taille="petit">
                                 {isReanalyzing
                                     ? <EnCours label="Analyse…" taille="xs" />
                                     : <><RefreshCw className="w-3 h-3" /> {localItem.analyzedAt ? 'Ré-analyser' : 'Analyser'}</>}
-                            </button>
+                            </Bouton>
                         </div>
 
                         <div className="p-4 bg-white dark:bg-dark-surface">
@@ -252,7 +252,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                 <div className="space-y-4 animate-in fade-in duration-200">
                                     {localItem.angle && (
                                         <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
                                                 Angle dans la série
                                             </p>
                                             <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
@@ -263,7 +263,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.strategicAngle && (
                                         <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
                                                 Angle recommandé
                                             </p>
                                             <p className="text-sm text-brand-main dark:text-white leading-relaxed whitespace-pre-wrap">
@@ -274,14 +274,14 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {(localItem.platforms?.length || 0) > 0 && (
                                         <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
+                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-2">
                                                 Plateformes
                                             </p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {localItem.platforms.map(p => (
                                                     <span
                                                         key={p}
-                                                        className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
+                                                        className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
                                                     >
                                                         {p}
                                                     </span>
@@ -292,10 +292,10 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.objectif && (
                                         <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
                                                 Objectif
                                             </p>
-                                            <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded-full border font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/50">
+                                            <span className="inline-flex text-micro px-1.5 py-0.5 rounded-full border font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
                                                 {localItem.objectif}
                                             </span>
                                         </div>
@@ -303,7 +303,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.justification && (
                                         <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
                                                 Justification
                                             </p>
                                             <p className="text-xs text-brand-main/70 dark:text-dark-text/70 leading-relaxed whitespace-pre-wrap">
@@ -314,7 +314,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
                                     {localItem.suggestedMetaphor && (
                                         <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
+                                            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50 mb-1.5">
                                                 Métaphore suggérée
                                             </p>
                                             <p className="text-xs text-brand-main/70 dark:text-dark-text/70 italic leading-relaxed">
@@ -336,7 +336,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                 <div className="px-5 py-4 border-t border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/60 flex items-center justify-between gap-3 shrink-0">
                     <button
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="p-2.5 rounded-lg text-brand-main/50 dark:text-dark-text/50 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                        className="p-3 rounded-lg text-brand-main/50 dark:text-dark-text/50 hover:bg-erreur/10 hover:text-erreur transition-colors"
                         title="Supprimer cette idée"
                     >
                         <Trash2 className="w-4 h-4" />
@@ -348,37 +348,31 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                             </span>
                         )}
                         {saveStatus === 'saved' && (
-                            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                            <span className="flex items-center gap-1 text-xs text-succes">
                                 <CheckCircle2 className="w-3 h-3" />
                                 Enregistré
                             </span>
                         )}
                         {saveStatus === 'error' && (
-                            <span className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400">
+                            <span className="flex items-center gap-1 text-xs text-erreur">
                                 <AlertCircle className="w-3 h-3" />
                                 Erreur
                             </span>
                         )}
-                        <button
+                        <Bouton
                             onClick={handleSave}
                             disabled={!isDirty || isSaving}
                             title={!isDirty ? "Aucune modification à enregistrer" : undefined}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                isDirty && !isSaving
-                                    ? 'text-brand-main dark:text-white hover:bg-brand-border/50 dark:hover:bg-dark-sec-border/50 cursor-pointer'
-                                    : 'text-brand-main/30 dark:text-dark-text/30 cursor-not-allowed'
-                            }`}
                         >
                             {isSaving
                                 ? <EnCours label="Enregistrement…" />
-                                : <><Save className="w-3.5 h-3.5" /> Enregistrer</>}
-                        </button>
-                        <button
+                                : <><Save /> Enregistrer</>}
+                        </Bouton>
+                        <Bouton
                             onClick={handleTransformToDraft}
                             disabled={isSaving || !localItem.analyzedAt}
                             title={!localItem.analyzedAt ? "Lancez d'abord l'analyse IA pour débloquer cette action." : undefined}
-                            className="flex items-center gap-2 px-4 py-2 bg-brand-main hover:bg-brand-hover text-white text-sm font-semibold rounded-lg shadow-sm shadow-brand-main/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
+                            intention="principale" posee>
                             {isSaving ? (
                                 <EnCours label="Ouverture…" taille="md" />
                             ) : (
@@ -387,7 +381,7 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
                                     <ArrowRight className="w-3.5 h-3.5" />
                                 </>
                             )}
-                        </button>
+                        </Bouton>
                     </div>
                 </div>
             </aside>

@@ -11,6 +11,7 @@ import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable, isPla
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { ConfirmSuppressionSerie } from './ConfirmSuppressionSerie';
 import { EnCours } from '../Feedback';
+import { Bouton, CLASSES_CHAMP, Champ } from '../ui';
 
 interface SeriePlanViewProps {
     serie: Serie;
@@ -41,10 +42,7 @@ const STATUT_OPTIONS: Array<{ value: SerieStatus; label: string }> = [
     { value: 'terminee', label: 'Terminée' },
 ];
 
-const inputCls =
-    'w-full px-2.5 py-1.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border ' +
-    'focus:border-brand-main dark:focus:border-white rounded-lg text-sm text-brand-main dark:text-white ' +
-    'placeholder-brand-main/40 dark:placeholder-dark-text/40 outline-hidden transition-colors';
+const inputCls = CLASSES_CHAMP;
 
 export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     serie, contents, sourceContent, onBack, onUpdate, onDelete, onCreateContents, onOpenContent,
@@ -176,7 +174,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     >
                         <ArrowLeft className="w-3.5 h-3.5" /> Séries
                     </button>
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-main/40 dark:text-dark-text/40">
+                    <span className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wider text-brand-main/40 dark:text-dark-text/40">
                         <Layers className="w-3 h-3" /> Série
                     </span>
                     <div className="ml-auto flex items-center gap-2">
@@ -189,12 +187,11 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                 <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
                         </select>
-                        <button
+                        <Bouton
                             onClick={() => setConfirmDelete(true)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        >
+                            taille="petit" intention="discrete" ton="erreur">
                             <Trash2 className="w-3.5 h-3.5" /> Supprimer
-                        </button>
+                        </Bouton>
                     </div>
                 </div>
 
@@ -207,33 +204,32 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     className="w-full bg-transparent text-lg font-bold text-brand-main dark:text-white outline-hidden placeholder-brand-main/30 dark:placeholder-dark-text/30"
                 />
 
-                <textarea
+                <Champ multiligne
                     value={intention}
                     onChange={e => setIntention(e.target.value)}
                     onBlur={saveIntention}
                     placeholder="L'intention : ce que cette série doit produire chez le lecteur… (optionnel)"
-                    className="w-full h-16 px-3 py-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-white rounded-lg text-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 outline-hidden transition-colors resize-none"
+                    className="h-16 resize-none"
                 />
 
                 {sourceContent && (
-                    <button
+                    <Bouton
                         onClick={() => onOpenContent(sourceContent)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-violet-200 dark:border-violet-800/50 bg-violet-50 dark:bg-violet-900/20 text-left transition-colors hover:bg-violet-100 dark:hover:bg-violet-900/40"
-                    >
-                        <Link2 className="w-3.5 h-3.5 shrink-0 text-violet-700 dark:text-violet-300" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300 shrink-0">
+                        className="w-full">
+                        <Link2 className="w-3.5 h-3.5 shrink-0 text-brand-main dark:text-dark-text" />
+                        <span className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text shrink-0">
                             Contenu pilier
                         </span>
-                        <span className="text-xs text-violet-900 dark:text-violet-100/80 truncate">
+                        <span className="text-xs text-brand-main dark:text-dark-text/80 truncate">
                             {sourceContent.title || 'Sans titre'}
                         </span>
-                    </button>
+                    </Bouton>
                 )}
             </div>
 
             {/* ── Le plan de publication ─────────────────────────────────── */}
             <div className={`bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden ${planOuvert ? '' : 'opacity-80'}`}>
-                <div className={`px-4 py-2.5 bg-brand-light dark:bg-dark-bg flex items-center gap-2 flex-wrap ${planOuvert ? 'border-b border-brand-border dark:border-dark-sec-border' : ''}`}>
+                <div className={`px-4 py-2 bg-brand-light dark:bg-dark-bg flex items-center gap-2 flex-wrap ${planOuvert ? 'border-b border-brand-border dark:border-dark-sec-border' : ''}`}>
                     <button
                         type="button"
                         onClick={() => setPlanForce(!planOuvert)}
@@ -248,7 +244,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         Replié, l'en-tête doit répondre à « pourquoi j'ouvrirais ça ? ».
                         Nommer la section ne suffit pas : c'est le geste qu'on annonce.
                     */}
-                    <span className="text-[11px] text-brand-main/50 dark:text-dark-text/50">
+                    <span className="text-micro text-brand-main/50 dark:text-dark-text/50">
                         {rows.length > 0
                             ? `${usableRows.length} contenu${usableRows.length > 1 ? 's' : ''} à créer`
                             : planOuvert
@@ -261,40 +257,37 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             value={nombreSouhaite}
                             onChange={e => setNombreSouhaite(Number(e.target.value))}
                             title="Nombre de publications demandé à l'Éclateur"
-                            className="px-2 py-1.5 rounded-sm border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-[10px] font-semibold text-brand-main/70 dark:text-dark-text/70 outline-hidden cursor-pointer"
+                            className="px-2 py-1.5 rounded-md border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-micro font-semibold text-brand-main/70 dark:text-dark-text/70 outline-hidden cursor-pointer"
                         >
                             {TAILLES.map(n => (
                                 <option key={n} value={n}>{n} publications</option>
                             ))}
                         </select>
-                        <button
+                        <Bouton
                             onClick={handleGenerate}
                             disabled={isPlanning}
                             title="L'Éclateur propose un plan à partir du sujet, de l'intention et du contenu pilier"
-                            className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs transition-colors disabled:opacity-50 bg-white dark:bg-violet-900/30 hover:bg-violet-50 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800"
-                        >
+                            taille="petit">
                             {isPlanning
                                 ? <EnCours label="L’Éclateur travaille…" taille="xs" />
                                 : <><Wand2 className="w-3 h-3" /> Générer un plan</>}
-                        </button>
-                        <button
+                        </Bouton>
+                        <Bouton
                             onClick={addRow}
-                            className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-sm border shadow-xs transition-colors bg-white dark:bg-dark-surface hover:bg-brand-light dark:hover:bg-dark-bg text-brand-main/60 dark:text-dark-text/60 border-brand-border dark:border-dark-sec-border"
-                        >
+                            taille="petit">
                             <Plus className="w-3 h-3" /> Ajouter une ligne
-                        </button>
-                        <button
+                        </Bouton>
+                        <Bouton
                             onClick={handleCreate}
                             disabled={creatableRows.length === 0 || isCreating}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
-                        >
+                            taille="petit" intention="principale" posee>
                             {isCreating
                                 ? <EnCours label="Création…" taille="xs" />
                                 : <>
                                     <CheckCircle2 className="w-3 h-3" />
                                     {creatableRows.length > 1 ? `Créer les ${creatableRows.length} contenus` : 'Créer le contenu'}
                                   </>}
-                        </button>
+                        </Bouton>
                     </div>
                     )}
                 </div>
@@ -304,7 +297,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 {planOuvert && (<>
                 {/* Un bouton grisé sans explication est une énigme : on dit ce qui manque. */}
                 {sansFormat > 0 && (
-                    <div className="flex items-start gap-2 px-4 py-2 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2 px-4 py-2 text-xs text-alerte bg-alerte/10 border-b border-alerte/30">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>
                             <strong className="font-bold">
@@ -319,7 +312,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 )}
 
                 {createError && (
-                    <div className="flex items-center gap-2 px-4 py-2 text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/25 border-b border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-2 px-4 py-2 text-xs text-erreur bg-erreur/10 border-b border-erreur/30">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                         {createError}
                     </div>
@@ -328,7 +321,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 {rows.length === 0 ? (
                     <div className="px-4 py-10 text-center">
                         <Wand2 className="w-10 h-10 mx-auto mb-3 text-brand-border dark:text-dark-sec-border" />
-                        <p className="text-sm text-brand-main/60 dark:text-dark-text/60 max-w-md mx-auto">
+                        <p className="text-sm text-brand-main/60 dark:text-dark-text/60 text-balance mx-auto">
                             Le plan est vide. Demandez-en un à l'Éclateur : il rend une progression —
                             titre, angle, matière, format et objectif pour chaque publication, dans
                             l'ordre où elles se lisent. Vous pouvez aussi les ajouter ligne par ligne.
@@ -339,12 +332,12 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         <table className="min-w-full text-sm">
                             <thead className="border-b border-brand-border dark:border-dark-sec-border">
                                 <tr>
-                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[14rem]">Titre</th>
-                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Angle</th>
-                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[20rem]">Matière</th>
-                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Format</th>
-                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Objectif</th>
-                                    <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Justification</th>
+                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[14rem]">Titre</th>
+                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Angle</th>
+                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[20rem]">Matière</th>
+                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Format</th>
+                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Objectif</th>
+                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Justification</th>
                                     <th className="w-10 px-3 py-2" aria-hidden="true" />
                                 </tr>
                             </thead>
@@ -416,7 +409,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                             <button
                                                 onClick={() => removeRow(index)}
                                                 title="Retirer cette ligne"
-                                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                className="p-1.5 rounded-lg text-erreur hover:bg-erreur/10 transition-colors"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -432,7 +425,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
 
             {/* ── Les contenus déjà créés ────────────────────────────────── */}
             <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
+                <div className="px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
                     <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
                         <Layers className="w-3 h-3" /> Contenus de la série ({contents.length})
                     </p>
@@ -450,9 +443,9 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             <li key={item.id}>
                                 <button
                                     onClick={() => onOpenContent(item)}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors group flex items-start gap-3"
+                                    className="w-full text-left px-4 py-2 hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors group flex items-start gap-3"
                                 >
-                                    <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-[11px] font-bold text-brand-main/70 dark:text-dark-text/70">
+                                    <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-micro font-bold text-brand-main/70 dark:text-dark-text/70">
                                         {item.seriePosition ?? index + 1}
                                     </span>
                                     <span className="min-w-0 flex-1">
@@ -461,11 +454,11 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                             {item.title || 'Sans titre'}
                                         </span>
                                         {item.targetFormat && (
-                                            <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800/50">
+                                            <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
                                                 {item.targetFormat}
                                             </span>
                                         )}
-                                        <span className="inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
+                                        <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
                                             {item.status}
                                         </span>
                                     </div>

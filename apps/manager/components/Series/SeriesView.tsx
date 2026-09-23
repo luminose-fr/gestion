@@ -5,6 +5,7 @@ import { fr } from 'date-fns/locale';
 import { ContentItem, Serie } from '../../types';
 import { EnCours } from '../Feedback';
 import { EnTeteTriable, comparateurFr, triSuivant, type Tri } from '../TriTableau';
+import { Bouton, Champ } from '../ui';
 
 interface SeriesViewProps {
     series: Serie[];
@@ -32,7 +33,7 @@ const STATUT_LABEL: Record<string, string> = {
 
 const STATUT_CLS: Record<string, string> = {
     en_cours: 'bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border',
-    terminee: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50',
+    terminee: 'bg-succes/10 text-succes border-succes/30',
 };
 
 const formatDate = (at: number | undefined): string => {
@@ -107,17 +108,17 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
         reset();
     };
 
-    const cellCls = 'px-4 py-2.5 align-top';
+    const cellCls = 'px-4 py-2 align-top';
 
     return (
         <div className="space-y-4 animate-fade-in">
 
             {/* CRÉATION — replié en bouton, déplié en formulaire (même geste que la boîte à idées) */}
-            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden transition-all">
+            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden transition-colors">
                 {!createOpen ? (
                     <button
                         onClick={() => setCreateOpen(true)}
-                        className="w-full flex items-center gap-3 px-4 py-3.5 text-sm text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors group"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors group"
                     >
                         <span className="w-6 h-6 rounded-md bg-brand-light dark:bg-dark-bg flex items-center justify-center shrink-0 group-hover:bg-brand-main dark:group-hover:bg-white transition-colors">
                             <Plus className="w-3 h-3 text-brand-main dark:text-white group-hover:text-white dark:group-hover:text-brand-main transition-colors" />
@@ -126,37 +127,34 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                     </button>
                 ) : (
                     <form onSubmit={handleSubmit} className="p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <input
+                        <Champ
                             ref={titreRef}
                             type="text"
                             value={titre}
                             onChange={e => setTitre(e.target.value)}
                             placeholder="Le sujet de la série…"
-                            className="w-full px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-white rounded-lg text-sm font-semibold text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 outline-hidden transition-colors"
                         />
-                        <textarea
+                        <Champ multiligne
                             value={intention}
                             onChange={e => setIntention(e.target.value)}
                             placeholder="L'intention : ce que cette série doit produire chez le lecteur… (optionnel)"
-                            className="w-full h-20 px-3 py-2.5 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border focus:border-brand-main dark:focus:border-white rounded-lg text-sm text-brand-main dark:text-white placeholder-brand-main/40 dark:placeholder-dark-text/40 outline-hidden transition-colors resize-none"
+                            className="h-20 resize-none"
                         />
                         <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
+                            <Bouton intention="discrete"
                                 type="button"
                                 onClick={reset}
-                                className="px-3 py-1.5 text-sm text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white transition-colors"
                             >
                                 Annuler
-                            </button>
-                            <button
+                            </Bouton>
+                            <Bouton
                                 type="submit"
                                 disabled={!titre.trim() || isSyncing}
-                                className="flex items-center gap-2 px-4 py-1.5 bg-brand-main hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 shadow-sm shadow-brand-main/30"
-                            >
+                                intention="principale" posee>
                                 {isSyncing
                                     ? <EnCours label="Création…" />
                                     : <><Plus className="w-3.5 h-3.5" /> Créer la série</>}
-                            </button>
+                            </Bouton>
                         </div>
                     </form>
                 )}
@@ -168,13 +166,13 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                         <Layers className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
                     </div>
                     <h3 className="text-lg font-semibold text-brand-main dark:text-white">Aucune série</h3>
-                    <p className="text-sm text-brand-main/60 dark:text-dark-text/60 max-w-sm mx-auto mt-2">
+                    <p className="text-sm text-brand-main/60 dark:text-dark-text/60 text-balance mx-auto mt-2">
                         Une série regroupe plusieurs publications autour d'un même sujet — soit à partir d'un thème,
                         soit en déclinant un contenu déjà prêt.
                     </p>
                 </div>
             ) : (
-                <div className="overflow-hidden rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-sm">
+                <div className="overflow-hidden rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-xs">
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
@@ -202,20 +200,20 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                                                 {serie.sourceContentId && (
                                                     <span
                                                         title="Série issue d'un contenu pilier"
-                                                        className="inline-flex items-center gap-1 rounded-full border text-[10px] px-1.5 py-0.5 font-semibold bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-800/50"
+                                                        className="inline-flex items-center gap-1 rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
                                                     >
                                                         <Link2 className="w-2.5 h-2.5" /> Déclinaison
                                                     </span>
                                                 )}
                                             </div>
                                             {serie.intention && (
-                                                <div className="mt-1 max-w-2xl text-xs leading-5 text-brand-main/60 dark:text-dark-text/60 line-clamp-2">
+                                                <div className="mt-1 max-w-3xl text-xs leading-5 text-brand-main/60 dark:text-dark-text/60 line-clamp-2">
                                                     {serie.intention}
                                                 </div>
                                             )}
                                         </td>
                                         <td className={`${cellCls} whitespace-nowrap`}>
-                                            <span className={`inline-flex items-center rounded-full border text-[10px] px-1.5 py-0.5 font-semibold ${STATUT_CLS[serie.statut] ?? ''}`}>
+                                            <span className={`inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold ${STATUT_CLS[serie.statut] ?? ''}`}>
                                                 {STATUT_LABEL[serie.statut] ?? serie.statut}
                                             </span>
                                         </td>

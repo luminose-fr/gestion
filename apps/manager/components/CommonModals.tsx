@@ -2,6 +2,7 @@ import React from 'react';
 import { X, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useEscapeClose } from './hooks/useEscapeClose';
 import { EnCours } from './Feedback';
+import { Bouton } from './ui';
 
 // --- TYPES ---
 interface AlertModalProps {
@@ -32,16 +33,16 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, 
 
   const getIcon = () => {
     switch(type) {
-      case 'error': return <AlertCircle className="w-6 h-6 text-red-500" />;
-      case 'success': return <CheckCircle2 className="w-6 h-6 text-green-500" />;
+      case 'error': return <AlertCircle className="w-6 h-6 text-erreur" />;
+      case 'success': return <CheckCircle2 className="w-6 h-6 text-succes" />;
       default: return <AlertCircle className="w-6 h-6 text-brand-main" />;
     }
   };
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in" onClick={onClose}>
-      <div className="bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border p-6 relative" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+      <div className="bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6 relative" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 text-brand-main/60 hover:text-brand-main dark:hover:text-dark-text">
           <X className="w-5 h-5" />
         </button>
         <div className="flex flex-col items-center text-center">
@@ -50,12 +51,9 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, 
           </div>
           <h3 className="text-lg font-bold text-brand-main dark:text-white mb-2">{title}</h3>
           <p className="text-sm text-brand-main/70 dark:text-dark-text/70 mb-6">{message}</p>
-          <button 
-            onClick={onClose}
-            className="w-full py-2.5 bg-brand-main hover:bg-brand-hover text-white rounded-lg font-medium transition-colors"
-          >
+          <Bouton onClick={onClose} intention="principale" className="w-full">
             Compris
-          </button>
+          </Bouton>
         </div>
       </div>
     </div>
@@ -77,36 +75,32 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in" onClick={isLoading ? undefined : onClose}>
-      <div className="bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border p-6" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4 text-brand-main dark:text-white">
-          <AlertTriangle className={`w-6 h-6 ${isDestructive ? 'text-red-500' : 'text-yellow-500'}`} />
+          <AlertTriangle className={`w-6 h-6 ${isDestructive ? 'text-erreur' : 'text-alerte'}`} />
           <h3 className="text-lg font-bold">{title}</h3>
         </div>
         <p className="text-sm text-brand-main/70 dark:text-dark-text/70 mb-6 leading-relaxed">
           {message}
         </p>
         <div className="flex justify-end gap-3">
-          <button 
+          <Bouton
             onClick={onClose}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-bg rounded-lg transition-colors disabled:opacity-50"
-          >
+            intention="discrete">
             Annuler
-          </button>
-          <button 
+          </Bouton>
+          <Bouton
             onClick={handleConfirm}
             disabled={isLoading}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors shadow-xs flex items-center gap-2
-              ${isDestructive 
-                ? 'bg-red-500 hover:bg-red-600' 
-                : 'bg-brand-main hover:bg-brand-hover'}
-              ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}
-            `}
+            intention="principale"
+            ton={isDestructive ? 'erreur' : 'neutre'}
+            posee
           >
             {/* Le libellé RESTE : « ... » effaçait le seul mot qui disait
                 ce qu'on était en train de confirmer. */}
             {isLoading ? <EnCours label={`${confirmLabel}…`} taille="md" /> : confirmLabel}
-          </button>
+          </Bouton>
         </div>
       </div>
     </div>
@@ -119,8 +113,8 @@ export const CharCounter: React.FC<{ current: number, max: number }> = ({ curren
   const isOver = current > max;
   
   return (
-    <div className={`text-[10px] text-right mt-1 font-medium transition-colors ${
-      isOver ? 'text-red-500' : isClose ? 'text-orange-500' : 'text-gray-400'
+    <div className={`text-micro text-right mt-1 font-semibold transition-colors ${
+      isOver ? 'text-erreur' : isClose ? 'text-brand-main/60' : 'text-brand-main/60'
     }`}>
       {current}/{max}
     </div>
