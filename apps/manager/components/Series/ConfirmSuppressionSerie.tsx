@@ -15,6 +15,7 @@ import { AlertTriangle, Layers, Link2 } from 'lucide-react';
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { useEscapeClose } from '../hooks/useEscapeClose';
 import { EnCours } from '../Feedback';
+import { Bouton } from '../ui';
 
 export const ConfirmSuppressionSerie: React.FC<{
   isOpen: boolean;
@@ -51,11 +52,11 @@ export const ConfirmSuppressionSerie: React.FC<{
       onClick={enCours ? undefined : onClose}
     >
       <div
-        className="bg-white dark:bg-dark-surface w-full max-w-md rounded-xl shadow-2xl border border-brand-border dark:border-dark-sec-border p-6"
+        className="bg-white dark:bg-dark-surface w-full max-w-md rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4 text-brand-main dark:text-white">
-          <AlertTriangle className="w-6 h-6 text-red-500 shrink-0" />
+          <AlertTriangle className="w-6 h-6 text-erreur shrink-0" />
           <h3 className="text-lg font-bold leading-tight">Supprimer « {titre} » ?</h3>
         </div>
 
@@ -72,7 +73,7 @@ export const ConfirmSuppressionSerie: React.FC<{
 
         {/* Le pilier préexiste à la série : le dire évite d'hésiter devant « tout supprimer ». */}
         {titrePilier && (
-          <p className="flex items-start gap-2 text-xs text-violet-800 dark:text-violet-200 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50 rounded-lg px-3 py-2 mb-4 leading-relaxed">
+          <p className="flex items-start gap-2 text-xs text-brand-main dark:text-dark-text bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg px-3 py-2 mb-4 leading-relaxed">
             <Link2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>
               Le contenu pilier <strong className="font-semibold">{titrePilier}</strong> n'est pas dans la série :
@@ -83,47 +84,52 @@ export const ConfirmSuppressionSerie: React.FC<{
 
         <div className="flex flex-col gap-2">
           {nbPublications === 0 ? (
-            <button
+            <Bouton
               onClick={() => void lancer('detacher')}
               disabled={enCours !== null}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-xs disabled:opacity-70 disabled:cursor-not-allowed"
+              intention="principale"
+              ton="erreur"
+              posee
             >
               {enCours ? <EnCours label="Suppression…" taille="md" /> : 'Supprimer la série'}
-            </button>
+            </Bouton>
           ) : (
             <>
-              <button
+              <Bouton
                 onClick={() => void lancer('detacher')}
                 disabled={enCours !== null}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-brand-main dark:text-white bg-brand-light dark:bg-dark-bg hover:bg-brand-border/60 dark:hover:bg-dark-sec-bg border border-brand-border dark:border-dark-sec-border rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                intention="secondaire"
               >
                 {enCours === 'detacher'
                   ? <EnCours label="Suppression…" taille="md" />
                   : <><Layers className="w-4 h-4" /> Supprimer, garder les publications</>}
-              </button>
-              <button
+              </Bouton>
+              <Bouton
                 onClick={() => void lancer('supprimer')}
                 disabled={enCours !== null}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-xs disabled:opacity-70 disabled:cursor-not-allowed"
+                intention="principale"
+                ton="erreur"
+                posee
               >
                 {enCours === 'supprimer'
                   ? <EnCours label="Suppression…" taille="md" />
                   : `Tout supprimer, la série et ses ${publications}`}
-              </button>
+              </Bouton>
             </>
           )}
 
-          <button
+          <Bouton
             onClick={onClose}
             disabled={enCours !== null}
-            className="px-4 py-2 mt-1 text-sm font-medium text-brand-main/70 dark:text-dark-text/70 hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-50"
+            intention="discrete"
+            className="mt-1"
           >
             Annuler
-          </button>
+          </Bouton>
         </div>
 
         {nbPublications > 0 && (
-          <p className="text-[11px] text-brand-main/45 dark:text-dark-text/45 mt-4 leading-relaxed">
+          <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mt-4 leading-relaxed">
             Détachées, les publications restent dans « En cours », « Prêts » ou les archives selon leur
             statut — elles perdent seulement leur rang dans la progression.
           </p>

@@ -1173,7 +1173,7 @@ function App() {
                  </button>
                  <button
                     onClick={handleLogout}
-                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 transition-colors"
+                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-erreur/10 hover:text-erreur transition-colors"
                     title="Déconnexion"
                  >
                      <LogOut className="w-[14px] h-[14px]" />
@@ -1205,22 +1205,22 @@ function App() {
         )}
 
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 p-2 text-center text-xs shrink-0 animate-fade-in">
-              <span className="text-red-700 dark:text-red-300 flex items-center justify-center gap-3 flex-wrap">
+          <div className="bg-erreur/10 border-b border-erreur/30 px-4 py-2 text-center text-xs shrink-0 animate-fade-in">
+              <span className="text-erreur flex items-center justify-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />
                       {error}
                   </div>
-                  <button onClick={() => synchroniser()} className="underline font-bold hover:text-red-900 dark:hover:text-white ml-2">Réessayer</button>
+                  <button onClick={() => synchroniser()} className="underline font-bold hover:no-underline ml-2">Réessayer</button>
               </span>
           </div>
         )}
 
         {/* Travail non enregistré : bandeau persistant tant que le serveur n'a pas accepté */}
         {unsavedIds.length > 0 && (
-          <div className="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-300 dark:border-amber-700 px-4 py-2 text-xs shrink-0 animate-fade-in">
-              <div className="text-amber-800 dark:text-amber-200 flex items-center justify-center gap-3 flex-wrap">
-                  <span className="flex items-center gap-2 font-medium">
+          <div className="bg-alerte/10 border-b border-alerte/30 px-4 py-2 text-xs shrink-0 animate-fade-in">
+              <div className="text-alerte flex items-center justify-center gap-3 flex-wrap">
+                  <span className="flex items-center gap-2 font-semibold">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       {unsavedIds.length === 1
                           ? "1 contenu n'a pas pu être enregistré — il n'existe que sur cet appareil."
@@ -1229,7 +1229,7 @@ function App() {
                   <button
                       onClick={retryUnsavedItems}
                       disabled={isRetryingUnsaved}
-                      className="inline-flex items-center gap-1.5 underline font-bold hover:text-amber-950 dark:hover:text-white disabled:opacity-50 disabled:no-underline"
+                      className="inline-flex items-center gap-1.5 underline font-bold hover:no-underline disabled:opacity-40 disabled:no-underline"
                   >
                       {isRetryingUnsaved
                           ? <EnCours label="Enregistrement…" taille="xs" />
