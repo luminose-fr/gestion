@@ -3,6 +3,12 @@
 **Lire [SPEC.md](SPEC.md) avant toute implémentation. Les sections marquées NORMATIF
 font foi : une divergence du code est un bug du code.**
 
+**Lire [DESIGN.md](DESIGN.md) avant de toucher à l'interface.** Il fixe les échelles —
+typo, espacements, boutons, champs, rayons, ombres, couleurs de sens, largeurs — et les
+composants de `apps/manager/components/ui/` qui les portent. Une valeur hors échelle est
+un bug, sauf exception écrite dans DESIGN.md ; ses commandes de fin doivent rendre zéro
+ligne avant chaque push qui touche l'interface.
+
 Travailler **par phase** (SPEC §11), une branche par phase. Aucune phase ne laisse
 l'application cassée.
 

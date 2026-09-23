@@ -210,7 +210,8 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | `ContentEditor/renderers/` (`BodyRenderer`, `ScriptVideoRenderer`, `shared.tsx`) | liserés et couleurs de blocs, profondeurs, « Illustrée » | un codage de lecture, ni un sens ni une couleur d'outil |
 | `PsychedelicsCalculator` | la couleur de chaque substance et ses encadrés | de l'identification |
 | `PsychedelicsCalculator`, les doses | `text-3xl` pour la dose, `text-base` pour son unité | la dose est l'information que l'écran existe pour donner : ramenée à `text-lg`, elle ne se lisait plus d'un coup d'œil (arbitré le 23/09/2026) |
-| `RichTextarea` | `text-base`, `text-xl`, `text-2xl` des titres rendus | c'est le contenu mis en forme, pas l'interface |
+| `RichTextarea` | `text-base`, `text-xl`, `text-2xl` des titres rendus, et les `gray-*` des citations et du texte indicatif | c'est le contenu mis en forme, pas l'interface |
+| surlignage de la recherche (`getHighlightedText`, `SocialGridView`) | `bg-yellow-*` et `text-gray-900` | le marqueur de ce qu'on cherche : ni un sens, ni une couleur d'outil (arbitré en phase 2, écrit à l'audit) |
 | `LoginPage`, champ du mot de passe | `pr-11` | la place du bouton qui affiche le mot de passe (`right-3`, 28 px) : à `pr-8`, le texte passerait dessous |
 | `LoginPage`, logo | `shadow-brand-main/30` et le dégradé | l'identité : c'est le logo, pas un bouton |
 
