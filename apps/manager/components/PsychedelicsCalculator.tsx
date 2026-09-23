@@ -222,9 +222,11 @@ export default function PsychedelicsCalculator() {
                       {microDoseResult.description}
                     </p>
                   </div>
-                  <div className="text-lg font-bold text-brand-main dark:text-white">
+                  {/* Exception écrite dans DESIGN.md : la dose est l'information que
+                      l'écran existe pour donner, elle se lit d'un coup d'œil. */}
+                  <div className="text-3xl font-bold text-brand-main dark:text-white">
                     {microDoseResult.amount}
-                    <span className="ml-2 text-sm font-semibold text-brand-main/55 dark:text-dark-text/60">
+                    <span className="ml-2 text-base font-semibold text-brand-main/55 dark:text-dark-text/60">
                       {microDoseResult.unit}
                     </span>
                   </div>
@@ -255,9 +257,9 @@ export default function PsychedelicsCalculator() {
                         </p>
                       </div>
 
-                      <div className="text-lg font-bold text-brand-main dark:text-white">
+                      <div className="text-3xl font-bold text-brand-main dark:text-white">
                         {result.amount}
-                        <span className="ml-2 text-sm font-semibold text-brand-main/55 dark:text-dark-text/60">
+                        <span className="ml-2 text-base font-semibold text-brand-main/55 dark:text-dark-text/60">
                           {result.unit}
                         </span>
                       </div>
