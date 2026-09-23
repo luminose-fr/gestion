@@ -15,7 +15,7 @@ import { AlertTriangle, Layers, Link2 } from 'lucide-react';
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { useEscapeClose } from '../hooks/useEscapeClose';
 import { EnCours } from '../Feedback';
-import { Bouton } from '../ui';
+import { Bouton, CLASSES_TITRE } from '../ui';
 
 export const ConfirmSuppressionSerie: React.FC<{
   isOpen: boolean;
@@ -57,7 +57,7 @@ export const ConfirmSuppressionSerie: React.FC<{
       >
         <div className="flex items-center gap-3 mb-4 text-brand-main dark:text-white">
           <AlertTriangle className="w-6 h-6 text-erreur shrink-0" />
-          <h3 className="text-lg font-bold leading-tight">Supprimer « {titre} » ?</h3>
+          <h3 className={`${CLASSES_TITRE} leading-tight`}>Supprimer « {titre} » ?</h3>
         </div>
 
         {nbPublications === 0 ? (

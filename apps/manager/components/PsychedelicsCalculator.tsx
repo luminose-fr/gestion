@@ -14,6 +14,7 @@ import {
   getAvailableForms, getMushroomVariant, computeDoses,
   type Substance, type DoseLevel, type MushroomFamily, type MushroomForm,
 } from '@luminose/psychedelics';
+import { Etiquette, CLASSES_TITRE } from './ui';
 
 const SUBSTANCE_THEME: Record<
   Substance,
@@ -198,7 +199,7 @@ export default function PsychedelicsCalculator() {
         <section className="rounded-xl border border-brand-border bg-white p-4 shadow-xs sm:p-6 dark:border-dark-sec-border dark:bg-dark-surface">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h4 className="text-lg font-bold text-brand-main dark:text-white">Paliers estimatifs</h4>
+              <h4 className={CLASSES_TITRE}>Paliers estimatifs</h4>
               <p className="mt-1 text-sm text-brand-main/50 dark:text-dark-text/50">
                 {activeTab === 'Champignons' && `${selectedMushroomVariant.label}, ${weight} kg`}
                 {activeTab === 'LSD' && 'Doses fixes (indépendantes du poids)'}
@@ -275,11 +276,11 @@ export default function PsychedelicsCalculator() {
       <section className="rounded-xl border border-brand-border bg-white p-4 shadow-xs sm:p-6 dark:border-dark-sec-border dark:bg-dark-surface">
         <div className="flex flex-col gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-brand-light px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-main dark:bg-dark-sec-bg dark:text-dark-text">
+            <Etiquette as="div" forme="pastille">
               <FlaskConical className="w-4 h-4" />
               Réduction des risques
-            </div>
-            <h3 className="mt-3 text-lg font-bold text-brand-main sm:text-lg dark:text-white">
+            </Etiquette>
+            <h3 className={`${CLASSES_TITRE} mt-3`}>
               Conseils et réduction des risques
             </h3>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-brand-main/70 dark:text-dark-text/70">
@@ -290,7 +291,7 @@ export default function PsychedelicsCalculator() {
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
             <div className="rounded-xl border border-brand-border p-4 sm:p-5 dark:border-dark-sec-border">
-              <h4 className="text-lg font-bold text-brand-main dark:text-white">
+              <h4 className={CLASSES_TITRE}>
                 Conseils communs à tous les produits
               </h4>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -320,15 +321,15 @@ export default function PsychedelicsCalculator() {
 
             <div className="rounded-xl border border-brand-border bg-brand-light p-4 sm:p-5 dark:border-dark-sec-border dark:bg-dark-sec-bg">
               <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${theme.soft}`}>{activeTab}</div>
-              <h4 className="mt-3 text-lg font-bold text-brand-main dark:text-white">
+              <h4 className={`${CLASSES_TITRE} mt-3`}>
                 Conseils pour {safetyTargetLabel}
               </h4>
               <p className="mt-2 text-sm leading-6 text-brand-main/70 dark:text-dark-text/70">{safety.advice}</p>
 
               <div className="mt-5">
-                <div className="text-xs font-semibold uppercase tracking-wider text-brand-main/50 dark:text-dark-text/50">
+                <Etiquette as="div">
                   Effets souvent rapportés
-                </div>
+                </Etiquette>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {safety.effects.map((effect) => (
                     <span

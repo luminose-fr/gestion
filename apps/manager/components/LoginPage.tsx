@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { login } from '../auth';
 import { EnCours } from './Feedback';
-import { Bouton, CLASSES_CHAMP } from './ui';
+import { Bouton, CLASSES_CHAMP, Etiquette } from './ui';
 
 export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
   const [username, setUsername] = useState('');
@@ -57,9 +57,9 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
 
             {/* Username */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-brand-main/70 dark:text-dark-text/70 mb-2">
+              <Etiquette as="label" className="mb-1">
                 Identifiant
-              </label>
+              </Etiquette>
               <input
                 type="text"
                 value={username}
@@ -75,9 +75,9 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-brand-main/70 dark:text-dark-text/70 mb-2">
+              <Etiquette as="label" className="mb-1">
                 Mot de passe
-              </label>
+              </Etiquette>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}

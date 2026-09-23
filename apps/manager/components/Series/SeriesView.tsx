@@ -5,7 +5,7 @@ import { fr } from 'date-fns/locale';
 import { ContentItem, Serie } from '../../types';
 import { EnCours } from '../Feedback';
 import { EnTeteTriable, comparateurFr, triSuivant, type Tri } from '../TriTableau';
-import { Bouton, Champ } from '../ui';
+import { Bouton, Champ, CLASSES_TITRE } from '../ui';
 
 interface SeriesViewProps {
     series: Serie[];
@@ -165,7 +165,7 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
                     <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border shadow-xs bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border">
                         <Layers className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
                     </div>
-                    <h3 className="text-lg font-semibold text-brand-main dark:text-white">Aucune série</h3>
+                    <h3 className={CLASSES_TITRE}>Aucune série</h3>
                     <p className="text-sm text-brand-main/60 dark:text-dark-text/60 text-balance mx-auto mt-2">
                         Une série regroupe plusieurs publications autour d'un même sujet — soit à partir d'un thème,
                         soit en déclinant un contenu déjà prêt.

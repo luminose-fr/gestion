@@ -18,7 +18,7 @@ import {
   type EtatCorpus, type PoseSurface, type EtatDeploiement,
 } from '../../services/apiService';
 import { SURFACES, EXTENSION_CONNAISSANCE, type DefinitionSurface } from './surfaces';
-import { Bouton } from '../ui';
+import { Bouton, Etiquette, CLASSES_SURTITRE } from '../ui';
 
 const NON_PROPOSABLE = ['suspendu', 'termine', 'candidat'];
 
@@ -52,9 +52,9 @@ const telecharger = (texte: string, nom: string) => {
 
 const Carte: React.FC<{ titre: string; children: React.ReactNode }> = ({ titre, children }) => (
   <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
-    <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-3">
+    <Etiquette as="h2" forme="entete" className="mb-3">
       {titre}
-    </h2>
+    </Etiquette>
     {children}
   </section>
 );
@@ -293,13 +293,13 @@ const EtatView: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">
             <thead>
-              <tr className="text-micro uppercase tracking-wider text-brand-main/50 dark:text-dark-text/40">
-                <th className="text-left font-semibold pb-2 pr-3">Surface</th>
-                <th className="text-left font-semibold pb-2 pr-3">Profil</th>
-                <th className="text-left font-semibold pb-2 pr-3">Posée</th>
-                <th className="text-left font-semibold pb-2 pr-3">Courante</th>
-                <th className="text-left font-semibold pb-2 pr-3">État</th>
-                <th className="text-left font-semibold pb-2"></th>
+              <tr className={CLASSES_SURTITRE}>
+                <th className="text-left pb-2 pr-3">Surface</th>
+                <th className="text-left pb-2 pr-3">Profil</th>
+                <th className="text-left pb-2 pr-3">Posée</th>
+                <th className="text-left pb-2 pr-3">Courante</th>
+                <th className="text-left pb-2 pr-3">État</th>
+                <th className="text-left pb-2"></th>
               </tr>
             </thead>
             <tbody>

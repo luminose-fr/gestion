@@ -11,7 +11,7 @@ import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable, isPla
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { ConfirmSuppressionSerie } from './ConfirmSuppressionSerie';
 import { EnCours } from '../Feedback';
-import { Bouton, CLASSES_CHAMP, Champ } from '../ui';
+import { Bouton, CLASSES_CHAMP, Champ, Etiquette, CLASSES_SURTITRE, CLASSES_TITRE } from '../ui';
 
 interface SeriePlanViewProps {
     serie: Serie;
@@ -174,9 +174,9 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     >
                         <ArrowLeft className="w-3.5 h-3.5" /> Séries
                     </button>
-                    <span className="flex items-center gap-1.5 text-micro font-bold uppercase tracking-wider text-brand-main/40 dark:text-dark-text/40">
+                    <Etiquette as="span" avecIcone>
                         <Layers className="w-3 h-3" /> Série
-                    </span>
+                    </Etiquette>
                     <div className="ml-auto flex items-center gap-2">
                         <select
                             value={serie.statut}
@@ -201,7 +201,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     onChange={e => setTitre(e.target.value)}
                     onBlur={saveTitre}
                     placeholder="Le sujet de la série…"
-                    className="w-full bg-transparent text-lg font-bold text-brand-main dark:text-white outline-hidden placeholder-brand-main/30 dark:placeholder-dark-text/30"
+                    className={`${CLASSES_TITRE} w-full bg-transparent outline-hidden placeholder-brand-main/30 dark:placeholder-dark-text/30`}
                 />
 
                 <Champ multiligne
@@ -217,9 +217,9 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         onClick={() => onOpenContent(sourceContent)}
                         className="w-full">
                         <Link2 className="w-3.5 h-3.5 shrink-0 text-brand-main dark:text-dark-text" />
-                        <span className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text shrink-0">
+                        <Etiquette as="span" className="shrink-0">
                             Contenu pilier
-                        </span>
+                        </Etiquette>
                         <span className="text-xs text-brand-main dark:text-dark-text/80 truncate">
                             {sourceContent.title || 'Sans titre'}
                         </span>
@@ -234,11 +234,13 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         type="button"
                         onClick={() => setPlanForce(!planOuvert)}
                         aria-expanded={planOuvert}
-                        className="flex items-center gap-2 text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase hover:text-brand-main dark:hover:text-white transition-colors"
+                        className="flex items-center"
                         title={planOuvert ? 'Replier le plan' : 'Déplier le plan pour allonger la série'}
                     >
-                        {planOuvert ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                        <Rows3 className="w-3 h-3" /> Plan de publication
+                        <Etiquette as="span" forme="entete" avecIcone>
+                            {planOuvert ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            <Rows3 className="w-3 h-3" /> Plan de publication
+                        </Etiquette>
                     </button>
                     {/*
                         Replié, l'en-tête doit répondre à « pourquoi j'ouvrirais ça ? ».
@@ -332,12 +334,12 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         <table className="min-w-full text-sm">
                             <thead className="border-b border-brand-border dark:border-dark-sec-border">
                                 <tr>
-                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[14rem]">Titre</th>
-                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Angle</th>
-                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[20rem]">Matière</th>
-                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Format</th>
-                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[12rem]">Objectif</th>
-                                    <th className="px-3 py-2 text-left text-micro font-bold uppercase tracking-wider text-brand-main/55 dark:text-dark-text/55 min-w-[16rem]">Justification</th>
+                                    <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[14rem]`}>Titre</th>
+                                    <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[16rem]`}>Angle</th>
+                                    <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[20rem]`}>Matière</th>
+                                    <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[12rem]`}>Format</th>
+                                    <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[12rem]`}>Objectif</th>
+                                    <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[16rem]`}>Justification</th>
                                     <th className="w-10 px-3 py-2" aria-hidden="true" />
                                 </tr>
                             </thead>
@@ -426,9 +428,9 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
             {/* ── Les contenus déjà créés ────────────────────────────────── */}
             <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                 <div className="px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
-                    <p className="text-xs font-bold text-brand-main/50 dark:text-dark-text/50 uppercase flex items-center gap-2">
+                    <Etiquette forme="entete" avecIcone>
                         <Layers className="w-3 h-3" /> Contenus de la série ({contents.length})
-                    </p>
+                    </Etiquette>
                 </div>
                 {contents.length === 0 ? (
                     <p className="px-4 py-8 text-center text-sm text-brand-main/50 dark:text-dark-text/50">

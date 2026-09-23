@@ -28,7 +28,7 @@ import {
   fetchRdvTypes, fetchRdvCreneaux, creerRdv, fetchRdvSelection, enregistrerRdvSelection,
 } from '../../services/apiService';
 import type { RdvType, RdvCreneau, RdvConfirme, RdvQuestion } from '@luminose/shared';
-import { Bouton, CLASSES_CHAMP, ecran } from '../ui';
+import { Bouton, CLASSES_CHAMP, ecran, Etiquette } from '../ui';
 
 /** Trois mois, d'un seul tenant : le Worker découpe, l'écran ne le sait pas. */
 const JOURS = 92;
@@ -287,9 +287,9 @@ const RdvView: React.FC = () => {
   return (
     <div className={`${ecran('travail')} space-y-4`}>
       <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
-        <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1">
+        <Etiquette as="h2" forme="entete" className="mb-1">
           L’invité
-        </h2>
+        </Etiquette>
         <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-3">
           Le numéro sert aux rappels SMS. En le renseignant, vous attestez de l’accord de la personne —
           c’est exactement ce que demande Calendly quand vous réservez pour elle.
@@ -303,9 +303,9 @@ const RdvView: React.FC = () => {
 
       <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
+          <Etiquette as="h2" forme="entete">
             Le rendez-vous
-          </h2>
+          </Etiquette>
           {types && types.length > 0 && (
             <button
               onClick={() => setReglage((r) => !r)}
@@ -404,9 +404,9 @@ const RdvView: React.FC = () => {
 
         {type && !reglage && type.questions.length > 0 && (
           <div className="mt-4 space-y-3">
-            <p className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50">
+            <Etiquette>
               Formulaire de l’invité
-            </p>
+            </Etiquette>
             {type.questions.map((q) => {
               const valeur = reponses[q.position] ?? [];
               const multiple = q.type === 'multi_select';
@@ -493,9 +493,9 @@ const RdvView: React.FC = () => {
             <div className="space-y-5">
               {parMois(creneaux ?? []).map((mois) => (
                 <div key={mois.titre}>
-                  <p className="sticky top-0 bg-white dark:bg-dark-surface py-1 text-micro font-bold uppercase tracking-wider text-brand-main/45 dark:text-dark-text/40 first-letter:uppercase">
+                  <Etiquette className="sticky top-0 bg-white dark:bg-dark-surface py-1 first-letter:uppercase">
                     {mois.titre}
-                  </p>
+                  </Etiquette>
                   <div className="space-y-3 mt-1">
                     {mois.jours.map((groupe) => (
                       <div key={groupe.date.toISOString()} className="md:flex md:gap-3">

@@ -28,6 +28,7 @@ import {
 } from '../../services/apiService';
 import { SURFACES } from './surfaces';
 import { BLOCS } from './sections';
+import { Etiquette, CLASSES_SURTITRE, TitreSection } from '../ui';
 
 const nb = (n: number) => n.toLocaleString('fr-FR');
 
@@ -81,7 +82,7 @@ const SENS_DES_STATUTS: Record<string, string> = {
 
 const Section: React.FC<{ titre: string; chapeau?: string; children: React.ReactNode }> = ({ titre, chapeau, children }) => (
   <section className="pt-8 first:pt-0 border-t first:border-t-0 border-brand-border/70 dark:border-dark-sec-border">
-    <h2 className="text-lg font-bold text-brand-main dark:text-white">{titre}</h2>
+    <TitreSection titre={titre} />
     {chapeau && (
       <p className="mt-1 text-sm text-brand-main/60 dark:text-dark-text/60 max-w-3xl">{chapeau}</p>
     )}
@@ -111,7 +112,7 @@ const Tableau: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const Th: React.FC<{ children?: React.ReactNode; droite?: boolean }> = ({ children, droite }) => (
-  <th className={`pb-2 pr-4 text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 border-b border-brand-border dark:border-dark-sec-border whitespace-nowrap ${droite ? 'text-right' : 'text-left'}`}>
+  <th className={`pb-2 pr-4 ${CLASSES_SURTITRE} border-b border-brand-border dark:border-dark-sec-border whitespace-nowrap ${droite ? 'text-right' : 'text-left'}`}>
     {children}
   </th>
 );
@@ -603,9 +604,9 @@ const CarteView: React.FC = () => {
           </tbody>
         </Tableau>
         <div className="mt-6 max-w-3xl rounded-lg border-l-2 border-brand-main dark:border-dark-text bg-brand-light dark:bg-dark-sec-bg px-4 py-3">
-          <p className="text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50 mb-1.5">
+          <Etiquette forme="entete" className="mb-1.5">
             Où voir ce qui part vraiment
-          </p>
+          </Etiquette>
           <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
             <strong>Réglages → Personas.</strong> Chaque rôle y montre sa feuille de salle en
             premier — demandée au Worker, jamais recomposée dans le navigateur, sans quoi l'écran
@@ -638,9 +639,9 @@ const CarteView: React.FC = () => {
         </Prose>
 
         <div className="mt-5 max-w-3xl rounded-lg border-l-2 border-alerte bg-alerte/10 px-4 py-3">
-          <p className="text-micro font-bold uppercase tracking-wider text-alerte mb-1.5">
+          <Etiquette forme="entete" ton="alerte" className="mb-1.5">
             Le piège
-          </p>
+          </Etiquette>
           <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
             <strong>Enregistrer ne déploie pas.</strong> Corriger une fiche puis relancer une
             rédaction dans la foulée, c'est envoyer l'ancienne version au modèle. L'écran le dit

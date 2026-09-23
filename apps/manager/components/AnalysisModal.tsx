@@ -7,7 +7,7 @@ import * as Api from '../services/apiService';
 import type { UsageIA } from '@luminose/shared';
 import { useEscapeClose } from './hooks/useEscapeClose';
 import { Patience } from './Feedback';
-import { Bouton } from './ui';
+import { Bouton, Etiquette, TitreSection } from './ui';
 
 interface AnalysisModalProps {
   isOpen: boolean;
@@ -227,10 +227,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                 <div className="bg-brand-light dark:bg-dark-bg p-2 rounded-lg text-brand-main dark:text-dark-text">
                     <Brain className="w-6 h-6" />
                 </div>
-                <div>
-                    <h3 className="text-lg font-bold text-brand-main dark:text-white">Analyse IA en lot</h3>
-                    <p className="text-xs text-brand-main/60 dark:text-dark-text/60">Optimisez vos idées automatiquement</p>
-                </div>
+                <TitreSection as="h3" titre="Analyse IA en lot" sousTitre="Optimisez vos idées automatiquement" />
             </div>
             {!isAnalyzing && (
                 <button onClick={onClose} className="text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white transition-colors">
@@ -255,9 +252,9 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
                     <div className="grid grid-cols-1 gap-4">
                         <div className="p-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg">
-                            <div className="flex items-center gap-2 mb-1 text-brand-main/50 dark:text-dark-text/50 text-micro uppercase font-bold">
+                            <Etiquette as="div" avecIcone className="mb-1">
                                 <Cpu className="w-3 h-3" /> Modèle
-                            </div>
+                            </Etiquette>
                             <div className="text-sm font-semibold text-brand-main dark:text-white truncate" title={modelName}>
                                 {modelName}
                             </div>
