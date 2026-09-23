@@ -181,7 +181,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         <select
                             value={serie.statut}
                             onChange={e => void onUpdate({ statut: e.target.value as SerieStatus })}
-                            className="px-2.5 py-1.5 rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden cursor-pointer"
+                            className="px-3 py-1.5 rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden cursor-pointer"
                         >
                             {STATUT_OPTIONS.map(o => (
                                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -319,7 +319,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 )}
 
                 {rows.length === 0 ? (
-                    <div className="px-4 py-10 text-center">
+                    <div className="px-4 py-8 text-center">
                         <Wand2 className="w-10 h-10 mx-auto mb-3 text-brand-border dark:text-dark-sec-border" />
                         <p className="text-sm text-brand-main/60 dark:text-dark-text/60 text-balance mx-auto">
                             Le plan est vide. Demandez-en un à l'Éclateur : il rend une progression —

@@ -237,7 +237,7 @@ export const SocialIdeasView: React.FC<SocialIdeasViewProps> = ({
 
             {/* LIST — table unifié (même rendu que "Prêts" + Statut + stripe verdict) */}
             {!isInitializing && filteredItems.length === 0 ? (
-                <div className="py-16 text-center">
+                <div className="py-8 text-center">
                     <Lightbulb className="w-12 h-12 mx-auto mb-4 text-brand-border dark:text-dark-sec-border" />
                     <p className="text-sm text-brand-main/50 dark:text-dark-text/50">
                         {searchQuery ? 'Aucune idée pour cette recherche.' : 'La boîte à idées est vide pour ce filtre.'}

@@ -161,7 +161,7 @@ export const SeriesView: React.FC<SeriesViewProps> = ({
             </div>
 
             {!isInitializing && series.length === 0 ? (
-                <div className="text-center py-20">
+                <div className="text-center py-8">
                     <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border shadow-xs bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border">
                         <Layers className="w-8 h-8 text-brand-main/50 dark:text-dark-text/50" />
                     </div>

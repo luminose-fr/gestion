@@ -209,7 +209,10 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | fenêtres modales (`CommonModals`, `AnalysisModal`, `ConfirmSuppressionSerie`, la fenêtre IA de `SubtitleConverter`), `LoginPage`, `Feedback` | `max-w-sm`, `max-w-md`, `max-w-lg`, `max-w-64` | la taille d'une fenêtre ou d'une notification n'est pas une zone de travail |
 | `ContentEditor/renderers/` (`BodyRenderer`, `ScriptVideoRenderer`, `shared.tsx`) | liserés et couleurs de blocs, profondeurs, « Illustrée » | un codage de lecture, ni un sens ni une couleur d'outil |
 | `PsychedelicsCalculator` | la couleur de chaque substance et ses encadrés | de l'identification |
+| `PsychedelicsCalculator`, les doses | `text-3xl` pour la dose, `text-base` pour son unité | la dose est l'information que l'écran existe pour donner : ramenée à `text-lg`, elle ne se lisait plus d'un coup d'œil (arbitré le 23/09/2026) |
 | `RichTextarea` | `text-base`, `text-xl`, `text-2xl` des titres rendus | c'est le contenu mis en forme, pas l'interface |
+| `LoginPage`, champ du mot de passe | `pr-11` | la place du bouton qui affiche le mot de passe (`right-3`, 28 px) : à `pr-8`, le texte passerait dessous |
+| `LoginPage`, logo | `shadow-brand-main/30` et le dégradé | l'identité : c'est le logo, pas un bouton |
 
 ## Comment on saura que c'est fini
 
@@ -223,7 +226,7 @@ MODALES='--exclude=CommonModals.tsx --exclude=AnalysisModal.tsx --exclude=Confir
 LECTURE='--exclude-dir=renderers --exclude=PsychedelicsCalculator.tsx'
 
 grep $OPTS "text-\[[0-9]+px\]" apps/manager | sort -u
-grep $OPTS --exclude=RichTextarea.tsx "\btext-(base|xl|2xl|3xl)\b" apps/manager | sort -u
+grep $OPTS --exclude=RichTextarea.tsx --exclude=PsychedelicsCalculator.tsx "\btext-(base|xl|2xl|3xl)\b" apps/manager | sort -u
 grep $OPTS "rounded-(sm|2xl|3xl)" apps/manager | sort -u
 grep $OPTS $MODALES "max-w-(xs|sm|md|lg|2xl|4xl|5xl|64)\b" apps/manager | sort -u
 grep $OPTS "border-brand-light|dark:border-dark-sec-bg" apps/manager | sort -u

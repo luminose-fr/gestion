@@ -122,7 +122,7 @@ export const Patience: React.FC<{
   }
 
   return (
-    <div className="flex flex-col items-center justify-center text-center py-10 px-6 animate-fade-in">
+    <div className="flex flex-col items-center justify-center text-center py-8 px-6 animate-fade-in">
       {corps}
     </div>
   );
