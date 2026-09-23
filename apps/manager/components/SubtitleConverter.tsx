@@ -461,6 +461,10 @@ Chaque string est le texte d'un sous-titre. La concaténation de tous les blocs 
                                 <div className="flex items-center justify-between">
                                     <label className={labelCls}>Ombre portée</label>
                                     <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={style.shadow.enabled}
+                                        aria-label="Ombre portée"
                                         onClick={() => handleShadowChange('enabled', !style.shadow.enabled)}
                                         className={`relative w-9 h-5 rounded-full transition-colors ${style.shadow.enabled ? 'bg-brand-main dark:bg-white' : 'bg-brand-light dark:bg-dark-sec-border'}`}
                                     >
