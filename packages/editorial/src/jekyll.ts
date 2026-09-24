@@ -112,13 +112,19 @@ export const typographier = (s: string): string =>
 
 /**
  * `post:AAAA-MM-JJ-slug` devient le tag Liquid qui résout l'adresse au build :
- * si un article change un jour de catégorie, le lien suit. Tout le reste est
- * une adresse, recopiée telle quelle.
+ * si un article change un jour de catégorie, le lien suit. Une page du site,
+ * une adresse web ou un courriel sont recopiés tels quels.
+ *
+ * Tout le reste — `javascript:`, `data:`… — rend `null`, et le lien retombe sur
+ * son seul libellé. La cible vient du modèle : elle finit dans le HTML du site
+ * ET dans l'aperçu de l'application, qui l'injecte tel quel.
  */
-const cibleDuLien = (cible: string): string => {
-    const article = /^post:\s*(\S+)$/.exec(cible.trim());
+const cibleDuLien = (cible: string): string | null => {
+    const brute = cible.trim();
+    const article = /^post:\s*([a-z0-9-]+)$/i.exec(brute);
     if (article) return `{% post_url ${article[1]} %}`;
-    return cible.trim().replace(/"/g, '%22');
+    if (!/^(\/|#|https?:\/\/|mailto:)/i.test(brute)) return null;
+    return brute.replace(/"/g, '%22');
 };
 
 /**
@@ -128,9 +134,15 @@ const cibleDuLien = (cible: string): string => {
  */
 const enLigne = (s: string, { insecables = true } = {}): string =>
     (insecables ? typographier(echapper(s)) : echapper(s))
-        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, libelle, cible) => `<a href="${cibleDuLien(cible)}">${libelle}</a>`)
+        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, libelle, cible) => {
+            const href = cibleDuLien(cible);
+            return href === null ? libelle : `<a href="${href}">${libelle}</a>`;
+        })
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
         .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<em>$2</em>');
+
+/** Une ligne de texte léger en HTML — pour ce qui n'est pas un bloc : résumé, chute, référence. */
+export const enLigneHtml = (s: string): string => enLigne(s);
 
 const PUCE = /^\s*[-•*]\s+/;
 
