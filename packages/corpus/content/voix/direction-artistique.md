@@ -1,7 +1,7 @@
 ---
 type: instruction
 statut: actif
-revu: 2026-08
+revu: 2026-09
 expose: prive
 ---
 
