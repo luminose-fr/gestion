@@ -248,8 +248,17 @@ export type EtatDeVue = z.infer<typeof EtatDeVueSchema>;
  * Le projet Claude y figure bien qu'il se synchronise depuis GitHub : sa
  * ligne sert à afficher qu'il est à jour tout seul, ce qui est une
  * information — et évite de se demander chaque fois s'il a été oublié.
+ *
+ * L'écran déclare les siennes dans `apps/manager/components/Corpus/surfaces.ts`,
+ * typées sur cette liste. Le 14/09/2026, les deux surfaces « fichier » (GPT et
+ * Gem) y ont été ajoutées sans l'être ici : le fichier se téléchargeait, puis
+ * le Worker refusait d'en noter le dépôt (« Surface inconnue », 404) — et la
+ * ligne restait « jamais posée » pour toujours. Le typage rend ce décalage
+ * impossible à compiler.
  */
-export const SURFACES = ['projet-claude', 'gpt', 'gem', 'claude-code', 'api'] as const;
+export const SURFACES = [
+  'projet-claude', 'gpt', 'gpt-fichier', 'gem', 'gem-fichier', 'claude-code', 'api',
+] as const;
 export type Surface = (typeof SURFACES)[number];
 
 /**

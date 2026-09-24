@@ -1,3 +1,5 @@
+import type { Surface } from '@luminose/shared';
+
 /**
  * Les surfaces qui portent un contexte Luminose, et ce qu'on y dépose.
  *
@@ -19,7 +21,8 @@
  * réellement deux dépôts.
  */
 export interface DefinitionSurface {
-  id: string;
+  /** Typé sur la liste du Worker : une surface qu'il ne connaîtrait pas ne compile pas. */
+  id: Surface;
   nom: string;
   profil: string;
   /**

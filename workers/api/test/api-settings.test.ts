@@ -249,3 +249,23 @@ describe('tri et filtre retenus par les listes', () => {
     expect(res.status).toBe(401);
   });
 });
+
+/**
+ * Le 14/09/2026, les surfaces « fichier » du GPT et du Gem existaient à l'écran
+ * mais pas ici : le téléchargement réussissait, puis le dépôt était refusé en
+ * 404 et la ligne restait « jamais posée ».
+ */
+describe('dépôts du corpus sur les surfaces', () => {
+  it.each(['gpt-fichier', 'gem-fichier'])('note le dépôt du fichier « %s » et le relit', async (surface) => {
+    const res = await put(`/api/settings/poses/${surface}`, { profil: 'complet', hash: 'abcdef12' });
+    expect(res.status).toBe(200);
+
+    const { poses } = await json(await call('/api/settings/poses'));
+    expect(poses[surface]).toMatchObject({ profil: 'complet', hash: 'abcdef12' });
+  });
+
+  it('refuse une surface inconnue', async () => {
+    const res = await put('/api/settings/poses/inconnue', { profil: 'complet', hash: 'abcdef12' });
+    expect(res.status).toBe(404);
+  });
+});
