@@ -10,4 +10,4 @@ expose: prive
 Compte récent, **en phase de démarrage**. Pas encore de ligne établie, et c'est un état, pas
 un oubli.
 
-Ne pas inventer de charte visuelle spécifique : voir `../voix/direction-artistique.md` §3.
+Ne pas inventer de charte visuelle spécifique : voir `../voix/direction-artistique.md` §4.

@@ -13,6 +13,6 @@ quoi ils doivent obéir. Une IA à qui on demande un script YouTube invente donc
 contraintes, en silence.
 
 **C'est un manque, pas une absence délibérée** — à ne pas confondre avec le cas des
-illustrations réseaux sociaux (`../voix/direction-artistique.md` §3), où l'absence est écrite
+illustrations réseaux sociaux (`../voix/direction-artistique.md` §4), où l'absence est écrite
 et assumée. Tant que la fiche n'existe pas, la seule parade est de donner les contraintes
 dans la demande.

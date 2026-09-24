@@ -7,12 +7,12 @@ expose: prive
 
 # Direction artistique
 
-Trois sujets distincts, trois traitements différents. Le troisième est une **absence
-délibérée** : ne pas la combler.
+Quatre sujets distincts, quatre traitements différents. Les deux derniers sont des **libertés
+délibérées** : ne pas les combler.
 
 ## 1. L'identité Luminose
 
-**Palette**
+**Palette de l'interface** — bandeaux, fonds, boutons, liens du site.
 
 | Rôle | Valeur |
 | :--- | :--- |
@@ -25,10 +25,14 @@ délibérée** : ne pas la combler.
 Registre visé : violet, profondeur, douceur, intériorité, spiritualité **non générique**,
 élégance, atmosphère contemplative.
 
-> **Cette palette fait foi.** Elle est recopiée dans le persona Artiste
-> (`packages/editorial/src/prompts/artiste.ts`), qui compose les visuels de carrousel : une
-> couleur modifiée ici se reporte là, sinon les deux divergent. C'est arrivé — le persona a
-> travaillé un temps dans les couleurs du Seuil, une offre suspendue.
+> **Cette palette fait foi pour l'interface.** C'est celle de `_sass/ui-variables.scss` dans
+> le dépôt du site (vérifié le 24/09/2026). Le thème sombre y ajoute `#BB95DD` (violet clair),
+> `#3F2258` et `#20122E` (fonds).
+>
+> Le persona Artiste la reçoit avec cette fiche ; il n'en porte plus de copie. Il en portait
+> une, qui avait dérivé vers les couleurs du Seuil, une offre suspendue.
+>
+> Elle ne décrit **pas** les illustrations du site, qui ont leur propre gamme (§2).
 
 **Typographies** — Futura Book · Abril Display Italic.
 
@@ -40,11 +44,59 @@ une proposition qui les emploie est à rejeter sans discussion.
 Piloté par une **image de référence** et la consigne « dans le même style que… ». Ça marche
 et ça homogénise — c'est le mécanisme, pas une description.
 
-> **À compléter :** le chemin de l'image de référence, et la formule exacte employée.
-> Le fichier porte le **pointeur et la formule**, jamais une description textuelle du style :
-> une description d'un style visuel est toujours pire que l'image elle-même.
+Le fichier porte le **pointeur et la formule**, jamais une description textuelle du style :
+une description d'un style visuel est toujours pire que l'image elle-même.
 
-## 3. Les illustrations réseaux sociaux
+Vaut pour les illustrations des **pages du site — hors blog** (§3).
+
+**L'outil** — ChatGPT Images, l'image de référence jointe à la conversation.
+
+**L'image de référence (l'étalon)** — `_ai_helpers/etalon.jpg`, dans le dépôt du site
+(`luminose.fr`). Toute image se génère avec elle jointe.
+
+**La formule** — un prompt d'image s'écrit ainsi, en français, et rien d'autre :
+
+> Nouvelle image indépendante — l'image jointe sert uniquement de référence de style, de
+> palette et de grain : [le sujet en 2 à 3 phrases — quoi, où, quelle ambiance ; toujours une
+> scène figurative, jamais un concept abstrait]. [Le cadrage : distance, angle]. Aucun texte.
+> Format [2:1 / 1:1 / 4:3 / 3:4].
+
+**Les règles de sujet** — silhouettes sans visage détaillé · pas de représentation littérale
+d'un état de détresse · pas de symboles ésotériques appuyés · pas de schéma, de courbe ni de
+flèche : un processus (respiration, cycle, étapes) s'incarne dans une scène · aucun texte ni
+lettre dans l'image.
+
+**La gamme des illustrations** — mesurée sur les illustrations des pages le 24/09/2026. Elle
+sert à **vérifier** qu'une image nouvelle tient dans la série, pas à la décrire au modèle :
+c'est l'étalon qui fait ça.
+
+| De la lumière… | | | | | | …à l'ombre |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `#FDEEE1` ivoire | `#FBE2D5` ivoire rosé | `#E9B9BB` rose brumeux | `#C98FA5` mauve rosé | `#9A688E` mauve | `#634575` prune | `#3C3061` violet nuit |
+
+Tons chauds et voilés : le contraste vient de la profondeur, jamais de la saturation — pas de
+violet électrique, pas de fuchsia. L'ivoire n'est pas du blanc. `marcher-ensemble-cercle`
+(ciel étoilé, plus saturé) sort de la série : ne pas la prendre comme référence.
+
+**Sans l'étalon sous la main** (nouvelle conversation, autre outil) : le bloc de style à coller
+en tête du prompt, et les phrases de correction de dérive, vivent dans
+`_ai_helpers/prompts-images-luminose.md` du même dépôt. Ils ne sont pas recopiés ici.
+
+## 3. Les illustrations du blog
+
+```yaml
+statut: volontairement-absent
+revu: 2026-09
+```
+
+**Pas de charte, et c'est délibéré.** Le plus souvent une scène **réaliste**, photographique,
+qui montre concrètement la métaphore de l'article — un tableau électrique ancien pour le
+stress, une porte de pierre ouverte sur un paysage pour les rites de passage. C'est une
+tendance, pas une règle : un article peut appeler un autre traitement.
+
+Ni l'étalon ni la gamme du §2 ne s'y appliquent.
+
+## 4. Les illustrations réseaux sociaux
 
 ```yaml
 statut: volontairement-absent
