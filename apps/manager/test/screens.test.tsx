@@ -1848,6 +1848,16 @@ describe('Article — la publication sous le brouillon', () => {
     expect(container.textContent).toContain('Lien en bio');
   });
 
+  it('montre le brouillon mis en forme, pas son balisage', () => {
+    const { container } = render(<BodyRenderer body={article({
+      introduction: 'Le **stress** est *partout*.\n\n- une puce\n- une autre',
+    })} />);
+    expect(container.querySelector('strong')?.textContent).toBe('stress');
+    expect(container.querySelector('em')?.textContent).toBe('partout');
+    expect(container.querySelectorAll('li').length).toBeGreaterThanOrEqual(2);
+    expect(container.textContent).not.toContain('**');
+  });
+
   it('livre aussi un article de l\u2019ancienne grille, en disant ce qui manque', () => {
     const { container } = render(<BodyRenderer body={article({ cta: 'Prenez rendez-vous.' })} />);
     expect(container.textContent).toContain('Fichier du site');

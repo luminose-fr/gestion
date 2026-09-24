@@ -152,6 +152,12 @@ describe('le balisage léger', () => {
     ]);
   });
 
+  it('ne garde que les liens sûrs : une cible javascript: retombe sur son libellé', () => {
+    expect(enBlocsHtml('[clic](javascript:void) et [écrire](mailto:a@b.fr) et [site](https://x.fr)', '')).toEqual([
+      '<p>clic et <a href="mailto:a@b.fr">écrire</a> et <a href="https://x.fr">site</a></p>',
+    ]);
+  });
+
   it('pose les insécables sans toucher aux entités ni aux URLs', () => {
     expect(typographier('Vraiment ? Oui : « non » ! https://x.fr/?a=1')).toBe('Vraiment&nbsp;? Oui&nbsp;: «&nbsp;non&nbsp;»&nbsp;! https://x.fr/?a=1');
     expect(typographier('déjà&nbsp;: posé')).toBe('déjà&nbsp;: posé');
