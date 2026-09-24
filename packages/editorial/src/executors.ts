@@ -352,7 +352,14 @@ export const formatDraftContent = (format: TargetFormat, data: any): string => {
                 if (contenu) out.push(contenu);
             });
             if (data.conclusion) out.push(`## Conclusion\n${text(data.conclusion)}`);
-            if (data.cta) out.push(`**CTA**\n${text(data.cta)}`);
+            // Depuis le 23/09/2026 le CTA est l'encadré final du site : un objet
+            // titre / texte / chute. Les articles d'avant gardent leur chaîne.
+            if (data.cta && typeof data.cta === 'object') {
+                const encadre = [text(data.cta.titre), text(data.cta.texte), text(data.cta.chute)].filter(Boolean);
+                if (encadre.length) out.push(`**CTA**\n${encadre.join("\n\n")}`);
+            } else if (data.cta) out.push(`**CTA**\n${text(data.cta)}`);
+            const refs = Array.isArray(data.references) ? data.references.map(text).filter(Boolean) : [];
+            if (refs.length) out.push(`## Références\n${refs.map((r: string) => `- ${r}`).join("\n")}`);
             return out.join("\n\n");
         }
         case TargetFormat.SCRIPT_VIDEO_REEL_SHORT: {

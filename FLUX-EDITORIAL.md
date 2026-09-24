@@ -863,6 +863,31 @@ propre grille de production, injectée dans le prompt du Rédacteur.
 | Prompt Image | Prompt Image | brouillon | non |
 | Newsletter | Newsletter | brouillon | non |
 
+### L'article, livré prêt à publier
+
+Depuis le 23/09/2026, un article ne s'arrête plus au texte. Le Rédacteur rend, en
+plus du corps, tout ce que la publication demande : le **slug**, la **catégorie** et
+le **tag** du blog, la **meta description**, le **résumé** de l'encadré « En résumé »,
+un **encadré final** en trois temps (question, texte, chute), les **références**, les
+**prompts d'illustration** — la bannière carrée obligatoire, deux images de corps au
+plus — et un **post d'accompagnement** pour Facebook, LinkedIn et Instagram.
+
+Ce qu'il n'écrit **pas**, c'est le HTML. Le fichier `_posts/AAAA-MM-JJ-slug.html` est
+composé par le code (`packages/editorial/src/jekyll.ts`), au gabarit de l'article de
+référence `2026-07-05-stress-installation-electrique.html` : front matter, résumé en
+deux colonnes, espaces insécables, encadré `highlight` et bouton de rendez-vous,
+bandeaux de pied. Même raisonnement que la slide Signature — ce qui doit être exact ne
+passe pas par le modèle, et une faute de YAML casserait le build du site entier.
+
+Le post d'accompagnement suit la logique **Trafic contenu long** quel que soit
+l'objectif de l'article, qui ne gouverne que l'encadré final. Le modèle écrit
+l'accroche et la promesse ; l'**adresse de l'article** est ajoutée par le code, qui la
+déduit du permalink du site (`/blog/<catégorie>/<slug>.html`) — et « lien en bio »
+pour Instagram.
+
+Les prompts d'illustration suivent le **style du site** de la direction artistique
+(`voix/direction-artistique.md`, §2), que le Rédacteur reçoit déjà dans sa feuille.
+
 ---
 
 ## 7. Les objectifs, et le CTA qu'ils commandent

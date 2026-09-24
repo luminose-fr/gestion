@@ -650,7 +650,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                     ) : isVideoFormat ? (
                                         <ScriptVideoRenderer raw={item.draft!} />
                                     ) : (
-                                        <BodyRenderer body={item.draft!} />
+                                        <BodyRenderer body={item.draft!} datePublication={item.scheduledDate} />
                                     )}
                                 </div>
                             </div>

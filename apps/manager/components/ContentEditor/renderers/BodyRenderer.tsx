@@ -1,18 +1,28 @@
 import React from 'react';
 import { Pencil } from 'lucide-react';
+import { getFormatDef } from '@luminose/editorial';
 import { TargetFormat } from '../../../types';
 import { parseBodyJson, t, Block, BlockPre, CarrouselLegende } from './shared';
+import { Livrable } from './Livrable';
 
 interface BodyRendererProps {
     body: string;
+    /** AAAA-MM-JJ. Date de publication prévue, qui préfixe le fichier du site ; aujourd'hui à défaut. */
+    datePublication?: string | null;
 }
+
+/** La date du jour à l'heure de Florent — `toISOString` donnerait la veille après 22 h en été. */
+const aujourdhui = (): string => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 /**
  * Rendu structuré du body JSON selon le format du contenu.
  * Affiche un layout spécifique pour chaque TargetFormat
  * (Post Texte, Article, Reel/Short, Youtube, Carrousel, Prompt Image).
  */
-export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
+export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublication }) => {
     const data = parseBodyJson(body);
 
     if (!data || !data.format) {
@@ -66,20 +76,49 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body }) => {
         </div>
     );
 
-    if (isArticle) return (
-        <div className="p-6 space-y-4">
-            {data.titre_h1    && <h2 className="text-lg font-bold text-brand-main dark:text-white">{t(data.titre_h1)}</h2>}
-            {data.introduction && <Block label="Introduction" color="border-blue-400">{t(data.introduction)}</Block>}
-            {(data.sections || []).map((s: any, i: number) => (
-                <div key={i} className="space-y-2">
-                    {s.sous_titre_h2 && <h3 className="text-sm font-bold text-brand-main dark:text-white">{t(s.sous_titre_h2)}</h3>}
-                    {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{t(s.contenu)}</p>}
+    if (isArticle) {
+        // Le registre dit si le format se livre ; l'écran ne nomme pas l'article (règle n°3).
+        const livrable = getFormatDef(fmt)?.livrable?.(data, { date: datePublication?.slice(0, 10) || aujourdhui() }) ?? null;
+        const resume: string[] = Array.isArray(data.resume) ? data.resume.map(t).filter(Boolean) : [t(data.resume)].filter(Boolean);
+        const references: string[] = Array.isArray(data.references) ? data.references.map(t).filter(Boolean) : [];
+        const cta = data.cta && typeof data.cta === 'object' ? data.cta : null;
+        return (
+            <div>
+                <div className="p-6 space-y-4">
+                    {data.titre_h1    && <h2 className="text-lg font-bold text-brand-main dark:text-white">{t(data.titre_h1)}</h2>}
+                    {t(data.meta_description) && <Block label="Meta description" color="border-brand-border">{t(data.meta_description)}</Block>}
+                    {resume.length > 0 && (
+                        <Block label="En résumé" color="border-purple-400">
+                            {resume.map((p, i) => <p key={i} className={i > 0 ? 'mt-2' : ''}>{p}</p>)}
+                        </Block>
+                    )}
+                    {data.introduction && <Block label="Introduction" color="border-blue-400"><span className="whitespace-pre-line">{t(data.introduction)}</span></Block>}
+                    {(data.sections || []).map((s: any, i: number) => (
+                        <div key={i} className="space-y-2">
+                            {s.sous_titre_h2 && <h3 className="text-sm font-bold text-brand-main dark:text-white">{t(s.sous_titre_h2)}</h3>}
+                            {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-line">{t(s.contenu)}</p>}
+                        </div>
+                    ))}
+                    {data.conclusion && <Block label="Conclusion" color="border-purple-400"><span className="whitespace-pre-line">{t(data.conclusion)}</span></Block>}
+                    {cta ? (
+                        <Block label="Encadré final" color="border-green-400">
+                            {t(cta.titre) && <p className="font-bold">{t(cta.titre)}</p>}
+                            {t(cta.texte) && <p className="mt-2 whitespace-pre-line">{t(cta.texte)}</p>}
+                            {t(cta.chute) && <p className="mt-2 font-bold">{t(cta.chute)}</p>}
+                        </Block>
+                    ) : data.cta && <Block label="CTA" color="border-green-400">{t(data.cta)}</Block>}
+                    {references.length > 0 && (
+                        <Block label="Références — à vérifier avant publication" color="border-brand-border">
+                            <ul className="list-disc pl-4 space-y-1">
+                                {references.map((r, i) => <li key={i}>{r}</li>)}
+                            </ul>
+                        </Block>
+                    )}
                 </div>
-            ))}
-            {data.conclusion && <Block label="Conclusion" color="border-purple-400">{t(data.conclusion)}</Block>}
-            {data.cta        && <Block label="CTA"        color="border-green-400">{t(data.cta)}</Block>}
-        </div>
-    );
+                {livrable && <Livrable livrable={livrable} />}
+            </div>
+        );
+    }
 
     if (isReelShort) return (
         <div className="p-6 space-y-4">

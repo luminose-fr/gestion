@@ -39,6 +39,7 @@ import { SeriePlanView } from '../components/Series/SeriePlanView';
 import { ConfirmSuppressionSerie } from '../components/Series/ConfirmSuppressionSerie';
 import { CoachChat } from '../components/CoachChat';
 import { DraftView } from '../components/ContentEditor/DraftView';
+import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
@@ -1820,5 +1821,36 @@ describe('Corpus — navigation sur téléphone', () => {
     expect(container.textContent).toContain('Documents');
     expect(container.textContent).toContain('Répertoire');
     expect(container.querySelectorAll('div.md\\:hidden')).toHaveLength(2);
+  });
+});
+
+describe('Article — la publication sous le brouillon', () => {
+  afterEach(cleanup);
+
+  const article = (champs: Record<string, unknown>) => JSON.stringify({
+    format: 'Article',
+    titre_h1: 'Le stress : visite guidée',
+    introduction: 'Vous êtes stressé.',
+    sections: [{ sous_titre_h2: 'Le courant normal', contenu: 'Le stress n\u2019est pas une panne.' }],
+    ...champs,
+  });
+
+  it('livre le fichier du site, les prompts et les posts', () => {
+    const { container } = render(<BodyRenderer datePublication="2026-10-01" body={article({
+      slug: 'stress-installation-electrique', categorie: 'stress', meta_description: 'Stress aigu ou chronique.',
+      resume: ['Un.', 'Deux.'], cta: { titre: 'Alors ?', texte: 'Écrivez-moi.', chute: 'Fin.' },
+      illustrations: [{ emplacement: 'banniere', prompt: 'Un tableau électrique. Format carré 1:1.' }],
+      post_reseaux: { texte: 'Je suis stressé.', cta: 'L\u2019article fait le tour des pannes.', hashtags: ['#stress'] },
+    })} />);
+    expect(container.textContent).toContain('_posts/2026-10-01-stress-installation-electrique.html');
+    expect(container.textContent).toContain('Un tableau électrique');
+    expect(container.textContent).toContain('https://www.luminose.fr/blog/stress/stress-installation-electrique.html');
+    expect(container.textContent).toContain('Lien en bio');
+  });
+
+  it('livre aussi un article de l\u2019ancienne grille, en disant ce qui manque', () => {
+    const { container } = render(<BodyRenderer body={article({ cta: 'Prenez rendez-vous.' })} />);
+    expect(container.textContent).toContain('Fichier du site');
+    expect(container.textContent).toContain('Catégorie absente');
   });
 });

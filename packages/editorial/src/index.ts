@@ -17,6 +17,9 @@ export * from './voice';
 export * from './formats';
 export * from './objectives';
 
+// L'article tel que le site Jekyll l'attend — composé, jamais écrit par le modèle
+export * from './jekyll';
+
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';
 
