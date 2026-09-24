@@ -885,8 +885,10 @@ l'accroche et la promesse ; l'**adresse de l'article** est ajoutée par le code,
 déduit du permalink du site (`/blog/<catégorie>/<slug>.html`) — et « lien en bio »
 pour Instagram.
 
-Les prompts d'illustration suivent le **style du site** de la direction artistique
-(`voix/direction-artistique.md`, §2), que le Rédacteur reçoit déjà dans sa feuille.
+Les illustrations du blog n'ont **pas de charte** (`voix/direction-artistique.md`, §3) : le
+plus souvent une scène réaliste qui montre la métaphore, sans que ce soit une règle. La
+grille dit au Rédacteur de ne **pas** leur appliquer l'étalon des pages du site — c'est la
+seule consigne de style qu'il reçoit pour elles.
 
 ---
 

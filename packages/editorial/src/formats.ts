@@ -131,7 +131,7 @@ L'application compose elle-même le fichier du site à partir de ce JSON : front
       "emplacement": "'banniere' pour l'image principale (OBLIGATOIRE, une seule), ou 'apres_section_N' pour une illustration dans le corps (0 à 2, seulement si une section gagne vraiment à être montrée).",
       "fichier": "Nom du fichier, en minuscules et tirets. Pour la bannière, reprends le slug.",
       "alt": "Ce que montre l'image, en une phrase, pour les lecteurs d'écran.",
-      "prompt": "Le prompt de génération, prêt à coller. Il suit le STYLE DU SITE de la direction artistique — sa formule et son image de référence font foi : applique-les telles quelles, dans la langue où elles sont écrites. Le sujet est une scène figurative qui porte la métaphore centrale, jamais un concept abstrait ni un schéma ; silhouettes sans visage détaillé ; aucun texte ni lettre dans l'image. La bannière est CARRÉE (1:1) et sera recadrée en 16:9 dans la liste du blog : le sujet tient au centre. Termine par le format."
+      "prompt": "Le prompt de génération, prêt à coller. Le style des illustrations du blog est LIBRE (direction artistique, « Les illustrations du blog ») : le plus souvent une scène réaliste, photographique, qui montre concrètement la métaphore centrale — jamais un concept abstrait ni un schéma. N'applique PAS l'image de référence ni la gamme des pages du site : elles ne valent pas pour le blog. Aucun texte ni lettre dans l'image. La bannière est CARRÉE (1:1) et sera recadrée en 16:9 dans la liste du blog : le sujet tient au centre. Termine par le format."
     }
   ],
   "post_reseaux": {
