@@ -346,7 +346,7 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
                         {hasBody ? (
                             isVideoFormat
                                 ? <ScriptVideoRenderer raw={item.draft!} />
-                                : <BodyRenderer body={item.draft!} />
+                                : <BodyRenderer body={item.draft!} datePublication={item.scheduledDate} />
                         ) : (
                             <div className="p-8 text-center text-brand-main/40 dark:text-dark-text/40 italic">
                                 Pas de contenu rédigé.

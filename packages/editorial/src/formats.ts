@@ -11,6 +11,7 @@
 
 import { TargetFormat } from './domain';
 import { SITE_URL } from './config';
+import { composerArticleJekyll, type LivrableArticle } from './jekyll';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -49,6 +50,16 @@ export interface FormatDefinition {
     promptTemplate: string;
     /** Extrait un texte lisible depuis les données JSON parsées */
     toPlainText: (data: any) => string;
+    /**
+     * Ce que le format sait livrer prêt à publier hors de l'application — le
+     * fichier du site, les prompts d'illustration, les posts qui l'annoncent.
+     * Absent : le format se copie depuis l'écran, rien de plus. `null` : le
+     * JSON ne permet pas (encore) de livrer.
+     *
+     * Porté par le registre pour que l'écran demande « ce format livre-t-il
+     * quelque chose ? » sans jamais nommer l'article (règle n°3 du CLAUDE.md).
+     */
+    livrable?: (data: any, options: { date: string }) => LivrableArticle | null;
 }
 
 // ── Helpers internes ─────────────────────────────────────────────────
@@ -91,20 +102,45 @@ const ARTICLE: FormatDefinition = {
     editorTab: 'brouillon',
     supportsColdRead: false,
     promptTemplate: `
-GRILLE DE PRODUCTION — Article (Long/SEO) — Blog
+GRILLE DE PRODUCTION — Article (Long/SEO) — Blog luminose.fr
+L'application compose elle-même le fichier du site à partir de ce JSON : front matter, balisage HTML, espaces insécables, encadré final, bouton de rendez-vous, bandeaux. Tu écris le TEXTE, jamais de HTML. Balisage autorisé dans les textes : paragraphes séparés par une ligne vide, puces avec "- " en début de ligne, **gras**, *italique*, [lien](adresse).
 {
   "format": "Article",
-  "titre_h1": "Titre accrocheur incluant le mot-clé principal.",
-  "introduction": "Structure PAS (Problème → Agitation → Solution). 3-4 paragraphes. Pose la métaphore centrale dès l'intro.",
+  "titre_h1": "Titre de l'article, qui sert aussi de titre dans Google. Le sujet dans les mots qu'un lecteur taperait, PUIS la métaphore (ex : 'Le stress : visite guidée de votre installation électrique intérieure'). 70 caractères max.",
+  "slug": "Adresse de l'article : 3 à 6 mots-clés en minuscules, sans accents ni articles, séparés par des tirets (ex : 'stress-installation-electrique'). Sert aussi de nom à l'image principale.",
+  "categorie": "UNE catégorie du blog, recopiée telle quelle depuis la fiche canal Blog. N'en crée une nouvelle que si aucune ne convient : elle fait partie de l'adresse et ne se change plus après publication.",
+  "tag": "'exclusif' (article de fond, mis en avant sur le blog) ou 'basique' (fiche sur un trouble précis, rangée sous « L'hypnose vous aide pour… »). Par défaut : 'exclusif'.",
+  "meta_description": "140 à 160 caractères. Le sujet au début, puis la promesse concrète de l'article. Pas de métaphore opaque : c'est la phrase que Google affiche sous le titre.",
+  "resume": ["Encadré « En résumé », affiché à côté de l'image et sur la carte du blog : EXACTEMENT 2 paragraphes courts. Le 1er nomme le problème dans les mots du lecteur et pose la métaphore ; le 2e dit ce que l'article lui apporte. **Gras** sur l'expression clé."],
+  "introduction": "4 à 6 paragraphes courts. Le sujet réel est nommé dans les 3 premières lignes, la métaphore centrale est posée avant la fin de l'introduction.",
   "sections": [
     {
-      "sous_titre_h2": "Titre structurant",
-      "contenu": "Développement. Alterner rigueur clinique et images concrètes. Chaque section fait progresser vers le seuil."
+      "sous_titre_h2": "Titre qui fait avancer la métaphore ET dit de quoi parle la section : un lecteur qui ne lit que les titres doit suivre l'article.",
+      "contenu": "5 à 7 sections, 1 500 à 2 500 mots au total. Paragraphes courts ; puces ouvertes par leur idée en **gras**. Alterner rigueur nommée (auteurs, concepts, dates) et scènes concrètes. ANCRAGE PRATIQUE : au moins une section raccroche le propos à ce que tu vois en séance ('En séance, à Villefranche-de-Lauragais…', 'dans ma pratique…'). LIENS INTERNES : [texte](post:AAAA-MM-JJ-slug) vers un article du blog, [texte](/page.html) vers une page du site — UNIQUEMENT des adresses listées dans la fiche canal Blog, jamais inventées. Quand le sujet touche au soin (trauma, dépression, addiction…), un paragraphe renvoie le diagnostic à un professionnel de santé."
     }
   ],
-  "conclusion": "Récapitulatif + angle de rupture. Pas de résumé plat — une ouverture qui laisse le lecteur face à son choix.",
-  "cta": "Bloc d'appel à l'action contextuel."
+  "conclusion": "1 à 2 paragraphes qui ferment la dernière section : l'angle de rupture, pas un résumé plat.",
+  "cta": {
+    "titre": "La question de l'encadré final, dans la métaphore (ex : 'Alors, c'est quoi, votre stress ?').",
+    "texte": "2 paragraphes alignés sur les règles CTA de l'objectif : à qui ça s'adresse, le pas concret suivant. Le bouton de prise de rendez-vous est ajouté par l'application : ne l'écris pas.",
+    "chute": "Une phrase courte qui referme la métaphore. Elle sera mise en gras."
+  },
+  "references": ["3 à 8 références effectivement mobilisées dans l'article, au format 'Nom, I. (année). *Titre*. Éditeur.' UNIQUEMENT des références dont tu es certain — auteur, année, titre, éditeur. Une référence douteuse est pire que pas de référence : dans le doute, ne la mets pas."],
+  "illustrations": [
+    {
+      "emplacement": "'banniere' pour l'image principale (OBLIGATOIRE, une seule), ou 'apres_section_N' pour une illustration dans le corps (0 à 2, seulement si une section gagne vraiment à être montrée).",
+      "fichier": "Nom du fichier, en minuscules et tirets. Pour la bannière, reprends le slug.",
+      "alt": "Ce que montre l'image, en une phrase, pour les lecteurs d'écran.",
+      "prompt": "Le prompt de génération, prêt à coller. Le style des illustrations du blog est LIBRE (direction artistique, « Les illustrations du blog ») : le plus souvent une scène réaliste, photographique, qui montre concrètement la métaphore centrale — jamais un concept abstrait ni un schéma. N'applique PAS l'image de référence ni la gamme des pages du site : elles ne valent pas pour le blog. Aucun texte ni lettre dans l'image. La bannière est CARRÉE (1:1) et sera recadrée en 16:9 dans la liste du blog : le sujet tient au centre. Termine par le format."
+    }
+  ],
+  "post_reseaux": {
+    "texte": "Le post qui annonce l'article sur Facebook, LinkedIn et Instagram. 4 à 7 lignes courtes : une accroche qui arrête le scroll (la métaphore ou le paradoxe de l'article), puis UNE idée forte de l'article. C'est une bande-annonce, pas un résumé : ne donne pas la réponse, le lecteur doit avoir une raison de cliquer.",
+    "cta": "Une phrase qui promet précisément ce que l'article contient (ex : 'L'article fait le tour des quatre pannes, et de ce qu'on répare pour chacune.'). SANS lien : l'application ajoute l'adresse exacte de l'article, et « lien en bio » pour Instagram.",
+    "hashtags": ["3 à 5 hashtags (string commençant par #, sans espace) : le sujet et sa niche. Pas de # générique creux."]
+  }
 }
+Le post_reseaux suit TOUJOURS la logique « Trafic contenu long », quel que soit l'objectif : les règles CTA de l'objectif gouvernent l'encadré final de l'article, pas le post. L'image principale sert aussi de visuel au post.
 Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix face auquel le lecteur est mis) et l'oralité de Florent.
     `.trim(),
     toPlainText: (data: any): string => {
@@ -117,7 +153,8 @@ Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix 
         });
         if (data.conclusion) out.push(t(data.conclusion));
         return out.filter(Boolean).join(' ');
-    }
+    },
+    livrable: composerArticleJekyll,
 };
 
 const SCRIPT_REEL: FormatDefinition = {
