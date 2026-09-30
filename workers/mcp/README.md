@@ -175,3 +175,6 @@ sans risque puisque tout est en lecture.
 2. **`mcp.luminose.fr`** est en service. Changer de nom demanderait de modifier `RESSOURCE`
    dans [src/index.ts](src/index.ts), `routes` dans wrangler.toml, et l'URL de retour du
    client Google.
+3. **Claude entre par CIMD.** Vérifié dans KV : le grant porte un `clientId` en
+   `https://claude.ai/…`, et aucun client n'est préenregistré. Le repli n'a pas servi ; il
+   reste prêt, pour le jour où ça changerait.
