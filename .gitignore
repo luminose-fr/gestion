@@ -17,6 +17,8 @@ dist/
 .env.development.local
 .env.test.local
 .env.production.local
+# Secrets locaux de `wrangler dev`. Le modèle .dev.vars.example, lui, est versionné.
+.dev.vars
 .venv
 venv/
 ENV/

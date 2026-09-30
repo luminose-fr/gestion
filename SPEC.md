@@ -90,7 +90,7 @@ Le quota n'est pas un facteur limitant. La limite des 50 requêtes par invocatio
 
 ## 1. Architecture cible — NORMATIF
 
-Monorepo npm workspaces. Quatre moteurs purs, un Worker, un front.
+Monorepo npm workspaces. Quatre moteurs purs, deux Workers, un front.
 
 ```
 gestion.luminose.fr/
@@ -104,9 +104,11 @@ gestion.luminose.fr/
 │   ├── subtitles/          .srt → .fcpxml
 │   └── psychedelics/       calcul de doses
 ├── workers/
-│   └── api/                Hono + D1 + auth
-│       ├── migrations/     NNNN_description.sql
-│       └── src/routes/
+│   ├── api/                Hono + D1 + auth
+│   │   ├── migrations/     NNNN_description.sql
+│   │   └── src/routes/
+│   └── mcp/                serveur MCP pour Claude, mcp.luminose.fr —
+│                           OAuth + Google Ads en lecture seule
 └── scripts/
     └── deploy.sh
 ```
@@ -116,6 +118,7 @@ gestion.luminose.fr/
 ```
 apps/manager  ──▶ packages/{shared, editorial, subtitles, psychedelics}
 workers/api   ──▶ packages/{shared, editorial, ai}
+workers/mcp   ──▶ (rien du dépôt)
 packages/ai   ──▶ packages/shared
 packages/editorial ──▶ (rien)
 packages/{subtitles, psychedelics} ──▶ (rien)
@@ -125,6 +128,10 @@ packages/{subtitles, psychedelics} ──▶ (rien)
   React, zéro `fetch`, zéro API Workers. Fonctions pures, testables sans réseau ni DOM.
 - `packages/ai` : dépend de `shared` uniquement. Ne connaît ni D1 ni Hono.
 - Le front n'importe **jamais** `packages/ai` : les clés d'API vivent dans le Worker.
+- `workers/mcp` ne partage avec `workers/api` ni code, ni secret, ni binding. Son
+  authentification n'est pas celle de la console (OAuth pour Claude), et une erreur de
+  configuration de l'un ne doit pas pouvoir exposer l'autre. Seule dépendance runtime :
+  `zod`. Mise en place et écarts avec le cadrage : `workers/mcp/README.md`.
 
 ### 1.2 Une seule origine
 
@@ -134,6 +141,10 @@ même origine** via une route.
 Conséquence directe : **plus de CORS du tout**. Plus de `ALLOWED_ORIGINS` à maintenir,
 plus de préflight, plus d'origine de développement à déclarer. C'est une simplification,
 pas un détail de configuration.
+
+`mcp.luminose.fr` est hors de ce périmètre : aucun front ne l'appelle. Il ouvre CORS sur
+ses seuls points d'entrée OAuth et `/mcp`, pour l'inspecteur MCP qui tourne dans un
+navigateur. Sans cookie, et derrière un jeton porteur, c'est sans conséquence.
 
 ---
 
