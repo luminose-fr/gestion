@@ -1,4 +1,5 @@
-# Copier en .dev.vars (ignoré par git) pour `npm run dev -w workers/mcp`.
+# Copier en .dev.vars (ignoré par git). Sert au script du refresh token
+# (scripts/jeton-google-ads.mjs) et à `npm run dev:mcp`.
 # En production, ces valeurs sont des secrets Cloudflare : wrangler secret put <NOM>.
 
 # Client OAuth Google « Application Web », commun aux deux couches.
@@ -12,5 +13,5 @@ GOOGLE_ADS_CUSTOMER_ID=
 # Seulement si l'accès passe par un compte administrateur (MCC).
 # GOOGLE_ADS_LOGIN_CUSTOMER_ID=
 
-# Couche A — openssl rand -base64 32
-OAUTH_SIGNING_KEY=
+# Couche A — signe le cookie de connexion. openssl rand -base64 32
+COOKIE_SIGNING_KEY=

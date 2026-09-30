@@ -1,6 +1,7 @@
 /**
- * Les primitives de la couche A. Rien que Web Crypto : disponible tel quel dans
- * le Worker comme dans les tests, sans dépendance.
+ * Ce que la couche A garde en propre : signer le cookie de connexion, et le
+ * défi PKCE de notre échange avec Google. Rien que Web Crypto — disponible tel
+ * quel dans le Worker comme dans les tests.
  */
 
 const encodeur = new TextEncoder();
@@ -20,11 +21,7 @@ export const depuisBase64url = (texte: string): Uint8Array => {
 export const aleatoire = (octets = 32): string =>
   base64url(crypto.getRandomValues(new Uint8Array(octets)));
 
-/**
- * SHA-256 en base64url. Les jetons sont rangés dans KV sous leur empreinte :
- * qui lit la base ne peut rien en faire. Sert aussi au défi PKCE (S256), qui
- * est exactement ce calcul.
- */
+/** SHA-256 en base64url : exactement le défi PKCE S256. */
 export const empreinte = async (texte: string): Promise<string> =>
   base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', encodeur.encode(texte))));
 
@@ -33,10 +30,8 @@ const cleHmac = (secret: string) =>
 
 /**
  * `<charge base64url>.<signature>` — lisible, infalsifiable sans le secret.
- *
- * La `nature` entre dans la signature : un identifiant de client ne peut pas
- * être présenté comme cookie de connexion, ni l'inverse, même si les deux sont
- * signés avec la même clé.
+ * La `nature` entre dans la signature : une valeur signée pour un usage ne
+ * peut pas être présentée pour un autre.
  */
 export const signer = async (nature: string, charge: unknown, secret: string): Promise<string> => {
   const corps = base64url(encodeur.encode(JSON.stringify(charge)));

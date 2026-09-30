@@ -11,6 +11,12 @@ name = "luminose-mcp"
 main = "src/index.ts"
 compatibility_date = "2026-01-31"
 
+# Exigé par @cloudflare/workers-oauth-provider pour les Client ID Metadata
+# Documents : les documents des clients sont lus par `fetch`, et ce drapeau
+# interdit que ces lectures atteignent une adresse interne (SSRF). Sans lui,
+# la bibliothèque n'annonce pas CIMD, et Claude ne trouve aucun moyen d'entrer.
+compatibility_flags = ["global_fetch_strictly_public"]
+
 # Une seule adresse. Garder workers.dev ouvert donnerait une seconde origine,
 # dont l'URL de retour Google n'est pas déclarée : la connexion y échouerait,
 # et les métadonnées OAuth y décriraient un serveur que personne n'utilise.
@@ -36,8 +42,9 @@ ALLOWED_EMAIL = "florent@luminose.fr"
 [observability]
 enabled = true
 
-# État OAuth de la couche A : codes d'autorisation et jetons, rangés par
-# empreinte SHA-256 — la base ne contient aucun jeton utilisable tel quel.
+# État OAuth de la couche A, tenu par @cloudflare/workers-oauth-provider :
+# grants, codes et jetons (par empreinte ; les props sont chiffrées), clients
+# préenregistrés. Rien n'y entre avant que Google ait certifié l'adresse admise.
 #
 # Une seule fois, depuis la VM :
 #   npx wrangler kv namespace create OAUTH_KV
@@ -48,6 +55,6 @@ binding = "OAUTH_KV"
 id = "A_REMPLACER"
 
 [dev]
-# 8787 est pris par workers/api. Le retour Google local est donc
-# http://localhost:8788/callback — à déclarer dans le client OAuth.
+# 8787 est pris par workers/api. En local, le parcours OAuth ne va pas au bout :
+# les jetons sont liés à https://mcp.luminose.fr/mcp (voir README).
 port = 8788

@@ -10,12 +10,26 @@ Adresse du connecteur : **`https://mcp.luminose.fr/mcp`** — avec `/mcp`, au ca
 Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche B)──▶ API Google Ads v25
 ```
 
-- **Couche A** — Claude vers ce Worker. Florent se connecte avec son compte Google ; le
-  Worker compare l'adresse certifiée à `ALLOWED_EMAIL` et refuse tout le reste. Ne demande
-  à Google que `openid email`. C'est la couche OAuth qui servira aux outils du corpus.
+- **Couche A** — Claude vers ce Worker, par
+  [`@cloudflare/workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider) (1.2).
+  Claude se présente par un **Client ID Metadata Document** (CIMD) ; pas d'enregistrement
+  dynamique. Florent se connecte avec son compte Google, qui ne livre que `openid email` ;
+  le Worker compare l'adresse certifiée à `ALLOWED_EMAIL` et refuse tout le reste. C'est la
+  couche OAuth qui servira aux outils du corpus.
 - **Couche B** — ce Worker vers Google Ads. Un refresh token (scope `adwords`) posé en
   secret, obtenu une fois. **Aucun en-tête `developer-token`** : il a été supprimé les
   9-10/09/2026, l'accès est porté par le projet Google Cloud.
+
+### Qui fait quoi dans la couche A
+
+| La bibliothèque | Ce Worker ([src/autorisation.ts](src/autorisation.ts)) |
+| :--- | :--- |
+| métadonnées RFC 8414 et RFC 9728, lecture et validation des documents CIMD, `/token` (codes, jetons, rotation, révocation), vérification du porteur sur `/mcp`, CORS | `/authorize` : `parseAuthRequest()`, page de consentement (`describeConsent()`), départ chez Google ; `/callback` : adresse certifiée → `ALLOWED_EMAIL` → `completeAuthorization()` |
+
+**Rien n'entre dans KV avant que Google ait certifié l'adresse admise.** La demande validée
+voyage dans un cookie signé (`__Host-mcp-connexion`, dix minutes) pendant l'aller-retour
+Google ; la première écriture est le grant de `completeAuthorization()`. Un test le vérifie
+sur toutes les requêtes non authentifiées.
 
 ## Les outils
 
@@ -38,12 +52,11 @@ organisation ne propose pas le type « Interne »). Activer la *Google Ads API*.
 niveau d'accès **Explorer** depuis la page « Google Ads API Overview » du projet.
 
 **2. Écran de consentement** : type **Interne**. Puis un client OAuth **« Application Web »**
-avec ces trois URL de retour :
+avec deux URL de retour :
 
 | URL de retour | Pour |
 | :--- | :--- |
-| `https://mcp.luminose.fr/callback` | couche A, production |
-| `http://localhost:8788/callback` | couche A, `wrangler dev` |
+| `https://mcp.luminose.fr/callback` | couche A |
 | `http://localhost:8976/retour` | le script du refresh token (couche B) |
 
 **3. Le refresh token**, sur le Mac (là où s'ouvre le navigateur). Node seul, rien à
@@ -60,7 +73,6 @@ directement : si le compte Luminose y figure, pas besoin de `GOOGLE_ADS_LOGIN_CU
 **4. Sur la VM** :
 
 ```bash
-npm install                                   # nouveau workspace ; si le lockfile bouge, le commiter
 cd workers/mcp
 npx wrangler kv namespace create OAUTH_KV     # reporter l'id dans wrangler.toml, commiter
 cd ../.. && ./scripts/deploy.sh mcp           # crée aussi l'entrée DNS mcp.luminose.fr
@@ -69,16 +81,23 @@ npx wrangler secret put GOOGLE_OAUTH_CLIENT_ID
 npx wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET
 npx wrangler secret put GOOGLE_ADS_REFRESH_TOKEN
 npx wrangler secret put GOOGLE_ADS_CUSTOMER_ID        # dix chiffres, sans tirets
-npx wrangler secret put OAUTH_SIGNING_KEY             # openssl rand -base64 32
+npx wrangler secret put COOKIE_SIGNING_KEY            # openssl rand -base64 32
 # npx wrangler secret put GOOGLE_ADS_LOGIN_CUSTOMER_ID   # seulement derrière un MCC
 ```
 
-Vérification : `curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mcp.luminose.fr/mcp`
-doit répondre `401`.
+Vérifications :
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mcp.luminose.fr/mcp            # 401
+curl -s https://mcp.luminose.fr/.well-known/oauth-authorization-server | grep -o '"client_id_metadata_document_supported":true'
+```
+
+La seconde doit afficher la ligne : sinon le drapeau `global_fetch_strictly_public` n'a pas
+pris, et Claude ne pourra pas entrer.
 
 **5. Dans Claude** : Paramètres → Connecteurs → *Ajouter un connecteur personnalisé*, URL
-`https://mcp.luminose.fr/mcp`, identifiant et secret de client **laissés vides** (Claude
-s'enregistre seul). La connexion ouvre la page de consentement du serveur, puis Google.
+`https://mcp.luminose.fr/mcp`, **paramètres avancés laissés vides** : Claude se présente par
+son document CIMD. La connexion ouvre la page de consentement du serveur, puis Google.
 
 Pour Claude Code :
 
@@ -87,6 +106,24 @@ claude mcp add --transport http google-ads https://mcp.luminose.fr/mcp
 ```
 
 puis `/mcp` dans Claude Code pour se connecter.
+
+## Repli — si claude.ai ne passe pas par CIMD
+
+Symptôme : la page affiche « Client non vérifiable », ou la connexion échoue avant la page
+de consentement. Les journaux du Worker (`npx wrangler tail` depuis la VM) disent pourquoi :
+les échecs de document CIMD y sont écrits, et eux seuls avec les pannes.
+
+Le repli est **un client préenregistré, rien d'autre** — l'enregistrement dynamique reste
+fermé. Le client est public : aucun secret à transporter.
+
+```bash
+node workers/mcp/scripts/client-preenregistre.mjs
+```
+
+Le script fabrique l'enregistrement avec `createClient()` de la bibliothèque, sans rien
+écrire, et affiche la commande `wrangler kv key put … --remote` à lancer depuis la VM. Puis,
+dans Claude, rajouter le connecteur avec l'identifiant affiché en *OAuth Client ID* et le
+secret vide. CIMD reste actif à côté : Claude Code continue de passer par là.
 
 ## Secrets et configuration
 
@@ -97,48 +134,44 @@ puis `/mcp` dans Claude Code pour se connecter.
 | `GOOGLE_ADS_REFRESH_TOKEN` | secret | couche B |
 | `GOOGLE_ADS_CUSTOMER_ID` | secret | compte Luminose, dix chiffres |
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | secret, facultatif | le compte administrateur, s'il y en a un |
-| `OAUTH_SIGNING_KEY` | secret | signe les identifiants de client et le cookie de connexion |
-| `OAUTH_KV` | binding KV | codes et jetons de la couche A, rangés par empreinte SHA-256 |
+| `COOKIE_SIGNING_KEY` | secret | signe le cookie de connexion (le cadrage l'appelait `COOKIE_ENCRYPTION_KEY` : il signe, il ne chiffre pas) |
+| `OAUTH_KV` | binding KV | l'état de la bibliothèque : grants, codes et jetons par empreinte, props chiffrées |
+| `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne |
 
 Un secret absent ne fait pas tomber le Worker : l'outil ou la page concernée **nomme** le
 secret et la commande qui le pose.
 
 ## En local
 
-`npm run dev:mcp` lance `wrangler dev` sur le port 8788, depuis la VM. Le navigateur doit
-joindre `localhost:8788` — depuis le Mac, par un tunnel :
-`ssh -L 8788:localhost:8788 <vm>`. L'inspecteur MCP (`npx @modelcontextprotocol/inspector`,
-transport *Streamable HTTP*, URL `http://localhost:8788/mcp`) fait alors le parcours OAuth
-complet, Google compris.
-
-Plus simple, et sans risque puisque tout est en lecture : déployer, et essayer directement
-depuis Claude.
+`npm run dev:mcp` (depuis la VM) sert les métadonnées et la page `/`, mais le parcours
+OAuth ne va pas au bout : la bibliothèque lie chaque jeton à `https://mcp.luminose.fr/mcp`,
+et refuse de le servir ailleurs. Tout ce qui s'y joue est couvert par les tests
+([test/autorisation.test.ts](test/autorisation.test.ts)) ; le reste s'essaie en production,
+sans risque puisque tout est en lecture.
 
 ## Couper l'accès
 
-- **Tout de suite** : retirer `ALLOWED_EMAIL`, ou le changer. L'adresse est revérifiée à
-  chaque appel ; les jetons déjà délivrés cessent de servir immédiatement.
-- **Les connexions de Claude** : changer `OAUTH_SIGNING_KEY`. Plus aucun rafraîchissement ne
-  passe ; les jetons d'accès meurent dans l'heure.
+- **Tout de suite** : retirer ou changer `ALLOWED_EMAIL`. L'adresse est revérifiée à chaque
+  appel de `/mcp` et à chaque rafraîchissement ; le grant est révoqué au suivant.
 - **L'accès à Google Ads** : révoquer le client sur myaccount.google.com/permissions.
 
 ## Écarts avec le cadrage du 30/09/2026
 
 | Cadrage | Fait | Pourquoi |
 | :--- | :--- | :--- |
-| `workers-oauth-provider` pour la couche A | Serveur d'autorisation écrit ici ([src/oauth.ts](src/oauth.ts)) | Le dépôt interdit à un agent d'installer une dépendance (CLAUDE.md) : la bibliothèque ne pouvait être ni installée ni testée pendant le chantier. Le besoin est étroit — un utilisateur, des clients publics — et tient en un fichier couvert par ses propres tests ([test/oauth.test.ts](test/oauth.test.ts)). Surtout, il permet ce que la bibliothèque ne fait pas : **aucune écriture KV avant que Google ait certifié l'adresse**. L'enregistrement de client est sans état (identifiant signé), la connexion en cours vit dans un cookie signé ; un robot qui martèle `/register` ne peut pas épuiser le quota d'écritures du plan gratuit. Le prix : du code de sécurité à tenir nous-mêmes. Revenir à la bibliothèque ne toucherait que ce fichier. |
-| `COOKIE_ENCRYPTION_KEY` | `OAUTH_SIGNING_KEY` | La clé signe, elle ne chiffre pas. Le nom dit ce qu'elle fait. |
-| Protocole MCP par le SDK, implicitement | Écrit à la main ([src/mcp.ts](src/mcp.ts)) | Même raison de dépendance. La révision **2026-07-28** (sans état, `server/discover` au lieu de `initialize`) est servie, et les révisions 2025 aussi : les clients Claude ne changent pas tous de version le même jour. |
-| — | Une page de consentement avant Google | Exigée par la spécification MCP pour un serveur qui relaie un fournisseur d'identité avec un client unique : sans elle, Google ne redemandant pas un accord déjà donné, un lien piégé vers `/authorize` suffirait. |
-| — | URL de retour limitées à `claude.ai/api/mcp/auth_callback` et aux boucles locales | Un client enregistré par un tiers ne peut pas recevoir de code à sa propre adresse. |
+| `/authorize` : `parseAuthRequest` → Google → `ALLOWED_EMAIL` → `completeAuthorization` | Une **page de consentement** entre `parseAuthRequest` et Google | Avec CIMD, n'importe qui peut publier un document de client pointant vers son propre serveur. Sans consentement, un lien piégé vers `/authorize` suffirait : Google ne redemande pas un accord déjà donné, et le code partirait chez le tiers. La spécification MCP l'exige de tout serveur qui relaie un fournisseur d'identité ; la page affiche ce que `describeConsent()` fournit. |
+| Consentement par les helpers de la bibliothèque, implicitement | Cookie signé à nous, pas `beginConsent()` ni `beginUpstream()` | Ces deux helpers rangent la demande dans KV dès le premier GET, quel que soit l'auteur de la requête : c'est exactement ce que le test « aucune écriture KV sur une requête non authentifiée » interdit. |
+| `COOKIE_ENCRYPTION_KEY` | `COOKIE_SIGNING_KEY` | La clé signe, elle ne chiffre pas. |
+| Protocole MCP par le SDK, implicitement | Écrit à la main ([src/mcp.ts](src/mcp.ts)) | La révision **2026-07-28** (sans état, `server/discover` au lieu de `initialize`) est servie, et les révisions 2025 aussi : les clients Claude ne changent pas tous de version le même jour. |
 | Comptes « sous MCC s'il y en a un » | Le compte Luminose et le compte administrateur lui-même | Un MCC peut gérer des comptes qui ne sont pas ceux de Luminose. En ajouter un est une ligne dans `comptesAutorises`. |
 | DNS à faire à la main (§10, étape 3) | `custom_domain = true` dans wrangler.toml | Le premier déploiement crée l'entrée. |
 | Cible `mcp` « à côté de `api` » | À côté, mais hors de « tout » | Une fonctionnalité en plus ne doit jamais pouvoir faire échouer le déploiement des autres. |
-| Outil `ping` à l'étape 1 | Non conservé | Le protocole a sa propre méthode `ping` ; un outil de plus serait un outil que le modèle essaierait. |
+| Critères d'acceptation « en local » (étapes 1 à 4) | Tests, puis production | Les jetons sont liés à l'URL de production (voir « En local »). |
 
 ## Questions encore ouvertes
 
 1. **Le compte est-il sous un MCC ?** Le script de l'étape 3 répond : il liste les comptes
    visibles directement.
-2. **`mcp.luminose.fr`** est supposé. Autre nom : changer `routes` dans wrangler.toml et
-   l'URL de retour du client Google.
+2. **`mcp.luminose.fr`** est supposé. Autre nom : changer `RESSOURCE` dans
+   [src/index.ts](src/index.ts), `routes` dans wrangler.toml, et l'URL de retour du client
+   Google.

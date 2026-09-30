@@ -1,6 +1,14 @@
+import type { OAuthHelpers } from '@cloudflare/workers-oauth-provider';
+
 export type Env = {
-  /** État OAuth de la couche A (codes, jetons d'accès, jetons de rafraîchissement). */
+  /**
+   * État OAuth de la couche A, tenu par @cloudflare/workers-oauth-provider :
+   * grants, codes, jetons (par empreinte), clients préenregistrés.
+   */
   OAUTH_KV: KVNamespace;
+
+  /** Posé par la bibliothèque pour le gestionnaire de /authorize et /callback. */
+  OAUTH_PROVIDER: OAuthHelpers;
 
   /**
    * Couche A — la seule adresse admise. Posée dans [vars] de wrangler.toml.
@@ -28,9 +36,9 @@ export type Env = {
   GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
 
   /**
-   * Signe les identifiants de client (enregistrement dynamique) et le cookie
-   * de connexion. `openssl rand -base64 32`. Le changer invalide les clients
-   * enregistrés : Claude se réenregistre, rien d'autre ne casse.
+   * Signe le cookie qui porte la demande d'autorisation pendant l'aller-retour
+   * chez Google. `openssl rand -base64 32`. Le changer n'invalide que les
+   * connexions en cours depuis moins de dix minutes.
    */
-  OAUTH_SIGNING_KEY?: string;
+  COOKIE_SIGNING_KEY?: string;
 };

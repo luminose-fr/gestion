@@ -130,8 +130,9 @@ packages/{subtitles, psychedelics} ──▶ (rien)
 - Le front n'importe **jamais** `packages/ai` : les clés d'API vivent dans le Worker.
 - `workers/mcp` ne partage avec `workers/api` ni code, ni secret, ni binding. Son
   authentification n'est pas celle de la console (OAuth pour Claude), et une erreur de
-  configuration de l'un ne doit pas pouvoir exposer l'autre. Seule dépendance runtime :
-  `zod`. Mise en place et écarts avec le cadrage : `workers/mcp/README.md`.
+  configuration de l'un ne doit pas pouvoir exposer l'autre. Dépendances runtime :
+  `zod` et `@cloudflare/workers-oauth-provider`. Mise en place et écarts avec le cadrage :
+  `workers/mcp/README.md`.
 
 ### 1.2 Une seule origine
 

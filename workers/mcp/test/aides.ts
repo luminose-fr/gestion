@@ -2,36 +2,64 @@
  * Un KV de comptoir, un Google de comptoir, et de quoi appeler le Worker.
  */
 import { vi } from 'vitest';
-import worker from '../src/index';
+import { getOAuthApi } from '@cloudflare/workers-oauth-provider';
+import worker, { OPTIONS } from '../src/index';
 import { empreinte } from '../src/crypto';
 import { oublierJetonAds } from '../src/google-ads';
 import type { Env } from '../src/env';
 
-export const ORIGINE = 'https://mcp.test';
+export const ORIGINE = 'https://mcp.luminose.fr';
+export const RESSOURCE = `${ORIGINE}/mcp`;
 export const COMPTE = '1234567890';
 export const ADRESSE = 'florent@luminose.fr';
+export const CLAUDE = 'https://claude.ai/api/mcp/auth_callback';
 
-/** KV en mémoire, qui respecte `expirationTtl` : un code de 60 s meurt vraiment. */
+type Entree = { valeur: string; expire?: number; metadata?: unknown };
+
+/**
+ * KV en mémoire, qui respecte `expirationTtl` et les métadonnées de clé — la
+ * bibliothèque retrouve les grants d'un utilisateur par `list()` sur leurs
+ * métadonnées. Chaque écriture est consignée : c'est ce que vérifie le test
+ * « aucune écriture KV avant l'identification ».
+ */
 export const kvFactice = () => {
-  const entrees = new Map<string, { valeur: string; expire?: number }>();
+  const entrees = new Map<string, Entree>();
+  const ecritures: string[] = [];
+  const vivante = (e: Entree | undefined) => e && (e.expire === undefined || e.expire > Date.now());
   const kv = {
     entrees,
-    async get(cle: string, type?: string) {
+    ecritures,
+    async get(cle: string, type?: string | { type?: string }) {
       const e = entrees.get(cle);
-      if (!e || (e.expire !== undefined && e.expire <= Date.now())) return null;
-      return type === 'json' ? JSON.parse(e.valeur) : e.valeur;
+      if (!vivante(e)) return null;
+      const t = typeof type === 'string' ? type : type?.type;
+      return t === 'json' ? JSON.parse(e!.valeur) : e!.valeur;
     },
-    async put(cle: string, valeur: string, options?: { expirationTtl?: number }) {
-      entrees.set(cle, { valeur, expire: options?.expirationTtl ? Date.now() + options.expirationTtl * 1000 : undefined });
+    async put(cle: string, valeur: string, options?: { expirationTtl?: number; metadata?: unknown }) {
+      ecritures.push(`put ${cle}`);
+      entrees.set(cle, {
+        valeur,
+        expire: options?.expirationTtl ? Date.now() + options.expirationTtl * 1000 : undefined,
+        metadata: options?.metadata,
+      });
     },
     async delete(cle: string) {
+      ecritures.push(`delete ${cle}`);
       entrees.delete(cle);
+    },
+    async list(options: { prefix?: string } = {}) {
+      const keys = [...entrees.entries()]
+        .filter(([cle, e]) => cle.startsWith(options.prefix ?? '') && vivante(e))
+        .map(([name, e]) => ({ name, metadata: e.metadata }));
+      return { keys, list_complete: true, cursor: undefined };
     },
   };
   return kv as typeof kv & KVNamespace;
 };
 
-export const creerEnv = (surcharges: Partial<Env> = {}): Env & { OAUTH_KV: ReturnType<typeof kvFactice> } => {
+export type EnvFactice = Env & { OAUTH_KV: ReturnType<typeof kvFactice> };
+
+export const creerEnv = (surcharges: Partial<Env> = {}): EnvFactice => {
   oublierJetonAds();
   return {
     OAUTH_KV: kvFactice(),
@@ -40,22 +68,52 @@ export const creerEnv = (surcharges: Partial<Env> = {}): Env & { OAUTH_KV: Retur
     GOOGLE_OAUTH_CLIENT_SECRET: 'secret-google',
     GOOGLE_ADS_REFRESH_TOKEN: 'refresh-ads',
     GOOGLE_ADS_CUSTOMER_ID: COMPTE,
-    OAUTH_SIGNING_KEY: 'cle-de-signature-de-test',
+    COOKIE_SIGNING_KEY: 'cle-de-signature-de-test',
     ...surcharges,
-  } as Env & { OAUTH_KV: ReturnType<typeof kvFactice> };
+  } as EnvFactice;
 };
+
+const contexte = () => ({ waitUntil() {}, passThroughOnException() {}, props: {} }) as unknown as ExecutionContext;
 
 export const appeler = (env: Env, chemin: string, init: RequestInit = {}) =>
-  worker.fetch(new Request(ORIGINE + chemin, init), env);
+  worker.fetch(new Request(ORIGINE + chemin, init), env, contexte());
 
-/** Un jeton d'accès valide, posé directement dans KV — pour tester /mcp sans rejouer OAuth. */
-export const jetonValide = async (env: Env, email = ADRESSE): Promise<string> => {
-  const jeton = 'jeton-acces-de-test';
-  await env.OAUTH_KV.put(`acces:${await empreinte(jeton)}`, JSON.stringify({
-    c: 'client', email, res: `${ORIGINE}/mcp`, e: Date.now() + 3_600_000,
-  }), { expirationTtl: 3600 });
-  return jeton;
+/** Les helpers de la bibliothèque, hors requête — comme le fera le script de repli. */
+export const api = (env: Env) => getOAuthApi(OPTIONS, env);
+
+export const VERIFICATEUR = 'verificateur-pkce-de-claude-assez-long-pour-la-rfc-7636';
+
+/**
+ * Un jeton d'accès délivré par la bibliothèque elle-même : client préenregistré,
+ * grant complété, code échangé sur /token. Sans rejouer Google à chaque test.
+ */
+export const obtenirJetons = async (env: Env, email = ADRESSE) => {
+  const client = await api(env).createClient({
+    redirectUris: [CLAUDE], clientName: 'Claude (test)', tokenEndpointAuthMethod: 'none',
+  });
+  const { redirectTo } = await api(env).completeAuthorization({
+    request: {
+      responseType: 'code', clientId: client.clientId, redirectUri: CLAUDE, scope: [], state: 'etat',
+      codeChallenge: await empreinte(VERIFICATEUR), codeChallengeMethod: 'S256', resource: RESSOURCE,
+    },
+    userId: email,
+    metadata: {},
+    scope: [],
+    props: { email },
+  });
+  const reponse = await appeler(env, '/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code', code: new URL(redirectTo).searchParams.get('code')!,
+      code_verifier: VERIFICATEUR, client_id: client.clientId, redirect_uri: CLAUDE,
+    }).toString(),
+  });
+  const jetons = await reponse.json() as { access_token: string; refresh_token: string };
+  return { ...jetons, clientId: client.clientId };
 };
+
+export const jetonValide = async (env: Env, email = ADRESSE) => (await obtenirJetons(env, email)).access_token;
 
 export type Appel = { url: string; methode: string; entetes: Record<string, string>; corps: string };
 
@@ -86,7 +144,7 @@ export const simulerFetch = (repondre: (appel: Appel) => Response | undefined = 
 export const requeteModerne = (jeton: string, methode: string, params: Record<string, unknown> = {}, id: number | string = 1) => ({
   method: 'POST',
   headers: {
-    Authorization: `Bearer ${jeton}`,
+    ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
     'Content-Type': 'application/json',
     Accept: 'application/json, text/event-stream',
     'MCP-Protocol-Version': '2026-07-28',

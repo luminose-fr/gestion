@@ -24,10 +24,11 @@ const heritee = (jeton: string, corps: Record<string, unknown>, version: string 
 describe('la porte', () => {
   it('répond 401 sans jeton, avec l’adresse des métadonnées — c’est ce qui déclenche la connexion côté Claude', async () => {
     const env = creerEnv();
-    const reponse = await appeler(env, '/mcp', requeteModerne('', 'tools/list'));
+    const init = requeteModerne('', 'tools/list');
+    const reponse = await appeler(env, '/mcp', { ...init, headers: { ...init.headers, Origin: 'http://localhost:6274' } });
     expect(reponse.status).toBe(401);
     expect(reponse.headers.get('WWW-Authenticate'))
-      .toBe(`Bearer resource_metadata="${ORIGINE}/.well-known/oauth-protected-resource/mcp"`);
+      .toMatch(`resource_metadata="${ORIGINE}/.well-known/oauth-protected-resource/mcp"`);
     // L'inspecteur MCP, dans un navigateur, doit pouvoir lire cet en-tête.
     expect(reponse.headers.get('Access-Control-Expose-Headers')).toMatch(/WWW-Authenticate/);
   });
@@ -83,10 +84,12 @@ describe('la porte', () => {
     expect((await avecOrigine(ORIGINE)).status).toBe(200);
   });
 
-  it('répond au préflight CORS', async () => {
-    const reponse = await appeler(creerEnv(), '/mcp', { method: 'OPTIONS' });
+  it('répond au préflight CORS de l’inspecteur', async () => {
+    const reponse = await appeler(creerEnv(), '/mcp', {
+      method: 'OPTIONS', headers: { Origin: 'http://localhost:6274', 'Access-Control-Request-Method': 'POST' },
+    });
     expect(reponse.status).toBe(204);
-    expect(reponse.headers.get('Access-Control-Allow-Headers')).toMatch(/Mcp-Method/);
+    expect(reponse.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:6274');
   });
 });
 
