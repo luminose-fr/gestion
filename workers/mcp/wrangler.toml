@@ -1,0 +1,60 @@
+# Worker MCP — Claude interroge Google Ads, en lecture seule.
+#
+# UN WORKER À PART, et pas une route de workers/api : l'authentification n'est
+# pas celle de la console (OAuth pour Claude, là où la console signe ses propres
+# jetons), et une erreur de configuration ici ne doit pas pouvoir exposer l'API
+# de l'application. Les deux Workers ne partagent ni secret ni binding.
+#
+# Mise en place : workers/mcp/README.md.
+
+name = "luminose-mcp"
+main = "src/index.ts"
+compatibility_date = "2026-01-31"
+
+# Exigé par @cloudflare/workers-oauth-provider pour les Client ID Metadata
+# Documents : les documents des clients sont lus par `fetch`, et ce drapeau
+# interdit que ces lectures atteignent une adresse interne (SSRF). Sans lui,
+# la bibliothèque n'annonce pas CIMD, et Claude ne trouve aucun moyen d'entrer.
+compatibility_flags = ["global_fetch_strictly_public"]
+
+# Une seule adresse. Garder workers.dev ouvert donnerait une seconde origine,
+# dont l'URL de retour Google n'est pas déclarée : la connexion y échouerait,
+# et les métadonnées OAuth y décriraient un serveur que personne n'utilise.
+workers_dev = false
+preview_urls = false
+
+# `custom_domain` crée l'enregistrement DNS au premier déploiement : pas de
+# manipulation à faire dans le tableau de bord. La zone luminose.fr est déjà
+# chez Cloudflare (voir workers/api/wrangler.toml).
+#
+# ATTENTION TOML : cette clé doit rester AVANT tout en-tête de table — placée
+# après [vars] ou [[kv_namespaces]], elle serait lue comme un champ de cette
+# table et ignorée, et le déploiement réussirait sans domaine.
+routes = [
+  { pattern = "mcp.luminose.fr", custom_domain = true }
+]
+
+[vars]
+# Couche A : la seule adresse admise à se connecter (cadrage du 30/09/2026).
+# Pas un secret — la voir ici, c'est pouvoir la relire en revue.
+ALLOWED_EMAIL = "florent@luminose.fr"
+
+[observability]
+enabled = true
+
+# État OAuth de la couche A, tenu par @cloudflare/workers-oauth-provider :
+# grants, codes et jetons (par empreinte ; les props sont chiffrées), clients
+# préenregistrés. Rien n'y entre avant que Google ait certifié l'adresse admise.
+#
+# Une seule fois, depuis la VM :
+#   npx wrangler kv namespace create OAUTH_KV
+# puis reporter l'identifiant ci-dessous. Tant qu'il vaut A_REMPLACER,
+# `./scripts/deploy.sh mcp` refuse de partir plutôt que d'échouer chez Cloudflare.
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "A_REMPLACER"
+
+[dev]
+# 8787 est pris par workers/api. En local, le parcours OAuth ne va pas au bout :
+# les jetons sont liés à https://mcp.luminose.fr/mcp (voir README).
+port = 8788

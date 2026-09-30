@@ -13,6 +13,7 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #   ./scripts/deploy.sh              # tout : tests → migrations → api → app
 #   ./scripts/deploy.sh api          # seulement le Worker (et ses migrations)
 #   ./scripts/deploy.sh app          # seulement le front
+#   ./scripts/deploy.sh mcp          # seulement le Worker MCP (mcp.luminose.fr)
 #   SKIP_TESTS=1 ./scripts/deploy.sh # sans la suite de tests (à éviter)
 #   DRY_RUN=1 npm run deploy         # joue les tests, affiche le reste sans l'exécuter
 #
@@ -24,6 +25,13 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #   npx wrangler secret put ONE_MIN_API_KEY
 #   npx wrangler secret put AUTH_USERNAME
 #   npx wrangler secret put AUTH_PASSWORD
+#
+# Le Worker MCP a ses propres prérequis : workers/mcp/README.md.
+#
+# `mcp` N'EST PAS dans la cible par défaut : il part quand on le nomme. Sa mise
+# en place (KV, secrets, client OAuth Google) est indépendante, et une
+# fonctionnalité en plus ne doit jamais pouvoir faire échouer le déploiement de
+# celles d'avant.
 #
 # ORDRE : le Worker est déployé AVANT le front. L'API est rétro-compatible le
 # temps d'un déploiement ; l'inverse n'est pas vrai — un front neuf appelant une
@@ -108,6 +116,22 @@ if has api && need_dir workers/api api; then
   ok "Worker déployé (routes /api/* et /auth/* de wrangler.toml)"
 fi
 
+# ─── Worker MCP ──────────────────────────────────────────────────────────────
+MCP_PARTI=0
+if has mcp && need_dir workers/mcp mcp; then
+  if grep -q '^id = "A_REMPLACER"' workers/mcp/wrangler.toml; then
+    # Mieux vaut s'arrêter ici en donnant la commande qu'échouer chez
+    # Cloudflare sur un identifiant de namespace inconnu.
+    warn "workers/mcp : l'identifiant du namespace OAUTH_KV n'est pas renseigné — cible « mcp » ignorée."
+    warn "  cd workers/mcp && npx wrangler kv namespace create OAUTH_KV   (puis reporter l'id dans wrangler.toml)"
+  else
+    step "Worker MCP"
+    ( cd workers/mcp && run npx wrangler deploy )
+    ok "Worker MCP déployé (https://mcp.luminose.fr/mcp)"
+    MCP_PARTI=1
+  fi
+fi
+
 # ─── Front ───────────────────────────────────────────────────────────────────
 if has app && need_dir apps/manager app; then
   step "Front → Pages ${PAGES_PROJECT} (production : ${PAGES_BRANCH})"
@@ -125,6 +149,20 @@ fi
 
 # ─── Vérifications ───────────────────────────────────────────────────────────
 step "Vérifications suggérées"
+if [ "$MCP_PARTI" = 1 ]; then
+  cat <<EOF
+  - curl -s -o /dev/null -w '%{http_code}\n' -X POST https://mcp.luminose.fr/mcp   # attendu : 401
+  - curl -s https://mcp.luminose.fr/.well-known/oauth-protected-resource          # resource = …/mcp
+  - Dans Claude : « quel a été le coût par conversion le mois dernier ? »
+EOF
+fi
+# Une cible demandée et ignorée ne se solde pas par « terminé » : le code de
+# sortie le dit, après que le reste est parti.
+fin() {
+  if has mcp && [ "$MCP_PARTI" = 0 ]; then warn "Le Worker MCP n'est PAS parti (voir plus haut)."; exit 1; fi
+  ok "Déploiement terminé"
+}
+if ! has api && ! has app; then fin; exit 0; fi
 cat <<EOF
   - curl -s -o /dev/null -w '%{http_code}\n' ${APP_URL}/api/contents   # attendu : 401
   - curl -s -o /dev/null -w '%{http_code}\n' -X POST ${APP_URL}/auth/login \\
@@ -134,4 +172,4 @@ cat <<EOF
   - Ouvrir Réglages → Modèles IA, lancer un test de modèle
   - Ouvrir un contenu, lancer une action IA de bout en bout
 EOF
-ok "Déploiement terminé"
+fin

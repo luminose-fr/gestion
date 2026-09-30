@@ -18,6 +18,7 @@ l'application cassée.
 npm install
 npm run dev            # front Vite sur :7860
 npm run dev:api        # wrangler dev sur :8787 (D1 local, migrations auto)
+npm run dev:mcp        # Worker MCP sur :8788 (workers/mcp/README.md)
 npm test               # vitest, tous les workspaces
 npm run typecheck      # tsc --noEmit, tous les workspaces
 npm run deploy         # ./scripts/deploy.sh
