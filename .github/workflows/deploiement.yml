@@ -26,6 +26,10 @@
 # AUTH_USERNAME, AUTH_PASSWORD) ne sont PAS ici : ils vivent chez Cloudflare,
 # posés par `wrangler secret put`, et `wrangler deploy` ne les touche pas.
 # Vérification en dix secondes après le premier passage : se connecter.
+#
+# Cible `mcp` : le PREMIER déploiement se fait depuis la VM — il crée le
+# domaine mcp.luminose.fr, ce que le modèle « Edit Cloudflare Workers » ne
+# couvre pas forcément. Les suivants peuvent partir d'ici.
 
 name: Déploiement Cloudflare
 
@@ -33,13 +37,16 @@ on:
   workflow_dispatch:
     inputs:
       cible:
-        description: "Ce qui part"
+        # « tout » = api + app. Le Worker MCP part seul, quand on le nomme :
+        # sa mise en place est indépendante (workers/mcp/README.md).
+        description: "Ce qui part — « tout » = api + app ; mcp à part"
         type: choice
         default: tout
         options:
           - tout
           - api
           - app
+          - mcp
       repetition:
         description: "Répétition — joue les tests, affiche les commandes sans les exécuter"
         type: boolean
@@ -122,6 +129,10 @@ jobs:
             echo "### ${ETAT} — cible \`${CIBLE}\`"
             [ "$REPETITION" = "true" ] && echo "> Répétition : **rien n'a été publié**."
             echo ""
-            echo "- https://gestion.luminose.fr"
-            echo "- Corpus → État : l'empreinte doit avoir changé si le corpus a bougé"
+            if [ "$CIBLE" = "mcp" ]; then
+              echo "- https://mcp.luminose.fr/mcp — attendu : 401 sans jeton"
+            else
+              echo "- https://gestion.luminose.fr"
+              echo "- Corpus → État : l'empreinte doit avoir changé si le corpus a bougé"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
