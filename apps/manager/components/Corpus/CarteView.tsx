@@ -791,6 +791,8 @@ const CarteView: React.FC = () => {
           { titre: 'Pas de serveur MCP en premier.', texte: "Il ne couvre ni Gemini grand public, ni OpenRouter, ni 1min.ai — la moitié du parc ne verrait rien. Il servira à écrire depuis une conversation, pas à lire un socle stable : un bloc de contexte fait ça mieux." },
           { titre: "Pas d'arborescence à huit dossiers.", texte: "Six blocs, chacun justifié par un cas d'usage qui le charge et un cas d'usage qui doit l'ignorer." },
           { titre: 'Pas de corpus dans packages/editorial.', texte: "Rythmes différents : ajouter un témoignage y deviendrait une revue de fixture golden. Le sens de la dépendance est l'inverse — c'est le corpus qui engendre voice.ts." },
+          { titre: 'Pas de chiffres Google Ads dans le corpus.', texte: "canaux/google-ads.md porte les décisions et les contraintes : budget, cible, valeurs de conversion, cadre déontologique. Les coûts, clics et conversions se consultent en direct par le serveur MCP. Une donnée qu'on peut réinterroger n'a rien à faire dans le corpus, où elle serait fausse dès le lendemain." },
+          { titre: "Pas d'écriture dans Google Ads depuis Claude.", texte: "Le serveur MCP est en lecture seule, et un test vérifie qu'aucune modification ne peut partir. Une annonce doit passer le cadre déontologique — aucune promesse de guérison — et ce serveur ne connaît pas le corpus : cette vérification ne peut pas lui être déléguée." },
           { titre: "Pas d'édition du corpus depuis l'application — RENVERSÉ le 30/08/2026.", renverse: true,
             texte: "La règle disait « deux copies modifiables, c'est la maladie réinstallée dans le remède ». Elle a été relue : ce qui compte est « une seule copie modifiable », pas « l'application ne parle jamais à Git ». L'application écrit dans Git — copie unique, versionnée — et toujours pas dans le bundle qu'elle sert. La lecture stricte coûtait un aller-retour par correction." },
         ]} />
@@ -806,7 +808,7 @@ const CarteView: React.FC = () => {
           { titre: 'La feuille du Rédacteur double son prompt.', texte: "Le poste discutable est canaux : il reçoit toutes les fiches de canal alors qu'il écrit pour un seul, et le format cible est connu à l'appel. Le jour où ça pèse, c'est là qu'il faut couper — et nulle part ailleurs." },
           { titre: "Le hash du corpus n'est pas figé dans les générations.", texte: "model_label l'est déjà, pour survivre à la suppression d'un modèle. Faire pareil avec le hash du corpus rendrait « pourquoi ce contenu dit-il ça ? » répondable des mois plus tard. Proposé le 26/08, jamais fait." },
           { titre: 'Les URLs en texte brut du corpus.', texte: "Le plus petit dénominateur commun, servi depuis le même bundle et découpé par exposition : public pour les offres et le positionnement, privé pour la stratégie et les objections. En complément d'un pack collé, jamais à sa place." },
-          { titre: "Le serveur MCP, pour l'écriture.", texte: "Créer une idée ou rattacher une déclinaison depuis une conversation. Volontairement le dernier de la liste ; le point dur n'est pas le protocole, c'est OAuth." },
+          { titre: "Le serveur MCP, pour l'écriture.", texte: "Créer une idée ou rattacher une déclinaison depuis une conversation. Le point dur annoncé, OAuth, est levé : mcp.luminose.fr tourne depuis le 30/09/2026, avec la connexion Google (une seule adresse admise) et des outils Google Ads en lecture. Les outils du corpus s'y ajouteront derrière la même connexion ; reste à les écrire." },
         ]} />
       </Section>
 

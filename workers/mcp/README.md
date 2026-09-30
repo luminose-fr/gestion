@@ -168,10 +168,10 @@ sans risque puisque tout est en lecture.
 | Cible `mcp` « à côté de `api` » | À côté, mais hors de « tout » | Une fonctionnalité en plus ne doit jamais pouvoir faire échouer le déploiement des autres. |
 | Critères d'acceptation « en local » (étapes 1 à 4) | Tests, puis production | Les jetons sont liés à l'URL de production (voir « En local »). |
 
-## Questions encore ouvertes
+## Tranché le 30/09/2026, au premier branchement
 
-1. **Le compte est-il sous un MCC ?** Le script de l'étape 3 répond : il liste les comptes
-   visibles directement.
-2. **`mcp.luminose.fr`** est supposé. Autre nom : changer `RESSOURCE` dans
-   [src/index.ts](src/index.ts), `routes` dans wrangler.toml, et l'URL de retour du client
-   Google.
+1. **Pas de compte administrateur (MCC).** Le compte Luminose, `5272252272`, est visible en
+   accès direct : `GOOGLE_ADS_LOGIN_CUSTOMER_ID` est inutile.
+2. **`mcp.luminose.fr`** est en service. Changer de nom demanderait de modifier `RESSOURCE`
+   dans [src/index.ts](src/index.ts), `routes` dans wrangler.toml, et l'URL de retour du
+   client Google.
