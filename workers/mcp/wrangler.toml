@@ -52,7 +52,7 @@ enabled = true
 # `./scripts/deploy.sh mcp` refuse de partir plutôt que d'échouer chez Cloudflare.
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "A_REMPLACER"
+id = "f52db199460f4d1296346f4f7077b3ce"
 
 [dev]
 # 8787 est pris par workers/api. En local, le parcours OAuth ne va pas au bout :
