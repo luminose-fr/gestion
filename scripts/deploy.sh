@@ -74,6 +74,33 @@ need_dir() {
   fi
 }
 
+# ─── Le Worker MCP est-il prêt à partir ? ────────────────────────────────────
+# Vérifié AVANT les tests. Le 01/10/2026, l'avertissement tombait après deux
+# écrans de sortie de tests, et le déploiement semblait « planter » sur eux.
+# On nomme l'identifiant qui manque et la commande qui le donne.
+MCP_PRET=1
+if has mcp && [ -f workers/mcp/wrangler.toml ]; then
+  if grep -q '^id = "A_REMPLACER"' workers/mcp/wrangler.toml; then
+    MCP_PRET=0
+    warn "workers/mcp/wrangler.toml : l'id du namespace OAUTH_KV vaut encore A_REMPLACER."
+    warn "  cd workers/mcp && npx wrangler kv namespace create OAUTH_KV"
+  fi
+  if grep -q '^database_id = "A_REMPLACER"' workers/mcp/wrangler.toml; then
+    MCP_PRET=0
+    warn "workers/mcp/wrangler.toml : database_id (base du journal luminose-mcp) vaut encore A_REMPLACER."
+    warn "  cd workers/mcp && npx wrangler d1 create luminose-mcp --location weur"
+    warn "  (déjà créée ? npx wrangler d1 list donne son identifiant)"
+  fi
+  if [ "$MCP_PRET" = 0 ]; then
+    warn "Reporter l'identifiant dans workers/mcp/wrangler.toml, commiter, relancer."
+    if [ ${#TARGETS[@]} -eq 1 ]; then
+      warn "Rien d'autre à déployer : arrêt avant les tests."
+      exit 1
+    fi
+    warn "La cible « mcp » sera ignorée ; les autres partent."
+  fi
+fi
+
 # ─── Garde-fous ──────────────────────────────────────────────────────────────
 if [ -n "$(git status --porcelain)" ]; then
   warn "Arbre de travail non propre — on déploie du code non commité."
@@ -119,12 +146,8 @@ fi
 # ─── Worker MCP ──────────────────────────────────────────────────────────────
 MCP_PARTI=0
 if has mcp && need_dir workers/mcp mcp; then
-  if grep -qE '^(database_)?id = "A_REMPLACER"' workers/mcp/wrangler.toml; then
-    # Mieux vaut s'arrêter ici en donnant la commande qu'échouer chez
-    # Cloudflare sur un identifiant inconnu.
-    warn "workers/mcp : un identifiant de wrangler.toml vaut encore A_REMPLACER — cible « mcp » ignorée."
-    warn "  cd workers/mcp && npx wrangler kv namespace create OAUTH_KV          (namespace OAUTH_KV)"
-    warn "  cd workers/mcp && npx wrangler d1 create luminose-mcp --location weur (base du journal)"
+  if [ "$MCP_PRET" = 0 ]; then
+    warn "Worker MCP ignoré : identifiant manquant dans wrangler.toml (voir tout en haut)."
   else
     step "Migrations D1 du Worker MCP (journal des écritures)"
     # Avant le Worker, comme pour l'API : un Worker neuf qui écrit dans une

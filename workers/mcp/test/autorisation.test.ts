@@ -137,6 +137,9 @@ describe('NORMATIF — aucune écriture KV sur une requête non authentifiée', 
   it('ni la découverte, ni /mcp, ni /token, ni le consentement, ni un retour Google refusé n’écrivent', async () => {
     const env = creerEnv();
     const inconnu = 'https://claude.ai/oauth/client-inconnu';
+    // Le seul message attendu : le document du client inconnu, introuvable.
+    const avertissements = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    simulerFetch(({ url }) => (url === CLIENT_CIMD ? Response.json(documentClient()) : url === inconnu ? new Response('', { status: 404 }) : undefined));
 
     // Découverte, préflight, enregistrement désactivé.
     await appeler(env, '/.well-known/oauth-authorization-server');
@@ -154,7 +157,6 @@ describe('NORMATIF — aucune écriture KV sur une requête non authentifiée', 
     await echanger(env, { grant_type: 'authorization_code', code: 'x', client_id: 'client-invente' });
 
     // Le consentement et le départ chez Google, pour un client connu comme inconnu.
-    simulerFetch(({ url }) => (url === CLIENT_CIMD ? Response.json(documentClient()) : url === inconnu ? new Response('', { status: 404 }) : undefined));
     await appeler(env, await demande({ client_id: inconnu }));
     await appeler(env, await demande({ client_id: 'client-invente' }));
     await appeler(env, await demande({ code_challenge: null }));
@@ -173,6 +175,8 @@ describe('NORMATIF — aucune écriture KV sur une requête non authentifiée', 
     }
 
     expect(env.OAUTH_KV.ecritures).toEqual([]);
+    expect(avertissements.mock.calls.map((a) => String(a[0])).every((m) => m.includes(inconnu))).toBe(true);
+    expect(avertissements).toHaveBeenCalled();
 
     // Le témoin : l'adresse admise, elle, écrit — le test sait voir une écriture.
     simulerExterieur();
@@ -229,11 +233,14 @@ describe('liste d’autorisation — une adresse hors liste n’obtient ni grant
 describe('/authorize', () => {
   it('ne redirige nulle part pour un client qu’on ne peut pas vérifier', async () => {
     const env = creerEnv();
+    const avertissements = vi.spyOn(console, 'warn').mockImplementation(() => {});
     simulerExterieur({ document: null });
     const cimd = await appeler(env, await demande());
     expect(cimd.status).toBe(400);
     expect(cimd.headers.get('Location')).toBeNull();
     expect(await cimd.text()).toMatch(/Client non vérifiable/);
+    // L'échec du document est journalisé : c'est par là qu'on saura si un client ne passe pas.
+    expect(String(avertissements.mock.calls[0]?.[0])).toMatch(/CIMD fetch failed for https:\/\/claude\.ai\/oauth\/client-de-test/);
 
     const inconnu = await appeler(env, await demande({ client_id: 'client-invente' }));
     expect(inconnu.status).toBe(400);
