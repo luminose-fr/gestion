@@ -343,6 +343,7 @@ describe('NORMATIF — V5 : aucun chemin hors de la table ne peut être émis', 
 describe('NORMATIF — V7 : si la ligne du journal ne s’écrit pas, Google n’est pas appelé', () => {
   it('base en panne', async () => {
     const env = creerEnv();
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
     const appels = simulerAds();
     const apercu = await appelerOutil(env, 'ads_mettre_en_pause', PAUSE, LIRE_ECRIRE);
     env.DB = d1EnPanne() as never;
@@ -350,10 +351,13 @@ describe('NORMATIF — V7 : si la ligne du journal ne s’écrit pas, Google n�
 
     expect(texteDe(corps)).toMatch(/journal des écritures n'a pas pu s'écrire : rien n'est parti/);
     expect(executions(appels)).toEqual([]);
+    // Une base qui ne répond pas est une panne : elle part dans les journaux.
+    expect(String(erreurs.mock.calls[0]?.[0])).toMatch(/Journal des écritures indisponible/);
   });
 
   it('l’insertion seule échoue', async () => {
     const env = creerEnv();
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
     const appels = simulerAds();
     const apercu = await appelerOutil(env, 'ads_mettre_en_pause', PAUSE, LIRE_ECRIRE);
     const base = env.DB;
@@ -368,6 +372,7 @@ describe('NORMATIF — V7 : si la ligne du journal ne s’écrit pas, Google n�
 
     expect(texteDe(corps)).toMatch(/rien n'est parti/);
     expect(executions(appels)).toEqual([]);
+    expect(String(erreurs.mock.calls[0]?.[0])).toMatch(/Journal des écritures indisponible/);
   });
 
   it('un refus de Google à l’exécution est journalisé, et le dit', async () => {
