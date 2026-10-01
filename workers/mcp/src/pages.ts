@@ -39,6 +39,9 @@ const gabarit = (titre: string, corps: string) => `<!doctype html>
   .alerte { color: var(--alerte); border: 1px solid var(--alerte); border-radius: 8px; padding: 0.75rem; font-size: 0.875rem; }
   button { font: inherit; font-weight: 600; background: var(--bouton); color: var(--sur-bouton); border: 0; border-radius: 8px; padding: 0.75rem 1.25rem; cursor: pointer; }
   code { font-size: 0.875em; }
+  fieldset { border: 1px solid var(--bord); border-radius: 8px; padding: 0.75rem; margin: 0 0 1rem; }
+  label { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.875rem; }
+  label + label { margin-top: 0.5rem; }
 </style>
 </head>
 <body><main>
@@ -66,6 +69,8 @@ export const page = (statut: number, titre: string, message: string, entetes: Re
  */
 export const pageConsentement = (options: {
   description: ConsentDescription;
+  /** La case « écrire » arrive cochée si le client l'a demandée — jamais sinon. */
+  ecrireCoche: boolean;
   jeton: string;
   cookie: string;
 }) => {
@@ -74,12 +79,16 @@ export const pageConsentement = (options: {
     ? `Client publié par <strong>${echapper(d.clientDomain)}</strong>.`
     : "Client préenregistré sur ce serveur.";
   const corps = `<h1>Connecter Claude à Google Ads</h1>
-<p><strong>${echapper(d.clientName)}</strong> demande à lire le compte Google Ads de Luminose. Lecture seule : aucune campagne, aucun budget, aucune annonce ne peut être modifié par ce serveur.</p>
+<p><strong>${echapper(d.clientName)}</strong> demande l'accès au compte Google Ads de Luminose.</p>
 <p>${provenance} Après la connexion Google, l'accès sera envoyé à <strong>${echapper(d.redirectHost)}</strong>.</p>
 ${d.redirectIsLoopback
     ? `<p class="alerte">Cette adresse de retour est locale. N'autorisez que si vous venez de lancer la connexion depuis Claude Code ou l'inspecteur MCP, sur cette machine.</p>\n`
     : ''}<form method="post" action="/authorize">
 <input type="hidden" name="n" value="${echapper(options.jeton)}">
+<fieldset>
+<label><input type="checkbox" checked disabled> Lire le compte : campagnes, coûts, clics, conversions, termes de recherche.</label>
+<label><input type="checkbox" name="ecrire" value="1"${options.ecrireCoche ? ' checked' : ''}> Préparer des modifications : exclure des recherches, mettre en pause. Chaque écriture est montrée avant d'être faite, et rien ne s'active : l'activation reste dans Google Ads.</label>
+</fieldset>
 <p><button type="submit">Continuer avec Google</button></p>
 </form>
 <p class="doux">Seule l'adresse autorisée peut aller au bout. Si vous n'avez pas lancé cette connexion, fermez cet onglet.</p>`;

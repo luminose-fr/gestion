@@ -119,12 +119,17 @@ fi
 # ─── Worker MCP ──────────────────────────────────────────────────────────────
 MCP_PARTI=0
 if has mcp && need_dir workers/mcp mcp; then
-  if grep -q '^id = "A_REMPLACER"' workers/mcp/wrangler.toml; then
+  if grep -qE '^(database_)?id = "A_REMPLACER"' workers/mcp/wrangler.toml; then
     # Mieux vaut s'arrêter ici en donnant la commande qu'échouer chez
-    # Cloudflare sur un identifiant de namespace inconnu.
-    warn "workers/mcp : l'identifiant du namespace OAUTH_KV n'est pas renseigné — cible « mcp » ignorée."
-    warn "  cd workers/mcp && npx wrangler kv namespace create OAUTH_KV   (puis reporter l'id dans wrangler.toml)"
+    # Cloudflare sur un identifiant inconnu.
+    warn "workers/mcp : un identifiant de wrangler.toml vaut encore A_REMPLACER — cible « mcp » ignorée."
+    warn "  cd workers/mcp && npx wrangler kv namespace create OAUTH_KV          (namespace OAUTH_KV)"
+    warn "  cd workers/mcp && npx wrangler d1 create luminose-mcp --location weur (base du journal)"
   else
+    step "Migrations D1 du Worker MCP (journal des écritures)"
+    # Avant le Worker, comme pour l'API : un Worker neuf qui écrit dans une
+    # table absente échoue — et une écriture sans journal n'appelle pas Google.
+    ( cd workers/mcp && run npx wrangler d1 migrations apply DB --remote )
     step "Worker MCP"
     ( cd workers/mcp && run npx wrangler deploy )
     ok "Worker MCP déployé (https://mcp.luminose.fr/mcp)"

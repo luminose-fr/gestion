@@ -37,7 +37,7 @@ const erreurGaql = () => Response.json({
 }, { status: 400 });
 
 describe('garanties NORMATIVES (cadrage §8)', () => {
-  it('NORMATIF — aucun appel vers un chemin :mutate ne peut être émis, quelle que soit l’entrée', async () => {
+  it('NORMATIF — les outils de LECTURE n’émettent aucun :mutate, quelle que soit l’entrée', async () => {
     // Des entrées fabriquées pour détourner le chemin : identifiants avec
     // segments, traversée, suffixes, et requêtes qui parlent de mutate.
     const comptes = [

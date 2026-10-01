@@ -24,6 +24,7 @@ import {
   type AuthRequest, type ConsentDescription,
 } from '@cloudflare/workers-oauth-provider';
 import { aleatoire, depuisBase64url, empreinte, signer, verifier } from './crypto';
+import { SCOPE_ECRITURE, SCOPE_LECTURE } from './ecriture';
 import { page, pageConsentement } from './pages';
 import { Refus } from './refus';
 import type { Env } from './env';
@@ -47,6 +48,7 @@ type Connexion = {
   v: string;  // vérificateur PKCE de NOTRE échange avec Google
   n: string;  // anti-rejeu du formulaire, et `state` côté Google
   e: number;  // expiration, ms
+  s?: string[];  // les scopes choisis sur la page de consentement (V8)
 };
 
 /** Ce que le grant emporte, chiffré par la bibliothèque, et que /mcp reçoit en `ctx.props`. */
@@ -111,6 +113,7 @@ const afficherConsentement = async (requete: Request, env: Env): Promise<Respons
   const connexion: Connexion = { r: demande, v: aleatoire(), n: aleatoire(16), e: Date.now() + DUREE_CONNEXION * 1000 };
   return pageConsentement({
     description,
+    ecrireCoche: demande.scope.includes(SCOPE_ECRITURE),
     jeton: connexion.n,
     cookie: cookie(await signer('connexion', connexion, secret), DUREE_CONNEXION),
   });
@@ -125,6 +128,11 @@ const partirVersGoogle = async (requete: Request, env: Env): Promise<Response> =
       'Cette page de consentement a expiré, ou a été ouverte dans un autre navigateur. Relancez la connexion depuis Claude.');
   }
 
+  // V8 : l'écriture s'accorde ici, case cochée — jamais par effet de bord. Le
+  // choix voyage dans le cookie, signé à nouveau, jusqu'au retour de Google.
+  const choisie: Connexion = { ...connexion, s: formulaire.get('ecrire') === '1' ? [SCOPE_LECTURE, SCOPE_ECRITURE] : [SCOPE_LECTURE] };
+  const secret = exiger(env.COOKIE_SIGNING_KEY, 'COOKIE_SIGNING_KEY');
+
   const google = new URL(GOOGLE_AUTORISATION);
   google.search = new URLSearchParams({
     client_id: exiger(env.GOOGLE_OAUTH_CLIENT_ID, 'GOOGLE_OAUTH_CLIENT_ID'),
@@ -136,7 +144,9 @@ const partirVersGoogle = async (requete: Request, env: Env): Promise<Response> =
     code_challenge_method: 'S256',
     prompt: 'select_account',
   }).toString();
-  return redirection(google.toString());
+  return redirection(google.toString(), {
+    'Set-Cookie': cookie(await signer('connexion', choisie, secret), Math.max(1, Math.floor((choisie.e - Date.now()) / 1000))),
+  });
 };
 
 type Revendications = { iss?: string; aud?: string; exp?: number; email?: string; email_verified?: boolean };
@@ -208,7 +218,7 @@ const retourGoogle = async (requete: Request, env: Env): Promise<Response> => {
       request: connexion.r,
       userId: props.email,
       metadata: {},
-      scope: connexion.r.scope,
+      scope: connexion.s ?? [SCOPE_LECTURE],
       props,
     });
     return redirection(redirectTo, EFFACER);

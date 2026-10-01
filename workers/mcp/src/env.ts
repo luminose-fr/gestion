@@ -41,4 +41,25 @@ export type Env = {
    * connexions en cours depuis moins de dix minutes.
    */
   COOKIE_SIGNING_KEY?: string;
+
+  // ── Écriture (cadrage du 01/10/2026) ──────────────────────────────────
+
+  /**
+   * La base `luminose-mcp`, à part de celle de la console : le journal des
+   * écritures (V7) et ce qui compte le plafond de volume (V9).
+   */
+  DB: D1Database;
+
+  /**
+   * Signe les jetons d'aperçu (V2). Absent, l'écriture est fermée et la lecture
+   * continue. `openssl rand -base64 32`.
+   */
+  ADS_APERCU_KEY?: string;
+
+  /**
+   * V9 — exécutions permises sur 24 heures glissantes. [vars] de wrangler.toml :
+   * le changer ne demande pas de toucher au code. Absent ou illisible,
+   * l'écriture est fermée.
+   */
+  ADS_ECRITURES_MAX_JOUR?: string;
 };
