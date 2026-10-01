@@ -6,6 +6,7 @@ import { getOAuthApi } from '@cloudflare/workers-oauth-provider';
 import worker, { OPTIONS } from '../src/index';
 import { empreinte } from '../src/crypto';
 import { oublierJetonAds } from '../src/google-ads';
+import { D1Test } from './d1';
 import type { Env } from '../src/env';
 
 export const ORIGINE = 'https://mcp.luminose.fr';
@@ -57,7 +58,9 @@ export const kvFactice = () => {
   return kv as typeof kv & KVNamespace;
 };
 
-export type EnvFactice = Env & { OAUTH_KV: ReturnType<typeof kvFactice> };
+export type EnvFactice = Env & { OAUTH_KV: ReturnType<typeof kvFactice>; DB: D1Test & D1Database };
+
+export const LIRE_ECRIRE = ['ads:lire', 'ads:ecrire'];
 
 export const creerEnv = (surcharges: Partial<Env> = {}): EnvFactice => {
   oublierJetonAds();
@@ -69,6 +72,9 @@ export const creerEnv = (surcharges: Partial<Env> = {}): EnvFactice => {
     GOOGLE_ADS_REFRESH_TOKEN: 'refresh-ads',
     GOOGLE_ADS_CUSTOMER_ID: COMPTE,
     COOKIE_SIGNING_KEY: 'cle-de-signature-de-test',
+    DB: new D1Test(),
+    ADS_APERCU_KEY: 'cle-d-apercu-de-test',
+    ADS_ECRITURES_MAX_JOUR: '30',
     ...surcharges,
   } as EnvFactice;
 };
@@ -87,7 +93,7 @@ export const VERIFICATEUR = 'verificateur-pkce-de-claude-assez-long-pour-la-rfc-
  * Un jeton d'accès délivré par la bibliothèque elle-même : client préenregistré,
  * grant complété, code échangé sur /token. Sans rejouer Google à chaque test.
  */
-export const obtenirJetons = async (env: Env, email = ADRESSE) => {
+export const obtenirJetons = async (env: Env, email = ADRESSE, scopes: string[] = []) => {
   const client = await api(env).createClient({
     redirectUris: [CLAUDE], clientName: 'Claude (test)', tokenEndpointAuthMethod: 'none',
   });
@@ -98,7 +104,7 @@ export const obtenirJetons = async (env: Env, email = ADRESSE) => {
     },
     userId: email,
     metadata: {},
-    scope: [],
+    scope: scopes,
     props: { email },
   });
   const reponse = await appeler(env, '/token', {
@@ -113,7 +119,8 @@ export const obtenirJetons = async (env: Env, email = ADRESSE) => {
   return { ...jetons, clientId: client.clientId };
 };
 
-export const jetonValide = async (env: Env, email = ADRESSE) => (await obtenirJetons(env, email)).access_token;
+export const jetonValide = async (env: Env, email = ADRESSE, scopes: string[] = []) =>
+  (await obtenirJetons(env, email, scopes)).access_token;
 
 export type Appel = { url: string; methode: string; entetes: Record<string, string>; corps: string };
 
@@ -166,9 +173,9 @@ export const requeteModerne = (jeton: string, methode: string, params: Record<st
   }),
 });
 
-/** Appelle un outil en moderne et rend le résultat JSON-RPC. */
-export const appelerOutil = async (env: Env, nom: string, args: Record<string, unknown> = {}) => {
-  const jeton = await jetonValide(env);
+/** Appelle un outil en moderne et rend le résultat JSON-RPC. `scopes` : ceux du jeton porteur. */
+export const appelerOutil = async (env: Env, nom: string, args: Record<string, unknown> = {}, scopes: string[] = []) => {
+  const jeton = await jetonValide(env, ADRESSE, scopes);
   const reponse = await appeler(env, '/mcp', requeteModerne(jeton, 'tools/call', { name: nom, arguments: args }));
   return { statut: reponse.status, corps: await reponse.json() as any };
 };

@@ -75,16 +75,16 @@ const demande = async (surcharges: Record<string, string | null> = {}) => {
   return `/authorize?${q}`;
 };
 
-const formulaire = (cookie: string, n: string) => ({
+const formulaire = (cookie: string, n: string, ecrire = false) => ({
   method: 'POST',
   headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({ n }).toString(),
+  body: new URLSearchParams({ n, ...(ecrire ? { ecrire: '1' } : {}) }).toString(),
 });
 
 /** Le parcours du navigateur, du consentement au retour de Google. */
 const connecter = async (
   env: EnvFactice,
-  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string } = {},
+  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string; ecrire?: boolean } = {},
 ) => {
   const appels = simulerExterieur({ identite: options.identite });
   const consentement = await appeler(env, await demande({
@@ -96,9 +96,11 @@ const connecter = async (
   const html = await consentement.text();
   const n = /name="n" value="([^"]+)"/.exec(html)![1];
 
-  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n));
+  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n, options.ecrire));
   const google = new URL(versGoogle.headers.get('Location')!);
-  const retour = await appeler(env, `/callback?code=code-google&state=${google.searchParams.get('state')}`, { headers: { Cookie: cookie } });
+  // Le bouton réécrit le cookie : il y range les scopes choisis (V8).
+  const cookieChoisi = versGoogle.headers.get('Set-Cookie')?.split(';')[0] ?? cookie;
+  const retour = await appeler(env, `/callback?code=code-google&state=${google.searchParams.get('state')}`, { headers: { Cookie: cookieChoisi } });
   return { html, cookie, n, google, retour, appels };
 };
 
@@ -404,6 +406,54 @@ describe('parcours complet', () => {
 
     const rafraichi = await echanger(env, { grant_type: 'refresh_token', refresh_token, client_id: CLIENT_CIMD });
     expect((await rafraichi.json() as any).error).toBe('invalid_grant');
+  });
+});
+
+describe('V8 — l’écriture s’accorde sur la page de consentement, case cochée', () => {
+  const ecrireCoche = (html: string) => /name="ecrire" value="1" checked/.test(html);
+
+  const jetonsApres = async (env: EnvFactice, ecrire: boolean) => {
+    const { retour } = await connecter(env, { ecrire });
+    const reponse = await echanger(env, { grant_type: 'authorization_code', code: codeDe(retour), code_verifier: VERIFICATEUR, client_id: CLIENT_CIMD, redirect_uri: CLAUDE });
+    return await reponse.json() as { access_token: string; scope?: string };
+  };
+
+  /** Un outil d'écriture refuse-t-il pour défaut de scope ? (Ce qui se passe ensuite n'importe pas ici.) */
+  const ecritureRefuseePourScope = async (env: EnvFactice, jeton: string) => {
+    simulerFetch();
+    const appel = await appeler(env, '/mcp', requeteModerne(jeton, 'tools/call', { name: 'ads_mettre_en_pause', arguments: { type: 'groupe', identifiant: '1' } }));
+    const corps = await appel.json() as any;
+    return /L'écriture n'est pas accordée/.test(corps.result.content[0].text);
+  };
+
+  it('la case n’est cochée que si le client demande l’écriture', async () => {
+    const env = creerEnv();
+    simulerExterieur();
+    expect(ecrireCoche(await (await appeler(env, await demande())).text())).toBe(false);
+    expect(ecrireCoche(await (await appeler(env, await demande({ scope: 'ads:lire' }))).text())).toBe(false);
+    expect(ecrireCoche(await (await appeler(env, await demande({ scope: 'ads:lire ads:ecrire' }))).text())).toBe(true);
+  });
+
+  it('case laissée vide : la connexion lit, et n’écrit pas', async () => {
+    const env = creerEnv();
+    const { access_token, scope } = await jetonsApres(env, false);
+    expect(scope).toBe('ads:lire');
+    expect(await ecritureRefuseePourScope(env, access_token)).toBe(true);
+  });
+
+  it('case cochée : la connexion peut préparer des écritures', async () => {
+    const env = creerEnv();
+    const { access_token, scope } = await jetonsApres(env, true);
+    expect(scope).toBe('ads:lire ads:ecrire');
+    expect(await ecritureRefuseePourScope(env, access_token)).toBe(false);
+  });
+
+  it('les deux scopes sont annoncés, sans en exiger aucun au départ', async () => {
+    const env = creerEnv();
+    const serveur = await (await appeler(env, '/.well-known/oauth-authorization-server')).json() as any;
+    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire']);
+    const ressource = await (await appeler(env, '/.well-known/oauth-protected-resource/mcp')).json() as any;
+    expect(ressource.scopes_supported).toBeUndefined();
   });
 });
 

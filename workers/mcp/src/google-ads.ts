@@ -1,11 +1,15 @@
 /**
- * Couche B — le Worker vers l'API Google Ads, en LECTURE SEULE.
+ * Couche B — le Worker vers l'API Google Ads.
  *
- * Deux points d'entrée, et pas un de plus : la liste des comptes accessibles
- * et `googleAds:search`. Aucune URL de l'API ne se construit ailleurs que dans
- * ce fichier, et `appeler` refuse tout chemin absent de CHEMINS_PERMIS. C'est
- * ce qui rend vérifiable, et vérifié, qu'aucun `:mutate` ne peut partir —
- * quelle que soit l'entrée, y compris un identifiant de compte forgé.
+ * LIRE : la liste des comptes accessibles et `googleAds:search`.
+ * ÉCRIRE (cadrage du 01/10/2026) : `:mutate` sur une TABLE FERMÉE de services,
+ * et pour chacun la seule forme d'opération permise (OPERATIONS_PERMISES). Pas
+ * de mutate générique : ce que la table ne nomme pas ne part pas.
+ *
+ * Aucune URL de l'API ne se construit ailleurs que dans ce fichier, et
+ * `appeler` refuse tout chemin absent de CHEMINS_PERMIS. C'est ce qui rend
+ * vérifiable, et vérifié, que les verrous V1 et V5 tiennent quelle que soit
+ * l'entrée : ni `remove`, ni passage à ENABLED, ni service hors de la table.
  *
  * PAS D'EN-TÊTE `developer-token`. Le jeton de développeur a été supprimé les
  * 9-10/09/2026 : les niveaux d'accès sont portés par le projet Google Cloud qui
@@ -29,9 +33,34 @@ const JETON_GOOGLE = 'https://oauth2.googleapis.com/token';
 /** Un identifiant de compte Google Ads : dix chiffres, sans tirets. */
 const FORME_COMPTE = /^\d{10}$/;
 
+/**
+ * Les seules écritures possibles, service par service (verrous V1 et V5).
+ *
+ * - `campaignCriteria` : CRÉER un mot-clé NÉGATIF de campagne, et rien d'autre.
+ *   Il naît actif — un négatif ne dépense rien, il exclut ; en pause, il
+ *   n'exclurait rien (décision du 01/10/2026).
+ * - les quatre autres : METTRE À JOUR le statut, vers PAUSED et vers rien
+ *   d'autre. Aucune entité ne passe à ENABLED par ce serveur : l'activation —
+ *   donc la dépense — reste dans l'interface Google Ads.
+ *
+ * Aucun `remove` nulle part : ce qu'on veut retirer, on le met en pause.
+ */
+export const OPERATIONS_PERMISES = {
+  campaignCriteria: 'creer-negatif',
+  campaigns: 'mettre-en-pause',
+  adGroups: 'mettre-en-pause',
+  adGroupAds: 'mettre-en-pause',
+  adGroupCriteria: 'mettre-en-pause',
+} as const;
+
+export type ServiceEcriture = keyof typeof OPERATIONS_PERMISES;
+
+const SERVICES_ECRITURE = Object.keys(OPERATIONS_PERMISES) as ServiceEcriture[];
+
 const CHEMINS_PERMIS: RegExp[] = [
   /^\/customers:listAccessibleCustomers$/,
   /^\/customers\/\d{10}\/googleAds:search$/,
+  new RegExp(`^/customers/\\d{10}/(${SERVICES_ECRITURE.join('|')}):mutate$`),
 ];
 
 /** Une erreur renvoyée par l'API elle-même — à remonter au modèle telle quelle. */
@@ -196,4 +225,73 @@ export const rechercher = async (
 ): Promise<ReponseRecherche> => {
   if (!estUnCompte(compte)) throw new Refus(`« ${compte} » n'est pas un identifiant de compte Google Ads (dix chiffres).`);
   return await appeler(env, `/customers/${compte}/googleAds:search`, { corps: { query: requete }, connexion }) as ReponseRecherche;
+};
+
+// ── Écriture ─────────────────────────────────────────────────────────────
+
+export type Operation =
+  | { create: Record<string, unknown> }
+  | { update: Record<string, unknown>; updateMask: string };
+
+const MOTS_CLES_CORRESPONDANCES = ['EXACT', 'PHRASE', 'BROAD'];
+
+/**
+ * La garde de la table : une opération qui n'a pas exactement la forme permise
+ * pour son service ne part pas. Une violation ici n'est pas une erreur de
+ * l'utilisateur — les outils ne construisent que des opérations conformes —
+ * mais un défaut du code : on lève, et la trace part dans les journaux.
+ */
+export const verifierOperation = (service: ServiceEcriture, operation: Operation): void => {
+  const cles = Object.keys(operation).sort().join(',');
+  const refuser = (raison: string): never => {
+    throw new Error(`Opération refusée par la table fermée (${service}) : ${raison}`);
+  };
+
+  switch (OPERATIONS_PERMISES[service]) {
+    case 'creer-negatif': {
+      if (cles !== 'create') refuser(`clés ${cles}`);
+      const c = (operation as { create: Record<string, unknown> }).create;
+      const keyword = c.keyword as { text?: unknown; matchType?: unknown } | undefined;
+      if (Object.keys(c).sort().join(',') !== 'campaign,keyword,negative') refuser(`champs ${Object.keys(c).sort().join(',')}`);
+      if (c.negative !== true) refuser('un critère de campagne ne peut être que négatif');
+      if (typeof c.campaign !== 'string' || !/^customers\/\d{10}\/campaigns\/\d+$/.test(c.campaign)) refuser('campagne');
+      if (!keyword || typeof keyword.text !== 'string' || !MOTS_CLES_CORRESPONDANCES.includes(String(keyword.matchType))) refuser('mot-clé');
+      return;
+    }
+    case 'mettre-en-pause': {
+      if (cles !== 'update,updateMask') refuser(`clés ${cles}`);
+      const { update, updateMask } = operation as { update: Record<string, unknown>; updateMask: string };
+      if (updateMask !== 'status') refuser(`updateMask ${updateMask}`);
+      if (Object.keys(update).sort().join(',') !== 'resourceName,status') refuser(`champs ${Object.keys(update).sort().join(',')}`);
+      if (update.status !== 'PAUSED') refuser(`statut ${String(update.status)}`);
+      if (typeof update.resourceName !== 'string' || !new RegExp(`^customers/\\d{10}/${service}/\\d+(~\\d+)?$`).test(update.resourceName)) {
+        refuser('resourceName');
+      }
+      return;
+    }
+  }
+};
+
+export type ReponseMutation = { results?: { resourceName?: string }[] };
+
+/**
+ * `:mutate` sur le compte donné. `validateOnly` : Google vérifie tout et
+ * n'applique rien — c'est l'aperçu (V2). `partialFailure` à false : tout passe,
+ * ou rien.
+ */
+export const muter = async (
+  env: Env,
+  compte: string,
+  service: ServiceEcriture,
+  operations: Operation[],
+  validateOnly: boolean,
+): Promise<ReponseMutation> => {
+  if (!estUnCompte(compte)) throw new Refus(`« ${compte} » n'est pas un identifiant de compte Google Ads (dix chiffres).`);
+  if (!(service in OPERATIONS_PERMISES)) throw new Error(`Service hors de la table fermée : ${service}`);
+  if (operations.length === 0) throw new Error('Aucune opération à envoyer');
+  for (const operation of operations) verifierOperation(service, operation);
+  return await appeler(env, `/customers/${compte}/${service}:mutate`, {
+    corps: { operations, validateOnly, partialFailure: false },
+    connexion: connexionPour(env, compte),
+  }) as ReponseMutation;
 };

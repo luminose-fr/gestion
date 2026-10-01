@@ -11,7 +11,8 @@
     "noEmit": true,
     "types": [
       "@cloudflare/workers-types",
-      "vitest/globals"
+      "vitest/globals",
+      "node"
     ],
     "isolatedModules": true
   },

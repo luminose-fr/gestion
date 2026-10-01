@@ -21,6 +21,7 @@
  * moderne reçoit donc du moderne, et ne retombe jamais sur l'ancien.
  */
 import { definitionsOutils, executerOutil, trouverOutil } from './outils';
+import type { Contexte } from './ecriture';
 import type { Env } from './env';
 
 export const VERSION_MODERNE = '2026-07-28';
@@ -30,10 +31,11 @@ export const VERSIONS = [VERSION_MODERNE, ...VERSIONS_HERITEES];
 const SERVEUR = { name: 'luminose-google-ads', title: 'Luminose — Google Ads', version: '1.0.0' };
 
 const INSTRUCTIONS =
-  "Lecture seule du compte Google Ads de Luminose (deux campagnes). ads_requete exécute du GAQL sur le compte " +
-  "Luminose par défaut ; ads_lister_comptes n'est utile que pour la devise ou un diagnostic d'accès. " +
-  'Les montants sont en micros : diviser par 1 000 000. Aucune modification de campagne, budget ou annonce ne passe ' +
-  "par ce serveur : elles se font dans l'interface Google Ads.";
+  "Le compte Google Ads de Luminose. Lire : ads_requete exécute du GAQL sur le compte Luminose par défaut ; " +
+  "ads_lister_comptes n'est utile que pour la devise ou un diagnostic d'accès. Les montants sont en micros : diviser par 1 000 000. " +
+  "Écrire : Claude prépare, Florent publie. Chaque écriture se fait en deux temps — un aperçu vérifié par Google sans rien " +
+  "appliquer, puis l'exécution avec le jeton de l'aperçu, après l'accord de Florent. Rien ne s'active par ce serveur : " +
+  "l'activation, donc la dépense, se fait dans l'interface Google Ads.";
 
 const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
 const META_CAPACITES = 'io.modelcontextprotocol/clientCapabilities';
@@ -74,11 +76,11 @@ const decoderEntete = (valeur: string | null): string | null => {
   }
 };
 
-const appelOutil = async (id: Id, params: Record<string, unknown>, env: Env, moderne: boolean) => {
+const appelOutil = async (id: Id, params: Record<string, unknown>, env: Env, contexte: Contexte, moderne: boolean) => {
   const o = trouverOutil(params.name);
   if (!o) return erreur(200, id, PARAMETRES_INVALIDES, `Outil inconnu : ${String(params.name)}`);
   try {
-    const sortie = await executerOutil(o, params.arguments, env);
+    const sortie = await executerOutil(o, params.arguments, env, contexte);
     return resultat(id, moderne ? { resultType: 'complete', ...sortie, _meta: { [META_SERVEUR]: SERVEUR } } : sortie);
   } catch (e) {
     console.error(`Outil ${o.name} :`, e);
@@ -88,7 +90,7 @@ const appelOutil = async (id: Id, params: Record<string, unknown>, env: Env, mod
 
 // ── Époque moderne ───────────────────────────────────────────────────────
 
-const servirModerne = async (requete: Request, id: Id, methode: string, params: Record<string, unknown>, env: Env) => {
+const servirModerne = async (requete: Request, id: Id, methode: string, params: Record<string, unknown>, env: Env, contexte: Contexte) => {
   const meta = (params._meta ?? {}) as Record<string, unknown>;
   const version = meta[META_VERSION];
 
@@ -125,7 +127,7 @@ const servirModerne = async (requete: Request, id: Id, methode: string, params: 
     case 'tools/list':
       return complet({ tools: definitionsOutils() });
     case 'tools/call':
-      return appelOutil(id, params, env, true);
+      return appelOutil(id, params, env, contexte, true);
     case 'ping':
       return complet({});
     default:
@@ -135,7 +137,7 @@ const servirModerne = async (requete: Request, id: Id, methode: string, params: 
 
 // ── Époque héritée ───────────────────────────────────────────────────────
 
-const servirHeritee = async (id: Id, methode: string, params: Record<string, unknown>, env: Env) => {
+const servirHeritee = async (id: Id, methode: string, params: Record<string, unknown>, env: Env, contexte: Contexte) => {
   switch (methode) {
     case 'initialize': {
       const demandee = params.protocolVersion;
@@ -152,7 +154,7 @@ const servirHeritee = async (id: Id, methode: string, params: Record<string, unk
     case 'tools/list':
       return resultat(id, { tools: definitionsOutils() });
     case 'tools/call':
-      return appelOutil(id, params, env, false);
+      return appelOutil(id, params, env, contexte, false);
     default:
       return erreur(200, id, METHODE_INCONNUE, `Méthode inconnue : ${methode}`);
   }
@@ -160,8 +162,8 @@ const servirHeritee = async (id: Id, methode: string, params: Record<string, unk
 
 // ── Point d'entrée ───────────────────────────────────────────────────────
 
-/** Un POST sur /mcp, une fois le jeton vérifié. */
-export const traiterMcp = async (requete: Request, env: Env): Promise<Response> => {
+/** Un POST sur /mcp, une fois le jeton vérifié. `contexte` : qui appelle, avec quels scopes. */
+export const traiterMcp = async (requete: Request, env: Env, contexte: Contexte): Promise<Response> => {
   let message: Message;
   try {
     message = await requete.json();
@@ -195,6 +197,6 @@ export const traiterMcp = async (requete: Request, env: Env): Promise<Response> 
     (versionCorps !== undefined || (versionEnTete !== null && !VERSIONS_HERITEES.includes(versionEnTete)));
 
   return moderne
-    ? servirModerne(requete, id, message.method, params, env)
-    : servirHeritee(id, message.method, params, env);
+    ? servirModerne(requete, id, message.method, params, env, contexte)
+    : servirHeritee(id, message.method, params, env, contexte);
 };

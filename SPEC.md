@@ -108,7 +108,8 @@ gestion.luminose.fr/
 │   │   ├── migrations/     NNNN_description.sql
 │   │   └── src/routes/
 │   └── mcp/                serveur MCP pour Claude, mcp.luminose.fr —
-│                           OAuth + Google Ads en lecture seule
+│       │                   OAuth + Google Ads : lire, et préparer en pause
+│       └── migrations/     journal des écritures, base `luminose-mcp`
 └── scripts/
     └── deploy.sh
 ```
@@ -130,7 +131,9 @@ packages/{subtitles, psychedelics} ──▶ (rien)
 - Le front n'importe **jamais** `packages/ai` : les clés d'API vivent dans le Worker.
 - `workers/mcp` ne partage avec `workers/api` ni code, ni secret, ni binding. Son
   authentification n'est pas celle de la console (OAuth pour Claude), et une erreur de
-  configuration de l'un ne doit pas pouvoir exposer l'autre. Dépendances runtime :
+  configuration de l'un ne doit pas pouvoir exposer l'autre. Sa base D1 est la sienne
+  (`luminose-mcp`, le journal des écritures Google Ads) : celle de la console porte les clés
+  des fournisseurs IA (§5.5), et il n'a pas à les voir. Dépendances runtime :
   `zod` et `@cloudflare/workers-oauth-provider`. Mise en place et écarts avec le cadrage :
   `workers/mcp/README.md`.
 

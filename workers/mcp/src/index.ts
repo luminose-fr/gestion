@@ -18,6 +18,7 @@
  */
 import { OAuthError, OAuthProvider, type OAuthProviderOptions } from '@cloudflare/workers-oauth-provider';
 import { adresseAutorisee, gestionnaireParDefaut, type Props } from './autorisation';
+import { SCOPE_ECRITURE, SCOPE_LECTURE } from './ecriture';
 import { traiterMcp } from './mcp';
 import type { Env } from './env';
 
@@ -63,7 +64,11 @@ const api = {
     }
     // Ni flux GET ni session à fermer : chaque requête est un POST autonome.
     if (requete.method !== 'POST') return json(405, { error: 'Méthode non permise' }, { Allow: 'POST' });
-    return traiterMcp(requete, env);
+    // Les scopes sont ceux du jeton, vérifiés par la bibliothèque — jamais ce
+    // que la requête prétend. Une connexion de la phase 1 n'en porte aucun :
+    // elle lit, et n'écrit pas.
+    const scopes = (ctx as ExecutionContext & { auth?: { scope?: string[] } }).auth?.scope ?? [];
+    return traiterMcp(requete, env, { email: email!, scopes });
   },
 };
 
@@ -73,7 +78,12 @@ export const OPTIONS: OAuthProviderOptions<Env> = {
   defaultHandler: gestionnaireParDefaut,
   authorizeEndpoint: '/authorize',
   tokenEndpoint: '/token',
-  resourceMetadata: { resource: RESSOURCE, resource_name: 'Luminose — Google Ads (lecture seule)' },
+  resourceMetadata: { resource: RESSOURCE, resource_name: 'Luminose — Google Ads' },
+  // V8 : écrire est un scope à part. Pas de `requiredScopes` : c'est la page de
+  // consentement qui choisit, case cochée par Florent. Un client qui ne demande
+  // rien ne restreint donc rien au rafraîchissement — un scope demandé à ce
+  // moment-là rétrécirait le grant à ce scope.
+  scopesSupported: [SCOPE_LECTURE, SCOPE_ECRITURE],
   // Exige aussi `global_fetch_strictly_public` dans wrangler.toml : sans le
   // drapeau, la bibliothèque n'annonce pas CIMD et Claude ne peut plus entrer.
   clientIdMetadataDocumentEnabled: true,

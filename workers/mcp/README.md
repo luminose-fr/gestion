@@ -1,8 +1,10 @@
-# Worker MCP — Google Ads, en lecture seule
+# Worker MCP — Google Ads
 
 Claude (claude.ai web, desktop, mobile, et Claude Code) interroge le compte Google Ads de
-Luminose : campagnes, coûts, clics, conversions, termes de recherche. **Rien ne s'écrit** :
-les modifications restent manuelles, dans l'interface Google Ads.
+Luminose — campagnes, coûts, clics, conversions, termes de recherche — et, depuis le
+01/10/2026, y **prépare** des modifications. **Claude prépare, Florent publie** : rien ne
+s'active par ce serveur, l'activation (donc la dépense) reste dans l'interface Google Ads.
+Voir « Écrire », plus bas.
 
 Adresse du connecteur : **`https://mcp.luminose.fr/mcp`** — avec `/mcp`, au caractère près.
 
@@ -41,6 +43,72 @@ sur toutes les requêtes non authentifiées.
 `ads_requete` refuse ce qui ne commence pas par `SELECT`, et tout compte autre que
 `GOOGLE_ADS_CUSTOMER_ID` ou `GOOGLE_ADS_LOGIN_CUSTOMER_ID`. La version de l'API s'écrit à un
 seul endroit : `VERSION_API` dans [src/google-ads.ts](src/google-ads.ts).
+
+## Écrire — Claude prépare, Florent publie
+
+Cadrage du 01/10/2026, livré **lot par lot**, chacun déployé et essayé avant le suivant.
+
+| Lot | Outils | État |
+| :--- | :--- | :--- |
+| 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` | livré |
+| 2 — préparer, en pause | groupes, annonces responsives, mots-clés | à venir |
+| 3 — le budget | `ads_budget_modifier` | à venir |
+
+**Deux temps, toujours.** Sans `jeton`, l'outil envoie la requête avec `validateOnly: true` :
+Google vérifie tout, n'applique rien, et l'outil rend un aperçu et un jeton. Avec le jeton,
+il exécute — à condition que les opérations soient exactement celles de l'aperçu. Le jeton
+est un HMAC de ces opérations, vaut dix minutes, et ne sert qu'une fois.
+
+### Les verrous, et où ils vivent
+
+Tous dans le serveur, jamais dans les descriptions d'outils : une consigne au modèle n'est
+pas un verrou. Chacun a son test NORMATIF ([test/ecriture.test.ts](test/ecriture.test.ts)),
+et chacun a été vérifié en le cassant : son test échoue.
+
+| | Verrou | Où |
+| :--- | :--- | :--- |
+| V1 | aucune opération ne passe à `ENABLED`, aucun `remove` ; un `status` en entrée est refusé | table fermée, [src/google-ads.ts](src/google-ads.ts) |
+| V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu | [src/ecriture.ts](src/ecriture.ts) |
+| V5 | une table fermée de services, et pour chacun la seule forme d'opération permise | `OPERATIONS_PERMISES`, [src/google-ads.ts](src/google-ads.ts) |
+| V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
+| V8 | sans le scope `ads:ecrire`, refus — accordé seulement en cochant la case du consentement | [src/ecriture.ts](src/ecriture.ts), [src/autorisation.ts](src/autorisation.ts) |
+| V9 | au-delà de `ADS_ECRITURES_MAX_JOUR` exécutions sur 24 heures, refus (échecs compris) | [src/ecriture.ts](src/ecriture.ts) |
+| V3, V4, V6 | plafonds d'argent, filtre des textes d'annonce, URL finales sur luminose.fr | avec les lots 2 et 3 |
+
+### Décisions du lot 1
+
+- **Les négatifs naissent actifs** (01/10/2026). Un négatif ne dépense rien, il exclut ; en
+  pause, il n'exclurait rien. Le forçage `PAUSED` de V1 vaut pour ce qui peut dépenser.
+- **Un négatif ne se met pas en pause** : ce serait rouvrir du trafic, donc de la dépense.
+- **Le Search seulement** : une campagne Performance Max est refusée.
+- **Le compte Luminose seulement** : les outils d'écriture n'ont pas de paramètre `compte`.
+- **Une base à part** pour le journal (`luminose-mcp`) : celle de la console porte les clés
+  des fournisseurs IA, et ce Worker ne partage avec elle ni secret ni binding (SPEC §1.1).
+- **L'usage unique du jeton** tient à l'unicité de `jeton_empreinte` dans le journal — pas
+  à KV : rien n'y entre toujours sans identification.
+- **Pas de `requiredScopes`** : c'est la page de consentement qui choisit les scopes. Un
+  scope demandé par le client au rafraîchissement rétrécirait le grant à celui-là.
+
+### Mise en place du lot 1 — ce que Florent fait
+
+Sur la VM, depuis `workers/mcp` :
+
+```bash
+npx wrangler d1 create luminose-mcp --location weur   # reporter database_id dans wrangler.toml, commiter
+openssl rand -base64 32 | npx wrangler secret put ADS_APERCU_KEY
+```
+
+Puis, depuis la racine : `./scripts/deploy.sh mcp` — il applique la migration du journal
+avant de déployer le Worker. Ensuite, dans Claude : **retirer puis rajouter** le connecteur,
+et **cocher « Préparer des modifications »** sur la page de consentement. La connexion
+actuelle continue de lire ; elle n'obtient pas l'écriture par effet de bord. Si les réglages
+du connecteur le permettent, régler les outils d'écriture sur « demander une approbation ».
+
+Relire le journal :
+
+```bash
+npx wrangler d1 execute luminose-mcp --remote --command "SELECT id, datetime(created_at/1000, 'unixepoch') AS quand, outil, issue, erreur FROM ads_ecritures ORDER BY id DESC LIMIT 20"
+```
 
 ## Mise en place — ce que Florent fait, dans cet ordre
 
@@ -136,6 +204,9 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | secret, facultatif | le compte administrateur, s'il y en a un |
 | `COOKIE_SIGNING_KEY` | secret | signe le cookie de connexion (le cadrage l'appelait `COOKIE_ENCRYPTION_KEY` : il signe, il ne chiffre pas) |
 | `OAUTH_KV` | binding KV | l'état de la bibliothèque : grants, codes et jetons par empreinte, props chiffrées |
+| `DB` | binding D1 (`luminose-mcp`) | le journal des écritures (V7), qui compte aussi le plafond V9 |
+| `ADS_APERCU_KEY` | secret | signe les jetons d'aperçu (V2). Absent : l'écriture est fermée, la lecture continue |
+| `ADS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 — 30 exécutions sur 24 heures. Absent ou illisible : l'écriture est fermée |
 | `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne |
 
 Un secret absent ne fait pas tomber le Worker : l'outil ou la page concernée **nomme** le
@@ -146,13 +217,16 @@ secret et la commande qui le pose.
 `npm run dev:mcp` (depuis la VM) sert les métadonnées et la page `/`, mais le parcours
 OAuth ne va pas au bout : la bibliothèque lie chaque jeton à `https://mcp.luminose.fr/mcp`,
 et refuse de le servir ailleurs. Tout ce qui s'y joue est couvert par les tests
-([test/autorisation.test.ts](test/autorisation.test.ts)) ; le reste s'essaie en production,
-sans risque puisque tout est en lecture.
+([test/autorisation.test.ts](test/autorisation.test.ts)) ; le reste s'essaie en production.
+La lecture y est sans risque ; l'écriture commence toujours par un aperçu, que Google
+vérifie sans rien appliquer.
 
 ## Couper l'accès
 
 - **Tout de suite** : retirer ou changer `ALLOWED_EMAIL`. L'adresse est revérifiée à chaque
   appel de `/mcp` et à chaque rafraîchissement ; le grant est révoqué au suivant.
+- **L'écriture seulement** : supprimer le secret `ADS_APERCU_KEY`, ou mettre
+  `ADS_ECRITURES_MAX_JOUR` à `"0"`. La lecture continue.
 - **L'accès à Google Ads** : révoquer le client sur myaccount.google.com/permissions.
 
 ## Écarts avec le cadrage du 30/09/2026

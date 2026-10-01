@@ -1,7 +1,9 @@
 /**
- * Les outils exposés à Claude. Deux, le périmètre du serveur officiel de Google
- * (googleads/google-ads-mcp) — son périmètre, pas son code : il passe par gRPC,
- * qui ne tourne pas dans un Worker.
+ * Les outils exposés à Claude, et leur registre.
+ *
+ * LIRE : les deux outils du serveur officiel de Google (googleads/google-ads-mcp)
+ * — son périmètre, pas son code : il passe par gRPC, qui ne tourne pas dans un
+ * Worker. ÉCRIRE : outils-ecriture.ts, lot par lot (cadrage du 01/10/2026).
  *
  * Le vocabulaire évite « action » dans les noms, les champs et les schémas :
  * dans ce dépôt, le mot désigne une action IA du catalogue.
@@ -12,6 +14,9 @@ import {
   ErreurAds, comptesAutorises, connexionPour, estUnCompte, listerAccessibles, normaliserCompte, rechercher,
   type ReponseRecherche,
 } from './google-ads';
+import { LECTURE, outil, texte, type ResultatOutil } from './outil';
+import { OUTILS_ECRITURE } from './outils-ecriture';
+import type { Contexte } from './ecriture';
 import type { Env } from './env';
 
 export const MAX_LIGNES = 200;
@@ -19,21 +24,6 @@ export const MAX_CARACTERES = 50_000;
 
 /** Au-delà, `ads_lister_comptes` ferait une requête par compte sans borne. */
 const MAX_COMPTES = 10;
-
-export type ResultatOutil = { content: { type: 'text'; text: string }[]; isError?: boolean };
-
-export const texte = (contenu: string, isError = false): ResultatOutil =>
-  ({ content: [{ type: 'text', text: contenu }], ...(isError ? { isError: true } : {}) });
-
-type Outil<S extends z.ZodObject> = {
-  name: string;
-  title: string;
-  description: string;
-  schema: S;
-  executer: (args: z.infer<S>, env: Env) => Promise<ResultatOutil>;
-};
-
-const outil = <S extends z.ZodObject>(o: Outil<S>) => o;
 
 // ── ads_lister_comptes ───────────────────────────────────────────────────
 
@@ -53,6 +43,7 @@ const listerComptes = outil({
     "Inutile avant une requête sur le compte Luminose, qui est le compte par défaut d'ads_requete. " +
     "Utile pour connaître la devise, ou pour diagnostiquer un accès.",
   schema: z.object({}).strict(),
+  annotations: LECTURE,
   async executer(_args, env) {
     const accessibles = await listerAccessibles(env);
     const autorises = comptesAutorises(env);
@@ -155,6 +146,7 @@ const requeteGaql = outil({
     compte: z.string().optional()
       .describe('Identifiant du compte, dix chiffres (tirets permis). Par défaut : le compte Luminose.'),
   }).strict(),
+  annotations: LECTURE,
   async executer({ requete, compte }, env) {
     if (!estUneLecture(requete)) {
       throw new Refus('Requête refusée : seules les lectures GAQL sont acceptées, et elles commencent par SELECT.');
@@ -180,19 +172,17 @@ const requeteGaql = outil({
 
 // ── Registre ─────────────────────────────────────────────────────────────
 
-const OUTILS = [listerComptes, requeteGaql] as const;
+const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE] as const;
 
-/** Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en cache. */
-export const definitionsOutils = () => OUTILS.map(({ name, title, description, schema }) => {
+/**
+ * Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en
+ * cache. Les outils d'écriture y figurent même sans le scope `ads:ecrire` : ils
+ * refusent alors à l'appel, en disant comment l'obtenir — un outil absent ne
+ * s'explique pas.
+ */
+export const definitionsOutils = () => OUTILS.map(({ name, title, description, schema, annotations }) => {
   const { $schema: _dialecte, ...inputSchema } = z.toJSONSchema(schema) as Record<string, unknown>;
-  return {
-    name,
-    title,
-    description,
-    inputSchema,
-    // Des indices pour le client, pas une garantie : la garantie est dans google-ads.ts.
-    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  };
+  return { name, title, description, inputSchema, annotations };
 });
 
 export const trouverOutil = (nom: unknown) => OUTILS.find((o) => o.name === nom);
@@ -206,11 +196,12 @@ export const executerOutil = async (
   o: NonNullable<ReturnType<typeof trouverOutil>>,
   args: unknown,
   env: Env,
+  contexte: Contexte,
 ): Promise<ResultatOutil> => {
   const analyse = o.schema.safeParse(args ?? {});
   if (!analyse.success) return texte(`Arguments invalides pour ${o.name} :\n${z.prettifyError(analyse.error)}`, true);
   try {
-    return await o.executer(analyse.data as never, env);
+    return await o.executer(analyse.data as never, env, contexte);
   } catch (e) {
     if (e instanceof Refus) return texte(e.message, true);
     if (e instanceof ErreurAds) return texte(e.message, true);

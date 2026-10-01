@@ -104,19 +104,21 @@ describe('époque moderne (2026-07-28)', () => {
     expect(result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26']);
     expect(result.capabilities).toEqual({ tools: {} });
     expect(result._meta['io.modelcontextprotocol/serverInfo'].name).toBe('luminose-google-ads');
-    expect(result.instructions).toMatch(/Lecture seule/);
+    expect(result.instructions).toMatch(/Claude prépare, Florent publie/);
   });
 
-  it('tools/list publie les deux outils, en lecture seule, sans dialecte explicite', async () => {
+  it('tools/list publie les outils de lecture puis d’écriture, sans dialecte explicite', async () => {
     const env = creerEnv();
     const reponse = await appeler(env, '/mcp', requeteModerne(await jetonValide(env), 'tools/list'));
     const { result } = await reponse.json() as any;
 
-    expect(result.tools.map((t: { name: string }) => t.name)).toEqual(['ads_lister_comptes', 'ads_requete']);
+    // Les outils d'écriture figurent même sans le scope : ils refusent à l'appel, en disant pourquoi.
+    expect(result.tools.map((t: { name: string }) => t.name))
+      .toEqual(['ads_lister_comptes', 'ads_requete', 'ads_negatifs_ajouter', 'ads_mettre_en_pause']);
     for (const outil of result.tools) {
       expect(outil.inputSchema.type).toBe('object');
       expect(outil.inputSchema.$schema).toBeUndefined();
-      expect(outil.annotations.readOnlyHint).toBe(true);
+      expect(outil.annotations.readOnlyHint).toBe(outil.name === 'ads_lister_comptes' || outil.name === 'ads_requete');
       expect(outil.annotations.destructiveHint).toBe(false);
     }
     const requete = result.tools[1];
@@ -248,7 +250,7 @@ describe('époque héritée (initialize)', () => {
     simulerFetch(({ url }) => (url.includes(':search') ? Response.json({ results: [] }) : undefined));
 
     const liste = await (await appeler(env, '/mcp', heritee(jeton, { id: 1, method: 'tools/list' }))).json() as any;
-    expect(liste.result.tools).toHaveLength(2);
+    expect(liste.result.tools).toHaveLength(4);
     expect(liste.result.resultType).toBeUndefined();
 
     // Un client 2025-03-26 n'envoie pas d'en-tête de version.
