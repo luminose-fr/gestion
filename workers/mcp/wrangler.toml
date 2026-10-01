@@ -69,7 +69,7 @@ id = "f52db199460f4d1296346f4f7077b3ce"
 [[d1_databases]]
 binding = "DB"
 database_name = "luminose-mcp"
-database_id = "A_REMPLACER"
+database_id = "4aa0fa05-1064-42de-845b-3b9f0b4e75ca"
 migrations_dir = "migrations"
 
 [dev]
