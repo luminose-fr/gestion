@@ -20,6 +20,9 @@ export * from './objectives';
 // L'article tel que le site Jekyll l'attend — composé, jamais écrit par le modèle
 export * from './jekyll';
 
+// Le Reel expliqué — sa forme et ce qui s'y compte (SPEC §12)
+export * from './reelExplique';
+
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';
 

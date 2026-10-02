@@ -46,6 +46,7 @@ describe('prompts composés', () => {
     ['post-court', TargetFormat.POST_TEXTE_COURT],
     ['article', TargetFormat.ARTICLE_LONG_SEO],
     ['reel', TargetFormat.SCRIPT_VIDEO_REEL_SHORT],
+    ['reel-explique', TargetFormat.REEL_EXPLIQUE],
     ['youtube', TargetFormat.SCRIPT_VIDEO_YOUTUBE],
     ['carrousel', TargetFormat.CARROUSEL_SLIDE],
     ['newsletter', TargetFormat.NEWSLETTER],

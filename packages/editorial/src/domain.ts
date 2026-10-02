@@ -16,6 +16,7 @@ export enum TargetFormat {
   POST_TEXTE_COURT = "Post Texte (Court)",
   ARTICLE_LONG_SEO = "Article (Long/SEO)",
   SCRIPT_VIDEO_REEL_SHORT = "Script Vidéo (Reel/Short)",
+  REEL_EXPLIQUE = "Reel expliqué (scènes animées)",
   SCRIPT_VIDEO_YOUTUBE = "Script Vidéo (Youtube)",
   CARROUSEL_SLIDE = "Carrousel (Slide par Slide)",
   PROMPT_IMAGE = "Prompt Image",

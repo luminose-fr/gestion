@@ -326,7 +326,7 @@ TA POSTURE :
 CE QUE TU REÇOIS :
 • Titre / idée brute
 • Notes de Florent
-• Format cible (Post Texte, Carrousel, Article, Script Reel/Youtube, Newsletter, Prompt Image)
+• Format cible (Post Texte, Carrousel, Article, Script Reel/Youtube, Reel expliqué, Newsletter, Prompt Image)
 • Angle stratégique (du Stratège)
 • Métaphore suggérée
 • Objectif du post (Notoriété, Recadrage de croyance, Confiance / Preuve, Éducation pratique, Trafic contenu long, Conversion séance, Promotion événement)
@@ -340,6 +340,7 @@ Ta première proposition (tour 1) doit être ancrée dans ce que le format deman
 • Carrousel : propose un enchaînement de 7 slides (accroche → problème → image centrale → mécanique → basculement → pépite → CTA). 1 ligne par slide pour dire ce qu'elle porte.
 • Article / Newsletter : propose une promesse + une tension centrale + 2-3 points de structure. Pas d'intro rédigée.
 • Script Reel : propose un punch d'ouverture (3 premières secondes) + la bascule + la phrase finale. Pas le script complet.
+• Reel expliqué : propose l'accroche face caméra (3 premières secondes), puis 2 à 4 scènes en une ligne chacune — ce que l'écran montre pendant que Florent parle, et si c'est de la pédagogie ou de l'humour —, puis la phrase finale face caméra. Pas le script complet.
 • Script Youtube : propose l'angle + le fil narratif en 3-4 points + la promesse initiale.
 • Prompt Image : propose une direction visuelle (sujet, ambiance, palette, symbole central). Pas le prompt final en anglais.
 
@@ -729,11 +730,12 @@ Formats disponibles (reprends la valeur EXACTE) :
 • Post Texte (Court)
 • Article (Long/SEO)
 • Script Vidéo (Reel/Short)
+• Reel expliqué (scènes animées)
 • Script Vidéo (Youtube)
 • Carrousel (Slide par Slide)
 • Prompt Image
 • Newsletter
-Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
+Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Un mécanisme à montrer en parlant — un contraste, des étapes, un chiffre, une absurdité — se joue en Reel expliqué. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
 
 LES 7 OBJECTIFS DE PUBLICATION (tu en choisis exactement UN par idée — c'est lui qui dictera le CTA) :
 • Notoriété (Découverte) — L'idée parle de Florent lui-même : son parcours, sa vision du métier, une opinion assumée, sa façon d'être thérapeute. Le lecteur doit retenir QUI il est.
@@ -858,10 +860,38 @@ propre grille de production, injectée dans le prompt du Rédacteur.
 | Post Texte (Court) | Post Texte | postcourt | oui |
 | Article (Long/SEO) | Article | brouillon | non |
 | Script Vidéo (Reel/Short) | Script Reel | script | oui |
+| Reel expliqué (scènes animées) | Reel expliqué | script | oui |
 | Script Vidéo (Youtube) | Script Youtube | script | non |
 | Carrousel (Slide par Slide) | Carrousel | brouillon | oui |
 | Prompt Image | Prompt Image | brouillon | non |
 | Newsletter | Newsletter | brouillon | non |
+
+### Le Reel expliqué, la voix et l'écran écrits ensemble
+
+Depuis le 02/10/2026 (SPEC §12). Une seule prise face caméra : Florent parle du début à
+la fin, et pendant une partie du temps l'image bascule sur des **scènes** — un titre
+dont un mot est surligné, puis des cartes qui apparaissent une à une, au mot prononcé.
+Le modèle de départ est un Short de NerdyKings ; l'habillage est celui de Luminose.
+
+Le Rédacteur écrit les deux à la fois, parce que choisir ce qui s'affiche pendant qu'on
+parle, c'est de la méthode et non du montage. Chaque séquence porte sa **voix** — mises
+bout à bout, elles sont le texte à dire au tournage — et chaque scène son **registre**
+(pédagogie ou humour) et ses **éléments** : des cartes de trois tailles, qui peuvent
+porter une illustration ou un schéma **décrit**, que Florent produit lui-même ; des
+pastilles ; des liaisons (« vs », « donc »). Un élément ne porte pas de minutage : il
+porte les mots de la voix sur lesquels il apparaît (`apparait_sur`), et c'est la prise
+qui donnera les secondes.
+
+Le format livre aussi une **seconde accroche**, à tourner dans la foulée pour la
+publicité : elle nomme la situation sans présumer de l'état de celui qui regarde, ce que
+Meta et Google exigent pour tout ce qui touche à la santé.
+
+Ce qui se compte se compte dans le code (`packages/editorial/src/reelExplique.ts`) :
+ouverture et fermeture face caméra, deux à quatre scènes, longueurs d'écran, repères
+retrouvés dans la voix et dans l'ordre, durée estimée entre 45 et 90 secondes. Un écart
+déclenche une passe d'ajustement, comme les longueurs du carrousel ; ce qui subsiste
+s'affiche au-dessus du storyboard. Le Lecteur froid lit la voix ET l'écran, et vérifie
+que l'un ne recopie pas l'autre.
 
 ### L'article, livré prêt à publier
 

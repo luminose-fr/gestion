@@ -231,6 +231,7 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | surlignage de la recherche (`getHighlightedText`, `SocialGridView`) | `bg-yellow-*` et `text-gray-900` | le marqueur de ce qu'on cherche : ni un sens, ni une couleur d'outil (arbitré en phase 2, écrit à l'audit) |
 | `LoginPage`, champ du mot de passe | `pr-11` | la place du bouton qui affiche le mot de passe (`right-3`, 28 px) : à `pr-8`, le texte passerait dessous |
 | `LoginPage`, logo | `shadow-brand-main/30` et le dégradé | l'identité : c'est le logo, pas un bouton |
+| `components/Video/` (les scènes du Reel expliqué) | pixels du cadre 1080 × 1920 en styles en ligne, palette de `voix/direction-artistique.md`, capitales, ombres portées | c'est l'image de la vidéo publiée, réduite à l'affichage : ses échelles sont celles du cadre vertical, pas celles de l'interface (SPEC §12, 02/10/2026) |
 | `ContentEditor/renderers/` | sur-titres et pastilles en capitales écrits à la main **dans l'aperçu des slides** | l'aperçu reproduit le visuel publié, pas l'interface (arbitré le 23/09/2026). Les en-têtes d'interface, eux, passent par `Etiquette` — dans `SlidesRenderer`, « Ajuster… » et « Prompt Dzine » y sont passés le 23/09/2026 |
 
 ## Comment on saura que c'est fini
@@ -251,7 +252,7 @@ grep $OPTS $MODALES "max-w-(xs|sm|md|lg|2xl|4xl|5xl|64)\b" apps/manager | sort -
 grep $OPTS "border-brand-light|dark:border-dark-sec-bg" apps/manager | sort -u
 grep $OPTS $LECTURE "\b(green|emerald|amber|red|rose)-[0-9]+" apps/manager | sort -u
 grep $OPTS "font-medium" apps/manager | sort -u
-grep $OPTS --exclude-dir=renderers "(^|[^:a-z-])uppercase\b" apps/manager | sort -u
+grep $OPTS --exclude-dir=renderers --exclude-dir=Video "(^|[^:a-z-])uppercase\b" apps/manager | sort -u
 ```
 
 La dernière attrape un sur-titre écrit à la main : les capitales n'existent que dans

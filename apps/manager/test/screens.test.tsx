@@ -40,6 +40,8 @@ import { ConfirmSuppressionSerie } from '../components/Series/ConfirmSuppression
 import { CoachChat } from '../components/CoachChat';
 import { DraftView } from '../components/ContentEditor/DraftView';
 import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
+import { ScriptVideoRenderer } from '../components/ContentEditor/renderers/ScriptVideoRenderer';
+import { SceneLuminose } from '../components/Video/SceneLuminose';
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
@@ -1862,5 +1864,85 @@ describe('Article — la publication sous le brouillon', () => {
     const { container } = render(<BodyRenderer body={article({ cta: 'Prenez rendez-vous.' })} />);
     expect(container.textContent).toContain('Fichier du site');
     expect(container.textContent).toContain('Catégorie absente');
+  });
+});
+
+/**
+ * Le Reel expliqué (SPEC §12) : le storyboard est le document de tournage. Il
+ * se monte sain, et il se monte À CORRIGER — c'est l'état où l'écran doit
+ * parler, puisqu'un script dont le contrôle sait déjà qu'il ne tiendra pas ne
+ * doit pas partir au tournage.
+ */
+describe('Reel expliqué — storyboard', () => {
+  const reel = (modifier: (d: any) => void = () => {}) => {
+    const d: any = {
+      format: 'Reel expliqué',
+      sequences: [
+        { plan: 'camera', role: 'Accroche', voix: "Vous relisez trois fois un message avant de l'envoyer ?" },
+        { plan: 'camera', role: 'Ancrage', voix: "En séance, je l'entends presque chaque semaine. Et ce n'est pas de la politesse : c'est un système d'alarme qui s'est réglé trop fort." },
+        {
+          plan: 'scene', role: 'Mécanique', registre: 'pedagogie',
+          voix: "Le perfectionnisme fonctionne comme une alarme incendie. Elle était utile quand vous étiez enfant et qu'une erreur coûtait cher. Aujourd'hui, elle sonne pour une virgule. Et chaque fois qu'elle sonne, vous payez en fatigue.",
+          titre: 'Une alarme [trop sensible]',
+          elements: [
+            { type: 'carte', taille: 'petite', ton: 'ombre', texte: 'Enfant : erreur = danger', apparait_sur: 'quand vous étiez enfant' },
+            { type: 'carte', taille: 'petite', ton: 'ombre', texte: 'Adulte : une [virgule]', apparait_sur: 'elle sonne pour une virgule' },
+            { type: 'carte', taille: 'grande', ton: 'ombre', texte: 'Le prix : la [fatigue]', visuel: { nature: 'schema', description: "Une jauge d'alarme bloquée dans le rouge." }, apparait_sur: 'vous payez en fatigue' },
+          ],
+        },
+        {
+          plan: 'scene', role: 'Bascule', registre: 'humour',
+          voix: "Imaginez un détecteur de fumée qui se déclenche dès que vous allumez une bougie. Vous ne le jetez pas : vous le réglez.",
+          titre: 'On ne le jette [pas]',
+          elements: [
+            { type: 'carte', taille: 'grande', ton: 'neutre', texte: null, visuel: { nature: 'illustration', description: 'Un détecteur de fumée paniqué au-dessus d\u2019une bougie.' }, apparait_sur: 'dès que vous allumez une bougie' },
+            { type: 'pastille', ton: 'lumière', texte: 'On le [règle]', apparait_sur: 'vous le réglez' },
+          ],
+        },
+        { plan: 'camera', role: "Appel à l'action", voix: "C'est ce travail-là qu'on fait en séance : baisser le volume, sans couper le son. Si ça vous parle, tout est sur luminose.fr, lien en bio." },
+      ],
+      accroche_pub: { voix: "Relire trois fois un message avant de l'envoyer : on croit que c'est de la politesse." },
+      legende: { texte: 'Trois relectures pour deux lignes.', cta: 'Lien en bio → luminose.fr', hashtags: ['#perfectionnisme'] },
+    };
+    modifier(d);
+    return JSON.stringify(d);
+  };
+
+  it('se monte en storyboard : la voix, l\u2019écran, ce qu\u2019il reste à produire', () => {
+    const { container } = render(<ScriptVideoRenderer raw={reel()} variant="table" />);
+    const texte = container.textContent ?? '';
+    expect(texte).toContain('1. Face caméra · Accroche');
+    expect(texte).toContain('3. Scène · Mécanique · pédagogie');
+    expect(texte).toContain('4. Scène · Bascule · humour');
+    expect(texte).toContain('À produire');
+    expect(texte).toContain("Schéma — Une jauge d'alarme bloquée dans le rouge.");
+    expect(texte).toContain('Seconde accroche · publicité');
+    expect(texte).toContain('Durée estimée ≈ 50 s');
+    expect(texte).not.toContain('À corriger avant de tourner');
+    // Les trois repères de la scène 3 sont soulignés et numérotés.
+    const numeros = Array.from(container.querySelectorAll('sup')).map(s => s.textContent);
+    expect(numeros.slice(0, 3)).toEqual(['1', '2', '3']);
+    expect(container.querySelectorAll('[role="img"]')).toHaveLength(2);
+  });
+
+  it('dit ce qui ne tiendra pas, plutôt que de laisser partir au tournage', () => {
+    const { container } = render(<ScriptVideoRenderer raw={reel(d => {
+      d.sequences[2].elements[1].apparait_sur = 'pour une faute';
+    })} variant="table" />);
+    expect(container.textContent).toContain('À corriger avant de tourner');
+    expect(container.textContent).toContain('repère « pour une faute » introuvable');
+  });
+
+  it('laisse le Script Reel classique à son rendu', () => {
+    const { container } = render(<ScriptVideoRenderer raw={JSON.stringify({
+      format: 'Script Reel', sections: [{ timing: '[0-3s]', role: 'Accroche', texte: 'Bonjour.' }],
+    })} />);
+    expect(container.textContent).toContain('[0-3s] Accroche');
+    expect(container.querySelector('[role="img"]')).toBeNull();
+  });
+
+  it('monte une scène dont aucun élément n\u2019est encore apparu', () => {
+    const sequence = JSON.parse(reel()).sequences[2];
+    expect(() => render(<SceneLuminose sequence={sequence} largeur={216} visibles={0} />)).not.toThrow();
   });
 });

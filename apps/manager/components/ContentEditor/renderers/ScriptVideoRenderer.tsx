@@ -1,6 +1,8 @@
 import React from 'react';
+import { estReelExplique } from '@luminose/editorial';
 import { TargetFormat } from '../../../types';
 import { parseBodyJson, t, BlockPre, CarrouselLegende } from './shared';
+import { StoryboardRenderer } from './StoryboardRenderer';
 
 interface ScriptVideoRendererProps {
     raw: string;
@@ -8,7 +10,7 @@ interface ScriptVideoRendererProps {
 }
 
 /**
- * Rendu structuré du script vidéo (Reel/Short ou Youtube).
+ * Rendu structuré du script vidéo (Reel/Short, Reel expliqué ou Youtube).
  * Utilise des blocs avec whitespace-pre-wrap pour conserver
  * les retours à la ligne du script.
  */
@@ -22,6 +24,10 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
             </div>
         );
     }
+
+    // Le Reel expliqué se reconnaît à sa structure (des séquences), pas à son
+    // nom de format : l'écran rend ce qu'il a sous les yeux.
+    if (estReelExplique(data)) return <StoryboardRenderer data={data} />;
 
     const fmt = data.format;
     const isReelShort = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || fmt === "Script Reel";

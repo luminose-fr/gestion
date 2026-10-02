@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { TargetFormat, TARGET_FORMAT_VALUES } from '../src/domain';
 import {
   FORMAT_REGISTRY,
+  formatDraftContent,
   getFormatDef,
   getEditorTab,
   getFormatPromptTemplate,
@@ -37,6 +38,17 @@ describe('complétude du registre', () => {
     expect(typeof def.toPlainText).toBe('function');
   });
 
+  /**
+   * La lecture en texte vivait dans un `switch` dont la branche par défaut
+   * rendait une chaîne vide. Or c'est elle que reçoit le Lecteur froid, et une
+   * lecture vide fait sauter la relecture sans un mot : un format ajouté sans y
+   * penser n'aurait jamais été relu.
+   */
+  it.each(ALL_FORMATS)('%s se lit en texte, pour l’édition comme pour le Lecteur froid', (format) => {
+    expect(typeof FORMAT_REGISTRY[format].toMarkdown).toBe('function');
+    expect(formatDraftContent(format, {})).toBe('');
+  });
+
   it('n’a pas deux formats avec la même clé courte', () => {
     expect(new Set(VALID_SHORT_KEYS).size).toBe(VALID_SHORT_KEYS.length);
   });
@@ -46,6 +58,7 @@ describe('routage — comportement attendu par l’éditeur', () => {
   it('mène au bon écran après la rédaction', () => {
     expect(getEditorTab(TargetFormat.POST_TEXTE_COURT)).toBe('postcourt');
     expect(getEditorTab(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe('script');
+    expect(getEditorTab(TargetFormat.REEL_EXPLIQUE)).toBe('script');
     expect(getEditorTab(TargetFormat.CARROUSEL_SLIDE)).toBe('brouillon');
   });
 
@@ -53,6 +66,7 @@ describe('routage — comportement attendu par l’éditeur', () => {
     expect(supportsColdRead(TargetFormat.POST_TEXTE_COURT)).toBe(true);
     expect(supportsColdRead(TargetFormat.CARROUSEL_SLIDE)).toBe(true);
     expect(supportsColdRead(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe(true);
+    expect(supportsColdRead(TargetFormat.REEL_EXPLIQUE)).toBe(true);
     expect(supportsColdRead(TargetFormat.ARTICLE_LONG_SEO)).toBe(false);
   });
 
@@ -128,6 +142,23 @@ describe('résoudre un format écrit à la main', () => {
         expect(resoudreFormat('un carrousel de 8 slides')).toBe(TargetFormat.CARROUSEL_SLIDE);
         expect(resoudreFormat('Newsletter hebdo')).toBe(TargetFormat.NEWSLETTER);
         expect(resoudreFormat('Article SEO long')).toBe(TargetFormat.ARTICLE_LONG_SEO);
+    });
+
+    /**
+     * « Reel expliqué » contient « reel ». Sans préséance du nom le plus précis,
+     * le seul format dont le nom en englobe un autre ne se résoudrait jamais :
+     * l'Éclateur le désignerait, et la ligne de plan arriverait sans format.
+     */
+    it('laisse le nom le plus précis l’emporter sur celui qu’il contient', () => {
+        expect(resoudreFormat('Reel expliqué')).toBe(TargetFormat.REEL_EXPLIQUE);
+        expect(resoudreFormat('reel explique')).toBe(TargetFormat.REEL_EXPLIQUE);
+        expect(resoudreFormat('Short expliqué')).toBe(TargetFormat.REEL_EXPLIQUE);
+        expect(resoudreFormat('Reel (scènes animées)')).toBe(TargetFormat.REEL_EXPLIQUE);
+        expect(resoudreFormat('Script Reel')).toBe(TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        expect(resoudreFormat('Reel')).toBe(TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        // La préséance ne couvre que le nom englobé : un autre format nommé à
+        // côté reste une ambiguïté.
+        expect(resoudreFormat('Reel expliqué ou carrousel')).toBeNull();
     });
 
     /**

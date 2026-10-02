@@ -48,7 +48,7 @@ Aucune entrée ne dépend de la lecture d'une autre. Pas d'« épisode 2/5 », p
 LE FORMAT SUIT LA MATIÈRE :
 Formats disponibles (reprends la valeur EXACTE) :
 ${FORMATS_DISPONIBLES}
-Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
+Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Un mécanisme à montrer en parlant — un contraste, des étapes, un chiffre, une absurdité — se joue en Reel expliqué. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
 
 ${buildObjectifsPromptSection()}
 

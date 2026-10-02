@@ -670,7 +670,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
                                 </div>
                             );
 
-                            if (item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT) return (
+                            if (isVideoFormat) return (
                                 <div className="flex justify-end order-4">
                                     <Bouton
                                         onClick={() => onTabChange('script')}

@@ -35,6 +35,7 @@ CONTRÔLES À EFFECTUER (rôle 2 — Contrôleur) :
 5. Pour un carrousel : titres ≤ 35 caractères, textes ≤ 140 caractères (espaces compris, slide "Signature" exclue). Donne le décompte exact des dépassements CONSTATÉS. En revanche n'annonce AUCUN décompte pour les corrections que tu proposes : un garde-fou déterministe raccourcit après coup ce qui dépasse, et un décompte faux de ta part rend le tien inutile.
 6. Légende de publication (carrousel et Reel seulement — les autres formats n'en ont pas) : la première ligne (~125 premiers caractères) parle de la situation du lecteur, pas seulement du conte ou de l'image. La légende PORTE CE QUE LES SLIDES NE PEUVENT PAS PORTER — un exemple anonymisé, ce que ça change concrètement — et c'est là-dessus qu'on la juge. Reprendre la métaphore centrale et la phrase d'accroche est NORMAL et voulu : ce n'est pas un doublon. Ne signale une répétition que si une phrase entière (plus de dix mots consécutifs) est reprise à l'identique d'une slide ET n'apporte rien de neuf.
 7. Zéro emoji, vouvoiement strict du lecteur.
+8. Pour un Reel expliqué : l'écran ne recopie pas la voix — chaque carte retient un mot-clé, un chiffre, un contraste, ou montre ce que la voix ne peut pas montrer. Une carte qui répète la phrase qu'on entend est un problème. L'ancrage praticien se dit face caméra. Les longueurs et les repères sont contrôlés par le code : ne les compte pas.
 
 RÈGLES DE SORTIE (FORMAT JSON STRICT) — aucun texte avant ou après le JSON :
 {
