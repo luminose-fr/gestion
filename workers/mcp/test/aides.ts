@@ -75,6 +75,10 @@ export const creerEnv = (surcharges: Partial<Env> = {}): EnvFactice => {
     DB: new D1Test(),
     ADS_APERCU_KEY: 'cle-d-apercu-de-test',
     ADS_ECRITURES_MAX_JOUR: '30',
+    ADS_BUDGET_MAX_JOUR: '10',
+    ADS_BUDGET_MAX_TOTAL: '25',
+    ADS_CPC_MAX: '2',
+    ADS_CAMPAGNE_MODELE: '111',
     ...surcharges,
   } as EnvFactice;
 };

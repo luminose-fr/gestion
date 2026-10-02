@@ -20,7 +20,10 @@
  * jeton porteur valide.
  */
 import { empreinte, signer, verifier } from './crypto';
-import { ErreurAds, estUnCompte, muter, normaliserCompte, type Operation, type ServiceEcriture } from './google-ads';
+import {
+  ErreurAds, estUnCompte, muter, normaliserCompte, ressourcesRendues, type Operation, type ServiceEcriture,
+} from './google-ads';
+import { MARQUE } from './regles';
 import { clore, ecrituresDuJour, ouvrir } from './journal';
 import { Refus } from './refus';
 import type { Env } from './env';
@@ -41,6 +44,13 @@ export type Preparation = {
   description: string;
   /** Une fois fait. */
   bilan: string;
+  /**
+   * Annonces et mots-clés n'ont pas de nom à marquer : le libellé « [Claude] »
+   * se pose juste après leur création, sur les noms de ressource rendus par
+   * Google (cadrage du 02/10/2026, R2). `libelle` : celui du compte, s'il existe
+   * déjà — sinon il est créé au moment d'exécuter.
+   */
+  libeller?: { service: 'adGroupAdLabels' | 'adGroupCriterionLabels'; champ: 'adGroupAd' | 'adGroupCriterion'; libelle?: string };
 };
 
 type Apercu = { o: string; h: string; e: number };
@@ -142,15 +152,18 @@ export const ecrire = async (
   }
 
   try {
-    const reponse = await muter(env, compte, p.service, p.operations, false);
-    const ressources = (reponse.results ?? []).map((r) => r.resourceName ?? '').filter(Boolean);
+    const ressources = ressourcesRendues(await muter(env, compte, p.service, p.operations, false));
+    const marque = p.libeller ? await libeller(env, compte, p.libeller, ressources) : null;
     try {
-      await clore(env, numero, 'ok', { ressources });
+      await clore(env, numero, 'ok', { ressources, ...(marque?.echec ? { erreur: marque.echec } : {}) });
     } catch (erreur) {
       // Google a appliqué : on le dit, et on signale le journal resté ouvert.
       console.error(`Écriture n° ${numero} faite, journal non clos :`, erreur);
     }
-    return [`FAIT — écriture n° ${numero} du journal.`, '', p.bilan, ...ressources.map((r) => `- ${r}`)].join('\n');
+    return [
+      `FAIT — écriture n° ${numero} du journal.`, '', p.bilan, ...ressources.map((r) => `- ${r}`),
+      ...(marque ? ['', marque.echec ?? `Libellé ${MARQUE} posé.`] : []),
+    ].join('\n');
   } catch (erreur) {
     const message = erreur instanceof ErreurAds ? erreur.message : String(erreur);
     await clore(env, numero, 'erreur', { erreur: message }).catch((e) => console.error(`Journal n° ${numero} non clos :`, e));
@@ -160,5 +173,27 @@ export const ecrire = async (
       throw new Refus(`ÉCHEC — écriture n° ${numero} : Google a refusé, rien n'a été appliqué.\n\n${message}`);
     }
     throw erreur;
+  }
+};
+
+/**
+ * Le libellé « [Claude] » sur ce qui vient d'être créé. Un échec ici ne défait
+ * rien — l'entité existe, en pause, donc sans dépense — mais il se dit : sans
+ * libellé, Florent ne la retrouverait pas parmi les autres.
+ */
+const libeller = async (
+  env: Env,
+  compte: string,
+  l: NonNullable<Preparation['libeller']>,
+  ressources: string[],
+): Promise<{ echec?: string }> => {
+  try {
+    const libelle = l.libelle ?? ressourcesRendues(await muter(env, compte, 'labels', [{ create: { name: MARQUE } }], false))[0];
+    if (!libelle) throw new Error('Google n’a rendu aucun libellé');
+    await muter(env, compte, l.service, ressources.map((r) => ({ create: { [l.champ]: r, label: libelle } })), false);
+    return {};
+  } catch (erreur) {
+    const message = erreur instanceof Error ? erreur.message.split('\n')[0] : String(erreur);
+    return { echec: `ATTENTION — libellé ${MARQUE} NON posé (${message}). Ce qui a été créé est en pause ; à marquer à la main.` };
   }
 };

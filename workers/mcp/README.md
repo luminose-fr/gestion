@@ -46,13 +46,21 @@ seul endroit : `VERSION_API` dans [src/google-ads.ts](src/google-ads.ts).
 
 ## Écrire — Claude prépare, Florent publie
 
-Cadrage du 01/10/2026, livré **lot par lot**, chacun déployé et essayé avant le suivant.
+Cadrages du 01/10/2026 et du 02/10/2026
+([decisions/2026-10-02-creer-des-campagnes.md](decisions/2026-10-02-creer-des-campagnes.md)),
+livrés **lot par lot**, chacun déployé et essayé avant le suivant.
 
 | Lot | Outils | État |
 | :--- | :--- | :--- |
-| 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` | livré |
-| 2 — préparer, en pause | groupes, annonces responsives, mots-clés | à venir |
-| 3 — le budget | `ads_budget_modifier` | à venir |
+| 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` | en service |
+| 2 — créer, Search | `ads_campagne_creer`, `ads_groupe_creer`, `ads_annonce_creer`, `ads_mots_cles_ajouter` | livré |
+| 3 — Performance Max | à définir | à venir |
+| 4 — Demand Gen | à définir | à venir |
+| 5 — le budget | `ads_budget_modifier` | à venir |
+
+**Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
+une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une annonce
+responsive n'a pas de nom). Florent relit, retire la marque, et active.
 
 **Deux temps, toujours.** Sans `jeton`, l'outil envoie la requête avec `validateOnly: true` :
 Google vérifie tout, n'applique rien, et l'outil rend un aperçu et un jeton. Avec le jeton,
@@ -73,7 +81,12 @@ et chacun a été vérifié en le cassant : son test échoue.
 | V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
 | V8 | sans le scope `ads:ecrire`, refus — accordé seulement en cochant la case du consentement | [src/ecriture.ts](src/ecriture.ts), [src/autorisation.ts](src/autorisation.ts) |
 | V9 | au-delà de `ADS_ECRITURES_MAX_JOUR` exécutions sur 24 heures, refus (échecs compris) | [src/ecriture.ts](src/ecriture.ts) |
-| V3, V4, V6 | plafonds d'argent, filtre des textes d'annonce, URL finales sur luminose.fr | avec les lots 2 et 3 |
+| V3 · R3 | budget d'une campagne créée ≤ `ADS_BUDGET_MAX_JOUR` ; engagement (actives + « [Claude] » en pause) ≤ `ADS_BUDGET_MAX_TOTAL` ; CPC max ≤ `ADS_CPC_MAX` ; budget jamais partagé | outil, puis table fermée qui revérifie |
+| V4 | filtre des textes d'annonce : refus et avertissements, jamais sur les mots-clés | [src/regles.ts](src/regles.ts), revérifié par la table |
+| V6 | URL finales sur `https://luminose.fr/` ou `https://www.luminose.fr/`, sans sous-domaine | [src/regles.ts](src/regles.ts), revérifié par la table |
+| R1 · R2 | tout naît en pause ; marque « [Claude] » en nom ou en libellé | table fermée, [src/ecriture.ts](src/ecriture.ts) |
+| R4 | le ciblage est recopié de `ADS_CAMPAGNE_MODELE` ; réseau Google seul ; rien de cela en entrée | [src/outils-creation.ts](src/outils-creation.ts), table fermée |
+| R5 | personnalisation du texte et extension d'URL toujours coupées ; AI Max seulement en « Maximiser les conversions » | table fermée |
 
 ### Décisions du lot 1
 
@@ -88,6 +101,18 @@ et chacun a été vérifié en le cassant : son test échoue.
   à KV : rien n'y entre toujours sans identification.
 - **Pas de `requiredScopes`** : c'est la page de consentement qui choisit les scopes. Un
   scope demandé par le client au rafraîchissement rétrécirait le grant à celui-là.
+
+### Décisions du lot 2
+
+- **La campagne part en une requête atomique** (`googleAds:mutate`) : budget, campagne et
+  ciblage recopié, tout ou rien.
+- **Le libellé se pose juste après** la création d'une annonce ou de mots-clés : les noms
+  de ressource ne sont connus qu'une fois créés. S'il échoue, l'entité reste en pause, et
+  l'outil comme le journal le disent. Le libellé « [Claude] » est créé au premier besoin.
+- **Un groupe, une annonce, des mots-clés peuvent aller dans une campagne déjà validée** :
+  ils naissent en pause et marqués, comme le reste.
+- **Le filtre V4 est un plancher.** Il se relit dans [src/regles.ts](src/regles.ts), une
+  ligne par terme ; « soign » y refuse aussi « soigneusement ».
 
 ### Mise en place du lot 1 — ce que Florent fait
 
@@ -207,6 +232,8 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `DB` | binding D1 (`luminose-mcp`) | le journal des écritures (V7), qui compte aussi le plafond V9 |
 | `ADS_APERCU_KEY` | secret | signe les jetons d'aperçu (V2). Absent : l'écriture est fermée, la lecture continue |
 | `ADS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 — 30 exécutions sur 24 heures. Absent ou illisible : l'écriture est fermée |
+| `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 10 €, 25 €, 2 €. Absents ou illisibles : la création est fermée |
+| `ADS_CAMPAGNE_MODELE` | `[vars]` de wrangler.toml | R4 — la campagne dont le ciblage est recopié |
 | `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne |
 
 Un secret absent ne fait pas tomber le Worker : l'outil ou la page concernée **nomme** le
