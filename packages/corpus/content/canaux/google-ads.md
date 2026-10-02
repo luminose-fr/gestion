@@ -7,7 +7,7 @@ expose: prive
 
 # Google Ads
 
-**État au 25/08/2026 : deux campagnes actives uniquement**, vers `luminose.fr`, sur les
+**État au 2/10/2026 : une campagne en cours de création**, vers `luminose.fr`, sur les
 **séances individuelles**, à **10 € / jour**. Tout le reste est en pause ou supprimé.
 
 ## Ce que ce canal charge — NORMATIF
@@ -21,6 +21,23 @@ s'exprimer.
 
 **Aucune promesse de guérison, explicite ou suggérée.** La règle et son motif font foi dans
 `../socle/cadre-deontologique.md` ; elle s'applique ici sans exception.
+
+## Ciblage — qui peut voir l'annonce — NORMATIF
+
+**Une seule exclusion est éthique : la détresse aiguë** (suicide, idées noires,
+automutilation, numéros d'urgence…). Ces personnes relèvent d'un dispositif d'urgence,
+pas d'une rencontre de 20 minutes.
+
+**Les recherches cliniques ne s'excluent pas au nom du cadre.** Dépression, anorexie et
+troubles alimentaires, antidépresseurs, demandes de guérison : ces publics sont accueillis.
+Le cadre porte sur le texte de l'annonce et de la page d'arrivée — jamais « guérir »,
+« soigner », « traitement » — pas sur la recherche. L'accompagnement en ligne existe :
+« en ligne » ne s'exclut pas non plus. Décidé le 02/10/2026 ; renverse l'exclusion de la
+dépression et de l'anorexie posée en août.
+
+Les autres exclusions — formation, gratuit, dispositifs remboursés, autres professions,
+hors zone — sont des réglages de performance : elles se révisent sur les termes de
+recherche.
 
 ## Ce que Claude peut faire dans le compte — NORMATIF
 
