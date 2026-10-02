@@ -32,8 +32,7 @@ pas d'une rencontre de 20 minutes.
 troubles alimentaires, antidépresseurs, demandes de guérison : ces publics sont accueillis.
 Le cadre porte sur le texte de l'annonce et de la page d'arrivée — jamais « guérir »,
 « soigner », « traitement » — pas sur la recherche. L'accompagnement en ligne existe :
-« en ligne » ne s'exclut pas non plus. Décidé le 02/10/2026 ; renverse l'exclusion de la
-dépression et de l'anorexie posée en août.
+« en ligne » ne s'exclut pas non plus.
 
 Les autres exclusions — formation, gratuit, dispositifs remboursés, autres professions,
 hors zone — sont des réglages de performance : elles se révisent sur les termes de
