@@ -33,7 +33,38 @@ const BUDGETS_ORDINAIRES: Budget[] = [
   { nom: 'Ancienne', statut: 'PAUSED', ressource: 'b3', euros: 7 },
 ];
 
-type Monde = { budgets?: Budget[]; libelle?: boolean; criteres?: unknown[]; refusLibelle?: boolean };
+type Monde = { budgets?: Budget[]; libelle?: boolean; criteres?: unknown[]; refusLibelle?: boolean; reglement?: boolean };
+
+/**
+ * Le règlement de Google, tel que l'API REST le rend : santé et tabac arrêtés
+ * mais exemptables, un produit dangereux sans exception possible. Une
+ * opération qui porte la clé d'exception de sa règle passe.
+ */
+const REGLES = [
+  { motif: /hypno/, policyName: 'HEALTH_IN_PERSONALIZED_ADS', nom: 'Healthcare and medicines', exemptable: true },
+  { motif: /tabac|fumer/, policyName: 'TOBACCO', nom: 'Tobacco', exemptable: true },
+  { motif: /cocaine/, policyName: 'DANGEROUS_PRODUCTS', nom: 'Dangerous products', exemptable: false },
+];
+const erreurReglement = (operations: Record<string, any>[]) => {
+  const errors = operations.flatMap((o, index) => {
+    const texte: string = o.create.keyword.text;
+    const exemptees = (o.exemptPolicyViolationKeys ?? []).map((k: { policyName: string }) => k.policyName);
+    return REGLES.filter((r) => r.motif.test(texte) && !(r.exemptable && exemptees.includes(r.policyName))).map((r) => ({
+      errorCode: { policyViolationError: 'POLICY_ERROR' },
+      message: 'A policy was violated. See PolicyViolationDetails for more detail.',
+      trigger: { stringValue: texte },
+      location: { fieldPathElements: [{ fieldName: 'operations', index }, { fieldName: 'create' }, { fieldName: 'keyword' }, { fieldName: 'text' }] },
+      details: { policyViolationDetails: {
+        externalPolicyName: r.nom, externalPolicyDescription: `Règle ${r.nom}`,
+        key: { policyName: r.policyName, violatingText: texte }, isExemptible: r.exemptable,
+      } },
+    }));
+  });
+  return errors.length === 0 ? undefined : Response.json({ error: {
+    code: 400, message: 'Request contains an invalid argument.', status: 'INVALID_ARGUMENT',
+    details: [{ '@type': `type.googleapis.com/google.ads.googleads.${VERSION_API}.errors.GoogleAdsFailure`, errors, requestId: 'req-regles' }],
+  } }, { status: 400 });
+};
 
 const reponse = (results: unknown[]) => Response.json({ results });
 
@@ -68,8 +99,12 @@ const simulerCompte = (monde: Monde = {}) => simulerFetch(({ url, corps }) => {
   }
   if (url.endsWith(':mutate')) {
     const c = JSON.parse(corps);
-    if (c.validateOnly) return Response.json({});
     const service = url.slice(url.lastIndexOf('/') + 1).replace(':mutate', '');
+    if (monde.reglement && service === 'adGroupCriteria') {
+      const refus = erreurReglement(c.operations);
+      if (refus) return refus;
+    }
+    if (c.validateOnly) return Response.json({});
     if (service === 'googleAds') {
       return Response.json({ mutateOperationResponses: c.mutateOperations.map((o: Record<string, unknown>, i: number) => ({
         [Object.keys(o)[0].replace('Operation', 'Result')]: { resourceName: `customers/${COMPTE}/x/${7000 + i}` },
@@ -543,5 +578,99 @@ describe('NORMATIF — la table fermée revérifie tout, même construit par le 
     const permis = new RegExp(`^https://googleads\\.googleapis\\.com/${VERSION_API}/customers/${COMPTE}/` +
       '(googleAds:(search|mutate)|(adGroups|adGroupAds|adGroupCriteria|labels|adGroupAdLabels|adGroupCriterionLabels):mutate)$');
     expect(appels.map((a) => a.url).filter((u) => u.startsWith('https://googleads') && !permis.test(u))).toEqual([]);
+  });
+});
+
+// ── Le règlement de Google : les exceptions ──────────────────────────────
+
+describe('ads_mots_cles_ajouter — exceptions de règlement', () => {
+  const ARRETES = {
+    groupe: '444',
+    mots_cles: [
+      { texte: 'hypnose anxiété', correspondance: 'PHRASE' },
+      { texte: 'aide pour arrêter de fumer', correspondance: 'PHRASE' },
+      { texte: 'psychopraticien lyon', correspondance: 'PHRASE' },
+    ],
+  };
+
+  it('sans demande, l’outil nomme chaque mot-clé arrêté et sa règle — et ne demande rien', async () => {
+    const env = creerEnv();
+    const appels = simulerCompte({ libelle: true, reglement: true });
+    const { corps } = await appelerOutil(env, 'ads_mots_cles_ajouter', ARRETES, LIRE_ECRIRE);
+
+    expect(corps.result.isError).toBe(true);
+    const t = texteDe(corps);
+    expect(t).toMatch(/Google arrête 2 mot\(s\)-clé\(s\) pour une règle qui admet une exception — rien n'est parti/);
+    expect(t).toMatch(/« aide pour arrêter de fumer » \[expression exacte\] — Tobacco \(TOBACCO\)/);
+    expect(t).toMatch(/« hypnose anxiété » \[expression exacte\] — Healthcare and medicines \(HEALTH_IN_PERSONALIZED_ADS\)/);
+    expect(t).toMatch(/demander_exceptions: true/);
+    expect(executions(appels)).toEqual([]);
+    expect(env.DB.lignes()).toEqual([]);
+  });
+
+  it('NORMATIF — sans demander_exceptions, aucune clé d’exception ne part, jamais', async () => {
+    const env = creerEnv();
+    const appels = simulerCompte({ libelle: true, reglement: true });
+    await appelerOutil(env, 'ads_mots_cles_ajouter', ARRETES, LIRE_ECRIRE);
+    await apercuPuisExecution(env, 'ads_mots_cles_ajouter', MOTS_CLES);
+    expect(appels.filter((a) => /exemptPolicyViolationKeys/.test(a.corps))).toEqual([]);
+  });
+
+  it('avec demander_exceptions : l’aperçu liste chaque exception, et l’exécution les joint aux seuls mots-clés arrêtés', async () => {
+    const env = creerEnv();
+    const appels = simulerCompte({ libelle: true, reglement: true });
+    const { apercu, execution } = await apercuPuisExecution(env, 'ads_mots_cles_ajouter', { ...ARRETES, demander_exceptions: true });
+
+    const a = texteDe(apercu);
+    expect(a).toMatch(/^APERÇU/);
+    expect(a).toMatch(/EXCEPTIONS DE RÈGLEMENT DEMANDÉES À GOOGLE \(2\) — à valider/);
+    expect(texteDe(execution)).toMatch(/^FAIT/);
+    expect(texteDe(execution)).toMatch(/dont 2 avec exception de règlement/);
+
+    const faite = executions(appels).find((m) => m.service === 'adGroupCriteria')!;
+    expect(faite.operations).toEqual([
+      { create: { adGroup: `customers/${COMPTE}/adGroups/444`, status: 'PAUSED', keyword: { text: 'aide pour arrêter de fumer', matchType: 'PHRASE' } },
+        exemptPolicyViolationKeys: [{ policyName: 'TOBACCO', violatingText: 'aide pour arrêter de fumer' }] },
+      { create: { adGroup: `customers/${COMPTE}/adGroups/444`, status: 'PAUSED', keyword: { text: 'hypnose anxiété', matchType: 'PHRASE' } },
+        exemptPolicyViolationKeys: [{ policyName: 'HEALTH_IN_PERSONALIZED_ADS', violatingText: 'hypnose anxiété' }] },
+      { create: { adGroup: `customers/${COMPTE}/adGroups/444`, status: 'PAUSED', keyword: { text: 'psychopraticien lyon', matchType: 'PHRASE' } } },
+    ]);
+    expect(env.DB.lignes()[0].issue).toBe('ok');
+  });
+
+  it('une règle sans exception possible fait refuser, même avec demander_exceptions', async () => {
+    const env = creerEnv();
+    const appels = simulerCompte({ libelle: true, reglement: true });
+    const { corps } = await appelerOutil(env, 'ads_mots_cles_ajouter', {
+      ...ARRETES, mots_cles: [...ARRETES.mots_cles, { texte: 'cocaine', correspondance: 'EXACT' }], demander_exceptions: true,
+    }, LIRE_ECRIRE);
+    expect(texteDe(corps)).toMatch(/Google refuse 1 mot\(s\)-clé\(s\) pour une règle SANS exception possible/);
+    expect(texteDe(corps)).toMatch(/« cocaine » \[exact\] — Dangerous products \(DANGEROUS_PRODUCTS\)/);
+    expect(executions(appels)).toEqual([]);
+  });
+
+  it('une autre erreur de Google remonte telle quelle', async () => {
+    const env = creerEnv();
+    simulerFetch(({ url }) => {
+      if (url.endsWith(':search')) {
+        return Response.json({ results: [{ adGroup: { name: 'Groupe A', status: 'ENABLED', type: 'SEARCH_STANDARD' }, campaign: { name: 'C', advertisingChannelType: 'SEARCH' } }] });
+      }
+      if (!url.endsWith(':mutate')) return undefined;
+      return Response.json({ error: { code: 400, status: 'INVALID_ARGUMENT', message: 'Autre chose.',
+        details: [{ errors: [{ errorCode: { criterionError: 'INVALID_KEYWORD_TEXT' }, message: 'Texte invalide.' }] }] } }, { status: 400 });
+    });
+    const { corps } = await appelerOutil(env, 'ads_mots_cles_ajouter', MOTS_CLES, LIRE_ECRIRE);
+    expect(texteDe(corps)).toMatch(/criterionError\.INVALID_KEYWORD_TEXT/);
+  });
+
+  it('la table n’accepte que des clés d’exception bien formées', () => {
+    const motCle = { adGroup: `customers/${COMPTE}/adGroups/444`, status: 'PAUSED', keyword: { text: 'x', matchType: 'EXACT' } };
+    expect(() => verifierOperation('adGroupCriteria', { create: motCle, exemptPolicyViolationKeys: [{ policyName: 'TOBACCO', violatingText: 'x' }] })).not.toThrow();
+    for (const exceptions of [[], [{ policyName: 'TOBACCO' }], [{ policyName: 'TOBACCO', violatingText: 'x', autre: 1 }], 'TOBACCO']) {
+      expect(() => verifierOperation('adGroupCriteria', { create: motCle, exemptPolicyViolationKeys: exceptions }), JSON.stringify(exceptions)).toThrow(/table fermée/);
+    }
+    // Ni sur une annonce, ni sur un groupe : seuls les mots-clés en portent.
+    expect(() => verifierOperation('adGroups', { create: { campaign: `customers/${COMPTE}/campaigns/111`, name: '[Claude] G', status: 'PAUSED', type: 'SEARCH_STANDARD' },
+      exemptPolicyViolationKeys: [{ policyName: 'TOBACCO', violatingText: 'x' }] })).toThrow(/table fermée/);
   });
 });

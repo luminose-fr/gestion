@@ -11,7 +11,9 @@
  */
 import { z } from 'zod';
 import { compteEcriture, ecrire, exigerEcriture } from './ecriture';
-import { connexionPour, limitesArgent, rechercher, type Operation } from './google-ads';
+import {
+  ErreurAds, connexionPour, limitesArgent, muter, rechercher, violationsDeRegle, type Operation, type Violation,
+} from './google-ads';
 import { outil, texte } from './outil';
 import { CORRESPONDANCES, DEUX_TEMPS, JETON, exigerSearch, normaliserMotCle, premiereLigne, type Correspondance } from './outils-ecriture';
 import { MARQUE, examinerAnnonce, marquer, urlAdmise } from './regles';
@@ -394,6 +396,24 @@ const annonceCreer = outil({
 
 // ── ads_mots_cles_ajouter ────────────────────────────────────────────────
 
+/**
+ * Les règles de Google que ces opérations enfreindraient : une vérification à
+ * blanc (`validateOnly`), dont on lit les `policyViolationDetails`. Toute autre
+ * erreur remonte telle quelle.
+ */
+const reglesEnfreintes = async (env: Env, compte: string, operations: Operation[]): Promise<Violation[]> => {
+  try {
+    await muter(env, compte, 'adGroupCriteria', operations, true);
+    return [];
+  } catch (erreur) {
+    if (erreur instanceof ErreurAds) {
+      const violations = violationsDeRegle(erreur);
+      if (violations) return violations;
+    }
+    throw erreur;
+  }
+};
+
 const motsClesAjouter = outil({
   name: 'ads_mots_cles_ajouter',
   title: "Ajouter des mots-clés (en pause)",
@@ -404,6 +424,11 @@ const motsClesAjouter = outil({
     MARQUE_ET_PAUSE,
     '',
     DEUX_TEMPS,
+    '',
+    "Règlement de Google : certains mots-clés (santé, tabac…) sont arrêtés par une règle qui admet une exception. L'outil " +
+    "les nomme, avec la règle en cause, et ne demande rien. Pour demander l'exception, rappeler avec demander_exceptions: true : " +
+    "l'aperçu liste chaque exception, et elle ne part qu'avec le jeton, après l'accord de Florent. Une règle sans exception " +
+    'possible impose de retirer ou de reformuler le mot-clé.',
   ].join('\n'),
   schema: z.object({
     groupe: ID.describe("Identifiant du groupe d'annonces (ad_group.id)."),
@@ -411,10 +436,12 @@ const motsClesAjouter = outil({
       texte: z.string().min(1).max(80).describe('Le texte, sans crochets ni guillemets.'),
       correspondance: z.enum(['EXACT', 'PHRASE', 'BROAD']),
     }).strict()).min(1).max(50),
+    demander_exceptions: z.boolean().optional()
+      .describe("true : demander à Google une exception pour les mots-clés que son règlement arrête, quand elle est possible. Seulement après avoir lu la liste rendue sans."),
     jeton: JETON,
   }).strict(),
   annotations: ECRITURE,
-  async executer({ groupe, mots_cles, jeton }, env, contexte) {
+  async executer({ groupe, mots_cles, demander_exceptions, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
 
@@ -427,6 +454,49 @@ const motsClesAjouter = outil({
 
     const g = await exigerGroupe(env, compte, groupe);
     const libelle = await trouverLibelle(env, compte);
+    const operations: Operation[] = liste.map((m) => ({ create: {
+      adGroup: `customers/${compte}/adGroups/${groupe}`,
+      status: 'PAUSED',
+      keyword: { text: m.texte, matchType: m.correspondance },
+    } }));
+
+    // Le règlement de Google, mot-clé par mot-clé. Les clés d'exception viennent
+    // de Google lui-même, jamais du modèle : on ne peut demander d'exception que
+    // pour ce que Google vient de nommer, et le jeton couvre ces clés.
+    const parMotCle = new Map<number, Violation[]>();
+    for (const v of await reglesEnfreintes(env, compte, operations)) {
+      const i = v.index ?? liste.findIndex((m) => m.texte === v.cle.violatingText.toLocaleLowerCase('fr'));
+      if (i < 0 || i >= liste.length) {
+        throw new Refus(`Google signale la règle « ${v.regle} » sur « ${v.cle.violatingText} » sans dire quel mot-clé elle vise : rien n'est parti.`);
+      }
+      parMotCle.set(i, [...(parMotCle.get(i) ?? []), v]);
+    }
+    const ligne = ([i, vs]: [number, Violation[]]) =>
+      `- « ${liste[i].texte} » [${CORRESPONDANCES[liste[i].correspondance]}] — ${[...new Set(vs.map((v) => `${v.regle} (${v.cle.policyName})`))].join(', ')}`;
+    const arretes = [...parMotCle].sort(([a], [b]) => a - b);
+
+    const sansException = arretes.filter(([, vs]) => vs.some((v) => !v.exemptable));
+    if (sansException.length > 0) {
+      throw new Refus(
+        `Google refuse ${sansException.length} mot(s)-clé(s) pour une règle SANS exception possible — à retirer ou reformuler, rien n'est parti :\n` +
+        sansException.map(ligne).join('\n'),
+      );
+    }
+    if (arretes.length > 0 && !demander_exceptions) {
+      throw new Refus([
+        `Google arrête ${arretes.length} mot(s)-clé(s) pour une règle qui admet une exception — rien n'est parti :`,
+        ...arretes.map(ligne),
+        '',
+        "Pour demander l'exception : rappeler avec les mêmes mots-clés et demander_exceptions: true. L'aperçu listera chaque " +
+        "exception ; elle ne part qu'avec le jeton, après l'accord de Florent. Sinon : retirer ces mots-clés.",
+      ].join('\n'));
+    }
+    for (const [i, vs] of arretes) {
+      const cles = [...new Map(vs.map((v) => [`${v.cle.policyName}\u0000${v.cle.violatingText}`, v.cle])).values()]
+        .sort((a, b) => a.policyName.localeCompare(b.policyName) || a.violatingText.localeCompare(b.violatingText));
+      operations[i] = { ...operations[i], exemptPolicyViolationKeys: cles };
+    }
+
     const n = liste.length;
     const pluriel = n > 1 ? 's' : '';
     return texte(await ecrire(env, contexte, {
@@ -435,16 +505,17 @@ const motsClesAjouter = outil({
       jeton,
       preparation: {
         service: 'adGroupCriteria',
-        operations: liste.map((m) => ({ create: {
-          adGroup: `customers/${compte}/adGroups/${groupe}`,
-          status: 'PAUSED',
-          keyword: { text: m.texte, matchType: m.correspondance },
-        } })),
+        operations,
         description: [
           `Groupe « ${g.nom} » (campagne « ${g.campagne} ») — ${n} mot${pluriel}-clé${pluriel} EN PAUSE, libellé ${MARQUE} :`,
           ...liste.map((m) => `- ${m.texte} [${CORRESPONDANCES[m.correspondance]}]`),
+          ...(arretes.length
+            ? ['', `EXCEPTIONS DE RÈGLEMENT DEMANDÉES À GOOGLE (${arretes.length}) — à valider, comme le bouton « Demander une exception » de l'interface :`,
+              ...arretes.map(ligne)]
+            : []),
         ].join('\n'),
-        bilan: `${n} mot${pluriel}-clé${pluriel} ajouté${pluriel}, en pause, au groupe « ${g.nom} ».`,
+        bilan: `${n} mot${pluriel}-clé${pluriel} ajouté${pluriel}, en pause, au groupe « ${g.nom} »` +
+          (arretes.length ? `, dont ${arretes.length} avec exception de règlement.` : '.'),
         libeller: { service: 'adGroupCriterionLabels', champ: 'adGroupCriterion', ...(libelle ? { libelle } : {}) },
       },
     }));

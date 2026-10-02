@@ -113,6 +113,13 @@ et chacun a été vérifié en le cassant : son test échoue.
   ils naissent en pause et marqués, comme le reste.
 - **Le filtre V4 est un plancher.** Il se relit dans [src/regles.ts](src/regles.ts), une
   ligne par terme ; « soign » y refuse aussi « soigneusement ».
+- **Exceptions de règlement Google** (ajout du 02/10/2026, après le premier essai : 14
+  mots-clés santé et tabac refusés). `ads_mots_cles_ajouter` vérifie à blanc, nomme chaque
+  mot-clé arrêté et sa règle, et **ne demande rien** de lui-même. Avec
+  `demander_exceptions: true`, il joint aux seuls mots-clés arrêtés les clés d'exception
+  que **Google** vient de rendre — jamais des clés fournies par le modèle — et l'aperçu les
+  liste ; elles ne partent qu'avec le jeton, donc après ton accord. Une règle sans
+  exception possible fait refuser : reformuler ou retirer.
 
 ### Mise en place du lot 1 — ce que Florent fait
 

@@ -82,6 +82,47 @@ export class ErreurAds extends Error {
   }
 }
 
+/** Une règle de Google qu'un mot-clé enfreint, telle que l'API la décrit. */
+export type Violation = {
+  /** Rang de l'opération fautive dans la requête, quand Google le donne. */
+  index: number | null;
+  cle: { policyName: string; violatingText: string };
+  regle: string;
+  description: string;
+  exemptable: boolean;
+};
+
+/**
+ * Les violations de règlement d'une erreur de l'API (`policyViolationDetails`),
+ * ou `null` si l'erreur contient AUTRE CHOSE — elle reste alors une erreur
+ * ordinaire, à remonter telle quelle.
+ */
+export const violationsDeRegle = (e: ErreurAds): Violation[] | null => {
+  try {
+    const erreurs = (JSON.parse(e.brut)?.error?.details ?? []).flatMap((d: { errors?: unknown[] }) => d?.errors ?? []) as {
+      details?: { policyViolationDetails?: { key?: { policyName?: string; violatingText?: string }; externalPolicyName?: string; externalPolicyDescription?: string; isExemptible?: boolean } };
+      location?: { fieldPathElements?: { fieldName?: string; index?: number }[] };
+    }[];
+    if (erreurs.length === 0) return null;
+    const violations: Violation[] = [];
+    for (const err of erreurs) {
+      const v = err.details?.policyViolationDetails;
+      if (!v?.key?.policyName) return null;
+      const chemin = err.location?.fieldPathElements?.[0];
+      violations.push({
+        index: chemin?.fieldName === 'operations' && Number.isInteger(chemin.index) ? chemin.index! : null,
+        cle: { policyName: v.key.policyName, violatingText: v.key.violatingText ?? '' },
+        regle: v.externalPolicyName ?? v.key.policyName,
+        description: v.externalPolicyDescription ?? '',
+        exemptable: v.isExemptible === true,
+      });
+    }
+    return violations;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Le code d'erreur GAQL est ce qui permet au modèle de corriger sa requête
  * (`queryError.UNRECOGNIZED_FIELD` dit quoi changer ; « 400 » ne dit rien).
@@ -331,7 +372,17 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne'>, (service: ServiceEcriture
   },
 
   'creer-mot-cle': (_service, op) => {
-    if (cles(op) !== 'create') return `clés ${cles(op)}`;
+    // Une exception de règlement se demande au niveau de l'opération : des clés
+    // que Google a lui-même rendues (outils-creation.ts), jamais saisies.
+    if (cles(op) !== 'create' && cles(op) !== 'create,exemptPolicyViolationKeys') return `clés ${cles(op)}`;
+    if ('exemptPolicyViolationKeys' in op) {
+      const exceptions = op.exemptPolicyViolationKeys;
+      if (!Array.isArray(exceptions) || exceptions.length === 0 || exceptions.length > 10 ||
+          !exceptions.every((x) => cles(x) === 'policyName,violatingText' &&
+            typeof (x as Record<string, unknown>).policyName === 'string' && typeof (x as Record<string, unknown>).violatingText === 'string')) {
+        return 'exceptions de règlement mal formées';
+      }
+    }
     const c = op.create as Record<string, unknown>;
     // Pas de champ `negative` : un négatif de groupe exclurait sans relecture — il n'est pas dans la table.
     if (cles(c) !== 'adGroup,keyword,status') return `champs ${cles(c)}`;

@@ -122,3 +122,18 @@ Un lot à la fois, chacun déployé et essayé avant le suivant.
 1. Relire la liste V4 (§3) — elle est dans le code, une ligne par terme.
 2. Après déploiement du lot 2 : créer une campagne d'essai par Claude, la relire dans
    l'interface, puis la supprimer ou la valider.
+
+## Addendum du 02/10/2026 — les exceptions de règlement
+
+Premier essai : Google a refusé 14 mots-clés (« hypnose anxiété », « hypnothérapeute »,
+« aide pour arrêter de fumer »…) au titre de ses règles santé et tabac, qui admettent une
+exception — le bouton « Demander une exception » de l'interface. Décision de Florent :
+l'outil la gère, la décision restant la sienne.
+
+- Sans demande explicite, `ads_mots_cles_ajouter` nomme chaque mot-clé arrêté et sa
+  règle, et ne demande rien.
+- Avec `demander_exceptions: true`, il joint aux seuls mots-clés arrêtés les clés
+  d'exception rendues par Google (`exemptPolicyViolationKeys`), jamais des clés fournies
+  par le modèle. L'aperçu les liste ; le jeton les couvre.
+- Une règle sans exception possible fait refuser.
+
