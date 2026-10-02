@@ -114,7 +114,10 @@ describe('époque moderne (2026-07-28)', () => {
 
     // Les outils d'écriture figurent même sans le scope : ils refusent à l'appel, en disant pourquoi.
     expect(result.tools.map((t: { name: string }) => t.name))
-      .toEqual(['ads_lister_comptes', 'ads_requete', 'ads_negatifs_ajouter', 'ads_mettre_en_pause']);
+      .toEqual([
+        'ads_lister_comptes', 'ads_requete', 'ads_negatifs_ajouter', 'ads_mettre_en_pause',
+        'ads_campagne_creer', 'ads_groupe_creer', 'ads_annonce_creer', 'ads_mots_cles_ajouter',
+      ]);
     for (const outil of result.tools) {
       expect(outil.inputSchema.type).toBe('object');
       expect(outil.inputSchema.$schema).toBeUndefined();
@@ -250,7 +253,7 @@ describe('époque héritée (initialize)', () => {
     simulerFetch(({ url }) => (url.includes(':search') ? Response.json({ results: [] }) : undefined));
 
     const liste = await (await appeler(env, '/mcp', heritee(jeton, { id: 1, method: 'tools/list' }))).json() as any;
-    expect(liste.result.tools).toHaveLength(4);
+    expect(liste.result.tools).toHaveLength(8);
     expect(liste.result.resultType).toBeUndefined();
 
     // Un client 2025-03-26 n'envoie pas d'en-tête de version.

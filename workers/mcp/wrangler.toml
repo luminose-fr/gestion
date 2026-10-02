@@ -44,6 +44,15 @@ ALLOWED_EMAIL = "florent@luminose.fr"
 # ne touche pas au code. Absente ou illisible, l'écriture est fermée.
 ADS_ECRITURES_MAX_JOUR = "30"
 
+# Créer des campagnes — décisions du 02/10/2026
+# (workers/mcp/decisions/2026-10-02-creer-des-campagnes.md). En euros. Absentes ou
+# illisibles, la création est fermée ; la lecture et le lot 1 continuent.
+ADS_BUDGET_MAX_JOUR = "10"    # R3 — budget quotidien d'une campagne créée
+ADS_BUDGET_MAX_TOTAL = "25"   # R3 — actives + « [Claude] » en pause, nouvelle comprise
+ADS_CPC_MAX = "2"             # R3 — CPC max en « Maximiser les clics »
+# R4 — la campagne dont le ciblage est recopié (« Psychopraticien - Prospects - Troubles anxieux »).
+ADS_CAMPAGNE_MODELE = "24187680610"
+
 [observability]
 enabled = true
 

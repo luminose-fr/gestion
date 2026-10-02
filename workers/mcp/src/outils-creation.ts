@@ -1,0 +1,454 @@
+/**
+ * Créer, en pause et marqué — lot 2 du cadrage du 02/10/2026
+ * (workers/mcp/decisions/2026-10-02-creer-des-campagnes.md) : le Search de
+ * bout en bout. Campagne, groupe d'annonces, annonce responsive, mots-clés.
+ *
+ * Comme au lot 1, chaque outil ne fait que PRÉPARER : vérifier l'entrée et ce
+ * qu'il vise, puis construire les opérations exactes. Scope, aperçu, jeton,
+ * plafond de volume, journal et appel sont ecriture.ts ; la forme permise de
+ * chaque opération — montants plafonnés compris — est la table fermée de
+ * google-ads.ts, qui revérifie tout indépendamment d'ici.
+ */
+import { z } from 'zod';
+import { compteEcriture, ecrire, exigerEcriture } from './ecriture';
+import { connexionPour, limitesArgent, rechercher, type Operation } from './google-ads';
+import { outil, texte } from './outil';
+import { CORRESPONDANCES, DEUX_TEMPS, JETON, exigerSearch, normaliserMotCle, premiereLigne, type Correspondance } from './outils-ecriture';
+import { MARQUE, examinerAnnonce, marquer, urlAdmise } from './regles';
+import { Refus } from './refus';
+import type { Env } from './env';
+
+const ID = z.string().regex(/^\d{1,20}$/, 'identifiant numérique');
+
+const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+
+const MARQUE_ET_PAUSE =
+  `Tout ce qui est créé naît EN PAUSE et porte la marque ${MARQUE} (dans le nom, ou en libellé pour les annonces et mots-clés). ` +
+  'Florent relit, retire la marque et active dans l’interface Google Ads : ce serveur n’active jamais rien.';
+
+const euros = (micros: number) => (micros / 1_000_000).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+
+/** Au centime : Google refuse un montant en micros qui n'est pas un multiple de 10 000. */
+const enMicros = (montant: number) => Math.round(montant * 100) * 10_000;
+
+const lignes = async <T>(env: Env, compte: string, requete: string): Promise<T[]> =>
+  ((await rechercher(env, compte, requete, connexionPour(env, compte))).results ?? []) as T[];
+
+/** Le libellé « [Claude] » du compte, s'il existe — sinon l'exécution le créera. */
+const trouverLibelle = async (env: Env, compte: string) =>
+  (await premiereLigne<{ label?: { resourceName?: string } }>(env, compte,
+    `SELECT label.resource_name FROM label WHERE label.name = '${MARQUE}'`))?.label?.resourceName;
+
+type LigneGroupe = {
+  adGroup?: { name?: string; status?: string; type?: string };
+  campaign?: { name?: string; advertisingChannelType?: string };
+};
+
+/** Un groupe d'annonces Search standard, vivant. */
+const exigerGroupe = async (env: Env, compte: string, groupe: string) => {
+  const l = await premiereLigne<LigneGroupe>(env, compte,
+    `SELECT ad_group.name, ad_group.status, ad_group.type, campaign.name, campaign.advertising_channel_type FROM ad_group WHERE ad_group.id = ${groupe}`);
+  if (!l?.adGroup || l.adGroup.status === 'REMOVED') throw new Refus(`Groupe d'annonces ${groupe} introuvable, ou supprimé.`);
+  exigerSearch(l.campaign?.advertisingChannelType, `La campagne « ${l.campaign?.name} »`);
+  if (l.adGroup.type !== 'SEARCH_STANDARD') throw new Refus(`Le groupe « ${l.adGroup.name} » n'est pas un groupe Search standard (${l.adGroup.type}).`);
+  return { nom: l.adGroup.name ?? groupe, campagne: l.campaign?.name ?? '?' };
+};
+
+// ── ads_campagne_creer ───────────────────────────────────────────────────
+
+type LigneBudget = { campaign?: { name?: string; status?: string }; campaignBudget?: { resourceName?: string; amountMicros?: string } };
+
+/**
+ * R3 — l'engagement : ce que coûterait par jour tout ce qui est actif ou en
+ * attente de validation. Un budget compte une fois, même partagé.
+ */
+const engagement = async (env: Env, compte: string): Promise<number> => {
+  const budgets = new Map<string, number>();
+  for (const l of await lignes<LigneBudget>(env, compte,
+    "SELECT campaign.name, campaign.status, campaign_budget.resource_name, campaign_budget.amount_micros FROM campaign WHERE campaign.status IN ('ENABLED', 'PAUSED')")) {
+    const enJeu = l.campaign?.status === 'ENABLED' || l.campaign?.name?.startsWith(`${MARQUE} `);
+    if (enJeu && l.campaignBudget?.resourceName) budgets.set(l.campaignBudget.resourceName, Number(l.campaignBudget.amountMicros ?? 0));
+  }
+  return [...budgets.values()].reduce((a, b) => a + b, 0);
+};
+
+type LigneModele = {
+  campaign?: {
+    name?: string; status?: string; advertisingChannelType?: string;
+    geoTargetTypeSetting?: { positiveGeoTargetType?: string; negativeGeoTargetType?: string };
+  };
+};
+type LigneCritere = {
+  campaignCriterion?: {
+    type?: string; negative?: boolean;
+    language?: { languageConstant?: string };
+    location?: { geoTargetConstant?: string };
+    proximity?: {
+      radius?: number; radiusUnits?: string;
+      geoPoint?: { latitudeInMicroDegrees?: number; longitudeInMicroDegrees?: number };
+      address?: Record<string, string>;
+    };
+  };
+};
+
+/**
+ * R4 — le ciblage se recopie, il ne se choisit pas : langue, zone et type de
+ * ciblage géographique de ADS_CAMPAGNE_MODELE, tels quels. Claude ne passe
+ * aucun de ces réglages, et aucun n'est accepté en entrée.
+ */
+const ciblageModele = async (env: Env, compte: string, campagne: string) => {
+  const id = env.ADS_CAMPAGNE_MODELE ?? '';
+  if (!/^\d{1,20}$/.test(id)) throw new Refus('ADS_CAMPAGNE_MODELE absent ou illisible dans wrangler.toml : la création est fermée.', 503);
+  const m = (await premiereLigne<LigneModele>(env, compte,
+    'SELECT campaign.name, campaign.status, campaign.advertising_channel_type, campaign.geo_target_type_setting.positive_geo_target_type, ' +
+    `campaign.geo_target_type_setting.negative_geo_target_type FROM campaign WHERE campaign.id = ${id}`))?.campaign;
+  if (!m || m.status === 'REMOVED') throw new Refus(`La campagne modèle ${id} (ADS_CAMPAGNE_MODELE) est introuvable ou supprimée.`, 503);
+  exigerSearch(m.advertisingChannelType, `La campagne modèle « ${m.name} »`);
+
+  const criteres: Record<string, unknown>[] = [];
+  const resume = { langues: 0, rayons: [] as string[], lieux: 0, exclusions: 0 };
+  for (const { campaignCriterion: c } of await lignes<LigneCritere>(env, compte,
+    'SELECT campaign_criterion.type, campaign_criterion.negative, campaign_criterion.language.language_constant, ' +
+    'campaign_criterion.location.geo_target_constant, campaign_criterion.proximity.radius, campaign_criterion.proximity.radius_units, ' +
+    'campaign_criterion.proximity.geo_point.latitude_in_micro_degrees, campaign_criterion.proximity.geo_point.longitude_in_micro_degrees, ' +
+    'campaign_criterion.proximity.address.street_address, campaign_criterion.proximity.address.city_name, ' +
+    'campaign_criterion.proximity.address.postal_code, campaign_criterion.proximity.address.province_code, ' +
+    `campaign_criterion.proximity.address.country_code FROM campaign_criterion WHERE campaign.id = ${id} ` +
+    "AND campaign_criterion.type IN ('LANGUAGE', 'LOCATION', 'PROXIMITY') AND campaign_criterion.status != 'REMOVED'")) {
+    if (!c) continue;
+    const critere = (genre: string, valeur: unknown) =>
+      criteres.push({ campaign: campagne, [genre]: valeur, ...(c.negative ? { negative: true } : {}) });
+    if (c.type === 'LANGUAGE' && c.language?.languageConstant) {
+      critere('language', { languageConstant: c.language.languageConstant });
+      resume.langues++;
+    } else if (c.type === 'LOCATION' && c.location?.geoTargetConstant) {
+      critere('location', { geoTargetConstant: c.location.geoTargetConstant });
+      if (c.negative) resume.exclusions++; else resume.lieux++;
+    } else if (c.type === 'PROXIMITY' && c.proximity?.radius) {
+      const p = c.proximity;
+      critere('proximity', {
+        radius: p.radius,
+        radiusUnits: p.radiusUnits,
+        ...(p.geoPoint ? { geoPoint: p.geoPoint } : {}),
+        ...(p.address && Object.keys(p.address).length > 0 ? { address: p.address } : {}),
+      });
+      resume.rayons.push(`${p.radius} ${p.radiusUnits === 'MILES' ? 'mi' : 'km'}${p.address?.cityName ? ` autour de ${p.address.cityName}` : ''}`);
+    }
+  }
+  if (resume.langues === 0 || resume.lieux + resume.rayons.length === 0) {
+    throw new Refus(`La campagne modèle « ${m.name} » n'a pas de langue ou pas de zone : refusé, une campagne sans zone diffuserait partout.`, 503);
+  }
+
+  const geo = m.geoTargetTypeSetting ?? {};
+  return {
+    nom: m.name ?? id,
+    id,
+    criteres,
+    geoTargetTypeSetting: {
+      ...(geo.positiveGeoTargetType ? { positiveGeoTargetType: geo.positiveGeoTargetType } : {}),
+      ...(geo.negativeGeoTargetType ? { negativeGeoTargetType: geo.negativeGeoTargetType } : {}),
+    },
+    resume: [
+      `${resume.langues} langue${resume.langues > 1 ? 's' : ''}`,
+      ...resume.rayons.map((r) => `rayon de ${r}`),
+      ...(resume.lieux ? [`${resume.lieux} lieu${resume.lieux > 1 ? 'x' : ''}`] : []),
+      ...(resume.exclusions ? [`${resume.exclusions} exclusion${resume.exclusions > 1 ? 's' : ''}`] : []),
+      `ciblage ${geo.positiveGeoTargetType === 'PRESENCE' ? 'par présence réelle' : (geo.positiveGeoTargetType ?? 'par défaut')}`,
+    ].join(', '),
+  };
+};
+
+const campagneCreer = outil({
+  name: 'ads_campagne_creer',
+  title: 'Créer une campagne Search (en pause)',
+  description: [
+    "Crée une campagne Search EN PAUSE, avec son budget. Le ciblage (langue, zone) est recopié de la campagne modèle du compte : " +
+    'il ne se choisit pas. Réseau de recherche Google seul. Ensuite : ads_groupe_creer, ads_annonce_creer, ads_mots_cles_ajouter.',
+    '',
+    MARQUE_ET_PAUSE,
+    '',
+    DEUX_TEMPS,
+    '',
+    "Enchères : CLICS (« Maximiser les clics », cpc_max obligatoire) ou CONVERSIONS (« Maximiser les conversions », " +
+    "ai_max au choix : AI Max élargit aux recherches proches ; la personnalisation du texte et l'extension d'URL restent coupées). " +
+    'Le budget et le CPC max sont plafonnés par le serveur ; l’aperçu dit les plafonds et l’engagement après création.',
+  ].join('\n'),
+  schema: z.object({
+    nom: z.string().min(1).max(100).describe(`Le nom de la campagne ; le serveur y ajoute ${MARQUE}.`),
+    budget_jour: z.number().positive().describe('Budget quotidien, en euros.'),
+    encheres: z.discriminatedUnion('strategie', [
+      z.object({ strategie: z.literal('CLICS'), cpc_max: z.number().positive().describe('CPC maximal, en euros.') }).strict(),
+      z.object({ strategie: z.literal('CONVERSIONS'), ai_max: z.boolean() }).strict(),
+    ]),
+    jeton: JETON,
+  }).strict(),
+  annotations: ECRITURE,
+  async executer({ nom, budget_jour, encheres, jeton }, env, contexte) {
+    exigerEcriture(contexte);
+    const compte = compteEcriture(env);
+    const limites = limitesArgent(env);
+
+    const budget = enMicros(budget_jour);
+    if (budget <= 0) throw new Refus('Budget nul.');
+    if (budget > limites.budgetMaxJour) {
+      throw new Refus(`Budget de ${euros(budget)} par jour au-delà du plafond de ${euros(limites.budgetMaxJour)} (ADS_BUDGET_MAX_JOUR).`);
+    }
+    const cpc = encheres.strategie === 'CLICS' ? enMicros(encheres.cpc_max) : 0;
+    if (encheres.strategie === 'CLICS' && (cpc <= 0 || cpc > limites.cpcMax)) {
+      throw new Refus(`CPC max de ${euros(cpc)} hors des bornes : au plus ${euros(limites.cpcMax)} (ADS_CPC_MAX).`);
+    }
+    const deja = await engagement(env, compte);
+    if (deja + budget > limites.budgetMaxTotal) {
+      throw new Refus(
+        `Engagement dépassé : ${euros(deja)} par jour déjà actifs ou en attente de validation, plus ${euros(budget)}, ` +
+        `au-delà de ${euros(limites.budgetMaxTotal)} (ADS_BUDGET_MAX_TOTAL). Réduire le budget, ou valider ou supprimer une campagne ${MARQUE}.`,
+      );
+    }
+
+    const nomMarque = marquer(nom);
+    const tmpBudget = `customers/${compte}/campaignBudgets/-1`;
+    const tmpCampagne = `customers/${compte}/campaigns/-2`;
+    const modele = await ciblageModele(env, compte, tmpCampagne);
+
+    const operations: Operation[] = [
+      { campaignBudgetOperation: { create: {
+        resourceName: tmpBudget, name: nomMarque, amountMicros: String(budget), deliveryMethod: 'STANDARD', explicitlyShared: false,
+      } } },
+      { campaignOperation: { create: {
+        resourceName: tmpCampagne,
+        name: nomMarque,
+        status: 'PAUSED',
+        advertisingChannelType: 'SEARCH',
+        campaignBudget: tmpBudget,
+        networkSettings: { targetGoogleSearch: true, targetSearchNetwork: false, targetContentNetwork: false, targetPartnerSearchNetwork: false },
+        geoTargetTypeSetting: modele.geoTargetTypeSetting,
+        containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
+        ...(encheres.strategie === 'CLICS'
+          ? { targetSpend: { cpcBidCeilingMicros: String(cpc) } }
+          : { maximizeConversions: {}, aiMaxSetting: { enableAiMax: encheres.ai_max } }),
+        // R5 : jamais de texte rédigé par Google, jamais d'URL choisie par Google.
+        assetAutomationSettings: [
+          { assetAutomationType: 'TEXT_ASSET_AUTOMATION', assetAutomationStatus: 'OPTED_OUT' },
+          { assetAutomationType: 'FINAL_URL_EXPANSION_TEXT_ASSET_AUTOMATION', assetAutomationStatus: 'OPTED_OUT' },
+        ],
+      } } },
+      ...modele.criteres.map((c) => ({ campaignCriterionOperation: { create: c } })),
+    ];
+
+    return texte(await ecrire(env, contexte, {
+      outil: 'ads_campagne_creer',
+      compte,
+      jeton,
+      preparation: {
+        service: 'googleAds',
+        operations,
+        description: [
+          `Campagne Search « ${nomMarque} », EN PAUSE.`,
+          `- Budget : ${euros(budget)} par jour (plafond ${euros(limites.budgetMaxJour)}).`,
+          encheres.strategie === 'CLICS'
+            ? `- Enchères : Maximiser les clics, CPC max ${euros(cpc)} (plafond ${euros(limites.cpcMax)}).`
+            : `- Enchères : Maximiser les conversions ; AI Max ${encheres.ai_max ? 'activé (recherches proches)' : 'coupé'}.`,
+          '- Personnalisation du texte et extension d’URL : coupées.',
+          '- Réseau : recherche Google seule (ni partenaires, ni Display).',
+          `- Ciblage recopié de « ${modele.nom} » (${modele.id}) : ${modele.resume}.`,
+          `- Engagement après création : ${euros(deja + budget)} par jour sur ${euros(limites.budgetMaxTotal)}.`,
+        ].join('\n'),
+        bilan: `Campagne « ${nomMarque} » créée, en pause. Suite : ads_groupe_creer.`,
+      },
+    }));
+  },
+});
+
+// ── ads_groupe_creer ─────────────────────────────────────────────────────
+
+const groupeCreer = outil({
+  name: 'ads_groupe_creer',
+  title: "Créer un groupe d'annonces (en pause)",
+  description: [
+    "Crée un groupe d'annonces Search EN PAUSE dans une campagne Search, nouvelle ou existante.",
+    '',
+    MARQUE_ET_PAUSE,
+    '',
+    DEUX_TEMPS,
+  ].join('\n'),
+  schema: z.object({
+    campagne: ID.describe('Identifiant de la campagne (campaign.id).'),
+    nom: z.string().min(1).max(100).describe(`Le nom du groupe ; le serveur y ajoute ${MARQUE}.`),
+    jeton: JETON,
+  }).strict(),
+  annotations: ECRITURE,
+  async executer({ campagne, nom, jeton }, env, contexte) {
+    exigerEcriture(contexte);
+    const compte = compteEcriture(env);
+    const c = (await premiereLigne<{ campaign?: { name?: string; status?: string; advertisingChannelType?: string } }>(env, compte,
+      `SELECT campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.id = ${campagne}`))?.campaign;
+    if (!c || c.status === 'REMOVED') throw new Refus(`Campagne ${campagne} introuvable, ou supprimée.`);
+    exigerSearch(c.advertisingChannelType, `La campagne « ${c.name} »`);
+
+    const nomMarque = marquer(nom);
+    return texte(await ecrire(env, contexte, {
+      outil: 'ads_groupe_creer',
+      compte,
+      jeton,
+      preparation: {
+        service: 'adGroups',
+        operations: [{ create: { campaign: `customers/${compte}/campaigns/${campagne}`, name: nomMarque, status: 'PAUSED', type: 'SEARCH_STANDARD' } }],
+        description: `Groupe d'annonces « ${nomMarque} », EN PAUSE, dans la campagne « ${c.name} » (${campagne}).`,
+        bilan: `Groupe « ${nomMarque} » créé, en pause. Suite : ads_annonce_creer, ads_mots_cles_ajouter.`,
+      },
+    }));
+  },
+});
+
+// ── ads_annonce_creer ────────────────────────────────────────────────────
+
+const annonceCreer = outil({
+  name: 'ads_annonce_creer',
+  title: 'Créer une annonce responsive (en pause)',
+  description: [
+    'Crée une annonce responsive du Search EN PAUSE dans un groupe d’annonces : 3 à 15 titres de 30 caractères au plus, ' +
+    "2 à 4 descriptions de 90 au plus, jusqu'à 2 chemins d'affichage de 15 au plus, une URL finale sur https://luminose.fr/ " +
+    'ou https://www.luminose.fr/ (aucun sous-domaine).',
+    '',
+    MARQUE_ET_PAUSE,
+    '',
+    DEUX_TEMPS,
+    '',
+    'Les textes passent un filtre déontologique : aucune promesse de guérison, explicite ou suggérée. Un terme interdit fait ' +
+    "refuser l'annonce, en le nommant ; certains termes ne font qu'avertir dans l'aperçu. Le filtre est un plancher : la " +
+    'relecture de Florent avant activation reste le vrai contrôle.',
+  ].join('\n'),
+  schema: z.object({
+    groupe: ID.describe("Identifiant du groupe d'annonces (ad_group.id)."),
+    titres: z.array(z.string().min(1).max(30)).min(3).max(15),
+    descriptions: z.array(z.string().min(1).max(90)).min(2).max(4),
+    chemin1: z.string().min(1).max(15).optional(),
+    chemin2: z.string().min(1).max(15).optional(),
+    url_finale: z.string().max(2048),
+    jeton: JETON,
+  }).strict(),
+  annotations: ECRITURE,
+  async executer({ groupe, titres, descriptions, chemin1, chemin2, url_finale, jeton }, env, contexte) {
+    exigerEcriture(contexte);
+    const compte = compteEcriture(env);
+
+    const nets = (liste: string[]) => liste.map((t) => t.trim().replace(/\s+/g, ' '));
+    const t = nets(titres);
+    const d = nets(descriptions);
+    for (const [liste, quoi] of [[t, 'titre'], [d, 'description']] as const) {
+      const vus = new Set<string>();
+      for (const x of liste) {
+        if (vus.has(x.toLowerCase())) throw new Refus(`${quoi} en double : « ${x} ».`);
+        vus.add(x.toLowerCase());
+      }
+    }
+    if (chemin2 && !chemin1) throw new Refus('chemin2 sans chemin1 : Google exige le premier.');
+    if (!urlAdmise(url_finale)) {
+      throw new Refus(`URL finale refusée : « ${url_finale} ». Seules https://luminose.fr/… et https://www.luminose.fr/… sont admises, sans sous-domaine.`);
+    }
+    const chemins = [chemin1, chemin2].filter((x): x is string => Boolean(x));
+    const examen = examinerAnnonce([...t, ...d, ...chemins]);
+    if (examen.refus.length > 0) {
+      throw new Refus(
+        `Annonce refusée par le filtre déontologique (aucune promesse de guérison, socle/cadre-deontologique.md) :\n` +
+        examen.refus.map((r) => `- ${r}`).join('\n'),
+      );
+    }
+
+    const g = await exigerGroupe(env, compte, groupe);
+    const libelle = await trouverLibelle(env, compte);
+    return texte(await ecrire(env, contexte, {
+      outil: 'ads_annonce_creer',
+      compte,
+      jeton,
+      preparation: {
+        service: 'adGroupAds',
+        operations: [{ create: {
+          adGroup: `customers/${compte}/adGroups/${groupe}`,
+          status: 'PAUSED',
+          ad: {
+            finalUrls: [url_finale],
+            responsiveSearchAd: {
+              headlines: t.map((text) => ({ text })),
+              descriptions: d.map((text) => ({ text })),
+              ...(chemin1 ? { path1: chemin1.trim() } : {}),
+              ...(chemin2 ? { path2: chemin2.trim() } : {}),
+            },
+          },
+        } }],
+        description: [
+          `Annonce responsive EN PAUSE dans le groupe « ${g.nom} » (campagne « ${g.campagne} »), libellé ${MARQUE}.`,
+          `- URL finale : ${url_finale}${chemins.length ? ` — affichée …/${chemins.join('/')}` : ''}`,
+          `- Titres (${t.length}) :`, ...t.map((x) => `  · ${x}`),
+          `- Descriptions (${d.length}) :`, ...d.map((x) => `  · ${x}`),
+          ...(examen.avertissements.length
+            ? ['', 'AVERTISSEMENTS — à relire avant de valider :', ...examen.avertissements.map((a) => `- ${a}`)]
+            : []),
+        ].join('\n'),
+        bilan: `Annonce créée, en pause, dans le groupe « ${g.nom} ».`,
+        libeller: { service: 'adGroupAdLabels', champ: 'adGroupAd', ...(libelle ? { libelle } : {}) },
+      },
+    }));
+  },
+});
+
+// ── ads_mots_cles_ajouter ────────────────────────────────────────────────
+
+const motsClesAjouter = outil({
+  name: 'ads_mots_cles_ajouter',
+  title: "Ajouter des mots-clés (en pause)",
+  description: [
+    "Ajoute des mots-clés EN PAUSE à un groupe d'annonces Search. 50 au plus par appel. " +
+    'Correspondance : EXACT, PHRASE, BROAD. Pour EXCLURE des recherches, c’est ads_negatifs_ajouter.',
+    '',
+    MARQUE_ET_PAUSE,
+    '',
+    DEUX_TEMPS,
+  ].join('\n'),
+  schema: z.object({
+    groupe: ID.describe("Identifiant du groupe d'annonces (ad_group.id)."),
+    mots_cles: z.array(z.object({
+      texte: z.string().min(1).max(80).describe('Le texte, sans crochets ni guillemets.'),
+      correspondance: z.enum(['EXACT', 'PHRASE', 'BROAD']),
+    }).strict()).min(1).max(50),
+    jeton: JETON,
+  }).strict(),
+  annotations: ECRITURE,
+  async executer({ groupe, mots_cles, jeton }, env, contexte) {
+    exigerEcriture(contexte);
+    const compte = compteEcriture(env);
+
+    const uniques = new Map<string, { texte: string; correspondance: Correspondance }>();
+    for (const m of mots_cles) {
+      const t = normaliserMotCle(m.texte);
+      uniques.set(`${t}\u0000${m.correspondance}`, { texte: t, correspondance: m.correspondance });
+    }
+    const liste = [...uniques.values()].sort((a, b) => a.texte.localeCompare(b.texte, 'fr') || a.correspondance.localeCompare(b.correspondance));
+
+    const g = await exigerGroupe(env, compte, groupe);
+    const libelle = await trouverLibelle(env, compte);
+    const n = liste.length;
+    const pluriel = n > 1 ? 's' : '';
+    return texte(await ecrire(env, contexte, {
+      outil: 'ads_mots_cles_ajouter',
+      compte,
+      jeton,
+      preparation: {
+        service: 'adGroupCriteria',
+        operations: liste.map((m) => ({ create: {
+          adGroup: `customers/${compte}/adGroups/${groupe}`,
+          status: 'PAUSED',
+          keyword: { text: m.texte, matchType: m.correspondance },
+        } })),
+        description: [
+          `Groupe « ${g.nom} » (campagne « ${g.campagne} ») — ${n} mot${pluriel}-clé${pluriel} EN PAUSE, libellé ${MARQUE} :`,
+          ...liste.map((m) => `- ${m.texte} [${CORRESPONDANCES[m.correspondance]}]`),
+        ].join('\n'),
+        bilan: `${n} mot${pluriel}-clé${pluriel} ajouté${pluriel}, en pause, au groupe « ${g.nom} ».`,
+        libeller: { service: 'adGroupCriterionLabels', champ: 'adGroupCriterion', ...(libelle ? { libelle } : {}) },
+      },
+    }));
+  },
+});
+
+export const OUTILS_CREATION = [campagneCreer, groupeCreer, annonceCreer, motsClesAjouter] as const;

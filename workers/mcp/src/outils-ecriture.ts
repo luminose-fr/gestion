@@ -16,22 +16,22 @@ import { outil, texte } from './outil';
 import { Refus } from './refus';
 import type { Env } from './env';
 
-const JETON = z.string().optional()
+export const JETON = z.string().optional()
   .describe("Le jeton rendu par l'aperçu. Absent : aperçu seulement, rien n'est modifié.");
 
-const DEUX_TEMPS =
+export const DEUX_TEMPS =
   'Deux temps, toujours. 1) Appeler SANS jeton : Google vérifie sans rien appliquer, et l’outil rend un aperçu et un jeton. ' +
   "2) Montrer l'aperçu à Florent ; s'il valide, rappeler avec les MÊMES arguments et le jeton. Un jeton vaut dix minutes, " +
   'une fois, et seulement pour le contenu de son aperçu.';
 
-const CORRESPONDANCES = { EXACT: 'exact', PHRASE: 'expression exacte', BROAD: 'requête large' } as const;
-type Correspondance = keyof typeof CORRESPONDANCES;
+export const CORRESPONDANCES = { EXACT: 'exact', PHRASE: 'expression exacte', BROAD: 'requête large' } as const;
+export type Correspondance = keyof typeof CORRESPONDANCES;
 
-const premiereLigne = async <T>(env: Env, compte: string, requete: string): Promise<T | undefined> =>
+export const premiereLigne = async <T>(env: Env, compte: string, requete: string): Promise<T | undefined> =>
   (await rechercher(env, compte, requete, connexionPour(env, compte))).results?.[0] as T | undefined;
 
 /** Ni campagne supprimée, ni autre chose que du Search. */
-const exigerSearch = (canal: string | undefined, quoi: string) => {
+export const exigerSearch = (canal: string | undefined, quoi: string) => {
   if (canal !== 'SEARCH') {
     throw new Refus(`${quoi} n'est pas une campagne Search (${canal ?? 'type inconnu'}) : ce serveur n'écrit que dans le Search.`);
   }
@@ -44,7 +44,7 @@ const exigerSearch = (canal: string | undefined, quoi: string) => {
  * syntaxe de l'interface n'ont rien à faire dans le texte — la correspondance
  * se choisit à côté.
  */
-const normaliserMotCle = (brut: string): string => {
+export const normaliserMotCle = (brut: string): string => {
   const texteNormal = brut.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr');
   if (/[[\]"+]/.test(texteNormal)) {
     throw new Refus(`« ${brut} » : sans crochets, guillemets ni « + » — la correspondance se choisit dans le champ correspondance.`);

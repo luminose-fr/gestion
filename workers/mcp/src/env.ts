@@ -62,4 +62,15 @@ export type Env = {
    * l'écriture est fermée.
    */
   ADS_ECRITURES_MAX_JOUR?: string;
+
+  // ── Créer (cadrage du 02/10/2026) — [vars] de wrangler.toml, en euros ──
+
+  /** R3 — budget quotidien maximal d'une campagne créée. */
+  ADS_BUDGET_MAX_JOUR?: string;
+  /** R3 — engagement maximal : campagnes actives + campagnes « [Claude] » en pause. */
+  ADS_BUDGET_MAX_TOTAL?: string;
+  /** R3 — plafond de CPC d'une campagne Search en « Maximiser les clics ». */
+  ADS_CPC_MAX?: string;
+  /** R4 — la campagne Search dont le ciblage est recopié. */
+  ADS_CAMPAGNE_MODELE?: string;
 };

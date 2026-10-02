@@ -16,6 +16,7 @@ import {
 } from './google-ads';
 import { LECTURE, outil, texte, type ResultatOutil } from './outil';
 import { OUTILS_ECRITURE } from './outils-ecriture';
+import { OUTILS_CREATION } from './outils-creation';
 import type { Contexte } from './ecriture';
 import type { Env } from './env';
 
@@ -172,7 +173,7 @@ const requeteGaql = outil({
 
 // ── Registre ─────────────────────────────────────────────────────────────
 
-const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE] as const;
+const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_CREATION] as const;
 
 /**
  * Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en
