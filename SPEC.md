@@ -23,6 +23,9 @@
 > froid se relit depuis le journal, datée et signée (§2.6) ; le format d'une
 > publication est résolu et non comparé, et exigé avant création (§6.2) ; les
 > publications d'une série naissent en Brouillon (§6.3).
+> **v2.4 (02/10/2026)** : la vidéo. Un huitième format, le **Reel expliqué**, alterne
+> la face caméra et des scènes animées écrites par le Rédacteur (§12). Le montage se
+> termine dans l'application, et le rush ne quitte jamais le navigateur (§12.4).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -724,6 +727,7 @@ Le cœur du produit. **Zéro dépendance.** Contient, repris tel quel de l'exist
 | `objectives.ts` | `OBJECTIF_REGISTRY` — guidance Analyste + règles CTA |
 | `actions.ts` | composition des instructions système par action |
 | `executors.ts` | parsing défensif des réponses IA |
+| `reelExplique.ts` | la forme du Reel expliqué et ses contrôles déterministes (§12.3) |
 
 ### 4.1 Invariants
 
@@ -1232,6 +1236,172 @@ extrait des signatures Notion. Deux conséquences pour le phasage :
   créée laisse un état incohérent.
 - **Les golden fixtures (phase 2)** vont figer les prompts actuels. Si un prompt est déjà
   imparfait, la fixture fige l'imperfection : les relire à ce moment-là, pas plus tard.
+
+---
+
+## 12. La vidéo — le Reel expliqué
+
+### 12.1 Ce qu'on cherche à produire
+
+La référence est un Short de NerdyKings (`youtube.com/shorts/jzpSgUNvD0w`, 102 s),
+décortiqué image par image le 02/10/2026 :
+
+- une **seule prise** face caméra. La voix ne s'arrête jamais : c'est l'image qui
+  change ;
+- environ **80 % du temps recouvert de scènes** : un titre de deux lignes avec un mot
+  surligné, puis des cartes qui apparaissent **une à une, au mot prononcé**, des « vs »,
+  des pastilles, des flèches, un compteur qui défile ;
+- un retour face caméra pour ouvrir, pour fermer, et une fois au milieu ;
+- des sous-titres discrets sur la caméra **seulement**. Sur les scènes, l'écran ne
+  transcrit pas : il retient le mot-clé, le chiffre, le contraste.
+
+Une proposition antérieure (Gemini) décrivait autre chose — des images fixes animées par
+un zoom lent, une piste de voix off séparée, des sous-titres karaoké, un rendu sur AWS
+Lambda. Elle a été écartée sur pièces : ce qui fait l'efficacité de la référence, ce sont
+des **scènes écrites**, et ce qu'on écrit se produit ici.
+
+Usage : publications Facebook et Instagram, et à l'occasion des publicités Google Ads et
+Meta. Une vidéo publicitaire Google doit être hébergée sur YouTube (non répertoriée
+suffit).
+
+### 12.2 Les décisions de Florent (02/10/2026) — NORMATIF
+
+| Question | Décision | Conséquence |
+| :--- | :--- | :--- |
+| Où se termine le montage ? | **Dans l'application.** La prise est nettoyée dans Final Cut (ratés, silences), l'application pose les scènes et les sous-titres et rend le fichier final. | Les variantes (4:5, seconde accroche) sortent sans refaire de montage. |
+| Quelle identité pour les scènes ? | **L'habillage Luminose** : la mécanique de la référence, habillée de la gamme de `voix/direction-artistique.md` (ivoire, prune, violet nuit), en Futura. | Un gabarit, pas deux. |
+| Que porte une carte ? | **Du texte, et quand l'image dit mieux que le mot, une illustration ou un schéma** — surtout en pédagogie, et aussi pour l'humour. Les cartes n'ont pas toutes la même taille. Révisé le jour même : « Faut de la souplesse. » | Le Rédacteur **décrit** le visuel ; Florent le produit (ChatGPT Images, Sketch) et le dépose sur la carte. |
+
+La première réponse à la troisième question était « la typographie seule », par crainte
+du cliché — une icône de « honte » ou de « peur ». Florent l'a corrigée : un mécanisme se
+montre mieux qu'il ne se dit, et une scène décalée fait rire là où une phrase n'y
+arrive pas. Le cliché est donc écarté autrement : pas d'icônes ni d'emojis, des visuels
+**décrits un par un** pour ce qu'ils doivent montrer, et les interdits de la direction
+artistique (pas d'imagerie littérale de la détresse, pas de symbolisme ésotérique
+appuyé).
+
+### 12.3 Le format — NORMATIF
+
+`TargetFormat.REEL_EXPLIQUE` (« Reel expliqué (scènes animées) », clé courte
+« Reel expliqué »). Atterrit sur l'onglet `script`, ouvert à la relecture à froid : court,
+écrit d'un jet, comme le Reel et le carrousel. Le **Script Reel** existant reste, pour une
+vidéo face caméra de bout en bout.
+
+Le brouillon reste dans `contents.draft` (§2.5). Sa forme :
+
+```json
+{
+  "format": "Reel expliqué",
+  "sequences": [
+    { "plan": "camera", "role": "Accroche", "voix": "…", "intention": "…" },
+    { "plan": "scene", "role": "Mécanique", "registre": "pedagogie", "voix": "…", "intention": "…",
+      "titre": "Le titre, avec [un mot] surligné",
+      "elements": [
+        { "type": "carte", "taille": "moyenne", "texte": "…", "detail": "…", "ton": "ombre",
+          "visuel": null, "apparait_sur": "mots exacts de la voix" },
+        { "type": "liaison", "texte": "vs", "apparait_sur": "…" },
+        { "type": "carte", "taille": "grande", "texte": "…", "ton": "lumiere",
+          "visuel": { "nature": "schema", "description": "ce que le schéma montre" },
+          "apparait_sur": "…" },
+        { "type": "pastille", "texte": "…", "ton": "lumiere", "apparait_sur": "…" }
+      ] }
+  ],
+  "accroche_pub": { "voix": "…", "intention": "…" },
+  "legende": { "texte": "…", "cta": "…", "hashtags": ["…"] }
+}
+```
+
+- **`voix` porte TOUT ce qui se dit**, scène comprise. Concaténées dans l'ordre, les voix
+  sont le texte à lire au tournage, et rien d'autre.
+- **`apparait_sur` est un repère, pas une durée.** Ce sont des mots recopiés de la voix de
+  la même séquence ; l'élément apparaît quand ils sont prononcés. Aucun minutage n'est
+  écrit par le modèle : il ne sait pas à quel débit Florent parle, la prise le saura
+  (§12.5).
+- **Une scène a un registre** : `pedagogie` (on montre comment ça marche) ou `humour`
+  (on montre l'absurde). Une vidéo peut mêler les deux ; l'animation suivra le registre.
+- **Une carte a une taille** : `petite` (demi-largeur, deux petites voisines se placent
+  côte à côte), `moyenne` (pleine largeur), `grande` (pleine largeur et haute, pour un
+  visuel). Une grande au plus par scène.
+- **Un visuel est décrit, jamais généré ici** : `{ nature: illustration | schema,
+  description }`. Une carte qui en porte un peut se passer de texte. Le storyboard
+  affiche la description ; l'emplacement de l'image arrive avec les scènes animées (V2).
+- **Les tons sont `ombre`, `lumiere`, `neutre`** — ce qui coince, ce qui s'ouvre, ce qui
+  informe. La référence code le coût en rose et la solution en vert ; la lumière et
+  l'ombre sont déjà des symboles de la direction artistique.
+- **`accroche_pub`** est une seconde ouverture, à tourner dans la foulée, pour la
+  publicité. Meta refuse un texte qui présume de l'état de santé de celui qui regarde
+  (« Vous souffrez d'anxiété ? »), et le cadre déontologique interdit toute promesse de
+  résultat. L'accroche organique a le droit de dire au lecteur ce qu'il vit ; celle-ci
+  nomme la situation sans le désigner. Les variantes publicitaires testent l'accroche,
+  et c'est exactement ce qu'un second plan permet.
+
+**Ce qui se compte se compte dans le code — NORMATIF** (même règle que §3.5.2, point 4).
+`verifierReelExplique` (`packages/editorial/src/reelExplique.ts`) contrôle, sans appel
+réseau :
+
+| Contrôle | Pourquoi |
+| :--- | :--- |
+| ouvre et ferme face caméra | la confiance et l'appel à l'action passent par un visage |
+| 2 à 4 scènes, 1 à 4 éléments par scène, une grande carte au plus | au-delà, le cadre vertical ne se lit plus |
+| un élément porte un texte ou un visuel décrit | une carte vide n'a rien à montrer |
+| longueurs d'écran (titre ≤ 32, carte ≤ 30, détail ≤ 45, pastille ≤ 30, liaison ≤ 10 caractères) | l'œil a deux secondes ; le cadre a 1 080 pixels de large |
+| chaque `apparait_sur` se retrouve dans la voix de sa séquence, dans l'ordre | sans ça, l'élément n'a pas de moment où apparaître |
+| durée estimée entre 45 et 90 s, à 150 mots par minute | le débit réel corrigera ; l'ordre de grandeur, lui, se vérifie avant de tourner |
+
+Un écart déclenche **une** passe d'ajustement automatique après rédaction ou retouche,
+comme les longueurs du carrousel. Ce qui subsiste s'affiche au-dessus du storyboard : on
+ne tourne pas un script dont l'écran sait déjà qu'il ne tiendra pas.
+
+**Le contrôle est porté par le registre** (`FormatDefinition.controler`). L'éditeur
+demande « ce format a-t-il des contrôles ? », jamais « est-ce un Reel expliqué ? ».
+
+### 12.4 Le montage — la vidéo ne quitte pas le navigateur — NORMATIF
+
+Rendu par **Remotion** : `@remotion/player` pour l'aperçu, `@remotion/web-renderer`
+(WebCodecs, stable depuis 4.0.491) pour le fichier. Licence gratuite pour un indépendant
+ou une structure de trois salariés au plus.
+
+Le rush ne part **jamais** au Worker. Une minute en 4K pèse des centaines de mégaoctets,
+le Worker gratuit plafonne à 100 Mo par requête, et il n'y a aucune raison de faire
+transiter une vidéo de soi pour la recomposer à côté. Seul le **son** sort, extrait dans
+le navigateur, pour la transcription (§12.5).
+
+Ce que ce choix coûte, dit franchement : le rendu exige **Chrome** (WebKit ne sait pas
+tout), et il occupe l'onglet le temps de l'encodage. `@remotion/lambda` est écarté : il
+ajouterait AWS, déjà « exploré sans suite » au parc d'outils, un compte, des clés et une
+facture. FFmpeg côté serveur est impossible sur un Worker.
+
+Sorties : **9:16 1080 × 1920, 30 i/s, H.264/AAC** ; variante **4:5** (fil Meta) en
+recomposant les scènes, pas en recadrant. Le 16:9 n'est pas prévu : une face caméra
+verticale recadrée en paysage perd le visage.
+
+Les scènes restent dans la **zone sûre** : l'interface des Reels et des Shorts recouvre le
+bas et le bord droit de l'image. La référence garde ses cartes dans les deux tiers du
+haut.
+
+### 12.5 Le calage sur la prise
+
+Whisper sert déjà au sous-titrage (`outils/parc.md`). Workers AI l'expose avec
+l'horodatage **mot à mot** (`@cf/openai/whisper`, `words[]`), sans nouvelle clé : un
+binding de plus, environ 0,0005 $ la minute. Les mots servent à deux choses — poser
+chaque élément sur son `apparait_sur`, et sous-titrer les passages caméra dans le style
+de l'outil Sous-titres (Futura gras, blanc, ombre `#60407F`). Pas de karaoké : la
+référence n'en a pas.
+
+L'alignement des repères sur la transcription est un calcul pur (comparaison de suites
+de mots normalisés). Il vivra dans un paquet sans dépendance, au même titre que
+`subtitles`, et se teste sans réseau.
+
+### 12.6 Phasage — NORMATIF
+
+Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert seule.
+
+| # | Étape | Critère de sortie |
+| :--- | :--- | :--- |
+| **V1** | **Le format** — grille, contrôles, storyboard statique dans l'onglet Script | Un Reel expliqué rédigé sur un vrai sujet, lisible et tournable tel quel |
+| **V2** | **Les scènes animées** — composition Remotion, emplacement des visuels, aperçu cadencé sur le débit estimé, export des scènes seules | Les scènes d'un vrai script exportées en MP4 et posées dans Final Cut |
+| **V3** | **Le calage** — dépôt du rush, son extrait, Whisper mot à mot, repères alignés, ajustement à la main | Les scènes tombent sur les bons mots d'une vraie prise |
+| **V4** | **Le rendu** — face caméra, scènes, sous-titres, 9:16 et 4:5, seconde accroche | Une vidéo publiée, et une variante publicitaire |
 
 ---
 

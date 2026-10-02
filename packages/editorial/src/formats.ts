@@ -12,6 +12,7 @@
 import { TargetFormat } from './domain';
 import { SITE_URL } from './config';
 import { composerArticleJekyll, type LivrableArticle } from './jekyll';
+import { LIMITES_REEL, MOTS_PAR_MINUTE, reelToMarkdown, reelToPlainText, verifierReelExplique } from './reelExplique';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -34,7 +35,8 @@ export interface FormatDefinition {
      * le voulant.
      *
      * **Trois formats sur sept, et c'est une décision, pas une sédimentation**
-     * (tranchée le 26/08/2026). Les formats longs — article SEO, script
+     * (tranchée le 26/08/2026). Le Reel expliqué, arrivé le 02/10/2026, en fait
+     * quatre sur huit pour la même raison que le Reel : court, écrit d'un jet. Les formats longs — article SEO, script
      * YouTube, newsletter — sont relus par Florent lui-même, plusieurs fois,
      * et un verdict automatique à chaque régénération se paierait
      * proportionnellement à leur longueur sans rien lui apprendre. Le carrousel
@@ -51,6 +53,22 @@ export interface FormatDefinition {
     /** Extrait un texte lisible depuis les données JSON parsées */
     toPlainText: (data: any) => string;
     /**
+     * Le brouillon en texte lisible : pour l'édition à la main, et pour le
+     * Lecteur froid, qui ne lit que ça. Il vivait dans un `switch` d'executors.ts
+     * dont la branche par défaut rendait une chaîne vide — un format ajouté sans
+     * y penser aurait vu sa relecture à froid sauter sans un mot.
+     */
+    toMarkdown: (data: any) => string;
+    /**
+     * Ce qui se compte dans ce format, sans appel réseau (SPEC §3.5.2 point 4,
+     * §12.3). Chaque chaîne est une correction à demander au Rédacteur ; une
+     * liste vide veut dire que la trame tient. Absent : rien à compter.
+     *
+     * Le carrousel n'y passe pas : ses longueurs sont contrôlées avec la slide
+     * Signature, que le code ajoute avant de compter (`enforceCarrouselConstraints`).
+     */
+    controler?: (data: any) => string[];
+    /**
      * Ce que le format sait livrer prêt à publier hors de l'application — le
      * fichier du site, les prompts d'illustration, les posts qui l'annoncent.
      * Absent : le format se copie depuis l'écran, rien de plus. `null` : le
@@ -65,6 +83,21 @@ export interface FormatDefinition {
 // ── Helpers internes ─────────────────────────────────────────────────
 
 const t = (v: any): string => (typeof v === 'string' ? v.trim() : '');
+
+/**
+ * Un bloc "legende" de publication (objet {texte, cta, hashtags}, ou chaîne de
+ * l'ancienne trame) en texte lisible.
+ */
+const legendeToMarkdown = (legende: any): string => {
+    if (!legende) return '';
+    if (typeof legende === 'string') return t(legende);
+    const tags = Array.isArray(legende.hashtags) ? legende.hashtags.map(t).filter(Boolean) : [];
+    const parts: string[] = [];
+    if (t(legende.texte)) parts.push(t(legende.texte));
+    if (t(legende.cta))   parts.push(t(legende.cta));
+    if (tags.length)      parts.push(tags.join(' '));
+    return parts.join('\n\n');
+};
 
 // ── Définitions de format ────────────────────────────────────────────
 
@@ -93,6 +126,16 @@ Ton : Direct, oralisé, percutant. On entend la voix. Fluide — le texte doit s
         if (data.corps) out.push(t(data.corps));
         if (data.cta) out.push(t(data.cta));
         return out.filter(Boolean).join(' ');
+    },
+    toMarkdown: (data: any): string => {
+        const out: string[] = [];
+        if (data.accroche) out.push(`**Accroche**\n${t(data.accroche)}`);
+        if (data.corps) out.push(`**Corps**\n${t(data.corps)}`);
+        if (data.cta)   out.push(`**CTA**\n${t(data.cta)}`);
+        const postTags = Array.isArray(data.hashtags) ? data.hashtags.map(t).filter(Boolean) : [];
+        if (postTags.length) out.push(`**Hashtags**\n${postTags.join(' ')}`);
+        if (data.visuel) out.push(`**Visuel**\n${t(data.visuel)}`);
+        return out.join('\n\n');
     }
 };
 
@@ -154,6 +197,28 @@ Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix 
         if (data.conclusion) out.push(t(data.conclusion));
         return out.filter(Boolean).join(' ');
     },
+    toMarkdown: (data: any): string => {
+        const out: string[] = [];
+        if (data.titre_h1)    out.push(`# ${t(data.titre_h1)}`);
+        if (data.introduction) out.push(t(data.introduction));
+        const sections = Array.isArray(data.sections) ? data.sections : [];
+        sections.forEach((section: any) => {
+            const h2 = t(section?.sous_titre_h2 || section?.titre || section?.point);
+            const contenu = t(section?.contenu);
+            if (h2) out.push(`## ${h2}`);
+            if (contenu) out.push(contenu);
+        });
+        if (data.conclusion) out.push(`## Conclusion\n${t(data.conclusion)}`);
+        // Depuis le 23/09/2026 le CTA est l'encadré final du site : un objet
+        // titre / texte / chute. Les articles d'avant gardent leur chaîne.
+        if (data.cta && typeof data.cta === 'object') {
+            const encadre = [t(data.cta.titre), t(data.cta.texte), t(data.cta.chute)].filter(Boolean);
+            if (encadre.length) out.push(`**CTA**\n${encadre.join('\n\n')}`);
+        } else if (data.cta) out.push(`**CTA**\n${t(data.cta)}`);
+        const refs = Array.isArray(data.references) ? data.references.map(t).filter(Boolean) : [];
+        if (refs.length) out.push(`## Références\n${refs.map((r: string) => `- ${r}`).join('\n')}`);
+        return out.join('\n\n');
+    },
     livrable: composerArticleJekyll,
 };
 
@@ -192,7 +257,95 @@ Le bloc "legende" est OBLIGATOIRE : c'est la description publiée sous la vidéo
         if (data.legende?.texte) out.push(t(data.legende.texte));
         if (data.legende?.cta) out.push(t(data.legende.cta));
         return out.filter(Boolean).join(' ');
+    },
+    toMarkdown: (data: any): string => {
+        const out: string[] = [];
+        if (data.contrainte) out.push(`**Contrainte**\n${t(data.contrainte)}`);
+        (data.sections || []).forEach((s: any) => {
+            const label = `${t(s.timing)} ${t(s.role)}`;
+            out.push(`**${label}**\n${t(s.texte)}`);
+            if (s.intention) out.push(`_${t(s.intention)}_`);
+        });
+        const reelLegende = legendeToMarkdown(data.legende);
+        if (reelLegende) out.push(`**Légende de publication**\n${reelLegende}`);
+        return out.join('\n\n');
     }
+};
+
+/**
+ * Le Reel expliqué (SPEC §12) : une prise face caméra, recouverte par moments de
+ * scènes que le Rédacteur écrit en même temps que la voix. Les scènes sont de la
+ * méthode, pas du montage — c'est pour ça qu'elles naissent ici.
+ */
+const REEL_EXPLIQUE: FormatDefinition = {
+    key: TargetFormat.REEL_EXPLIQUE,
+    shortKey: 'Reel expliqué',
+    editorTab: 'script',
+    supportsColdRead: true,
+    promptTemplate: `
+GRILLE DE PRODUCTION — Reel expliqué (face caméra + scènes animées) — Instagram, Facebook, Shorts, publicité
+Une seule prise face caméra : Florent parle du début à la fin. Pendant une partie du temps, l'image bascule sur des SCÈNES animées — un titre, puis des cartes qui apparaissent une à une au moment où il prononce les mots qu'elles illustrent. La voix ne s'arrête jamais : c'est l'image qui change.
+
+STRUCTURE (NON NÉGOCIABLE) :
+- Entre ${LIMITES_REEL.dureeMinSecondes} et ${LIMITES_REEL.dureeMaxSecondes} secondes, soit ${Math.ceil(LIMITES_REEL.dureeMinSecondes * MOTS_PAR_MINUTE / 60)} à ${Math.floor(LIMITES_REEL.dureeMaxSecondes * MOTS_PAR_MINUTE / 60)} mots de voix au total, toutes séquences confondues. Compte.
+- La PREMIÈRE séquence est face caméra : l'accroche, la phrase qui arrête le scroll, ${LIMITES_REEL.accrocheMots} mots au plus. Le spectateur s'y reconnaît : sa situation, ses mots.
+- L'ANCRAGE CABINET se dit FACE CAMÉRA, dans le premier tiers ('En séance, je vois…', 'Un patient me disait…') : un visage qui parle de sa pratique, c'est ce qui fait comprendre qu'on écoute un praticien et que le propos est clinique.
+- ${LIMITES_REEL.scenesMin} à ${LIMITES_REEL.scenesMax} SCÈNES portent ce que l'œil comprend mieux qu'il ne l'entend : un mécanisme, un contraste, des étapes, un chiffre, une absurdité. Entre deux scènes, tu peux revenir face caméra.
+- La DERNIÈRE séquence est face caméra : l'appel à l'action, dit à voix haute, aligné sur les règles CTA de l'objectif (fournies plus haut).
+
+L'ÉCRAN NE RECOPIE JAMAIS LA VOIX :
+Une carte retient le mot-clé, le chiffre, le contraste — ce qui se lit en deux secondes pendant que la voix développe. Une carte qui répète la phrase qu'on entend est une carte inutile.
+
+UNE SCÈNE :
+- "titre" : ${LIMITES_REEL.titre} caractères MAXIMUM, avec un mot ou une expression surligné entre crochets — "Sur le papier, c'est [évident]".
+- "registre" : "pedagogie" (on montre comment ça marche : un mécanisme, un cycle, un avant/après) ou "humour" (on montre l'absurde : une exagération, une scène décalée, une chute). Une vidéo peut mêler les deux. L'humour vise la situation, jamais la personne.
+- "elements" : 1 à ${LIMITES_REEL.elementsParScene}, dans l'ordre où ils apparaissent.
+  • "carte" : "texte" (${LIMITES_REEL.carte} caractères MAX, au plus un passage entre crochets), "detail" facultatif (une ligne plus petite sous le texte, ${LIMITES_REEL.detail} caractères MAX), "ton", "taille", "visuel" facultatif.
+  • "pastille" : une courte étiquette qui conclut ou nuance (${LIMITES_REEL.pastille} caractères MAX), avec un "ton".
+  • "liaison" : un mot qui relie deux cartes — "vs", "donc", "mais", "→" (${LIMITES_REEL.liaison} caractères MAX).
+- "ton" : "ombre" (ce qui coince : la croyance, le piège, le prix payé), "lumiere" (ce qui s'ouvre : le déplacement, la ressource), "neutre" (ce qui informe).
+- "taille" : "petite" (demi-largeur : deux petites cartes voisines se placent côte à côte), "moyenne" (pleine largeur), "grande" (pleine largeur et haute, pour une carte qui porte un visuel). Une grande carte au plus par scène. Varie les tailles : une scène dont toutes les cartes se ressemblent se lit comme une liste.
+- "visuel" : une illustration ou un schéma, quand l'image dit mieux que le mot — surtout en pédagogie, et pour l'humour. { "nature": "illustration" | "schema", "description": "Ce que l'image montre concrètement, en 1 à 2 phrases, en français." } Florent la produit lui-même : décris ce qu'on doit voir, n'écris pas de prompt. Une carte qui porte un visuel peut se passer de texte. Pas d'icône ni d'emoji, pas d'imagerie littérale de la détresse, pas de symboles ésotériques appuyés. Sinon, "visuel" vaut null.
+- "apparait_sur" : OBLIGATOIRE pour chaque élément — 2 à 6 mots RECOPIÉS À L'IDENTIQUE de la "voix" de la même séquence, ceux sur lesquels l'élément apparaît. Les repères d'une scène suivent l'ordre de la voix. Aucun minutage, aucune seconde : le calage se fait sur la prise.
+
+SECONDE ACCROCHE (PUBLICITÉ) :
+"accroche_pub" est une autre ouverture face caméra, tournée dans la foulée, qui remplace la première quand la vidéo sert de publicité Meta ou Google : même longueur, même enchaînement avec la séquence 2. Elle nomme la situation SANS présumer de l'état de celui qui regarde — jamais 'Vous souffrez de…', 'Votre anxiété…', 'Vous êtes déprimé ?' : les régies le refusent. Et elle ne promet aucun résultat.
+
+{
+  "format": "Reel expliqué",
+  "sequences": [
+    { "plan": "camera", "role": "Accroche", "voix": "Ce que Florent dit face caméra.", "intention": "Note de rythme, regard, pause, sourire." },
+    {
+      "plan": "scene",
+      "role": "Le rôle de la séquence (Constat, Mécanique, Bascule…)",
+      "registre": "pedagogie",
+      "voix": "Ce que Florent dit pendant que la scène occupe l'écran.",
+      "intention": "Note de rythme.",
+      "titre": "Le titre, avec [un mot] surligné",
+      "elements": [
+        { "type": "carte", "taille": "moyenne", "texte": "Le mot-clé ou le [chiffre]", "detail": "Une ligne qui précise, ou null", "ton": "ombre", "visuel": null, "apparait_sur": "mots recopiés de la voix" },
+        { "type": "liaison", "texte": "vs", "apparait_sur": "mots recopiés de la voix" },
+        { "type": "carte", "taille": "grande", "texte": "Le contraste", "detail": null, "ton": "lumiere", "visuel": { "nature": "schema", "description": "Ce que le schéma montre." }, "apparait_sur": "mots recopiés de la voix" },
+        { "type": "pastille", "texte": "La [conclusion]", "ton": "lumiere", "apparait_sur": "mots recopiés de la voix" }
+      ]
+    },
+    { "plan": "camera", "role": "Appel à l'action", "voix": "…", "intention": "…" }
+  ],
+  "accroche_pub": { "voix": "La seconde ouverture, pour la publicité.", "intention": "…" },
+  "legende": {
+    "texte": "La description publiée sous la vidéo (≠ la voix). Première ligne qui arrête le scroll, puis 1 à 3 phrases qui prolongent le propos. Voix de Florent, avec un ancrage cabinet.",
+    "cta": "Une phrase d'appel à l'action, alignée sur les règles CTA de l'objectif. Liens non cliquables sur Reels : invite via 'lien en bio' en précisant l'adresse en clair (ex : 'Lien en bio → ${SITE_URL}'). Reprends l'URL exactement. Sans emoji.",
+    "hashtags": ["#therapie", "#psychologie", "#... 5 à 10 hashtags pertinents, sans espace, sans # générique creux"]
+  }
+}
+Ton : parlé, naturel, incarné. L'humour et le paradoxe sont des moteurs. "intention" porte les notes de jeu de chaque séquence.
+Les blocs "accroche_pub" et "legende" sont OBLIGATOIRES.
+Ces limites sont vérifiées automatiquement après ta génération : un dépassement, ou un repère introuvable dans la voix, déclenche une correction.
+    `.trim(),
+    toPlainText: reelToPlainText,
+    toMarkdown: reelToMarkdown,
+    controler: (data: any): string[] =>
+        verifierReelExplique(data).map(p => `${p.ou} — ${p.probleme}`),
 };
 
 const SCRIPT_YOUTUBE: FormatDefinition = {
@@ -223,6 +376,19 @@ Ton : Narratif, profond, utilisant des métaphores filées. Plus long, plus cont
         });
         if (data.conclusion) out.push(t(data.conclusion));
         return out.filter(Boolean).join(' ');
+    },
+    toMarkdown: (data: any): string => {
+        const out: string[] = [];
+        if (data.intro) out.push(`**Intro**\n${t(data.intro)}`);
+        const dev = Array.isArray(data.developpement) ? data.developpement : [];
+        dev.forEach((section: any, idx: number) => {
+            const point = t(section?.point) || `Point ${idx + 1}`;
+            const contenu = t(section?.contenu);
+            out.push(`**${point}**`);
+            if (contenu) out.push(contenu);
+        });
+        if (data.conclusion) out.push(`**Conclusion**\n${t(data.conclusion)}`);
+        return out.join('\n\n');
     }
 };
 
@@ -314,6 +480,24 @@ RÈGLES STRICTES :
         if (data.legende?.texte) out.push(t(data.legende.texte));
         if (data.legende?.cta) out.push(t(data.legende.cta));
         return out.filter(Boolean).join(' ');
+    },
+    toMarkdown: (data: any): string => {
+        const out: string[] = [];
+        const slides = Array.isArray(data.slides) ? data.slides : [];
+        slides.forEach((slide: any, idx: number) => {
+            const numero = slide?.numero ?? idx + 1;
+            const titre = t(slide?.titre);
+            const texte = t(slide?.texte);
+            // intention_visuelle (nouvelle trame) avec repli sur visuel (ancienne)
+            const intention = t(slide?.intention_visuelle || slide?.visuel);
+            const header = titre ? `### Slide ${numero} — ${titre}` : `### Slide ${numero}`;
+            out.push(header);
+            if (texte) out.push(texte);
+            if (intention) out.push(`*Intention visuelle :* ${intention}`);
+        });
+        const carrouselLegende = legendeToMarkdown(data.legende);
+        if (carrouselLegende) out.push(`**Légende de publication**\n${carrouselLegende}`);
+        return out.join('\n\n');
     }
 };
 
@@ -347,6 +531,16 @@ Ne PAS inclure de salutation (Bonjour) ni de signature (Chaleureusement, Florent
         if (data.baffe) out.push(t(data.baffe));
         if (data.cta) out.push(t(data.cta));
         return out.filter(Boolean).join(' ');
+    },
+    toMarkdown: (data: any): string => {
+        const out: string[] = [];
+        if (data.objet) out.push(`**Objet**\n${t(data.objet)}`);
+        if (data.accroche) out.push(`**Accroche**\n${t(data.accroche)}`);
+        if (data.corps) out.push(`**Corps**\n${t(data.corps)}`);
+        if (data.repositionnement) out.push(`**Repositionnement**\n${t(data.repositionnement)}`);
+        if (data.baffe) out.push(`**Baffe**\n${t(data.baffe)}`);
+        if (data.cta) out.push(`**CTA**\n${t(data.cta)}`);
+        return out.join('\n\n');
     }
 };
 
@@ -378,6 +572,13 @@ Interdiction absolue : Aucun autre texte.
             if (data.legende.cta) out.push(t(data.legende.cta));
         }
         return out.filter(Boolean).join(' ');
+    },
+    toMarkdown: (data: any): string => {
+        const out: string[] = [];
+        if (data.prompt)  out.push(`**Prompt (EN)**\n${t(data.prompt)}`);
+        const imgLegende = legendeToMarkdown(data.legende);
+        if (imgLegende) out.push(`**Légende**\n${imgLegende}`);
+        return out.join('\n\n');
     }
 };
 
@@ -387,6 +588,7 @@ export const FORMAT_REGISTRY: Record<TargetFormat, FormatDefinition> = {
     [TargetFormat.POST_TEXTE_COURT]: POST_TEXTE,
     [TargetFormat.ARTICLE_LONG_SEO]: ARTICLE,
     [TargetFormat.SCRIPT_VIDEO_REEL_SHORT]: SCRIPT_REEL,
+    [TargetFormat.REEL_EXPLIQUE]: REEL_EXPLIQUE,
     [TargetFormat.SCRIPT_VIDEO_YOUTUBE]: SCRIPT_YOUTUBE,
     [TargetFormat.CARROUSEL_SLIDE]: CARROUSEL,
     [TargetFormat.PROMPT_IMAGE]: PROMPT_IMAGE,
@@ -433,6 +635,8 @@ const MOTS_DECISIFS: ReadonlyArray<[string, TargetFormat]> = [
     ['slide', TargetFormat.CARROUSEL_SLIDE],
     ['newsletter', TargetFormat.NEWSLETTER],
     ['youtube', TargetFormat.SCRIPT_VIDEO_YOUTUBE],
+    ['expliqu', TargetFormat.REEL_EXPLIQUE],
+    ['animee', TargetFormat.REEL_EXPLIQUE],
     ['reel', TargetFormat.SCRIPT_VIDEO_REEL_SHORT],
     ['short', TargetFormat.SCRIPT_VIDEO_REEL_SHORT],
     ['promptimage', TargetFormat.PROMPT_IMAGE],
@@ -463,6 +667,13 @@ export function resoudreFormat(valeur: unknown): TargetFormat | null {
     if (exact) return exact;
 
     const trouves = MOTS_DECISIFS.filter(([mot]) => clef.includes(mot)).map(([, format]) => format);
+    // « Reel expliqué » contient « reel » : ce n'est pas deux formats désignés,
+    // c'est un nom qui en englobe un autre. Le plus précis l'emporte — sans quoi
+    // le seul format dont le nom contient celui d'un autre ne se résoudrait jamais.
+    if (trouves.includes(TargetFormat.REEL_EXPLIQUE)) {
+        const autres = trouves.filter(f => f !== TargetFormat.REEL_EXPLIQUE && f !== TargetFormat.SCRIPT_VIDEO_REEL_SHORT);
+        if (autres.length === 0) return TargetFormat.REEL_EXPLIQUE;
+    }
     const uniques = [...new Set(trouves)];
     // Deux formats possibles dans la même chaîne : on ne tranche pas.
     return uniques.length === 1 ? uniques[0] : null;

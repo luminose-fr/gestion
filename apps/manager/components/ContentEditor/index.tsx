@@ -8,7 +8,7 @@ import { generateLockedBrief, createEmptySession } from '../../services/coachSer
 import { AlertModal, ConfirmModal } from '../CommonModals';
 import { EnCours } from '../Feedback';
 import { AI_ACTIONS, AI_ACTION_CATALOG } from '@luminose/editorial';
-import { bodyJsonToText, getEditorTab, supportsColdRead } from '@luminose/editorial';
+import { bodyJsonToText, getEditorTab, supportsColdRead, getFormatDef, parseBodyJson } from '@luminose/editorial';
 import {
     getFormatPromptTemplate, getObjectifCtaRules,
     buildColdReadHistorySection, isColdReadApplyInstruction, stripColdReadApplyPrefix,
@@ -699,6 +699,41 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       return result;
   };
 
+  /**
+   * Ce qui se compte, compté par le code puis corrigé en UNE passe (SPEC §3.5.2
+   * point 4, §12.3). Le format déclare ses contrôles au registre : l'éditeur ne
+   * sait pas lequel il traite, et un format qui n'en déclare pas passe tel quel.
+   *
+   * Comme pour le carrousel, la version ajustée est gardée même s'il subsiste un
+   * écart : l'écran du format affiche ce qui reste, et une seconde passe se
+   * paierait sans garantie de faire mieux.
+   */
+  const appliquerControlesDuFormat = async (
+      content: string,
+      item: ContentItem,
+      sanitize: (raw: string) => string = parseDraftResponse,
+  ): Promise<string> => {
+      const controler = getFormatDef(item.targetFormat)?.controler;
+      if (!controler) return content;
+      const corrections = controler(parseBodyJson(content));
+      if (corrections.length === 0) return content;
+
+      const instruction = `Corrige UNIQUEMENT les points suivants, relevés par le contrôle automatique du format, sans perdre le sens ni la voix : ${corrections.join(' ; ')}. Ne modifie rien d'autre.`;
+      try {
+          const adjustConfig = AI_ACTIONS.ADJUST_CONTENT;
+          const systemInstruction = adjustConfig.getSystemInstruction(
+              content, instruction,
+              getFormatPromptTemplate(item.targetFormat as TargetFormat),
+              getObjectifCtaRules(item.objectif),
+          );
+          const { text: responseText } = await callAI('ADJUST_CONTENT', modelFor('ADJUST_CONTENT'), systemInstruction, TOUR_UTILISATEUR.ADJUST_CONTENT, adjustConfig.generationConfig);
+          return sanitize(responseText);
+      } catch (e) {
+          console.warn('Correction automatique du format impossible — trame conservée telle quelle.', e);
+          return content;
+      }
+  };
+
   const executeDrafting = async (itemArg?: ContentItem, sessionArg?: CoachSession | null) => {
       if (!isMountedRef.current) return;
       const base = itemArg ?? editedItem;
@@ -762,6 +797,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const isCarrousel = base.targetFormat === TargetFormat.CARROUSEL_SLIDE;
           if (isCarrousel) {
               finalContent = await enforceCarrouselConstraints(finalContent);
+          } else {
+              finalContent = await appliquerControlesDuFormat(finalContent, base);
           }
 
           // Une seule destination, quel que soit le format (SPEC §2.5), et du
@@ -883,7 +920,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     cleaned,
                     targetField === 'slides' ? sanitizeSlidesResponse : parseDraftResponse,
                 )
-              : cleaned;
+              : targetField === 'draft' && editedItem
+                  ? await appliquerControlesDuFormat(cleaned, editedItem)
+                  : cleaned;
 
           const previousValue = currentContent;
           const newItem = { ...editedItem!, [targetField]: applied };

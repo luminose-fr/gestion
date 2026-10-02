@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Eye, RotateCcw, CheckCircle2, Target, Zap, Images, Copy, Check, FileText, Video, Calendar, Layers } from 'lucide-react';
+import { getEditorTab, supportsColdRead } from '@luminose/editorial';
 import { ContentItem, ContentStatus, TargetFormat } from '../../types';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { ScriptVideoRenderer } from './renderers/ScriptVideoRenderer';
@@ -66,9 +67,13 @@ interface PreviewViewProps {
 
 export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, onDecline }) => {
 
-    const isReelShort = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT;
-    const isVideoFormat = item.targetFormat === TargetFormat.SCRIPT_VIDEO_REEL_SHORT
-        || item.targetFormat === TargetFormat.SCRIPT_VIDEO_YOUTUBE;
+    // Un format vidéo se reconnaît à son onglet, déclaré au registre : le Reel
+    // expliqué y entre sans qu'on ait à le nommer ici (règle n°3 du CLAUDE.md).
+    const isVideoFormat = getEditorTab(item.targetFormat as TargetFormat) === 'script';
+    // Les scripts COURTS — ceux que le registre ouvre à la relecture à froid,
+    // précisément parce qu'ils s'écrivent d'un jet — ont la mise en page
+    // travaillée. Le YouTube, long, garde la colonne simple.
+    const isReelShort = isVideoFormat && supportsColdRead(item.targetFormat as TargetFormat);
     const isCarrousel = item.targetFormat === TargetFormat.CARROUSEL_SLIDE;
     const isPostCourt = item.targetFormat === TargetFormat.POST_TEXTE_COURT;
     const usesWorkedLayout = isPostCourt || isCarrousel || isReelShort;

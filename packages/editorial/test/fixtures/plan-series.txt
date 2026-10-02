@@ -22,11 +22,12 @@ Formats disponibles (reprends la valeur EXACTE) :
 • Post Texte (Court)
 • Article (Long/SEO)
 • Script Vidéo (Reel/Short)
+• Reel expliqué (scènes animées)
 • Script Vidéo (Youtube)
 • Carrousel (Slide par Slide)
 • Prompt Image
 • Newsletter
-Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
+Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Un mécanisme à montrer en parlant — un contraste, des étapes, un chiffre, une absurdité — se joue en Reel expliqué. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
 
 LES 7 OBJECTIFS DE PUBLICATION (tu en choisis exactement UN par idée — c'est lui qui dictera le CTA) :
 • Notoriété (Découverte) — L'idée parle de Florent lui-même : son parcours, sa vision du métier, une opinion assumée, sa façon d'être thérapeute. Le lecteur doit retenir QUI il est.

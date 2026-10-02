@@ -6,7 +6,7 @@
  */
 
 import { TargetFormat, isTargetFormat } from './domain';
-import { parseBodyJson } from './formats';
+import { parseBodyJson, VALID_SHORT_KEYS, FORMAT_REGISTRY } from './formats';
 import { PlanSeriesEntry, normalizePlanEntry, isPlanEntryUsable } from './series';
 
 // ── Extraction JSON ──
@@ -126,7 +126,9 @@ export const extractJsonArrayPayload = (responseText: string, convient?: (valeur
 
 // ── Clés courtes acceptées (retournées par le nouveau prompt) ──
 
-const SHORT_FORMAT_KEYS = ["Post Texte", "Article", "Script Reel", "Script Youtube", "Carrousel", "Prompt Image", "Newsletter"];
+// Lues dans le registre : une liste recopiée ici refusait, en silence, tout
+// format ajouté après elle.
+const SHORT_FORMAT_KEYS = VALID_SHORT_KEYS;
 
 /**
  * Parse et valide la réponse IA de rédaction (draft).
@@ -305,119 +307,13 @@ export const appendSignatureSlide = (bodyRaw: string, signature: { titre: string
     return JSON.stringify(data, null, 2);
 };
 
-// ── Formatage texte (pour preview plain-text) ──
-
-const text = (value: any): string => (typeof value === 'string' ? value.trim() : "");
-
-/**
- * Formate un bloc "legende" de publication (objet {texte, cta, hashtags} ou
- * string ancienne trame) en markdown pour l'édition manuelle.
- */
-const legendeToMarkdown = (legende: any): string => {
-    if (!legende) return "";
-    if (typeof legende === 'string') return text(legende);
-    const tags = Array.isArray(legende.hashtags) ? legende.hashtags.map(text).filter(Boolean) : [];
-    const parts: string[] = [];
-    if (text(legende.texte)) parts.push(text(legende.texte));
-    if (text(legende.cta))   parts.push(text(legende.cta));
-    if (tags.length)         parts.push(tags.join(' '));
-    return parts.join("\n\n");
-};
+// ── Formatage texte (pour l'édition à la main et le Lecteur froid) ──
 
 /**
  * Convertit les données JSON d'un draft en texte lisible (markdown-ish).
- * Utilisé pour l'édition manuelle du body.
+ * Chaque format porte sa lecture dans le registre (`toMarkdown`) : ajouter un
+ * format ne demande plus de penser à ce fichier.
  */
-export const formatDraftContent = (format: TargetFormat, data: any): string => {
-    const out: string[] = [];
+export const formatDraftContent = (format: TargetFormat, data: any): string =>
+    FORMAT_REGISTRY[format]?.toMarkdown(data) ?? "";
 
-    switch (format) {
-        case TargetFormat.POST_TEXTE_COURT: {
-            if (data.accroche) out.push(`**Accroche**\n${text(data.accroche)}`);
-            if (data.corps) out.push(`**Corps**\n${text(data.corps)}`);
-            if (data.cta)   out.push(`**CTA**\n${text(data.cta)}`);
-            const postTags = Array.isArray(data.hashtags) ? data.hashtags.map(text).filter(Boolean) : [];
-            if (postTags.length) out.push(`**Hashtags**\n${postTags.join(' ')}`);
-            if (data.visuel) out.push(`**Visuel**\n${text(data.visuel)}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.ARTICLE_LONG_SEO: {
-            if (data.titre_h1)    out.push(`# ${text(data.titre_h1)}`);
-            if (data.introduction) out.push(text(data.introduction));
-            const sections = Array.isArray(data.sections) ? data.sections : [];
-            sections.forEach((section: any) => {
-                const h2 = text(section?.sous_titre_h2 || section?.titre || section?.point);
-                const contenu = text(section?.contenu);
-                if (h2) out.push(`## ${h2}`);
-                if (contenu) out.push(contenu);
-            });
-            if (data.conclusion) out.push(`## Conclusion\n${text(data.conclusion)}`);
-            // Depuis le 23/09/2026 le CTA est l'encadré final du site : un objet
-            // titre / texte / chute. Les articles d'avant gardent leur chaîne.
-            if (data.cta && typeof data.cta === 'object') {
-                const encadre = [text(data.cta.titre), text(data.cta.texte), text(data.cta.chute)].filter(Boolean);
-                if (encadre.length) out.push(`**CTA**\n${encadre.join("\n\n")}`);
-            } else if (data.cta) out.push(`**CTA**\n${text(data.cta)}`);
-            const refs = Array.isArray(data.references) ? data.references.map(text).filter(Boolean) : [];
-            if (refs.length) out.push(`## Références\n${refs.map((r: string) => `- ${r}`).join("\n")}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.SCRIPT_VIDEO_REEL_SHORT: {
-            if (data.contrainte) out.push(`**Contrainte**\n${text(data.contrainte)}`);
-            (data.sections || []).forEach((s: any) => {
-                const label = `${text(s.timing)} ${text(s.role)}`;
-                out.push(`**${label}**\n${text(s.texte)}`);
-                if (s.intention) out.push(`_${text(s.intention)}_`);
-            });
-            const reelLegende = legendeToMarkdown(data.legende);
-            if (reelLegende) out.push(`**Légende de publication**\n${reelLegende}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.SCRIPT_VIDEO_YOUTUBE: {
-            if (data.intro) out.push(`**Intro**\n${text(data.intro)}`);
-            const dev = Array.isArray(data.developpement) ? data.developpement : [];
-            dev.forEach((section: any, idx: number) => {
-                const point = text(section?.point) || `Point ${idx + 1}`;
-                const contenu = text(section?.contenu);
-                out.push(`**${point}**`);
-                if (contenu) out.push(contenu);
-            });
-            if (data.conclusion) out.push(`**Conclusion**\n${text(data.conclusion)}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.CARROUSEL_SLIDE: {
-            const slides = Array.isArray(data.slides) ? data.slides : [];
-            slides.forEach((slide: any, idx: number) => {
-                const numero = slide?.numero ?? idx + 1;
-                const titre = text(slide?.titre);
-                const texte = text(slide?.texte);
-                // intention_visuelle (nouvelle trame) avec fallback vers visuel (ancienne)
-                const intention = text(slide?.intention_visuelle || slide?.visuel);
-                const header = titre ? `### Slide ${numero} — ${titre}` : `### Slide ${numero}`;
-                out.push(header);
-                if (texte) out.push(texte);
-                if (intention) out.push(`*Intention visuelle :* ${intention}`);
-            });
-            const carrouselLegende = legendeToMarkdown(data.legende);
-            if (carrouselLegende) out.push(`**Légende de publication**\n${carrouselLegende}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.NEWSLETTER: {
-            if (data.objet) out.push(`**Objet**\n${text(data.objet)}`);
-            if (data.accroche) out.push(`**Accroche**\n${text(data.accroche)}`);
-            if (data.corps) out.push(`**Corps**\n${text(data.corps)}`);
-            if (data.repositionnement) out.push(`**Repositionnement**\n${text(data.repositionnement)}`);
-            if (data.baffe) out.push(`**Baffe**\n${text(data.baffe)}`);
-            if (data.cta) out.push(`**CTA**\n${text(data.cta)}`);
-            return out.join("\n\n");
-        }
-        case TargetFormat.PROMPT_IMAGE: {
-            if (data.prompt)  out.push(`**Prompt (EN)**\n${text(data.prompt)}`);
-            const imgLegende = legendeToMarkdown(data.legende);
-            if (imgLegende) out.push(`**Légende**\n${imgLegende}`);
-            return out.join("\n\n");
-        }
-        default:
-            return "";
-    }
-};
