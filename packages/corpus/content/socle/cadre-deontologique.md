@@ -19,6 +19,10 @@ Florent Jaouali n'est **ni médecin, ni psychiatre, ni psychologue**.
 Aucun diagnostic. Aucun acte médical. Aucune prescription. Aucune promesse de guérison,
 explicite ou suggérée, dans quelque contenu que ce soit.
 
+**Elle porte sur ce que dit Luminose, pas sur ce que cherche la personne.** Une recherche
+« guérir l'anorexie » ou « antidépresseur naturel » peut recevoir une annonce ; c'est
+l'annonce qui ne promet rien.
+
 ## Contre-indications strictes — Respiration Holotropique
 
 Un **questionnaire de santé est obligatoire** avant tout accès, individuel comme collectif.
