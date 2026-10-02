@@ -1,7 +1,7 @@
 ---
 type: instruction
 statut: actif
-revu: 2026-08
+revu: 2026-10
 expose: prive
 ---
 
@@ -21,6 +21,18 @@ s'exprimer.
 
 **Aucune promesse de guérison, explicite ou suggérée.** La règle et son motif font foi dans
 `../socle/cadre-deontologique.md` ; elle s'applique ici sans exception.
+
+## Ce que Claude peut faire dans le compte — NORMATIF
+
+**Claude prépare, Florent publie.** Par le connecteur Google Ads, Claude lit le compte et peut
+exclure des recherches (mots-clés négatifs) ou mettre en pause une campagne, un groupe, une
+annonce, un mot-clé. Il ne peut rien activer qui dépense : l'activation se fait à la main, dans
+l'interface Google Ads. Chaque écriture passe par un aperçu, montré avant d'être exécutée.
+
+Claude peut aussi préparer des campagnes Search, en pause et marquées [Claude].
+
+Les chiffres du compte — coûts, clics, conversions — ne s'écrivent pas ici : ils se lisent en
+direct par le même connecteur.
 
 ## Valeurs de conversion
 
