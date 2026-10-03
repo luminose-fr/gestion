@@ -28,14 +28,17 @@ export const VERSION_MODERNE = '2026-07-28';
 export const VERSIONS_HERITEES = ['2025-11-25', '2025-06-18', '2025-03-26'];
 export const VERSIONS = [VERSION_MODERNE, ...VERSIONS_HERITEES];
 
-const SERVEUR = { name: 'luminose-google-ads', title: 'Luminose — Google Ads', version: '1.0.0' };
+const SERVEUR = { name: 'luminose-google-ads', title: 'Luminose — Google Ads et corpus', version: '1.1.0' };
 
 const INSTRUCTIONS =
   "Le compte Google Ads de Luminose. Lire : ads_requete exécute du GAQL sur le compte Luminose par défaut ; " +
   "ads_lister_comptes n'est utile que pour la devise ou un diagnostic d'accès. Les montants sont en micros : diviser par 1 000 000. " +
   "Écrire : Claude prépare, Florent publie. Chaque écriture se fait en deux temps — un aperçu vérifié par Google sans rien " +
   "appliquer, puis l'exécution avec le jeton de l'aperçu, après l'accord de Florent. Rien ne s'active par ce serveur : " +
-  "l'activation, donc la dépense, se fait dans l'interface Google Ads.";
+  "l'activation, donc la dépense, se fait dans l'interface Google Ads. " +
+  "Le corpus de Luminose — sa source de vérité : identité, offres, voix, canaux, stratégie — se lit avec corpus_contexte " +
+  "(un profil composé), corpus_index et corpus_lire (les fiches), tel que la branche main du dépôt le porte. Il s'écrit " +
+  "par commit, dans les mêmes deux temps : corpus_modifier, corpus_decision_ajouter, puis corpus_deployer pour publier.";
 
 const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
 const META_CAPACITES = 'io.modelcontextprotocol/clientCapabilities';

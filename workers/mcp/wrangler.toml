@@ -53,6 +53,12 @@ ADS_CPC_MAX = "2"             # R3 — CPC max en « Maximiser les clics »
 # R4 — la campagne dont le ciblage est recopié (« Psychopraticien - Prospects - Troubles anxieux »).
 ADS_CAMPAGNE_MODELE = "24187680610"
 
+# Le corpus — décision du 03/10/2026 (workers/mcp/decisions/2026-10-03-corpus.md).
+# Commits et déploiements permis sur 24 heures glissantes, à part du plafond
+# Google Ads. Absent ou illisible, l'écriture du corpus est fermée ; la lecture
+# continue. Le jeton GitHub, lui, est un secret : wrangler secret put GITHUB_TOKEN.
+CORPUS_ECRITURES_MAX_JOUR = "20"
+
 [observability]
 enabled = true
 

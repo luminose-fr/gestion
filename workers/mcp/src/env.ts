@@ -51,8 +51,8 @@ export type Env = {
   DB: D1Database;
 
   /**
-   * Signe les jetons d'aperçu (V2). Absent, l'écriture est fermée et la lecture
-   * continue. `openssl rand -base64 32`.
+   * Signe les jetons d'aperçu (V2), pour Google Ads comme pour le corpus.
+   * Absent, l'écriture est fermée et la lecture continue. `openssl rand -base64 32`.
    */
   ADS_APERCU_KEY?: string;
 
@@ -73,4 +73,21 @@ export type Env = {
   ADS_CPC_MAX?: string;
   /** R4 — la campagne Search dont le ciblage est recopié. */
   ADS_CAMPAGNE_MODELE?: string;
+
+  // ── Le corpus (décision du 03/10/2026) ────────────────────────────────
+
+  /**
+   * Couche C — un jeton GitHub à grain fin, limité au dépôt luminose-fr/gestion,
+   * droits Contents et Actions en lecture-écriture. Le sien : pas celui de la
+   * console (SPEC §1.1). Absent, les outils du corpus le disent et Google Ads
+   * continue.
+   */
+  GITHUB_TOKEN?: string;
+
+  /**
+   * V9 pour le corpus — commits et déploiements permis sur 24 heures
+   * glissantes. Son plafond à lui : une série de corrections n'épuise pas
+   * celui de Google Ads. Absent ou illisible, l'écriture du corpus est fermée.
+   */
+  CORPUS_ECRITURES_MAX_JOUR?: string;
 };
