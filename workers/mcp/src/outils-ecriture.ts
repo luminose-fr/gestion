@@ -27,8 +27,11 @@ export const DEUX_TEMPS =
 export const CORRESPONDANCES = { EXACT: 'exact', PHRASE: 'expression exacte', BROAD: 'requête large' } as const;
 export type Correspondance = keyof typeof CORRESPONDANCES;
 
+export const lignes = async <T>(env: Env, compte: string, requete: string): Promise<T[]> =>
+  ((await rechercher(env, compte, requete, connexionPour(env, compte))).results ?? []) as T[];
+
 export const premiereLigne = async <T>(env: Env, compte: string, requete: string): Promise<T | undefined> =>
-  (await rechercher(env, compte, requete, connexionPour(env, compte))).results?.[0] as T | undefined;
+  (await lignes<T>(env, compte, requete))[0];
 
 /** Ni campagne supprimée, ni autre chose que du Search. */
 export const exigerSearch = (canal: string | undefined, quoi: string) => {
@@ -53,6 +56,19 @@ export const normaliserMotCle = (brut: string): string => {
   return texteNormal;
 };
 
+/**
+ * Normalisés, dédoublonnés, triés : le même ensemble donne la même empreinte,
+ * quel que soit l'ordre dans lequel le modèle le renvoie.
+ */
+export const normaliserMotsCles = (mots: { texte: string; correspondance: Correspondance }[]) => {
+  const uniques = new Map<string, { texte: string; correspondance: Correspondance }>();
+  for (const m of mots) {
+    const t = normaliserMotCle(m.texte);
+    uniques.set(`${t}\u0000${m.correspondance}`, { texte: t, correspondance: m.correspondance });
+  }
+  return [...uniques.values()].sort((a, b) => a.texte.localeCompare(b.texte, 'fr') || a.correspondance.localeCompare(b.correspondance));
+};
+
 type LigneCampagne = { campaign?: { id?: string; name?: string; status?: string; advertisingChannelType?: string } };
 
 const negatifsAjouter = outil({
@@ -67,6 +83,12 @@ const negatifsAjouter = outil({
     "Usage type : lire les termes de recherche (ads_requete, FROM search_term_view), puis exclure ceux qui ne correspondent pas à l'offre. " +
     'Correspondance : EXACT (la recherche exacte), PHRASE (la recherche contient l’expression), BROAD (la recherche contient tous les mots). ' +
     '50 mots-clés au plus par appel.',
+    '',
+    "Négatif de campagne ou liste ? Le négatif de campagne, pour une exclusion propre à CETTE campagne (le thème d'une autre offre, " +
+    "par exemple). Une exclusion qui vaut pour plusieurs campagnes (gratuit, emploi, formation, médicament…) va dans une liste de " +
+    'négatifs partagée : ads_liste_negatifs_ajouter (ou ads_liste_negatifs_creer), une seule entrée à tenir pour toutes les campagnes associées. ' +
+    'Lister les listes existantes : ads_requete, SELECT shared_set.id, shared_set.name, shared_set.member_count FROM shared_set ' +
+    "WHERE shared_set.type = 'NEGATIVE_KEYWORDS' AND shared_set.status = 'ENABLED'.",
   ].join('\n'),
   schema: z.object({
     campagne: z.string().regex(/^\d{1,20}$/, 'identifiant numérique de campagne (campaign.id)')
@@ -82,14 +104,7 @@ const negatifsAjouter = outil({
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
 
-    // Normalisés, dédoublonnés, triés : le même ensemble donne la même
-    // empreinte, quel que soit l'ordre dans lequel le modèle le renvoie.
-    const uniques = new Map<string, { texte: string; correspondance: Correspondance }>();
-    for (const m of mots_cles) {
-      const t = normaliserMotCle(m.texte);
-      uniques.set(`${t}\u0000${m.correspondance}`, { texte: t, correspondance: m.correspondance });
-    }
-    const liste = [...uniques.values()].sort((a, b) => a.texte.localeCompare(b.texte, 'fr') || a.correspondance.localeCompare(b.correspondance));
+    const liste = normaliserMotsCles(mots_cles);
 
     const ligne = await premiereLigne<LigneCampagne>(env, compte,
       `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.id = ${campagne}`);

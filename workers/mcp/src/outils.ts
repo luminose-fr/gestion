@@ -3,7 +3,8 @@
  *
  * LIRE : les deux outils du serveur officiel de Google (googleads/google-ads-mcp)
  * — son périmètre, pas son code : il passe par gRPC, qui ne tourne pas dans un
- * Worker. ÉCRIRE : outils-ecriture.ts, lot par lot (cadrage du 01/10/2026).
+ * Worker. ÉCRIRE : outils-ecriture.ts, lot par lot (cadrage du 01/10/2026),
+ * outils-creation.ts (02/10/2026), outils-listes.ts (03/10/2026).
  *
  * Le vocabulaire évite « action » dans les noms, les champs et les schémas :
  * dans ce dépôt, le mot désigne une action IA du catalogue.
@@ -17,6 +18,7 @@ import {
 import { LECTURE, outil, texte, type ResultatOutil } from './outil';
 import { OUTILS_ECRITURE } from './outils-ecriture';
 import { OUTILS_CREATION } from './outils-creation';
+import { OUTILS_LISTES } from './outils-listes';
 import type { Contexte } from './ecriture';
 import type { Env } from './env';
 
@@ -173,7 +175,7 @@ const requeteGaql = outil({
 
 // ── Registre ─────────────────────────────────────────────────────────────
 
-const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_CREATION] as const;
+const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_CREATION, ...OUTILS_LISTES] as const;
 
 /**
  * Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en

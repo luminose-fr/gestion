@@ -9,7 +9,8 @@
  * Aucune URL de l'API ne se construit ailleurs que dans ce fichier, et
  * `appeler` refuse tout chemin absent de CHEMINS_PERMIS. C'est ce qui rend
  * vérifiable, et vérifié, que les verrous V1 et V5 tiennent quelle que soit
- * l'entrée : ni `remove`, ni passage à ENABLED, ni service hors de la table.
+ * l'entrée : ni passage à ENABLED, ni service hors de la table, et pour tout
+ * `remove`, une exclusion que le compte confirme (`verifierRetraits`).
  *
  * PAS D'EN-TÊTE `developer-token`. Le jeton de développeur a été supprimé les
  * 9-10/09/2026 : les niveaux d'accès sont portés par le projet Google Cloud qui
@@ -48,11 +49,20 @@ const FORME_COMPTE = /^\d{10}$/;
  * - `creer-groupe`, `creer-annonce`, `creer-mot-cle` : PAUSED, marqués.
  * - `creer-libelle`, `lier-libelle` : le libellé « [Claude] » et rien d'autre.
  *
- * Aucun `remove` nulle part, aucun passage à ENABLED : l'activation — donc la
+ * Listes de négatifs (03/10/2026) — exclure à plusieurs campagnes à la fois :
+ * - `creer-liste` : une liste partagée NEGATIVE_KEYWORDS marquée « [Claude] »,
+ *   avec ses premiers mots-clés, en une requête atomique (`googleAds:mutate`).
+ * - `ajouter-a-liste`, `associer-liste` : une entrée, un lien liste–campagne.
+ * - `retirer-negatif`, `retirer-de-liste`, `dissocier-liste` : les seuls
+ *   `remove` de la table. Ils lèvent une EXCLUSION, et rien d'autre — ce que
+ *   la forme d'un nom de ressource ne peut pas dire : `verifierRetraits` le
+ *   demande au compte avant chaque envoi.
+ *
+ * Aucun autre `remove`, aucun passage à ENABLED : l'activation — donc la
  * dépense — reste dans l'interface Google Ads.
  */
 export const OPERATIONS_PERMISES = {
-  campaignCriteria: ['creer-negatif'],
+  campaignCriteria: ['creer-negatif', 'retirer-negatif'],
   campaigns: ['mettre-en-pause'],
   adGroups: ['mettre-en-pause', 'creer-groupe'],
   adGroupAds: ['mettre-en-pause', 'creer-annonce'],
@@ -60,8 +70,19 @@ export const OPERATIONS_PERMISES = {
   adGroupAdLabels: ['lier-libelle'],
   adGroupCriterionLabels: ['lier-libelle'],
   labels: ['creer-libelle'],
-  googleAds: ['creer-campagne'],
+  sharedCriteria: ['ajouter-a-liste', 'retirer-de-liste'],
+  campaignSharedSets: ['associer-liste', 'dissocier-liste'],
+  googleAds: ['creer-campagne', 'creer-liste'],
 } as const;
+
+/**
+ * Les limites de Google pour les listes de mots-clés à exclure, relevées le
+ * 03/10/2026 dans l'aide Google Ads (« About negative keyword lists »,
+ * support.google.com/google-ads/answer/2453983) : 20 listes par compte, 5 000
+ * mots-clés par liste. Google les dit susceptibles de changer. Les outils les
+ * font respecter avant l'aperçu, pour le dire en clair ; Google les revérifie.
+ */
+export const LIMITES_LISTES = { parCompte: 20, entreesParListe: 5000 } as const;
 
 export type ServiceEcriture = keyof typeof OPERATIONS_PERMISES;
 type Forme = (typeof OPERATIONS_PERMISES)[ServiceEcriture][number];
@@ -311,19 +332,52 @@ const ressource = (type: string, temporaire = false) =>
   new RegExp(`^customers/\\d{10}/${type}/${temporaire ? '-\\d+' : '\\d+(~\\d+)?'}$`);
 const marque = (nom: unknown) => typeof nom === 'string' && nom.startsWith(`${MARQUE} `);
 const longueur = (t: unknown, max: number) => typeof t === 'string' && t.trim().length > 0 && [...t].length <= max;
+const motCle = (k: unknown) =>
+  cles(k) === 'matchType,text' && typeof (k as Record<string, unknown>).text === 'string' &&
+  CORRESPONDANCES.includes(String((k as Record<string, unknown>).matchType));
+
+/** Un `remove`, et seulement sur un nom de ressource composé de ce type : `parent~critère`. */
+const retrait = (type: string, op: Operation): string | null => {
+  if (cles(op) !== 'remove') return `clés ${cles(op)}`;
+  if (!new RegExp(`^customers/\\d{10}/${type}/\\d+~\\d+$`).test(String(op.remove))) return 'nom de ressource';
+  return null;
+};
 
 /** Chaque forme rend `null` si l'opération lui est conforme, sinon la raison. */
-const FORMES: Record<Exclude<Forme, 'creer-campagne'>, (service: ServiceEcriture, op: Operation) => string | null> = {
+const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste'>, (service: ServiceEcriture, op: Operation) => string | null> = {
   'creer-negatif': (_service, op) => {
     if (cles(op) !== 'create') return `clés ${cles(op)}`;
     const c = op.create as Record<string, unknown>;
     if (cles(c) !== 'campaign,keyword,negative') return `champs ${cles(c)}`;
     if (c.negative !== true) return 'un critère de campagne ne peut être que négatif';
     if (!ressource('campaigns').test(String(c.campaign))) return 'campagne';
-    const k = c.keyword as Record<string, unknown>;
-    if (cles(k) !== 'matchType,text' || typeof k.text !== 'string' || !CORRESPONDANCES.includes(String(k.matchType))) return 'mot-clé';
+    if (!motCle(c.keyword)) return 'mot-clé';
     return null;
   },
+
+  'retirer-negatif': (_service, op) => retrait('campaignCriteria', op),
+
+  'ajouter-a-liste': (_service, op) => {
+    if (cles(op) !== 'create') return `clés ${cles(op)}`;
+    const c = op.create as Record<string, unknown>;
+    if (cles(c) !== 'keyword,sharedSet') return `champs ${cles(c)}`;
+    if (!ressource('sharedSets').test(String(c.sharedSet))) return 'liste';
+    if (!motCle(c.keyword)) return 'mot-clé';
+    return null;
+  },
+
+  'retirer-de-liste': (_service, op) => retrait('sharedCriteria', op),
+
+  'associer-liste': (_service, op) => {
+    if (cles(op) !== 'create') return `clés ${cles(op)}`;
+    const c = op.create as Record<string, unknown>;
+    if (cles(c) !== 'campaign,sharedSet') return `champs ${cles(c)}`;
+    if (!ressource('campaigns').test(String(c.campaign))) return 'campagne';
+    if (!ressource('sharedSets').test(String(c.sharedSet))) return 'liste';
+    return null;
+  },
+
+  'dissocier-liste': (_service, op) => retrait('campaignSharedSets', op),
 
   'mettre-en-pause': (service, op) => {
     if (cles(op) !== 'update,updateMask') return `clés ${cles(op)}`;
@@ -388,8 +442,7 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne'>, (service: ServiceEcriture
     if (cles(c) !== 'adGroup,keyword,status') return `champs ${cles(c)}`;
     if (c.status !== 'PAUSED') return `statut ${String(c.status)}`;
     if (!ressource('adGroups').test(String(c.adGroup))) return 'groupe';
-    const k = c.keyword as Record<string, unknown>;
-    if (cles(k) !== 'matchType,text' || typeof k.text !== 'string' || !CORRESPONDANCES.includes(String(k.matchType))) return 'mot-clé';
+    if (!motCle(c.keyword)) return 'mot-clé';
     return null;
   },
 
@@ -420,7 +473,7 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne'>, (service: ServiceEcriture
 export const verifierOperation = (service: ServiceEcriture, operation: Operation): void => {
   const raisons: string[] = [];
   for (const forme of OPERATIONS_PERMISES[service] as readonly Forme[]) {
-    if (forme === 'creer-campagne') { raisons.push('passer par verifierCreationCampagne'); continue; }
+    if (forme === 'creer-campagne' || forme === 'creer-liste') { raisons.push(`${forme} : passer par muter`); continue; }
     const raison = FORMES[forme](service, operation);
     if (raison === null) return;
     raisons.push(`${forme} : ${raison}`);
@@ -505,6 +558,95 @@ export const verifierCreationCampagne = (operations: Operation[], limites: Limit
   if (!langue || !zone) refuser('ciblage incomplet : une langue et une zone au moins');
 };
 
+/**
+ * La requête atomique qui crée une liste de négatifs : la liste, puis ses
+ * premiers mots-clés, liés par le nom temporaire de la liste. Rien d'autre —
+ * pas de lien à une campagne : il passe par `associer-liste`, et son aperçu.
+ */
+export const verifierCreationListe = (operations: Operation[]): void => {
+  const refuser = (raison: string): never => {
+    throw new Error(`Opération refusée par la table fermée (googleAds) — creer-liste : ${raison}`);
+  };
+  const types = operations.map((o) => cles(o));
+  if (types[0] !== 'sharedSetOperation' || types.slice(1).some((t) => t !== 'sharedCriterionOperation')) {
+    refuser(`suite d'opérations ${types.join(' → ')}`);
+  }
+  const liste = operations[0].sharedSetOperation as Record<string, unknown>;
+  if (cles(liste) !== 'create') refuser('liste : seule la création');
+  const l = liste.create as Record<string, unknown>;
+  if (cles(l) !== 'name,resourceName,type') refuser(`liste : champs ${cles(l)}`);
+  if (l.type !== 'NEGATIVE_KEYWORDS') refuser(`liste : type ${String(l.type)}`);
+  if (!marque(l.name)) refuser('liste : nom sans la marque [Claude]');
+  if (!ressource('sharedSets', true).test(String(l.resourceName))) refuser('liste : nom de ressource temporaire');
+  for (const o of operations.slice(1)) {
+    const op = o.sharedCriterionOperation as Record<string, unknown>;
+    if (cles(op) !== 'create') refuser('entrée : seule la création');
+    const k = op.create as Record<string, unknown>;
+    if (cles(k) !== 'keyword,sharedSet' || k.sharedSet !== l.resourceName || !motCle(k.keyword)) refuser('entrée');
+  }
+};
+
+type LigneRetrait = {
+  campaignCriterion?: { resourceName?: string; type?: string; negative?: boolean; status?: string };
+  sharedCriterion?: { resourceName?: string; type?: string };
+  campaignSharedSet?: { resourceName?: string; status?: string };
+  sharedSet?: { type?: string };
+};
+
+/**
+ * Pour chaque service où la table permet un `remove` : comment demander au
+ * compte ce que vise un nom de ressource, et si c'est une exclusion — un
+ * négatif de campagne, une entrée d'une liste de négatifs, le lien d'une telle
+ * liste à une campagne. Rien d'autre ne se retire.
+ */
+const RETRAITS: Partial<Record<ServiceEcriture, { requete: (noms: string) => string; lire: (l: LigneRetrait) => { nom?: string; vivant: boolean; exclusion: boolean } }>> = {
+  campaignCriteria: {
+    requete: (noms) => 'SELECT campaign_criterion.resource_name, campaign_criterion.type, campaign_criterion.negative, campaign_criterion.status ' +
+      `FROM campaign_criterion WHERE campaign_criterion.resource_name IN (${noms})`,
+    lire: ({ campaignCriterion: c }) => ({
+      nom: c?.resourceName, vivant: c?.status !== 'REMOVED', exclusion: c?.type === 'KEYWORD' && c?.negative === true,
+    }),
+  },
+  sharedCriteria: {
+    requete: (noms) => `SELECT shared_criterion.resource_name, shared_criterion.type, shared_set.type FROM shared_criterion WHERE shared_criterion.resource_name IN (${noms})`,
+    lire: ({ sharedCriterion: c, sharedSet: l }) => ({
+      nom: c?.resourceName, vivant: true, exclusion: c?.type === 'KEYWORD' && l?.type === 'NEGATIVE_KEYWORDS',
+    }),
+  },
+  campaignSharedSets: {
+    requete: (noms) => 'SELECT campaign_shared_set.resource_name, campaign_shared_set.status, shared_set.type ' +
+      `FROM campaign_shared_set WHERE campaign_shared_set.resource_name IN (${noms})`,
+    lire: ({ campaignSharedSet: c, sharedSet: l }) => ({
+      nom: c?.resourceName, vivant: c?.status !== 'REMOVED', exclusion: l?.type === 'NEGATIVE_KEYWORDS',
+    }),
+  },
+};
+
+/**
+ * Un `remove` ne part que si le COMPTE confirme qu'il lève une exclusion. La
+ * forme d'un nom de ressource ne le dit pas : `campaignCriteria/111~5` peut
+ * être un négatif comme la zone de la campagne, dont le retrait la ferait
+ * diffuser partout. Une lecture par appel, quel que soit le nombre de retraits.
+ *
+ * Une cible qui n'est pas une exclusion est un défaut du code — les outils ne
+ * retirent que ce qu'ils ont eux-mêmes lu comme tel : on lève. Une cible
+ * disparue est un état du compte : un refus.
+ */
+const verifierRetraits = async (env: Env, compte: string, service: ServiceEcriture, operations: Operation[]): Promise<void> => {
+  const noms = operations.filter((o) => 'remove' in o).map((o) => String(o.remove));
+  if (noms.length === 0) return;
+  const regle = RETRAITS[service];
+  if (!regle) throw new Error(`Retrait refusé par la table fermée (${service}) : aucun retrait n'y est permis`);
+  // Les noms ont la forme vérifiée par la table — chiffres et tilde : rien ne sort des guillemets.
+  const { results = [] } = await rechercher(env, compte, regle.requete(noms.map((n) => `'${n}'`).join(', ')), connexionPour(env, compte));
+  const lus = new Map((results as LigneRetrait[]).map((l) => regle.lire(l)).filter((l) => l.nom).map((l) => [l.nom!, l]));
+  for (const nom of noms) {
+    const l = lus.get(nom);
+    if (!l || !l.vivant) throw new Refus(`${nom} n'existe plus dans le compte : rien n'est parti. Refaites un aperçu.`);
+    if (!l.exclusion) throw new Error(`Retrait refusé par la table fermée (${service}) : ${nom} n'est pas une exclusion`);
+  }
+};
+
 export type ReponseMutation = {
   results?: { resourceName?: string }[];
   mutateOperationResponses?: Record<string, { resourceName?: string }>[];
@@ -533,9 +675,11 @@ export const muter = async (
   if (operations.length === 0) throw new Error('Aucune opération à envoyer');
 
   if (service === 'googleAds') {
-    verifierCreationCampagne(operations, limitesArgent(env));
+    if (cles(operations[0]) === 'sharedSetOperation') verifierCreationListe(operations);
+    else verifierCreationCampagne(operations, limitesArgent(env));
   } else {
     for (const operation of operations) verifierOperation(service, operation);
+    await verifierRetraits(env, compte, service, operations);
   }
   const champ = service === 'googleAds' ? 'mutateOperations' : 'operations';
   return await appeler(env, `/customers/${compte}/${service}:mutate`, {

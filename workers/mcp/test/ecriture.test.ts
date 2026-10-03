@@ -310,7 +310,11 @@ describe('NORMATIF — V1 : rien ne naît actif sans décision, rien ne s’acti
       ['campaignCriteria', { create: { ...negatif, negative: false } }],
       ['campaignCriteria', { create: { ...negatif, status: 'PAUSED' } }],
       ['campaignCriteria', { create: { ...negatif, keyword: { text: 'x', matchType: 'PHRASE_REMOVE' } } }],
-      ['campaignCriteria', { remove: `customers/${COMPTE}/campaignCriteria/111~1` }],
+      // Retirer un négatif est permis depuis le 03/10/2026, sous cette seule forme ; que la cible
+      // soit bien un négatif, c'est le compte qui le confirme avant l'envoi (listes.test.ts).
+      ['campaignCriteria', { remove: `customers/${COMPTE}/campaignCriteria/111` }],
+      ['campaignCriteria', { remove: `customers/${COMPTE}/campaigns/111~1` }],
+      ['campaignCriteria', { remove: `customers/${COMPTE}/campaignCriteria/111~1`, create: negatif }],
       ['campaignCriteria', pause({ resourceName: `customers/${COMPTE}/campaignCriteria/111~1`, status: 'PAUSED' })],
     ];
     for (const [service, operation] of refusees) {
