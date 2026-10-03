@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { ADRESSE, ORIGINE, appeler, creerEnv, jetonValide, requeteModerne, simulerFetch, texteDe } from './aides';
+import { definitionsOutils } from '../src/outils';
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -257,7 +258,8 @@ describe('époque héritée (initialize)', () => {
     simulerFetch(({ url }) => (url.includes(':search') ? Response.json({ results: [] }) : undefined));
 
     const liste = await (await appeler(env, '/mcp', heritee(jeton, { id: 1, method: 'tools/list' }))).json() as any;
-    expect(liste.result.tools).toHaveLength(8);
+    // Les mêmes outils que l'époque moderne, dans le même ordre — sans compte écrit en dur.
+    expect(liste.result.tools.map((t: { name: string }) => t.name)).toEqual(definitionsOutils().map((t) => t.name));
     expect(liste.result.resultType).toBeUndefined();
 
     // Un client 2025-03-26 n'envoie pas d'en-tête de version.
