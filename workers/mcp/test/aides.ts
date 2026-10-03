@@ -131,8 +131,10 @@ export type Appel = { url: string; methode: string; entetes: Record<string, stri
 /**
  * Remplace `fetch` et consigne chaque appel sortant. `repondre` reçoit l'URL
  * et décide ; par défaut, le jeton Google Ads est délivré et le reste est vide.
+ * Une réponse peut se faire attendre (une promesse) : c'est ce qui permet
+ * d'ordonner des appels concurrents.
  */
-export const simulerFetch = (repondre: (appel: Appel) => Response | undefined = () => undefined) => {
+export const simulerFetch = (repondre: (appel: Appel) => Response | Promise<Response> | undefined = () => undefined) => {
   const appels: Appel[] = [];
   vi.stubGlobal('fetch', async (entree: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(entree instanceof Request ? entree.url : entree);

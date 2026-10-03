@@ -54,6 +54,7 @@ livrés **lot par lot**, chacun déployé et essayé avant le suivant.
 | :--- | :--- | :--- |
 | 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` | en service |
 | 2 — créer, Search | `ads_campagne_creer`, `ads_groupe_creer`, `ads_annonce_creer`, `ads_mots_cles_ajouter` | livré |
+| 2 bis — listes de négatifs | `ads_liste_negatifs_creer`, `ads_liste_negatifs_ajouter`, `ads_liste_negatifs_retirer`, `ads_liste_associer`, `ads_liste_dissocier`, `ads_negatifs_retirer` | livré ([decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md)) |
 | 3 — Performance Max | à définir | à venir |
 | 4 — Demand Gen | à définir | à venir |
 | 5 — le budget | `ads_budget_modifier` | à venir |
@@ -67,6 +68,13 @@ Google vérifie tout, n'applique rien, et l'outil rend un aperçu et un jeton. A
 il exécute — à condition que les opérations soient exactement celles de l'aperçu. Le jeton
 est un HMAC de ces opérations, vaut dix minutes, et ne sert qu'une fois.
 
+Ce que l'aperçu a **lu dans le compte** et dont les opérations dépendent — les exceptions de
+règlement rendues par Google, les doublons écartés, les critères à retirer — voyage dans le
+jeton, signé. L'exécution reconstruit donc les opérations sans relire ce qu'un appel
+concurrent a pu changer entre-temps ; le compte relu à l'exécution ne peut plus qu'**écarter**
+une opération devenue sans objet (un doublon apparu, une entrée déjà retirée), jamais en
+ajouter une. C'est la correction de l'incident du 02/10/2026, plus bas.
+
 ### Les verrous, et où ils vivent
 
 Tous dans le serveur, jamais dans les descriptions d'outils : une consigne au modèle n'est
@@ -75,8 +83,8 @@ et chacun a été vérifié en le cassant : son test échoue.
 
 | | Verrou | Où |
 | :--- | :--- | :--- |
-| V1 | aucune opération ne passe à `ENABLED`, aucun `remove` ; un `status` en entrée est refusé | table fermée, [src/google-ads.ts](src/google-ads.ts) |
-| V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu | [src/ecriture.ts](src/ecriture.ts) |
+| V1 | aucune opération ne passe à `ENABLED` ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — que **le compte confirme** avant chaque envoi | table fermée et `verifierRetraits`, [src/google-ads.ts](src/google-ads.ts) |
+| V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu, ou d'une partie quand le compte en a rendu le reste sans objet ; ce que l'aperçu a lu voyage dans le jeton | [src/ecriture.ts](src/ecriture.ts) |
 | V5 | une table fermée de services, et pour chacun la seule forme d'opération permise | `OPERATIONS_PERMISES`, [src/google-ads.ts](src/google-ads.ts) |
 | V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
 | V8 | sans le scope `ads:ecrire`, refus — accordé seulement en cochant la case du consentement | [src/ecriture.ts](src/ecriture.ts), [src/autorisation.ts](src/autorisation.ts) |
@@ -120,6 +128,45 @@ et chacun a été vérifié en le cassant : son test échoue.
   que **Google** vient de rendre — jamais des clés fournies par le modèle — et l'aperçu les
   liste ; elles ne partent qu'avec le jeton, donc après ton accord. Une règle sans
   exception possible fait refuser : reformuler ou retirer.
+
+### Décisions des listes de négatifs (03/10/2026)
+
+Détail : [decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md).
+
+- **Une liste pour ce qui vaut pour plusieurs campagnes**, un négatif de campagne pour ce qui
+  est propre à une campagne. Les descriptions d'outils le disent au modèle.
+- **Les retraits d'exclusion entrent dans la table**, et eux seuls : négatif de campagne,
+  entrée de liste, lien liste–campagne. Le modèle désigne par texte et correspondance ; le
+  serveur résout les identifiants, et la table redemande au compte, avant tout envoi, que
+  chaque cible soit bien une exclusion — la forme d'un nom de ressource ne distingue pas un
+  négatif de la zone d'une campagne. L'aperçu d'un retrait dit qu'il peut rouvrir du trafic,
+  et liste ce qu'il retire.
+- **Aucune liste ne se supprime** par ce serveur, et rien n'active une campagne.
+- **Doublons** — déjà dans la liste, ou déjà exclus au niveau campagne sur toutes les
+  campagnes liées : signalés, écartés, jamais une erreur. Un négatif de campagne présent sur
+  une partie seulement des campagnes liées s'ajoute, et l'aperçu le dit.
+- **Avertissement de blocage**, jamais un refus, quand un négatif exclurait la recherche
+  identique à un mot-clé positif actif ou en pause d'une campagne liée — au texte près,
+  accents compris : Google n'étend pas les négatifs aux variantes proches.
+- **Limites de Google** (aide Google Ads, relevées le 03/10/2026) : 20 listes par compte,
+  5 000 mots-clés par liste, vérifiées avant l'aperçu. `LIMITES_LISTES` dans
+  [src/google-ads.ts](src/google-ads.ts).
+
+### L'incident du 02/10/2026 — quatre exécutions concurrentes
+
+Quatre `ads_mots_cles_ajouter` lancés ensemble, quatre groupes, quatre jetons : deux refusés,
+« Le contenu diffère de celui de l'aperçu » ; rejoués un par un, passés. Diagnostic : à
+l'exécution, l'outil **relisait le règlement de Google** pour reconstruire les clés
+d'exception, et l'empreinte portait sur ces clés. Or Google, une fois une exception demandée
+pour un texte, ne l'arrête plus (documentation « Request exemption for keywords ») : les deux
+premières exécutions, en demandant l'exception pour un texte que les quatre groupes
+partageaient, ont fait que les deux suivantes reconstruisaient des opérations **sans**
+exception — une autre empreinte. Rien dans l'isolat du Worker n'était partagé ; l'état
+partagé, c'était le compte. Corrigé en faisant voyager les clés dans le jeton (voir « Deux temps ») ; le test
+[test/creation.test.ts](test/creation.test.ts) rejoue l'ordre exact de l'incident, et
+échoue sur le code d'avant. Au passage, la création du libellé « [Claude] » au premier
+besoin avait la même course : quand deux exécutions le créent ensemble, la seconde relit
+désormais celui de la première au lieu de déclarer « libellé NON posé ».
 
 ### Mise en place du lot 1 — ce que Florent fait
 

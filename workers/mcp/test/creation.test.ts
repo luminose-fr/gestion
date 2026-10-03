@@ -674,3 +674,142 @@ describe('ads_mots_cles_ajouter — exceptions de règlement', () => {
       exemptPolicyViolationKeys: [{ policyName: 'TOBACCO', violatingText: 'x' }] })).toThrow(/table fermée/);
   });
 });
+
+// ── Exécutions concurrentes — l'incident du 02/10/2026 ───────────────────
+
+describe('ads_mots_cles_ajouter — exécutions concurrentes', () => {
+  /**
+   * Le 02/10/2026 : quatre exécutions lancées ensemble, quatre groupes, quatre
+   * jetons, les arguments de leurs aperçus — deux refusées, « Le contenu
+   * diffère de celui de l'aperçu ». Ce compte reproduit ce que Google fait :
+   * une fois une exception demandée pour un texte, il ne l'arrête plus
+   * (documentation « Request exemption for keywords »). Les deux premières
+   * exécutions sont faites avant que les deux suivantes ne lisent quoi que ce
+   * soit du règlement — l'ordre où la panne apparaît.
+   */
+  const GROUPES = ['444', '445', '446', '447'];
+  const motsCles = (groupe: string) => ({
+    groupe,
+    mots_cles: [{ texte: 'hypnose anxiété', correspondance: 'PHRASE' }, { texte: `psychopraticien ${groupe}`, correspondance: 'EXACT' }],
+    demander_exceptions: true,
+  });
+
+  const simulerConcurrence = () => {
+    const exemptes = new Set<string>();
+    let libelle: string | undefined;
+    const etat = { execution: false };
+    const barriere = () => {
+      let ouvrir!: () => void;
+      return { franchie: new Promise<void>((r) => { ouvrir = r; }), ouvrir: () => ouvrir() };
+    };
+    const deuxFaites = barriere();
+    const quatreLectures = barriere();
+    let faites = 0;
+    let lectures = 0;
+
+    const appels = simulerFetch(({ url, corps }) => {
+      if (url.endsWith(':search')) {
+        const q: string = JSON.parse(corps).query;
+        const m = /FROM ad_group WHERE ad_group\.id = (\d+)$/.exec(q);
+        if (m) return reponse([{ adGroup: { name: `Groupe ${m[1]}`, status: 'ENABLED', type: 'SEARCH_STANDARD' }, campaign: { name: 'Troubles anxieux', advertisingChannelType: 'SEARCH' } }]);
+        if (/FROM label/.test(q)) {
+          if (etat.execution && ++lectures === GROUPES.length) quatreLectures.ouvrir();
+          return reponse(libelle ? [{ label: { resourceName: libelle } }] : []);
+        }
+        return reponse([]);
+      }
+      if (!url.endsWith(':mutate')) return undefined;
+      const c = JSON.parse(corps);
+      const service = url.slice(url.lastIndexOf('/') + 1).replace(':mutate', '');
+
+      if (service === 'labels') {
+        // Un nom de libellé est unique dans le compte : le second à le créer est refusé. Les quatre
+        // exécutions ont lu « pas de libellé » avant que la première ne le crée.
+        const creer = () => {
+          if (libelle) return Response.json({ error: { code: 400, status: 'INVALID_ARGUMENT', message: 'labelError.DUPLICATE_NAME' } }, { status: 400 });
+          libelle = `customers/${COMPTE}/labels/99`;
+          return reponse([{ resourceName: libelle }]);
+        };
+        return etat.execution ? quatreLectures.franchie.then(creer) : creer();
+      }
+      if (service !== 'adGroupCriteria') {
+        return reponse(c.operations.map((_: unknown, i: number) => ({ resourceName: `customers/${COMPTE}/${service}/${i}` })));
+      }
+
+      const repondre = () => {
+        // Un texte pour lequel une exception a déjà été demandée passe comme s'il la portait.
+        const refus = erreurReglement(c.operations.map((o: Record<string, any>) => (exemptes.has(o.create.keyword.text)
+          ? { ...o, exemptPolicyViolationKeys: [{ policyName: 'HEALTH_IN_PERSONALIZED_ADS', violatingText: o.create.keyword.text }] }
+          : o)));
+        if (refus) return refus;
+        if (c.validateOnly) return Response.json({});
+        for (const o of c.operations) if (o.exemptPolicyViolationKeys) exemptes.add(o.create.keyword.text);
+        if (++faites === 2) deuxFaites.ouvrir();
+        const groupe = /adGroups\/(\d+)/.exec(c.operations[0].create.adGroup)![1];
+        return reponse(c.operations.map((_: unknown, i: number) => ({ resourceName: `customers/${COMPTE}/adGroupCriteria/${groupe}~${8000 + i}` })));
+      };
+      // Les vérifications à blanc des deux derniers groupes attendent que les deux premiers soient écrits.
+      const tardif = /adGroups\/(446|447)$/.test(c.operations[0].create.adGroup);
+      return etat.execution && c.validateOnly && tardif ? deuxFaites.franchie.then(repondre) : repondre();
+    });
+    return { appels, etat, exemptes };
+  };
+
+  it('NORMATIF — quatre exécutions parallèles, quatre jetons : aucune ne dépend de ce que les autres changent', async () => {
+    const env = creerEnv();
+    const { appels, etat } = simulerConcurrence();
+
+    const jetons: string[] = [];
+    for (const groupe of GROUPES) {
+      const { corps } = await appelerOutil(env, 'ads_mots_cles_ajouter', motsCles(groupe), LIRE_ECRIRE);
+      expect(texteDe(corps)).toMatch(/EXCEPTIONS DE RÈGLEMENT DEMANDÉES À GOOGLE \(1\)/);
+      jetons.push(jetonDe(corps)!);
+    }
+
+    etat.execution = true;
+    const resultats = await Promise.all(GROUPES.map((groupe, i) =>
+      appelerOutil(env, 'ads_mots_cles_ajouter', { ...motsCles(groupe), jeton: jetons[i] }, LIRE_ECRIRE)));
+
+    // L'incident : deux de ces quatre lignes étaient « Le contenu diffère de celui de l'aperçu ».
+    const issues = resultats.map(({ corps }) => texteDe(corps).split('\n')[0]);
+    expect(issues.filter((l) => !l.startsWith('FAIT')), issues.join('\n')).toEqual([]);
+    for (const [i, { corps }] of resultats.entries()) {
+      expect(texteDe(corps), GROUPES[i]).toMatch(/dont 1 avec exception de règlement/);
+      // Le libellé, créé par la première, est relu par les autres au lieu d'être déclaré « NON posé ».
+      expect(texteDe(corps), GROUPES[i]).toMatch(/Libellé \[Claude\] posé/);
+    }
+    // Chacune a envoyé exactement ce que son aperçu montrait : l'exception comprise.
+    const faites = executions(appels).filter((m) => m.service === 'adGroupCriteria');
+    expect(faites).toHaveLength(4);
+    for (const m of faites) {
+      expect(m.operations.find((o) => o.create.keyword.text === 'hypnose anxiété')?.exemptPolicyViolationKeys)
+        .toEqual([{ policyName: 'HEALTH_IN_PERSONALIZED_ADS', violatingText: 'hypnose anxiété' }]);
+    }
+    expect(env.DB.lignes().map((l) => l.issue)).toEqual(['ok', 'ok', 'ok', 'ok']);
+    expect(executions(appels).filter((m) => m.service === 'labels')).toHaveLength(4);
+  });
+
+  it('l’exécution ne relit pas le règlement : les exceptions sont celles de l’aperçu, portées par le jeton', async () => {
+    const env = creerEnv();
+    const { appels, exemptes } = simulerConcurrence();
+    const { corps } = await appelerOutil(env, 'ads_mots_cles_ajouter', motsCles('444'), LIRE_ECRIRE);
+    // Entre l'aperçu et l'exécution, une autre exécution a fait exempter le texte.
+    exemptes.add('hypnose anxiété');
+    const avant = mutations(appels).length;
+    const execution = await appelerOutil(env, 'ads_mots_cles_ajouter', { ...motsCles('444'), jeton: jetonDe(corps) }, LIRE_ECRIRE);
+
+    expect(texteDe(execution.corps)).toMatch(/^FAIT/);
+    const apres = mutations(appels).slice(avant).filter((m) => m.service === 'adGroupCriteria');
+    expect(apres.map((m) => m.validateOnly)).toEqual([false]);
+  });
+
+  it('sans demander_exceptions à l’exécution, le jeton d’un aperçu qui en demandait ne vaut pas', async () => {
+    const env = creerEnv();
+    const { appels } = simulerConcurrence();
+    const { corps } = await appelerOutil(env, 'ads_mots_cles_ajouter', motsCles('444'), LIRE_ECRIRE);
+    const { demander_exceptions: _, ...sans } = motsCles('444');
+    const execution = await appelerOutil(env, 'ads_mots_cles_ajouter', { ...sans, jeton: jetonDe(corps) }, LIRE_ECRIRE);
+    expect(texteDe(execution.corps)).toMatch(/diffère de celui de l'aperçu/);
+    expect(executions(appels)).toEqual([]);
+  });
+});
