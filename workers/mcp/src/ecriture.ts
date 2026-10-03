@@ -25,12 +25,14 @@ import {
   ErreurAds, connexionPour, estUnCompte, muter, normaliserCompte, rechercher, ressourcesRendues, type Operation, type ServiceEcriture,
 } from './google-ads';
 import { MARQUE } from './regles';
-import { clore, ecrituresDuJour, ouvrir } from './journal';
+import { clore, ecrituresDuJour, ouvrir, type Journal, type Ouverture } from './journal';
 import { Refus } from './refus';
 import type { Env } from './env';
 
 export const SCOPE_LECTURE = 'ads:lire';
 export const SCOPE_ECRITURE = 'ads:ecrire';
+/** Écrire dans le corpus : une case à part du consentement (décision du 03/10/2026). */
+export const SCOPE_CORPUS = 'corpus:ecrire';
 
 const DUREE_APERCU_MS = 10 * 60 * 1000;
 
@@ -83,7 +85,8 @@ export type Temps = { execution: false } | { execution: true; fige: unknown };
 /** Une préparation fixe, ou qui dépend du temps de l'appel. */
 export type Source = Preparation | ((temps: Temps) => Promise<Preparation>);
 
-type Apercu = { o: string; h: string; e: number; f?: unknown };
+/** La charge signée d'un jeton d'aperçu : l'outil, l'empreinte, l'expiration, et ce que l'aperçu a figé. */
+export type Apercu = { o: string; h: string; e: number; f?: unknown };
 
 const cleApercu = (env: Env): string => {
   if (!env.ADS_APERCU_KEY) {
@@ -110,13 +113,62 @@ export const compteEcriture = (env: Env): string => {
   return compte;
 };
 
-const plafondJour = (env: Env): number => {
-  const plafond = Number(env.ADS_ECRITURES_MAX_JOUR);
+/** V8 pour le corpus. Vérifié avant toute autre chose, aperçu compris. */
+export const exigerEcritureCorpus = (contexte: Contexte): void => {
+  if (!contexte.scopes.includes(SCOPE_CORPUS)) {
+    throw new Refus(
+      "L'écriture du corpus n'est pas accordée à cette connexion. Dans Claude, déconnecter puis reconnecter le connecteur, " +
+      "et cocher « Modifier le corpus » sur la page de consentement.",
+      403,
+    );
+  }
+};
+
+/** Chaque journal a son plafond, dans [vars] de wrangler.toml. */
+const PLAFONDS = { ads: 'ADS_ECRITURES_MAX_JOUR', corpus: 'CORPUS_ECRITURES_MAX_JOUR' } as const satisfies Record<Journal, keyof Env>;
+
+const plafondJour = (env: Env, journal: Journal): number => {
+  const nom = PLAFONDS[journal];
+  const plafond = Number(env[nom]);
   // Échoue fermé : un plafond illisible n'est pas « pas de plafond ».
-  if (!env.ADS_ECRITURES_MAX_JOUR || !Number.isInteger(plafond) || plafond < 0) {
-    throw new Refus('ADS_ECRITURES_MAX_JOUR absent ou illisible dans wrangler.toml : l’écriture est fermée.', 503);
+  if (!env[nom] || !Number.isInteger(plafond) || plafond < 0) {
+    throw new Refus(`${nom} absent ou illisible dans wrangler.toml : l’écriture est fermée.`, 503);
   }
   return plafond;
+};
+
+// ── Le jeton et le journal, communs à Google Ads et au corpus ────────────
+
+/** V2 : signe ce que l'aperçu a montré, pour dix minutes. */
+export const emettreJeton = (env: Env, outil: string, h: string, fige?: unknown): Promise<string> =>
+  signer('apercu', { o: outil, h, e: Date.now() + DUREE_APERCU_MS, ...(fige === undefined ? {} : { f: fige }) } satisfies Apercu, cleApercu(env));
+
+/** V2 : le jeton présenté, vérifié — signé ici, pour cet outil, encore valable. Sinon, un refus. */
+export const lireJeton = async (env: Env, outil: string, jeton: string): Promise<Apercu> => {
+  const apercu = await verifier<Apercu>('apercu', jeton, cleApercu(env));
+  if (!apercu || apercu.o !== outil) throw new Refus("Jeton d'aperçu invalide pour cet outil : refaites un aperçu (appel sans jeton).");
+  if (apercu.e < Date.now()) throw new Refus("Jeton d'aperçu expiré (dix minutes) : refaites un aperçu.");
+  return apercu;
+};
+
+/**
+ * V9 puis V7 : compter, puis ouvrir la ligne du journal. Si la base ne répond
+ * pas, le fournisseur n'est pas appelé — une écriture sans trace n'est pas
+ * acceptable. Rend le numéro de l'écriture.
+ */
+export const ouvrirEcriture = async (env: Env, journal: Journal, o: Ouverture, fournisseur: string): Promise<number> => {
+  const plafond = plafondJour(env, journal);
+  try {
+    const deja = await ecrituresDuJour(env, journal);
+    if (deja >= plafond) {
+      throw new Refus(`Plafond atteint : ${deja} écritures sur les dernières 24 heures (${PLAFONDS[journal]} = ${plafond}). Rien n'est parti.`);
+    }
+    return await ouvrir(env, journal, o);
+  } catch (erreur) {
+    if (erreur instanceof Refus) throw erreur;
+    console.error('Journal des écritures indisponible :', erreur);
+    throw new Refus(`Le journal des écritures n'a pas pu s'écrire : rien n'est parti chez ${fournisseur}. Réessayer plus tard.`, 503);
+  }
 };
 
 /**
@@ -134,7 +186,8 @@ export const ecrire = async (
   options: { outil: string; compte: string; jeton?: string; preparation: Source },
 ): Promise<string> => {
   const { outil, compte, jeton } = options;
-  const secret = cleApercu(env);
+  // Sans clé, l'écriture est fermée — dit avant même l'aperçu, qui n'aurait pas de jeton à rendre.
+  cleApercu(env);
   const preparer = (temps: Temps): Promise<Preparation> =>
     typeof options.preparation === 'function' ? options.preparation(temps) : Promise.resolve(options.preparation);
 
@@ -145,8 +198,7 @@ export const ecrire = async (
     // Une erreur de Google remonte telle quelle (ErreurAds) : c'est le but de
     // l'aperçu que de la voir avant d'écrire.
     await muter(env, compte, p.service, p.operations, true);
-    const charge: Apercu = { o: outil, h, e: Date.now() + DUREE_APERCU_MS, ...(p.fige === undefined ? {} : { f: p.fige }) };
-    const nouveau = await signer('apercu', charge, secret);
+    const nouveau = await emettreJeton(env, outil, h, p.fige);
     return [
       "APERÇU — rien n'a été modifié. Google a vérifié la requête sans l'appliquer.",
       '',
@@ -158,9 +210,7 @@ export const ecrire = async (
   }
 
   // ── Second temps : l'exécution de ce qui a été vu ────────────────────
-  const apercu = await verifier<Apercu>('apercu', jeton, secret);
-  if (!apercu || apercu.o !== outil) throw new Refus("Jeton d'aperçu invalide pour cet outil : refaites un aperçu (appel sans jeton).");
-  if (apercu.e < Date.now()) throw new Refus("Jeton d'aperçu expiré (dix minutes) : refaites un aperçu.");
+  const apercu = await lireJeton(env, outil, jeton);
 
   // L'empreinte se recalcule sur des opérations reconstruites. Tout ce qui, dans
   // cette reconstruction, viendrait d'une lecture du compte faite MAINTENANT
@@ -184,32 +234,17 @@ export const ecrire = async (
     return ["RIEN À FAIRE — le compte est déjà dans l'état que l'aperçu prévoyait. Rien n'est parti chez Google.", ...notes].join('\n');
   }
 
-  const plafond = plafondJour(env);
-
-  // Compter (V9) et ouvrir la ligne (V7) : si la base ne répond pas, Google
-  // n'est pas appelé — une écriture sans trace n'est pas acceptable.
-  let numero: number;
-  try {
-    const deja = await ecrituresDuJour(env);
-    if (deja >= plafond) {
-      throw new Refus(`Plafond atteint : ${deja} écritures sur les dernières 24 heures (ADS_ECRITURES_MAX_JOUR = ${plafond}). Rien n'est parti.`);
-    }
-    numero = await ouvrir(env, {
-      outil, compte, auteur: contexte.email,
-      contenu: { service: p.service, operations },
-      jetonEmpreinte: await empreinte(jeton),
-    });
-  } catch (erreur) {
-    if (erreur instanceof Refus) throw erreur;
-    console.error('Journal des écritures indisponible :', erreur);
-    throw new Refus("Le journal des écritures n'a pas pu s'écrire : rien n'est parti chez Google. Réessayer plus tard.", 503);
-  }
+  const numero = await ouvrirEcriture(env, 'ads', {
+    outil, cible: compte, auteur: contexte.email,
+    contenu: { service: p.service, operations },
+    jetonEmpreinte: await empreinte(jeton),
+  }, 'Google');
 
   try {
     const ressources = ressourcesRendues(await muter(env, compte, p.service, operations, false));
     const marque = p.libeller ? await libeller(env, compte, p.libeller, ressources) : null;
     try {
-      await clore(env, numero, 'ok', { ressources, ...(marque?.echec ? { erreur: marque.echec } : {}) });
+      await clore(env, 'ads', numero, 'ok', { ressources, ...(marque?.echec ? { erreur: marque.echec } : {}) });
     } catch (erreur) {
       // Google a appliqué : on le dit, et on signale le journal resté ouvert.
       console.error(`Écriture n° ${numero} faite, journal non clos :`, erreur);
@@ -221,7 +256,7 @@ export const ecrire = async (
     ].join('\n');
   } catch (erreur) {
     const message = erreur instanceof ErreurAds ? erreur.message : String(erreur);
-    await clore(env, numero, 'erreur', { erreur: message }).catch((e) => console.error(`Journal n° ${numero} non clos :`, e));
+    await clore(env, 'ads', numero, 'erreur', { erreur: message }).catch((e) => console.error(`Journal n° ${numero} non clos :`, e));
     // Google refuse : `partialFailure` étant à false, rien n'a été appliqué.
     // Le message de Google suit, avec son code. Ce jeton est consommé.
     if (erreur instanceof ErreurAds) {

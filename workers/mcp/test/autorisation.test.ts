@@ -75,16 +75,16 @@ const demande = async (surcharges: Record<string, string | null> = {}) => {
   return `/authorize?${q}`;
 };
 
-const formulaire = (cookie: string, n: string, ecrire = false) => ({
+const formulaire = (cookie: string, n: string, ecrire = false, corpus = false) => ({
   method: 'POST',
   headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({ n, ...(ecrire ? { ecrire: '1' } : {}) }).toString(),
+  body: new URLSearchParams({ n, ...(ecrire ? { ecrire: '1' } : {}), ...(corpus ? { corpus: '1' } : {}) }).toString(),
 });
 
 /** Le parcours du navigateur, du consentement au retour de Google. */
 const connecter = async (
   env: EnvFactice,
-  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string; ecrire?: boolean } = {},
+  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string; ecrire?: boolean; corpus?: boolean } = {},
 ) => {
   const appels = simulerExterieur({ identite: options.identite });
   const consentement = await appeler(env, await demande({
@@ -96,7 +96,7 @@ const connecter = async (
   const html = await consentement.text();
   const n = /name="n" value="([^"]+)"/.exec(html)![1];
 
-  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n, options.ecrire));
+  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n, options.ecrire, options.corpus));
   const google = new URL(versGoogle.headers.get('Location')!);
   // Le bouton réécrit le cookie : il y range les scopes choisis (V8).
   const cookieChoisi = versGoogle.headers.get('Set-Cookie')?.split(';')[0] ?? cookie;
@@ -419,8 +419,8 @@ describe('parcours complet', () => {
 describe('V8 — l’écriture s’accorde sur la page de consentement, case cochée', () => {
   const ecrireCoche = (html: string) => /name="ecrire" value="1" checked/.test(html);
 
-  const jetonsApres = async (env: EnvFactice, ecrire: boolean) => {
-    const { retour } = await connecter(env, { ecrire });
+  const jetonsApres = async (env: EnvFactice, ecrire: boolean, corpus = false) => {
+    const { retour } = await connecter(env, { ecrire, corpus });
     const reponse = await echanger(env, { grant_type: 'authorization_code', code: codeDe(retour), code_verifier: VERIFICATEUR, client_id: CLIENT_CIMD, redirect_uri: CLAUDE });
     return await reponse.json() as { access_token: string; scope?: string };
   };
@@ -455,10 +455,42 @@ describe('V8 — l’écriture s’accorde sur la page de consentement, case coc
     expect(await ecritureRefuseePourScope(env, access_token)).toBe(false);
   });
 
-  it('les deux scopes sont annoncés, sans en exiger aucun au départ', async () => {
+  /** Un outil d'écriture du corpus refuse-t-il pour défaut de scope ? */
+  const corpusRefusePourScope = async (env: EnvFactice, jeton: string) => {
+    simulerFetch();
+    const appel = await appeler(env, '/mcp', requeteModerne(jeton, 'tools/call', { name: 'corpus_deployer', arguments: {} }));
+    const corps = await appel.json() as any;
+    return /L'écriture du corpus n'est pas accordée/.test(corps.result.content[0].text);
+  };
+
+  it('la case du corpus est à part : cochée seulement si le client la demande, et elle seule ouvre l’écriture du corpus', async () => {
+    const env = creerEnv();
+    simulerExterieur();
+    const corpusCoche = (html: string) => /name="corpus" value="1" checked/.test(html);
+    expect(corpusCoche(await (await appeler(env, await demande({ scope: 'ads:lire ads:ecrire' }))).text())).toBe(false);
+    expect(corpusCoche(await (await appeler(env, await demande({ scope: 'ads:lire corpus:ecrire' }))).text())).toBe(true);
+
+    // Google Ads seul : le corpus reste fermé.
+    const ads = await jetonsApres(creerEnv(), true, false);
+    expect(ads.scope).toBe('ads:lire ads:ecrire');
+    // Le corpus seul : il s'ouvre, et Google Ads reste fermé.
+    const env2 = creerEnv();
+    const corpus = await jetonsApres(env2, false, true);
+    expect(corpus.scope).toBe('ads:lire corpus:ecrire');
+    expect(await corpusRefusePourScope(env2, corpus.access_token)).toBe(false);
+    expect(await ecritureRefuseePourScope(env2, corpus.access_token)).toBe(true);
+  });
+
+  it('sans la case du corpus, l’écriture du corpus est refusée', async () => {
+    const env = creerEnv();
+    const { access_token } = await jetonsApres(env, true, false);
+    expect(await corpusRefusePourScope(env, access_token)).toBe(true);
+  });
+
+  it('les trois scopes sont annoncés, sans en exiger aucun au départ', async () => {
     const env = creerEnv();
     const serveur = await (await appeler(env, '/.well-known/oauth-authorization-server')).json() as any;
-    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire']);
+    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire', 'corpus:ecrire']);
     const ressource = await (await appeler(env, '/.well-known/oauth-protected-resource/mcp')).json() as any;
     expect(ressource.scopes_supported).toBeUndefined();
   });
