@@ -19,14 +19,26 @@ import { segmentsSurlignes, type ElementScene, type SequenceReel } from '@lumino
  * apparu est transparent plutôt que caché.
  */
 
-const CADRE = { largeur: 1080, hauteur: 1920 };
+/**
+ * Les deux cadres de sortie (SPEC §12.4). Le 4:5 est le fil Meta : on y
+ * RECOMPOSE la scène dans un cadre plus court, on ne recadre pas le 9:16.
+ */
+export type FormatVideo = '9:16' | '4:5';
+export const CADRES: Record<FormatVideo, { largeur: number; hauteur: number }> = {
+    '9:16': { largeur: 1080, hauteur: 1920 },
+    '4:5': { largeur: 1080, hauteur: 1350 },
+};
 
 /**
- * La zone sûre : l'interface des Reels et des Shorts recouvre le bas de l'image
- * (légende, nom, musique) et le bord droit (les boutons). Les cartes restent
- * au-dessus des trois quarts de la hauteur, comme dans la référence.
+ * La zone sûre. En 9:16, l'interface des Reels et des Shorts recouvre le bas de
+ * l'image (légende, nom, musique) et le bord droit (les boutons) : les cartes
+ * restent au-dessus des trois quarts de la hauteur, comme dans la référence.
+ * Le fil, en 4:5, ne recouvre presque rien : on n'y garde qu'une marge.
  */
-const ZONE = { haut: 170, gauche: 90, droite: 90, bas: 1440 };
+const ZONES: Record<FormatVideo, { haut: number; gauche: number; droite: number; bas: number }> = {
+    '9:16': { haut: 170, gauche: 90, droite: 90, bas: 1440 },
+    '4:5': { haut: 100, gauche: 90, droite: 90, bas: 1250 },
+};
 
 /** La gamme des illustrations du site, de la lumière à l'ombre. */
 export const GAMME = {
@@ -42,8 +54,9 @@ export const GAMME = {
 export const FUTURA = "'Futura LT', Futura, 'Century Gothic', sans-serif";
 export const ABRIL = "'Abril Display', Georgia, serif";
 
-const POINTILLES = `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${CADRE.largeur}" height="${CADRE.hauteur}">`
+/** Le fond pointillé, à la taille exacte du cadre : étiré, un point deviendrait une ellipse. */
+const pointilles = (format: FormatVideo) => `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${CADRES[format].largeur}" height="${CADRES[format].hauteur}">`
     + '<defs><pattern id="p" width="54" height="54" patternUnits="userSpaceOnUse">'
     + `<circle cx="27" cy="27" r="3" fill="${GAMME.mauve}" fill-opacity="0.18"/></pattern></defs>`
     + '<rect width="100%" height="100%" fill="url(#p)"/></svg>',
@@ -228,11 +241,14 @@ export interface SceneLuminoseProps {
     Image?: ComposantImage;
     /** Les coins arrondis de la miniature ; 0 dans la vidéo elle-même. */
     arrondi?: number;
+    format?: FormatVideo;
 }
 
 export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
-    sequence, largeur, visibles, entrees, visuels, Image = ImageSimple, arrondi = 8,
+    sequence, largeur, visibles, entrees, visuels, Image = ImageSimple, arrondi = 8, format = '9:16',
 }) => {
+    const CADRE = CADRES[format];
+    const ZONE = ZONES[format];
     const contenuRef = useRef<HTMLDivElement>(null);
     const [reduction, setReduction] = useState(1);
     const elements = sequence.elements ?? [];
@@ -259,7 +275,7 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
         mesurer();
         // Les polices de la marque arrivent après le premier rendu, et changent les hauteurs.
         document.fonts?.ready.then(mesurer).catch(() => undefined);
-    }, [sequence, visuels]);
+    }, [sequence, visuels, format]);
 
     const echelle = largeur / CADRE.largeur;
 
@@ -279,7 +295,7 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
                 color: GAMME.violetNuit,
                 backgroundColor: GAMME.ivoire,
             }}>
-                <Image src={POINTILLES} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
+                <Image src={pointilles(format)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
                 <div style={{ position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: ZONE.bas - ZONE.haut }}>
                     <div
                         ref={contenuRef}

@@ -17,10 +17,12 @@
     "@luminose/shared": "^2.0.0",
     "@luminose/subtitles": "*",
     "@remotion/fonts": "4.0.532",
+    "@remotion/media": "4.0.532",
     "@remotion/player": "4.0.532",
     "@remotion/web-renderer": "4.0.532",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.575.0",
+    "mediabunny": "1.56.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "remotion": "4.0.532"

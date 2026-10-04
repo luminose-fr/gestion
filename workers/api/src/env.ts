@@ -1,6 +1,15 @@
 export type Env = {
   DB: D1Database;
 
+  /**
+   * Workers AI — la transcription mot à mot des prises vidéo (SPEC §12.5).
+   *
+   * FACULTATIF, comme les jetons ci-dessous : absente, seule la transcription
+   * se tait, en disant quoi ajouter à wrangler.toml. Pas de clé : c'est une
+   * liaison du Worker, rien ne se pose dans Réglages.
+   */
+  AI?: Ai;
+
   /** Clé de signature des jetons de session. Repli sur AUTH_PASSWORD (SPEC §7). */
   SESSION_SECRET?: string;
   AUTH_USERNAME: string;

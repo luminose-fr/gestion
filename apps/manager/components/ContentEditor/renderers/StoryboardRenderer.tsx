@@ -223,7 +223,7 @@ export const StoryboardRenderer: React.FC<StoryboardRendererProps> = ({ data, co
 
             {contentId && (
                 <Suspense fallback={<Patience titre="Chargement de l'aperçu animé" />}>
-                    <PanneauMontage data={data} visuelsDeLaScene={visuels.deLaScene} />
+                    <PanneauMontage data={data} contentId={contentId} visuelsDeLaScene={visuels.deLaScene} />
                 </Suspense>
             )}
 

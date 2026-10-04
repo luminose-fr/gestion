@@ -44,6 +44,9 @@ import { ScriptVideoRenderer } from '../components/ContentEditor/renderers/Scrip
 import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
 import { StoryboardRenderer } from '../components/ContentEditor/renderers/StoryboardRenderer';
+import { DepotPrise } from '../components/Video/DepotPrise';
+import { ReperesPrise } from '../components/Video/ReperesPrise';
+import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage } from '@luminose/editorial';
 
 /*
  * Le lecteur Remotion mesure son conteneur et le moteur de rendu exige
@@ -54,6 +57,7 @@ vi.mock('@remotion/player', () => ({
   Player: (props: { durationInFrames: number }) => <div data-testid="lecteur-remotion" data-images={props.durationInFrames} />,
 }));
 vi.mock('@remotion/web-renderer', () => ({ renderMediaOnWeb: vi.fn() }));
+vi.mock('@remotion/media', () => ({ Video: () => null }));
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
@@ -2008,25 +2012,26 @@ describe('Reel expliqué — montage', () => {
   it('le panneau se monte, et dit qu\u2019il faut Chrome quand WebCodecs manque', () => {
     // jsdom passe pour une page sécurisée : c'est l'absence de WebCodecs qu'on voit.
     vi.stubGlobal('isSecureContext', true);
-    const { container, getByTestId } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
     expect(getByTestId('lecteur-remotion')).toBeTruthy();
     expect(container.textContent).toContain('150 mots par minute');
     expect(container.textContent).toContain("L'export demande Chrome");
     const exports = Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Exporter'));
-    expect(exports).toHaveLength(2);
+    // Deux scènes, et la vidéo entière — qui attend une prise.
+    expect(exports).toHaveLength(3);
     expect(exports.every(b => b.disabled)).toBe(true);
   });
 
   it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
     vi.stubGlobal('isSecureContext', false);
     vi.stubGlobal('VideoEncoder', class {});
-    const { container } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
+    const { container } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
     expect(container.textContent).toContain("L'export demande une page sécurisée (https)");
     expect(container.textContent).not.toContain("L'export demande Chrome");
   });
 
   it('le débit change la durée de l\u2019aperçu', () => {
-    const { container, getByTestId } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
     const avant = Number(getByTestId('lecteur-remotion').dataset.images);
     fireEvent.change(container.querySelector('#debit-reel')!, { target: { value: '200' } });
     expect(Number(getByTestId('lecteur-remotion').dataset.images)).toBeLessThan(avant);
@@ -2038,5 +2043,93 @@ describe('Reel expliqué — montage', () => {
     expect(await findByText('Ce navigateur refuse le stockage local : les visuels déposés ne seront pas gardés.')).toBeTruthy();
     // Sans stockage, on ne propose pas un dépôt qui ne serait pas gardé.
     expect(Array.from(container.querySelectorAll('button')).some(b => b.textContent?.includes('Déposer'))).toBe(false);
+  });
+});
+
+/**
+ * Étapes V3 et V4 (SPEC §12.5, §12.6) : la prise se dépose, se transcrit, se
+ * cale ; les repères se corrigent à la main. Les écrans se montent dans leurs
+ * états — vide, au travail, calée, s'écartant du script, en échec.
+ */
+describe('Reel expliqué — prise et rendu', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const reel = () => ({
+    format: 'Reel expliqué',
+    sequences: [
+      { plan: 'camera', role: 'Accroche', voix: 'Vous relisez trois fois un message ?' },
+      {
+        plan: 'scene', role: 'Mécanique', registre: 'pedagogie', voix: 'Une alarme qui sonne pour une virgule.',
+        titre: 'Une [alarme]',
+        elements: [
+          { type: 'carte', texte: 'Une [alarme]', apparait_sur: 'une alarme' },
+          { type: 'pastille', texte: 'Une [virgule]', apparait_sur: 'une virgule' },
+        ],
+      },
+      { plan: 'camera', role: 'Appel', voix: 'Lien en bio.' },
+    ],
+    accroche_pub: { voix: 'Relire trois fois un message.' },
+  }) as any;
+  const lire = (texte: string, pas = 0.4) => texte.split(/\s+/).map((mot, i) => ({ mot, debut: 1 + i * pas, fin: 1 + i * pas + 0.3 }));
+  const priseCalee = (couverture?: number) => {
+    const data = reel();
+    const calage = calerSurLaPrise(voixEntiere(data), lire(voixEntiere(data)));
+    return {
+      prise: { cle: 'c1:principale', contenuId: 'c1', role: 'principale', nom: 'prise.mov', duree: 12.5, largeur: 1080, hauteur: 1920, transcription: { mots: [], texte: '', duree: 12.5 }, transcriteLe: 1, reperes: {}, deposeeLe: 1 },
+      url: 'blob:prise',
+      calage: couverture === undefined ? calage : { ...calage, couverture },
+    } as any;
+  };
+
+  it('le panneau sans stockage le dit, et n\u2019offre ni dépôt ni export de la vidéo', () => {
+    vi.stubGlobal('isSecureContext', true);
+    const { container } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
+    expect(container.textContent).toContain('Il faut une prise calée pour exporter la vidéo entière.');
+    const pub = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Publicité');
+    expect(pub?.disabled).toBe(true);
+  });
+
+  it('une prise vide dit ce qu\u2019on attend d\u2019elle', () => {
+    const { container } = render(<DepotPrise titre="La prise" consigne="Déposez la prise." deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(container.textContent).toContain('Déposez la prise.');
+    expect(container.textContent).toContain('Déposer la prise');
+  });
+
+  it('une prise au travail dit l\u2019étape et porte une barre', () => {
+    const { container } = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee()} enCours={{ etape: 'son', part: 0.4 }} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(container.textContent).toContain('Extraction du son…');
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('40');
+  });
+
+  it('une prise calée dit la part du script retrouvée, et alerte quand elle s\u2019en écarte', () => {
+    const sure = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee()} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(sure.container.textContent).toContain('Calée : 100 % des mots du script retrouvés');
+    expect(sure.container.textContent).toContain('prise.mov — 12,5 s, 1080 × 1920');
+    cleanup();
+    const ecart = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee(0.6)} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(ecart.container.textContent).toContain('vérifiez les repères avant d\u2019exporter');
+  });
+
+  it('une prise en échec garde le message', () => {
+    const { container } = render(<DepotPrise titre="La prise" consigne="" erreur="ce fichier n'a pas de son." deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(container.textContent).toContain("ce fichier n'a pas de son.");
+  });
+
+  it('les repères se corrigent au dixième, et se rendent au calage', () => {
+    const data = reel();
+    const { calage } = priseCalee();
+    const brut = minuterReel(data, calage.horloge);
+    const plan = planDeMontage(data, { calage, duree: 12.5 }, { reperes: { '1:1': 6 } });
+    const corrections: Array<[number, number, number | null]> = [];
+    const { container } = render(<ReperesPrise data={data} calage={brut} plan={plan} reperes={{ '1:1': 6 }}
+      onCorriger={(i, j, t) => corrections.push([i, j, t])} onAller={noop} />);
+    expect(container.textContent).toContain('2.1');
+    expect(container.textContent).toContain('6,0 s');
+    const plus = container.querySelectorAll('button[title="Un dixième plus tard"]');
+    fireEvent.click(plus[0]);
+    fireEvent.click(container.querySelector('button[title="Rendre le repère au calage"]')!);
+    expect(corrections[0][0]).toBe(1);
+    expect(corrections[0][2]).toBeCloseTo(brut.sequences[1].debut + brut.sequences[1].apparitions[0]! + 0.1);
+    expect(corrections[1]).toEqual([1, 1, null]);
   });
 });

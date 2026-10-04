@@ -22,6 +22,8 @@ export * from './jekyll';
 
 // Le Reel expliqué — sa forme et ce qui s'y compte (SPEC §12)
 export * from './reelExplique';
+// … son calage sur la prise et son plan de montage (SPEC §12.5, §12.6)
+export * from './calage';
 
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';
