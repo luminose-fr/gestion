@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReelExplique } from '@luminose/editorial';
-import * as Visuels from '../../services/visuelsService';
+import * as Visuels from '../../services/montageService';
 
 export interface VisuelAffiche {
     url: string;

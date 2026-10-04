@@ -29,6 +29,7 @@ import { inbox } from './routes/inbox';
 import { mesures } from './routes/mesures';
 import { quotas } from './routes/quotas';
 import { rdv } from './routes/rdv';
+import { transcription } from './routes/transcription';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -80,6 +81,7 @@ app.route('/api/inbox', inbox);
 app.route('/api/mesures', mesures);
 app.route('/api/quotas', quotas);
 app.route('/api/rdv', rdv);
+app.route('/api/transcription', transcription);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

@@ -175,6 +175,40 @@ export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
  * Sonde un code d'API AVANT enregistrement : c'est tout l'intérêt du testeur.
  * On ne passe donc pas par un modèle du catalogue, qui n'existe pas encore.
  */
+// ── Transcription d'une prise (SPEC §12.5) ─────────────────────────────
+
+/**
+ * Dix minutes de son mono 16 kHz en WAV 16 bits, encodées en base64 — bien
+ * au-delà d'un Reel. La borne n'est pas cosmétique : le corps entier transite
+ * en mémoire dans le Worker, et une prise envoyée par erreur avec sa vidéo
+ * (des centaines de mégaoctets) doit être refusée ici, en clair.
+ */
+export const TRANSCRIPTION_BASE64_MAX = 26_000_000;
+
+export const TranscriptionRequestSchema = z.object({
+  /** Le son de la prise, en WAV, encodé en base64. Jamais la vidéo : elle ne quitte pas le navigateur. */
+  audio: z.string().min(64).max(
+    TRANSCRIPTION_BASE64_MAX,
+    'Son trop long pour une transcription (dix minutes au plus) : seule la piste son, en mono 16 kHz, doit partir.',
+  ),
+  langue: z.string().regex(/^[a-z]{2}$/).default('fr'),
+});
+export type TranscriptionRequest = z.infer<typeof TranscriptionRequestSchema>;
+
+/** Un mot prononcé, en secondes depuis le début du fichier. */
+export interface MotTranscrit {
+  mot: string;
+  debut: number;
+  fin: number;
+}
+
+export interface Transcription {
+  mots: MotTranscrit[];
+  texte: string;
+  /** Durée du son selon le modèle ; `null` s'il ne l'a pas dite. */
+  duree: number | null;
+}
+
 export const TestModelSchema = z.object({
   apiCode: z.string().min(1),
   provider: z.string().min(1).default('onemin'),

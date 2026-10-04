@@ -13,7 +13,7 @@ import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
-  RdvType, RdvCreneau, RdvConfirme,
+  RdvType, RdvCreneau, RdvConfirme, Transcription,
 } from '@luminose/shared';
 
 /**
@@ -569,3 +569,13 @@ export const creerRdv = (payload: {
 }) =>
   api<{ rdv: RdvConfirme }>('/rdv', { method: 'POST', ...body(payload) },
     { label: 'Création du rendez-vous', cle: 'api:rdv-creation' });
+
+// ── Transcription d'une prise (SPEC §12.5) ───────────────────────────────
+
+/**
+ * Le SON d'une prise, en WAV base64 — jamais la vidéo. La durée se mesure sous
+ * sa propre clé : une minute de son ne se transcrit pas au rythme d'un appel IA.
+ */
+export const transcrire = (audio: string) =>
+  api<Transcription>('/transcription', { method: 'POST', ...body({ audio, langue: 'fr' }) },
+    { label: 'Transcription de la prise', cle: 'api:transcription' });

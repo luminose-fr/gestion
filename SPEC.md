@@ -1,4 +1,4 @@
-# SPEC v2.5 — gestion.luminose.fr
+# SPEC v2.6 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -29,6 +29,9 @@
 > **v2.5 (04/10/2026)** : les scènes s'animent, se montent et s'exportent depuis l'onglet,
 > les visuels se déposent et restent dans le navigateur, et le minutage ne dépend que
 > d'une horloge que la prise viendra remplacer (§12.4.1).
+> **v2.6 (04/10/2026)** : la prise se dépose, son son seul est transcrit par Whisper sur
+> Workers AI, le script s'y cale mot à mot et les repères se corrigent à la main (§12.5) ;
+> la vidéo finale sort de l'onglet, en 9:16 ou 4:5, organique ou publicitaire (§12.5.1).
 > **v2.5 (03/10/2026)** : le serveur MCP lit et écrit le corpus (`workers/mcp`,
 > decisions/2026-10-03-corpus.md). Il dépend désormais de `packages/corpus` (§1.1) —
 > le seul paquet du dépôt qu'il importe, pur et sans secret — et garde son propre jeton
@@ -689,6 +692,11 @@ avant, avec un corps personnalisé ; le rappel e-mail l'est aussi, trois jours a
 workflow ajoute un e-mail à sept jours. Attention à la lecture : ces réglages vivent
 dans les notifications **personnalisées** du type, et les gabarits par défaut
 apparaissent alors désactivés — les confondre fait conclure à l'inverse de la réalité.
+
+### 3.9 Transcription d'une prise
+
+`POST /api/transcription` — le son d'une prise vidéo, en WAV base64, rend ses mots
+horodatés. Workers AI, 0 requête D1. Voir §12.5.
 
 ### 3.7 Ce qu'une liste retient — NORMATIF
 
@@ -1427,7 +1435,7 @@ L'export s'annonce dans le bandeau d'activité, avec sa progression réelle, et 
 5.0 c'est facultatif, et c'est ce qui l'empêche d'envoyer quoi que ce soit — pas même
 l'origine de la page. À revoir au passage à Remotion 5.
 
-**Les visuels déposés restent dans le navigateur** — IndexedDB, base `LuminoseVisuels`,
+**Les visuels déposés restent dans le navigateur** — IndexedDB, base `LuminoseMontage`,
 une ligne par (contenu, séquence, élément), avec la description à laquelle l'image
 répondait. Ce que ça coûte : un visuel déposé sur le Mac n'existe pas ailleurs, et
 vider les données du site l'efface. Le storyboard le dit, signale une image déposée
@@ -1435,18 +1443,98 @@ pour une carte dont la description a changé depuis, et se tait (sans proposer d
 dépôt) quand le navigateur refuse le stockage. Base à part : un magasin de plus dans
 `LuminoseDB` en monterait la version, et cette montée purge le cache des contenus.
 
-### 12.5 Le calage sur la prise
+### 12.5 Le calage sur la prise (V3) — NORMATIF
 
-Whisper sert déjà au sous-titrage (`outils/parc.md`). Workers AI l'expose avec
-l'horodatage **mot à mot** (`@cf/openai/whisper`, `words[]`), sans nouvelle clé : un
-binding de plus, environ 0,0005 $ la minute. Les mots servent à deux choses — poser
-chaque élément sur son `apparait_sur`, et sous-titrer les passages caméra dans le style
-de l'outil Sous-titres (Futura gras, blanc, ombre `#60407F`). Pas de karaoké : la
-référence n'en a pas.
+**La prise se dépose dans le storyboard.** Florent la nettoie dans Final Cut (ratés,
+silences) et l'exporte — H.264 de préférence. Le navigateur la lit avec Mediabunny,
+par morceaux : une prise de plusieurs centaines de mégaoctets ne se charge jamais en
+entier, et un .mov se lit comme un .mp4. Une prise que ce navigateur ne sait pas
+décoder est refusée **au dépôt**, pas à l'export : c'est ici que se fera le rendu.
 
-L'alignement des repères sur la transcription est un calcul pur (comparaison de suites
-de mots normalisés). Il vivra dans un paquet sans dépendance, au même titre que
-`subtitles`, et se teste sans réseau.
+**Seul le son part.** Extrait en WAV mono 16 kHz — environ deux mégaoctets la minute —,
+il va à `POST /api/transcription`, qui le passe à Whisper sur Workers AI
+(`@cf/openai/whisper-large-v3-turbo`, langue `fr`) et rend les mots horodatés
+(`segments[].words[]`). Pas de clé : une liaison `AI` du Worker (wrangler.toml).
+**Facultative**, comme les jetons : absente, la route répond 409 en disant quoi ajouter,
+et rien d'autre ne bouge. Un échec de Workers AI revient en 502 avec **son** message
+(un quota épuisé se corrige). Le corps est borné à dix minutes de son : une vidéo
+envoyée par erreur est refusée à la frontière. 0 requête D1.
+
+Un segment rendu sans ses mots voit son texte réparti sur sa durée, au prorata des
+lettres : une approximation, mais qui laisse le calage retrouver ses repères plutôt
+que de perdre tout un passage.
+
+**Le calage est un calcul pur** (`packages/editorial/src/calage.ts`), à côté de la
+découpe en mots qu'il partage avec le contrôle (§12.3) — un repère que le storyboard
+trouve, le calage le trouve aussi :
+
+1. Le script et les mots dits sont découpés pareil ; un mot de Whisper qui donne
+   deux jetons (« l'envoyer ») partage sa durée au prorata des lettres.
+2. Alignement global (Needleman–Wunsch) : un mot dit tel quel compte plein, un mot
+   **proche** compte presque — Whisper écrit « luminoz » ce qu'il a bien entendu. Est
+   proche un mot de cinq lettres ou plus, même initiale, à une lettre près (deux dès
+   sept lettres). « tout » et « bout » ne le sont pas.
+3. Chaque mot du script reçoit l'instant où il est dit ; un mot omis prend sa place
+   entre ses voisins, au prorata des rangs. L'horloge qui en sort remplace l'horloge
+   estimée dans `minuterReel` (§12.4.1) — rien d'autre ne change.
+4. La **couverture** — part des mots du script retrouvés — s'affiche. Sous 80 %, l'écran
+   demande de vérifier les repères avant d'exporter.
+
+**Le calage ne se stocke pas, il se déduit** de la transcription et du script : une
+nouvelle rédaction recale la même prise sans rien retranscrire.
+
+**Les repères se corrigent à la main**, au dixième de seconde, élément par élément ;
+un clic sur un repère amène l'aperçu à cet instant. La correction l'emporte sur le
+calage, se garde avec la prise, et survit à une nouvelle transcription comme au
+remplacement de la prise par une version mieux nettoyée.
+
+**Les prises restent dans le navigateur** (base `LuminoseMontage`, §12.4.1) : les
+métadonnées et la transcription dans un magasin, le fichier dans un autre — corriger un
+repère ne réécrit pas des centaines de mégaoctets.
+
+**Les sous-titres** des passages caméra sortent des mots dits, groupés par quatre au
+plus, coupés à une fin de phrase ou à un silence de plus de 0,6 s. Un mot dit qui
+répond au script s'écrit **comme dans le script** (« luminose.fr », pas « luminoz ») ;
+un mot improvisé, comme Whisper l'a entendu. Un « ? » rendu seul rejoint son mot. Pas
+de karaoké, et rien sur les scènes : la référence n'en a pas.
+
+### 12.5.1 Le rendu final (V4) — NORMATIF
+
+`planDeMontage` (même fichier) dit ce que la vidéo montre et quand :
+
+- **Organique** : la prise principale, débarrassée de ses silences — 0,3 s gardées avant
+  le premier mot, 0,6 s après le dernier.
+- **Publicité** : la seconde accroche, tournée à part et calée sur son propre texte,
+  puis la prise principale **reprise juste avant le premier mot de la séquence 2**. Les
+  scènes gardent leurs mots ; seule l'ouverture change, et c'est elle que la publicité
+  teste.
+
+La composition (`CompositionFinale`) pose la prise en fond (`<Video>` de
+`@remotion/media`, `objectFit: cover`), chaque scène par-dessus à son heure, et les
+sous-titres sur les seuls passages caméra. **La voix vient de la prise et ne
+s'interrompt jamais** : une scène couvre l'image, pas le son.
+
+Les sous-titres reprennent l'outil Sous-titres — Futura gras, blanc, ombre `#60407F` à
+315°, 430 points sous le centre du cadre vertical —, en 64 pixels du cadre. L'ombre est
+une seconde couche de texte peinte avant le blanc : le moteur de rendu ne dessine pas
+`text-shadow` et peint dans l'ordre du document.
+
+**Deux formats, deux versions**, au choix, et l'aperçu suit le choix : 9:16
+(1080 × 1920) et 4:5 (1080 × 1350, fil Meta), organique et publicité. En 4:5, la prise
+est rognée au centre et les scènes sont **recomposées** dans le cadre plus court, avec
+leur propre zone sûre. Sortie MP4, H.264 et AAC.
+
+**Ce qui n'est pas fait, et pourquoi** : pas de musique (§12.1 : optionnelle, et la
+référence n'en a pas), pas de normalisation du volume (la prise sort de Final Cut, où
+elle se règle), pas de 16:9 (§12.4).
+
+**Ce qui reste à vérifier sur une vraie prise.** Le parcours entier a été vérifié dans
+le navigateur le 04/10/2026, avec une prise synthétique (voix de macOS) : lecture,
+extraction du son, calage à 99 % malgré un mot omis et un nom mal écrit, aperçu, export
+9:16 organique et 4:5 publicitaire, son et image contrôlés. **La transcription y était
+simulée** : Whisper sur Workers AI n'est joignable qu'une fois le Worker déployé avec
+sa liaison `AI`. Ce que rend Whisper sur la voix de Florent — présence des mots
+horodatés, précision des instants — est la première chose à regarder.
 
 ### 12.6 Phasage — NORMATIF
 
@@ -1456,8 +1544,11 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | :--- | :--- | :--- |
 | **V1** | **Le format** — grille, contrôles, storyboard statique dans l'onglet Script | Un Reel expliqué rédigé sur un vrai sujet, lisible et tournable tel quel |
 | **V2** | **Les scènes animées** — composition Remotion, emplacement des visuels, aperçu cadencé sur le débit estimé, export des scènes seules | Les scènes d'un vrai script exportées en MP4 et posées dans Final Cut |
-| **V3** | **Le calage** — dépôt du rush, son extrait, Whisper mot à mot, repères alignés, ajustement à la main | Les scènes tombent sur les bons mots d'une vraie prise |
-| **V4** | **Le rendu** — face caméra, scènes, sous-titres, 9:16 et 4:5, seconde accroche | Une vidéo publiée, et une variante publicitaire |
+| **V3** | **Le calage** — dépôt du rush, son extrait, Whisper mot à mot, repères alignés, ajustement à la main (§12.5) | Les scènes tombent sur les bons mots d'une vraie prise |
+| **V4** | **Le rendu** — face caméra, scènes, sous-titres, 9:16 et 4:5, seconde accroche (§12.5.1) | Une vidéo publiée, et une variante publicitaire |
+
+Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
+critères de sortie, eux, demandent une vraie prise et une vraie publication.
 
 ---
 

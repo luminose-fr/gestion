@@ -41,6 +41,12 @@ routes = [
 [observability]
 enabled = true
 
+# Workers AI — la transcription mot à mot des prises vidéo (SPEC §12.5).
+# Une liaison, pas une clé : rien à poser dans Réglages. Facultative : sans
+# elle, seule la route /api/transcription se tait, en disant quoi ajouter ici.
+[ai]
+binding = "AI"
+
 # Base créée le 19/08/2026 :
 #   npx wrangler d1 create luminose-gestion --location weur
 [[d1_databases]]
