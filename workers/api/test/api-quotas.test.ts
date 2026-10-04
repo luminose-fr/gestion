@@ -31,10 +31,12 @@ type Reponse = { data?: unknown; errors?: unknown[]; status?: number };
  * datasets distincts. Le stub répond donc selon la requête envoyée, ce qui
  * permet d'en faire échouer un seul.
  */
-const stubCloudflare = (consommation: Reponse, stockageRep: Reponse = { data: null }) =>
+const stubCloudflare = (consommation: Reponse, stockageRep: Reponse = { data: null }, autres: Record<string, Reponse> = {}) =>
   vi.stubGlobal('fetch', async (_url: string, init: any) => {
     const query = String(JSON.parse(init.body).query);
-    const r = query.includes('d1StorageAdaptiveGroups') ? stockageRep : consommation;
+    // Chaque jeu de données a sa requête : R2 et Workers AI se reconnaissent à leur nom.
+    const autre = Object.keys(autres).find(nom => query.includes(nom));
+    const r = autre ? autres[autre] : query.includes('d1StorageAdaptiveGroups') ? stockageRep : consommation;
     return new Response(
       JSON.stringify({ data: r.data ?? null, ...(r.errors ? { errors: r.errors } : {}) }),
       { status: r.status ?? 200 },
@@ -168,6 +170,77 @@ describe('quotas Cloudflare', () => {
     } finally {
       cri.mockRestore();
     }
+  });
+
+  /**
+   * R2 et Workers AI (SPEC §12.4.2) : R2 FACTURE au-delà de son gratuit, il
+   * se surveille au mois ; Workers AI refuse au-delà, il se surveille au jour.
+   */
+  describe('R2 et Workers AI', () => {
+    const CONSO = { data: COMPTE([{ sum: { requests: 10 } }], [{ sum: { rowsRead: 1, rowsWritten: 1 } }]) };
+    const R2_OPS = { data: { viewer: { accounts: [{ r2OperationsAdaptiveGroups: [
+      { sum: { requests: 40 }, dimensions: { actionType: 'UploadPart' } },
+      { sum: { requests: 2 }, dimensions: { actionType: 'CompleteMultipartUpload' } },
+      { sum: { requests: 900 }, dimensions: { actionType: 'GetObject' } },
+      { sum: { requests: 7 }, dimensions: { actionType: 'DeleteObject' } },
+      { sum: { requests: 3 }, dimensions: { actionType: 'OperationInconnue' } },
+    ] }] } } };
+    const R2_STOCKAGE = { data: { viewer: { accounts: [{ r2StorageAdaptiveGroups: [
+      { max: { payloadSize: 2_000_000_000, metadataSize: 1000 }, dimensions: { bucketName: 'luminose-montage' } },
+      { max: { payloadSize: 500_000_000, metadataSize: 0 }, dimensions: { bucketName: 'autre' } },
+    ] }] } } };
+    const IA = { data: { viewer: { accounts: [{ aiInferenceAdaptiveGroups: [
+      { sum: { totalNeurons: 140 } }, { sum: { totalNeurons: 93.5 } },
+    ] }] } } };
+
+    it('classe les opérations, additionne les buckets et les neurones', async () => {
+      stubCloudflare(CONSO, { data: STOCKAGE(1) }, {
+        r2OperationsAdaptiveGroups: R2_OPS, r2StorageAdaptiveGroups: R2_STOCKAGE, aiInferenceAdaptiveGroups: IA,
+      });
+      const { res, body } = await lire();
+      expect(res.status).toBe(200);
+      const par = Object.fromEntries(body.postes.map((p: any) => [p.id, p]));
+      // Une opération inconnue compte en classe A : le plafond le plus bas, l'erreur qui ne rassure pas.
+      expect(par['r2-classe-a']).toMatchObject({ valeur: 45, seuil: 1_000_000, periode: 'mois', service: 'R2' });
+      // Les opérations gratuites (DeleteObject) ne comptent nulle part.
+      expect(par['r2-classe-b']).toMatchObject({ valeur: 900, seuil: 10_000_000, periode: 'mois' });
+      // Le gratuit est celui du compte : tous les buckets s'additionnent.
+      expect(par['r2-stockage']).toMatchObject({ valeur: 2_500_001_000, seuil: 10_000_000_000, periode: 'total', unite: 'octets' });
+      expect(par['ia-neurones']).toMatchObject({ valeur: 233.5, seuil: 10_000, periode: 'jour', unite: 'neurones' });
+      // Les plafonds relevés à part portent leur propre date.
+      expect(par['r2-stockage'].releveLe).toBe('2026-10-04');
+      expect(par['workers-requetes'].releveLe).toBeUndefined();
+    });
+
+    it('perd ses seuls postes quand un jeu de données refuse — et le dit', async () => {
+      stubCloudflare(CONSO, { data: STOCKAGE(1) }, {
+        r2OperationsAdaptiveGroups: { errors: [{ message: 'not entitled to r2' }] },
+        r2StorageAdaptiveGroups: R2_STOCKAGE,
+        aiInferenceAdaptiveGroups: { errors: [{ message: 'unknown field "totalNeurons"' }] },
+      });
+      const { res, body } = await lire();
+      expect(res.status).toBe(200);
+      const par = Object.fromEntries(body.postes.map((p: any) => [p.id, p]));
+      expect(par['r2-classe-a'].valeur).toBeNull();
+      expect(par['r2-classe-a'].note).toContain('not entitled to r2');
+      expect(par['ia-neurones'].valeur).toBeNull();
+      expect(par['ia-neurones'].note).toContain('totalNeurons');
+      expect(par['r2-stockage'].valeur).toBe(2_500_001_000);
+      expect(par['workers-requetes'].valeur).toBe(10);
+    });
+
+    it('interroge les opérations de R2 depuis le 1er du mois, UTC', async () => {
+      const requetes: string[] = [];
+      vi.stubGlobal('fetch', async (_url: string, init: any) => {
+        requetes.push(String(JSON.parse(init.body).query));
+        return new Response(JSON.stringify({ data: COMPTE([], []) }), { status: 200 });
+      });
+      await lire();
+      const r2 = requetes.find(q => q.includes('r2OperationsAdaptiveGroups'))!;
+      const maintenant = new Date();
+      const premier = new Date(Date.UTC(maintenant.getUTCFullYear(), maintenant.getUTCMonth(), 1)).toISOString();
+      expect(r2).toContain(premier);
+    });
   });
 
   it('exige un jeton de session', async () => {

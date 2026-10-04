@@ -1,4 +1,4 @@
-# SPEC v2.8 — gestion.luminose.fr
+# SPEC v2.9 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -42,6 +42,9 @@
 > vidées et se reprend depuis un autre poste ; le navigateur n'en garde qu'un cache.
 > Les numéros 2.5 à 2.7 ont été remis dans l'ordre des dates le même jour : deux
 > sessions avaient chacune écrit une « v2.5 ».
+> **v2.9 (04/10/2026)** : rester dans le gratuit. L'écran des quotas suit R2 et Workers AI
+> (§0.4), et le montage refuse un dépôt qui ferait dépasser les 10 Go gratuits de R2,
+> seul service qui facture au-delà (§12.4.2).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -102,8 +105,16 @@ Deux bases Notion : « Contenu » et « Modèles IA ».
 | Lignes écrites / jour | 100 000 | < 500 |
 | **Requêtes par invocation Worker** | **50** | **contrainte de conception, §3.6** |
 | Time Travel | 7 jours | complété par l'export, §9.4 |
+| Stockage R2 (montage, §12.4.2) | 10 Go | quelques prises vidéo de 100 à 500 Mo |
+| Opérations R2 classe A / B, **par mois** | 1 000 000 / 10 000 000 | quelques centaines |
+| Neurones Workers AI / jour (transcription, §12.5) | 10 000 | ≈ 47 par minute de son |
 
 Le quota n'est pas un facteur limitant. La limite des 50 requêtes par invocation, si.
+
+**Sauf R2, qui FACTURE au-delà de son gratuit** — les autres refusent. Florent veut rester
+dans le gratuit (04/10/2026) : l'écran Réglages → Quotas suit R2 (stockage, opérations
+de classe A et B au mois) et Workers AI (neurones du jour), et le montage **refuse** un dépôt
+qui ferait passer ce qu'il range au-delà de 10 Go (§12.4.2).
 
 ---
 
@@ -707,14 +718,14 @@ horodatés. Workers AI, 0 requête D1. Voir §12.5.
 
 ```
 GET    /api/montage/:id                              prises, visuels, espace occupé (1 batch)
-POST   /api/montage/:id/prises/:role                 déclare une prise, ouvre son envoi (3)
+POST   /api/montage/:id/prises/:role                 déclare une prise, ouvre son envoi (4)
 PUT    /api/montage/:id/prises/:role/parties/:n      une partie, 50 Mo au plus (1)
 POST   /api/montage/:id/prises/:role/terminer        ferme l'envoi (2)
 DELETE /api/montage/:id/prises/:role/envoi           abandonne un envoi raté (2)
 GET    /api/montage/:id/prises/:role/fichier         le fichier, en flux (1)
 PATCH  /api/montage/:id/prises/:role                 transcription, repères (2)
 DELETE /api/montage/:id/prises/:role                 retire la prise et son fichier (2)
-PUT    /api/montage/:id/visuels/:seq/:el             l'image d'une carte, 15 Mo au plus (3)
+PUT    /api/montage/:id/visuels/:seq/:el             l'image d'une carte, 15 Mo au plus (4)
 GET    /api/montage/:id/visuels/:seq/:el             (1)
 DELETE /api/montage/:id/visuels/:seq/:el             (2)
 ```
@@ -1496,10 +1507,15 @@ nettoyée. Sa transcription, elle, se refait : le fichier a changé.
 en cache sous la bonne clé est la bonne version, sans rien comparer. Une version par
 place ; le vider ne perd rien.
 
-**L'espace se surveille** : le panneau affiche ce qu'occupent tous les contenus, sur les
-10 Go gratuits. Une prise retirée rend sa place. Rien ne purge seul : effacer une vidéo
-qu'on a peut-être encore à remonter n'est pas une décision à prendre à la place de
-Florent.
+**L'espace se surveille, et ne se dépasse pas** : le panneau affiche ce qu'occupent tous
+les contenus, sur les 10 Go gratuits, et l'écran des quotas lit la taille réelle des
+buckets du compte. **Un dépôt qui ferait passer le montage au-delà est refusé** (409),
+avant que le moindre octet parte, en disant quoi retirer — R2 facture le surplus, et
+Florent veut rester dans le gratuit (v2.9). Ce que le dépôt remplace est déduit : on peut
+toujours remplacer une prise par une autre aussi lourde. Le compte se fait sur les lignes
+vivantes ; un objet orphelin dans R2 lui échappe, l'écran des quotas non. Une prise
+retirée rend sa place. Rien ne purge seul : effacer une vidéo qu'on a peut-être encore à
+remonter n'est pas une décision à prendre à la place de Florent.
 
 **La liaison R2 est FACULTATIVE**, comme celle de Workers AI : absente, l'état du montage
 se lit quand même, et tout dépôt se refuse en 409 en disant quoi ajouter. Le bucket est

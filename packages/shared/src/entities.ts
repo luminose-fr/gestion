@@ -172,16 +172,26 @@ export interface MesureSynthese {
  */
 export interface QuotaPoste {
   id: string;
-  /** Le service Cloudflare — « Workers », « D1 ». */
+  /** Le service Cloudflare — « Workers », « D1 », « R2 », « Workers AI ». */
   service: string;
   libelle: string;
   valeur: number | null;
   seuil: number;
-  unite: 'requetes' | 'lignes' | 'octets';
-  /** `jour` : remis à zéro à 00:00 UTC. `total` : cumulé, sans remise à zéro. */
-  periode: 'jour' | 'total';
+  unite: 'requetes' | 'lignes' | 'octets' | 'neurones';
   /**
-   * Pourquoi ce poste n'a pas de valeur, quand il n'en a pas.
+   * `jour` : remis à zéro à 00:00 UTC. `mois` : depuis le 1er du mois, UTC — R2
+   * compte au mois. `total` : ce qui est occupé, sans remise à zéro.
+   */
+  periode: 'jour' | 'mois' | 'total';
+  /**
+   * Quand CE plafond a été relevé dans la documentation, s'il l'a été à part :
+   * R2 et Workers AI ne l'ont pas été le même jour que Workers et D1, et un
+   * seuil sans sa date vieillit sans prévenir.
+   */
+  releveLe?: string;
+  /**
+   * Pourquoi ce poste n'a pas de valeur, quand il n'en a pas — ou, sinon, ce qui
+   * se passe au-delà de son plafond, quand ça change la conduite à tenir.
    *
    * Un poste muet et un poste à zéro se ressemblent à l'écran ; ce champ est ce
    * qui les sépare pour de bon, en portant le message de Cloudflare jusqu'au
