@@ -74,6 +74,38 @@ const visuelVivant = (env: Env, contentId: string, sequence: number, element: nu
     env.DB.prepare('SELECT * FROM montage_visuels WHERE content_id = ? AND sequence = ? AND element = ? AND deleted_at IS NULL')
         .bind(contentId, sequence, element).first<any>();
 
+/** 1 requête. Ce que le montage occupe dans R2, tous contenus confondus — le gratuit est celui du compte. */
+const occupe = async (env: Env): Promise<number> => {
+    const ligne = await env.DB.prepare(
+        `SELECT (SELECT COALESCE(SUM(taille), 0) FROM montage_prises WHERE deleted_at IS NULL)
+              + (SELECT COALESCE(SUM(taille), 0) FROM montage_visuels WHERE deleted_at IS NULL) AS octets`,
+    ).first<any>();
+    return Number(ligne?.octets ?? 0);
+};
+
+const enGo = (octets: number) => `${(octets / 1e9).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go`;
+
+/**
+ * Florent veut rester dans le gratuit, et R2 est le seul service qui FACTURE
+ * au-delà du sien (les autres refusent). Un dépôt qui ferait passer le montage
+ * au-dessus est donc refusé ici, avant que le moindre octet parte — ce que
+ * remplace le dépôt est déduit, puisqu'il va être effacé.
+ *
+ * Le compte tenu ici est celui des lignes vivantes ; un objet orphelin dans R2
+ * lui échappe. L'écran des quotas, lui, lit la taille réelle du bucket.
+ */
+const resterDansLeGratuit = (dejaOccupe: number, remplace: number, ajoute: number) => {
+    const apres = dejaOccupe - remplace + ajoute;
+    if (apres > R2_GRATUIT) {
+        throw new Refus(
+            `Ce dépôt porterait le montage à ${enGo(apres)}, au-delà des ${enGo(R2_GRATUIT)} gratuits de R2 — `
+            + 'Cloudflare facturerait le surplus. Retirez une prise dont la vidéo est publiée, '
+            + 'ou exportez celle-ci plus légère depuis Final Cut.',
+            409,
+        );
+    }
+};
+
 /** Le fichier d'une prise retirée : son envoi en cours s'abandonne, l'objet s'efface. Une trace perdue ne bloque rien. */
 const effacerFichierDePrise = async (r2: R2Bucket, ligne: any) => {
     if (ligne.envoi_id) {
@@ -121,7 +153,7 @@ montage.get('/:contentId', async (c) => {
  * dont elle reprend les repères corrigés — on remplace souvent une prise par sa
  * version mieux nettoyée.
  *
- * 3 requêtes (dont un batch).
+ * 4 requêtes (dont un batch).
  */
 montage.post('/:contentId/prises/:role', async (c) => {
     const r2 = bucket(c.env);
@@ -130,6 +162,7 @@ montage.post('/:contentId/prises/:role', async (c) => {
     const declaree = PriseDeclareeSchema.parse(await c.req.json());
     await contenuExiste(c.env, id);
     const precedente = await priseVivante(c.env, id, role);
+    resterDansLeGratuit(await occupe(c.env), precedente?.taille ?? 0, declaree.taille);
 
     const cle = `prises/${id}/${role}-${newId()}`;
     const envoi = await r2.createMultipartUpload(cle, {
@@ -250,7 +283,7 @@ const placeDe = (c: { req: { param: (k: string) => string } }) => ({
  * Dépose l'image d'une carte. La description voyage en en-tête, encodée : c'est
  * elle qui dira, après une nouvelle rédaction, si l'image répond encore.
  *
- * 3 requêtes (dont un batch).
+ * 4 requêtes (dont un batch).
  */
 montage.put('/:contentId/visuels/:sequence/:element', async (c) => {
     const r2 = bucket(c.env);
@@ -267,6 +300,7 @@ montage.put('/:contentId/visuels/:sequence/:element', async (c) => {
     if (!c.req.raw.body) throw new Refus('Image vide.', 400);
     await contenuExiste(c.env, id);
     const precedent = await visuelVivant(c.env, id, sequence, element);
+    resterDansLeGratuit(await occupe(c.env), precedent?.taille ?? 0, taille);
 
     const cle = `visuels/${id}/${sequence}-${element}-${newId()}`;
     await r2.put(cle, c.req.raw.body, { httpMetadata: { contentType: type } });

@@ -144,6 +144,39 @@ describe('les prises', () => {
     });
 });
 
+/**
+ * R2 est le seul service qui FACTURE au-delà de son gratuit : un dépôt qui y
+ * ferait passer le montage est refusé avant que le moindre octet parte.
+ */
+describe('le gratuit de R2', () => {
+    const declarer = (role: string, taille: number) =>
+        appeler('POST', `/api/montage/${contenu}/prises/${role}`, { ...DECLAREE, taille });
+
+    it('refuse le dépôt qui dépasserait les 10 Go, et dit quoi faire', async () => {
+        expect((await declarer('principale', 5e9)).status).toBe(201);
+        expect((await declarer('accroche', 5e9)).status).toBe(201);
+        const image = await appeler('PUT', `/api/montage/${contenu}/visuels/2/1`, octets('png'), {
+            'Content-Type': 'image/png', 'Content-Length': '3', 'X-Visuel-Description': 'x',
+        });
+        expect(image.status).toBe(409);
+        const { error } = await json(image);
+        expect(error).toContain('gratuits de R2');
+        expect(error).toContain('Retirez une prise');
+        expect(r2.objets.size).toBe(0);
+    });
+
+    it('déduit ce que le dépôt remplace, et compte tous les contenus', async () => {
+        expect((await declarer('principale', 5e9)).status).toBe(201);
+        expect((await declarer('accroche', 5e9)).status).toBe(201);
+        // Remplacer une prise par une autre aussi lourde reste possible : l'ancienne s'efface.
+        expect((await declarer('principale', 5e9)).status).toBe(201);
+        // Le gratuit est celui du compte : un autre contenu ne trouve plus de place.
+        const autre = (await json(await appeler('POST', '/api/contents', { title: 'Un autre Reel' }))).content.id;
+        const refus = await appeler('POST', `/api/montage/${autre}/prises/principale`, { ...DECLAREE, taille: 1 });
+        expect(refus.status).toBe(409);
+    });
+});
+
 describe('les visuels', () => {
     const deposerImage = (texte: string, description = "Une jauge d'alarme.") =>
         appeler('PUT', `/api/montage/${contenu}/visuels/2/1`, octets(texte), {

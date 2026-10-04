@@ -194,6 +194,34 @@ describe('espace Réglages', () => {
   });
 
   /**
+   * R2 compte au mois et Workers AI en neurones ; et des plafonds relevés à des
+   * dates différentes portent chacun la leur.
+   */
+  it('affiche R2 au mois, Workers AI en neurones, et la date de chaque relevé', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(QUOTAS([
+      { id: 'workers-requetes', service: 'Workers', libelle: 'Requêtes',
+        valeur: 1500, seuil: 100_000, unite: 'requetes', periode: 'jour' },
+      { id: 'r2-classe-a', service: 'R2', libelle: 'Écritures (classe A)',
+        valeur: 45, seuil: 1_000_000, unite: 'requetes', periode: 'mois', releveLe: '2026-10-04' },
+      { id: 'r2-stockage', service: 'R2', libelle: 'Stockage',
+        valeur: 2_500_000_000, seuil: 10_000_000_000, unite: 'octets', periode: 'total', releveLe: '2026-10-04',
+        note: 'Au-delà, R2 facture.' },
+      { id: 'ia-neurones', service: 'Workers AI', libelle: 'Neurones (transcriptions)',
+        valeur: 233.5, seuil: 10_000, unite: 'neurones', periode: 'jour', releveLe: '2026-10-04' },
+    ])), { status: 200 }));
+
+    const { container, findByText } = render(<SettingsSpace {...(props as any)} section="quotas" />);
+    await findByText('Écritures (classe A)');
+
+    expect(container.textContent).toContain('R2 · par mois');
+    expect(container.textContent).toContain('2,50 Go');
+    expect(container.textContent).toContain('Au-delà, R2 facture.');
+    expect(container.textContent).toContain('234');
+    expect(container.textContent).toContain('Workers le 01/09/2026');
+    expect(container.textContent).toContain('R2, Workers AI le 04/10/2026');
+  });
+
+  /**
    * NORMATIF — un poste non renseigné ne s'affiche jamais comme un poste à
    * zéro. « Je ne sais pas ce que je consomme » et « je ne consomme rien » se
    * lisent à l'envers l'un de l'autre, et c'est le second qui rassure à tort.

@@ -125,6 +125,21 @@ const quantite = (n: number, unite: QuotaPoste['unite']) =>
     unite === 'octets' ? taille(n) : Math.round(n).toLocaleString('fr-FR');
 
 /**
+ * Les dates de relevé des plafonds, regroupées par date : tous les services
+ * n'ont pas été relevés le même jour, et chacun doit porter la sienne.
+ */
+const relevesParService = (quotas: QuotasReponse): Array<{ services: string[]; date: string }> => {
+    const parDate = new Map<string, string[]>();
+    for (const poste of quotas.postes) {
+        const date = poste.releveLe ?? quotas.seuilsReleves;
+        const services = parDate.get(date) ?? [];
+        if (!services.includes(poste.service)) services.push(poste.service);
+        parDate.set(date, services);
+    }
+    return [...parDate.entries()].map(([date, services]) => ({ date, services }));
+};
+
+/**
  * L'état d'un poste, en trois paliers.
  *
  * Le mot compte autant que la couleur, et c'est délibéré : un écran qui ne
@@ -1724,7 +1739,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             <p className="text-sm leading-relaxed text-brand-main/75 dark:text-dark-text/75">
                                 La consommation depuis <strong className="font-semibold text-brand-main dark:text-white">00:00 UTC</strong>,
                                 face aux plafonds du plan gratuit. L'heure compte : les compteurs de Cloudflare se
-                                remettent à zéro à minuit UTC, pas à minuit à Paris.
+                                remettent à zéro à minuit UTC, pas à minuit à Paris. R2, lui, compte ses opérations
+                                au mois, depuis le 1<sup>er</sup> — et c'est le seul service qui facture au-delà.
                             </p>
                             <p className="mt-2 text-micro text-brand-main/45 dark:text-dark-text/45">
                                 Les constructions de Pages n'y figurent pas — l'API d'analytics ne les expose pas.
@@ -1759,7 +1775,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                             {poste.libelle}
                                                         </span>
                                                         <span className="ml-2 text-micro text-brand-main/45 dark:text-dark-text/45">
-                                                            {poste.service} · {poste.periode === 'jour' ? 'par jour' : 'au total'}
+                                                            {poste.service} · {poste.periode === 'jour' ? 'par jour' : poste.periode === 'mois' ? 'par mois' : 'au total'}
                                                         </span>
                                                     </div>
                                                     <div className="text-xs tabular-nums text-brand-main/75 dark:text-dark-text/75 shrink-0">
@@ -1799,9 +1815,10 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </div>
 
                                 <p className="text-micro text-brand-main/45 dark:text-dark-text/45 px-1">
-                                    Plafonds du plan gratuit relevés à la main dans la documentation Cloudflare le{' '}
-                                    {new Date(quotas.seuilsReleves).toLocaleDateString('fr-FR')} — aucune API ne les
-                                    expose, ils ne se mettent pas à jour tout seuls.
+                                    Plafonds du plan gratuit relevés à la main dans la documentation Cloudflare
+                                    {' — '}{relevesParService(quotas).map(({ services, date }) =>
+                                        `${services.join(', ')} le ${new Date(date).toLocaleDateString('fr-FR')}`).join(' ; ')}
+                                    {' — '}aucune API ne les expose, ils ne se mettent pas à jour tout seuls.
                                 </p>
                             </>
                         )}
