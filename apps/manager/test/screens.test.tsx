@@ -46,6 +46,7 @@ import PanneauMontage from '../components/Video/PanneauMontage';
 import { StoryboardRenderer } from '../components/ContentEditor/renderers/StoryboardRenderer';
 import { DepotPrise } from '../components/Video/DepotPrise';
 import { MontageView, etapeDuReel } from '../components/Video/MontageView';
+import { IdeaModal } from '../components/IdeaModal';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage } from '@luminose/editorial';
 
@@ -857,6 +858,45 @@ describe('vues de contenu', () => {
       expect(() => render(<SocialGridView {...(shared as any)} items={[ITEM]} type={type} />)).not.toThrow();
       cleanup();
     }
+  });
+});
+
+describe('tiroir d’une idée', () => {
+  const IDEE: ContentItem = { ...ITEM, id: 'idee', status: ContentStatus.IDEA, title: 'Si vous venez pour rester blindé, restez chez vous' };
+  const props = {
+    onClose: noop, onChange: asyncNoop, onDelete: asyncNoop, onTransformToDraft: asyncNoop,
+    onAnalyze: noop, isReanalyzing: false,
+  };
+  const travailler = (c: HTMLElement) =>
+    Array.from(c.querySelectorAll('button')).find(b => b.textContent?.includes('Travailler cette idée'))!;
+  const enregistrer = (c: HTMLElement) =>
+    Array.from(c.querySelectorAll('button')).find(b => b.textContent?.includes('Enregistrer'))!;
+
+  it('se monte, et « Travailler » attend l’analyse', () => {
+    const { container } = render(<IdeaModal {...props} item={IDEE} />);
+    expect(travailler(container).disabled).toBe(true);
+  });
+
+  // Le bug du 04/10/2026 : la date restait nulle dans la copie du tiroir, et
+  // « Travailler cette idée » grisé alors que le verdict s'affichait.
+  it('une analyse arrivée tiroir ouvert débloque « Travailler cette idée »', () => {
+    const { container, rerender } = render(<IdeaModal {...props} item={IDEE} />);
+    rerender(<IdeaModal {...props} item={{ ...IDEE, analyzedAt: now, verdict: 'Valide', strategicAngle: 'Un angle' }} />);
+    expect(container.textContent).toContain('Valide');
+    expect(travailler(container).disabled).toBe(false);
+  });
+
+  it('rien de modifié, rien à enregistrer — et la date d’analyse n’est pas renvoyée nulle', async () => {
+    const onChange = vi.fn(async () => {});
+    const analysee = { ...IDEE, analyzedAt: now, verdict: 'Valide' as const };
+    const { container, rerender } = render(<IdeaModal {...props} onChange={onChange} item={IDEE} />);
+    rerender(<IdeaModal {...props} onChange={onChange} item={analysee} />);
+    expect(enregistrer(container).disabled).toBe(true);
+
+    fireEvent.change(container.querySelector('input[type="text"]')!, { target: { value: 'Nouveau titre' } });
+    fireEvent.click(enregistrer(container));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect((onChange.mock.calls[0] as any)[0].analyzedAt).toBe(now);
   });
 });
 
