@@ -1,4 +1,4 @@
-# SPEC v2.6 — gestion.luminose.fr
+# SPEC v2.8 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -25,18 +25,23 @@
 > publications d'une série naissent en Brouillon (§6.3).
 > **v2.4 (02/10/2026)** : la vidéo. Un huitième format, le **Reel expliqué**, alterne
 > la face caméra et des scènes animées écrites par le Rédacteur (§12). Le montage se
-> termine dans l'application, et le rush ne quitte jamais le navigateur (§12.4).
-> **v2.5 (04/10/2026)** : les scènes s'animent, se montent et s'exportent depuis l'onglet,
-> les visuels se déposent et restent dans le navigateur, et le minutage ne dépend que
-> d'une horloge que la prise viendra remplacer (§12.4.1).
-> **v2.6 (04/10/2026)** : la prise se dépose, son son seul est transcrit par Whisper sur
-> Workers AI, le script s'y cale mot à mot et les repères se corrigent à la main (§12.5) ;
-> la vidéo finale sort de l'onglet, en 9:16 ou 4:5, organique ou publicitaire (§12.5.1).
+> termine dans l'application, rendu dans le navigateur (§12.4).
 > **v2.5 (03/10/2026)** : le serveur MCP lit et écrit le corpus (`workers/mcp`,
 > decisions/2026-10-03-corpus.md). Il dépend désormais de `packages/corpus` (§1.1) —
 > le seul paquet du dépôt qu'il importe, pur et sans secret — et garde son propre jeton
 > GitHub. La garde d'écriture du corpus quitte `workers/api` pour `packages/corpus` :
 > la console et le serveur refusent la même chose.
+> **v2.6 (04/10/2026)** : les scènes s'animent, se montent et s'exportent depuis l'onglet,
+> les visuels se déposent sur leurs cartes, et le minutage ne dépend que d'une horloge
+> que la prise viendra remplacer (§12.4.1).
+> **v2.7 (04/10/2026)** : la prise se dépose, son son est transcrit par Whisper sur
+> Workers AI, le script s'y cale mot à mot et les repères se corrigent à la main (§12.5) ;
+> la vidéo finale sort de l'onglet, en 9:16 ou 4:5, organique ou publicitaire (§12.5.1).
+> **v2.8 (04/10/2026)** : le montage est rangé chez Cloudflare — prises et visuels dans
+> R2, transcription et repères dans D1 (§12.4.2). Il survit à des données de site
+> vidées et se reprend depuis un autre poste ; le navigateur n'en garde qu'un cache.
+> Les numéros 2.5 à 2.7 ont été remis dans l'ordre des dates le même jour : deux
+> sessions avaient chacune écrit une « v2.5 ».
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -698,6 +703,25 @@ apparaissent alors désactivés — les confondre fait conclure à l'inverse de 
 `POST /api/transcription` — le son d'une prise vidéo, en WAV base64, rend ses mots
 horodatés. Workers AI, 0 requête D1. Voir §12.5.
 
+### 3.10 Montage d'un Reel expliqué
+
+```
+GET    /api/montage/:id                              prises, visuels, espace occupé (1 batch)
+POST   /api/montage/:id/prises/:role                 déclare une prise, ouvre son envoi (3)
+PUT    /api/montage/:id/prises/:role/parties/:n      une partie, 50 Mo au plus (1)
+POST   /api/montage/:id/prises/:role/terminer        ferme l'envoi (2)
+DELETE /api/montage/:id/prises/:role/envoi           abandonne un envoi raté (2)
+GET    /api/montage/:id/prises/:role/fichier         le fichier, en flux (1)
+PATCH  /api/montage/:id/prises/:role                 transcription, repères (2)
+DELETE /api/montage/:id/prises/:role                 retire la prise et son fichier (2)
+PUT    /api/montage/:id/visuels/:seq/:el             l'image d'une carte, 15 Mo au plus (3)
+GET    /api/montage/:id/visuels/:seq/:el             (1)
+DELETE /api/montage/:id/visuels/:seq/:el             (2)
+```
+
+`:role` vaut `principale` ou `accroche`. Entre parenthèses, le nombre de requêtes D1.
+Voir §12.4.2.
+
 ### 3.7 Ce qu'une liste retient — NORMATIF
 
 **Le tri et le filtre d'une liste vivent sur le compte, pas dans le navigateur.**
@@ -1291,6 +1315,7 @@ suffit).
 | Où se termine le montage ? | **Dans l'application.** La prise est nettoyée dans Final Cut (ratés, silences), l'application pose les scènes et les sous-titres et rend le fichier final. | Les variantes (4:5, seconde accroche) sortent sans refaire de montage. |
 | Quelle identité pour les scènes ? | **L'habillage Luminose** : la mécanique de la référence, habillée de la gamme de `voix/direction-artistique.md` (ivoire, prune, violet nuit), en Futura. | Un gabarit, pas deux. |
 | Que porte une carte ? | **Du texte, et quand l'image dit mieux que le mot, une illustration ou un schéma** — surtout en pédagogie, et aussi pour l'humour. Les cartes n'ont pas toutes la même taille. Révisé le jour même : « Faut de la souplesse. » | Le Rédacteur **décrit** le visuel ; Florent le produit (ChatGPT Images, Sketch) et le dépose sur la carte. |
+| Où vivent prises et visuels ? | **Chez Cloudflare** (04/10/2026) : prises et visuels dans R2, transcription et repères dans D1. La première version les gardait dans le navigateur. | Un montage survit à des données de site vidées et se reprend depuis un autre poste ; une prise met une à deux minutes à partir, et l'espace gratuit (10 Go) se surveille. |
 
 La première réponse à la troisième question était « la typographie seule », par crainte
 du cliché — une icône de « honte » ou de « peur ». Florent l'a corrigée : un mécanisme se
@@ -1375,21 +1400,21 @@ ne tourne pas un script dont l'écran sait déjà qu'il ne tiendra pas.
 **Le contrôle est porté par le registre** (`FormatDefinition.controler`). L'éditeur
 demande « ce format a-t-il des contrôles ? », jamais « est-ce un Reel expliqué ? ».
 
-### 12.4 Le montage — la vidéo ne quitte pas le navigateur — NORMATIF
+### 12.4 Le montage — rendu dans le navigateur — NORMATIF
 
 Rendu par **Remotion** : `@remotion/player` pour l'aperçu, `@remotion/web-renderer`
 (WebCodecs, stable depuis 4.0.491) pour le fichier. Licence gratuite pour un indépendant
 ou une structure de trois salariés au plus.
 
-Le rush ne part **jamais** au Worker. Une minute en 4K pèse des centaines de mégaoctets,
-le Worker gratuit plafonne à 100 Mo par requête, et il n'y a aucune raison de faire
-transiter une vidéo de soi pour la recomposer à côté. Seul le **son** sort, extrait dans
-le navigateur, pour la transcription (§12.5).
+**Le rendu se fait dans l'onglet**, jamais sur le Worker : un Worker n'exécute ni Chrome
+ni FFmpeg. Il demande **WebCodecs** — Chrome 94, Firefox 130, Safari 26 et suivants,
+selon Remotion ; vérifié dans Chrome seulement — sur une page **sécurisée** (https ou
+localhost), et il occupe l'onglet le temps de l'encodage, à peu près la durée de la
+vidéo. `@remotion/lambda` est écarté : il ajouterait AWS, déjà « exploré sans suite » au
+parc d'outils, un compte, des clés et une facture. Un rendu côté Cloudflare demanderait
+Containers, donc le plan payant ; rien ne le justifie tant que l'onglet suffit.
 
-Ce que ce choix coûte, dit franchement : le rendu exige **Chrome** (WebKit ne sait pas
-tout), et il occupe l'onglet le temps de l'encodage. `@remotion/lambda` est écarté : il
-ajouterait AWS, déjà « exploré sans suite » au parc d'outils, un compte, des clés et une
-facture. FFmpeg côté serveur est impossible sur un Worker.
+Le **stockage**, lui, est chez Cloudflare depuis la v2.8 (§12.4.2).
 
 Sorties : **9:16 1080 × 1920, 30 i/s, H.264/AAC** ; variante **4:5** (fil Meta) en
 recomposant les scènes, pas en recadrant. Le 16:9 n'est pas prévu : une face caméra
@@ -1435,13 +1460,56 @@ L'export s'annonce dans le bandeau d'activité, avec sa progression réelle, et 
 5.0 c'est facultatif, et c'est ce qui l'empêche d'envoyer quoi que ce soit — pas même
 l'origine de la page. À revoir au passage à Remotion 5.
 
-**Les visuels déposés restent dans le navigateur** — IndexedDB, base `LuminoseMontage`,
-une ligne par (contenu, séquence, élément), avec la description à laquelle l'image
-répondait. Ce que ça coûte : un visuel déposé sur le Mac n'existe pas ailleurs, et
-vider les données du site l'efface. Le storyboard le dit, signale une image déposée
-pour une carte dont la description a changé depuis, et se tait (sans proposer de
-dépôt) quand le navigateur refuse le stockage. Base à part : un magasin de plus dans
-`LuminoseDB` en monterait la version, et cette montée purge le cache des contenus.
+**Les visuels déposés sont rangés chez Cloudflare** (§12.4.2), une ligne par (contenu,
+séquence, élément), avec la description à laquelle l'image répondait. Le storyboard
+signale une image déposée pour une carte dont la description a changé depuis, et se tait
+— sans proposer de dépôt — quand R2 n'est pas lié au Worker.
+
+**Les images sont décodées avant chaque export**, et un export qui bute sur une attente de
+chargement (`delayRender`) se relance **une fois**. Le 04/10/2026, un export complet a
+échoué une fois sur une image restée « en chargement » 28 secondes, puis a réussi à
+l'identique : un hoquet du chargement d'images de Remotion, pas un défaut de la scène.
+
+### 12.4.2 Le montage rangé chez Cloudflare (v2.8) — NORMATIF
+
+Décision de Florent, le 04/10/2026 : **tout chez Cloudflare**. La première version gardait
+prises et visuels dans le navigateur ; un montage se perdait avec les données du site, et
+ne se reprenait pas d'un autre poste.
+
+| Quoi | Où | Pourquoi là |
+| :--- | :--- | :--- |
+| Fichiers des prises et des visuels | **R2**, bucket `luminose-montage`, liaison `MONTAGE` | objets volumineux ; 10 Go gratuits, sortie gratuite |
+| Leur description, la transcription, les repères corrigés | **D1**, `montage_prises` et `montage_visuels` (migration 0007) | quelques kilo-octets, lus en une requête avec le reste |
+| Les prises déjà téléchargées | **cache du navigateur**, base `LuminoseMontageCache` | ne pas retélécharger des centaines de mégaoctets à chaque ouverture |
+
+**Routes** (§3.10). Une prise dépasse souvent les **100 Mo** qu'accepte une requête au
+Worker : elle s'envoie en **parties de 50 Mo**, par l'envoi en plusieurs parties de R2
+(`createMultipartUpload`), chacune passant par le Worker — même origine, même jeton de
+session, aucune clé R2 à créer ni CORS à régler. Une partie qui échoue se rejoue une fois ;
+un envoi qui échoue s'abandonne, et rien n'est gardé d'une prise à moitié envoyée.
+
+**Remplacer une prise** retire l'ancienne et son fichier — c'est ce qui rend la place — et
+reprend ses repères corrigés : on remplace souvent une prise par sa version mieux
+nettoyée. Sa transcription, elle, se refait : le fichier a changé.
+
+**Le cache local est un cache.** Sa clé est l'objet R2, neuf à chaque dépôt : un fichier
+en cache sous la bonne clé est la bonne version, sans rien comparer. Une version par
+place ; le vider ne perd rien.
+
+**L'espace se surveille** : le panneau affiche ce qu'occupent tous les contenus, sur les
+10 Go gratuits. Une prise retirée rend sa place. Rien ne purge seul : effacer une vidéo
+qu'on a peut-être encore à remonter n'est pas une décision à prendre à la place de
+Florent.
+
+**La liaison R2 est FACULTATIVE**, comme celle de Workers AI : absente, l'état du montage
+se lit quand même, et tout dépôt se refuse en 409 en disant quoi ajouter. Le bucket est
+créé par `scripts/deploy.sh` s'il manque, **avant les migrations** ; s'il ne peut pas
+l'être — un jeton sans droit sur R2 —, le script s'arrête là, et la production reste telle
+qu'elle était.
+
+L'export de la base (§9.4) emporte les descriptions — transcriptions, repères,
+descriptions des visuels —, **pas les fichiers** : plusieurs gigaoctets de vidéo ne se
+téléchargent pas d'un clic.
 
 ### 12.5 Le calage sur la prise (V3) — NORMATIF
 
@@ -1451,7 +1519,7 @@ par morceaux : une prise de plusieurs centaines de mégaoctets ne se charge jama
 entier, et un .mov se lit comme un .mp4. Une prise que ce navigateur ne sait pas
 décoder est refusée **au dépôt**, pas à l'export : c'est ici que se fera le rendu.
 
-**Seul le son part.** Extrait en WAV mono 16 kHz — environ deux mégaoctets la minute —,
+**Le son part pour être transcrit.** Extrait en WAV mono 16 kHz — environ deux mégaoctets la minute —,
 il va à `POST /api/transcription`, qui le passe à Whisper sur Workers AI
 (`@cf/openai/whisper-large-v3-turbo`, langue `fr`) et rend les mots horodatés
 (`segments[].words[]`). Pas de clé : une liaison `AI` du Worker (wrangler.toml).
@@ -1488,9 +1556,9 @@ un clic sur un repère amène l'aperçu à cet instant. La correction l'emporte 
 calage, se garde avec la prise, et survit à une nouvelle transcription comme au
 remplacement de la prise par une version mieux nettoyée.
 
-**Les prises restent dans le navigateur** (base `LuminoseMontage`, §12.4.1) : les
-métadonnées et la transcription dans un magasin, le fichier dans un autre — corriger un
-repère ne réécrit pas des centaines de mégaoctets.
+**Les prises sont rangées chez Cloudflare** (§12.4.2) : le fichier dans R2, sa
+description, sa transcription et ses repères dans D1 — corriger un repère ne réécrit pas
+des centaines de mégaoctets.
 
 **Les sous-titres** des passages caméra sortent des mots dits, groupés par quatre au
 plus, coupés à une fin de phrase ou à un silence de plus de 0,6 s. Un mot dit qui
@@ -1535,6 +1603,13 @@ extraction du son, calage à 99 % malgré un mot omis et un nom mal écrit, aper
 simulée** : Whisper sur Workers AI n'est joignable qu'une fois le Worker déployé avec
 sa liaison `AI`. Ce que rend Whisper sur la voix de Florent — présence des mots
 horodatés, précision des instants — est la première chose à regarder.
+
+Le rangement chez Cloudflare (§12.4.2) a été vérifié de la même façon, contre une
+**émulation** de l'API du montage : envoi en trois parties, transcription rangée, autre
+poste simulé (cache vidé, prise retéléchargée une fois puis servie par le cache), visuel
+et repère retrouvés, exports 9:16 et 4:5. Le Worker et ses routes sont couverts par des
+tests contre un R2 en mémoire ; **le passage du flux d'une partie à R2 (`uploadPart` sur
+le corps de la requête) ne se vérifie qu'une fois déployé.**
 
 ### 12.6 Phasage — NORMATIF
 

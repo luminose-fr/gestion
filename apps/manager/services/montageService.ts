@@ -1,88 +1,34 @@
 /**
- * Ce que le montage d'un Reel expliqué garde dans le navigateur (SPEC §12.4) :
- * les visuels déposés sur les cartes, et les prises vidéo avec leur
- * transcription.
+ * Le cache local des prises d'un Reel expliqué (SPEC §12.4, v2.8).
  *
- * Ils vivent ici, et seulement ici : la vidéo ne quitte pas le poste où elle se
- * monte, ses images non plus. Seul le SON d'une prise part, une fois, pour être
- * transcrit (§12.5) ; la transcription revient et se range à côté de la prise.
+ * Les prises vivent chez Cloudflare (R2) ; ce cache évite d'en retélécharger
+ * des centaines de mégaoctets à chaque ouverture du storyboard. Il n'est qu'un
+ * cache : le vider ne perd rien, la prise se retélécharge.
  *
- * Ce que ça coûte, dit franchement : ce qui est déposé sur le Mac n'existe pas
- * sur un autre poste, et vider les données du site l'efface. Une prise pèse ce
- * que pèse la vidéo — l'écran propose de la retirer une fois la vidéo exportée.
+ * La clé est l'objet R2 (`r2Cle`), neuf à chaque dépôt : un fichier en cache
+ * sous la bonne clé est forcément la bonne version, sans rien comparer. Une
+ * seule version gardée par place (contenu, rôle) — la précédente part quand la
+ * suivante arrive, sinon le cache grossirait d'une prise à chaque
+ * remplacement.
  *
- * Base à part (`LuminoseMontage`) plutôt que des magasins de plus dans
- * `LuminoseDB` : en ajouter là-bas exigerait d'en monter la version, et cette
- * montée purge le cache des contenus sous la v4. Rien à gagner à lier les deux.
+ * Base à part (`LuminoseMontageCache`) plutôt qu'un magasin de plus dans
+ * `LuminoseDB` : en ajouter un là-bas exigerait d'en monter la version, et
+ * cette montée purge le cache des contenus sous la v4.
  */
-import type { Transcription } from '@luminose/shared';
 
-const DB_NAME = 'LuminoseMontage';
+const DB_NAME = 'LuminoseMontageCache';
 const DB_VERSION = 1;
-const VISUELS = 'visuels';
 const PRISES = 'prises';
-/**
- * Le fichier d'une prise vit à part de ses métadonnées : corriger un repère
- * réécrit la ligne de la prise, et il ne faut pas que ce soit des centaines de
- * mégaoctets à chaque clic.
- */
-const FICHIERS = 'fichiers';
 
-// ── Les visuels ──────────────────────────────────────────────────────
-
-export interface VisuelDepose {
-    /** `contenu:séquence:élément` — voir `cleVisuel`. */
-    cle: string;
-    contenuId: string;
-    sequence: number;
-    element: number;
-    /**
-     * La description à laquelle l'image répondait au moment du dépôt. Une
-     * rédaction suivante peut changer la carte : l'écran le signale plutôt que de
-     * poser une image sur une description qui n'est plus la sienne.
-     */
-    description: string;
-    image: Blob;
-    deposeLe: number;
-}
-
-/**
- * La place d'un visuel : un contenu, une séquence, un élément. Le rang suffit —
- * une nouvelle rédaction qui déplace les cartes change aussi les descriptions,
- * et c'est la description qui dit si l'image va encore.
- */
-export const cleVisuel = (contenuId: string, sequence: number, element: number): string =>
-    `${contenuId}:${sequence}:${element}`;
-
-// ── Les prises ───────────────────────────────────────────────────────
-
-/** La prise principale, et la seconde accroche tournée pour la publicité. */
-export type RolePrise = 'principale' | 'accroche';
-
-export interface PriseDeposee {
+interface PriseEnCache {
+    r2Cle: string;
     /** `contenu:rôle`. */
-    cle: string;
-    contenuId: string;
-    role: RolePrise;
-    nom: string;
-    /** En secondes ; largeur et hauteur en pixels affichés. */
-    duree: number;
-    largeur: number;
-    hauteur: number;
-    transcription: Transcription | null;
-    transcriteLe: number | null;
-    /**
-     * Les repères corrigés à la main, en secondes dans la prise, par
-     * `séquence:élément`. Ils survivent à une nouvelle transcription : c'est
-     * Florent qui a vu la vidéo.
-     */
-    reperes: Record<string, number>;
-    deposeeLe: number;
+    place: string;
+    fichier: Blob;
+    misEnCacheLe: number;
 }
 
-export const clePrise = (contenuId: string, role: RolePrise): string => `${contenuId}:${role}`;
-
-// ── La base ──────────────────────────────────────────────────────────
+export const placeDe = (contenuId: string, role: string): string => `${contenuId}:${role}`;
 
 const ouvrir = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
@@ -92,77 +38,69 @@ const ouvrir = (): Promise<IDBDatabase> => new Promise((resolve, reject) => {
     const requete = indexedDB.open(DB_NAME, DB_VERSION);
     requete.onupgradeneeded = () => {
         const db = requete.result;
-        for (const magasin of [VISUELS, PRISES]) {
-            if (!db.objectStoreNames.contains(magasin)) {
-                db.createObjectStore(magasin, { keyPath: 'cle' }).createIndex('contenuId', 'contenuId');
-            }
+        if (!db.objectStoreNames.contains(PRISES)) {
+            db.createObjectStore(PRISES, { keyPath: 'r2Cle' }).createIndex('place', 'place');
         }
-        if (!db.objectStoreNames.contains(FICHIERS)) db.createObjectStore(FICHIERS);
     };
     requete.onsuccess = () => resolve(requete.result);
     requete.onerror = () => reject(requete.error);
 });
 
-const transaction = async <T>(magasin: string, mode: IDBTransactionMode, travail: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
+const avecLaBase = async <T>(travail: (db: IDBDatabase) => Promise<T>): Promise<T> => {
     const db = await ouvrir();
     try {
-        return await new Promise<T>((resolve, reject) => {
-            const requete = travail(db.transaction(magasin, mode).objectStore(magasin));
-            requete.onsuccess = () => resolve(requete.result);
-            requete.onerror = () => reject(requete.error);
-        });
+        return await travail(db);
     } finally {
         db.close();
     }
 };
 
-export const listerVisuels = (contenuId: string): Promise<VisuelDepose[]> =>
-    transaction(VISUELS, 'readonly', store => store.index('contenuId').getAll(contenuId) as IDBRequest<VisuelDepose[]>);
+const attendre = <T>(requete: IDBRequest<T>): Promise<T> => new Promise((resolve, reject) => {
+    requete.onsuccess = () => resolve(requete.result);
+    requete.onerror = () => reject(requete.error);
+});
 
-export const deposerVisuel = (visuel: VisuelDepose): Promise<IDBValidKey> =>
-    transaction(VISUELS, 'readwrite', store => store.put(visuel));
-
-export const retirerVisuel = (cle: string): Promise<undefined> =>
-    transaction(VISUELS, 'readwrite', store => store.delete(cle) as IDBRequest<undefined>);
-
-export const listerPrises = (contenuId: string): Promise<PriseDeposee[]> =>
-    transaction(PRISES, 'readonly', store => store.index('contenuId').getAll(contenuId) as IDBRequest<PriseDeposee[]>);
-
-export const lireFichierDePrise = (cle: string): Promise<Blob | undefined> =>
-    transaction(FICHIERS, 'readonly', store => store.get(cle) as IDBRequest<Blob | undefined>);
-
-/** Les métadonnées seules — une transcription, un repère corrigé. */
-export const enregistrerPrise = (prise: PriseDeposee): Promise<IDBValidKey> =>
-    transaction(PRISES, 'readwrite', store => store.put(prise));
-
-/** Une prise neuve : son fichier et ses métadonnées, ensemble ou pas du tout. */
-export const deposerPrise = async (prise: PriseDeposee, fichier: Blob): Promise<void> => {
-    const db = await ouvrir();
+/** Le fichier en cache pour cet objet R2, ou `undefined`. Un cache illisible vaut un cache vide. */
+export const lireEnCache = async (r2Cle: string): Promise<Blob | undefined> => {
     try {
-        await new Promise<void>((resolve, reject) => {
-            const tx = db.transaction([PRISES, FICHIERS], 'readwrite');
-            tx.objectStore(FICHIERS).put(fichier, prise.cle);
-            tx.objectStore(PRISES).put(prise);
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-            tx.onabort = () => reject(tx.error ?? new Error('Enregistrement de la prise interrompu'));
-        });
-    } finally {
-        db.close();
+        return await avecLaBase(async db =>
+            (await attendre(db.transaction(PRISES).objectStore(PRISES).get(r2Cle)) as PriseEnCache | undefined)?.fichier);
+    } catch {
+        return undefined;
     }
 };
 
-export const retirerPrise = async (cle: string): Promise<void> => {
-    const db = await ouvrir();
+/** Met une prise en cache, et oublie les versions précédentes de la même place. */
+export const mettreEnCache = async (r2Cle: string, place: string, fichier: Blob): Promise<void> => {
     try {
-        await new Promise<void>((resolve, reject) => {
-            const tx = db.transaction([PRISES, FICHIERS], 'readwrite');
-            tx.objectStore(FICHIERS).delete(cle);
-            tx.objectStore(PRISES).delete(cle);
+        await avecLaBase(db => new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(PRISES, 'readwrite');
+            const store = tx.objectStore(PRISES);
+            const anciennes = store.index('place').getAllKeys(place);
+            anciennes.onsuccess = () => {
+                for (const cle of anciennes.result) if (cle !== r2Cle) store.delete(cle);
+                store.put({ r2Cle, place, fichier, misEnCacheLe: Date.now() } satisfies PriseEnCache);
+            };
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
-        });
-    } finally {
-        db.close();
+        }));
+    } catch {
+        /* un cache qui refuse d'écrire coûte un téléchargement de plus, rien d'autre */
+    }
+};
+
+/** Oublie tout ce qui est en cache pour une place : la prise a été retirée. */
+export const oublier = async (place: string): Promise<void> => {
+    try {
+        await avecLaBase(db => new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(PRISES, 'readwrite');
+            const store = tx.objectStore(PRISES);
+            const cles = store.index('place').getAllKeys(place);
+            cles.onsuccess = () => { for (const cle of cles.result) store.delete(cle); };
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        }));
+    } catch {
+        /* rien à oublier dans un cache qu'on ne peut pas ouvrir */
     }
 };

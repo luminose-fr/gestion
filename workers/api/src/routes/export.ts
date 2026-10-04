@@ -7,12 +7,17 @@
  * d'être gardé : c'est justement une ligne effacée par erreur qu'on vient y
  * rechercher.
  *
- * 1 batch de 6 lectures : borné, indépendant du volume (SPEC §3.6).
+ * 1 batch de 8 lectures : borné, indépendant du volume (SPEC §3.6).
+ *
+ * Le montage (SPEC §12.4) y entre par ses DESCRIPTIONS — transcriptions,
+ * repères corrigés, descriptions des visuels —, pas par ses fichiers : une
+ * sauvegarde de plusieurs gigaoctets de vidéo ne se télécharge pas d'un clic,
+ * et les fichiers vivent dans R2, qui n'est pas la base.
  */
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import {
-  now, rowToContent, rowToSerie, rowToModel, rowToGeneration, rowToCoachMessage,
+  now, rowToContent, rowToSerie, rowToModel, rowToGeneration, rowToCoachMessage, rowToPrise, rowToVisuel,
 } from '../db';
 
 export const exportRoute = new Hono<{ Bindings: Env }>();
@@ -31,6 +36,8 @@ exportRoute.get('/', async (c) => {
     // un dossier, s'envoie par mail, se pose sur un disque externe. Y glisser
     // des identifiants d'API en ferait un secret de plus à protéger.
     c.env.DB.prepare("SELECT * FROM app_settings WHERE key NOT LIKE 'provider_key:%' ORDER BY key ASC"),
+    c.env.DB.prepare('SELECT * FROM montage_prises ORDER BY created_at ASC'),
+    c.env.DB.prepare('SELECT * FROM montage_visuels ORDER BY created_at ASC'),
   ]);
 
   const rows = (index: number): any[] => (results[index]?.results ?? []) as any[];
@@ -46,6 +53,9 @@ exportRoute.get('/', async (c) => {
     generations: rows(3).map(rowToGeneration),
     coachMessages: rows(4).map(rowToCoachMessage),
     settings: rows(5).map((r) => ({ key: r.key, value: r.value, updatedAt: r.updated_at })),
+    // Avec `deletedAt` : comme le reste, une sauvegarde garde les lignes retirées.
+    montagePrises: rows(6).map((r) => ({ ...rowToPrise(r), deletedAt: r.deleted_at ?? null })),
+    montageVisuels: rows(7).map((r) => ({ ...rowToVisuel(r), deletedAt: r.deleted_at ?? null })),
   };
 
   return new Response(JSON.stringify(payload, null, 2), {

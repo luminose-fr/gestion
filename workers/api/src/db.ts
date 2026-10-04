@@ -9,7 +9,9 @@
  * passage ; les charges éditoriales (`draft`, `slides`, `payload`) restent des
  * chaînes — seul @luminose/editorial sait les lire (SPEC §2.3).
  */
-import type { Content, Serie, AIModel, Generation, CoachMessage, MesureSynthese } from '@luminose/shared';
+import type {
+  Content, Serie, AIModel, Generation, CoachMessage, MesureSynthese, PriseDistante, VisuelDistant, Transcription,
+} from '@luminose/shared';
 
 export const now = () => Date.now();
 export const newId = () => crypto.randomUUID();
@@ -112,6 +114,48 @@ export const rowToCoachMessage = (r: any): CoachMessage => ({
   quickReplies: jsonArray(r.quick_replies),
   readyForEditor: bool(r.ready_for_editor),
   createdAt: r.created_at,
+});
+
+/** Un objet JSON de la base, ou `repli` s'il est illisible : une ligne abîmée ne doit pas en emporter d'autres. */
+const jsonObjet = <T>(v: unknown, repli: T): T => {
+  if (typeof v !== 'string') return repli;
+  try {
+    const lu = JSON.parse(v);
+    return lu && typeof lu === 'object' && !Array.isArray(lu) ? lu as T : repli;
+  } catch {
+    return repli;
+  }
+};
+
+export const rowToPrise = (r: any): PriseDistante => ({
+  id: r.id,
+  contentId: r.content_id,
+  role: r.role,
+  nom: r.nom,
+  type: r.type,
+  taille: r.taille,
+  duree: r.duree,
+  largeur: r.largeur,
+  hauteur: r.hauteur,
+  r2Cle: r.r2_cle,
+  pretLe: r.pret_le ?? null,
+  transcription: jsonObjet<Transcription | null>(r.transcription, null),
+  transcriteLe: r.transcrite_le ?? null,
+  reperes: jsonObjet<Record<string, number>>(r.reperes, {}),
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+export const rowToVisuel = (r: any): VisuelDistant => ({
+  id: r.id,
+  contentId: r.content_id,
+  sequence: r.sequence,
+  element: r.element,
+  description: r.description,
+  type: r.type,
+  taille: r.taille,
+  r2Cle: r.r2_cle,
+  updatedAt: r.updated_at,
 });
 
 // ── Entités → colonnes ───────────────────────────────────────────────────
