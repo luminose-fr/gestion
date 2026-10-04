@@ -7,7 +7,7 @@
  * modèle, avec `isError` : c'est ce qui lui permet de corriger sa demande.
  */
 export class Refus extends Error {
-  constructor(message: string, readonly status: 400 | 403 | 404 | 503 = 400) {
+  constructor(message: string, readonly status: 400 | 403 | 404 | 409 | 503 = 400) {
     super(message);
     this.name = 'Refus';
   }

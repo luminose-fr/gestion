@@ -1,4 +1,4 @@
-# SPEC v2.3 — gestion.luminose.fr
+# SPEC v2.5 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -26,6 +26,11 @@
 > **v2.4 (02/10/2026)** : la vidéo. Un huitième format, le **Reel expliqué**, alterne
 > la face caméra et des scènes animées écrites par le Rédacteur (§12). Le montage se
 > termine dans l'application, et le rush ne quitte jamais le navigateur (§12.4).
+> **v2.5 (03/10/2026)** : le serveur MCP lit et écrit le corpus (`workers/mcp`,
+> decisions/2026-10-03-corpus.md). Il dépend désormais de `packages/corpus` (§1.1) —
+> le seul paquet du dépôt qu'il importe, pur et sans secret — et garde son propre jeton
+> GitHub. La garde d'écriture du corpus quitte `workers/api` pour `packages/corpus` :
+> la console et le serveur refusent la même chose.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -111,8 +116,9 @@ gestion.luminose.fr/
 │   │   ├── migrations/     NNNN_description.sql
 │   │   └── src/routes/
 │   └── mcp/                serveur MCP pour Claude, mcp.luminose.fr —
-│       │                   OAuth + Google Ads : lire, et préparer en pause
-│       └── migrations/     journal des écritures, base `luminose-mcp`
+│       │                   OAuth + Google Ads : lire, et préparer en pause ;
+│       │                   le corpus : lire main, écrire par commit
+│       └── migrations/     journaux des écritures, base `luminose-mcp`
 └── scripts/
     └── deploy.sh
 ```
@@ -122,7 +128,7 @@ gestion.luminose.fr/
 ```
 apps/manager  ──▶ packages/{shared, editorial, subtitles, psychedelics}
 workers/api   ──▶ packages/{shared, editorial, ai}
-workers/mcp   ──▶ (rien du dépôt)
+workers/mcp   ──▶ packages/corpus
 packages/ai   ──▶ packages/shared
 packages/editorial ──▶ (rien)
 packages/{subtitles, psychedelics} ──▶ (rien)
@@ -135,10 +141,13 @@ packages/{subtitles, psychedelics} ──▶ (rien)
 - `workers/mcp` ne partage avec `workers/api` ni code, ni secret, ni binding. Son
   authentification n'est pas celle de la console (OAuth pour Claude), et une erreur de
   configuration de l'un ne doit pas pouvoir exposer l'autre. Sa base D1 est la sienne
-  (`luminose-mcp`, le journal des écritures Google Ads) : celle de la console porte les clés
-  des fournisseurs IA (§5.5), et il n'a pas à les voir. Dépendances runtime :
-  `zod` et `@cloudflare/workers-oauth-provider`. Mise en place et écarts avec le cadrage :
-  `workers/mcp/README.md`.
+  (`luminose-mcp`, les journaux des écritures Google Ads et corpus) : celle de la console
+  porte les clés des fournisseurs IA (§5.5), et il n'a pas à les voir. Son jeton GitHub est
+  le sien, pas celui de la console. Dépendances runtime : `zod`,
+  `@cloudflare/workers-oauth-provider` et, depuis le 03/10/2026, `@luminose/corpus` — pur,
+  sans secret ni accès disque dans ce qu'il exporte, pour composer les profils du corpus
+  avec le même `composer()` que la console et refuser ce qu'elle refuse d'écrire
+  (`refusDeContenu`). Mise en place et écarts avec le cadrage : `workers/mcp/README.md`.
 
 ### 1.2 Une seule origine
 

@@ -6,21 +6,27 @@ Luminose — campagnes, coûts, clics, conversions, termes de recherche — et, 
 s'active par ce serveur, l'activation (donc la dépense) reste dans l'interface Google Ads.
 Voir « Écrire », plus bas.
 
+Depuis le 03/10/2026, il lit aussi **le corpus** de Luminose tel que la branche `main` le
+porte, et y écrit par commit, dans les mêmes deux temps. Voir « Le corpus », plus bas.
+
 Adresse du connecteur : **`https://mcp.luminose.fr/mcp`** — avec `/mcp`, au caractère près.
 
 ```
 Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche B)──▶ API Google Ads v25
+                                          └─(jeton GitHub, couche C)──▶ dépôt luminose-fr/gestion
 ```
 
 - **Couche A** — Claude vers ce Worker, par
   [`@cloudflare/workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider) (1.2).
   Claude se présente par un **Client ID Metadata Document** (CIMD) ; pas d'enregistrement
   dynamique. Florent se connecte avec son compte Google, qui ne livre que `openid email` ;
-  le Worker compare l'adresse certifiée à `ALLOWED_EMAIL` et refuse tout le reste. C'est la
-  couche OAuth qui servira aux outils du corpus.
+  le Worker compare l'adresse certifiée à `ALLOWED_EMAIL` et refuse tout le reste. La même
+  connexion sert les outils du corpus.
 - **Couche B** — ce Worker vers Google Ads. Un refresh token (scope `adwords`) posé en
   secret, obtenu une fois. **Aucun en-tête `developer-token`** : il a été supprimé les
   9-10/09/2026, l'accès est porté par le projet Google Cloud.
+- **Couche C** — ce Worker vers GitHub, pour le corpus. Un jeton à grain fin posé en
+  secret, **le sien** : pas celui de la console ([src/github.ts](src/github.ts)).
 
 ### Qui fait quoi dans la couche A
 
@@ -54,6 +60,7 @@ livrés **lot par lot**, chacun déployé et essayé avant le suivant.
 | :--- | :--- | :--- |
 | 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` | en service |
 | 2 — créer, Search | `ads_campagne_creer`, `ads_groupe_creer`, `ads_annonce_creer`, `ads_mots_cles_ajouter` | livré |
+| 2 bis — listes de négatifs | `ads_liste_negatifs_creer`, `ads_liste_negatifs_ajouter`, `ads_liste_negatifs_retirer`, `ads_liste_associer`, `ads_liste_dissocier`, `ads_negatifs_retirer` | livré ([decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md)) |
 | 3 — Performance Max | à définir | à venir |
 | 4 — Demand Gen | à définir | à venir |
 | 5 — le budget | `ads_budget_modifier` | à venir |
@@ -67,6 +74,13 @@ Google vérifie tout, n'applique rien, et l'outil rend un aperçu et un jeton. A
 il exécute — à condition que les opérations soient exactement celles de l'aperçu. Le jeton
 est un HMAC de ces opérations, vaut dix minutes, et ne sert qu'une fois.
 
+Ce que l'aperçu a **lu dans le compte** et dont les opérations dépendent — les exceptions de
+règlement rendues par Google, les doublons écartés, les critères à retirer — voyage dans le
+jeton, signé. L'exécution reconstruit donc les opérations sans relire ce qu'un appel
+concurrent a pu changer entre-temps ; le compte relu à l'exécution ne peut plus qu'**écarter**
+une opération devenue sans objet (un doublon apparu, une entrée déjà retirée), jamais en
+ajouter une. C'est la correction de l'incident du 02/10/2026, plus bas.
+
 ### Les verrous, et où ils vivent
 
 Tous dans le serveur, jamais dans les descriptions d'outils : une consigne au modèle n'est
@@ -75,8 +89,8 @@ et chacun a été vérifié en le cassant : son test échoue.
 
 | | Verrou | Où |
 | :--- | :--- | :--- |
-| V1 | aucune opération ne passe à `ENABLED`, aucun `remove` ; un `status` en entrée est refusé | table fermée, [src/google-ads.ts](src/google-ads.ts) |
-| V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu | [src/ecriture.ts](src/ecriture.ts) |
+| V1 | aucune opération ne passe à `ENABLED` ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — que **le compte confirme** avant chaque envoi | table fermée et `verifierRetraits`, [src/google-ads.ts](src/google-ads.ts) |
+| V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu, ou d'une partie quand le compte en a rendu le reste sans objet ; ce que l'aperçu a lu voyage dans le jeton | [src/ecriture.ts](src/ecriture.ts) |
 | V5 | une table fermée de services, et pour chacun la seule forme d'opération permise | `OPERATIONS_PERMISES`, [src/google-ads.ts](src/google-ads.ts) |
 | V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
 | V8 | sans le scope `ads:ecrire`, refus — accordé seulement en cochant la case du consentement | [src/ecriture.ts](src/ecriture.ts), [src/autorisation.ts](src/autorisation.ts) |
@@ -121,6 +135,45 @@ et chacun a été vérifié en le cassant : son test échoue.
   liste ; elles ne partent qu'avec le jeton, donc après ton accord. Une règle sans
   exception possible fait refuser : reformuler ou retirer.
 
+### Décisions des listes de négatifs (03/10/2026)
+
+Détail : [decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md).
+
+- **Une liste pour ce qui vaut pour plusieurs campagnes**, un négatif de campagne pour ce qui
+  est propre à une campagne. Les descriptions d'outils le disent au modèle.
+- **Les retraits d'exclusion entrent dans la table**, et eux seuls : négatif de campagne,
+  entrée de liste, lien liste–campagne. Le modèle désigne par texte et correspondance ; le
+  serveur résout les identifiants, et la table redemande au compte, avant tout envoi, que
+  chaque cible soit bien une exclusion — la forme d'un nom de ressource ne distingue pas un
+  négatif de la zone d'une campagne. L'aperçu d'un retrait dit qu'il peut rouvrir du trafic,
+  et liste ce qu'il retire.
+- **Aucune liste ne se supprime** par ce serveur, et rien n'active une campagne.
+- **Doublons** — déjà dans la liste, ou déjà exclus au niveau campagne sur toutes les
+  campagnes liées : signalés, écartés, jamais une erreur. Un négatif de campagne présent sur
+  une partie seulement des campagnes liées s'ajoute, et l'aperçu le dit.
+- **Avertissement de blocage**, jamais un refus, quand un négatif exclurait la recherche
+  identique à un mot-clé positif actif ou en pause d'une campagne liée — au texte près,
+  accents compris : Google n'étend pas les négatifs aux variantes proches.
+- **Limites de Google** (aide Google Ads, relevées le 03/10/2026) : 20 listes par compte,
+  5 000 mots-clés par liste, vérifiées avant l'aperçu. `LIMITES_LISTES` dans
+  [src/google-ads.ts](src/google-ads.ts).
+
+### L'incident du 02/10/2026 — quatre exécutions concurrentes
+
+Quatre `ads_mots_cles_ajouter` lancés ensemble, quatre groupes, quatre jetons : deux refusés,
+« Le contenu diffère de celui de l'aperçu » ; rejoués un par un, passés. Diagnostic : à
+l'exécution, l'outil **relisait le règlement de Google** pour reconstruire les clés
+d'exception, et l'empreinte portait sur ces clés. Or Google, une fois une exception demandée
+pour un texte, ne l'arrête plus (documentation « Request exemption for keywords ») : les deux
+premières exécutions, en demandant l'exception pour un texte que les quatre groupes
+partageaient, ont fait que les deux suivantes reconstruisaient des opérations **sans**
+exception — une autre empreinte. Rien dans l'isolat du Worker n'était partagé ; l'état
+partagé, c'était le compte. Corrigé en faisant voyager les clés dans le jeton (voir « Deux temps ») ; le test
+[test/creation.test.ts](test/creation.test.ts) rejoue l'ordre exact de l'incident, et
+échoue sur le code d'avant. Au passage, la création du libellé « [Claude] » au premier
+besoin avait la même course : quand deux exécutions le créent ensemble, la seconde relit
+désormais celui de la première au lieu de déclarer « libellé NON posé ».
+
 ### Mise en place du lot 1 — ce que Florent fait
 
 Sur la VM, depuis `workers/mcp` :
@@ -140,6 +193,61 @@ Relire le journal :
 
 ```bash
 npx wrangler d1 execute luminose-mcp --remote --command "SELECT id, datetime(created_at/1000, 'unixepoch') AS quand, outil, issue, erreur FROM ads_ecritures ORDER BY id DESC LIMIT 20"
+```
+
+## Le corpus — lire `main`, écrire par commit
+
+Décision du 03/10/2026 : [decisions/2026-10-03-corpus.md](decisions/2026-10-03-corpus.md).
+
+| Outil | Ce qu'il fait | GitHub |
+| :--- | :--- | :--- |
+| `corpus_index` | les fiches, par bloc : chemin, titre, type, statut, revues | une requête GraphQL |
+| `corpus_lire` | le texte exact de 10 fiches au plus, frontmatter compris | une requête GraphQL |
+| `corpus_contexte` | un profil composé — `noyau`, `complet`, `strategie` — par le `composer()` de la console | une requête GraphQL |
+| `corpus_modifier` | modifie une fiche existante : `remplacements` exacts, ou la fiche entière | lecture, puis `PUT contents` |
+| `corpus_decision_ajouter` | ajoute `strategie/decisions/AAAA-MM-slug`, frontmatter écrit par le serveur | lecture, puis `PUT contents` (création) |
+| `corpus_deployer` | lance le workflow « Déploiement Cloudflare », cible `api`, sur `main` | lecture, puis `dispatches` |
+
+**La lecture porte sur `main`**, pas sur la photo que la console sert jusqu'à son prochain
+déploiement : un commit se voit tout de suite ici, et dans la console seulement après
+`corpus_deployer` (ou Corpus → État → Déployer). Tout le corpus se lit en **une** requête
+GraphQL — commit et textes dans le même instantané — plutôt qu'une par fiche, qui
+épuiserait les cinquante sous-requêtes d'une invocation.
+
+**L'écriture suit les deux temps de Google Ads** : sans jeton, un aperçu — le diff exact,
+rien ne part ; avec le jeton de l'aperçu, le commit, journalisé avant l'appel dans
+`corpus_ecritures` (migration 0002). Le jeton est celui de ecriture.ts, la clé
+`ADS_APERCU_KEY` aussi. GitHub n'ayant pas de `validateOnly`, la vérification à blanc est
+la table fermée de [src/github.ts](src/github.ts), jouée à l'aperçu sans rien écrire.
+
+| | Verrou | Où |
+| :--- | :--- | :--- |
+| C1 | un chemin du corpus, dans un de ses six blocs, slug sans accents ; ni README, ni `voix/regles-de-voix` (elle engendre les prompts : fixtures golden et FLUX-EDITORIAL.md, dans le dépôt) | `ecritureAdmise`, [src/github.ts](src/github.ts) |
+| C2 | une création n'est permise que pour une décision ; une décision ne se réécrit jamais | idem |
+| C3 | ce que la console refuse de commiter — frontmatter, corps, titre « # », statut connu — le serveur le refuse aussi : une seule garde, `refusDeContenu`, dans `packages/corpus` | [src/github.ts](src/github.ts) |
+| C4 | un commit porte l'empreinte du fichier vu à l'aperçu : un commit intervenu entre-temps n'est jamais écrasé | outil, puis GitHub (409) |
+| C5 | le déploiement : ce workflow, cible `api`, sur `main` au commit de l'aperçu — ni front, ni ce serveur, ni répétition | [src/github.ts](src/github.ts), outil |
+| V8 | le scope `corpus:ecrire`, sa case à part sur la page de consentement : écrire dans Google Ads n'emporte pas le corpus, ni l'inverse | [src/ecriture.ts](src/ecriture.ts) |
+| V7 · V9 | journal `corpus_ecritures` écrit avant l'appel ; plafond `CORPUS_ECRITURES_MAX_JOUR`, à part de celui de Google Ads | [src/journal.ts](src/journal.ts) |
+
+Chaque verrou a son test NORMATIF ([test/corpus.test.ts](test/corpus.test.ts)), et chacun a
+été vérifié en le cassant : son test échoue.
+
+### Mise en place du corpus — ce que Florent fait
+
+1. **Un jeton GitHub à grain fin** (github.com → Settings → Developer settings → Fine-grained
+   tokens) : dépôt `luminose-fr/gestion` seul ; permissions *Contents* et *Actions* en
+   lecture-écriture. Un autre que celui de la console.
+2. Sur la VM, depuis `workers/mcp` : `npx wrangler secret put GITHUB_TOKEN`.
+3. Depuis la racine : `./scripts/deploy.sh mcp` — il applique la migration `0002` avant de
+   déployer le Worker.
+4. Dans Claude : **retirer puis rajouter** le connecteur, et cocher « Modifier le corpus »
+   sur la page de consentement. La lecture du corpus, elle, ne demande aucune case.
+
+Relire le journal du corpus :
+
+```bash
+npx wrangler d1 execute luminose-mcp --remote --command "SELECT id, datetime(created_at/1000, 'unixepoch') AS quand, outil, issue, erreur FROM corpus_ecritures ORDER BY id DESC LIMIT 20"
 ```
 
 ## Mise en place — ce que Florent fait, dans cet ordre
@@ -236,11 +344,13 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | secret, facultatif | le compte administrateur, s'il y en a un |
 | `COOKIE_SIGNING_KEY` | secret | signe le cookie de connexion (le cadrage l'appelait `COOKIE_ENCRYPTION_KEY` : il signe, il ne chiffre pas) |
 | `OAUTH_KV` | binding KV | l'état de la bibliothèque : grants, codes et jetons par empreinte, props chiffrées |
-| `DB` | binding D1 (`luminose-mcp`) | le journal des écritures (V7), qui compte aussi le plafond V9 |
+| `DB` | binding D1 (`luminose-mcp`) | les journaux des écritures (V7) — Google Ads et corpus —, qui comptent aussi les plafonds V9 |
 | `ADS_APERCU_KEY` | secret | signe les jetons d'aperçu (V2). Absent : l'écriture est fermée, la lecture continue |
 | `ADS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 — 30 exécutions sur 24 heures. Absent ou illisible : l'écriture est fermée |
 | `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 10 €, 25 €, 2 €. Absents ou illisibles : la création est fermée |
 | `ADS_CAMPAGNE_MODELE` | `[vars]` de wrangler.toml | R4 — la campagne dont le ciblage est recopié |
+| `GITHUB_TOKEN` | secret | couche C — jeton à grain fin, dépôt `luminose-fr/gestion`, Contents et Actions en lecture-écriture. Absent : le corpus est fermé, Google Ads continue |
+| `CORPUS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 du corpus — 20 commits et déploiements sur 24 heures. Absent ou illisible : l'écriture du corpus est fermée |
 | `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne |
 
 Un secret absent ne fait pas tomber le Worker : l'outil ou la page concernée **nomme** le
@@ -259,8 +369,10 @@ vérifie sans rien appliquer.
 
 - **Tout de suite** : retirer ou changer `ALLOWED_EMAIL`. L'adresse est revérifiée à chaque
   appel de `/mcp` et à chaque rafraîchissement ; le grant est révoqué au suivant.
-- **L'écriture seulement** : supprimer le secret `ADS_APERCU_KEY`, ou mettre
-  `ADS_ECRITURES_MAX_JOUR` à `"0"`. La lecture continue.
+- **L'écriture seulement** : supprimer le secret `ADS_APERCU_KEY` (Google Ads et corpus), ou
+  mettre `ADS_ECRITURES_MAX_JOUR` ou `CORPUS_ECRITURES_MAX_JOUR` à `"0"`. La lecture continue.
+- **Le corpus seulement** : supprimer le secret `GITHUB_TOKEN`, ou révoquer le jeton sur
+  GitHub. Google Ads continue.
 - **L'accès à Google Ads** : révoquer le client sur myaccount.google.com/permissions.
 
 ## Écarts avec le cadrage du 30/09/2026

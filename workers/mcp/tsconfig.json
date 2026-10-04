@@ -14,7 +14,8 @@
       "vitest/globals",
       "node"
     ],
-    "isolatedModules": true
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src/**/*",

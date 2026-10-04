@@ -42,6 +42,13 @@ Le bouton « Intégrée » de l'écran Inbox ne range rien tout seul : il se coc
 l'édition, et il demande où c'est parti — c'est ce qui garde la chaîne entre les mots
 d'origine et le fichier qui les porte.
 
+Depuis le 03/10/2026, **une conversation Claude** fait le même geste par le serveur MCP
+(`workers/mcp`, outils `corpus_*`) : elle lit `main`, propose un diff, et le commit ne part
+qu'avec le jeton de l'aperçu — après l'accord de Florent. Comme la console, elle écrit dans
+**Git** ; elle ne modifie qu'une fiche existante ou ajoute une décision, et ne touche pas
+aux règles de voix, qui engendrent les prompts. La règle ci-dessus tient toujours : la
+conversation propose, Git porte — le chemin est seulement plus court.
+
 Aller droit à l'édition est légitime quand on sait quelle ligne changer ; `Corpus →
 Documents` porte un lien vers le fichier exact dans l'éditeur web de GitHub. L'inbox sert
 aux deux autres cas : on est ailleurs (téléphone, conversation en cours), ou la décision a

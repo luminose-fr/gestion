@@ -79,6 +79,8 @@ export const creerEnv = (surcharges: Partial<Env> = {}): EnvFactice => {
     ADS_BUDGET_MAX_TOTAL: '25',
     ADS_CPC_MAX: '2',
     ADS_CAMPAGNE_MODELE: '111',
+    GITHUB_TOKEN: 'jeton-github-de-test',
+    CORPUS_ECRITURES_MAX_JOUR: '20',
     ...surcharges,
   } as EnvFactice;
 };
@@ -131,8 +133,10 @@ export type Appel = { url: string; methode: string; entetes: Record<string, stri
 /**
  * Remplace `fetch` et consigne chaque appel sortant. `repondre` reçoit l'URL
  * et décide ; par défaut, le jeton Google Ads est délivré et le reste est vide.
+ * Une réponse peut se faire attendre (une promesse) : c'est ce qui permet
+ * d'ordonner des appels concurrents.
  */
-export const simulerFetch = (repondre: (appel: Appel) => Response | undefined = () => undefined) => {
+export const simulerFetch = (repondre: (appel: Appel) => Response | Promise<Response> | undefined = () => undefined) => {
   const appels: Appel[] = [];
   vi.stubGlobal('fetch', async (entree: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(entree instanceof Request ? entree.url : entree);

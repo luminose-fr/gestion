@@ -12,7 +12,7 @@
  * 50 par invocation (SPEC §3.6) n'est pas entamé.
  */
 import { Hono } from 'hono';
-import { composer, composerFeuille, separerFrontmatter, PROFILS, type Profil } from '@luminose/corpus';
+import { composer, composerFeuille, refusDeContenu, PROFILS, STATUTS, type Profil } from '@luminose/corpus';
 import { actionConnue, feuillePour, FEUILLE_PAR_ACTION } from '@luminose/editorial';
 import { SourceCorpusSchema, DeploiementSchema } from '@luminose/shared';
 import { DOCUMENTS, EMPREINTES } from '../genere/corpus';
@@ -29,16 +29,6 @@ const PROFILS_VALIDES = Object.keys(PROFILS) as Profil[];
 
 /** Le jour courant, en ISO — l'en-tête du contexte le porte. */
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
-
-/**
- * Les statuts que le composeur sait interpréter.
- *
- * Un seul propriétaire, deux usages : la garde d'écriture refuse tout ce qui
- * n'est pas dans cette liste, et `GET /` la rend pour que l'écran Carte
- * documente le vocabulaire sans le recopier. Un septième statut ajouté ici
- * apparaît des deux côtés le même jour.
- */
-const STATUTS = ['actif', 'active', 'suspendu', 'termine', 'candidat', 'volontairement-absent'];
 
 /** `2027-08` ou `2027-08-15` → est-ce dépassé ? Une forme illisible ne l'est jamais. */
 function echu(valeur: unknown, ref: string): boolean {
@@ -232,33 +222,9 @@ corpus.get('/feuille/:action', (c) => {
  * Elles restent à **zéro requête D1** : tout passe par l'API GitHub.
  */
 
-/**
- * Ce qu'on refuse de commiter.
- *
- * Un frontmatter cassé ne fait échouer aucun test et ne lève aucune erreur :
- * le parseur est tolérant par conception, donc le document part dans les
- * prompts amputé de son statut. `statut: actiff` rendrait Le Seuil proposable
- * sans que rien ne l'annonce. On vérifie ici, avant que ce soit dans l'histoire
- * du dépôt.
- */
-function refusDeContenu(contenu: string): string | null {
-  const { meta, corps } = separerFrontmatter(contenu);
-
-  if (!contenu.trimStart().startsWith('---')) {
-    return 'Le frontmatter a disparu — le fichier doit commencer par une ligne « --- ».';
-  }
-  if (!corps.trim()) {
-    return 'Le corps est vide : il ne resterait que des métadonnées.';
-  }
-  if (!/^#\s+\S/m.test(corps)) {
-    return 'Aucun titre « # … » dans le corps — c\'est lui qui nomme la fiche dans les écrans et les prompts.';
-  }
-  const statut = meta.statut;
-  if (statut !== undefined && !STATUTS.includes(String(statut))) {
-    return `Statut « ${statut} » inconnu. Attendus : ${STATUTS.join(', ')}.`;
-  }
-  return null;
-}
+// Ce qu'on refuse de commiter — frontmatter, corps, titre, statut connu — vit
+// dans packages/corpus (`refusDeContenu`) : le serveur MCP écrit aussi dans
+// le corpus, et deux gardes finiraient par ne pas refuser la même chose.
 
 /** Le fichier tel qu'il est sur GitHub — la seule version qu'on ait le droit d'éditer. */
 corpus.get('/source', async (c) => {
