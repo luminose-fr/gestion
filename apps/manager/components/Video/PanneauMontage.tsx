@@ -28,8 +28,19 @@ import {
 
 const PLAYER_LARGEUR = 270;
 
-/** WebCodecs manque à Safari pour une partie de ce que l'encodage demande ; Chrome l'a. */
-const sansWebCodecs = (): boolean => typeof window === 'undefined' || typeof (window as any).VideoEncoder === 'undefined';
+/**
+ * Pourquoi l'export est impossible ici, ou `null`. Deux causes, qui ne se
+ * corrigent pas pareil : WebCodecs n'existe que dans une page SÉCURISÉE (https,
+ * ou localhost) — une page de développement servie par l'adresse d'une machine
+ * du réseau en est privée, même dans Chrome — et il manque à une partie des
+ * navigateurs. Dire « Chrome » à quelqu'un qui est déjà dans Chrome serait faux.
+ */
+const exportImpossible = (): string | null => {
+    if (typeof window === 'undefined') return "L'export demande un navigateur.";
+    if (!window.isSecureContext) return "L'export demande une page sécurisée (https) : WebCodecs n'existe pas ailleurs.";
+    if (typeof (window as any).VideoEncoder === 'undefined') return "L'export demande Chrome : ce navigateur ne sait pas encoder la vidéo (WebCodecs).";
+    return null;
+};
 
 const nomDeFichier = (rang: number, role: string): string => {
     const mots = motsNormalises(role).join('-');
@@ -69,7 +80,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, visuelsDeLaScene 
         [sequences, visuelsDeLaScene],
     );
     const proprietes: ProprietesReel = { data, minutage, visuels };
-    const indisponible = sansWebCodecs();
+    const indisponible = exportImpossible();
 
     const exporter = async (rang: number) => {
         const sequence = sequences[rang];
@@ -160,9 +171,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, visuelsDeLaScene 
 
                 <div className="space-y-2">
                     <Etiquette>Exporter une scène (MP4 1080 × 1920, sans son)</Etiquette>
-                    {indisponible && (
-                        <p className="text-xs text-alerte">L'export demande Chrome : ce navigateur ne sait pas encoder la vidéo (WebCodecs).</p>
-                    )}
+                    {indisponible && <p className="text-xs text-alerte">{indisponible}</p>}
                     {sequences.map((sequence, rang) => {
                         if (sequence.plan !== 'scene') return null;
                         const m = minutage.sequences[rang];
@@ -178,7 +187,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, visuelsDeLaScene 
                                             <X /> Annuler
                                         </Bouton>
                                     ) : (
-                                        <Bouton taille="petit" intention="secondaire" disabled={indisponible || export_ !== null} onClick={() => void exporter(rang)}>
+                                        <Bouton taille="petit" intention="secondaire" disabled={indisponible !== null || export_ !== null} onClick={() => void exporter(rang)}>
                                             <Download /> Exporter
                                         </Bouton>
                                     )}

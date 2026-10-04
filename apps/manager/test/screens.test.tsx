@@ -1966,6 +1966,9 @@ describe('Reel expliqué — storyboard', () => {
  * comme d'une navigation privée : ni IndexedDB, ni WebCodecs.
  */
 describe('Reel expliqué — montage', () => {
+  // Les simulations d'environnement ne doivent pas déborder sur l'écran suivant.
+  afterEach(() => vi.unstubAllGlobals());
+
   const reel = () => ({
     format: 'Reel expliqué',
     sequences: [
@@ -2003,6 +2006,8 @@ describe('Reel expliqué — montage', () => {
   });
 
   it('le panneau se monte, et dit qu\u2019il faut Chrome quand WebCodecs manque', () => {
+    // jsdom passe pour une page sécurisée : c'est l'absence de WebCodecs qu'on voit.
+    vi.stubGlobal('isSecureContext', true);
     const { container, getByTestId } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
     expect(getByTestId('lecteur-remotion')).toBeTruthy();
     expect(container.textContent).toContain('150 mots par minute');
@@ -2010,6 +2015,14 @@ describe('Reel expliqué — montage', () => {
     const exports = Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Exporter'));
     expect(exports).toHaveLength(2);
     expect(exports.every(b => b.disabled)).toBe(true);
+  });
+
+  it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
+    vi.stubGlobal('isSecureContext', false);
+    vi.stubGlobal('VideoEncoder', class {});
+    const { container } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
+    expect(container.textContent).toContain("L'export demande une page sécurisée (https)");
+    expect(container.textContent).not.toContain("L'export demande Chrome");
   });
 
   it('le débit change la durée de l\u2019aperçu', () => {

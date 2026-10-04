@@ -26,6 +26,9 @@
 > **v2.4 (02/10/2026)** : la vidéo. Un huitième format, le **Reel expliqué**, alterne
 > la face caméra et des scènes animées écrites par le Rédacteur (§12). Le montage se
 > termine dans l'application, et le rush ne quitte jamais le navigateur (§12.4).
+> **v2.5 (04/10/2026)** : les scènes s'animent, se montent et s'exportent depuis l'onglet,
+> les visuels se déposent et restent dans le navigateur, et le minutage ne dépend que
+> d'une horloge que la prise viendra remplacer (§12.4.1).
 > **v2.5 (03/10/2026)** : le serveur MCP lit et écrit le corpus (`workers/mcp`,
 > decisions/2026-10-03-corpus.md). Il dépend désormais de `packages/corpus` (§1.1) —
 > le seul paquet du dépôt qu'il importe, pur et sans secret — et garde son propre jeton
