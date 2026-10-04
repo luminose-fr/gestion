@@ -47,6 +47,8 @@ refuse une association sans ce statut, ou avec un autre.
 En-têtes admis (« Structured Snippet Header Translations », relue le 04/10/2026) :
 Équipements, Marques, Cours, Programmes d'études, Destinations, Sélection d'hôtels,
 Couverture d'assurance, Modèles, Quartiers, Catalogue de services, Émissions, Styles, Types.
+S'y ajoute **Services**, absent de cette page mais accepté par Google : deux extraits du
+compte le portent (310681056350, 321446714719), relevés le 04/10/2026.
 
 Les outils disent toutes les fautes d'un coup, avant tout appel ; la table fermée
 (`refusElement`, `verifierCreationElements`) les revérifie quel que soit l'outil. Pas

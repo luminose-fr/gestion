@@ -171,7 +171,8 @@ Détail : [decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-e
   retire que le lien.
 - **Limites de Google**, en caractères affichés : lien annexe 25, ses descriptions 35 — les
   deux ou aucune —, accroche 25, extrait structuré 3 à 10 valeurs de 25 sous un en-tête de la
-  liste fermée de Google, en français. `LIMITES_ELEMENTS` et `EN_TETES_EXTRAITS` dans
+  liste fermée de Google, en français — plus « Services », que Google accepte (deux extraits
+  du compte le portent). `LIMITES_ELEMENTS` et `EN_TETES_EXTRAITS` dans
   [src/google-ads.ts](src/google-ads.ts), revérifiés par la table.
 - **L'aperçu dit les niveaux** — compte, campagne, groupe : pour un même type, le plus fin qui
   a des associations actives l'emporte. Il nomme ce qui s'affiche aujourd'hui, ce qui serait

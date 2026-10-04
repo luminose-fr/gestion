@@ -328,7 +328,9 @@ describe('les limites de Google, comptées en caractères affichés', () => {
     expect(LIMITES_ELEMENTS).toEqual({ lien: 25, lienDescription: 35, accroche: 25, valeur: 25, valeursMin: 3, valeursMax: 10 });
     expect(EN_TETES_EXTRAITS).toContain('Quartiers');
     expect(EN_TETES_EXTRAITS).toContain('Catalogue de services');
-    expect(EN_TETES_EXTRAITS).toHaveLength(13);
+    // Absent de la page de Google, mais porté par deux extraits du compte : Google l'accepte.
+    expect(EN_TETES_EXTRAITS).toContain('Services');
+    expect(EN_TETES_EXTRAITS).toHaveLength(14);
   });
 
   it('lien annexe : texte 25, descriptions 35 — un caractère accentué compte pour un', async () => {
@@ -363,7 +365,8 @@ describe('les limites de Google, comptées en caractères affichés', () => {
     expect(await refus({ extraits: [{ en_tete: 'Types', valeurs: ['Hypnose', 'Respiration', n(26)] }] }))
       .toMatch(/- valeur de l'extrait « Types » « é+ » : 26 caractères — 25 au plus\./);
     expect(await refus({ extraits: [{ en_tete: 'Types', valeurs: ['Hypnose', 'hypnose', 'Respiration'] }] })).toMatch(/une valeur en double/);
-    expect(await refus({ extraits: [{ en_tete: 'Services', valeurs: valeurs(3) }] })).toMatch(/Arguments invalides pour ads_elements_creer/);
+    await passe({ extraits: [{ en_tete: 'Services', valeurs: ['Hypnose', 'Respiration', 'Méditation'] }] });
+    expect(await refus({ extraits: [{ en_tete: 'Prestations', valeurs: valeurs(3) }] })).toMatch(/Arguments invalides pour ads_elements_creer/);
   });
 
   it('tout est dit d’un coup, et rien ne part', async () => {
@@ -687,7 +690,7 @@ describe('NORMATIF — chaque association naît en pause, et un retrait ne vise 
       [sitelink({ linkText: 'Séances' }, ['https://passage.luminose.fr/']), lienSitelink],
       [sitelink({ linkText: 'Séances', description1: 'Une heure' }), lienSitelink],
       [sitelink({ linkText: 'Séances', description1: 'Une heure', description2: 'é'.repeat(36) }), lienSitelink],
-      [{ assetOperation: { create: { resourceName: tmp(1), structuredSnippetAsset: { header: 'Services', values: ['a', 'b', 'c'] } } } }, lien(1, { fieldType: 'STRUCTURED_SNIPPET' })],
+      [{ assetOperation: { create: { resourceName: tmp(1), structuredSnippetAsset: { header: 'Prestations', values: ['a', 'b', 'c'] } } } }, lien(1, { fieldType: 'STRUCTURED_SNIPPET' })],
       [{ assetOperation: { create: { resourceName: tmp(1), structuredSnippetAsset: { header: 'Types', values: ['a', 'b'] } } } }, lien(1, { fieldType: 'STRUCTURED_SNIPPET' })],
       [{ assetOperation: { create: { resourceName: tmp(1), name: 'x', calloutAsset: { calloutText: 'Sur rendez-vous' } } } }, lien(1)],
       [{ assetOperation: { update: { resourceName: `customers/${COMPTE}/assets/7002`, calloutAsset: { calloutText: 'X' } }, updateMask: 'callout_asset.callout_text' } }, lien(1)],

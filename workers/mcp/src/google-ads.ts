@@ -100,10 +100,14 @@ export const LIMITES_ELEMENTS = { lien: 25, lienDescription: 35, accroche: 25, v
  * Les en-têtes d'extrait structuré, en français : la liste fermée de Google
  * (« Structured Snippet Header Translations », relue le 04/10/2026). Un autre
  * en-tête serait refusé par Google ; il l'est ici d'abord, en clair.
+ *
+ * « Services » s'y ajoute : absent de la page, mais Google l'a accepté — deux
+ * extraits du compte le portent (310681056350, 321446714719, relevés le
+ * 04/10/2026), et Florent l'emploie.
  */
 export const EN_TETES_EXTRAITS = [
   'Équipements', 'Marques', 'Cours', "Programmes d'études", 'Destinations', "Sélection d'hôtels", "Couverture d'assurance",
-  'Modèles', 'Quartiers', 'Catalogue de services', 'Émissions', 'Styles', 'Types',
+  'Modèles', 'Quartiers', 'Catalogue de services', 'Services', 'Émissions', 'Styles', 'Types',
 ] as const;
 
 /**
