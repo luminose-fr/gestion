@@ -26,6 +26,9 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #   npx wrangler secret put AUTH_USERNAME
 #   npx wrangler secret put AUTH_PASSWORD
 #
+# Le bucket R2 du montage (`luminose-montage`, SPEC §12.4) est créé par ce
+# script s'il manque : rien à faire à la main, si le jeton peut écrire dans R2.
+#
 # Le Worker MCP a ses propres prérequis : workers/mcp/README.md.
 #
 # `mcp` N'EST PAS dans la cible par défaut : il part quand on le nomme. Sa mise
@@ -51,6 +54,7 @@ APP_URL="${APP_URL:-https://gestion.luminose.fr}"
 PAGES_PROJECT="${PAGES_PROJECT:-luminose-gestion}"
 PAGES_BRANCH="${PAGES_BRANCH:-main}"   # branche de PRODUCTION du projet Pages
 D1_BINDING="${D1_BINDING:-DB}"
+R2_BUCKET="${R2_BUCKET:-luminose-montage}"
 
 # ─── Cibles ──────────────────────────────────────────────────────────────────
 TARGETS=("$@")
@@ -130,6 +134,26 @@ fi
 
 # ─── Worker API ──────────────────────────────────────────────────────────────
 if has api && need_dir workers/api api; then
+  # AVANT les migrations : un Worker déployé avec une liaison vers un bucket
+  # absent échouerait, et une migration appliquée sans le Worker qui va avec
+  # laisserait la base en avance. Si le bucket ne peut pas être créé, on
+  # s'arrête ici — la production reste telle qu'elle était.
+  step "Bucket R2 du montage (${R2_BUCKET})"
+  if [ "${DRY_RUN:-0}" = "1" ]; then
+    printf '   \033[2m$ npx wrangler r2 bucket list | grep %s || npx wrangler r2 bucket create %s --location weur\033[0m\n' "$R2_BUCKET" "$R2_BUCKET"
+  # `grep` lit tout, sans `-q` : sous `pipefail`, un grep qui s'arrête au premier
+  # trouvé coupe la sortie de wrangler, et le bucket présent passerait pour absent.
+  elif ( cd workers/api && npx wrangler r2 bucket list 2>/dev/null | grep -w "$R2_BUCKET" >/dev/null ); then
+    ok "Bucket présent"
+  elif ( cd workers/api && npx wrangler r2 bucket create "$R2_BUCKET" --location weur ); then
+    ok "Bucket créé"
+  else
+    warn "Le bucket ${R2_BUCKET} n'existe pas et n'a pas pu être créé (le jeton a-t-il le droit d'écrire dans R2 ?)."
+    warn "  cd workers/api && npx wrangler r2 bucket create ${R2_BUCKET} --location weur"
+    warn "Arrêt avant les migrations : rien n'a changé en production."
+    exit 1
+  fi
+
   step "Migrations D1 distantes"
   (
     cd workers/api

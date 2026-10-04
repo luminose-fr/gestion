@@ -14,6 +14,7 @@ import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
   RdvType, RdvCreneau, RdvConfirme, Transcription,
+  EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise,
 } from '@luminose/shared';
 
 /**
@@ -579,3 +580,87 @@ export const creerRdv = (payload: {
 export const transcrire = (audio: string) =>
   api<Transcription>('/transcription', { method: 'POST', ...body({ audio, langue: 'fr' }) },
     { label: 'Transcription de la prise', cle: 'api:transcription' });
+
+// ── Le montage, rangé chez Cloudflare (SPEC §12.4) ───────────────────────
+
+const enc = encodeURIComponent;
+
+export const fetchMontage = (contentId: string) =>
+  api<EtatMontage>(`/montage/${enc(contentId)}`);
+
+/** Ouvre l'envoi d'une prise ; la réponse dit en parties de quelle taille l'envoyer. */
+export const declarerPrise = (contentId: string, role: RolePrise, prise: PriseDeclaree) =>
+  api<{ prise: PriseDistante; taillePartie: number }>(`/montage/${enc(contentId)}/prises/${role}`, { method: 'POST', ...body(prise) });
+
+export const envoyerPartie = (contentId: string, role: RolePrise, numero: number, partie: Blob) =>
+  api<{ numero: number; etag: string }>(`/montage/${enc(contentId)}/prises/${role}/parties/${numero}`,
+    { method: 'PUT', body: partie, headers: { 'Content-Type': 'application/octet-stream' } });
+
+export const terminerEnvoi = (contentId: string, role: RolePrise, parties: Array<{ numero: number; etag: string }>) =>
+  api<{ prise: PriseDistante }>(`/montage/${enc(contentId)}/prises/${role}/terminer`, { method: 'POST', ...body({ parties }) });
+
+export const abandonnerEnvoi = (contentId: string, role: RolePrise) =>
+  api<{ ok: true }>(`/montage/${enc(contentId)}/prises/${role}/envoi`, { method: 'DELETE' });
+
+export const majPrise = (contentId: string, role: RolePrise, maj: { transcription?: Transcription; reperes?: Record<string, number> }) =>
+  api<{ prise: PriseDistante }>(`/montage/${enc(contentId)}/prises/${role}`, { method: 'PATCH', ...body(maj) });
+
+export const retirerPriseDistante = (contentId: string, role: RolePrise) =>
+  api<{ ok: true }>(`/montage/${enc(contentId)}/prises/${role}`, { method: 'DELETE' });
+
+/** La description voyage en en-tête, encodée : le corps est l'image elle-même. */
+export const deposerVisuelDistant = (contentId: string, sequence: number, element: number, image: Blob, description: string) =>
+  api<{ visuel: VisuelDistant }>(`/montage/${enc(contentId)}/visuels/${sequence}/${element}`, {
+    method: 'PUT',
+    body: image,
+    headers: { 'Content-Type': image.type || 'application/octet-stream', 'X-Visuel-Description': enc(description) },
+  });
+
+export const retirerVisuelDistant = (contentId: string, sequence: number, element: number) =>
+  api<{ ok: true }>(`/montage/${enc(contentId)}/visuels/${sequence}/${element}`, { method: 'DELETE' });
+
+/**
+ * Un fichier, en flux, avec sa progression quand le serveur annonce sa taille :
+ * une prise de plusieurs centaines de mégaoctets ne se télécharge pas en
+ * silence.
+ */
+const telechargerBinaire = async (path: string, avancer?: (part: number) => void): Promise<Blob> => {
+  const suivi = Activite.ouvrir({});
+  let abouti = false;
+  try {
+    const res = await fetch(`${WORKER_URL}/api${path}`, { headers: { 'X-Session-Token': getSessionToken() ?? '' } });
+    if (!res.ok) {
+      const texte = await res.text();
+      let detail = '';
+      try { detail = JSON.parse(texte)?.error ?? ''; } catch { detail = texte.slice(0, 200); }
+      throw new Error(`Erreur ${res.status}${detail ? ` — ${detail}` : ''}`);
+    }
+    const total = Number(res.headers.get('content-length')) || 0;
+    const type = res.headers.get('content-type') ?? '';
+    if (!res.body || !avancer || !total) {
+      const blob = await res.blob();
+      abouti = true;
+      return blob;
+    }
+    const lecteur = res.body.getReader();
+    const morceaux: Uint8Array[] = [];
+    let recu = 0;
+    for (;;) {
+      const { done, value } = await lecteur.read();
+      if (done) break;
+      morceaux.push(value);
+      recu += value.length;
+      avancer(recu / total);
+    }
+    abouti = true;
+    return new Blob(morceaux as BlobPart[], { type });
+  } finally {
+    suivi.fermer(abouti);
+  }
+};
+
+export const lirePriseDistante = (contentId: string, role: RolePrise, avancer?: (part: number) => void) =>
+  telechargerBinaire(`/montage/${enc(contentId)}/prises/${role}/fichier`, avancer);
+
+export const lireVisuelDistant = (contentId: string, sequence: number, element: number) =>
+  telechargerBinaire(`/montage/${enc(contentId)}/visuels/${sequence}/${element}`);

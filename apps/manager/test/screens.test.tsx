@@ -58,6 +58,13 @@ vi.mock('@remotion/player', () => ({
 }));
 vi.mock('@remotion/web-renderer', () => ({ renderMediaOnWeb: vi.fn() }));
 vi.mock('@remotion/media', () => ({ Video: () => null }));
+
+/** Un montage lu, sans R2 lié — l'état d'un Worker où le bucket manque. */
+const MONTAGE_SANS_R2 = {
+  etat: { prises: [], visuels: [], stockage: { octets: 0, plafond: 10e9, disponible: false } },
+  erreur: null,
+  recharger: async () => {},
+};
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
@@ -2009,13 +2016,14 @@ describe('Reel expliqué — montage', () => {
     expect(enAttente?.style.opacity).toBe('0');
   });
 
-  it('le panneau se monte, et dit qu\u2019il faut Chrome quand WebCodecs manque', () => {
+  it('le panneau se monte, et nomme les navigateurs qu\u2019il faut quand WebCodecs manque', () => {
     // jsdom passe pour une page sécurisée : c'est l'absence de WebCodecs qu'on voit.
     vi.stubGlobal('isSecureContext', true);
-    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
     expect(getByTestId('lecteur-remotion')).toBeTruthy();
     expect(container.textContent).toContain('150 mots par minute');
-    expect(container.textContent).toContain("L'export demande Chrome");
+    expect(container.textContent).toContain("L'export demande WebCodecs");
+    expect(container.textContent).toContain('Chrome 94, Firefox 130 ou Safari 26');
     const exports = Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Exporter'));
     // Deux scènes, et la vidéo entière — qui attend une prise.
     expect(exports).toHaveLength(3);
@@ -2025,23 +2033,23 @@ describe('Reel expliqué — montage', () => {
   it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
     vi.stubGlobal('isSecureContext', false);
     vi.stubGlobal('VideoEncoder', class {});
-    const { container } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
+    const { container } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
     expect(container.textContent).toContain("L'export demande une page sécurisée (https)");
-    expect(container.textContent).not.toContain("L'export demande Chrome");
+    expect(container.textContent).not.toContain("L'export demande WebCodecs");
   });
 
   it('le débit change la durée de l\u2019aperçu', () => {
-    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
     const avant = Number(getByTestId('lecteur-remotion').dataset.images);
     fireEvent.change(container.querySelector('#debit-reel')!, { target: { value: '200' } });
     expect(Number(getByTestId('lecteur-remotion').dataset.images)).toBeLessThan(avant);
   });
 
-  it('un storyboard enregistré se monte sans stockage local, en le disant', async () => {
+  it('un storyboard enregistré se monte sans R2, en le disant', async () => {
     const { findByTestId, findByText, container } = render(<StoryboardRenderer data={reel()} contentId="c1" />);
     expect(await findByTestId('lecteur-remotion')).toBeTruthy();
-    expect(await findByText('Ce navigateur refuse le stockage local : les visuels déposés ne seront pas gardés.')).toBeTruthy();
-    // Sans stockage, on ne propose pas un dépôt qui ne serait pas gardé.
+    expect(await findByText('Le stockage Cloudflare (R2) n\u2019est pas configuré sur le Worker : prises et visuels ne peuvent pas être déposés.'.replace('\u2019', "'"))).toBeTruthy();
+    // Sans R2, on ne propose pas un dépôt qui serait refusé.
     expect(Array.from(container.querySelectorAll('button')).some(b => b.textContent?.includes('Déposer'))).toBe(false);
   });
 });
@@ -2075,7 +2083,7 @@ describe('Reel expliqué — prise et rendu', () => {
     const data = reel();
     const calage = calerSurLaPrise(voixEntiere(data), lire(voixEntiere(data)));
     return {
-      prise: { cle: 'c1:principale', contenuId: 'c1', role: 'principale', nom: 'prise.mov', duree: 12.5, largeur: 1080, hauteur: 1920, transcription: { mots: [], texte: '', duree: 12.5 }, transcriteLe: 1, reperes: {}, deposeeLe: 1 },
+      prise: { id: 'p1', contentId: 'c1', role: 'principale', nom: 'prise.mov', type: 'video/quicktime', taille: 312_000_000, duree: 12.5, largeur: 1080, hauteur: 1920, r2Cle: 'prises/c1/principale-1', pretLe: 1, transcription: { mots: [], texte: '', duree: 12.5 }, transcriteLe: 1, reperes: {}, createdAt: 1, updatedAt: 1 },
       url: 'blob:prise',
       calage: couverture === undefined ? calage : { ...calage, couverture },
     } as any;
@@ -2083,7 +2091,7 @@ describe('Reel expliqué — prise et rendu', () => {
 
   it('le panneau sans stockage le dit, et n\u2019offre ni dépôt ni export de la vidéo', () => {
     vi.stubGlobal('isSecureContext', true);
-    const { container } = render(<PanneauMontage data={reel()} contentId="c1" visuelsDeLaScene={() => ({})} />);
+    const { container } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
     expect(container.textContent).toContain('Il faut une prise calée pour exporter la vidéo entière.');
     const pub = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Publicité');
     expect(pub?.disabled).toBe(true);
@@ -2104,10 +2112,20 @@ describe('Reel expliqué — prise et rendu', () => {
   it('une prise calée dit la part du script retrouvée, et alerte quand elle s\u2019en écarte', () => {
     const sure = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee()} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
     expect(sure.container.textContent).toContain('Calée : 100 % des mots du script retrouvés');
-    expect(sure.container.textContent).toContain('prise.mov — 12,5 s, 1080 × 1920');
+    expect(sure.container.textContent).toContain('prise.mov — 12,5 s, 1080 × 1920, 312 Mo');
     cleanup();
     const ecart = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee(0.6)} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
     expect(ecart.container.textContent).toContain('vérifiez les repères avant d\u2019exporter');
+  });
+
+  it('un envoi interrompu, sur ce poste ou un autre, se dit, et ne propose pas de transcrire', () => {
+    const interrompue = priseCalee();
+    interrompue.prise.pretLe = null;
+    interrompue.calage = null;
+    interrompue.url = undefined;
+    const { container } = render(<DepotPrise titre="La prise" consigne="" prise={interrompue} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(container.textContent).toContain('Envoi interrompu');
+    expect(container.textContent).not.toContain('Transcrire à nouveau');
   });
 
   it('une prise en échec garde le message', () => {

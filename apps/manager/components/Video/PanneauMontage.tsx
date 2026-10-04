@@ -15,7 +15,8 @@ import {
 } from './ReelComposition';
 import { CADRES, type FormatVideo } from './SceneLuminose';
 import { usePrisesReel } from './usePrisesReel';
-import { DepotPrise } from './DepotPrise';
+import { DepotPrise, poids } from './DepotPrise';
+import type { Montage } from './useMontage';
 import { ReperesPrise } from './ReperesPrise';
 
 /**
@@ -51,7 +52,9 @@ type Version = 'organique' | 'publicite';
 const exportImpossible = (): string | null => {
     if (typeof window === 'undefined') return "L'export demande un navigateur.";
     if (!window.isSecureContext) return "L'export demande une page sécurisée (https) : WebCodecs n'existe pas ailleurs.";
-    if (typeof (window as any).VideoEncoder === 'undefined') return "L'export demande Chrome : ce navigateur ne sait pas encoder la vidéo (WebCodecs).";
+    if (typeof (window as any).VideoEncoder === 'undefined') {
+        return "L'export demande WebCodecs, que ce navigateur n'a pas : Chrome 94, Firefox 130 ou Safari 26 et suivants.";
+    }
     return null;
 };
 
@@ -76,6 +79,29 @@ const telecharger = (blob: Blob, nom: string) => {
 };
 
 const secondes = (s: number) => `${s.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`;
+
+/**
+ * Décode d'avance les images que le rendu va poser : `<Img>` de Remotion retient
+ * chaque image jusqu'à son décodage, et une image déjà décodée ne le fait pas
+ * attendre.
+ */
+const decoderLesVisuels = async (visuels: Record<number, Record<number, string>>) => {
+    const urls = Object.values(visuels).flatMap(parScene => Object.values(parScene));
+    await Promise.all(urls.map(async url => {
+        const image = new Image();
+        image.src = url;
+        await image.decode().catch(() => undefined);
+    }));
+};
+
+/**
+ * Le 04/10/2026, un export complet a échoué une fois sur une image de carte
+ * restée « en chargement » 28 secondes, puis a réussi à l'identique : un hoquet
+ * du chargement d'images de Remotion, pas un défaut de la scène. Une reprise,
+ * et une seule — comme pour les appels IA (§5.2) : au-delà, c'est une panne, et
+ * le message le dit.
+ */
+const estUnHoquetDeChargement = (e: unknown) => /delayRender\(\)/.test(String((e as any)?.message ?? e));
 
 /** Deux ou trois choix exclusifs, en boutons : un sélecteur se lit mal pour si peu. */
 function Choix<T extends string>({ valeur, options, onChange }: {
@@ -105,12 +131,14 @@ export interface PanneauMontageProps {
     data: ReelExplique;
     /** Le contenu enregistré : les prises s'y rattachent. */
     contentId: string;
+    /** L'état du montage chez Cloudflare, lu par le storyboard. */
+    montage: Montage;
     /** Les visuels déposés, par séquence puis par élément. */
     visuelsDeLaScene: (sequence: number) => Record<number, string>;
 }
 
-const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, visuelsDeLaScene }) => {
-    const prises = usePrisesReel(contentId, data);
+const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuelsDeLaScene }) => {
+    const prises = usePrisesReel(contentId, data, montage);
     const [debit, setDebit] = useState(MOTS_PAR_MINUTE);
     const [format, setFormat] = useState<FormatVideo>('9:16');
     const [version, setVersion] = useState<Version>('organique');
@@ -163,12 +191,21 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, visuel
         const controle = new AbortController();
         annulation.current = controle;
         const temoin = Activite.ouvrir({ label: libelle, part: 0 });
+        const avancer = (part: number) => {
+            setExport({ cible, part });
+            temoin.avancer({ part });
+        };
         try {
             await chargerPolices();
-            const blob = await lancer(controle.signal, part => {
-                setExport({ cible, part });
-                temoin.avancer({ part });
-            });
+            await decoderLesVisuels(visuels);
+            let blob: Blob;
+            try {
+                blob = await lancer(controle.signal, avancer);
+            } catch (e) {
+                if (controle.signal.aborted || !estUnHoquetDeChargement(e)) throw e;
+                temoin.avancer({ part: 0, etape: 'Nouvelle tentative' });
+                blob = await lancer(controle.signal, avancer);
+            }
             telecharger(blob, nom);
             temoin.fermer(true);
         } catch (e: any) {
@@ -301,7 +338,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, visuel
                 <div className="space-y-4">
                     <DepotPrise
                         titre="La prise"
-                        consigne="Déposez la prise nettoyée, exportée de Final Cut (H.264 de préférence). Seul son son part, pour être transcrit : la vidéo reste dans ce navigateur."
+                        consigne="Déposez la prise nettoyée, exportée de Final Cut (H.264 de préférence). Elle est rangée chez Cloudflare, et son son est transcrit."
                         prise={prises.principale}
                         enCours={prises.enCours.principale}
                         erreur={prises.erreurs.principale}
@@ -323,8 +360,14 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, visuel
                             onRetirer={() => void prises.retirer('accroche')}
                         />
                     )}
-                    {prises.indisponible && (
-                        <p className="text-xs text-alerte">Ce navigateur refuse le stockage local : une prise ne peut pas y être gardée.</p>
+                    {montage.etat && prises.indisponible && (
+                        <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : aucune prise ne peut être déposée.</p>
+                    )}
+                    {montage.etat?.stockage.disponible && montage.etat.stockage.plafond > 0 && (
+                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
+                            Stockage Cloudflare : {poids(montage.etat.stockage.octets)} sur {poids(montage.etat.stockage.plafond)} gratuits, tous contenus confondus.
+                            Une prise retirée rend sa place.
+                        </p>
                     )}
                 </div>
 

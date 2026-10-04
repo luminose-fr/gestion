@@ -209,6 +209,103 @@ export interface Transcription {
   duree: number | null;
 }
 
+// ── Le montage, rangé chez Cloudflare (SPEC §12.4, v2.8) ────────────────
+
+/** La prise principale, et la seconde accroche tournée pour la publicité. */
+export const ROLES_PRISE = ['principale', 'accroche'] as const;
+export type RolePrise = (typeof ROLES_PRISE)[number];
+
+/**
+ * Une prise s'envoie en parties de 50 Mo : le Worker refuse une requête de plus
+ * de 100 Mo, et R2 exige des parties de même taille (la dernière exceptée).
+ */
+export const TAILLE_PARTIE = 50 * 1024 * 1024;
+/** Une image de carte : large pour une photo, refusée pour une vidéo envoyée par erreur. */
+export const VISUEL_MAX = 15 * 1024 * 1024;
+/** Le plan gratuit de R2, affiché pour savoir quand faire de la place. */
+export const R2_GRATUIT = 10 * 1000 ** 3;
+
+export const PriseDeclareeSchema = z.object({
+  nom: z.string().min(1).max(300),
+  type: z.string().max(100),
+  taille: z.number().int().positive().max(5 * 1000 ** 3, 'Prise de plus de 5 Go : exportez-la plus légère depuis Final Cut.'),
+  duree: z.number().positive().max(3600),
+  largeur: z.number().int().positive().max(10_000),
+  hauteur: z.number().int().positive().max(10_000),
+});
+export type PriseDeclaree = z.infer<typeof PriseDeclareeSchema>;
+
+export const FinEnvoiSchema = z.object({
+  parties: z.array(z.object({
+    numero: z.number().int().min(1).max(10_000),
+    etag: z.string().min(1).max(200),
+  })).min(1).max(10_000),
+});
+
+const MotTranscritSchema = z.object({
+  mot: z.string().max(200),
+  debut: z.number().min(0),
+  fin: z.number().min(0),
+});
+
+export const TranscriptionSchema = z.object({
+  mots: z.array(MotTranscritSchema).max(30_000),
+  texte: z.string().max(400_000),
+  duree: z.number().nullable(),
+});
+
+export const MajPriseSchema = z.object({
+  transcription: TranscriptionSchema.optional(),
+  /** `séquence:élément` → secondes dans la prise (SPEC §12.5). */
+  reperes: z.record(z.string().regex(/^\d+:\d+$/), z.number().min(0).max(36_000)).optional(),
+}).refine(m => m.transcription !== undefined || m.reperes !== undefined, { message: 'Rien à mettre à jour.' });
+
+export interface PriseDistante {
+  id: string;
+  contentId: string;
+  role: RolePrise;
+  nom: string;
+  type: string;
+  taille: number;
+  duree: number;
+  largeur: number;
+  hauteur: number;
+  /** L'objet dans R2, neuf à chaque dépôt : c'est aussi la clé du cache local. */
+  r2Cle: string;
+  /** `null` tant que le fichier n'est pas entier dans R2 — un envoi interrompu. */
+  pretLe: number | null;
+  transcription: Transcription | null;
+  transcriteLe: number | null;
+  reperes: Record<string, number>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface VisuelDistant {
+  id: string;
+  contentId: string;
+  sequence: number;
+  element: number;
+  /** La description à laquelle l'image répondait au dépôt. */
+  description: string;
+  type: string;
+  taille: number;
+  r2Cle: string;
+  updatedAt: number;
+}
+
+export interface EtatMontage {
+  prises: PriseDistante[];
+  visuels: VisuelDistant[];
+  stockage: {
+    /** Les fichiers vivants de TOUS les contenus : c'est le plafond du compte qui compte. */
+    octets: number;
+    plafond: number;
+    /** La liaison R2 existe ; sans elle, rien ne se dépose. */
+    disponible: boolean;
+  };
+}
+
 export const TestModelSchema = z.object({
   apiCode: z.string().min(1),
   provider: z.string().min(1).default('onemin'),

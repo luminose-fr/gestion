@@ -47,6 +47,13 @@ enabled = true
 [ai]
 binding = "AI"
 
+# R2 — les fichiers du montage : prises vidéo et visuels des cartes (SPEC §12.4).
+# scripts/deploy.sh crée le bucket s'il n'existe pas, AVANT les migrations : un
+# Worker déployé avec une liaison vers un bucket absent échouerait.
+[[r2_buckets]]
+binding = "MONTAGE"
+bucket_name = "luminose-montage"
+
 # Base créée le 19/08/2026 :
 #   npx wrangler d1 create luminose-gestion --location weur
 [[d1_databases]]

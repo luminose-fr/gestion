@@ -9,6 +9,7 @@ import { Patience } from '../../Feedback';
 import { CarrouselLegende, t } from './shared';
 import { SceneLuminose } from '../../Video/SceneLuminose';
 import { useVisuelsReel, type VisuelAffiche, type VisuelsReel } from '../../Video/useVisuelsReel';
+import { useMontage } from '../../Video/useMontage';
 
 // Remotion n'entre dans le navigateur qu'à l'ouverture d'un storyboard monté :
 // jamais dans le paquet principal de l'application.
@@ -81,8 +82,7 @@ const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }> = ({ 
 
 /**
  * Un visuel à produire, et l'endroit où le déposer une fois produit. Le dépôt
- * reste dans ce navigateur (SPEC §12.4) : l'écran le dit, pour qu'on ne le
- * cherche pas sur un autre poste.
+ * est rangé chez Cloudflare (SPEC §12.4) : il se retrouve sur tout poste.
  */
 const DepotVisuel: React.FC<{
     numero: number;
@@ -198,7 +198,8 @@ export interface StoryboardRendererProps {
 }
 
 export const StoryboardRenderer: React.FC<StoryboardRendererProps> = ({ data, contentId }) => {
-    const visuels = useVisuelsReel(contentId, data);
+    const montage = useMontage(contentId);
+    const visuels = useVisuelsReel(contentId, data, montage);
     const problemes = verifierReelExplique(data);
     const sequences = data.sequences ?? [];
     const mots = sequences.reduce((total, s) => total + compterMots(s.voix), 0);
@@ -223,13 +224,16 @@ export const StoryboardRenderer: React.FC<StoryboardRendererProps> = ({ data, co
 
             {contentId && (
                 <Suspense fallback={<Patience titre="Chargement de l'aperçu animé" />}>
-                    <PanneauMontage data={data} contentId={contentId} visuelsDeLaScene={visuels.deLaScene} />
+                    <PanneauMontage data={data} contentId={contentId} montage={montage} visuelsDeLaScene={visuels.deLaScene} />
                 </Suspense>
             )}
 
-            {contentId && visuels.indisponible && (
+            {contentId && montage.erreur && (
+                <p className="text-xs text-erreur">Le montage n'a pas pu être lu : {montage.erreur}</p>
+            )}
+            {contentId && montage.etat && visuels.indisponible && (
                 <p className="text-xs text-alerte">
-                    Ce navigateur refuse le stockage local : les visuels déposés ne seront pas gardés.
+                    Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : prises et visuels ne peuvent pas être déposés.
                 </p>
             )}
 

@@ -10,6 +10,13 @@ export type Env = {
    */
   AI?: Ai;
 
+  /**
+   * Le bucket R2 du montage — prises vidéo et visuels des Reels expliqués
+   * (SPEC §12.4). FACULTATIF au même titre : absent, le storyboard se lit, et
+   * seuls les dépôts se taisent en disant quoi ajouter.
+   */
+  MONTAGE?: R2Bucket;
+
   /** Clé de signature des jetons de session. Repli sur AUTH_PASSWORD (SPEC §7). */
   SESSION_SECRET?: string;
   AUTH_USERNAME: string;

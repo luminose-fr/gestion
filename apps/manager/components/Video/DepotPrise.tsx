@@ -7,9 +7,10 @@ import type { EtapePrise, PriseAffichee } from './usePrisesReel';
 /**
  * Le dépôt d'une prise, et ce qu'on en sait (SPEC §12.5).
  *
- * L'écran dit à chaque étape ce qui se passe — lecture, extraction du son,
- * transcription — et, une fois la prise calée, quelle part du script y a été
- * retrouvée. C'est ce chiffre qui dit s'il faut aller vérifier les repères.
+ * L'écran dit à chaque étape ce qui se passe — lecture, envoi vers
+ * Cloudflare, téléchargement, extraction du son, transcription — et, une fois
+ * la prise calée, quelle part du script y a été retrouvée. C'est ce chiffre qui
+ * dit s'il faut aller vérifier les repères.
  */
 
 /** Au-dessous, la prise s'écarte assez du script pour que des cartes tombent à côté. */
@@ -17,11 +18,17 @@ const COUVERTURE_SURE = 0.8;
 
 const LIBELLES: Record<EtapePrise, string> = {
     lecture: 'Lecture de la prise…',
+    envoi: 'Envoi vers Cloudflare…',
+    telechargement: 'Téléchargement de la prise…',
     son: 'Extraction du son…',
     transcription: 'Transcription…',
 };
 
 const secondes = (s: number) => `${s.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`;
+/** Un poids lisible ; un fichier minuscule compte pour 1 Mo, mais rien compte pour 0. */
+export const poids = (octets: number) => octets >= 1e9
+    ? `${(octets / 1e9).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Go`
+    : `${octets > 0 ? Math.max(1, Math.round(octets / 1e6)).toLocaleString('fr-FR') : 0} Mo`;
 
 export interface DepotPriseProps {
     titre: string;
@@ -64,7 +71,7 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
 
             {prise ? (
                 <p className="text-sm text-brand-main dark:text-dark-text truncate">
-                    {prise.prise.nom} — {secondes(prise.prise.duree)}, {prise.prise.largeur} × {prise.prise.hauteur}
+                    {prise.prise.nom} — {secondes(prise.prise.duree)}, {prise.prise.largeur} × {prise.prise.hauteur}, {poids(prise.prise.taille)}
                 </p>
             ) : (
                 <p className="text-xs text-brand-main/60 dark:text-dark-text/60">{consigne}</p>
@@ -85,7 +92,10 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
                     {calage.couverture < COUVERTURE_SURE ? ' — elle s’en écarte : vérifiez les repères avant d’exporter.' : '.'}
                 </p>
             )}
-            {!enCours && prise && !prise.prise.transcription && !erreur && (
+            {!enCours && prise && !prise.prise.pretLe && !erreur && (
+                <p className="text-xs text-alerte">Envoi interrompu : la prise n'est pas entière dans Cloudflare. Redéposez-la, ou retirez-la.</p>
+            )}
+            {!enCours && prise?.prise.pretLe && !prise.prise.transcription && !erreur && (
                 <p className="text-xs text-alerte">Pas encore transcrite : sans les mots, rien ne se cale.</p>
             )}
             {erreur && <p className="text-xs text-erreur">{erreur}</p>}
@@ -95,8 +105,8 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
                     <Bouton taille="petit" intention="secondaire" disabled={occupe} onClick={() => choix.current?.click()}>
                         <Upload /> {prise ? 'Remplacer' : 'Déposer la prise'}
                     </Bouton>
-                    {prise && (
-                        <Bouton taille="petit" intention="secondaire" disabled={occupe} onClick={onTranscrire}>
+                    {prise?.prise.pretLe && (
+                        <Bouton taille="petit" intention="secondaire" disabled={occupe || !prise.url} onClick={onTranscrire}>
                             <RefreshCw /> Transcrire à nouveau
                         </Bouton>
                     )}
