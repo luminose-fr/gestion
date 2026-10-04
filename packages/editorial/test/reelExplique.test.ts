@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
     verifierReelExplique, segmentsSurlignes, texteAffiche, motsNormalises, motsSitues,
     positionsDesReperes, dureeEstimee, reelToMarkdown, reelToPlainText,
-    estReelExplique, type ReelExplique,
+    estReelExplique, minuterReel, horlogeEstimee, type ReelExplique,
 } from '../src/reelExplique';
 import { getFormatDef, parseDraftResponse, TargetFormat, FORMAT_REGISTRY } from '../src/index';
 
@@ -217,5 +217,42 @@ describe('les lectures en texte', () => {
     it('se reconnaît à sa structure', () => {
         expect(estReelExplique(valide())).toBe(true);
         expect(estReelExplique({ format: 'Script Reel', sections: [] })).toBe(false);
+    });
+});
+
+describe('le minutage', () => {
+    it('enchaîne les séquences sans trou : la voix ne s\u2019arrête jamais', () => {
+        const m = minuterReel(valide(), horlogeEstimee(150));
+        expect(m.duree).toBeCloseTo(126 * 60 / 150);
+        m.sequences.forEach((s, i) => {
+            if (i > 0) expect(s.debut).toBe(m.sequences[i - 1].fin);
+        });
+        expect(m.sequences[0].debut).toBe(0);
+        expect(m.sequences[m.sequences.length - 1].fin).toBe(m.duree);
+    });
+
+    it('fait apparaître chaque élément au mot de son repère, depuis le début de sa scène', () => {
+        const m = minuterReel(valide(), horlogeEstimee(150));
+        // Scène 3 : repères aux mots 10, 22 et 33 de sa voix, à 0,4 s le mot.
+        expect(m.sequences[2].apparitions).toEqual([4, 8.8, 13.2].map(x => expect.closeTo(x, 5)));
+        expect(m.sequences[0].apparitions).toEqual([]);
+    });
+
+    it('laisse sans moment un élément dont le repère est introuvable', () => {
+        const data = valide();
+        data.sequences[2].elements![1].apparait_sur = 'pour une faute';
+        expect(minuterReel(data, horlogeEstimee()).sequences[2].apparitions[1]).toBeNull();
+    });
+
+    it('borne le débit qu\u2019on lui donne', () => {
+        expect(horlogeEstimee(1000)(200)).toBe(60);
+        expect(horlogeEstimee(10)(110)).toBe(60);
+    });
+
+    it('accepte n\u2019importe quelle horloge — celle de la prise viendra à l\u2019étape 3', () => {
+        const prise = (rang: number) => 2 + rang * 0.5;
+        const m = minuterReel(valide(), prise);
+        expect(m.sequences[0].debut).toBe(2);
+        expect(m.sequences[2].apparitions[0]).toBe(5);
     });
 });

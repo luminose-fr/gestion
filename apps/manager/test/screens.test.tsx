@@ -42,6 +42,18 @@ import { DraftView } from '../components/ContentEditor/DraftView';
 import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
 import { ScriptVideoRenderer } from '../components/ContentEditor/renderers/ScriptVideoRenderer';
 import { SceneLuminose } from '../components/Video/SceneLuminose';
+import PanneauMontage from '../components/Video/PanneauMontage';
+import { StoryboardRenderer } from '../components/ContentEditor/renderers/StoryboardRenderer';
+
+/*
+ * Le lecteur Remotion mesure son conteneur et le moteur de rendu exige
+ * WebCodecs : ni l'un ni l'autre n'existent dans jsdom. On les remplace — ce
+ * qu'on monte ici, c'est l'écran qui les entoure, pas Remotion.
+ */
+vi.mock('@remotion/player', () => ({
+  Player: (props: { durationInFrames: number }) => <div data-testid="lecteur-remotion" data-images={props.durationInFrames} />,
+}));
+vi.mock('@remotion/web-renderer', () => ({ renderMediaOnWeb: vi.fn() }));
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
 import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
@@ -1944,5 +1956,87 @@ describe('Reel expliqué — storyboard', () => {
   it('monte une scène dont aucun élément n\u2019est encore apparu', () => {
     const sequence = JSON.parse(reel()).sequences[2];
     expect(() => render(<SceneLuminose sequence={sequence} largeur={216} visibles={0} />)).not.toThrow();
+  });
+});
+
+/**
+ * Étape V2 (SPEC §12.4) : la scène se pilote de l'extérieur, porte les visuels
+ * déposés, et le storyboard d'un contenu enregistré se monte — y compris quand
+ * le navigateur refuse ce dont le montage a besoin, ce qui est le cas de jsdom
+ * comme d'une navigation privée : ni IndexedDB, ni WebCodecs.
+ */
+describe('Reel expliqué — montage', () => {
+  // Les simulations d'environnement ne doivent pas déborder sur l'écran suivant.
+  afterEach(() => vi.unstubAllGlobals());
+
+  const reel = () => ({
+    format: 'Reel expliqué',
+    sequences: [
+      { plan: 'camera', role: 'Accroche', voix: 'Vous relisez trois fois un message avant de l\u2019envoyer ?' },
+      {
+        plan: 'scene', role: 'Mécanique', registre: 'pedagogie',
+        voix: 'Elle sonne pour une virgule, et vous payez en fatigue.',
+        titre: 'Une alarme [trop sensible]',
+        elements: [
+          { type: 'carte', taille: 'moyenne', ton: 'ombre', texte: 'Une [virgule]', apparait_sur: 'pour une virgule' },
+          { type: 'carte', taille: 'grande', ton: 'ombre', texte: 'La [fatigue]', visuel: { nature: 'schema', description: 'Une jauge bloquée dans le rouge.' }, apparait_sur: 'vous payez en fatigue' },
+        ],
+      },
+      {
+        plan: 'scene', role: 'Bascule', registre: 'humour',
+        voix: 'Vous ne le jetez pas : vous le réglez.',
+        titre: 'On le [règle]',
+        elements: [{ type: 'pastille', ton: 'lumiere', texte: 'On le [règle]', apparait_sur: 'vous le réglez' }],
+      },
+      { plan: 'camera', role: 'Appel', voix: 'Tout est sur luminose.fr, lien en bio.' },
+    ],
+  }) as any;
+
+  it('une scène pilotée montre ses entrées en cours, et le visuel déposé à la place du gabarit', () => {
+    const { container } = render(
+      <SceneLuminose sequence={reel().sequences[1]} largeur={216} entrees={{ titre: 1, elements: [1, 0] }} visuels={{ 1: 'blob:visuel-depose' }} />
+    );
+    const image = container.querySelector('img[src="blob:visuel-depose"]');
+    expect(image).not.toBeNull();
+    // Le gabarit pointillé disparaît quand l'image est là.
+    expect(container.textContent).not.toContain('Une jauge bloquée dans le rouge.');
+    // L'élément pas encore entré est transparent, pas retiré : la mise en page ne bouge pas.
+    const enAttente = image!.closest('div[style*="opacity"]') as HTMLElement | null;
+    expect(enAttente?.style.opacity).toBe('0');
+  });
+
+  it('le panneau se monte, et dit qu\u2019il faut Chrome quand WebCodecs manque', () => {
+    // jsdom passe pour une page sécurisée : c'est l'absence de WebCodecs qu'on voit.
+    vi.stubGlobal('isSecureContext', true);
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
+    expect(getByTestId('lecteur-remotion')).toBeTruthy();
+    expect(container.textContent).toContain('150 mots par minute');
+    expect(container.textContent).toContain("L'export demande Chrome");
+    const exports = Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Exporter'));
+    expect(exports).toHaveLength(2);
+    expect(exports.every(b => b.disabled)).toBe(true);
+  });
+
+  it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
+    vi.stubGlobal('isSecureContext', false);
+    vi.stubGlobal('VideoEncoder', class {});
+    const { container } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
+    expect(container.textContent).toContain("L'export demande une page sécurisée (https)");
+    expect(container.textContent).not.toContain("L'export demande Chrome");
+  });
+
+  it('le débit change la durée de l\u2019aperçu', () => {
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} visuelsDeLaScene={() => ({})} />);
+    const avant = Number(getByTestId('lecteur-remotion').dataset.images);
+    fireEvent.change(container.querySelector('#debit-reel')!, { target: { value: '200' } });
+    expect(Number(getByTestId('lecteur-remotion').dataset.images)).toBeLessThan(avant);
+  });
+
+  it('un storyboard enregistré se monte sans stockage local, en le disant', async () => {
+    const { findByTestId, findByText, container } = render(<StoryboardRenderer data={reel()} contentId="c1" />);
+    expect(await findByTestId('lecteur-remotion')).toBeTruthy();
+    expect(await findByText('Ce navigateur refuse le stockage local : les visuels déposés ne seront pas gardés.')).toBeTruthy();
+    // Sans stockage, on ne propose pas un dépôt qui ne serait pas gardé.
+    expect(Array.from(container.querySelectorAll('button')).some(b => b.textContent?.includes('Déposer'))).toBe(false);
   });
 });

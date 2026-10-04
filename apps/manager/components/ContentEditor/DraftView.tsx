@@ -743,7 +743,7 @@ export const DraftView: React.FC<DraftViewProps> = ({
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
                                 {item.draft ? (
-                                    <ScriptVideoRenderer raw={item.draft} variant="table" />
+                                    <ScriptVideoRenderer raw={item.draft} variant="table" contentId={item.id} />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-center gap-3 p-8 min-h-[240px]">
                                         <Video className="w-10 h-10 text-brand-main/60 dark:text-dark-text" />

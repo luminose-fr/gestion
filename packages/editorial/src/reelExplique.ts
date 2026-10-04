@@ -190,6 +190,61 @@ export function dureeEstimee(data: ReelExplique): number {
     return Math.round((mots / MOTS_PAR_MINUTE) * 60);
 }
 
+// ── Le minutage ──────────────────────────────────────────────────────
+
+/**
+ * Le moment où un mot est prononcé, à partir de son rang dans la voix ENTIÈRE
+ * (toutes séquences mises bout à bout). Deux horloges, un seul calcul :
+ * l'estimée, au débit choisi, sert avant le tournage (V2) ; celle de la prise,
+ * tirée des horodatages de Whisper, la remplacera (V3) sans rien changer d'autre.
+ */
+export type Horloge = (rang: number) => number;
+
+/** Les bornes du débit qu'on laisse régler : en deçà on lit, au-delà on récite. */
+export const DEBIT_MIN = 110;
+export const DEBIT_MAX = 200;
+
+export const horlogeEstimee = (motsParMinute: number = MOTS_PAR_MINUTE): Horloge => {
+    const debit = Math.min(DEBIT_MAX, Math.max(DEBIT_MIN, motsParMinute));
+    return rang => (rang * 60) / debit;
+};
+
+export interface MinutageSequence {
+    /** En secondes depuis le début de la vidéo. */
+    debut: number;
+    fin: number;
+    /**
+     * Quand chaque élément apparaît, en secondes depuis le début de SA séquence —
+     * `null` pour un repère introuvable, qui ne s'affiche donc qu'à la fin.
+     */
+    apparitions: Array<number | null>;
+}
+
+export interface MinutageReel {
+    duree: number;
+    sequences: MinutageSequence[];
+}
+
+/**
+ * Où tombe chaque séquence, et chaque élément dans sa séquence. Une séquence
+ * commence au premier de ses mots et finit au premier mot de la suivante : la
+ * voix ne s'arrête jamais, c'est l'image qui change.
+ */
+export function minuterReel(data: ReelExplique, horloge: Horloge): MinutageReel {
+    const sequences = data.sequences ?? [];
+    const total = sequences.reduce((n, s) => n + compterMots(s.voix), 0);
+    let rang = 0;
+    const minutees = sequences.map(sequence => {
+        const premier = rang;
+        rang += compterMots(sequence.voix);
+        const debut = horloge(premier);
+        const apparitions = positionsDesReperes(sequence).map(position =>
+            position === null ? null : horloge(premier + position) - debut);
+        return { debut, fin: horloge(rang), apparitions };
+    });
+    return { duree: horloge(total), sequences: minutees };
+}
+
 // ── Les contrôles — NORMATIF (SPEC §12.3) ───────────────────────────
 
 export interface ProblemeReel {
