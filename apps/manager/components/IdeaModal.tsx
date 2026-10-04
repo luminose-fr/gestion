@@ -49,11 +49,16 @@ export const IdeaModal: React.FC<IdeaModalProps> = ({
 
     // Synchroniser les champs d'analyse quand le parent met à jour l'item (ex: après ré-analyse IA).
     // NB : targetFormat est contrôlé par l'utilisateur dans ce modal, on ne l'écrase plus.
+    //
+    // `analyzedAt` doit y être sous SON nom. Resté `analyzed` depuis la phase 5,
+    // il laissait la date nulle après une analyse lancée d'ici : « Travailler
+    // cette idée » restait grisé, et « Enregistrer » renvoyait ce null en base —
+    // le verdict restait affiché, l'idée redevenait « à analyser » (0009).
     useEffect(() => {
         setLocalItem(prev => ({
             ...prev,
             title: item.title,
-            analyzed: item.analyzedAt,
+            analyzedAt: item.analyzedAt,
             verdict: item.verdict,
             strategicAngle: item.strategicAngle,
             platforms: item.platforms,

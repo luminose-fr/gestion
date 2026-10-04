@@ -93,7 +93,7 @@ export const fetchContent = (id: string) =>
 export const createContent = (input: Partial<Content>) =>
   api<{ content: Content }>('/contents', { method: 'POST', ...body(input) });
 
-export const updateContent = (id: string, input: Partial<Content> & { analyzed?: boolean }) =>
+export const updateContent = (id: string, input: Partial<Content>) =>
   api<{ content: Content }>(`/contents/${id}`, { method: 'PATCH', ...body(input) });
 
 export const deleteContent = (id: string) =>
