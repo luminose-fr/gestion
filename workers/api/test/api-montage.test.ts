@@ -205,6 +205,40 @@ describe('les visuels', () => {
     });
 });
 
+/** L'espace Vidéos lit tous les montages d'un coup (SPEC §12.4.3). */
+describe('GET /api/montage — le résumé', () => {
+    it('dit, par contenu, ce qui est monté et le dernier export — en une seule lecture groupée', async () => {
+        expect(await json(await appeler('GET', '/api/montage'))).toEqual({
+            contenus: {}, stockage: { octets: 0, plafond: R2_GRATUIT, disponible: true },
+        });
+
+        await deposer();
+        await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { transcription: { mots: [], texte: '', duree: 1 } });
+        await appeler('POST', `/api/montage/${contenu}/prises/accroche`, DECLAREE);
+        await appeler('PUT', `/api/montage/${contenu}/visuels/2/1`, octets('png'), {
+            'Content-Type': 'image/png', 'Content-Length': '3', 'X-Visuel-Description': 'x',
+        });
+        expect((await appeler('POST', `/api/montage/${contenu}/exports`, { format: '9:16', version: 'organique', duree: 39.2 })).status).toBe(201);
+        // Deux exports la même milliseconde se départageraient au hasard : le second vient après.
+        await new Promise(r => setTimeout(r, 5));
+        expect((await appeler('POST', `/api/montage/${contenu}/exports`, { format: '4:5', version: 'publicite', duree: 40.8 })).status).toBe(201);
+
+        const resume = await json(await appeler('GET', '/api/montage'));
+        expect(resume.contenus[contenu].prises).toEqual(expect.arrayContaining([
+            { role: 'principale', pret: true, transcrite: true },
+            { role: 'accroche', pret: false, transcrite: false },
+        ]));
+        expect(resume.contenus[contenu].visuels).toBe(1);
+        expect(resume.contenus[contenu].dernierExport).toMatchObject({ format: '4:5', version: 'publicite', duree: 40.8 });
+        expect(resume.stockage.octets).toBe(15);
+    });
+
+    it('refuse un export mal décrit, ou d’un contenu inconnu', async () => {
+        expect((await appeler('POST', `/api/montage/${contenu}/exports`, { format: '16:9', version: 'organique', duree: 1 })).status).toBe(400);
+        expect((await appeler('POST', '/api/montage/inconnu/exports', { format: '9:16', version: 'organique', duree: 1 })).status).toBe(404);
+    });
+});
+
 describe('l’export (§9.4)', () => {
     it('emporte la description du montage, pas ses fichiers', async () => {
         await deposer();
@@ -212,5 +246,6 @@ describe('l’export (§9.4)', () => {
         expect(data.montagePrises).toHaveLength(1);
         expect(data.montagePrises[0]).toMatchObject({ nom: 'prise.mov', deletedAt: null });
         expect(data.montageVisuels).toEqual([]);
+        expect(data.montageExports).toEqual([]);
     });
 });

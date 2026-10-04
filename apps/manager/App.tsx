@@ -29,6 +29,8 @@ import { isAuthenticated, logout } from './auth';
 import { AlertModal } from './components/CommonModals';
 import { BandeauActivite, EnCours, FiletActivite, Patience } from './components/Feedback';
 import SubtitleConverter from './components/SubtitleConverter';
+import { MontageView } from './components/Video/MontageView';
+import { VideosSection, isVideosSection, videosSectionLabel, videosSectionSousTitre } from './components/Video/sections';
 import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 import RdvView from './components/Clients/RdvView';
 import { ecran } from './components/ui';
@@ -97,6 +99,14 @@ const getHashState = () => {
      */
     const corpusSection: CorpusSection =
         space === 'corpus' && parts[1] && isCorpusSection(parts[1]) ? parts[1] : 'etat';
+
+    /**
+     * Sur Vidéos, la section : `#videos/montage` (par défaut) ou
+     * `#videos/sous-titres`. Le Montage passe devant : c'est là qu'on cherche
+     * les Reels expliqués, et `#videos` seul doit y mener.
+     */
+    const videosSection: VideosSection =
+        space === 'videos' && parts[1] && isVideosSection(parts[1]) ? parts[1] : 'montage';
     const corpusBloc: string | null =
         corpusSection === 'documents' && parts[2] && isBloc(parts[2]) ? parts[2] : null;
 
@@ -128,7 +138,7 @@ const getHashState = () => {
         }
     }
 
-    return { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, serieId, itemId, step };
+    return { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, videosSection, serieId, itemId, step };
 };
 
 function App() {
@@ -149,6 +159,7 @@ function App() {
   const [currentSpace, setCurrentSpace] = useState<SpaceView>('social');
   const [currentSocialTab, setCurrentSocialTab] = useState<SocialTab>('ideas');
   const [currentCorpusSection, setCurrentCorpusSection] = useState<CorpusSection>('etat');
+  const [currentVideosSection, setCurrentVideosSection] = useState<VideosSection>('montage');
   const [currentCorpusBloc, setCurrentCorpusBloc] = useState<string | null>(null);
   /** Pastilles du panneau Corpus. Chargées à la première ouverture de l'espace,
    *  pas au démarrage : personne ne paie deux requêtes pour un espace qu'il
@@ -303,8 +314,9 @@ function App() {
 
   useEffect(() => {
       const handleHashChange = () => {
-          const { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, serieId, itemId, step } = getHashState();
+          const { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, videosSection, serieId, itemId, step } = getHashState();
           setCurrentSpace(space);
+          if (space === 'videos') setCurrentVideosSection(videosSection);
           if (space === 'corpus') {
               setCurrentCorpusSection(corpusSection);
               setCurrentCorpusBloc(corpusBloc);
@@ -348,6 +360,21 @@ function App() {
           hash += `/${cheminPersona(persona ?? currentSettingsPersona ?? PERSONAS_NAV[0].id)}`;
       }
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
+  };
+
+  /** `#videos/montage`, `#videos/sous-titres`. */
+  const updateVideosRoute = (section: VideosSection) => {
+      const hash = `videos/${section}`;
+      if (window.location.hash !== `#${hash}`) window.location.hash = hash;
+  };
+
+  /**
+   * Ouvre le montage d'un Reel expliqué depuis l'espace Vidéos : le contenu,
+   * dans l'onglet de son statut ; tant qu'il est en cours, directement à son
+   * Script, où vit le montage. Prêt ou publié, l'aperçu le porte aussi.
+   */
+  const ouvrirMontage = (item: ContentItem) => {
+      updateRoute('social', tabForStatus(item.status), item.id, item.status === ContentStatus.DRAFTING ? 'script' : 'idea');
   };
 
   /**
@@ -1077,9 +1104,11 @@ function App() {
           currentSettingsPersona={currentSettingsPersona}
           currentCorpusSection={currentCorpusSection}
           currentCorpusBloc={currentCorpusBloc}
+          currentVideosSection={currentVideosSection}
           onNavigate={(space, tab) => updateRoute(space, tab)}
           onNavigateSettings={updateSettingsRoute}
           onNavigateCorpus={updateCorpusRoute}
+          onNavigateVideos={updateVideosRoute}
           counts={counts}
           corpusCounts={corpusCounts}
           isMobileOpen={isMobileMenuOpen}
@@ -1118,7 +1147,7 @@ function App() {
                   {currentSpace === 'social' && currentSocialTab === 'calendar' && 'Calendrier'}
                   {currentSpace === 'social' && currentSocialTab === 'archive' && 'Archives'}
                   {currentSpace === 'clients' && 'Clients'}
-                  {currentSpace === 'videos' && 'Sous-titres'}
+                  {currentSpace === 'videos' && videosSectionLabel(currentVideosSection)}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
                   {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
@@ -1126,6 +1155,11 @@ function App() {
               {currentSpace === 'corpus' && (
                   <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
                       {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
+                  </p>
+              )}
+              {currentSpace === 'videos' && (
+                  <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
+                      {videosSectionSousTitre(currentVideosSection)}
                   </p>
               )}
               {currentSpace === 'settings' && (
@@ -1189,9 +1223,9 @@ function App() {
             depuis l'atelier reste visible quand on revient à la liste (SPEC §3.5.1). */}
         <BandeauActivite />
 
-        {(currentSpace === 'settings' || currentSpace === 'corpus' || (currentSpace === 'social' && !isEditorTakeover)) && (
+        {(currentSpace === 'settings' || currentSpace === 'corpus' || currentSpace === 'videos' || (currentSpace === 'social' && !isEditorTakeover)) && (
           <MobileSubTabs
-              space={currentSpace === 'settings' ? 'settings' : currentSpace === 'corpus' ? 'corpus' : 'social'}
+              space={currentSpace === 'settings' ? 'settings' : currentSpace === 'corpus' ? 'corpus' : currentSpace === 'videos' ? 'videos' : 'social'}
               currentTab={currentSocialTab}
               currentSettingsSection={currentSettingsSection}
               currentSettingsPersona={currentSettingsPersona}
@@ -1200,6 +1234,8 @@ function App() {
               onNavigate={(tab) => updateRoute('social', tab)}
               onNavigateSettings={updateSettingsRoute}
               onNavigateCorpus={updateCorpusRoute}
+              currentVideosSection={currentVideosSection}
+              onNavigateVideos={updateVideosRoute}
               counts={counts}
           />
         )}
@@ -1245,7 +1281,15 @@ function App() {
             </main>
         )}
 
-        {currentSpace === 'videos' && (
+        {currentSpace === 'videos' && currentVideosSection === 'montage' && (
+            <main className="flex-1 overflow-y-auto">
+                <div className={ecran('liste')}>
+                    <MontageView items={items} onOuvrir={ouvrirMontage} onAllerAuxIdees={() => updateRoute('social', 'ideas')} />
+                </div>
+            </main>
+        )}
+
+        {currentSpace === 'videos' && currentVideosSection === 'sous-titres' && (
             <main className="flex-1 overflow-y-auto">
                 <div className={ecran('travail')}>
                     <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">

@@ -7,6 +7,7 @@ import {
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
 import { PERSONAS_NAV } from '../Settings/apercus';
 import { CORPUS_SECTIONS, BLOCS, CorpusSection } from '../Corpus/sections';
+import { VIDEOS_SECTIONS, VideosSection } from '../Video/sections';
 
 type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'corpus' | 'settings';
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
@@ -20,9 +21,12 @@ interface SidebarProps {
     /** Section et bloc ouverts dans l'espace Corpus. */
     currentCorpusSection: CorpusSection;
     currentCorpusBloc: string | null;
+    /** Section ouverte dans l'espace Vidéos. */
+    currentVideosSection: VideosSection;
     onNavigate: (space: SpaceView, tab: SocialTab) => void;
     onNavigateSettings: (section: SettingsSection, persona?: string | null) => void;
     onNavigateCorpus: (section: CorpusSection, bloc?: string | null) => void;
+    onNavigateVideos: (section: VideosSection) => void;
     /** Ce que le panneau Corpus affiche en pastille — captures en attente, documents par bloc. */
     corpusCounts?: { inbox?: number; parBloc?: Record<string, number> };
     counts: {
@@ -128,18 +132,20 @@ const PanelTab: React.FC<{
 
 export const Sidebar: React.FC<SidebarProps> = ({
     currentSpace, currentSocialTab, currentSettingsSection, currentSettingsPersona,
-    currentCorpusSection, currentCorpusBloc,
-    onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts,
+    currentCorpusSection, currentCorpusBloc, currentVideosSection,
+    onNavigate, onNavigateSettings, onNavigateCorpus, onNavigateVideos, counts, corpusCounts,
     isMobileOpen, onMobileClose
 }) => {
-    // Trois espaces partagent le même panneau de deuxième niveau : Contenus,
-    // Réglages et Corpus. C'est le même geste, au même endroit — et c'est ce
-    // qui fait qu'un nouvel espace ne demande pas d'apprendre une navigation.
+    // Quatre espaces partagent le même panneau de deuxième niveau : Contenus,
+    // Réglages, Corpus et Vidéos. C'est le même geste, au même endroit — et
+    // c'est ce qui fait qu'un nouvel espace ne demande pas d'apprendre une
+    // navigation.
     const estReglages = currentSpace === 'settings';
     const estCorpus = currentSpace === 'corpus';
-    const showSubPanel = currentSpace === 'social' || estReglages || estCorpus;
+    const estVideos = currentSpace === 'videos';
+    const showSubPanel = currentSpace === 'social' || estReglages || estCorpus || estVideos;
 
-    const titrePanneau = estReglages ? 'Réglages' : estCorpus ? 'Corpus' : 'Contenus';
+    const titrePanneau = estReglages ? 'Réglages' : estCorpus ? 'Corpus' : estVideos ? 'Vidéos' : 'Contenus';
 
     const tabCount = (id: SocialTab): number | undefined => {
         if (id === 'ideas')    return counts.ideas;
@@ -221,6 +227,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         icon={s.icon}
                                         label={s.label}
                                         count={s.id === 'inbox' ? corpusCounts?.inbox : undefined}
+                                    />
+                                ))
+                                : estVideos
+                                ? VIDEOS_SECTIONS.map(s => (
+                                    <PanelTab
+                                        key={s.id}
+                                        active={currentVideosSection === s.id}
+                                        onClick={() => { onNavigateVideos(s.id); onMobileClose(); }}
+                                        icon={s.icon}
+                                        label={s.label}
                                     />
                                 ))
                                 : estReglages

@@ -3,12 +3,13 @@ import { Lightbulb, PenLine, CheckCircle2, Calendar as CalendarIcon, Archive, La
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
 import { PERSONAS_NAV } from '../Settings/apercus';
 import { CORPUS_SECTIONS, BLOCS, CorpusSection } from '../Corpus/sections';
+import { VIDEOS_SECTIONS, VideosSection } from '../Video/sections';
 
 type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
 
 interface MobileSubTabsProps {
-    /** L'espace décide de ce que la barre montre : contenus, réglages ou corpus. */
-    space: 'social' | 'settings' | 'corpus';
+    /** L'espace décide de ce que la barre montre : contenus, réglages, corpus ou vidéos. */
+    space: 'social' | 'settings' | 'corpus' | 'videos';
     currentTab: SocialTab;
     currentSettingsSection: SettingsSection;
     /** Le rôle ouvert sous Personas — la seconde rangée de Réglages. */
@@ -18,6 +19,8 @@ interface MobileSubTabsProps {
     currentCorpusSection?: CorpusSection;
     currentCorpusBloc?: string | null;
     onNavigateCorpus?: (section: CorpusSection, bloc?: string | null) => void;
+    currentVideosSection?: VideosSection;
+    onNavigateVideos?: (section: VideosSection) => void;
     counts: {
         ideas: number;
         drafts: number;
@@ -48,6 +51,7 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
     space, currentTab, currentSettingsSection, currentSettingsPersona = null,
     onNavigate, onNavigateSettings, counts,
     currentCorpusSection = 'etat', currentCorpusBloc = null, onNavigateCorpus,
+    currentVideosSection = 'montage', onNavigateVideos,
 }) => {
     const tabCount = (id: SocialTab): number => {
         if (id === 'ideas')    return counts.ideas;
@@ -108,6 +112,26 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                     </div>
                 )}
             </>
+        );
+    }
+
+    if (space === 'videos') {
+        return (
+            <div className={RANGEE} style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+                {VIDEOS_SECTIONS.map(s => {
+                    const Icon = s.icon;
+                    return (
+                        <button
+                            key={s.id}
+                            onClick={() => onNavigateVideos?.(s.id)}
+                            className={CLASSE_ONGLET(currentVideosSection === s.id)}
+                        >
+                            <Icon className="w-3 h-3" />
+                            {s.label}
+                        </button>
+                    );
+                })}
+            </div>
         );
     }
 

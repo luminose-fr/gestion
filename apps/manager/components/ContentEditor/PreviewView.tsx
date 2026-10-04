@@ -222,8 +222,10 @@ export const PreviewView: React.FC<PreviewViewProps> = ({ item, onChangeStatus, 
                             </div>
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                {/* Le montage reste ouvert une fois le contenu Prêt ou Publié : c'est
+                                    après que le script est prêt qu'on tourne (SPEC §12.4.3). */}
                                 {item.draft ? (
-                                    <ScriptVideoRenderer raw={item.draft} variant="table" />
+                                    <ScriptVideoRenderer raw={item.draft} variant="table" contentId={item.id} />
                                 ) : (
                                     <div className="p-8 text-center text-brand-main/40 dark:text-dark-text/40 italic">
                                         Pas de script disponible.

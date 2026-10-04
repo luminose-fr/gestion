@@ -1,4 +1,4 @@
-# SPEC v2.9 — gestion.luminose.fr
+# SPEC v2.10 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -45,6 +45,9 @@
 > **v2.9 (04/10/2026)** : rester dans le gratuit. L'écran des quotas suit R2 et Workers AI
 > (§0.4), et le montage refuse un dépôt qui ferait dépasser les 10 Go gratuits de R2,
 > seul service qui facture au-delà (§12.4.2).
+> **v2.10 (04/10/2026)** : le montage a une porte. L'espace Vidéos s'ouvre sur un onglet
+> **Montage** qui liste les Reels expliqués et dit où chacun en est ; le montage se tient
+> aussi sur un contenu Prêt ou Publié, et chaque export réussi est noté (§12.4.3).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -717,6 +720,7 @@ horodatés. Workers AI, 0 requête D1. Voir §12.5.
 ### 3.10 Montage d'un Reel expliqué
 
 ```
+GET    /api/montage                                  le résumé de tous les montages (1 batch)
 GET    /api/montage/:id                              prises, visuels, espace occupé (1 batch)
 POST   /api/montage/:id/prises/:role                 déclare une prise, ouvre son envoi (4)
 PUT    /api/montage/:id/prises/:role/parties/:n      une partie, 50 Mo au plus (1)
@@ -728,10 +732,11 @@ DELETE /api/montage/:id/prises/:role                 retire la prise et son fich
 PUT    /api/montage/:id/visuels/:seq/:el             l'image d'une carte, 15 Mo au plus (4)
 GET    /api/montage/:id/visuels/:seq/:el             (1)
 DELETE /api/montage/:id/visuels/:seq/:el             (2)
+POST   /api/montage/:id/exports                      note un export réussi (2)
 ```
 
 `:role` vaut `principale` ou `accroche`. Entre parenthèses, le nombre de requêtes D1.
-Voir §12.4.2.
+Voir §12.4.2 et §12.4.3.
 
 ### 3.7 Ce qu'une liste retient — NORMATIF
 
@@ -1526,6 +1531,49 @@ qu'elle était.
 L'export de la base (§9.4) emporte les descriptions — transcriptions, repères,
 descriptions des visuels —, **pas les fichiers** : plusieurs gigaoctets de vidéo ne se
 téléchargent pas d'un clic.
+
+### 12.4.3 Où se trouve le montage (v2.10) — NORMATIF
+
+Question de Florent, le 04/10/2026 : « ça se trouve où dans mon interface ? ». Le
+montage vivait dans l'onglet Script d'un contenu en Brouillon, et nulle part ailleurs ;
+l'espace Vidéos, où on le cherchait, ne contenait que l'outil Sous-titres. Décision :
+**les deux portes**.
+
+**L'espace Vidéos s'ouvre sur l'onglet Montage** (`#videos`, ou `#videos/montage`) ;
+Sous-titres reste à côté (`#videos/sous-titres`). Montage liste les contenus dont le
+format se monte — le registre le dit (`montable`, `estMontable`), l'écran ne nomme aucun
+format — et dit de chacun **l'étape suivante**, pas seulement l'état :
+
+| Ce que le montage contient | Ce que la ligne dit |
+| :--- | :--- |
+| pas de script lisible | « Pas encore de script — il s'écrit dans l'Atelier. » |
+| un script, aucune prise | « Script prêt — à tourner. », ou le nombre de points que les contrôles (§12.3) demandent de corriger |
+| une prise dont l'envoi n'a pas abouti | « Envoi de la prise interrompu — à redéposer. » |
+| une prise non transcrite | « Prise déposée — transcription à faire. » |
+| une prise transcrite | « Prise calée — prête à exporter. », et combien de visuels sont posés sur ceux qu'il faut |
+| un export noté | « Exportée le …, en 9:16 » — le plus récent, « (publicité) » s'il l'était |
+
+Les lignes se rangent dans l'ordre où l'on travaille : Brouillon, Prêt, Idée, Publié,
+puis le plus récent d'abord. **« Ouvrir » mène au montage du contenu** : l'onglet Script
+d'un Brouillon, l'aperçu d'un Prêt ou d'un Publié. Une liste vide dit où commence un
+Reel expliqué et mène à la boîte à idées. Sous la liste, l'espace occupé dans R2 sur les
+10 Go gratuits.
+
+**Le montage se tient aussi sur un contenu Prêt ou Publié.** On tourne souvent après
+avoir validé le script, et une vidéo publiée doit pouvoir se réexporter — en 4:5, en
+version publicité. L'aperçu d'un script court y ouvre le même panneau que l'onglet
+Script.
+
+**Le résumé coûte une requête, pas une par contenu** : `GET /api/montage` lit en un
+batch les prises vivantes, le nombre de visuels par contenu, le dernier export de chacun
+et l'espace occupé — quatre lectures, quel que soit le nombre de Reels (§3.6).
+
+**Chaque export réussi est noté** (`POST /api/montage/:id/exports`, migration 0008,
+table `montage_exports`) : format, version, durée, date. L'export part en
+téléchargement ; sans cette ligne, rien ne dirait qu'une prise a fait son office et peut
+rendre sa place dans R2. C'est un journal et non une colonne : un même Reel s'exporte en
+plusieurs formats et versions. Une note qui échoue ne se signale pas — le fichier, lui,
+est déjà téléchargé. L'export de la base (§9.4) emporte ce journal.
 
 ### 12.5 Le calage sur la prise (V3) — NORMATIF
 

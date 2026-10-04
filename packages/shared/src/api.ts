@@ -294,6 +294,29 @@ export interface VisuelDistant {
   updatedAt: number;
 }
 
+export const FORMATS_EXPORT = ['9:16', '4:5'] as const;
+export const VERSIONS_EXPORT = ['organique', 'publicite'] as const;
+
+export const NoterExportSchema = z.object({
+  format: z.enum(FORMATS_EXPORT),
+  version: z.enum(VERSIONS_EXPORT),
+  duree: z.number().positive().max(3600),
+});
+export type ExportNote = z.infer<typeof NoterExportSchema>;
+
+/** Ce que l'espace Vidéos montre de chaque montage, sans ouvrir aucun contenu (SPEC §12.4.3). */
+export interface ResumeMontage {
+  prises: Array<{ role: RolePrise; pret: boolean; transcrite: boolean }>;
+  visuels: number;
+  dernierExport: (ExportNote & { le: number }) | null;
+}
+
+export interface ResumeMontages {
+  /** Par identifiant de contenu ; un contenu absent n'a encore rien de monté. */
+  contenus: Record<string, ResumeMontage>;
+  stockage: EtatMontage['stockage'];
+}
+
 export interface EtatMontage {
   prises: PriseDistante[];
   visuels: VisuelDistant[];

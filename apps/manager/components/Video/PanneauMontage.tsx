@@ -9,6 +9,7 @@ import {
 import { Bouton, Etiquette } from '../ui';
 import { Barre, EnCours } from '../Feedback';
 import * as Activite from '../../services/activityService';
+import * as Api from '../../services/apiService';
 import {
     CompositionReel, CompositionFinale, SceneAnimee, FPS, chargerPolices, dureeDuReel, dureeDuPlan, enImages,
     type ProprietesFinale, type ProprietesReel, type ProprietesScene,
@@ -185,7 +186,11 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
     const occupe = export_ !== null;
 
     /** Un rendu dans l'onglet, annoncé au bandeau, annulable, téléchargé à la fin. */
-    const rendre = async (cible: string, libelle: string, nom: string, lancer: (signal: AbortSignal, avancer: (p: number) => void) => Promise<Blob>) => {
+    const rendre = async (
+        cible: string, libelle: string, nom: string,
+        lancer: (signal: AbortSignal, avancer: (p: number) => void) => Promise<Blob>,
+        apres?: () => void,
+    ) => {
         setErreur(null);
         setExport({ cible, part: 0 });
         const controle = new AbortController();
@@ -208,6 +213,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
             }
             telecharger(blob, nom);
             temoin.fermer(true);
+            apres?.();
         } catch (e: any) {
             temoin.fermer(false);
             if (!controle.signal.aborted) setErreur(`${libelle} : échec — ${e?.message ?? String(e)}`);
@@ -266,7 +272,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                 onProgress: ({ progress }) => avancer(progress),
             });
             return getBlob();
-        });
+        // Noter l'export ne doit jamais en gâcher un réussi : une note perdue est perdue.
+        }, () => { void Api.noterExport(contentId, { format, version: versionEffective, duree: plan.duree }).catch(() => undefined); });
     };
 
     const progression = (cible: string) => export_?.cible === cible && (

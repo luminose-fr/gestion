@@ -7,7 +7,7 @@
  * d'être gardé : c'est justement une ligne effacée par erreur qu'on vient y
  * rechercher.
  *
- * 1 batch de 8 lectures : borné, indépendant du volume (SPEC §3.6).
+ * 1 batch de 9 lectures : borné, indépendant du volume (SPEC §3.6).
  *
  * Le montage (SPEC §12.4) y entre par ses DESCRIPTIONS — transcriptions,
  * repères corrigés, descriptions des visuels —, pas par ses fichiers : une
@@ -38,6 +38,7 @@ exportRoute.get('/', async (c) => {
     c.env.DB.prepare("SELECT * FROM app_settings WHERE key NOT LIKE 'provider_key:%' ORDER BY key ASC"),
     c.env.DB.prepare('SELECT * FROM montage_prises ORDER BY created_at ASC'),
     c.env.DB.prepare('SELECT * FROM montage_visuels ORDER BY created_at ASC'),
+    c.env.DB.prepare('SELECT * FROM montage_exports ORDER BY created_at ASC'),
   ]);
 
   const rows = (index: number): any[] => (results[index]?.results ?? []) as any[];
@@ -56,6 +57,9 @@ exportRoute.get('/', async (c) => {
     // Avec `deletedAt` : comme le reste, une sauvegarde garde les lignes retirées.
     montagePrises: rows(6).map((r) => ({ ...rowToPrise(r), deletedAt: r.deleted_at ?? null })),
     montageVisuels: rows(7).map((r) => ({ ...rowToVisuel(r), deletedAt: r.deleted_at ?? null })),
+    montageExports: rows(8).map((r) => ({
+      id: r.id, contentId: r.content_id, format: r.format, version: r.version, duree: r.duree, createdAt: r.created_at,
+    })),
   };
 
   return new Response(JSON.stringify(payload, null, 2), {
