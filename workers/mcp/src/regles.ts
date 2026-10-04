@@ -16,6 +16,8 @@
  * c'est la pause forcée qui la rend obligatoire.
  */
 
+import { LIMITES_ANNONCE, aInsertion, analyser, rendre, texteParDefaut } from './insertion';
+
 /** La marque de ce que Claude a créé (cadrage du 02/10/2026, R2). Florent la retire en validant. */
 export const MARQUE = '[Claude]';
 const PREFIXE = `${MARQUE} `;
@@ -91,4 +93,51 @@ export const urlAdmise = (brute: string): boolean => {
   try { u = new URL(brute); } catch { return false; }
   return u.protocol === 'https:' && (u.hostname === 'luminose.fr' || u.hostname === 'www.luminose.fr') &&
     !u.port && !u.username && !u.password && brute.startsWith(`https://${u.hostname}/`);
+};
+
+/** Les textes d'une annonce responsive, tels qu'écrits — insertion de mot-clé comprise. */
+export type TextesAnnonce = { titres: string[]; descriptions: string[]; chemins: string[] };
+
+export type Rendu = {
+  motCle: string;
+  /** Les seuls textes à insertion, tels qu'ils s'afficheraient pour ce mot-clé ; `replie` : trop long, Google montre le texte par défaut. */
+  textes: { source: string; texte: string; replie: boolean }[];
+  /** Ce que ce mot-clé ajoute au filtre — ce que le texte par défaut déclenchait déjà n'y est pas répété. */
+  refus: string[];
+  avertissements: string[];
+};
+
+/** L'annonce quand aucun mot-clé ne s'insère : ce que Google compte, et ce que le filtre lit d'abord. */
+export const textesParDefaut = (a: TextesAnnonce): string[] =>
+  [...a.titres, ...a.descriptions].map((t) => texteParDefaut(analyser(t))).concat(a.chemins);
+
+/**
+ * L'annonce telle que chaque mot-clé l'écrirait, et ce que le filtre en dit.
+ * Avec l'insertion, c'est le mot-clé qui écrit le titre : « hypnose qui guérit »
+ * ferait d'un titre sage une promesse. Chaque rendu passe donc au filtre, avec
+ * les autres textes de l'annonce — les refus par combinaison portent sur
+ * l'ensemble, comme Google affiche l'ensemble.
+ */
+export const examinerRendus = (a: TextesAnnonce, motsCles: string[]): Rendu[] => {
+  const parDefaut = examinerAnnonce(textesParDefaut(a));
+  const sources = [
+    ...a.titres.map((t) => ({ t, limite: LIMITES_ANNONCE.titre })),
+    ...a.descriptions.map((t) => ({ t, limite: LIMITES_ANNONCE.description })),
+  ].map((x) => ({ ...x, analyse: analyser(x.t) }));
+  return motsCles.map((motCle) => {
+    const textes: Rendu['textes'] = [];
+    const affiches = sources.map(({ t, limite, analyse }) => {
+      if (!aInsertion(analyse)) return texteParDefaut(analyse);
+      const r = rendre(analyse, motCle, limite);
+      textes.push({ source: t, ...r });
+      return r.texte;
+    });
+    const examen = examinerAnnonce([...affiches, ...a.chemins]);
+    return {
+      motCle,
+      textes,
+      refus: examen.refus.filter((r) => !parDefaut.refus.includes(r)),
+      avertissements: examen.avertissements.filter((r) => !parDefaut.avertissements.includes(r)),
+    };
+  });
 };

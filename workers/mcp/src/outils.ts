@@ -4,7 +4,8 @@
  * LIRE : les deux outils du serveur officiel de Google (googleads/google-ads-mcp)
  * — son périmètre, pas son code : il passe par gRPC, qui ne tourne pas dans un
  * Worker. ÉCRIRE : outils-ecriture.ts, lot par lot (cadrage du 01/10/2026),
- * outils-creation.ts (02/10/2026), outils-listes.ts (03/10/2026).
+ * outils-creation.ts (02/10/2026), outils-listes.ts (03/10/2026),
+ * outils-elements.ts (04/10/2026).
  * LE CORPUS : outils-corpus.ts (03/10/2026) — lire main, écrire par commit.
  *
  * Le vocabulaire évite « action » dans les noms, les champs et les schémas :
@@ -20,6 +21,7 @@ import { LECTURE, outil, texte, type ResultatOutil } from './outil';
 import { OUTILS_ECRITURE } from './outils-ecriture';
 import { OUTILS_CREATION } from './outils-creation';
 import { OUTILS_LISTES } from './outils-listes';
+import { OUTILS_ELEMENTS } from './outils-elements';
 import { OUTILS_CORPUS } from './outils-corpus';
 import type { Contexte } from './ecriture';
 import type { Env } from './env';
@@ -177,7 +179,7 @@ const requeteGaql = outil({
 
 // ── Registre ─────────────────────────────────────────────────────────────
 
-const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_CORPUS] as const;
+const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_ELEMENTS, ...OUTILS_CORPUS] as const;
 
 /**
  * Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en

@@ -18,7 +18,8 @@
  * prochaine version majeure. Tout exemple qui l'envoie est antérieur.
  */
 import { Refus } from './refus';
-import { MARQUE, examinerAnnonce, urlAdmise } from './regles';
+import { MARQUE, examinerAnnonce, textesParDefaut, urlAdmise } from './regles';
+import { analyser, longueur as longueurAffichee, texteParDefaut } from './insertion';
 import type { Env } from './env';
 
 /**
@@ -58,6 +59,13 @@ const FORME_COMPTE = /^\d{10}$/;
  *   la forme d'un nom de ressource ne peut pas dire : `verifierRetraits` le
  *   demande au compte avant chaque envoi.
  *
+ * Éléments d'annonce (04/10/2026) — liens annexes, accroches, extraits structurés :
+ * - `creer-elements` : les éléments et leurs associations, en une requête
+ *   atomique (`googleAds:mutate`) ; chaque association naît EN PAUSE.
+ * - `associer-element` : un élément existant, à une campagne ou un groupe, en pause.
+ * - `dissocier-element` : le lien seulement — l'élément reste dans le compte.
+ *   Comme les retraits d'exclusion, `verifierRetraits` le confirme dans le compte.
+ *
  * Aucun autre `remove`, aucun passage à ENABLED : l'activation — donc la
  * dépense — reste dans l'interface Google Ads.
  */
@@ -72,8 +80,31 @@ export const OPERATIONS_PERMISES = {
   labels: ['creer-libelle'],
   sharedCriteria: ['ajouter-a-liste', 'retirer-de-liste'],
   campaignSharedSets: ['associer-liste', 'dissocier-liste'],
-  googleAds: ['creer-campagne', 'creer-liste'],
+  campaignAssets: ['associer-element', 'dissocier-element'],
+  adGroupAssets: ['associer-element', 'dissocier-element'],
+  googleAds: ['creer-campagne', 'creer-liste', 'creer-elements'],
 } as const;
+
+/** Les éléments d'annonce que ce serveur crée et associe — le type d'élément est aussi le type de champ de l'association. */
+export const TYPES_ELEMENTS = ['SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET'] as const;
+export type TypeElement = (typeof TYPES_ELEMENTS)[number];
+
+/**
+ * Les limites de Google pour ces éléments, en caractères affichés (aide Google
+ * Ads, relue le 04/10/2026) : lien annexe 25, ses deux descriptions 35 chacune
+ * — les deux ou aucune ; accroche 25 ; extrait structuré, 3 à 10 valeurs de 25.
+ */
+export const LIMITES_ELEMENTS = { lien: 25, lienDescription: 35, accroche: 25, valeur: 25, valeursMin: 3, valeursMax: 10 } as const;
+
+/**
+ * Les en-têtes d'extrait structuré, en français : la liste fermée de Google
+ * (« Structured Snippet Header Translations », relue le 04/10/2026). Un autre
+ * en-tête serait refusé par Google ; il l'est ici d'abord, en clair.
+ */
+export const EN_TETES_EXTRAITS = [
+  'Équipements', 'Marques', 'Cours', "Programmes d'études", 'Destinations', "Sélection d'hôtels", "Couverture d'assurance",
+  'Modèles', 'Quartiers', 'Catalogue de services', 'Émissions', 'Styles', 'Types',
+] as const;
 
 /**
  * Les limites de Google pour les listes de mots-clés à exclure, relevées le
@@ -332,6 +363,15 @@ const ressource = (type: string, temporaire = false) =>
   new RegExp(`^customers/\\d{10}/${type}/${temporaire ? '-\\d+' : '\\d+(~\\d+)?'}$`);
 const marque = (nom: unknown) => typeof nom === 'string' && nom.startsWith(`${MARQUE} `);
 const longueur = (t: unknown, max: number) => typeof t === 'string' && t.trim().length > 0 && [...t].length <= max;
+/**
+ * Un texte d'annonce : l'insertion de mot-clé bien formée, et la longueur
+ * comptée comme Google la compte — sur le texte par défaut, pas sur la syntaxe.
+ */
+const affichable = (t: unknown, max: number) => {
+  if (typeof t !== 'string' || !t.trim()) return false;
+  const a = analyser(t);
+  return a.erreurs.length === 0 && longueurAffichee(texteParDefaut(a)) <= max;
+};
 const motCle = (k: unknown) =>
   cles(k) === 'matchType,text' && typeof (k as Record<string, unknown>).text === 'string' &&
   CORRESPONDANCES.includes(String((k as Record<string, unknown>).matchType));
@@ -344,7 +384,7 @@ const retrait = (type: string, op: Operation): string | null => {
 };
 
 /** Chaque forme rend `null` si l'opération lui est conforme, sinon la raison. */
-const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste'>, (service: ServiceEcriture, op: Operation) => string | null> = {
+const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-elements'>, (service: ServiceEcriture, op: Operation) => string | null> = {
   'creer-negatif': (_service, op) => {
     if (cles(op) !== 'create') return `clés ${cles(op)}`;
     const c = op.create as Record<string, unknown>;
@@ -378,6 +418,25 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste'>, (service:
   },
 
   'dissocier-liste': (_service, op) => retrait('campaignSharedSets', op),
+
+  'associer-element': (service, op) => {
+    if (cles(op) !== 'create') return `clés ${cles(op)}`;
+    const c = op.create as Record<string, unknown>;
+    const [champ, type] = service === 'campaignAssets' ? ['campaign', 'campaigns'] : ['adGroup', 'adGroups'];
+    if (cles(c) !== ['asset', champ, 'fieldType', 'status'].sort().join(',')) return `champs ${cles(c)}`;
+    // Rien ne naît actif : l'association part en pause, Florent l'active.
+    if (c.status !== 'PAUSED') return `statut ${String(c.status)}`;
+    if (!(TYPES_ELEMENTS as readonly string[]).includes(String(c.fieldType))) return `type ${String(c.fieldType)}`;
+    if (!ressource('assets').test(String(c.asset))) return 'élément';
+    if (!ressource(type).test(String(c[champ]))) return champ;
+    return null;
+  },
+
+  'dissocier-element': (service, op) => {
+    if (cles(op) !== 'remove') return `clés ${cles(op)}`;
+    if (!new RegExp(`^customers/\\d{10}/${service}/\\d+~\\d+~(${TYPES_ELEMENTS.join('|')})$`).test(String(op.remove))) return 'nom de ressource';
+    return null;
+  },
 
   'mettre-en-pause': (service, op) => {
     if (cles(op) !== 'update,updateMask') return `clés ${cles(op)}`;
@@ -414,13 +473,18 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste'>, (service:
     if (!estObjet(rsa) || Object.keys(rsa).some((k) => !['headlines', 'descriptions', 'path1', 'path2'].includes(k))) return `RSA ${cles(rsa)}`;
     const textes = (liste: unknown, min: number, max: number, taille: number) =>
       Array.isArray(liste) && liste.length >= min && liste.length <= max &&
-      liste.every((t) => cles(t) === 'text' && longueur((t as { text: unknown }).text, taille));
+      liste.every((t) => cles(t) === 'text' && affichable((t as { text: unknown }).text, taille));
     if (!textes(rsa.headlines, 3, 15, 30)) return 'titres';
     if (!textes(rsa.descriptions, 2, 4, 90)) return 'descriptions';
-    for (const chemin of [rsa.path1, rsa.path2]) if (chemin !== undefined && !longueur(chemin, 15)) return 'chemin';
+    // Pas d'insertion de mot-clé dans un chemin d'affichage.
+    for (const chemin of [rsa.path1, rsa.path2]) if (chemin !== undefined && (!longueur(chemin, 15) || /[{}]/.test(String(chemin)))) return 'chemin';
     if (rsa.path2 !== undefined && rsa.path1 === undefined) return 'chemin2 sans chemin1';
-    const tous = [...(rsa.headlines as { text: string }[]), ...(rsa.descriptions as { text: string }[])].map((t) => t.text);
-    const { refus } = examinerAnnonce([...tous, ...[rsa.path1, rsa.path2].filter((x): x is string => typeof x === 'string')]);
+    // Le filtre lit ce qui s'affiche sans mot-clé ; les rendus par mot-clé, l'outil les a lus avec les mots-clés du groupe.
+    const { refus } = examinerAnnonce(textesParDefaut({
+      titres: (rsa.headlines as { text: string }[]).map((t) => t.text),
+      descriptions: (rsa.descriptions as { text: string }[]).map((t) => t.text),
+      chemins: [rsa.path1, rsa.path2].filter((x): x is string => typeof x === 'string'),
+    }));
     if (refus.length > 0) return `texte refusé (V4) : ${refus.join(' ; ')}`;
     return null;
   },
@@ -473,7 +537,7 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste'>, (service:
 export const verifierOperation = (service: ServiceEcriture, operation: Operation): void => {
   const raisons: string[] = [];
   for (const forme of OPERATIONS_PERMISES[service] as readonly Forme[]) {
-    if (forme === 'creer-campagne' || forme === 'creer-liste') { raisons.push(`${forme} : passer par muter`); continue; }
+    if (forme === 'creer-campagne' || forme === 'creer-liste' || forme === 'creer-elements') { raisons.push(`${forme} : passer par muter`); continue; }
     const raison = FORMES[forme](service, operation);
     if (raison === null) return;
     raisons.push(`${forme} : ${raison}`);
@@ -586,21 +650,114 @@ export const verifierCreationListe = (operations: Operation[]): void => {
   }
 };
 
+/**
+ * Ce qu'un élément d'annonce peut porter — rend `null`, ou la raison. Les
+ * limites de Google, l'en-tête de la liste fermée, l'URL sur luminose.fr (V6),
+ * et le filtre déontologique des annonces (V4), revérifiés ici quel que soit
+ * l'outil.
+ */
+export const refusElement = (element: Record<string, unknown>): string | null => {
+  const texte = (t: unknown, max: number) => typeof t === 'string' && t.trim().length > 0 && [...t].length <= max && !/[{}]/.test(t);
+  const corps = Object.fromEntries(Object.entries(element).filter(([k]) => k !== 'resourceName'));
+  let textes: string[];
+  if (cles(corps) === 'finalUrls,sitelinkAsset') {
+    const l = corps.sitelinkAsset as Record<string, unknown>;
+    if (!estObjet(l) || !['linkText', 'description1,description2,linkText'].includes(cles(l))) return 'lien annexe : champs (les deux descriptions, ou aucune)';
+    if (!texte(l.linkText, LIMITES_ELEMENTS.lien)) return 'lien annexe : texte';
+    if ('description1' in l && (!texte(l.description1, LIMITES_ELEMENTS.lienDescription) || !texte(l.description2, LIMITES_ELEMENTS.lienDescription))) return 'lien annexe : descriptions';
+    const urls = corps.finalUrls;
+    if (!Array.isArray(urls) || urls.length !== 1 || typeof urls[0] !== 'string' || !urlAdmise(urls[0])) return 'lien annexe : URL finale hors de luminose.fr';
+    textes = [l.linkText, l.description1, l.description2].filter((x): x is string => typeof x === 'string');
+  } else if (cles(corps) === 'calloutAsset') {
+    const a = corps.calloutAsset as Record<string, unknown>;
+    if (cles(a) !== 'calloutText' || !texte(a.calloutText, LIMITES_ELEMENTS.accroche)) return 'accroche';
+    textes = [String(a.calloutText)];
+  } else if (cles(corps) === 'structuredSnippetAsset') {
+    const e = corps.structuredSnippetAsset as Record<string, unknown>;
+    if (cles(e) !== 'header,values') return 'extrait : champs';
+    if (!(EN_TETES_EXTRAITS as readonly string[]).includes(String(e.header))) return `extrait : en-tête ${String(e.header)} hors de la liste de Google`;
+    const v = e.values;
+    if (!Array.isArray(v) || v.length < LIMITES_ELEMENTS.valeursMin || v.length > LIMITES_ELEMENTS.valeursMax ||
+        !v.every((x) => texte(x, LIMITES_ELEMENTS.valeur)) || new Set(v.map((x) => String(x).toLowerCase())).size !== v.length) return 'extrait : valeurs';
+    textes = v as string[];
+  } else {
+    return `type d'élément ${cles(corps)}`;
+  }
+  const { refus } = examinerAnnonce(textes);
+  return refus.length ? `texte refusé (V4) : ${refus.join(' ; ')}` : null;
+};
+
+/** Le type de champ qu'un élément occupe, d'après sa forme. */
+const typeElement = (element: Record<string, unknown>): TypeElement | null =>
+  'sitelinkAsset' in element ? 'SITELINK' : 'calloutAsset' in element ? 'CALLOUT' : 'structuredSnippetAsset' in element ? 'STRUCTURED_SNIPPET' : null;
+
+/**
+ * La requête atomique qui crée des éléments d'annonce : les éléments d'abord,
+ * puis une association par élément, toutes vers la même cible, chacune EN PAUSE
+ * et au type de champ de son élément. Rien d'autre.
+ */
+export const verifierCreationElements = (operations: Operation[]): void => {
+  const refuser = (raison: string): never => {
+    throw new Error(`Opération refusée par la table fermée (googleAds) — creer-elements : ${raison}`);
+  };
+  const types = operations.map((o) => cles(o));
+  const n = types.filter((t) => t === 'assetOperation').length;
+  const lien = types[n];
+  if (n === 0 || operations.length !== 2 * n || types.slice(0, n).some((t) => t !== 'assetOperation') ||
+      !['campaignAssetOperation', 'adGroupAssetOperation'].includes(lien) || types.slice(n).some((t) => t !== lien)) {
+    refuser(`suite d'opérations ${types.join(' → ')}`);
+  }
+  const crees = new Map<string, TypeElement>();
+  for (const o of operations.slice(0, n)) {
+    const op = o.assetOperation as Record<string, unknown>;
+    if (cles(op) !== 'create') refuser('élément : seule la création');
+    const a = op.create as Record<string, unknown>;
+    if (!ressource('assets', true).test(String(a.resourceName))) refuser('élément : nom de ressource temporaire');
+    const raison = refusElement(a);
+    if (raison) refuser(`élément : ${raison}`);
+    crees.set(String(a.resourceName), typeElement(a)!);
+  }
+  const [champ, type] = lien === 'campaignAssetOperation' ? ['campaign', 'campaigns'] : ['adGroup', 'adGroups'];
+  const cibles = new Set<string>();
+  const lies = new Set<string>();
+  for (const o of operations.slice(n)) {
+    const op = o[lien] as Record<string, unknown>;
+    if (cles(op) !== 'create') refuser('association : seule la création');
+    const c = op.create as Record<string, unknown>;
+    if (cles(c) !== ['asset', champ, 'fieldType', 'status'].sort().join(',')) refuser(`association : champs ${cles(c)}`);
+    if (c.status !== 'PAUSED') refuser(`association : statut ${String(c.status)}`);
+    if (!ressource(type).test(String(c[champ]))) refuser(`association : ${champ}`);
+    if (crees.get(String(c.asset)) !== c.fieldType) refuser('association : élément ou type de champ');
+    cibles.add(String(c[champ]));
+    lies.add(String(c.asset));
+  }
+  if (cibles.size !== 1 || lies.size !== n) refuser('chaque élément créé, associé une fois, à une seule cible');
+};
+
 type LigneRetrait = {
   campaignCriterion?: { resourceName?: string; type?: string; negative?: boolean; status?: string };
   sharedCriterion?: { resourceName?: string; type?: string };
   campaignSharedSet?: { resourceName?: string; status?: string };
   sharedSet?: { type?: string };
+  campaignAsset?: { resourceName?: string; fieldType?: string; status?: string };
+  adGroupAsset?: { resourceName?: string; fieldType?: string; status?: string };
 };
 
 /**
  * Pour chaque service où la table permet un `remove` : comment demander au
- * compte ce que vise un nom de ressource, et si c'est une exclusion — un
- * négatif de campagne, une entrée d'une liste de négatifs, le lien d'une telle
- * liste à une campagne. Rien d'autre ne se retire.
+ * compte ce que vise un nom de ressource, et si son retrait est permis — une
+ * exclusion levée (un négatif de campagne, une entrée d'une liste de négatifs,
+ * le lien d'une telle liste à une campagne), ou le lien d'un élément d'annonce
+ * que ce serveur gère. Rien d'autre ne se retire.
  */
-const RETRAITS: Partial<Record<ServiceEcriture, { requete: (noms: string) => string; lire: (l: LigneRetrait) => { nom?: string; vivant: boolean; exclusion: boolean } }>> = {
+const RETRAITS: Partial<Record<ServiceEcriture, {
+  /** Ce qu'un retrait permis lève, pour le dire quand il ne l'est pas. */
+  quoi: string;
+  requete: (noms: string) => string;
+  lire: (l: LigneRetrait) => { nom?: string; vivant: boolean; exclusion: boolean };
+}>> = {
   campaignCriteria: {
+    quoi: 'une exclusion',
     requete: (noms) => 'SELECT campaign_criterion.resource_name, campaign_criterion.type, campaign_criterion.negative, campaign_criterion.status ' +
       `FROM campaign_criterion WHERE campaign_criterion.resource_name IN (${noms})`,
     lire: ({ campaignCriterion: c }) => ({
@@ -608,22 +765,39 @@ const RETRAITS: Partial<Record<ServiceEcriture, { requete: (noms: string) => str
     }),
   },
   sharedCriteria: {
+    quoi: 'une exclusion',
     requete: (noms) => `SELECT shared_criterion.resource_name, shared_criterion.type, shared_set.type FROM shared_criterion WHERE shared_criterion.resource_name IN (${noms})`,
     lire: ({ sharedCriterion: c, sharedSet: l }) => ({
       nom: c?.resourceName, vivant: true, exclusion: c?.type === 'KEYWORD' && l?.type === 'NEGATIVE_KEYWORDS',
     }),
   },
   campaignSharedSets: {
+    quoi: 'une exclusion',
     requete: (noms) => 'SELECT campaign_shared_set.resource_name, campaign_shared_set.status, shared_set.type ' +
       `FROM campaign_shared_set WHERE campaign_shared_set.resource_name IN (${noms})`,
     lire: ({ campaignSharedSet: c, sharedSet: l }) => ({
       nom: c?.resourceName, vivant: c?.status !== 'REMOVED', exclusion: l?.type === 'NEGATIVE_KEYWORDS',
     }),
   },
+  campaignAssets: {
+    quoi: "le lien d'un élément d'annonce",
+    requete: (noms) => `SELECT campaign_asset.resource_name, campaign_asset.field_type, campaign_asset.status FROM campaign_asset WHERE campaign_asset.resource_name IN (${noms})`,
+    lire: ({ campaignAsset: c }) => ({
+      nom: c?.resourceName, vivant: c?.status !== 'REMOVED', exclusion: (TYPES_ELEMENTS as readonly string[]).includes(String(c?.fieldType)),
+    }),
+  },
+  adGroupAssets: {
+    quoi: "le lien d'un élément d'annonce",
+    requete: (noms) => `SELECT ad_group_asset.resource_name, ad_group_asset.field_type, ad_group_asset.status FROM ad_group_asset WHERE ad_group_asset.resource_name IN (${noms})`,
+    lire: ({ adGroupAsset: c }) => ({
+      nom: c?.resourceName, vivant: c?.status !== 'REMOVED', exclusion: (TYPES_ELEMENTS as readonly string[]).includes(String(c?.fieldType)),
+    }),
+  },
 };
 
 /**
- * Un `remove` ne part que si le COMPTE confirme qu'il lève une exclusion. La
+ * Un `remove` ne part que si le COMPTE confirme qu'il lève une exclusion — ou le
+ * lien d'un élément d'annonce, jamais l'élément. La
  * forme d'un nom de ressource ne le dit pas : `campaignCriteria/111~5` peut
  * être un négatif comme la zone de la campagne, dont le retrait la ferait
  * diffuser partout. Une lecture par appel, quel que soit le nombre de retraits.
@@ -643,7 +817,7 @@ const verifierRetraits = async (env: Env, compte: string, service: ServiceEcritu
   for (const nom of noms) {
     const l = lus.get(nom);
     if (!l || !l.vivant) throw new Refus(`${nom} n'existe plus dans le compte : rien n'est parti. Refaites un aperçu.`);
-    if (!l.exclusion) throw new Error(`Retrait refusé par la table fermée (${service}) : ${nom} n'est pas une exclusion`);
+    if (!l.exclusion) throw new Error(`Retrait refusé par la table fermée (${service}) : ${nom} n'est pas ${regle.quoi}`);
   }
 };
 
@@ -675,7 +849,9 @@ export const muter = async (
   if (operations.length === 0) throw new Error('Aucune opération à envoyer');
 
   if (service === 'googleAds') {
-    if (cles(operations[0]) === 'sharedSetOperation') verifierCreationListe(operations);
+    const premiere = cles(operations[0]);
+    if (premiere === 'sharedSetOperation') verifierCreationListe(operations);
+    else if (premiere === 'assetOperation') verifierCreationElements(operations);
     else verifierCreationCampagne(operations, limitesArgent(env));
   } else {
     for (const operation of operations) verifierOperation(service, operation);

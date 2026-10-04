@@ -120,10 +120,11 @@ describe('époque moderne (2026-07-28)', () => {
         'ads_campagne_creer', 'ads_groupe_creer', 'ads_annonce_creer', 'ads_mots_cles_ajouter',
         'ads_liste_negatifs_creer', 'ads_liste_negatifs_ajouter', 'ads_liste_negatifs_retirer',
         'ads_liste_associer', 'ads_liste_dissocier', 'ads_negatifs_retirer',
+        'ads_elements_creer', 'ads_elements_associer', 'ads_elements_dissocier',
         'corpus_index', 'corpus_lire', 'corpus_contexte', 'corpus_modifier', 'corpus_decision_ajouter', 'corpus_deployer',
       ]);
-    // Destructeurs : les seuls outils qui lèvent une exclusion, donc peuvent rouvrir du trafic.
-    const retraits = ['ads_liste_negatifs_retirer', 'ads_liste_dissocier', 'ads_negatifs_retirer'];
+    // Destructeurs : les seuls outils qui lèvent une exclusion, donc peuvent rouvrir du trafic — ou retirent un élément d'une annonce.
+    const retraits = ['ads_liste_negatifs_retirer', 'ads_liste_dissocier', 'ads_negatifs_retirer', 'ads_elements_dissocier'];
     for (const outil of result.tools) {
       expect(outil.inputSchema.type).toBe('object');
       expect(outil.inputSchema.$schema).toBeUndefined();

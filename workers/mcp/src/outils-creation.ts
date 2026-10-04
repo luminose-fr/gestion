@@ -16,7 +16,8 @@ import {
 } from './google-ads';
 import { outil, texte } from './outil';
 import { CORRESPONDANCES, DEUX_TEMPS, JETON, exigerSearch, lignes, normaliserMotsCles, premiereLigne } from './outils-ecriture';
-import { MARQUE, examinerAnnonce, marquer, urlAdmise } from './regles';
+import { MARQUE, examinerAnnonce, examinerRendus, marquer, textesParDefaut, urlAdmise, type Rendu, type TextesAnnonce } from './regles';
+import { LIMITES_ANNONCE, aInsertion, analyser, longueur, texteParDefaut } from './insertion';
 import { Refus } from './refus';
 import type { Env } from './env';
 
@@ -47,6 +48,47 @@ const exigerGroupe = async (env: Env, compte: string, groupe: string) => {
   if (l.adGroup.type !== 'SEARCH_STANDARD') throw new Refus(`Le groupe « ${l.adGroup.name} » n'est pas un groupe Search standard (${l.adGroup.type}).`);
   return { nom: l.adGroup.name ?? groupe, campagne: l.campaign?.name ?? '?' };
 };
+
+type LigneMotCle = { adGroupCriterion?: { keyword?: { text?: string; matchType?: string }; status?: string } };
+
+/** Les mots-clés positifs du groupe, actifs ou en pause : chacun peut écrire un titre par l'insertion. */
+const motsClesDuGroupe = async (env: Env, compte: string, groupe: string) =>
+  (await lignes<LigneMotCle>(env, compte,
+    'SELECT ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status FROM ad_group_criterion ' +
+    `WHERE ad_group.id = ${groupe} AND ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.negative = FALSE ` +
+    "AND ad_group_criterion.status IN ('ENABLED', 'PAUSED')"))
+    .flatMap(({ adGroupCriterion: c }) => (c?.keyword?.text ? [{ texte: c.keyword.text, correspondance: c.keyword.matchType ?? '?' }] : []));
+
+type LigneAnnonce = { adGroupAd?: { ad?: { id?: string; responsiveSearchAd?: { headlines?: { text?: string }[]; descriptions?: { text?: string }[]; path1?: string; path2?: string } } } };
+
+/** Les annonces responsives du groupe qui utilisent l'insertion de mot-clé : un mot-clé ajouté y écrira un titre. */
+const annoncesAInsertion = async (env: Env, compte: string, groupe: string): Promise<{ id: string; textes: TextesAnnonce }[]> =>
+  (await lignes<LigneAnnonce>(env, compte,
+    'SELECT ad_group_ad.ad.id, ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions, ' +
+    'ad_group_ad.ad.responsive_search_ad.path1, ad_group_ad.ad.responsive_search_ad.path2 FROM ad_group_ad ' +
+    `WHERE ad_group.id = ${groupe} AND ad_group_ad.status != 'REMOVED' AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'`))
+    .flatMap(({ adGroupAd }) => {
+      const rsa = adGroupAd?.ad?.responsiveSearchAd;
+      if (!rsa) return [];
+      const textes: TextesAnnonce = {
+        titres: (rsa.headlines ?? []).map((t) => t.text ?? ''),
+        descriptions: (rsa.descriptions ?? []).map((t) => t.text ?? ''),
+        chemins: [rsa.path1, rsa.path2].filter((x): x is string => Boolean(x)),
+      };
+      const utilise = [...textes.titres, ...textes.descriptions].some((t) => aInsertion(analyser(t)));
+      return utilise ? [{ id: String(adGroupAd?.ad?.id ?? '?'), textes }] : [];
+    });
+
+const MAX_RENDUS_APERCU = 30;
+
+/** Les lignes d'aperçu et de refus d'un examen par mot-clé. `ou` situe l'annonce quand il y en a plusieurs. */
+const decrireRendus = (rendus: Rendu[], ou = '') => ({
+  lignes: rendus.slice(0, MAX_RENDUS_APERCU).map((r) => `- « ${r.motCle} »${ou} : ` +
+    r.textes.map((t) => (t.replie ? `trop long, texte par défaut « ${t.texte} »` : `« ${t.texte} »`)).join(' · '))
+    .concat(rendus.length > MAX_RENDUS_APERCU ? [`- … et ${rendus.length - MAX_RENDUS_APERCU} autre(s) mot(s)-clé(s).`] : []),
+  refus: rendus.flatMap((r) => r.refus.map((x) => `- mot-clé « ${r.motCle} »${ou} : ${x}`)),
+  avertissements: rendus.flatMap((r) => r.avertissements.map((x) => `- mot-clé « ${r.motCle} »${ou} : ${x} — titre rendu ${r.textes.map((t) => `« ${t.texte} »`).join(', ')}`)),
+});
 
 // ── ads_campagne_creer ───────────────────────────────────────────────────
 
@@ -304,6 +346,12 @@ const annonceCreer = outil({
     "2 à 4 descriptions de 90 au plus, jusqu'à 2 chemins d'affichage de 15 au plus, une URL finale sur https://luminose.fr/ " +
     'ou https://www.luminose.fr/ (aucun sous-domaine).',
     '',
+    "Insertion de mot-clé, dans les titres et les descriptions : {keyword:texte par défaut}, {Keyword:…}, {KeyWord:…}, " +
+    "{KEYWord:…} ou {KeyWORD:…} — la casse dit comment le mot-clé s'écrit. La longueur se compte sur le texte par défaut. " +
+    "Le mot-clé écrit alors le titre : l'aperçu montre, pour chaque mot-clé du groupe, ce qui s'afficherait (le texte par défaut " +
+    "quand le rendu dépasse la limite), et un mot-clé qui produirait un texte interdit fait refuser l'annonce. Pas d'insertion " +
+    'dans les chemins.',
+    '',
     MARQUE_ET_PAUSE,
     '',
     DEUX_TEMPS,
@@ -314,8 +362,10 @@ const annonceCreer = outil({
   ].join('\n'),
   schema: z.object({
     groupe: ID.describe("Identifiant du groupe d'annonces (ad_group.id)."),
-    titres: z.array(z.string().min(1).max(30)).min(3).max(15),
-    descriptions: z.array(z.string().min(1).max(90)).min(2).max(4),
+    titres: z.array(z.string().min(1).max(120)).min(3).max(15)
+      .describe("30 caractères affichés au plus ; avec l'insertion, comptés sur le texte par défaut."),
+    descriptions: z.array(z.string().min(1).max(300)).min(2).max(4)
+      .describe("90 caractères affichés au plus ; avec l'insertion, comptés sur le texte par défaut."),
     chemin1: z.string().min(1).max(15).optional(),
     chemin2: z.string().min(1).max(15).optional(),
     url_finale: z.string().max(2048),
@@ -341,7 +391,24 @@ const annonceCreer = outil({
       throw new Refus(`URL finale refusée : « ${url_finale} ». Seules https://luminose.fr/… et https://www.luminose.fr/… sont admises, sans sous-domaine.`);
     }
     const chemins = [chemin1, chemin2].filter((x): x is string => Boolean(x));
-    const examen = examinerAnnonce([...t, ...d, ...chemins]);
+    if (chemins.some((c) => /[{}]/.test(c))) throw new Refus("Pas d'insertion de mot-clé dans un chemin d'affichage : Google ne l'y admet pas.");
+
+    // L'insertion bien formée, et la longueur comme Google la compte : sur le texte par défaut.
+    const fautes: string[] = [];
+    for (const [liste, limite, quoi] of [[t, LIMITES_ANNONCE.titre, 'titre'], [d, LIMITES_ANNONCE.description, 'description']] as const) {
+      for (const x of liste) {
+        const a = analyser(x);
+        fautes.push(...a.erreurs.map((e) => `- ${quoi} ${e}`));
+        const n = longueur(texteParDefaut(a));
+        if (a.erreurs.length === 0 && n > limite) {
+          fautes.push(`- ${quoi} « ${x} » : ${n} caractères affichés${aInsertion(a) ? ' (texte par défaut)' : ''} — ${limite} au plus.`);
+        }
+      }
+    }
+    if (fautes.length) throw new Refus(['Annonce refusée, rien n’est parti :', ...fautes].join('\n'));
+
+    const textes: TextesAnnonce = { titres: t, descriptions: d, chemins };
+    const examen = examinerAnnonce(textesParDefaut(textes));
     if (examen.refus.length > 0) {
       throw new Refus(
         `Annonce refusée par le filtre déontologique (aucune promesse de guérison, socle/cadre-deontologique.md) :\n` +
@@ -351,6 +418,22 @@ const annonceCreer = outil({
 
     const g = await exigerGroupe(env, compte, groupe);
     const libelle = await trouverLibelle(env, compte);
+
+    // Avec l'insertion, chaque mot-clé du groupe écrit un titre : chacun passe au filtre.
+    const insertion = [...t, ...d].some((x) => aInsertion(analyser(x)));
+    const motsCles = insertion ? await motsClesDuGroupe(env, compte, groupe) : [];
+    const rendus = decrireRendus(examinerRendus(textes, motsCles.map((m) => m.texte)));
+    if (rendus.refus.length > 0) {
+      throw new Refus([
+        "Annonce refusée : avec l'insertion de mot-clé, ces mots-clés du groupe écriraient un texte interdit (aucune promesse de guérison, socle/cadre-deontologique.md) :",
+        ...rendus.refus,
+        '',
+        "Retirer l'insertion des textes concernés, ou ces mots-clés du groupe. Rien n'est parti.",
+      ].join('\n'));
+    }
+    const sectionInsertion = !insertion ? [] : motsCles.length === 0
+      ? ['', "INSERTION DE MOT-CLÉ — le groupe n'a encore aucun mot-clé : le texte par défaut s'affichera. ads_mots_cles_ajouter contrôlera chaque mot-clé ajouté."]
+      : ['', `INSERTION DE MOT-CLÉ — ce que chaque mot-clé du groupe afficherait (${motsCles.length}) :`, ...rendus.lignes];
     return texte(await ecrire(env, contexte, {
       outil: 'ads_annonce_creer',
       compte,
@@ -375,8 +458,9 @@ const annonceCreer = outil({
           `- URL finale : ${url_finale}${chemins.length ? ` — affichée …/${chemins.join('/')}` : ''}`,
           `- Titres (${t.length}) :`, ...t.map((x) => `  · ${x}`),
           `- Descriptions (${d.length}) :`, ...d.map((x) => `  · ${x}`),
-          ...(examen.avertissements.length
-            ? ['', 'AVERTISSEMENTS — à relire avant de valider :', ...examen.avertissements.map((a) => `- ${a}`)]
+          ...sectionInsertion,
+          ...(examen.avertissements.length || rendus.avertissements.length
+            ? ['', 'AVERTISSEMENTS — à relire avant de valider :', ...examen.avertissements.map((a) => `- ${a}`), ...rendus.avertissements]
             : []),
         ].join('\n'),
         bilan: `Annonce créée, en pause, dans le groupe « ${g.nom} ».`,
@@ -458,6 +542,9 @@ const motsClesAjouter = outil({
     '',
     DEUX_TEMPS,
     '',
+    "Insertion de mot-clé : si une annonce du groupe l'utilise, l'aperçu montre le titre que chaque mot-clé y écrirait, et " +
+    'un mot-clé qui produirait un texte interdit est refusé.',
+    '',
     "Règlement de Google : certains mots-clés (santé, tabac…) sont arrêtés par une règle qui admet une exception. L'outil " +
     "les nomme, avec la règle en cause, et ne demande rien. Pour demander l'exception, rappeler avec demander_exceptions: true : " +
     "l'aperçu liste chaque exception, et elle ne part qu'avec le jeton, après l'accord de Florent. Une règle sans exception " +
@@ -482,6 +569,27 @@ const motsClesAjouter = outil({
 
     const g = await exigerGroupe(env, compte, groupe);
     const libelle = await trouverLibelle(env, compte);
+
+    // Une annonce du groupe qui utilise l'insertion : chaque mot-clé ajouté y écrira un titre, qui passe au filtre.
+    const annonces = await annoncesAInsertion(env, compte, groupe);
+    const parAnnonce = annonces.map((a) => decrireRendus(examinerRendus(a.textes, liste.map((m) => m.texte)), annonces.length > 1 ? ` (annonce ${a.id})` : ''));
+    const refusInsertion = parAnnonce.flatMap((r) => r.refus);
+    if (refusInsertion.length > 0) {
+      throw new Refus([
+        "Mots-clés refusés : avec l'insertion de mot-clé d'une annonce du groupe, ils écriraient un texte interdit (aucune promesse de guérison, socle/cadre-deontologique.md) :",
+        ...refusInsertion,
+        '',
+        "Retirer ces mots-clés, ou l'insertion de l'annonce. Rien n'est parti.",
+      ].join('\n'));
+    }
+    const sectionInsertion = annonces.length === 0 ? [] : [
+      '', `INSERTION DE MOT-CLÉ — ${annonces.length > 1 ? `${annonces.length} annonces du groupe l'utilisent` : "une annonce du groupe l'utilise"} ; ce que chaque mot-clé afficherait :`,
+      ...parAnnonce.flatMap((r) => r.lignes),
+      ...(parAnnonce.some((r) => r.avertissements.length)
+        ? ['', 'AVERTISSEMENTS — à relire avant de valider :', ...parAnnonce.flatMap((r) => r.avertissements)]
+        : []),
+    ];
+
     const base: Operation[] = liste.map((m) => ({ create: {
       adGroup: `customers/${compte}/adGroups/${groupe}`,
       status: 'PAUSED',
@@ -555,6 +663,7 @@ const motsClesAjouter = outil({
               ? ['', `EXCEPTIONS DE RÈGLEMENT DEMANDÉES À GOOGLE (${arretes.length}) — à valider, comme le bouton « Demander une exception » de l'interface :`,
                 ...arretes.map(ligne)]
               : []),
+            ...sectionInsertion,
           ].join('\n')),
           ...(arretes.length ? { fige: exceptions } : {}),
         };

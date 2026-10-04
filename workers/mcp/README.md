@@ -61,13 +61,16 @@ livrés **lot par lot**, chacun déployé et essayé avant le suivant.
 | 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` | en service |
 | 2 — créer, Search | `ads_campagne_creer`, `ads_groupe_creer`, `ads_annonce_creer`, `ads_mots_cles_ajouter` | livré |
 | 2 bis — listes de négatifs | `ads_liste_negatifs_creer`, `ads_liste_negatifs_ajouter`, `ads_liste_negatifs_retirer`, `ads_liste_associer`, `ads_liste_dissocier`, `ads_negatifs_retirer` | livré ([decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md)) |
+| 2 ter — éléments d'annonce, insertion de mot-clé | `ads_elements_creer`, `ads_elements_associer`, `ads_elements_dissocier` ; l'insertion dans `ads_annonce_creer`, contrôlée aussi par `ads_mots_cles_ajouter` | livré ([decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-elements-et-insertion.md)) |
 | 3 — Performance Max | à définir | à venir |
 | 4 — Demand Gen | à définir | à venir |
 | 5 — le budget | `ads_budget_modifier` | à venir |
 
 **Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
 une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une annonce
-responsive n'a pas de nom). Florent relit, retire la marque, et active.
+responsive n'a pas de nom). Florent relit, retire la marque, et active. Un élément
+d'annonce n'a ni nom ni libellé visibles : c'est son **association** qui naît en pause, et
+la pause est sa marque.
 
 **Deux temps, toujours.** Sans `jeton`, l'outil envoie la requête avec `validateOnly: true` :
 Google vérifie tout, n'applique rien, et l'outil rend un aperçu et un jeton. Avec le jeton,
@@ -89,16 +92,16 @@ et chacun a été vérifié en le cassant : son test échoue.
 
 | | Verrou | Où |
 | :--- | :--- | :--- |
-| V1 | aucune opération ne passe à `ENABLED` ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — que **le compte confirme** avant chaque envoi | table fermée et `verifierRetraits`, [src/google-ads.ts](src/google-ads.ts) |
+| V1 | aucune opération ne passe à `ENABLED` ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — ou du lien d'un élément d'annonce à une campagne ou un groupe (jamais l'élément), que **le compte confirme** avant chaque envoi | table fermée et `verifierRetraits`, [src/google-ads.ts](src/google-ads.ts) |
 | V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu, ou d'une partie quand le compte en a rendu le reste sans objet ; ce que l'aperçu a lu voyage dans le jeton | [src/ecriture.ts](src/ecriture.ts) |
 | V5 | une table fermée de services, et pour chacun la seule forme d'opération permise | `OPERATIONS_PERMISES`, [src/google-ads.ts](src/google-ads.ts) |
 | V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
 | V8 | sans le scope `ads:ecrire`, refus — accordé seulement en cochant la case du consentement | [src/ecriture.ts](src/ecriture.ts), [src/autorisation.ts](src/autorisation.ts) |
 | V9 | au-delà de `ADS_ECRITURES_MAX_JOUR` exécutions sur 24 heures, refus (échecs compris) | [src/ecriture.ts](src/ecriture.ts) |
 | V3 · R3 | budget d'une campagne créée ≤ `ADS_BUDGET_MAX_JOUR` ; engagement (actives + « [Claude] » en pause) ≤ `ADS_BUDGET_MAX_TOTAL` ; CPC max ≤ `ADS_CPC_MAX` ; budget jamais partagé | outil, puis table fermée qui revérifie |
-| V4 | filtre des textes d'annonce : refus et avertissements, jamais sur les mots-clés | [src/regles.ts](src/regles.ts), revérifié par la table |
-| V6 | URL finales sur `https://luminose.fr/` ou `https://www.luminose.fr/`, sans sous-domaine | [src/regles.ts](src/regles.ts), revérifié par la table |
-| R1 · R2 | tout naît en pause ; marque « [Claude] » en nom ou en libellé | table fermée, [src/ecriture.ts](src/ecriture.ts) |
+| V4 | filtre des textes d'annonce et d'éléments d'annonce : refus et avertissements. Pas sur les mots-clés, sauf quand l'insertion leur fait écrire l'annonce : chaque rendu passe alors au filtre | [src/regles.ts](src/regles.ts), revérifié par la table |
+| V6 | URL finales — annonces et liens annexes — sur `https://luminose.fr/` ou `https://www.luminose.fr/`, sans sous-domaine | [src/regles.ts](src/regles.ts), revérifié par la table |
+| R1 · R2 | tout naît en pause ; marque « [Claude] » en nom ou en libellé ; l'association d'un élément d'annonce, en pause | table fermée, [src/ecriture.ts](src/ecriture.ts) |
 | R4 | le ciblage est recopié de `ADS_CAMPAGNE_MODELE` ; réseau Google seul ; rien de cela en entrée | [src/outils-creation.ts](src/outils-creation.ts), table fermée |
 | R5 | personnalisation du texte et extension d'URL toujours coupées ; AI Max seulement en « Maximiser les conversions » | table fermée |
 
@@ -157,6 +160,34 @@ Détail : [decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-list
 - **Limites de Google** (aide Google Ads, relevées le 03/10/2026) : 20 listes par compte,
   5 000 mots-clés par liste, vérifiées avant l'aperçu. `LIMITES_LISTES` dans
   [src/google-ads.ts](src/google-ads.ts).
+
+### Décisions des éléments d'annonce et de l'insertion (04/10/2026)
+
+Détail : [decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-elements-et-insertion.md).
+
+- **Liens annexes, accroches, extraits structurés**, créés et associés à une campagne ou à un
+  groupe en une requête atomique ; chaque association naît `PAUSED` — l'API le permet. Un
+  élément existant s'associe par son identifiant, sans être recréé ; une dissociation ne
+  retire que le lien.
+- **Limites de Google**, en caractères affichés : lien annexe 25, ses descriptions 35 — les
+  deux ou aucune —, accroche 25, extrait structuré 3 à 10 valeurs de 25 sous un en-tête de la
+  liste fermée de Google, en français. `LIMITES_ELEMENTS` et `EN_TETES_EXTRAITS` dans
+  [src/google-ads.ts](src/google-ads.ts), revérifiés par la table.
+- **L'aperçu dit les niveaux** — compte, campagne, groupe : pour un même type, le plus fin qui
+  a des associations actives l'emporte. Il nomme ce qui s'affiche aujourd'hui, ce qui serait
+  masqué, et ce qui prendra le relais après une dissociation.
+- **Doublons** : un élément au contenu identique déjà dans le compte est écarté, et l'aperçu
+  donne l'appel `ads_elements_associer` qui le réutiliserait. Même texte à la casse près, ou
+  lien annexe au même texte vers une autre page : signalé, pas écarté.
+- **Breathwork** : un lien annexe vers une page dont l'URL contient `respiration-holotropique`
+  ou `breathwork` avertit — toute promotion du breathwork mentionne le questionnaire de santé.
+- **Insertion de mot-clé** dans `ads_annonce_creer` : `{keyword:…}`, `{Keyword:…}`,
+  `{KeyWord:…}`, `{KEYWord:…}`, `{KeyWORD:…}`, rien d'autre ; la longueur se compte sur le
+  texte par défaut. L'aperçu rend le titre de chaque mot-clé du groupe, casse appliquée — le
+  texte par défaut quand le rendu dépasse la limite —, et un rendu interdit fait refuser.
+  `ads_mots_cles_ajouter` fait le même contrôle pour chaque mot-clé ajouté à un groupe dont
+  une annonce utilise l'insertion. « Hypnothérapeute » dans un rendu avertit, sans refuser.
+  [src/insertion.ts](src/insertion.ts), sans dépendance.
 
 ### L'incident du 02/10/2026 — quatre exécutions concurrentes
 
