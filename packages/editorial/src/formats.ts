@@ -69,6 +69,12 @@ export interface FormatDefinition {
      */
     controler?: (data: any) => string[];
     /**
+     * Le format se monte en vidéo dans l'application (SPEC §12) : storyboard,
+     * prises, rendu. C'est ce que l'espace Vidéos liste — il le demande au
+     * registre, il ne nomme aucun format.
+     */
+    montable?: boolean;
+    /**
      * Ce que le format sait livrer prêt à publier hors de l'application — le
      * fichier du site, les prompts d'illustration, les posts qui l'annoncent.
      * Absent : le format se copie depuis l'écran, rien de plus. `null` : le
@@ -346,6 +352,7 @@ Ces limites sont vérifiées automatiquement après ta génération : un dépass
     toMarkdown: reelToMarkdown,
     controler: (data: any): string[] =>
         verifierReelExplique(data).map(p => `${p.ou} — ${p.probleme}`),
+    montable: true,
 };
 
 const SCRIPT_YOUTUBE: FormatDefinition = {
@@ -749,6 +756,12 @@ export function getEditorTab(format: TargetFormat | null | undefined): EditorTab
     if (!format) return 'brouillon';
     const def = FORMAT_REGISTRY[format];
     return def?.editorTab || 'brouillon';
+}
+
+/** Le format se monte-t-il en vidéo dans l'application (espace Vidéos → Montage) ? */
+export function estMontable(format: TargetFormat | string | null | undefined): boolean {
+    if (!format) return false;
+    return FORMAT_REGISTRY[format as TargetFormat]?.montable === true;
 }
 
 /** Le format bénéficie-t-il d'une relecture à froid après rédaction ? */

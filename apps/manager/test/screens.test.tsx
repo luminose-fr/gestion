@@ -45,6 +45,7 @@ import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
 import { StoryboardRenderer } from '../components/ContentEditor/renderers/StoryboardRenderer';
 import { DepotPrise } from '../components/Video/DepotPrise';
+import { MontageView, etapeDuReel } from '../components/Video/MontageView';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage } from '@luminose/editorial';
 
@@ -1771,8 +1772,10 @@ describe('Corpus — navigation à trois niveaux', () => {
     currentSocialTab: 'ideas' as const,
     currentSettingsSection: 'display' as const,
     currentSettingsPersona: null,
+    currentVideosSection: 'montage' as const,
     onNavigate: () => {},
     onNavigateSettings: () => {},
+    onNavigateVideos: () => {},
     counts: { ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 },
     isMobileOpen: false,
     onMobileClose: () => {},
@@ -2177,5 +2180,82 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(corrections[0][0]).toBe(1);
     expect(corrections[0][2]).toBeCloseTo(brut.sequences[1].debut + brut.sequences[1].apparitions[0]! + 0.1);
     expect(corrections[1]).toEqual([1, 1, null]);
+  });
+});
+
+/**
+ * L'espace Vidéos → Montage (SPEC §12.4.3) : la porte d'entrée des Reels
+ * expliqués. Il a un retour anticipé (aucun Reel), et se monte donc dans ses
+ * deux états.
+ */
+describe('Vidéos — Montage', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const SCRIPT = JSON.stringify({
+    format: 'Reel expliqué',
+    sequences: [
+      { plan: 'camera', role: 'Accroche', voix: 'Vous relisez trois fois un message ?' },
+      { plan: 'scene', role: 'Mécanique', voix: 'Une alarme qui sonne.', titre: 'Une [alarme]', elements: [
+        { type: 'carte', texte: 'Une [alarme]', visuel: { nature: 'schema', description: 'Une jauge.' }, apparait_sur: 'une alarme' },
+      ] },
+      { plan: 'camera', role: 'Appel', voix: 'Lien en bio.' },
+    ],
+  });
+  const reel = (over: Partial<ContentItem>): ContentItem =>
+    ({ ...ITEM, targetFormat: 'Reel expliqué (scènes animées)' as any, ...over });
+
+  it('sans Reel expliqué, dit où il commence', () => {
+    const { container } = render(<MontageView items={[{ ...ITEM, targetFormat: 'Post Texte (Court)' as any }]} onOuvrir={noop} onAllerAuxIdees={noop} />);
+    expect(container.textContent).toContain('Aucun Reel expliqué');
+    expect(container.textContent).toContain('Aller à la boîte à idées');
+  });
+
+  it('liste les Reels, seulement eux, avec leur étape, et ouvre le bon', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
+      contenus: { r2: { prises: [{ role: 'principale', pret: true, transcrite: true }], visuels: 1, dernierExport: null } },
+      stockage: { octets: 2_000_000_000, plafond: 10e9, disponible: true },
+    }), { status: 200 }));
+    const ouverts: string[] = [];
+    const { container, findByText } = render(<MontageView
+      items={[
+        reel({ id: 'r1', title: 'Sans script', status: ContentStatus.DRAFTING, draft: null }),
+        reel({ id: 'r2', title: 'Calé', status: ContentStatus.READY, draft: SCRIPT }),
+        { ...ITEM, id: 'p1', title: 'Un post', targetFormat: 'Post Texte (Court)' as any },
+      ]}
+      onOuvrir={(i) => ouverts.push(i.id)} onAllerAuxIdees={noop} />);
+    await findByText(/Prise calée/);
+    expect(container.textContent).toContain('Sans script');
+    expect(container.textContent).toContain("Pas encore de script");
+    expect(container.textContent).toContain('Visuels : 1 sur 1.');
+    expect(container.textContent).not.toContain('Un post');
+    expect(container.textContent).toContain('Stockage Cloudflare : 2 Go sur 10 Go gratuits');
+    fireEvent.click(Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Ouvrir'))[1]);
+    expect(ouverts).toEqual(['r2']);
+  });
+
+  it('dit l\u2019étape suivante, de la prise à l\u2019export', () => {
+    const item = reel({ draft: SCRIPT });
+    // Ce script de test est trop court, n'a qu'une scène et pas de seconde accroche : le contrôle le dit.
+    expect(etapeDuReel(item, undefined).texte).toBe('Script écrit — 3 points à corriger avant de tourner.');
+    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: false, transcrite: false }], visuels: 0, dernierExport: null }).texte)
+      .toContain('Envoi de la prise interrompu');
+    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: true, transcrite: false }], visuels: 0, dernierExport: null }).texte)
+      .toContain('transcription à faire');
+    expect(etapeDuReel(item, { prises: [], visuels: 0, dernierExport: { format: '4:5', version: 'publicite', duree: 40, le: Date.UTC(2026, 9, 4) } }).texte)
+      .toBe('Exportée le 04/10/2026, en 4:5 (publicité).');
+  });
+
+  it('a sa place dans la navigation, au même endroit que les autres espaces', () => {
+    const { container } = render(<Sidebar
+      currentSpace="videos" currentSocialTab="ideas" currentSettingsSection="display" currentSettingsPersona={null}
+      currentCorpusSection="etat" currentCorpusBloc={null} currentVideosSection="montage"
+      onNavigate={noop} onNavigateSettings={noop} onNavigateCorpus={noop} onNavigateVideos={noop}
+      counts={{ ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 }} isMobileOpen={false} onMobileClose={noop} />);
+    expect(container.textContent).toContain('Montage');
+    expect(container.textContent).toContain('Sous-titres');
+    const mobile = render(<MobileSubTabs space="videos" currentTab="ideas" currentSettingsSection="display"
+      onNavigate={noop} onNavigateSettings={noop} currentVideosSection="sous-titres" onNavigateVideos={noop}
+      counts={{ ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 }} />);
+    expect(mobile.container.textContent).toContain('Montage');
   });
 });

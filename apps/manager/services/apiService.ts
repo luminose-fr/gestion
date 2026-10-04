@@ -14,7 +14,7 @@ import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
   RdvType, RdvCreneau, RdvConfirme, Transcription,
-  EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise,
+  EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise, ResumeMontages, ExportNote,
 } from '@luminose/shared';
 
 /**
@@ -587,6 +587,14 @@ const enc = encodeURIComponent;
 
 export const fetchMontage = (contentId: string) =>
   api<EtatMontage>(`/montage/${enc(contentId)}`);
+
+/** Tous les montages d'un coup : l'espace Vidéos ne paie pas une requête par Reel. */
+export const fetchResumeMontages = () =>
+  api<ResumeMontages>('/montage');
+
+/** Note un export réussi : c'est ce qui dira, dans l'espace Vidéos, qu'un Reel est sorti. */
+export const noterExport = (contentId: string, note: ExportNote) =>
+  api<{ export: ExportNote & { le: number } }>(`/montage/${enc(contentId)}/exports`, { method: 'POST', ...body(note) });
 
 /** Ouvre l'envoi d'une prise ; la réponse dit en parties de quelle taille l'envoyer. */
 export const declarerPrise = (contentId: string, role: RolePrise, prise: PriseDeclaree) =>

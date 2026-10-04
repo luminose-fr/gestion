@@ -12,6 +12,7 @@ import { TargetFormat, TARGET_FORMAT_VALUES } from '../src/domain';
 import {
   FORMAT_REGISTRY,
   formatDraftContent,
+  estMontable,
   getFormatDef,
   getEditorTab,
   getFormatPromptTemplate,
@@ -68,6 +69,14 @@ describe('routage — comportement attendu par l’éditeur', () => {
     expect(supportsColdRead(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe(true);
     expect(supportsColdRead(TargetFormat.REEL_EXPLIQUE)).toBe(true);
     expect(supportsColdRead(TargetFormat.ARTICLE_LONG_SEO)).toBe(false);
+  });
+
+  it('dit quels formats se montent en vidéo — l\u2019espace Vidéos le demande au registre', () => {
+    expect(estMontable(TargetFormat.REEL_EXPLIQUE)).toBe(true);
+    expect(estMontable(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe(false);
+    expect(estMontable(TargetFormat.CARROUSEL_SLIDE)).toBe(false);
+    expect(estMontable(null)).toBe(false);
+    expect(estMontable('format inconnu')).toBe(false);
   });
 
   it('reste prévisible quand le format est absent', () => {

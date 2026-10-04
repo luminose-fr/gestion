@@ -16,14 +16,18 @@
  */
 import { Hono } from 'hono';
 import {
-    ROLES_PRISE, PriseDeclareeSchema, FinEnvoiSchema, MajPriseSchema, TAILLE_PARTIE, VISUEL_MAX, R2_GRATUIT,
-    type EtatMontage, type RolePrise,
+    ROLES_PRISE, PriseDeclareeSchema, FinEnvoiSchema, MajPriseSchema, NoterExportSchema, TAILLE_PARTIE, VISUEL_MAX, R2_GRATUIT,
+    type EtatMontage, type ResumeMontages, type RolePrise,
 } from '@luminose/shared';
 import type { Env } from '../env';
 import { Refus } from '../refus';
 import { newId, now, rowToPrise, rowToVisuel } from '../db';
 
 export const montage = new Hono<{ Bindings: Env }>();
+
+/** Ce que le montage occupe dans R2, tous contenus confondus : le gratuit est celui du compte. */
+const SQL_OCCUPE = `SELECT (SELECT COALESCE(SUM(taille), 0) FROM montage_prises WHERE deleted_at IS NULL)
+                         + (SELECT COALESCE(SUM(taille), 0) FROM montage_visuels WHERE deleted_at IS NULL) AS octets`;
 
 const bucket = (env: Env): R2Bucket => {
     if (!env.MONTAGE) {
@@ -76,10 +80,7 @@ const visuelVivant = (env: Env, contentId: string, sequence: number, element: nu
 
 /** 1 requête. Ce que le montage occupe dans R2, tous contenus confondus — le gratuit est celui du compte. */
 const occupe = async (env: Env): Promise<number> => {
-    const ligne = await env.DB.prepare(
-        `SELECT (SELECT COALESCE(SUM(taille), 0) FROM montage_prises WHERE deleted_at IS NULL)
-              + (SELECT COALESCE(SUM(taille), 0) FROM montage_visuels WHERE deleted_at IS NULL) AS octets`,
-    ).first<any>();
+    const ligne = await env.DB.prepare(SQL_OCCUPE).first<any>();
     return Number(ligne?.octets ?? 0);
 };
 
@@ -122,6 +123,55 @@ const servir = (objet: R2ObjectBody): Response => {
     return new Response(objet.body, { headers: entetes });
 };
 
+// ── Le résumé de tous les montages (espace Vidéos) ───────────────────
+
+/**
+ * Ce que l'espace Vidéos dit de chaque Reel expliqué — prise déposée, calée,
+ * visuels, dernier export — sans ouvrir un seul contenu : la liste ne doit pas
+ * coûter une requête par ligne (SPEC §3.6).
+ *
+ * 1 batch de 4 lectures, quel que soit le nombre de contenus.
+ */
+montage.get('/', async (c) => {
+    const [prises, visuels, exports, total] = await c.env.DB.batch([
+        c.env.DB.prepare('SELECT content_id, role, pret_le, transcrite_le FROM montage_prises WHERE deleted_at IS NULL'),
+        c.env.DB.prepare('SELECT content_id, COUNT(*) AS n FROM montage_visuels WHERE deleted_at IS NULL GROUP BY content_id'),
+        c.env.DB.prepare(
+            `SELECT e.content_id, e.format, e.version, e.duree, e.created_at FROM montage_exports e
+             WHERE e.created_at = (SELECT MAX(x.created_at) FROM montage_exports x WHERE x.content_id = e.content_id)`,
+        ),
+        c.env.DB.prepare(SQL_OCCUPE),
+    ]);
+    const resume: ResumeMontages = {
+        contenus: {},
+        stockage: { octets: Number((total.results?.[0] as any)?.octets ?? 0), plafond: R2_GRATUIT, disponible: !!c.env.MONTAGE },
+    };
+    const contenu = (id: string) => resume.contenus[id] ??= { prises: [], visuels: 0, dernierExport: null };
+    for (const p of (prises.results ?? []) as any[]) {
+        contenu(p.content_id).prises.push({ role: p.role, pret: p.pret_le !== null, transcrite: p.transcrite_le !== null });
+    }
+    for (const v of (visuels.results ?? []) as any[]) contenu(v.content_id).visuels = Number(v.n);
+    for (const e of (exports.results ?? []) as any[]) {
+        contenu(e.content_id).dernierExport = { format: e.format, version: e.version, duree: e.duree, le: e.created_at };
+    }
+    return c.json(resume);
+});
+
+/**
+ * Note un export réussi. L'export se fait dans l'onglet et part en
+ * téléchargement : sans cette ligne, rien ne dirait qu'une prise a fait son
+ * office. 2 requêtes.
+ */
+montage.post('/:contentId/exports', async (c) => {
+    const id = c.req.param('contentId');
+    const note = NoterExportSchema.parse(await c.req.json());
+    await contenuExiste(c.env, id);
+    const t = now();
+    await c.env.DB.prepare('INSERT INTO montage_exports (id, content_id, format, version, duree, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(newId(), id, note.format, note.version, note.duree, t).run();
+    return c.json({ export: { ...note, le: t } }, 201);
+});
+
 // ── L'état d'un montage ──────────────────────────────────────────────
 
 /** 1 batch de 3 lectures. */
@@ -131,8 +181,7 @@ montage.get('/:contentId', async (c) => {
         c.env.DB.prepare('SELECT * FROM montage_prises WHERE content_id = ? AND deleted_at IS NULL ORDER BY role').bind(id),
         c.env.DB.prepare('SELECT * FROM montage_visuels WHERE content_id = ? AND deleted_at IS NULL ORDER BY sequence, element').bind(id),
         // Tous les contenus : c'est le plafond du COMPTE qui compte.
-        c.env.DB.prepare(`SELECT (SELECT COALESCE(SUM(taille), 0) FROM montage_prises WHERE deleted_at IS NULL)
-                               + (SELECT COALESCE(SUM(taille), 0) FROM montage_visuels WHERE deleted_at IS NULL) AS octets`),
+        c.env.DB.prepare(SQL_OCCUPE),
     ]);
     const etat: EtatMontage = {
         prises: (prises.results ?? []).map(rowToPrise),
