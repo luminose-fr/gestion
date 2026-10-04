@@ -7,8 +7,16 @@ import { segmentsSurlignes, type ElementScene, type SequenceReel } from '@lumino
  * Elle se dessine dans le cadre de la vidéo — 1080 × 1920, en pixels du cadre,
  * en styles en ligne — puis se réduit à la largeur demandée. Ce n'est pas de
  * l'interface : les échelles de DESIGN.md ne s'y appliquent pas, la palette de
- * `voix/direction-artistique.md` §1-2, si. La composition animée (étape V2)
- * reprendra ce composant tel quel, en pilotant `visibles`.
+ * `voix/direction-artistique.md` §1-2, si.
+ *
+ * Le composant ne connaît pas Remotion. Le storyboard l'affiche à l'arrêt ; la
+ * composition animée (`ReelComposition`) le pilote par `entrees` et lui prête
+ * son composant d'image. C'est ce qui garde Remotion hors du paquet principal.
+ *
+ * **Ce que le rendu dans le navigateur sait dessiner** (`@remotion/web-renderer`)
+ * borne ce qu'on écrit ici : ni `radial-gradient`, ni `visibility`, ni
+ * `z-index`. Le fond pointillé est donc une image SVG, et un élément pas encore
+ * apparu est transparent plutôt que caché.
  */
 
 const CADRE = { largeur: 1080, hauteur: 1920 };
@@ -21,7 +29,7 @@ const CADRE = { largeur: 1080, hauteur: 1920 };
 const ZONE = { haut: 170, gauche: 90, droite: 90, bas: 1440 };
 
 /** La gamme des illustrations du site, de la lumière à l'ombre. */
-const GAMME = {
+export const GAMME = {
     ivoire: '#FDEEE1',
     ivoireRose: '#FBE2D5',
     roseBrumeux: '#E9B9BB',
@@ -30,6 +38,16 @@ const GAMME = {
     prune: '#634575',
     violetNuit: '#3C3061',
 };
+
+export const FUTURA = "'Futura LT', Futura, 'Century Gothic', sans-serif";
+export const ABRIL = "'Abril Display', Georgia, serif";
+
+const POINTILLES = `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${CADRE.largeur}" height="${CADRE.hauteur}">`
+    + '<defs><pattern id="p" width="54" height="54" patternUnits="userSpaceOnUse">'
+    + `<circle cx="27" cy="27" r="3" fill="${GAMME.mauve}" fill-opacity="0.18"/></pattern></defs>`
+    + '<rect width="100%" height="100%" fill="url(#p)"/></svg>',
+)}`;
 
 type Ton = 'ombre' | 'lumiere' | 'neutre';
 
@@ -50,8 +68,24 @@ const tonDe = (valeur: unknown): Ton => {
     return cle === 'ombre' || cle === 'lumiere' ? cle : 'neutre';
 };
 
-const FUTURA = "'Futura LT', Futura, 'Century Gothic', sans-serif";
-const ABRIL = "'Abril Display', Georgia, serif";
+/**
+ * Comment un élément entre, selon le registre de la scène. `p` va de 0 à 1 et
+ * peut dépasser 1 : un ressort qui rebondit, c'est l'humour. La pédagogie se
+ * pose sans rebond ; l'humour arrive de travers et se redresse.
+ */
+function entree(p: number, registre: SequenceReel['registre']): React.CSSProperties {
+    if (p >= 1 && registre !== 'humour') return {};
+    if (registre === 'humour') {
+        return {
+            opacity: Math.min(1, Math.max(0, p * 1.6)),
+            transform: `scale(${0.7 + 0.3 * p}) rotate(${(1 - p) * -6}deg)`,
+        };
+    }
+    return { opacity: Math.max(0, p), transform: `translateY(${(1 - p) * 48}px)` };
+}
+
+/** Un composant d'image : `img` à l'arrêt, celui de Remotion dans la composition. */
+export type ComposantImage = React.ComponentType<React.ImgHTMLAttributes<HTMLImageElement>>;
 
 /** Le passage surligné passe en Abril italique : les deux typographies de la marque. */
 const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: string }> = ({ texte, accent, marque }) => (
@@ -62,7 +96,7 @@ const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: s
                 fontStyle: 'italic',
                 color: accent,
                 padding: '0 6px',
-                background: marque === 'transparent'
+                backgroundImage: marque === 'transparent'
                     ? 'none'
                     : `linear-gradient(transparent 60%, ${marque} 60%, ${marque} 92%, transparent 92%)`,
             }}>{s.texte}</span>
@@ -70,9 +104,18 @@ const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: s
     </>
 );
 
-const Visuel: React.FC<{ element: ElementScene; hauteur: number; couleur: string }> = ({ element, hauteur, couleur }) => {
+const Visuel: React.FC<{ element: ElementScene; hauteur: number; couleur: string; image?: string; Image: ComposantImage }> = ({ element, hauteur, couleur, image, Image }) => {
     const visuel = element.visuel;
     if (!visuel) return null;
+    if (image) {
+        return (
+            <Image
+                src={image}
+                alt={visuel.description}
+                style={{ width: '100%', height: hauteur, objectFit: 'cover', borderRadius: 28, display: 'block' }}
+            />
+        );
+    }
     return (
         <div style={{
             height: hauteur,
@@ -95,13 +138,11 @@ const Visuel: React.FC<{ element: ElementScene; hauteur: number; couleur: string
     );
 };
 
-const Carte: React.FC<{ element: ElementScene; demi: boolean }> = ({ element, demi }) => {
+const Carte: React.FC<{ element: ElementScene; demi: boolean; image?: string; Image: ComposantImage }> = ({ element, demi, image, Image }) => {
     const ton = TONS[tonDe(element.ton)];
     const grande = element.taille === 'grande';
     return (
         <div style={{
-            flex: demi ? '1 1 0' : undefined,
-            minWidth: 0,
             background: ton.fond,
             color: ton.texte,
             border: `5px solid ${ton.bord}`,
@@ -113,7 +154,7 @@ const Carte: React.FC<{ element: ElementScene; demi: boolean }> = ({ element, de
             gap: 22,
             textAlign: 'center',
         }}>
-            <Visuel element={element} hauteur={grande ? 520 : 300} couleur={ton.texte} />
+            <Visuel element={element} hauteur={grande ? 520 : 300} couleur={ton.texte} image={image} Image={Image} />
             {element.texte && (
                 <div style={{ fontSize: demi ? 54 : 64, lineHeight: 1.15 }}>
                     <TexteSurligne texte={element.texte} accent={ton.accent} marque={ton.marque} />
@@ -132,7 +173,6 @@ const Pastille: React.FC<{ element: ElementScene }> = ({ element }) => {
     const ton = TONS[tonDe(element.ton)];
     return (
         <div style={{
-            alignSelf: 'center',
             background: ton.fond,
             color: ton.texte,
             border: `4px solid ${ton.bord}`,
@@ -148,7 +188,7 @@ const Pastille: React.FC<{ element: ElementScene }> = ({ element }) => {
 };
 
 const Liaison: React.FC<{ element: ElementScene }> = ({ element }) => (
-    <div style={{ alignSelf: 'center', fontFamily: ABRIL, fontStyle: 'italic', fontSize: 76, lineHeight: 1, color: GAMME.mauve }}>
+    <div style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: 76, lineHeight: 1, color: GAMME.mauve }}>
         {element.texte}
     </div>
 );
@@ -170,26 +210,43 @@ function enLignes(elements: ElementScene[]): Array<Array<{ element: ElementScene
     return lignes;
 }
 
+const ImageSimple: ComposantImage = (props) => <img {...props} />;
+
 export interface SceneLuminoseProps {
     sequence: SequenceReel;
     /** Largeur d'affichage, en pixels ; la hauteur suit le 9:16. */
     largeur: number;
-    /** Combien d'éléments sont apparus. Par défaut tous : c'est l'état final de la scène. */
+    /**
+     * Combien d'éléments sont apparus, à l'arrêt. Par défaut tous : c'est l'état
+     * final de la scène. Ignoré quand `entrees` est fourni.
+     */
     visibles?: number;
+    /** L'avancée de chaque entrée, de 0 à 1 (au-delà : un rebond). Fourni par la composition animée. */
+    entrees?: { titre?: number; elements?: number[] };
+    /** Les visuels déposés par Florent, par rang d'élément dans la scène. */
+    visuels?: Record<number, string | undefined>;
+    Image?: ComposantImage;
+    /** Les coins arrondis de la miniature ; 0 dans la vidéo elle-même. */
+    arrondi?: number;
 }
 
-export const SceneLuminose: React.FC<SceneLuminoseProps> = ({ sequence, largeur, visibles }) => {
+export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
+    sequence, largeur, visibles, entrees, visuels, Image = ImageSimple, arrondi = 8,
+}) => {
     const contenuRef = useRef<HTMLDivElement>(null);
     const [reduction, setReduction] = useState(1);
     const elements = sequence.elements ?? [];
     const nbVisibles = visibles ?? elements.length;
+    const avancee = (index: number) => entrees
+        ? entrees.elements?.[index] ?? 0
+        : index < nbVisibles ? 1 : 0;
 
     /*
      * Une scène chargée peut dépasser la zone sûre — une grande carte et trois
      * autres, par exemple. Plutôt que de couper, on la réduit d'un bloc : les
      * proportions entre les cartes, voulues par le Rédacteur, restent les mêmes.
-     * La mise en page ne dépend pas de ce qui est visible : une carte qui
-     * apparaît ne fait pas bouger les autres.
+     * La mise en page ne dépend pas de ce qui est apparu : une carte qui arrive
+     * ne fait pas bouger les autres.
      */
     useLayoutEffect(() => {
         const contenu = contenuRef.current;
@@ -202,7 +259,7 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({ sequence, largeur,
         mesurer();
         // Les polices de la marque arrivent après le premier rendu, et changent les hauteurs.
         document.fonts?.ready.then(mesurer).catch(() => undefined);
-    }, [sequence]);
+    }, [sequence, visuels]);
 
     const echelle = largeur / CADRE.largeur;
 
@@ -210,7 +267,7 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({ sequence, largeur,
         <div
             role="img"
             aria-label={`Scène : ${sequence.titre ?? ''}`}
-            style={{ width: largeur, height: Math.round(largeur * CADRE.hauteur / CADRE.largeur), overflow: 'hidden', borderRadius: 8, flexShrink: 0 }}
+            style={{ width: largeur, height: Math.round(largeur * CADRE.hauteur / CADRE.largeur), overflow: 'hidden', borderRadius: arrondi, flexShrink: 0 }}
         >
             <div style={{
                 width: CADRE.largeur,
@@ -221,38 +278,43 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({ sequence, largeur,
                 fontFamily: FUTURA,
                 color: GAMME.violetNuit,
                 backgroundColor: GAMME.ivoire,
-                backgroundImage: `radial-gradient(circle, ${GAMME.mauve}2E 3px, transparent 3.5px)`,
-                backgroundSize: '54px 54px',
             }}>
+                <Image src={POINTILLES} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
                 <div style={{ position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: ZONE.bas - ZONE.haut }}>
                     <div
                         ref={contenuRef}
                         style={{ display: 'flex', flexDirection: 'column', gap: 48, transform: `scale(${reduction})`, transformOrigin: 'top center' }}
                     >
-                        <div style={{ fontSize: 86, lineHeight: 1.12, textAlign: 'center', textWrap: 'balance' } as React.CSSProperties}>
+                        <div style={{
+                            fontSize: 86, lineHeight: 1.12, textAlign: 'center', textWrap: 'balance',
+                            ...(entrees ? entree(entrees.titre ?? 0, 'pedagogie') : {}),
+                        } as React.CSSProperties}>
                             <TexteSurligne texte={sequence.titre} accent={GAMME.prune} marque={GAMME.roseBrumeux} />
                         </div>
                         {enLignes(elements).map((ligne, i) => (
                             <div key={i} style={{ display: 'flex', gap: 36, justifyContent: 'center' }}>
-                                {ligne.map(({ element, index }) => (
-                                    <div
-                                        key={index}
-                                        style={{
-                                            visibility: index < nbVisibles ? 'visible' : 'hidden',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            flex: ligne.length > 1 ? '1 1 0' : undefined,
-                                            width: ligne.length === 1 && element.type === 'carte' && element.taille === 'petite' ? '50%' : undefined,
-                                            alignSelf: element.type === 'carte' ? 'stretch' : 'center',
-                                            minWidth: 0,
-                                            ...(ligne.length === 1 && element.type === 'carte' && element.taille !== 'petite' ? { flex: '1 1 auto' } : {}),
-                                        }}
-                                    >
-                                        {element.type === 'carte' && <Carte element={element} demi={element.taille === 'petite'} />}
-                                        {element.type === 'pastille' && <Pastille element={element} />}
-                                        {element.type === 'liaison' && <Liaison element={element} />}
-                                    </div>
-                                ))}
+                                {ligne.map(({ element, index }) => {
+                                    const seule = ligne.length === 1;
+                                    const carte = element.type === 'carte';
+                                    const petite = carte && element.taille === 'petite';
+                                    return (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                flex: !seule || (carte && !petite) ? '1 1 0' : undefined,
+                                                width: seule && petite ? '50%' : undefined,
+                                                minWidth: 0,
+                                                ...entree(avancee(index), sequence.registre),
+                                            }}
+                                        >
+                                            {carte && <Carte element={element} demi={petite} image={visuels?.[index]} Image={Image} />}
+                                            {element.type === 'pastille' && <Pastille element={element} />}
+                                            {element.type === 'liaison' && <Liaison element={element} />}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         ))}
                     </div>

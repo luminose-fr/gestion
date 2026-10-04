@@ -7,6 +7,8 @@ import { StoryboardRenderer } from './StoryboardRenderer';
 interface ScriptVideoRendererProps {
     raw: string;
     variant?: 'default' | 'table';
+    /** Le contenu enregistré : un Reel expliqué devient alors montable (visuels, aperçu, export). */
+    contentId?: string;
 }
 
 /**
@@ -14,7 +16,7 @@ interface ScriptVideoRendererProps {
  * Utilise des blocs avec whitespace-pre-wrap pour conserver
  * les retours à la ligne du script.
  */
-export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, variant = 'default' }) => {
+export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, variant = 'default', contentId }) => {
     const data = parseBodyJson(raw);
 
     if (!data || !data.format) {
@@ -27,7 +29,7 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
 
     // Le Reel expliqué se reconnaît à sa structure (des séquences), pas à son
     // nom de format : l'écran rend ce qu'il a sous les yeux.
-    if (estReelExplique(data)) return <StoryboardRenderer data={data} />;
+    if (estReelExplique(data)) return <StoryboardRenderer data={data} contentId={contentId} />;
 
     const fmt = data.format;
     const isReelShort = fmt === TargetFormat.SCRIPT_VIDEO_REEL_SHORT || fmt === "Script Reel";

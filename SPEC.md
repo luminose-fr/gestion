@@ -1379,6 +1379,50 @@ Les scènes restent dans la **zone sûre** : l'interface des Reels et des Shorts
 bas et le bord droit de l'image. La référence garde ses cartes dans les deux tiers du
 haut.
 
+### 12.4.1 Les scènes animées (V2) — NORMATIF
+
+**Une horloge, un calcul.** `minuterReel(data, horloge)` (`reelExplique.ts`) place
+chaque séquence et chaque élément à partir du RANG des mots dans la voix entière.
+L'horloge dit quand un rang est prononcé : `horlogeEstimee(débit)` avant le tournage,
+celle de la prise après (V3). Rien d'autre ne change entre les deux — c'est ce qui
+garantit que l'aperçu d'aujourd'hui et le montage de demain parlent de la même chose.
+
+**Le débit se règle** (110 à 200 mots par minute, 150 par défaut). Florent lit son
+script, chronomètre, et retrouve sa durée : les scènes exportées tombent alors au
+rythme de sa voix, et se posent telles quelles dans Final Cut en attendant le calage
+(V3). Le réglage n'est pas retenu : la prise le rendra inutile.
+
+**La scène reste un seul composant.** `SceneLuminose` ne connaît pas Remotion : le
+storyboard l'affiche à l'arrêt, la composition (`ReelComposition`) la pilote image par
+image et lui prête son composant d'image. Remotion n'est chargé qu'à l'ouverture d'un
+storyboard (`React.lazy`), jamais dans le paquet principal.
+
+L'entrée suit le registre : la pédagogie se pose (ressort amorti), l'humour arrive de
+travers et rebondit. Un élément pas encore apparu est **transparent**, pas retiré : la
+mise en page ne bouge pas quand une carte arrive.
+
+**Ce que le moteur de rendu sait dessiner borne la scène.** Ni `radial-gradient`, ni
+`visibility`, ni `z-index` : le fond pointillé est une image SVG. Les polices de la
+marque sont chargées par `@remotion/fonts`, depuis les mêmes fichiers que `index.css`,
+avant la première image.
+
+**L'export est par scène**, en MP4 1080 × 1920 H.264, **sans son** : une scène se pose sur
+la voix de la prise. Un bouton par scène plutôt qu'un lot : un navigateur demande une
+autorisation pour plusieurs téléchargements d'un coup, et une scène se refait seule.
+L'export s'annonce dans le bandeau d'activité, avec sa progression réelle, et s'annule.
+
+**Aucune télémétrie.** `renderMediaOnWeb` ne reçoit pas de `licenseKey` : avant Remotion
+5.0 c'est facultatif, et c'est ce qui l'empêche d'envoyer quoi que ce soit — pas même
+l'origine de la page. À revoir au passage à Remotion 5.
+
+**Les visuels déposés restent dans le navigateur** — IndexedDB, base `LuminoseVisuels`,
+une ligne par (contenu, séquence, élément), avec la description à laquelle l'image
+répondait. Ce que ça coûte : un visuel déposé sur le Mac n'existe pas ailleurs, et
+vider les données du site l'efface. Le storyboard le dit, signale une image déposée
+pour une carte dont la description a changé depuis, et se tait (sans proposer de
+dépôt) quand le navigateur refuse le stockage. Base à part : un magasin de plus dans
+`LuminoseDB` en monterait la version, et cette montée purge le cache des contenus.
+
 ### 12.5 Le calage sur la prise
 
 Whisper sert déjà au sous-titrage (`outils/parc.md`). Workers AI l'expose avec

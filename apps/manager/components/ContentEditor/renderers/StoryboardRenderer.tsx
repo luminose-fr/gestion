@@ -1,12 +1,18 @@
-import React from 'react';
-import { Camera, Clapperboard, Megaphone, TriangleAlert, ImageIcon } from 'lucide-react';
+import React, { Suspense, lazy, useRef, useState } from 'react';
+import { Camera, Clapperboard, Megaphone, TriangleAlert, ImageIcon, Upload, Trash2 } from 'lucide-react';
 import {
     verifierReelExplique, dureeEstimee, compterMots, positionsDesReperes, motsSitues, motsNormalises,
-    type ReelExplique, type SequenceReel,
+    type ReelExplique, type SequenceReel, type ElementScene,
 } from '@luminose/editorial';
-import { Etiquette } from '../../ui';
+import { Bouton, Etiquette } from '../../ui';
+import { Patience } from '../../Feedback';
 import { CarrouselLegende, t } from './shared';
 import { SceneLuminose } from '../../Video/SceneLuminose';
+import { useVisuelsReel, type VisuelAffiche, type VisuelsReel } from '../../Video/useVisuelsReel';
+
+// Remotion n'entre dans le navigateur qu'à l'ouverture d'un storyboard monté :
+// jamais dans le paquet principal de l'application.
+const PanneauMontage = lazy(() => import('../../Video/PanneauMontage'));
 
 /**
  * Le storyboard d'un Reel expliqué (SPEC §12, étape V1) : ce qui se dit, et à
@@ -73,7 +79,78 @@ const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }> = ({ 
     </div>
 );
 
-const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number }> = ({ sequence, numero }) => {
+/**
+ * Un visuel à produire, et l'endroit où le déposer une fois produit. Le dépôt
+ * reste dans ce navigateur (SPEC §12.4) : l'écran le dit, pour qu'on ne le
+ * cherche pas sur un autre poste.
+ */
+const DepotVisuel: React.FC<{
+    numero: number;
+    element: ElementScene;
+    visuel?: VisuelAffiche;
+    deposable: boolean;
+    onDeposer: (fichier: File) => Promise<void>;
+    onRetirer: () => Promise<void>;
+}> = ({ numero, element, visuel, deposable, onDeposer, onRetirer }) => {
+    const choix = useRef<HTMLInputElement>(null);
+    const [erreur, setErreur] = useState<string | null>(null);
+    const nature = element.visuel?.nature === 'schema' ? 'Schéma' : 'Illustration';
+
+    const deposer = async (fichier: File | undefined) => {
+        if (!fichier) return;
+        if (!fichier.type.startsWith('image/')) {
+            setErreur(`« ${fichier.name} » n'est pas une image.`);
+            return;
+        }
+        setErreur(null);
+        try {
+            await onDeposer(fichier);
+        } catch (e: any) {
+            setErreur(`Dépôt impossible : ${e?.message ?? String(e)}`);
+        }
+    };
+
+    return (
+        <div
+            className="flex items-start gap-3"
+            onDragOver={deposable ? (e) => e.preventDefault() : undefined}
+            onDrop={deposable ? (e) => { e.preventDefault(); void deposer(e.dataTransfer.files?.[0]); } : undefined}
+        >
+            {visuel ? (
+                <img src={visuel.url} alt="" className="size-10 shrink-0 rounded-md object-cover border border-brand-border dark:border-dark-sec-border" />
+            ) : (
+                <div className="size-10 shrink-0 rounded-md border border-dashed border-brand-border dark:border-dark-sec-border flex items-center justify-center text-brand-main/40 dark:text-dark-text/40">
+                    <ImageIcon className="size-4" />
+                </div>
+            )}
+            <div className="min-w-0 flex-1 space-y-1">
+                <p className="text-xs text-brand-main dark:text-dark-text">
+                    <span className="font-bold">{numero}.</span> {nature} — {t(element.visuel?.description)}
+                </p>
+                {visuel?.perime && (
+                    <p className="text-xs text-alerte">La carte a changé depuis le dépôt : cette image répondait à une autre description.</p>
+                )}
+                {erreur && <p className="text-xs text-erreur">{erreur}</p>}
+                {deposable && (
+                    <div className="flex items-center gap-2">
+                        <input ref={choix} type="file" accept="image/*" className="hidden" onChange={(e) => { void deposer(e.target.files?.[0]); e.target.value = ''; }} />
+                        <Bouton taille="petit" intention="secondaire" onClick={() => choix.current?.click()}>
+                            <Upload /> {visuel ? 'Remplacer' : 'Déposer'}
+                        </Bouton>
+                        {visuel && (
+                            <Bouton taille="petit" intention="discrete" onClick={() => void onRetirer()}>
+                                <Trash2 /> Retirer
+                            </Bouton>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number; visuels: VisuelsReel; deposable: boolean }> = ({ sequence, numero, visuels, deposable }) => {
+    const rang = numero - 1;
     const aProduire = (sequence.elements ?? [])
         .map((element, j) => ({ element, numero: j + 1 }))
         .filter(({ element }) => element.visuel?.description);
@@ -87,25 +164,41 @@ const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number }> = ({ s
                 <VoixAvecReperes sequence={sequence} />
                 <Intention texte={sequence.intention} />
                 {aProduire.length > 0 && (
-                    <div className="space-y-1 pt-1">
+                    <div className="space-y-2 pt-1">
                         <Etiquette avecIcone><ImageIcon /> À produire</Etiquette>
                         {aProduire.map(({ element, numero: n }) => (
-                            <p key={n} className="text-xs text-brand-main dark:text-dark-text">
-                                <span className="font-bold">{n}.</span>{' '}
-                                {element.visuel!.nature === 'schema' ? 'Schéma' : 'Illustration'} — {t(element.visuel!.description)}
-                            </p>
+                            <DepotVisuel
+                                key={n}
+                                numero={n}
+                                element={element}
+                                visuel={visuels.visuel(rang, n - 1)}
+                                deposable={deposable}
+                                onDeposer={(fichier) => visuels.deposer(rang, n - 1, fichier)}
+                                onRetirer={() => visuels.retirer(rang, n - 1)}
+                            />
                         ))}
                     </div>
                 )}
             </div>
             <div className="justify-self-center">
-                <SceneLuminose sequence={sequence} largeur={216} />
+                <SceneLuminose sequence={sequence} largeur={216} visuels={visuels.deLaScene(rang)} />
             </div>
         </div>
     );
 };
 
-export const StoryboardRenderer: React.FC<{ data: ReelExplique }> = ({ data }) => {
+export interface StoryboardRendererProps {
+    data: ReelExplique;
+    /**
+     * Le contenu enregistré dont c'est le storyboard. Sans lui — un aperçu, un
+     * test —, le storyboard se lit mais ne se monte pas : ni dépôt de visuel, ni
+     * aperçu animé, puisqu'un dépôt doit pouvoir se retrouver.
+     */
+    contentId?: string;
+}
+
+export const StoryboardRenderer: React.FC<StoryboardRendererProps> = ({ data, contentId }) => {
+    const visuels = useVisuelsReel(contentId, data);
     const problemes = verifierReelExplique(data);
     const sequences = data.sequences ?? [];
     const mots = sequences.reduce((total, s) => total + compterMots(s.voix), 0);
@@ -128,8 +221,20 @@ export const StoryboardRenderer: React.FC<{ data: ReelExplique }> = ({ data }) =
                 </div>
             )}
 
+            {contentId && (
+                <Suspense fallback={<Patience titre="Chargement de l'aperçu animé" />}>
+                    <PanneauMontage data={data} visuelsDeLaScene={visuels.deLaScene} />
+                </Suspense>
+            )}
+
+            {contentId && visuels.indisponible && (
+                <p className="text-xs text-alerte">
+                    Ce navigateur refuse le stockage local : les visuels déposés ne seront pas gardés.
+                </p>
+            )}
+
             {sequences.map((sequence, i) => sequence.plan === 'scene'
-                ? <SequenceScene key={i} sequence={sequence} numero={i + 1} />
+                ? <SequenceScene key={i} sequence={sequence} numero={i + 1} visuels={visuels} deposable={!!contentId && !visuels.indisponible} />
                 : <SequenceCamera key={i} sequence={sequence} numero={i + 1} />
             )}
 
