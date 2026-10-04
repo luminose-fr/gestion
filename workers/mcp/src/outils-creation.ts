@@ -42,7 +42,7 @@ type LigneGroupe = {
 /** Un groupe d'annonces Search standard, vivant. */
 const exigerGroupe = async (env: Env, compte: string, groupe: string) => {
   const l = await premiereLigne<LigneGroupe>(env, compte,
-    `SELECT ad_group.name, ad_group.status, ad_group.type, campaign.name, campaign.advertising_channel_type FROM ad_group WHERE ad_group.id = ${groupe}`);
+    `SELECT ad_group.id, ad_group.name, ad_group.status, ad_group.type, campaign.name, campaign.advertising_channel_type FROM ad_group WHERE ad_group.id = ${groupe}`);
   if (!l?.adGroup || l.adGroup.status === 'REMOVED') throw new Refus(`Groupe d'annonces ${groupe} introuvable, ou supprimé.`);
   exigerSearch(l.campaign?.advertisingChannelType, `La campagne « ${l.campaign?.name} »`);
   if (l.adGroup.type !== 'SEARCH_STANDARD') throw new Refus(`Le groupe « ${l.adGroup.name} » n'est pas un groupe Search standard (${l.adGroup.type}).`);
@@ -54,7 +54,8 @@ type LigneMotCle = { adGroupCriterion?: { keyword?: { text?: string; matchType?:
 /** Les mots-clés positifs du groupe, actifs ou en pause : chacun peut écrire un titre par l'insertion. */
 const motsClesDuGroupe = async (env: Env, compte: string, groupe: string) =>
   (await lignes<LigneMotCle>(env, compte,
-    'SELECT ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status FROM ad_group_criterion ' +
+    'SELECT ad_group.id, ad_group_criterion.type, ad_group_criterion.negative, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ' +
+    'ad_group_criterion.status FROM ad_group_criterion ' +
     `WHERE ad_group.id = ${groupe} AND ad_group_criterion.type = 'KEYWORD' AND ad_group_criterion.negative = FALSE ` +
     "AND ad_group_criterion.status IN ('ENABLED', 'PAUSED')"))
     .flatMap(({ adGroupCriterion: c }) => (c?.keyword?.text ? [{ texte: c.keyword.text, correspondance: c.keyword.matchType ?? '?' }] : []));
@@ -64,7 +65,7 @@ type LigneAnnonce = { adGroupAd?: { ad?: { id?: string; responsiveSearchAd?: { h
 /** Les annonces responsives du groupe qui utilisent l'insertion de mot-clé : un mot-clé ajouté y écrira un titre. */
 const annoncesAInsertion = async (env: Env, compte: string, groupe: string): Promise<{ id: string; textes: TextesAnnonce }[]> =>
   (await lignes<LigneAnnonce>(env, compte,
-    'SELECT ad_group_ad.ad.id, ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions, ' +
+    'SELECT ad_group.id, ad_group_ad.status, ad_group_ad.ad.type, ad_group_ad.ad.id, ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.responsive_search_ad.descriptions, ' +
     'ad_group_ad.ad.responsive_search_ad.path1, ad_group_ad.ad.responsive_search_ad.path2 FROM ad_group_ad ' +
     `WHERE ad_group.id = ${groupe} AND ad_group_ad.status != 'REMOVED' AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'`))
     .flatMap(({ adGroupAd }) => {
@@ -136,7 +137,7 @@ const ciblageModele = async (env: Env, compte: string, campagne: string) => {
   const id = env.ADS_CAMPAGNE_MODELE ?? '';
   if (!/^\d{1,20}$/.test(id)) throw new Refus('ADS_CAMPAGNE_MODELE absent ou illisible dans wrangler.toml : la création est fermée.', 503);
   const m = (await premiereLigne<LigneModele>(env, compte,
-    'SELECT campaign.name, campaign.status, campaign.advertising_channel_type, campaign.geo_target_type_setting.positive_geo_target_type, ' +
+    'SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.geo_target_type_setting.positive_geo_target_type, ' +
     `campaign.geo_target_type_setting.negative_geo_target_type FROM campaign WHERE campaign.id = ${id}`))?.campaign;
   if (!m || m.status === 'REMOVED') throw new Refus(`La campagne modèle ${id} (ADS_CAMPAGNE_MODELE) est introuvable ou supprimée.`, 503);
   exigerSearch(m.advertisingChannelType, `La campagne modèle « ${m.name} »`);
@@ -144,7 +145,7 @@ const ciblageModele = async (env: Env, compte: string, campagne: string) => {
   const criteres: Record<string, unknown>[] = [];
   const resume = { langues: 0, rayons: [] as string[], lieux: 0, exclusions: 0 };
   for (const { campaignCriterion: c } of await lignes<LigneCritere>(env, compte,
-    'SELECT campaign_criterion.type, campaign_criterion.negative, campaign_criterion.language.language_constant, ' +
+    'SELECT campaign.id, campaign_criterion.status, campaign_criterion.type, campaign_criterion.negative, campaign_criterion.language.language_constant, ' +
     'campaign_criterion.location.geo_target_constant, campaign_criterion.proximity.radius, campaign_criterion.proximity.radius_units, ' +
     'campaign_criterion.proximity.geo_point.latitude_in_micro_degrees, campaign_criterion.proximity.geo_point.longitude_in_micro_degrees, ' +
     'campaign_criterion.proximity.address.street_address, campaign_criterion.proximity.address.city_name, ' +
@@ -317,7 +318,7 @@ const groupeCreer = outil({
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
     const c = (await premiereLigne<{ campaign?: { name?: string; status?: string; advertisingChannelType?: string } }>(env, compte,
-      `SELECT campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.id = ${campagne}`))?.campaign;
+      `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.id = ${campagne}`))?.campaign;
     if (!c || c.status === 'REMOVED') throw new Refus(`Campagne ${campagne} introuvable, ou supprimée.`);
     exigerSearch(c.advertisingChannelType, `La campagne « ${c.name} »`);
 

@@ -173,8 +173,8 @@ const liensAutour = async (env: Env, compte: string, cible: Cible): Promise<Lien
   };
   const [auCompte, aLaCampagne, auxGroupes] = await Promise.all([
     lignes<L>(env, compte, `SELECT asset.id, customer_asset.field_type, customer_asset.status FROM customer_asset WHERE customer_asset.field_type IN ${types} AND customer_asset.status != 'REMOVED'`),
-    lignes<L>(env, compte, `SELECT asset.id, campaign_asset.field_type, campaign_asset.status FROM campaign_asset WHERE campaign.id = ${cible.campagne.id} AND campaign_asset.field_type IN ${types} AND campaign_asset.status != 'REMOVED'`),
-    lignes<L>(env, compte, 'SELECT ad_group.id, ad_group.name, asset.id, ad_group_asset.field_type, ad_group_asset.status FROM ad_group_asset WHERE ' +
+    lignes<L>(env, compte, `SELECT campaign.id, asset.id, campaign_asset.field_type, campaign_asset.status FROM campaign_asset WHERE campaign.id = ${cible.campagne.id} AND campaign_asset.field_type IN ${types} AND campaign_asset.status != 'REMOVED'`),
+    lignes<L>(env, compte, 'SELECT ad_group.id, ad_group.campaign, ad_group.name, asset.id, ad_group_asset.field_type, ad_group_asset.status FROM ad_group_asset WHERE ' +
       (cible.niveau === 'groupe' ? `ad_group.id = ${cible.id}` : `ad_group.campaign = 'customers/${compte}/campaigns/${cible.campagne.id}'`) +
       ` AND ad_group_asset.field_type IN ${types} AND ad_group_asset.status != 'REMOVED'`),
   ]);

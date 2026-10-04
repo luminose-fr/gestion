@@ -160,14 +160,14 @@ const ENTITES: Record<string, { service: ServiceEcriture; forme: RegExp; exemple
     service: 'campaigns',
     forme: /^\d{1,20}$/,
     exemple: 'campaign.id',
-    requete: ([id]) => `SELECT campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.id = ${id}`,
+    requete: ([id]) => `SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign WHERE campaign.id = ${id}`,
     lire: (l) => ({ statut: l.campaign?.status, canal: l.campaign?.advertisingChannelType, nom: `la campagne « ${l.campaign?.name} »` }),
   },
   groupe: {
     service: 'adGroups',
     forme: /^\d{1,20}$/,
     exemple: 'ad_group.id',
-    requete: ([id]) => `SELECT ad_group.name, ad_group.status, campaign.name, campaign.advertising_channel_type FROM ad_group WHERE ad_group.id = ${id}`,
+    requete: ([id]) => `SELECT ad_group.id, ad_group.name, ad_group.status, campaign.name, campaign.advertising_channel_type FROM ad_group WHERE ad_group.id = ${id}`,
     lire: (l) => ({ statut: l.adGroup?.status, canal: l.campaign?.advertisingChannelType, nom: `le groupe « ${l.adGroup?.name} » (campagne « ${l.campaign?.name} »)` }),
   },
   annonce: {
@@ -175,7 +175,7 @@ const ENTITES: Record<string, { service: ServiceEcriture; forme: RegExp; exemple
     forme: /^\d{1,20}~\d{1,20}$/,
     exemple: 'ad_group.id~ad_group_ad.ad.id',
     requete: ([groupe, annonce]) =>
-      'SELECT ad_group_ad.status, ad_group.name, campaign.name, campaign.advertising_channel_type FROM ad_group_ad ' +
+      'SELECT ad_group.id, ad_group_ad.ad.id, ad_group_ad.status, ad_group.name, campaign.name, campaign.advertising_channel_type FROM ad_group_ad ' +
       `WHERE ad_group.id = ${groupe} AND ad_group_ad.ad.id = ${annonce}`,
     lire: (l) => ({ statut: l.adGroupAd?.status, canal: l.campaign?.advertisingChannelType, nom: `une annonce du groupe « ${l.adGroup?.name} » (campagne « ${l.campaign?.name} »)` }),
   },
@@ -184,8 +184,8 @@ const ENTITES: Record<string, { service: ServiceEcriture; forme: RegExp; exemple
     forme: /^\d{1,20}~\d{1,20}$/,
     exemple: 'ad_group.id~ad_group_criterion.criterion_id',
     requete: ([groupe, critere]) =>
-      'SELECT ad_group_criterion.status, ad_group_criterion.negative, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ' +
-      'ad_group.name, campaign.name, campaign.advertising_channel_type FROM ad_group_criterion ' +
+      'SELECT ad_group.id, ad_group_criterion.criterion_id, ad_group_criterion.type, ad_group_criterion.status, ad_group_criterion.negative, ' +
+      'ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group.name, campaign.name, campaign.advertising_channel_type FROM ad_group_criterion ' +
       `WHERE ad_group.id = ${groupe} AND ad_group_criterion.criterion_id = ${critere} AND ad_group_criterion.type = 'KEYWORD'`,
     lire: (l) => ({
       statut: l.adGroupCriterion?.status,

@@ -205,6 +205,23 @@ partagé, c'était le compte. Corrigé en faisant voyager les clés dans le jeto
 besoin avait la même course : quand deux exécutions le créent ensemble, la seconde relit
 désormais celui de la première au lieu de déclarer « libellé NON posé ».
 
+### L'incident du 04/10/2026 — un champ du WHERE hors du SELECT
+
+Premier essai réel d'`ads_elements_creer` et d'`ads_elements_associer` : tous les aperçus
+échouaient, avant toute écriture, sur `queryError.EXPECTED_REFERENCED_FIELD_IN_SELECT_CLAUSE`.
+La lecture des éléments associés filtrait `campaign_asset` sur `campaign.id` — et
+`ad_group_asset` sur `ad_group.campaign` — sans les sélectionner, ce que Google refuse pour
+ces ressources. Les tests passaient : leurs simulateurs répondaient aux requêtes sans les
+juger.
+
+Règle depuis : **tout champ que WHERE ou ORDER BY référence figure dans le SELECT**, pour
+toutes les requêtes du serveur. Google ne l'exige pas partout, mais une règle sans exception
+se vérifie. [test/gaql.test.ts](test/gaql.test.ts) relit dans le code source chaque requête
+construite, avec ses variantes, et la vérifie ; une requête qu'il ne sait pas relire le fait
+échouer. Les simulateurs de l'API ([test/aides.ts](test/aides.ts)) rendent désormais
+l'erreur de Google à une requête qui l'enfreint. Sur le code d'avant, le premier relève
+20 requêtes fautives sur 35 ; chacune des 20 corrigées a été passée au compte réel.
+
 ### Mise en place du lot 1 — ce que Florent fait
 
 Sur la VM, depuis `workers/mcp` :

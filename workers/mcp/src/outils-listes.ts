@@ -80,8 +80,8 @@ const exigerListe = async (env: Env, compte: string, liste: string) => {
 
 const entreesDe = async (env: Env, compte: string, liste: string): Promise<Entree[]> =>
   (await lignes<{ sharedCriterion?: { criterionId?: string; keyword?: { text?: string; matchType?: string } } }>(env, compte,
-    'SELECT shared_criterion.criterion_id, shared_criterion.keyword.text, shared_criterion.keyword.match_type FROM shared_criterion ' +
-    `WHERE shared_set.id = ${liste} AND shared_criterion.type = 'KEYWORD'`))
+    'SELECT shared_set.id, shared_criterion.type, shared_criterion.criterion_id, shared_criterion.keyword.text, shared_criterion.keyword.match_type ' +
+    `FROM shared_criterion WHERE shared_set.id = ${liste} AND shared_criterion.type = 'KEYWORD'`))
     .flatMap(({ sharedCriterion: c }) => {
       const m = lireMotCle(c?.keyword);
       return m && c?.criterionId ? [{ ...m, id: String(c.criterionId) }] : [];
@@ -90,8 +90,8 @@ const entreesDe = async (env: Env, compte: string, liste: string): Promise<Entre
 /** Les campagnes auxquelles la liste est associée — toutes, quel que soit leur type : la liste les touche toutes. */
 const campagnesLiees = async (env: Env, compte: string, liste: string): Promise<Campagne[]> =>
   (await lignes<{ campaign?: { id?: string; name?: string; status?: string; advertisingChannelType?: string } }>(env, compte,
-    'SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type FROM campaign_shared_set ' +
-    `WHERE shared_set.id = ${liste} AND campaign_shared_set.status = 'ENABLED' AND campaign.status != 'REMOVED'`))
+    'SELECT shared_set.id, campaign_shared_set.status, campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type ' +
+    `FROM campaign_shared_set WHERE shared_set.id = ${liste} AND campaign_shared_set.status = 'ENABLED' AND campaign.status != 'REMOVED'`))
     // Les identifiants repartent dans d'autres requêtes : des chiffres, et rien d'autre.
     .flatMap(({ campaign: c }) => (c?.id && /^\d+$/.test(String(c.id))
       ? [{ id: String(c.id), nom: c.name ?? String(c.id), statut: c.status ?? '?', canal: c.advertisingChannelType ?? '?' }]
@@ -109,7 +109,8 @@ const exigerCampagne = async (env: Env, compte: string, campagne: string): Promi
 /** Les négatifs de campagne (mots-clés), pour un ensemble de campagnes, en une lecture. */
 const negatifsDeCampagnes = async (env: Env, compte: string, campagnes: string[]): Promise<(Entree & { campagne: string })[]> =>
   campagnes.length === 0 ? [] : (await lignes<{ campaign?: { id?: string }; campaignCriterion?: { criterionId?: string; keyword?: { text?: string; matchType?: string } } }>(env, compte,
-    'SELECT campaign.id, campaign_criterion.criterion_id, campaign_criterion.keyword.text, campaign_criterion.keyword.match_type FROM campaign_criterion ' +
+    'SELECT campaign.id, campaign_criterion.type, campaign_criterion.negative, campaign_criterion.status, campaign_criterion.criterion_id, ' +
+    'campaign_criterion.keyword.text, campaign_criterion.keyword.match_type FROM campaign_criterion ' +
     `WHERE campaign.id IN (${campagnes.join(', ')}) AND campaign_criterion.type = 'KEYWORD' AND campaign_criterion.negative = TRUE ` +
     "AND campaign_criterion.status != 'REMOVED'"))
     .flatMap(({ campaign, campaignCriterion: c }) => {
@@ -125,7 +126,8 @@ const positifsDe = async (env: Env, compte: string, campagnes: string[]): Promis
     campaign?: { name?: string }; adGroup?: { name?: string };
     adGroupCriterion?: { status?: string; keyword?: { text?: string; matchType?: string } };
   }>(env, compte,
-    'SELECT campaign.name, ad_group.name, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status ' +
+    'SELECT campaign.id, campaign.name, ad_group.status, ad_group.name, ad_group_criterion.type, ad_group_criterion.negative, ' +
+    'ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status ' +
     `FROM ad_group_criterion WHERE campaign.id IN (${campagnes.join(', ')}) AND ad_group_criterion.type = 'KEYWORD' ` +
     "AND ad_group_criterion.negative = FALSE AND ad_group_criterion.status IN ('ENABLED', 'PAUSED') AND ad_group.status != 'REMOVED'"))
     .flatMap(({ campaign, adGroup, adGroupCriterion: k }) => (k?.keyword?.text
@@ -196,7 +198,7 @@ const listeCreer = outil({
     const nomMarque = marquer(nom);
 
     const existantes = await lignes<{ sharedSet?: { name?: string; type?: string } }>(env, compte,
-      "SELECT shared_set.id, shared_set.name, shared_set.type FROM shared_set WHERE shared_set.status = 'ENABLED'");
+      "SELECT shared_set.id, shared_set.name, shared_set.type, shared_set.status FROM shared_set WHERE shared_set.status = 'ENABLED'");
     const listes = existantes.filter((l) => l.sharedSet?.type === 'NEGATIVE_KEYWORDS').length;
     if (listes >= LIMITES_LISTES.parCompte) {
       throw new Refus(`Le compte a déjà ${listes} listes de mots-clés à exclure : Google n'en admet que ${LIMITES_LISTES.parCompte}. ` +
@@ -527,14 +529,16 @@ const listeDissocier = outil({
 /** Les listes de négatifs associées à une campagne, et leurs entrées : ce qui exclura encore après un retrait. */
 const exclusParListes = async (env: Env, compte: string, campagne: string): Promise<Map<string, string[]>> => {
   const listes = await lignes<{ sharedSet?: { id?: string; name?: string } }>(env, compte,
-    `SELECT shared_set.id, shared_set.name FROM campaign_shared_set WHERE campaign.id = ${campagne} ` +
+    'SELECT campaign.id, campaign_shared_set.status, shared_set.id, shared_set.name, shared_set.type, shared_set.status ' +
+    `FROM campaign_shared_set WHERE campaign.id = ${campagne} ` +
     "AND campaign_shared_set.status = 'ENABLED' AND shared_set.type = 'NEGATIVE_KEYWORDS' AND shared_set.status = 'ENABLED'");
   const ids = listes.map((x) => String(x.sharedSet?.id ?? '')).filter((id) => /^\d+$/.test(id));
   const parCle = new Map<string, string[]>();
   if (ids.length === 0) return parCle;
   const noms = new Map(listes.map((x) => [String(x.sharedSet?.id), x.sharedSet?.name ?? '?']));
   for (const { sharedSet, sharedCriterion } of await lignes<{ sharedSet?: { id?: string }; sharedCriterion?: { keyword?: { text?: string; matchType?: string } } }>(env, compte,
-    `SELECT shared_set.id, shared_criterion.keyword.text, shared_criterion.keyword.match_type FROM shared_criterion WHERE shared_set.id IN (${ids.join(', ')}) ` +
+    'SELECT shared_set.id, shared_criterion.type, shared_criterion.keyword.text, shared_criterion.keyword.match_type ' +
+    `FROM shared_criterion WHERE shared_set.id IN (${ids.join(', ')}) ` +
     "AND shared_criterion.type = 'KEYWORD'")) {
     const m = lireMotCle(sharedCriterion?.keyword);
     if (m) parCle.set(cleMotCle(m), [...(parCle.get(cleMotCle(m)) ?? []), noms.get(String(sharedSet?.id)) ?? '?']);

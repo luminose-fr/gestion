@@ -268,7 +268,7 @@ export const ecrire = async (
 
 /** Le libellé « [Claude] » du compte, s'il existe — sinon l'exécution le créera. */
 export const trouverLibelle = async (env: Env, compte: string): Promise<string | undefined> =>
-  ((await rechercher(env, compte, `SELECT label.resource_name FROM label WHERE label.name = '${MARQUE}'`, connexionPour(env, compte)))
+  ((await rechercher(env, compte, `SELECT label.resource_name, label.name FROM label WHERE label.name = '${MARQUE}'`, connexionPour(env, compte)))
     .results?.[0] as { label?: { resourceName?: string } } | undefined)?.label?.resourceName;
 
 /**

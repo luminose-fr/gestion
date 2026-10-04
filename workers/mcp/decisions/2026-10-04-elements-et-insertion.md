@@ -127,7 +127,17 @@ groupe, rien ne change : on enchérit sur ce que les gens tapent, ce n'est pas u
 Un rendu qui présenterait Florent comme « hypnothérapeute » avertit, sans refuser :
 l'hypnose est un outil, pas un titre (socle/identite.md).
 
-## 5. Les tests
+## 5. L'incident du premier essai (04/10/2026)
+
+Tous les aperçus d'`ads_elements_creer` et d'`ads_elements_associer` échouaient avant toute
+écriture : `queryError.EXPECTED_REFERENCED_FIELD_IN_SELECT_CLAUSE` — « The following field
+must be present in SELECT clause: 'campaign.id' ». La lecture des associations filtrait
+`campaign_asset` sur `campaign.id`, et `ad_group_asset` sur `ad_group.campaign`, sans les
+sélectionner ; Google l'exige pour ces ressources. Corrigé, et la règle étendue à toutes les
+requêtes du serveur, avec un test qui les relit dans le code source (README, « L'incident du
+04/10/2026 »).
+
+## 6. Les tests
 
 [test/elements.test.ts](../test/elements.test.ts) — un compte simulé à état, avec des
 éléments aux trois niveaux : un aperçu ne modifie rien ; un jeton ne vaut que pour ses

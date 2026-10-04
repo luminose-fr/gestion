@@ -7,6 +7,7 @@ import worker, { OPTIONS } from '../src/index';
 import { empreinte } from '../src/crypto';
 import { oublierJetonAds } from '../src/google-ads';
 import { D1Test } from './d1';
+import { refusGaql } from './gaql';
 import type { Env } from '../src/env';
 
 export const ORIGINE = 'https://mcp.luminose.fr';
@@ -145,6 +146,12 @@ export const simulerFetch = (repondre: (appel: Appel) => Response | Promise<Resp
     const appel: Appel = { url, methode: init.method ?? 'GET', entetes, corps: init.body ? String(init.body) : '' };
     appels.push(appel);
 
+    // La règle GAQL du serveur (test/gaql.ts) : une requête qui l'enfreint reçoit
+    // l'erreur de Google, quel que soit le simulateur — c'est ce qui manquait le 04/10/2026.
+    if (url.endsWith(':search')) {
+      const refus = refusGaql(String(JSON.parse(appel.corps || '{}').query ?? ''));
+      if (refus) return refus;
+    }
     const reponse = repondre(appel);
     if (reponse) return reponse;
     if (url === 'https://oauth2.googleapis.com/token') {
