@@ -59,14 +59,19 @@ const FORME_COMPTE = /^\d{10}$/;
  *   la forme d'un nom de ressource ne peut pas dire : `verifierRetraits` le
  *   demande au compte avant chaque envoi.
  *
- * Éléments d'annonce (04/10/2026) — liens annexes, accroches, extraits structurés :
+ * Éléments d'annonce (04/10/2026, 06/10/2026) — liens annexes, info-bulles,
+ * extraits structurés, prix :
  * - `creer-elements` : les éléments et leurs associations, en une requête
- *   atomique (`googleAds:mutate`) ; chaque association naît EN PAUSE.
- * - `associer-element` : un élément existant, à une campagne ou un groupe, en pause.
+ *   atomique (`googleAds:mutate`).
+ * - `associer-element` : un élément existant, à une campagne ou un groupe.
  * - `dissocier-element` : le lien seulement — l'élément reste dans le compte.
  *   Comme les retraits d'exclusion, `verifierRetraits` le confirme dans le compte.
+ * Une association naît EN PAUSE ; ACTIVE seulement quand sa campagne est en
+ * pause — la pause de la campagne suffit alors comme barrière. Ce n'est pas la
+ * forme d'une opération qui le dit : `verifierActivations` le demande au compte
+ * avant chaque envoi.
  *
- * Aucun autre `remove`, aucun passage à ENABLED : l'activation — donc la
+ * Aucun autre `remove`, aucun autre passage à ENABLED : l'activation — donc la
  * dépense — reste dans l'interface Google Ads.
  */
 export const OPERATIONS_PERMISES = {
@@ -86,15 +91,39 @@ export const OPERATIONS_PERMISES = {
 } as const;
 
 /** Les éléments d'annonce que ce serveur crée et associe — le type d'élément est aussi le type de champ de l'association. */
-export const TYPES_ELEMENTS = ['SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET'] as const;
+export const TYPES_ELEMENTS = ['SITELINK', 'CALLOUT', 'STRUCTURED_SNIPPET', 'PRICE'] as const;
 export type TypeElement = (typeof TYPES_ELEMENTS)[number];
+
+/**
+ * Le statut d'une association à sa naissance (décision du 06/10/2026) : EN
+ * PAUSE quand sa campagne est active ; ACTIVE quand sa campagne est en pause —
+ * la pause de la campagne suffit alors comme barrière.
+ */
+const STATUTS_NAISSANCE: readonly string[] = ['PAUSED', 'ENABLED'];
 
 /**
  * Les limites de Google pour ces éléments, en caractères affichés (aide Google
  * Ads, relue le 04/10/2026) : lien annexe 25, ses deux descriptions 35 chacune
- * — les deux ou aucune ; accroche 25 ; extrait structuré, 3 à 10 valeurs de 25.
+ * — les deux ou aucune ; info-bulle 25 ; extrait structuré, 3 à 10 valeurs de
+ * 25 ; prix, 3 à 8 lignes, titre et description de 25 chacun.
  */
-export const LIMITES_ELEMENTS = { lien: 25, lienDescription: 35, accroche: 25, valeur: 25, valeursMin: 3, valeursMax: 10 } as const;
+export const LIMITES_ELEMENTS = {
+  lien: 25, lienDescription: 35, infoBulle: 25, valeur: 25, valeursMin: 3, valeursMax: 10,
+  prixLignesMin: 3, prixLignesMax: 8, prixTitre: 25, prixDescription: 25,
+} as const;
+
+/**
+ * Les éléments de prix (PriceAsset) : leur type, leur qualificatif, l'unité
+ * d'une ligne — les valeurs de l'API, que l'aperçu dit en français. Le
+ * prix est en euros, la langue le français.
+ */
+export const TYPES_PRIX = {
+  SERVICES: 'services', SERVICE_CATEGORIES: 'catégories de services', SERVICE_TIERS: 'niveaux de service',
+  BRANDS: 'marques', EVENTS: 'événements', LOCATIONS: 'lieux', NEIGHBORHOODS: 'quartiers',
+  PRODUCT_CATEGORIES: 'catégories de produits', PRODUCT_TIERS: 'niveaux de produits',
+} as const;
+export const QUALIFICATIFS_PRIX = { FROM: 'à partir de', UP_TO: "jusqu'à", AVERAGE: 'en moyenne' } as const;
+export const UNITES_PRIX = { PER_HOUR: 'par heure', PER_DAY: 'par jour', PER_WEEK: 'par semaine', PER_MONTH: 'par mois', PER_YEAR: 'par an', PER_NIGHT: 'par nuit' } as const;
 
 /**
  * Les en-têtes d'extrait structuré, en français : la liste fermée de Google
@@ -428,8 +457,8 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-el
     const c = op.create as Record<string, unknown>;
     const [champ, type] = service === 'campaignAssets' ? ['campaign', 'campaigns'] : ['adGroup', 'adGroups'];
     if (cles(c) !== ['asset', champ, 'fieldType', 'status'].sort().join(',')) return `champs ${cles(c)}`;
-    // Rien ne naît actif : l'association part en pause, Florent l'active.
-    if (c.status !== 'PAUSED') return `statut ${String(c.status)}`;
+    // En pause, ou active sur une campagne en pause — ce que `verifierActivations` demande au compte.
+    if (!STATUTS_NAISSANCE.includes(String(c.status))) return `statut ${String(c.status)}`;
     if (!(TYPES_ELEMENTS as readonly string[]).includes(String(c.fieldType))) return `type ${String(c.fieldType)}`;
     if (!ressource('assets').test(String(c.asset))) return 'élément';
     if (!ressource(type).test(String(c[champ]))) return champ;
@@ -674,7 +703,7 @@ export const refusElement = (element: Record<string, unknown>): string | null =>
     textes = [l.linkText, l.description1, l.description2].filter((x): x is string => typeof x === 'string');
   } else if (cles(corps) === 'calloutAsset') {
     const a = corps.calloutAsset as Record<string, unknown>;
-    if (cles(a) !== 'calloutText' || !texte(a.calloutText, LIMITES_ELEMENTS.accroche)) return 'accroche';
+    if (cles(a) !== 'calloutText' || !texte(a.calloutText, LIMITES_ELEMENTS.infoBulle)) return 'info-bulle';
     textes = [String(a.calloutText)];
   } else if (cles(corps) === 'structuredSnippetAsset') {
     const e = corps.structuredSnippetAsset as Record<string, unknown>;
@@ -684,6 +713,25 @@ export const refusElement = (element: Record<string, unknown>): string | null =>
     if (!Array.isArray(v) || v.length < LIMITES_ELEMENTS.valeursMin || v.length > LIMITES_ELEMENTS.valeursMax ||
         !v.every((x) => texte(x, LIMITES_ELEMENTS.valeur)) || new Set(v.map((x) => String(x).toLowerCase())).size !== v.length) return 'extrait : valeurs';
     textes = v as string[];
+  } else if (cles(corps) === 'priceAsset') {
+    const p = corps.priceAsset as Record<string, unknown>;
+    if (!estObjet(p) || !['languageCode,priceOfferings,type', 'languageCode,priceOfferings,priceQualifier,type'].includes(cles(p))) return 'prix : champs';
+    if (p.languageCode !== 'fr') return `prix : langue ${String(p.languageCode)}`;
+    if (!(String(p.type) in TYPES_PRIX)) return `prix : type ${String(p.type)}`;
+    if ('priceQualifier' in p && !(String(p.priceQualifier) in QUALIFICATIFS_PRIX)) return `prix : qualificatif ${String(p.priceQualifier)}`;
+    const lignes = p.priceOfferings;
+    if (!Array.isArray(lignes) || lignes.length < LIMITES_ELEMENTS.prixLignesMin || lignes.length > LIMITES_ELEMENTS.prixLignesMax) return 'prix : nombre de lignes';
+    textes = [];
+    for (const l of lignes as Record<string, unknown>[]) {
+      if (!estObjet(l) || !['description,finalUrl,header,price', 'description,finalUrl,header,price,unit'].includes(cles(l))) return 'prix : champs d\'une ligne';
+      if (!texte(l.header, LIMITES_ELEMENTS.prixTitre) || !texte(l.description, LIMITES_ELEMENTS.prixDescription)) return 'prix : titre ou description';
+      if ('unit' in l && !(String(l.unit) in UNITES_PRIX)) return `prix : unité ${String(l.unit)}`;
+      const m = l.price as Record<string, unknown>;
+      if (!estObjet(m) || cles(m) !== 'amountMicros,currencyCode' || m.currencyCode !== 'EUR' || !/^[1-9]\d{0,14}$/.test(String(m.amountMicros))) return 'prix : montant';
+      if (typeof l.finalUrl !== 'string' || !urlAdmise(l.finalUrl)) return 'prix : URL finale hors de luminose.fr';
+      textes.push(String(l.header), String(l.description));
+    }
+    if (new Set((lignes as Record<string, unknown>[]).map((l) => String(l.header).toLowerCase())).size !== lignes.length) return 'prix : titre en double';
   } else {
     return `type d'élément ${cles(corps)}`;
   }
@@ -693,12 +741,13 @@ export const refusElement = (element: Record<string, unknown>): string | null =>
 
 /** Le type de champ qu'un élément occupe, d'après sa forme. */
 const typeElement = (element: Record<string, unknown>): TypeElement | null =>
-  'sitelinkAsset' in element ? 'SITELINK' : 'calloutAsset' in element ? 'CALLOUT' : 'structuredSnippetAsset' in element ? 'STRUCTURED_SNIPPET' : null;
+  'sitelinkAsset' in element ? 'SITELINK' : 'calloutAsset' in element ? 'CALLOUT' : 'structuredSnippetAsset' in element ? 'STRUCTURED_SNIPPET'
+    : 'priceAsset' in element ? 'PRICE' : null;
 
 /**
  * La requête atomique qui crée des éléments d'annonce : les éléments d'abord,
- * puis une association par élément, toutes vers la même cible, chacune EN PAUSE
- * et au type de champ de son élément. Rien d'autre.
+ * puis une association par élément, toutes vers la même cible, au même statut
+ * de naissance et au type de champ de son élément. Rien d'autre.
  */
 export const verifierCreationElements = (operations: Operation[]): void => {
   const refuser = (raison: string): never => {
@@ -724,18 +773,21 @@ export const verifierCreationElements = (operations: Operation[]): void => {
   const [champ, type] = lien === 'campaignAssetOperation' ? ['campaign', 'campaigns'] : ['adGroup', 'adGroups'];
   const cibles = new Set<string>();
   const lies = new Set<string>();
+  const statuts = new Set<string>();
   for (const o of operations.slice(n)) {
     const op = o[lien] as Record<string, unknown>;
     if (cles(op) !== 'create') refuser('association : seule la création');
     const c = op.create as Record<string, unknown>;
     if (cles(c) !== ['asset', champ, 'fieldType', 'status'].sort().join(',')) refuser(`association : champs ${cles(c)}`);
-    if (c.status !== 'PAUSED') refuser(`association : statut ${String(c.status)}`);
+    if (!STATUTS_NAISSANCE.includes(String(c.status))) refuser(`association : statut ${String(c.status)}`);
     if (!ressource(type).test(String(c[champ]))) refuser(`association : ${champ}`);
     if (crees.get(String(c.asset)) !== c.fieldType) refuser('association : élément ou type de champ');
     cibles.add(String(c[champ]));
     lies.add(String(c.asset));
+    statuts.add(String(c.status));
   }
   if (cibles.size !== 1 || lies.size !== n) refuser('chaque élément créé, associé une fois, à une seule cible');
+  if (statuts.size !== 1) refuser('un seul statut de naissance pour toutes les associations');
 };
 
 type LigneRetrait = {
@@ -810,6 +862,40 @@ const RETRAITS: Partial<Record<ServiceEcriture, {
  * retirent que ce qu'ils ont eux-mêmes lu comme tel : on lève. Une cible
  * disparue est un état du compte : un refus.
  */
+/**
+ * Une association d'élément d'annonce ne naît ACTIVE que si sa campagne — ou
+ * celle de son groupe — est EN PAUSE, et c'est le compte qui le dit, avant
+ * chaque envoi : l'outil l'a lu à l'aperçu, mais Florent a pu activer la
+ * campagne depuis. Active, elle ferait dépenser une association que personne
+ * n'a relue. Une lecture par appel : toutes les associations d'un appel visent
+ * la même cible.
+ */
+const verifierActivations = async (env: Env, compte: string, service: ServiceEcriture, operations: Operation[]): Promise<void> => {
+  const creations = operations.flatMap((o): Record<string, unknown>[] => {
+    const op = (service === 'googleAds' ? o.campaignAssetOperation ?? o.adGroupAssetOperation : ['campaignAssets', 'adGroupAssets'].includes(service) ? o : undefined) as Record<string, unknown> | undefined;
+    return op && estObjet(op.create) ? [op.create as Record<string, unknown>] : [];
+  });
+  const actives = creations.filter((c) => c.status === 'ENABLED');
+  if (actives.length === 0) return;
+  const id = (nom: unknown) => /\/(\d+)$/.exec(String(nom))?.[1];
+  const campagnes = [...new Set(actives.flatMap((c) => (c.campaign ? [id(c.campaign)] : [])))];
+  const groupes = [...new Set(actives.flatMap((c) => (c.adGroup ? [id(c.adGroup)] : [])))];
+  if ([...campagnes, ...groupes].some((x) => !x)) throw new Error('Association active : cible illisible');
+  type Ligne = { campaign?: { id?: string; name?: string; status?: string }; adGroup?: { id?: string } };
+  const lire = async (requete: string) => ((await rechercher(env, compte, requete, connexionPour(env, compte))).results ?? []) as Ligne[];
+  const lues = [
+    ...(campagnes.length ? await lire(`SELECT campaign.id, campaign.name, campaign.status FROM campaign WHERE campaign.id IN (${campagnes.join(', ')})`) : []),
+    ...(groupes.length ? await lire(`SELECT ad_group.id, campaign.id, campaign.name, campaign.status FROM ad_group WHERE ad_group.id IN (${groupes.join(', ')})`) : []),
+  ];
+  for (const cible of [...campagnes.map((c) => ({ c })), ...groupes.map((g) => ({ g }))]) {
+    const l = lues.find((x) => ('c' in cible ? String(x.campaign?.id) === cible.c : String(x.adGroup?.id) === cible.g));
+    if (l?.campaign?.status !== 'PAUSED') {
+      throw new Refus(`La campagne « ${l?.campaign?.name ?? '?'} » n'est pas en pause (${l?.campaign?.status ?? 'introuvable'}) : une association ` +
+        "active y ferait dépenser ce que personne n'a relu. Rien n'est parti. Refaites un aperçu : l'association y naîtra en pause.");
+    }
+  }
+};
+
 const verifierRetraits = async (env: Env, compte: string, service: ServiceEcriture, operations: Operation[]): Promise<void> => {
   const noms = operations.filter((o) => 'remove' in o).map((o) => String(o.remove));
   if (noms.length === 0) return;
@@ -861,6 +947,7 @@ export const muter = async (
     for (const operation of operations) verifierOperation(service, operation);
     await verifierRetraits(env, compte, service, operations);
   }
+  await verifierActivations(env, compte, service, operations);
   const champ = service === 'googleAds' ? 'mutateOperations' : 'operations';
   return await appeler(env, `/customers/${compte}/${service}:mutate`, {
     corps: { [champ]: operations, validateOnly, partialFailure: false },

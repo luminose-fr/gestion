@@ -8,7 +8,7 @@
 ## 1. Le besoin
 
 Le serveur créait des annonces, des mots-clés et des négatifs, mais aucun élément
-d'annonce : ni lien annexe, ni accroche, ni extrait structuré. Et `ads_annonce_creer`
+d'annonce : ni lien annexe, ni info-bulle, ni extrait structuré. Et `ads_annonce_creer`
 n'acceptait pas l'insertion de mot-clé (`{KeyWord:texte par défaut}`), alors que le filtre
 déontologique ne portait que sur le texte écrit : avec l'insertion, c'est le mot-clé qui
 écrit le titre.
@@ -17,8 +17,8 @@ déontologique ne portait que sur le texte écrit : avec l'insertion, c'est le m
 
 | Outil | Service Google | Ce qu'il fait |
 | :--- | :--- | :--- |
-| `ads_elements_creer` | `googleAds:mutate` (`AssetOperation`, puis `CampaignAssetOperation` ou `AdGroupAssetOperation`) | crée des éléments et les associe, en pause, à une campagne OU à un groupe, en une requête atomique |
-| `ads_elements_associer` | `campaignAssets` ou `adGroupAssets` | associe, en pause, un élément qui existe déjà (par `asset.id`), sans le recréer |
+| `ads_elements_creer` | `googleAds:mutate` (`AssetOperation`, puis `CampaignAssetOperation` ou `AdGroupAssetOperation`) | crée des éléments et les associe à une campagne OU à un groupe, en une requête atomique |
+| `ads_elements_associer` | `campaignAssets` ou `adGroupAssets` | associe un élément qui existe déjà (par `asset.id`), sans le recréer |
 | `ads_elements_dissocier` | `campaignAssets` ou `adGroupAssets` | retire l'association ; l'élément reste dans le compte |
 | `ads_annonce_creer` | `adGroupAds` | accepte désormais l'insertion de mot-clé dans les titres et les descriptions |
 | `ads_mots_cles_ajouter` | `adGroupCriteria` | contrôle désormais le rendu de chaque mot-clé dans les annonces à insertion du groupe |
@@ -29,19 +29,32 @@ journal, messages en français.
 
 ## 3. Les éléments — NORMATIF
 
-### E1 — Rien ne naît actif
+### E1 — Une barrière avant toute dépense
 
-Chaque association (`CampaignAsset`, `AdGroupAsset`) part avec `status: PAUSED` : l'API
-l'accepte à la création. Florent active dans l'interface. Un élément de texte n'a ni nom ni
-libellé visibles : la pause est sa marque, à la place de « [Claude] ». La table fermée
-refuse une association sans ce statut, ou avec un autre.
+Décision du 04/10/2026 : chaque association (`CampaignAsset`, `AdGroupAsset`) part avec
+`status: PAUSED`, que l'API accepte à la création, et Florent l'active dans l'interface.
+
+**Révisée le 06/10/2026** : la barrière peut être la campagne. Une association naît
+**EN PAUSE** quand la campagne visée — ou celle du groupe visé — est active ; elle naît
+**ACTIVE** quand cette campagne est en pause, dont la pause suffit comme barrière : rien ne
+s'affiche avant que Florent active la campagne, et il n'a pas à activer un à un des éléments
+qu'il relira avec elle. L'aperçu dit lequel des deux s'applique, et pourquoi.
+
+Le statut lu à l'aperçu voyage dans le jeton. Une campagne activée entre l'aperçu et
+l'exécution fait refuser l'exécution — l'association y naîtrait active et ferait dépenser ce
+que personne n'a relu ; une campagne mise en pause entre-temps laisse l'association en pause,
+comme l'aperçu l'a montré. Et la table fermée ne s'en remet pas à l'outil :
+`verifierActivations` demande au compte, avant chaque envoi, que toute association active
+vise une campagne en pause. Un élément n'a ni nom ni libellé visibles : la barrière tient
+lieu de marque « [Claude] ».
 
 ### E2 — Les limites de Google, comptées en caractères affichés
 
 | Type | Règle |
 | :--- | :--- |
 | Lien annexe (`SITELINK`) | texte ≤ 25 ; deux descriptions ≤ 35, les deux ou aucune ; une URL finale sur `https://www.luminose.fr/` ou `https://luminose.fr/` (V6) |
-| Accroche (`CALLOUT`) | ≤ 25 |
+| Info-bulle (`CALLOUT`) — « accroche » jusqu'au 06/10/2026 | ≤ 25 ; le paramètre est `info_bulles`, `accroches` reste accepté pendant la transition, l'un ou l'autre |
+| Prix (`PRICE`, 06/10/2026) | un type (`SERVICES`…), un qualificatif facultatif (`FROM`, `UP_TO`, `AVERAGE`) ; 3 à 8 lignes, chacune un titre ≤ 25 et une description ≤ 25, distincts par leur titre, un prix en euros à deux décimales au plus, une unité facultative, une URL finale sur luminose.fr ; en français |
 | Extrait structuré (`STRUCTURED_SNIPPET`) | un en-tête de la liste fermée de Google, en français ; 3 à 10 valeurs ≤ 25, distinctes |
 
 En-têtes admis (« Structured Snippet Header Translations », relue le 04/10/2026) :
@@ -59,11 +72,13 @@ d'accolades dans un élément : l'insertion de mot-clé n'existe que dans les an
 Chaque texte d'élément passe le filtre des annonces (V4) : un terme interdit fait refuser,
 un terme d'avertissement (« hypnothérapeute », « Le Seuil », « atelier ») avertit. Un
 élément existant qu'on associe y passe aussi : `ads_elements_associer` refuse un élément au
-texte interdit, ou un lien annexe hors de luminose.fr.
+texte interdit, ou dont une URL sort de luminose.fr.
 
 Un lien annexe dont l'URL contient `respiration-holotropique` ou `breathwork` avertit : le
 cadre déontologique (socle/cadre-deontologique.md) exige que toute promotion du breathwork
-mentionne le questionnaire de santé préalable.
+mentionne le questionnaire de santé préalable. Une ligne de prix qui promeut le breathwork —
+par son texte, ou par sa page — sans mentionner le questionnaire avertit, ligne par ligne :
+c'est le cas de la ligne « Breathwork holotropique » du prix existant du compte (67113822853).
 
 ### E4 — Ce que l'aperçu montre
 

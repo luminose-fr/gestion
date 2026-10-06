@@ -132,6 +132,10 @@ describe('époque moderne (2026-07-28)', () => {
         .toBe(['ads_lister_comptes', 'ads_requete', 'corpus_index', 'corpus_lire', 'corpus_contexte'].includes(outil.name));
       expect(outil.annotations.destructiveHint, outil.name).toBe(retraits.includes(outil.name));
     }
+    // Les info-bulles (06/10/2026) : le nom de l'interface française, et l'ancien, `accroches`, accepté pendant la transition.
+    const creer = result.tools.find((t: { name: string }) => t.name === 'ads_elements_creer');
+    expect(Object.keys(creer.inputSchema.properties)).toEqual(expect.arrayContaining(['info_bulles', 'accroches', 'prix']));
+    expect(creer.inputSchema.properties.accroches.description).toMatch(/Ancien nom de `info_bulles`/);
     const requete = result.tools[1];
     expect(requete.inputSchema.required).toEqual(['requete']);
     expect(Object.keys(requete.inputSchema.properties)).toEqual(['requete', 'compte']);
