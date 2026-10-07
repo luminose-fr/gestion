@@ -1,7 +1,7 @@
 ---
 type: fact
 statut: actif
-revu: 2026-08
+revu: 2026-10
 expose: public
 ---
 
@@ -11,6 +11,9 @@ expose: public
 l'intégration et le suivi. **140 €.**
 
 Précédé d'une **rencontre de 20 minutes offerte** — voir `rencontre.md`.
+
+**Une séance de découverte, sans suite, est possible** — toujours après la rencontre de
+20 minutes. Décidé par Florent le 06/10/2026.
 
 Travail par respiration et musiques évocatrices pour explorer l'inconscient, en séance
 individuelle sur mesure.
