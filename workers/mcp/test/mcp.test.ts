@@ -121,6 +121,7 @@ describe('époque moderne (2026-07-28)', () => {
         'ads_liste_negatifs_creer', 'ads_liste_negatifs_ajouter', 'ads_liste_negatifs_retirer',
         'ads_liste_associer', 'ads_liste_dissocier', 'ads_negatifs_retirer',
         'ads_elements_creer', 'ads_elements_associer', 'ads_elements_dissocier',
+        'ads_dg_campagne_creer', 'ads_dg_groupe_creer', 'ads_dg_annonce_creer',
         'corpus_index', 'corpus_lire', 'corpus_contexte', 'corpus_modifier', 'corpus_decision_ajouter', 'corpus_deployer',
       ]);
     // Destructeurs : les seuls outils qui lèvent une exclusion, donc peuvent rouvrir du trafic — ou retirent un élément d'une annonce.

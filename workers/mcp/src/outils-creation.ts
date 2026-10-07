@@ -19,6 +19,7 @@ import { CORRESPONDANCES, DEUX_TEMPS, JETON, exigerSearch, lignes, normaliserMot
 import { MARQUE, examinerAnnonce, examinerRendus, marquer, textesParDefaut, urlAdmise, type Rendu, type TextesAnnonce } from './regles';
 import { LIMITES_ANNONCE, aInsertion, analyser, longueur, texteParDefaut } from './insertion';
 import { Refus } from './refus';
+import { enMicros, engagement, euros } from './argent';
 import type { Env } from './env';
 
 const ID = z.string().regex(/^\d{1,20}$/, 'identifiant numérique');
@@ -29,10 +30,6 @@ const MARQUE_ET_PAUSE =
   `Tout ce qui est créé naît EN PAUSE et porte la marque ${MARQUE} (dans le nom, ou en libellé pour les annonces et mots-clés). ` +
   'Florent relit, retire la marque et active dans l’interface Google Ads : ce serveur n’active jamais rien.';
 
-const euros = (micros: number) => (micros / 1_000_000).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
-
-/** Au centime : Google refuse un montant en micros qui n'est pas un multiple de 10 000. */
-const enMicros = (montant: number) => Math.round(montant * 100) * 10_000;
 
 type LigneGroupe = {
   adGroup?: { name?: string; status?: string; type?: string };
@@ -92,22 +89,6 @@ const decrireRendus = (rendus: Rendu[], ou = '') => ({
 });
 
 // ── ads_campagne_creer ───────────────────────────────────────────────────
-
-type LigneBudget = { campaign?: { name?: string; status?: string }; campaignBudget?: { resourceName?: string; amountMicros?: string } };
-
-/**
- * R3 — l'engagement : ce que coûterait par jour tout ce qui est actif ou en
- * attente de validation. Un budget compte une fois, même partagé.
- */
-const engagement = async (env: Env, compte: string): Promise<number> => {
-  const budgets = new Map<string, number>();
-  for (const l of await lignes<LigneBudget>(env, compte,
-    "SELECT campaign.name, campaign.status, campaign_budget.resource_name, campaign_budget.amount_micros FROM campaign WHERE campaign.status IN ('ENABLED', 'PAUSED')")) {
-    const enJeu = l.campaign?.status === 'ENABLED' || l.campaign?.name?.startsWith(`${MARQUE} `);
-    if (enJeu && l.campaignBudget?.resourceName) budgets.set(l.campaignBudget.resourceName, Number(l.campaignBudget.amountMicros ?? 0));
-  }
-  return [...budgets.values()].reduce((a, b) => a + b, 0);
-};
 
 type LigneModele = {
   campaign?: {

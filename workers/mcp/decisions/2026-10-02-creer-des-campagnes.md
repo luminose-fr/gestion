@@ -42,6 +42,9 @@ Le budget d'une campagne créée lui est propre (jamais partagé), à livraison 
 montants s'écrivent en euros à l'entrée et dans l'aperçu ; le serveur convertit en micros.
 Performance Max et Demand Gen enchérissent sur les conversions, sans plafond de CPC : le
 budget y est le seul frein — d'où le plafond par campagne.
+*Corrigé le 07/10/2026 pour Demand Gen* : il enchérit en Maximiser les clics, plafonné par
+`ADS_CPC_MAX`, ou en Maximiser les conversions, sans cible ; son budget est total, plafonné
+par campagne (decisions/2026-10-07-demand-gen.md, DG1 et DG2).
 
 ### R4 — Le ciblage se recopie, il ne se choisit pas
 

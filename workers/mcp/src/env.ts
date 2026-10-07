@@ -74,6 +74,23 @@ export type Env = {
   /** R4 — la campagne Search dont le ciblage est recopié. */
   ADS_CAMPAGNE_MODELE?: string;
 
+  // ── Demand Gen (cadrage du 07/10/2026) — [vars] de wrangler.toml ──────
+
+  /** DG1 — budget total maximal d'une campagne Demand Gen, en euros. Absent ou illisible, Demand Gen est fermé. */
+  ADS_BUDGET_MAX_CAMPAGNE?: string;
+  /**
+   * DG3 — les objectifs de conversion permis, `clé:id,clé:id` : des objectifs
+   * personnalisés (`custom_conversion_goal.id`) que Florent a créés dans
+   * Google Ads. Vide, la création de campagne Demand Gen est fermée.
+   */
+  ADS_OBJECTIFS_CONVERSION?: string;
+  /**
+   * DG4 — les lieux du préréglage `locale` : des `geoTargetConstants`,
+   * séparés par des virgules. Vide, ce préréglage est fermé ;
+   * `france_metropolitaine` reste ouvert.
+   */
+  ADS_ZONE_LOCALE?: string;
+
   // ── Le corpus (décision du 03/10/2026) ────────────────────────────────
 
   /**

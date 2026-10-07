@@ -26,7 +26,8 @@ const CRITERES_MODELE = [
   { campaignCriterion: { type: 'LOCATION', negative: true, location: { geoTargetConstant: 'geoTargetConstants/9040834' } } },
 ];
 
-type Budget = { nom: string; statut: string; ressource: string; euros: number };
+/** Un budget quotidien (`euros`), ou total (`total`, sur les dates de la campagne — DG1, 07/10/2026). */
+type Budget = { nom: string; statut: string; ressource: string; euros?: number; total?: number; debut?: string; fin?: string };
 const BUDGETS_ORDINAIRES: Budget[] = [
   { nom: 'Troubles anxieux', statut: 'ENABLED', ressource: 'b1', euros: 5 },
   { nom: 'Alimentation et corps', statut: 'ENABLED', ressource: 'b2', euros: 5 },
@@ -74,8 +75,13 @@ const simulerCompte = (monde: Monde = {}) => simulerFetch(({ url, corps }) => {
     let m: RegExpExecArray | null;
     if (/FROM campaign WHERE campaign\.status IN/.test(q)) {
       return reponse((monde.budgets ?? BUDGETS_ORDINAIRES).map((b) => ({
-        campaign: { name: b.nom, status: b.statut },
-        campaignBudget: { resourceName: `customers/${COMPTE}/campaignBudgets/${b.ressource}`, amountMicros: String(b.euros * 1_000_000) },
+        campaign: {
+          name: b.nom, status: b.statut,
+          ...(b.debut ? { startDateTime: `${b.debut} 00:00:00` } : {}), ...(b.fin ? { endDateTime: `${b.fin} 23:59:59` } : {}),
+        },
+        campaignBudget: b.total === undefined
+          ? { resourceName: `customers/${COMPTE}/campaignBudgets/${b.ressource}`, period: 'DAILY', amountMicros: String((b.euros ?? 0) * 1_000_000) }
+          : { resourceName: `customers/${COMPTE}/campaignBudgets/${b.ressource}`, period: 'CUSTOM_PERIOD', totalAmountMicros: String(b.total * 1_000_000) },
       })));
     }
     if ((m = /FROM campaign WHERE campaign\.id = (\d+)/.exec(q))) {
@@ -268,6 +274,24 @@ describe('ads_campagne_creer — R1 à R7', () => {
     expect(texteDe(refus.corps)).toMatch(/Engagement dépassé : 20,00 € par jour déjà actifs ou en attente de validation, plus 5,01 €, au-delà de 25,00 €/);
     expect(mutations(appels)).toEqual([]);
 
+    const juste = await appelerOutil(env, 'ads_campagne_creer', { ...CAMPAGNE_CLICS, budget_jour: 5 }, LIRE_ECRIRE);
+    expect(texteDe(juste.corps)).toMatch(/Engagement après création : 25,00 € par jour sur 25,00 €/);
+  });
+
+  it('NORMATIF — un budget total compte dans l’engagement pour son équivalent quotidien, plus rien une fois sa fin passée (DG1)', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-07T10:00:00Z').getTime() });
+    const budgets: Budget[] = [
+      ...BUDGETS_ORDINAIRES,
+      // 300 € sur 30 jours : 10 € par jour. Lu comme un budget quotidien, il aurait compté pour zéro.
+      { nom: '[Claude] Budget total', statut: 'PAUSED', ressource: 'b6', total: 300, debut: '2026-10-10', fin: '2026-11-08' },
+      // Terminée : elle ne dépense plus.
+      { nom: 'Terminée', statut: 'ENABLED', ressource: 'b7', total: 500, debut: '2026-09-01', fin: '2026-09-30' },
+    ];
+    const env = creerEnv();
+    const appels = simulerCompte({ budgets });
+    const refus = await appelerOutil(env, 'ads_campagne_creer', { ...CAMPAGNE_CLICS, budget_jour: 5.01 }, LIRE_ECRIRE);
+    expect(texteDe(refus.corps)).toMatch(/Engagement dépassé : 20,00 € par jour déjà actifs ou en attente de validation, plus 5,01 €, au-delà de 25,00 €/);
+    expect(mutations(appels)).toEqual([]);
     const juste = await appelerOutil(env, 'ads_campagne_creer', { ...CAMPAGNE_CLICS, budget_jour: 5 }, LIRE_ECRIRE);
     expect(texteDe(juste.corps)).toMatch(/Engagement après création : 25,00 € par jour sur 25,00 €/);
   });

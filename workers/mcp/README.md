@@ -54,7 +54,8 @@ seul endroit : `VERSION_API` dans [src/google-ads.ts](src/google-ads.ts).
 
 Cadrages du 01/10/2026 et du 02/10/2026
 ([decisions/2026-10-02-creer-des-campagnes.md](decisions/2026-10-02-creer-des-campagnes.md)),
-livrés **lot par lot**, chacun déployé et essayé avant le suivant.
+livrés **lot par lot**, chacun déployé et essayé avant le suivant. Le lot 4 passe avant le
+lot 3, décision de Florent du 07/10/2026.
 
 | Lot | Outils | État |
 | :--- | :--- | :--- |
@@ -63,7 +64,7 @@ livrés **lot par lot**, chacun déployé et essayé avant le suivant.
 | 2 bis — listes de négatifs | `ads_liste_negatifs_creer`, `ads_liste_negatifs_ajouter`, `ads_liste_negatifs_retirer`, `ads_liste_associer`, `ads_liste_dissocier`, `ads_negatifs_retirer` | livré ([decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md)) |
 | 2 ter — éléments d'annonce, insertion de mot-clé | `ads_elements_creer`, `ads_elements_associer`, `ads_elements_dissocier` — liens annexes, info-bulles, extraits structurés, prix ; l'insertion dans `ads_annonce_creer`, contrôlée aussi par `ads_mots_cles_ajouter` | livré ([decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-elements-et-insertion.md)) |
 | 3 — Performance Max | à définir | à venir |
-| 4 — Demand Gen | à définir | à venir |
+| 4 — Demand Gen | `ads_dg_campagne_creer`, `ads_dg_groupe_creer`, `ads_dg_annonce_creer` — budget total, zone par préréglage, annonce multi-élément | livré, à essayer ([decisions/2026-10-07-demand-gen.md](decisions/2026-10-07-demand-gen.md)) |
 | 5 — le budget | `ads_budget_modifier` | à venir |
 
 **Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
@@ -71,7 +72,8 @@ une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une anno
 responsive n'a pas de nom). Florent relit, retire la marque, et active. Un élément
 d'annonce n'a ni nom ni libellé visibles : c'est son **association** qui porte la barrière —
 en pause derrière une campagne active, active derrière une campagne en pause, dont la pause
-suffit (06/10/2026).
+suffit (06/10/2026). Une annonce Demand Gen peut porter un nom interne : immuable, il ne
+porte pas la marque — son libellé, si.
 
 **Deux temps, toujours.** Sans `jeton`, l'outil envoie la requête avec `validateOnly: true` :
 Google vérifie tout, n'applique rien, et l'outil rend un aperçu et un jeton. Avec le jeton,
@@ -88,8 +90,9 @@ ajouter une. C'est la correction de l'incident du 02/10/2026, plus bas.
 ### Les verrous, et où ils vivent
 
 Tous dans le serveur, jamais dans les descriptions d'outils : une consigne au modèle n'est
-pas un verrou. Chacun a son test NORMATIF ([test/ecriture.test.ts](test/ecriture.test.ts)),
-et chacun a été vérifié en le cassant : son test échoue.
+pas un verrou. Chacun a son test NORMATIF ([test/ecriture.test.ts](test/ecriture.test.ts) ;
+Demand Gen : [test/demand-gen.test.ts](test/demand-gen.test.ts)), et chacun a été vérifié
+en le cassant : son test échoue.
 
 | | Verrou | Où |
 | :--- | :--- | :--- |
@@ -99,11 +102,17 @@ et chacun a été vérifié en le cassant : son test échoue.
 | V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
 | V8 | sans le scope `ads:ecrire`, refus — accordé seulement en cochant la case du consentement | [src/ecriture.ts](src/ecriture.ts), [src/autorisation.ts](src/autorisation.ts) |
 | V9 | au-delà de `ADS_ECRITURES_MAX_JOUR` exécutions sur 24 heures, refus (échecs compris) | [src/ecriture.ts](src/ecriture.ts) |
-| V3 · R3 | budget d'une campagne créée ≤ `ADS_BUDGET_MAX_JOUR` ; engagement (actives + « [Claude] » en pause) ≤ `ADS_BUDGET_MAX_TOTAL` ; CPC max ≤ `ADS_CPC_MAX` ; budget jamais partagé | outil, puis table fermée qui revérifie |
+| V3 · R3 | budget d'une campagne créée ≤ `ADS_BUDGET_MAX_JOUR` ; engagement (actives + « [Claude] » en pause, un budget total pour son équivalent quotidien tant que sa fin n'est pas passée) ≤ `ADS_BUDGET_MAX_TOTAL` ; CPC max ≤ `ADS_CPC_MAX` ; budget jamais partagé | outil, puis table fermée qui revérifie ; l'engagement, [src/argent.ts](src/argent.ts) |
+| DG1 | Demand Gen : budget total (`CUSTOM_PERIOD`), dates de début et de fin obligatoires, début au plus tôt aujourd'hui ; total ≤ `ADS_BUDGET_MAX_CAMPAGNE` ; équivalent quotidien (total ÷ jours, au centime supérieur) ≤ `ADS_BUDGET_MAX_JOUR`, compté dans l'engagement | outil, puis table fermée |
+| DG2 | Demand Gen : Maximiser les clics, plafonné par `ADS_CPC_MAX`, ou Maximiser les conversions, sans CPA ni ROAS cible | outil, puis table fermée |
+| DG3 | l'objectif de conversion d'une campagne Demand Gen : une clé de `ADS_OBJECTIFS_CONVERSION` ; l'objectif personnalisé et chacune de ses actions de conversion, actifs dans le compte | outil ; la table n'admet que les objectifs de la liste |
+| DG4 · DG5 | zone `france_metropolitaine` ou `locale` (`ADS_ZONE_LOCALE`), jamais un lieu ni un rayon, lieux vérifiés dans le compte ; français ; présence réelle ; canaux posés par le serveur — YouTube, Discover, Gmail, ni Display ni Maps | outil, puis table fermée |
+| DG6 | tout ce que Google génèrerait pour Demand Gen, coupé à la campagne et à chaque annonce | table fermée |
+| DG7 | annonce multi-élément : images et logos de la bibliothèque, vérifiés — type, ratio à 1 % près, taille minimale ; « Luminose » pour nom d'entreprise ; bouton pris dans une liste fermée ; V4 et V6 | outil, puis table fermée |
 | V4 | filtre des textes d'annonce et d'éléments d'annonce : refus et avertissements. Pas sur les mots-clés, sauf quand l'insertion leur fait écrire l'annonce : chaque rendu passe alors au filtre | [src/regles.ts](src/regles.ts), revérifié par la table |
 | V6 | URL finales — annonces et liens annexes — sur `https://luminose.fr/` ou `https://www.luminose.fr/`, sans sous-domaine | [src/regles.ts](src/regles.ts), revérifié par la table |
 | R1 · R2 | tout naît en pause ; marque « [Claude] » en nom ou en libellé ; l'association d'un élément d'annonce, en pause — ou active derrière une campagne en pause | table fermée et `verifierActivations`, [src/ecriture.ts](src/ecriture.ts) |
-| R4 | le ciblage est recopié de `ADS_CAMPAGNE_MODELE` ; réseau Google seul ; rien de cela en entrée | [src/outils-creation.ts](src/outils-creation.ts), table fermée |
+| R4 | Search : le ciblage est recopié de `ADS_CAMPAGNE_MODELE` ; réseau Google seul ; rien de cela en entrée | [src/outils-creation.ts](src/outils-creation.ts), table fermée |
 | R5 | personnalisation du texte et extension d'URL toujours coupées ; AI Max seulement en « Maximiser les conversions » | table fermée |
 
 ### Décisions du lot 1
@@ -200,6 +209,29 @@ Détail : [decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-e
   `ads_mots_cles_ajouter` fait le même contrôle pour chaque mot-clé ajouté à un groupe dont
   une annonce utilise l'insertion. « Hypnothérapeute » dans un rendu avertit, sans refuser.
   [src/insertion.ts](src/insertion.ts), sans dépendance.
+
+### Décisions de Demand Gen (07/10/2026)
+
+Détail : [decisions/2026-10-07-demand-gen.md](decisions/2026-10-07-demand-gen.md), vérifié
+contre la référence v25 de l'API.
+
+- **Trois outils, trois requêtes atomiques.** La campagne : budget, campagne, objectif de
+  conversion. Le groupe : ses canaux, ses lieux, sa langue. L'annonce, puis son libellé.
+  Les outils du Search refusent une campagne Demand Gen, et l'inverse.
+- **Budget total, jamais partagé**, sur des dates obligatoires. Son équivalent quotidien
+  tient sous le plafond quotidien et compte dans l'engagement — y compris pour le Search :
+  avant le 07/10/2026, l'engagement comptait un budget total pour zéro.
+- **L'objectif de conversion appartient à la campagne.** Florent crée ses objectifs
+  personnalisés dans Google Ads ; le serveur n'en crée aucun, il vérifie celui que désigne
+  la clé, et ses actions de conversion, avant de le poser.
+- **La zone est un préréglage.** Le ciblage d'une campagne Demand Gen vit au groupe, où un
+  rayon n'existe pas : le préréglage `locale` est une liste fermée de lieux, posée par
+  Florent dans `ADS_ZONE_LOCALE`.
+- **Le multi-élément d'abord.** La vidéo responsive viendra quand un envoi à blanc aura
+  confirmé ses limites, absentes de la référence.
+- **Reste à confirmer par Google**, au premier aperçu de chaque outil : la présence réelle,
+  le plafond de CPC et les automatismes coupés, que la référence ne documente pas pour
+  Demand Gen ; le texte du bouton. Un refus n'écrit rien : la question revient à Florent.
 
 ### L'incident du 02/10/2026 — quatre exécutions concurrentes
 
@@ -407,7 +439,10 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `DB` | binding D1 (`luminose-mcp`) | les journaux des écritures (V7) — Google Ads et corpus —, qui comptent aussi les plafonds V9 |
 | `ADS_APERCU_KEY` | secret | signe les jetons d'aperçu (V2). Absent : l'écriture est fermée, la lecture continue |
 | `ADS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 — 30 exécutions sur 24 heures. Absent ou illisible : l'écriture est fermée |
-| `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 10 €, 25 €, 2 €. Absents ou illisibles : la création est fermée |
+| `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 15 €, 45 €, 2 € (relevés le 07/10/2026). Absents ou illisibles : la création est fermée |
+| `ADS_BUDGET_MAX_CAMPAGNE` | `[vars]` de wrangler.toml | DG1 — le plafond du budget total d'une campagne Demand Gen. Absent ou illisible : la création de campagne Demand Gen est fermée |
+| `ADS_OBJECTIFS_CONVERSION` | `[vars]` de wrangler.toml | DG3 — `clé:id,clé:id`, les objectifs personnalisés créés par Florent. Vide ou illisible : la création de campagne Demand Gen est fermée |
+| `ADS_ZONE_LOCALE` | `[vars]` de wrangler.toml | DG4 — les lieux du préréglage `locale` (`geoTargetConstants`). Vide : ce préréglage est fermé ; illisible : les groupes Demand Gen le sont |
 | `ADS_CAMPAGNE_MODELE` | `[vars]` de wrangler.toml | R4 — la campagne dont le ciblage est recopié |
 | `GITHUB_TOKEN` | secret | couche C — jeton à grain fin, dépôt `luminose-fr/gestion`, Contents et Actions en lecture-écriture. Absent : le corpus est fermé, Google Ads continue |
 | `CORPUS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 du corpus — 20 commits et déploiements sur 24 heures. Absent ou illisible : l'écriture du corpus est fermée |

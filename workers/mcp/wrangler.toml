@@ -47,11 +47,26 @@ ADS_ECRITURES_MAX_JOUR = "30"
 # Créer des campagnes — décisions du 02/10/2026
 # (workers/mcp/decisions/2026-10-02-creer-des-campagnes.md). En euros. Absentes ou
 # illisibles, la création est fermée ; la lecture et le lot 1 continuent.
-ADS_BUDGET_MAX_JOUR = "10"    # R3 — budget quotidien d'une campagne créée
-ADS_BUDGET_MAX_TOTAL = "25"   # R3 — actives + « [Claude] » en pause, nouvelle comprise
+# Relevés le 07/10/2026 (DG1 du cadrage Demand Gen) : 10 → 15 et 25 → 45.
+ADS_BUDGET_MAX_JOUR = "15"    # R3 — budget quotidien d'une campagne créée ; équivalent quotidien d'un budget total
+ADS_BUDGET_MAX_TOTAL = "45"   # R3 — actives + « [Claude] » en pause, nouvelle comprise
 ADS_CPC_MAX = "2"             # R3 — CPC max en « Maximiser les clics »
 # R4 — la campagne dont le ciblage est recopié (« Psychopraticien - Prospects - Troubles anxieux »).
 ADS_CAMPAGNE_MODELE = "24187680610"
+
+# Demand Gen — décisions du 07/10/2026 (workers/mcp/decisions/2026-10-07-demand-gen.md).
+# DG1 — budget total maximal d'une campagne, en euros. Absent ou illisible, Demand Gen est fermé.
+ADS_BUDGET_MAX_CAMPAGNE = "700"
+# DG3 — « clé:id,clé:id » : les objectifs personnalisés (custom_conversion_goal.id) créés par
+# Florent dans Google Ads → Objectifs. Le serveur n'en crée aucun. Vide, la création de
+# campagne Demand Gen est fermée.
+ADS_OBJECTIFS_CONVERSION = "achat:6459365992,rdv:6459373814"
+# DG4 — les lieux du préréglage « locale » (geoTargetConstants, séparés par des virgules ;
+# ads_requete sur geo_target_constant les retrouve). Vide, ce préréglage est fermé ;
+# « france_metropolitaine » reste ouvert.
+# Fixés le 07/10/2026 : quinze villes par population décroissante, puis trois ajoutées
+# par Florent ; l'aperçu d'ads_dg_groupe_creer les nomme.
+ADS_ZONE_LOCALE = "1006219,1006203,1006205,9050259,1006201,9049929,9050003,9049513,9049315,9049977,9049422,1006214,9050156,9049624,9049582,9050316,9049424,1006154"
 
 # Le corpus — décision du 03/10/2026 (workers/mcp/decisions/2026-10-03-corpus.md).
 # Commits et déploiements permis sur 24 heures glissantes, à part du plafond

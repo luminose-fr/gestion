@@ -20,6 +20,7 @@
 import { Refus } from './refus';
 import { MARQUE, examinerAnnonce, textesParDefaut, urlAdmise } from './regles';
 import { analyser, longueur as longueurAffichee, texteParDefaut } from './insertion';
+import { aujourdhui, dateValide, equivalentQuotidien } from './dates';
 import type { Env } from './env';
 
 /**
@@ -71,6 +72,14 @@ const FORME_COMPTE = /^\d{10}$/;
  * forme d'une opération qui le dit : `verifierActivations` le demande au compte
  * avant chaque envoi.
  *
+ * Demand Gen (07/10/2026), en pause et marqué comme le Search :
+ * - `creer-campagne-dg` : budget TOTAL, campagne et objectif de conversion, en
+ *   une requête atomique (`googleAds:mutate`).
+ * - `creer-groupe-dg` : le groupe, ses canaux, ses lieux et sa langue — ceux
+ *   d'un préréglage, jamais d'autres — en une requête atomique.
+ * - `creer-annonce-dg` : une annonce multi-élément, « Luminose » pour nom
+ *   d'entreprise, automatismes coupés.
+ *
  * Aucun autre `remove`, aucun autre passage à ENABLED : l'activation — donc la
  * dépense — reste dans l'interface Google Ads.
  */
@@ -78,7 +87,7 @@ export const OPERATIONS_PERMISES = {
   campaignCriteria: ['creer-negatif', 'retirer-negatif'],
   campaigns: ['mettre-en-pause'],
   adGroups: ['mettre-en-pause', 'creer-groupe'],
-  adGroupAds: ['mettre-en-pause', 'creer-annonce'],
+  adGroupAds: ['mettre-en-pause', 'creer-annonce', 'creer-annonce-dg'],
   adGroupCriteria: ['mettre-en-pause', 'creer-mot-cle'],
   adGroupAdLabels: ['lier-libelle'],
   adGroupCriterionLabels: ['lier-libelle'],
@@ -87,7 +96,7 @@ export const OPERATIONS_PERMISES = {
   campaignSharedSets: ['associer-liste', 'dissocier-liste'],
   campaignAssets: ['associer-element', 'dissocier-element'],
   adGroupAssets: ['associer-element', 'dissocier-element'],
-  googleAds: ['creer-campagne', 'creer-liste', 'creer-elements'],
+  googleAds: ['creer-campagne', 'creer-liste', 'creer-elements', 'creer-campagne-dg', 'creer-groupe-dg'],
 } as const;
 
 /** Les éléments d'annonce que ce serveur crée et associe — le type d'élément est aussi le type de champ de l'association. */
@@ -147,6 +156,67 @@ export const EN_TETES_EXTRAITS = [
  * font respecter avant l'aperçu, pour le dire en clair ; Google les revérifie.
  */
 export const LIMITES_LISTES = { parCompte: 20, entreesParListe: 5000 } as const;
+
+// ── Demand Gen (cadrage du 07/10/2026) — les constantes, à un seul endroit ─
+
+/**
+ * DG6 — ce que Google génère pour Demand Gen, coupé à la campagne : les types
+ * que la référence v25 rattache à Demand Gen (`AssetAutomationType`), plus
+ * l'aperçu et l'extraction d'images de la page d'arrivée. Si Google en refuse
+ * un à l'aperçu, D6 joue : Demand Gen reste fermé jusqu'à décision de Florent.
+ */
+export const AUTOMATISMES_DG_CAMPAGNE = [
+  'GENERATE_LANDING_PAGE_TEXT', 'GENERATE_VERTICAL_YOUTUBE_VIDEOS', 'GENERATE_SHORTER_YOUTUBE_VIDEOS',
+  'GENERATE_DESIGN_VERSIONS_FOR_IMAGES', 'GENERATE_VIDEOS_FROM_OTHER_ASSETS', 'GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS',
+  'GENERATE_LANDING_PAGE_PREVIEW', 'GENERATE_IMAGE_EXTRACTION',
+] as const;
+/** DG6 — coupés aussi à chaque annonce multi-élément : les trois types que la référence lui rattache. */
+export const AUTOMATISMES_DG_ANNONCE = [
+  'GENERATE_DESIGN_VERSIONS_FOR_IMAGES', 'GENERATE_VIDEOS_FROM_OTHER_ASSETS', 'GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS',
+] as const;
+
+/** DG5 — les canaux, posés par le serveur : YouTube, Discover, Gmail ; ni Display ni Maps. */
+export const CANAUX_DG = {
+  youtubeInFeed: true, youtubeInStream: true, youtubeShorts: true, discover: true, gmail: true, display: false, maps: false,
+} as const;
+
+/** DG4 — la France (2250) : les DROM n'en descendent pas dans l'arbre des lieux de Google (cadrage, §2.3). */
+export const FRANCE_METROPOLITAINE: readonly string[] = ['geoTargetConstants/2250'];
+export const LANGUE_DG = 'languageConstants/1002';
+
+/** DG7 — le nom d'entreprise d'une annonce, posé par le serveur. */
+export const NOM_ENTREPRISE = 'Luminose';
+
+/** DG7 — les limites de l'annonce multi-élément (`DemandGenMultiAssetAdInfo`, référence v25). */
+export const LIMITES_DG = { titre: 30, titresMax: 5, description: 90, descriptionsMax: 5, logosMax: 5, imagesMax: 20 } as const;
+
+/** DG7 — chaque champ d'image : son ratio (±1 %) et sa taille minimale, en pixels. */
+export const IMAGES_DG = {
+  paysage: { champ: 'marketingImages', ratio: 1.91, min: [600, 314], nom: 'paysage 1,91:1' },
+  carre: { champ: 'squareMarketingImages', ratio: 1, min: [300, 300], nom: 'carrée 1:1' },
+  portrait: { champ: 'portraitMarketingImages', ratio: 4 / 5, min: [480, 600], nom: 'portrait 4:5' },
+  vertical: { champ: 'tallPortraitMarketingImages', ratio: 9 / 16, min: [600, 1067], nom: 'verticale 9:16' },
+  logo: { champ: 'logoImages', ratio: 1, min: [128, 128], nom: 'logo 1:1' },
+} as const;
+export type FormatImage = keyof typeof IMAGES_DG;
+
+/**
+ * DG7, H — le bouton de l'annonce (« call to action ») : une liste fermée,
+ * tirée de `CallToActionType`. L'annonce multi-élément le prend en texte
+ * (`call_to_action_text`, texte libre dans la référence) : c'est ce texte qui
+ * part, à confirmer au premier aperçu. « Bouton » et non « appel à l'action » :
+ * dans ce dépôt, le mot désigne une action IA du catalogue (outils.ts).
+ */
+export const BOUTONS = {
+  LEARN_MORE: { texte: 'Learn more', fr: 'En savoir plus' },
+  BOOK_NOW: { texte: 'Book now', fr: 'Réserver' },
+  SHOP_NOW: { texte: 'Shop now', fr: 'Acheter' },
+  BUY_NOW: { texte: 'Buy now', fr: 'Acheter maintenant' },
+  CONTACT_US: { texte: 'Contact us', fr: 'Nous contacter' },
+  SIGN_UP: { texte: 'Sign up', fr: "S'inscrire" },
+  SEE_MORE: { texte: 'See more', fr: 'Voir plus' },
+} as const;
+export type Bouton = keyof typeof BOUTONS;
 
 export type ServiceEcriture = keyof typeof OPERATIONS_PERMISES;
 type Forme = (typeof OPERATIONS_PERMISES)[ServiceEcriture][number];
@@ -374,7 +444,7 @@ const CORRESPONDANCES = ['EXACT', 'PHRASE', 'BROAD'];
 /** Les plafonds d'argent (cadrage du 02/10/2026, R3), en micros. */
 export type Limites = { budgetMaxJour: number; budgetMaxTotal: number; cpcMax: number };
 
-const euros = (env: Env, nom: 'ADS_BUDGET_MAX_JOUR' | 'ADS_BUDGET_MAX_TOTAL' | 'ADS_CPC_MAX'): number => {
+const euros = (env: Env, nom: 'ADS_BUDGET_MAX_JOUR' | 'ADS_BUDGET_MAX_TOTAL' | 'ADS_CPC_MAX' | 'ADS_BUDGET_MAX_CAMPAGNE'): number => {
   const brut = env[nom];
   const valeur = Number(brut);
   // Échoue fermé, comme le plafond de volume : un plafond illisible n'est pas « pas de plafond ».
@@ -389,6 +459,47 @@ export const limitesArgent = (env: Env): Limites => ({
   budgetMaxTotal: euros(env, 'ADS_BUDGET_MAX_TOTAL'),
   cpcMax: euros(env, 'ADS_CPC_MAX'),
 });
+
+export type LimitesDG = Limites & { budgetMaxCampagne: number };
+
+/** DG1 — les plafonds de Demand Gen : ceux du Search, plus le budget total d'une campagne. */
+export const limitesDG = (env: Env): LimitesDG => ({ ...limitesArgent(env), budgetMaxCampagne: euros(env, 'ADS_BUDGET_MAX_CAMPAGNE') });
+
+/**
+ * DG3 — `ADS_OBJECTIFS_CONVERSION`, « clé:id,clé:id » : les objectifs
+ * personnalisés que Florent a créés. Vide ou mal formé, la création de
+ * campagne Demand Gen est fermée — une liste illisible n'est pas « tout permis ».
+ */
+export const objectifsDG = (env: Env): Map<string, string> => {
+  const brut = (env.ADS_OBJECTIFS_CONVERSION ?? '').trim();
+  const fermer = (pourquoi: string): never => {
+    throw new Refus(`ADS_OBJECTIFS_CONVERSION ${pourquoi} dans wrangler.toml : la création de campagne Demand Gen est fermée. ` +
+      'Florent y pose ses objectifs personnalisés, « clé:id,clé:id » (Google Ads → Objectifs → objectifs personnalisés).', 503);
+  };
+  if (!brut) fermer('est vide');
+  const objectifs = new Map<string, string>();
+  for (const entree of brut.split(',')) {
+    const m = /^\s*([a-z0-9][a-z0-9_-]{0,39})\s*:\s*(\d{1,20})\s*$/.exec(entree);
+    if (!m || objectifs.has(m[1])) fermer('est illisible');
+    objectifs.set(m![1], m![2]);
+  }
+  return objectifs;
+};
+
+export type ZoneDG = 'france_metropolitaine' | 'locale';
+
+/**
+ * DG4 — les deux préréglages de zone. `locale` vient de `ADS_ZONE_LOCALE`
+ * (des `geoTargetConstants`) ; vide, il est fermé. Mal formé, tout est fermé.
+ */
+export const zonesDG = (env: Env): Record<ZoneDG, readonly string[]> => {
+  const brut = (env.ADS_ZONE_LOCALE ?? '').trim();
+  const ids = brut ? brut.split(',').map((x) => x.trim()) : [];
+  if (ids.some((x) => !/^\d{1,20}$/.test(x)) || new Set(ids).size !== ids.length) {
+    throw new Refus('ADS_ZONE_LOCALE est illisible dans wrangler.toml (des identifiants de lieux, séparés par des virgules) : Demand Gen est fermé.', 503);
+  }
+  return { france_metropolitaine: FRANCE_METROPOLITAINE, locale: ids.map((x) => `geoTargetConstants/${x}`) };
+};
 
 const estObjet = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const cles = (o: unknown) => (estObjet(o) ? Object.keys(o).sort().join(',') : typeof o);
@@ -417,7 +528,7 @@ const retrait = (type: string, op: Operation): string | null => {
 };
 
 /** Chaque forme rend `null` si l'opération lui est conforme, sinon la raison. */
-const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-elements'>, (service: ServiceEcriture, op: Operation) => string | null> = {
+const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-elements' | 'creer-campagne-dg' | 'creer-groupe-dg'>, (service: ServiceEcriture, op: Operation) => string | null> = {
   'creer-negatif': (_service, op) => {
     if (cles(op) !== 'create') return `clés ${cles(op)}`;
     const c = op.create as Record<string, unknown>;
@@ -469,6 +580,21 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-el
     if (cles(op) !== 'remove') return `clés ${cles(op)}`;
     if (!new RegExp(`^customers/\\d{10}/${service}/\\d+~\\d+~(${TYPES_ELEMENTS.join('|')})$`).test(String(op.remove))) return 'nom de ressource';
     return null;
+  },
+
+  'creer-annonce-dg': (_service, op) => {
+    if (cles(op) !== 'create') return `clés ${cles(op)}`;
+    const c = op.create as Record<string, unknown>;
+    if (cles(c) !== 'ad,adGroup,adGroupAdAssetAutomationSettings,status') return `champs ${cles(c)}`;
+    if (c.status !== 'PAUSED') return `statut ${String(c.status)}`;
+    if (!ressource('adGroups').test(String(c.adGroup))) return 'groupe';
+    if (automatismes(c.adGroupAdAssetAutomationSettings) !== coupes(AUTOMATISMES_DG_ANNONCE)) return 'automatismes : tous coupés (DG6)';
+    const ad = c.ad as Record<string, unknown>;
+    if (!['demandGenMultiAssetAd,finalUrls', 'demandGenMultiAssetAd,finalUrls,name'].includes(cles(ad))) return `annonce : champs ${cles(ad)}`;
+    if ('name' in ad && !longueur(ad.name, 100)) return 'annonce : nom';
+    const urls = ad.finalUrls;
+    if (!Array.isArray(urls) || urls.length !== 1 || typeof urls[0] !== 'string' || !urlAdmise(urls[0])) return 'URL finale hors de luminose.fr (V6)';
+    return refusMultiElement(ad.demandGenMultiAssetAd);
   },
 
   'mettre-en-pause': (service, op) => {
@@ -570,7 +696,10 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-el
 export const verifierOperation = (service: ServiceEcriture, operation: Operation): void => {
   const raisons: string[] = [];
   for (const forme of OPERATIONS_PERMISES[service] as readonly Forme[]) {
-    if (forme === 'creer-campagne' || forme === 'creer-liste' || forme === 'creer-elements') { raisons.push(`${forme} : passer par muter`); continue; }
+    if (forme === 'creer-campagne' || forme === 'creer-liste' || forme === 'creer-elements' || forme === 'creer-campagne-dg' || forme === 'creer-groupe-dg') {
+      raisons.push(`${forme} : passer par muter`);
+      continue;
+    }
     const raison = FORMES[forme](service, operation);
     if (raison === null) return;
     raisons.push(`${forme} : ${raison}`);
@@ -790,6 +919,158 @@ export const verifierCreationElements = (operations: Operation[]): void => {
   if (statuts.size !== 1) refuser('un seul statut de naissance pour toutes les associations');
 };
 
+// ── Demand Gen (cadrage du 07/10/2026) ───────────────────────────────────
+
+/** Les automatismes d'une liste de réglages, triés : « TYPE:STATUT,… ». */
+const automatismes = (v: unknown): string => (Array.isArray(v)
+  ? (v as Record<string, unknown>[]).map((a) => (estObjet(a) && cles(a) === 'assetAutomationStatus,assetAutomationType'
+    ? `${String(a.assetAutomationType)}:${String(a.assetAutomationStatus)}` : '?')).sort().join(',')
+  : '');
+const coupes = (types: readonly string[]): string => types.map((t) => `${t}:OPTED_OUT`).sort().join(',');
+
+/** Égalité de deux objets plats, quel que soit l'ordre des clés. */
+const memesChamps = (a: unknown, b: Record<string, unknown>): boolean =>
+  estObjet(a) && cles(a) === cles(b) && Object.keys(b).every((k) => a[k] === b[k]);
+
+/**
+ * DG7 — l'annonce multi-élément : « Luminose » pour nom d'entreprise, des
+ * textes dans les limites et sans terme refusé (V4), des images désignées par
+ * nom de ressource, dans leurs champs, sans image de Display classique.
+ */
+const refusMultiElement = (v: unknown): string | null => {
+  if (!estObjet(v)) return 'multi-élément : absent';
+  const permis = ['businessName', 'callToActionText', 'descriptions', 'headlines', ...Object.values(IMAGES_DG).map((f) => f.champ)];
+  if (Object.keys(v).some((k) => !permis.includes(k))) return `multi-élément : champs ${cles(v)}`;
+  if (v.businessName !== NOM_ENTREPRISE) return `nom d'entreprise ${String(v.businessName)} — « ${NOM_ENTREPRISE} » seulement`;
+  const textes = (x: unknown, max: number, nombre: number): string[] | null => (Array.isArray(x) && x.length >= 1 && x.length <= nombre &&
+    x.every((t) => estObjet(t) && cles(t) === 'text' && longueur(t.text, max) && !/[{}]/.test(String(t.text)))
+    ? (x as { text: string }[]).map((t) => t.text) : null);
+  const titres = textes(v.headlines, LIMITES_DG.titre, LIMITES_DG.titresMax);
+  const descriptions = textes(v.descriptions, LIMITES_DG.description, LIMITES_DG.descriptionsMax);
+  if (!titres || !descriptions) return 'multi-élément : titres ou descriptions';
+  const images = (x: unknown) => Array.isArray(x) && x.every((i) => estObjet(i) && cles(i) === 'asset' && ressource('assets').test(String(i.asset)));
+  for (const f of Object.values(IMAGES_DG)) if (f.champ in v && (!images(v[f.champ]) || (v[f.champ] as unknown[]).length === 0)) return `multi-élément : ${f.champ}`;
+  const n = (champ: string) => (Array.isArray(v[champ]) ? (v[champ] as unknown[]).length : 0);
+  if (n(IMAGES_DG.logo.champ) < 1 || n(IMAGES_DG.logo.champ) > LIMITES_DG.logosMax) return 'multi-élément : 1 à 5 logos';
+  if (n(IMAGES_DG.paysage.champ) + n(IMAGES_DG.carre.champ) === 0) return 'multi-élément : une image paysage ou carrée au moins';
+  if (['paysage', 'carre', 'portrait', 'vertical'].reduce((t, f) => t + n(IMAGES_DG[f as FormatImage].champ), 0) > LIMITES_DG.imagesMax) return 'multi-élément : 20 images au plus';
+  if ('callToActionText' in v && !Object.values(BOUTONS).some((a) => a.texte === v.callToActionText)) return `bouton ${String(v.callToActionText)}`;
+  const { refus } = examinerAnnonce([...titres, ...descriptions]);
+  return refus.length ? `texte refusé (V4) : ${refus.join(' ; ')}` : null;
+};
+
+/**
+ * DG1, DG2, DG3, DG6, DG8 — la requête atomique qui crée une campagne Demand
+ * Gen : un budget TOTAL, la campagne, sa configuration d'objectif. Les
+ * plafonds sont revérifiés ici — budget total, équivalent quotidien, CPC —,
+ * l'engagement par l'outil, qui lit le compte.
+ */
+export const verifierCreationCampagneDG = (operations: Operation[], limites: LimitesDG, objectifs: readonly string[]): void => {
+  const refuser = (raison: string): never => {
+    throw new Error(`Opération refusée par la table fermée (googleAds) — creer-campagne-dg : ${raison}`);
+  };
+  const types = operations.map((o) => cles(o)).join(' → ');
+  if (types !== 'campaignBudgetOperation → campaignOperation → conversionGoalCampaignConfigOperation') refuser(`suite d'opérations ${types}`);
+
+  const budget = operations[0].campaignBudgetOperation as Record<string, unknown>;
+  if (cles(budget) !== 'create') refuser('budget : seule la création');
+  const b = budget.create as Record<string, unknown>;
+  if (cles(b) !== 'deliveryMethod,explicitlyShared,name,period,resourceName,totalAmountMicros') refuser(`budget : champs ${cles(b)}`);
+  if (!ressource('campaignBudgets', true).test(String(b.resourceName))) refuser('budget : nom de ressource temporaire');
+  if (!marque(b.name)) refuser('budget : nom sans la marque [Claude]');
+  if (b.deliveryMethod !== 'STANDARD') refuser('budget : livraison');
+  if (b.explicitlyShared !== false) refuser('budget partagé');
+  if (b.period !== 'CUSTOM_PERIOD') refuser('budget : total seulement (CUSTOM_PERIOD)');
+  const total = Number(b.totalAmountMicros);
+  if (!Number.isInteger(total) || total <= 0 || total % 10_000 !== 0 || total > limites.budgetMaxCampagne) {
+    refuser(`budget total ${String(b.totalAmountMicros)} au-delà du plafond par campagne`);
+  }
+
+  const campagne = operations[1].campaignOperation as Record<string, unknown>;
+  if (cles(campagne) !== 'create') refuser('campagne : seule la création');
+  const c = campagne.create as Record<string, unknown>;
+  const communs = ['advertisingChannelType', 'assetAutomationSettings', 'campaignBudget', 'containsEuPoliticalAdvertising',
+    'demandGenCampaignSettings', 'endDateTime', 'geoTargetTypeSetting', 'name', 'resourceName', 'startDateTime', 'status'];
+  if (![[...communs, 'targetSpend'], [...communs, 'maximizeConversions']].some((k) => k.sort().join(',') === cles(c))) refuser(`campagne : champs ${cles(c)}`);
+  if (c.status !== 'PAUSED') refuser(`campagne : statut ${String(c.status)}`);
+  if (c.advertisingChannelType !== 'DEMAND_GEN') refuser('campagne : Demand Gen seulement');
+  if (!marque(c.name)) refuser('campagne : nom sans la marque [Claude]');
+  if (!ressource('campaigns', true).test(String(c.resourceName))) refuser('campagne : nom de ressource temporaire');
+  if (c.campaignBudget !== b.resourceName) refuser('campagne : budget');
+  if (c.containsEuPoliticalAdvertising !== 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING') refuser('campagne : déclaration UE');
+  if (!memesChamps(c.demandGenCampaignSettings, { upgradedTargeting: true })) refuser('campagne : ciblage au groupe');
+  if (!memesChamps(c.geoTargetTypeSetting, { positiveGeoTargetType: 'PRESENCE', negativeGeoTargetType: 'PRESENCE' })) refuser('campagne : présence réelle');
+  if (automatismes(c.assetAutomationSettings) !== coupes(AUTOMATISMES_DG_CAMPAGNE)) refuser('campagne : automatismes, tous coupés (DG6)');
+
+  // DG1 — des dates, l'une et l'autre, et l'équivalent quotidien sous son plafond.
+  const debut = /^(\d{4}-\d{2}-\d{2}) 00:00:00$/.exec(String(c.startDateTime))?.[1];
+  const fin = /^(\d{4}-\d{2}-\d{2}) 23:59:59$/.exec(String(c.endDateTime))?.[1];
+  if (!debut || !fin || !dateValide(debut) || !dateValide(fin)) refuser('campagne : dates de début et de fin');
+  if (debut! < aujourdhui() || fin! < debut!) refuser('campagne : dates hors bornes');
+  if (equivalentQuotidien(total, debut!, fin!) > limites.budgetMaxJour) refuser('campagne : équivalent quotidien au-delà du plafond');
+
+  // DG2 — Maximiser les clics plafonné, ou Maximiser les conversions sans cible.
+  if ('targetSpend' in c) {
+    const t = c.targetSpend as Record<string, unknown>;
+    const cpc = Number(t?.cpcBidCeilingMicros);
+    if (cles(t) !== 'cpcBidCeilingMicros' || !Number.isInteger(cpc) || cpc <= 0 || cpc > limites.cpcMax) refuser('campagne : CPC max absent ou au-delà du plafond');
+  } else if (cles(c.maximizeConversions) !== '') {
+    refuser('campagne : Maximiser les conversions, sans CPA ni ROAS cible');
+  }
+
+  // DG3 — l'objectif de la campagne, l'un de ceux que Florent a posés.
+  const config = operations[2].conversionGoalCampaignConfigOperation as Record<string, unknown>;
+  if (cles(config) !== 'update,updateMask' || config.updateMask !== 'customConversionGoal,goalConfigLevel') refuser('objectif : mise à jour seulement');
+  const k = config.update as Record<string, unknown>;
+  const idCampagne = /\/campaigns\/(-\d+)$/.exec(String(c.resourceName))?.[1];
+  if (cles(k) !== 'customConversionGoal,goalConfigLevel,resourceName') refuser(`objectif : champs ${cles(k)}`);
+  if (k.resourceName !== String(c.resourceName).replace(/\/campaigns\/-\d+$/, `/conversionGoalCampaignConfigs/${idCampagne}`)) refuser('objectif : campagne');
+  if (k.goalConfigLevel !== 'CAMPAIGN') refuser('objectif : au niveau de la campagne');
+  const objectif = /^customers\/\d{10}\/customConversionGoals\/(\d+)$/.exec(String(k.customConversionGoal))?.[1];
+  if (!objectif || !objectifs.includes(objectif)) refuser('objectif hors de ADS_OBJECTIFS_CONVERSION');
+};
+
+/**
+ * DG4, DG5, DG8 — la requête atomique qui crée un groupe Demand Gen : le
+ * groupe et ses canaux, puis ses critères — les lieux d'UN préréglage, tous et
+ * eux seuls, et le français. Rien d'autre.
+ */
+export const verifierCreationGroupeDG = (operations: Operation[], zones: Record<ZoneDG, readonly string[]>): void => {
+  const refuser = (raison: string): never => {
+    throw new Error(`Opération refusée par la table fermée (googleAds) — creer-groupe-dg : ${raison}`);
+  };
+  const types = operations.map((o) => cles(o));
+  if (types[0] !== 'adGroupOperation' || types.slice(1).some((t) => t !== 'adGroupCriterionOperation')) refuser(`suite d'opérations ${types.join(' → ')}`);
+  const groupe = operations[0].adGroupOperation as Record<string, unknown>;
+  if (cles(groupe) !== 'create') refuser('groupe : seule la création');
+  const g = groupe.create as Record<string, unknown>;
+  if (cles(g) !== 'campaign,demandGenAdGroupSettings,name,resourceName,status') refuser(`groupe : champs ${cles(g)}`);
+  if (g.status !== 'PAUSED') refuser(`groupe : statut ${String(g.status)}`);
+  if (!marque(g.name)) refuser('groupe : nom sans la marque [Claude]');
+  if (!ressource('adGroups', true).test(String(g.resourceName))) refuser('groupe : nom de ressource temporaire');
+  if (!ressource('campaigns').test(String(g.campaign))) refuser('groupe : campagne');
+  const reglages = g.demandGenAdGroupSettings as Record<string, unknown>;
+  const controles = estObjet(reglages) && cles(reglages) === 'channelControls' ? reglages.channelControls as Record<string, unknown> : undefined;
+  if (!estObjet(controles) || cles(controles) !== 'selectedChannels' || !memesChamps(controles.selectedChannels, CANAUX_DG)) {
+    refuser('groupe : canaux — YouTube, Discover, Gmail ; ni Display ni Maps (DG5)');
+  }
+
+  const lieux: string[] = [];
+  const langues: string[] = [];
+  for (const o of operations.slice(1)) {
+    const op = o.adGroupCriterionOperation as Record<string, unknown>;
+    if (cles(op) !== 'create') refuser('critère : seule la création');
+    const k = op.create as Record<string, unknown>;
+    if (k.adGroup !== g.resourceName) refuser('critère : groupe');
+    if (cles(k) === 'adGroup,location' && cles(k.location) === 'geoTargetConstant') lieux.push(String((k.location as Record<string, unknown>).geoTargetConstant));
+    else if (cles(k) === 'adGroup,language' && cles(k.language) === 'languageConstant') langues.push(String((k.language as Record<string, unknown>).languageConstant));
+    else refuser(`critère : ${cles(k)}`);
+  }
+  if (langues.length !== 1 || langues[0] !== LANGUE_DG) refuser('langue : le français, une fois');
+  const ensemble = (x: readonly string[]) => [...x].sort().join(',');
+  if (!lieux.length || !Object.values(zones).some((z) => ensemble(z) === ensemble(lieux))) refuser('lieux hors des préréglages (DG4)');
+};
+
 type LigneRetrait = {
   campaignCriterion?: { resourceName?: string; type?: string; negative?: boolean; status?: string };
   sharedCriterion?: { resourceName?: string; type?: string };
@@ -940,8 +1221,11 @@ export const muter = async (
 
   if (service === 'googleAds') {
     const premiere = cles(operations[0]);
+    const canal = ((operations[1]?.campaignOperation as Record<string, unknown> | undefined)?.create as Record<string, unknown> | undefined)?.advertisingChannelType;
     if (premiere === 'sharedSetOperation') verifierCreationListe(operations);
     else if (premiere === 'assetOperation') verifierCreationElements(operations);
+    else if (premiere === 'adGroupOperation') verifierCreationGroupeDG(operations, zonesDG(env));
+    else if (canal === 'DEMAND_GEN') verifierCreationCampagneDG(operations, limitesDG(env), [...objectifsDG(env).values()]);
     else verifierCreationCampagne(operations, limitesArgent(env));
   } else {
     for (const operation of operations) verifierOperation(service, operation);
