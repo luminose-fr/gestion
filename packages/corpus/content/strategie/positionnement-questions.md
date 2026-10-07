@@ -39,7 +39,7 @@ C'est un biais structurel, pas un accident : **le journal des décisions sur-rep
 
 | Offre | Prix | Ce qui se passe |
 | :--- | :--- | :--- |
-| Oracle des Ressources | 35 € | **> 20 vendus**, y compris à des inconnus |
+| Oracle de mes ressources | 35 € | **> 20 vendus**, y compris à des inconnus |
 | Rencontre | offerte | passage obligé, fonctionne |
 | Séance individuelle | 80 € | **nouveaux clients tous les mois** — mais **dépasse rarement 5 séances** |
 | Breathwork individuel | 140 € | — |
@@ -104,7 +104,7 @@ Deux choses en découlent :
 | Marche | Prix |
 | :--- | :--- |
 | Rencontre | offerte |
-| Oracle des Ressources | 35 € |
+| Oracle de mes ressources | 35 € |
 | Séance individuelle | 80 € |
 | Grof® Breathwork individuel | 140 € |
 | *(rien)* | *au-dessus de 140 €* |
