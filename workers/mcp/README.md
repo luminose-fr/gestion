@@ -104,10 +104,10 @@ en le cassant : son test échoue.
 | V9 | au-delà de `ADS_ECRITURES_MAX_JOUR` exécutions sur 24 heures, refus (échecs compris) | [src/ecriture.ts](src/ecriture.ts) |
 | V3 · R3 | budget d'une campagne créée ≤ `ADS_BUDGET_MAX_JOUR` ; engagement (actives + « [Claude] » en pause, un budget total pour son équivalent quotidien tant que sa fin n'est pas passée) ≤ `ADS_BUDGET_MAX_TOTAL` ; CPC max ≤ `ADS_CPC_MAX` ; budget jamais partagé | outil, puis table fermée qui revérifie ; l'engagement, [src/argent.ts](src/argent.ts) |
 | DG1 | Demand Gen : budget total (`CUSTOM_PERIOD`), dates de début et de fin obligatoires, début au plus tôt aujourd'hui ; total ≤ `ADS_BUDGET_MAX_CAMPAGNE` ; équivalent quotidien (total ÷ jours, au centime supérieur) ≤ `ADS_BUDGET_MAX_JOUR`, compté dans l'engagement | outil, puis table fermée |
-| DG2 | Demand Gen : Maximiser les clics, plafonné par `ADS_CPC_MAX`, ou Maximiser les conversions, sans CPA ni ROAS cible | outil, puis table fermée |
+| DG2 | Demand Gen : Maximiser les clics, sans plafond (Google le refuse en Demand Gen) ; CPC cible ≤ `ADS_CPC_MAX` ; ou Maximiser les conversions, sans CPA ni ROAS cible | outil, puis table fermée |
 | DG3 | l'objectif de conversion d'une campagne Demand Gen : une clé de `ADS_OBJECTIFS_CONVERSION` ; l'objectif personnalisé et chacune de ses actions de conversion, actifs dans le compte | outil ; la table n'admet que les objectifs de la liste |
 | DG4 · DG5 | zone `france_metropolitaine` ou `locale` (`ADS_ZONE_LOCALE`), jamais un lieu ni un rayon, lieux vérifiés dans le compte ; français ; présence réelle ; canaux posés par le serveur — YouTube, Discover, Gmail, ni Display ni Maps | outil, puis table fermée |
-| DG6 | tout ce que Google génèrerait pour Demand Gen, coupé à la campagne et à chaque annonce | table fermée |
+| DG6 | ce que Google génèrerait pour Demand Gen, coupé à chaque annonce ; rien à la campagne, où Google le refuse | table fermée |
 | DG7 | annonce multi-élément : images et logos de la bibliothèque, vérifiés — type, ratio à 1 % près, taille minimale ; « Luminose » pour nom d'entreprise ; bouton pris dans une liste fermée ; V4 et V6 | outil, puis table fermée |
 | V4 | filtre des textes d'annonce et d'éléments d'annonce : refus et avertissements. Pas sur les mots-clés, sauf quand l'insertion leur fait écrire l'annonce : chaque rendu passe alors au filtre | [src/regles.ts](src/regles.ts), revérifié par la table |
 | V6 | URL finales — annonces et liens annexes — sur `https://luminose.fr/` ou `https://www.luminose.fr/`, sans sous-domaine | [src/regles.ts](src/regles.ts), revérifié par la table |
@@ -229,9 +229,13 @@ contre la référence v25 de l'API.
   Florent dans `ADS_ZONE_LOCALE`.
 - **Le multi-élément d'abord.** La vidéo responsive viendra quand un envoi à blanc aura
   confirmé ses limites, absentes de la référence.
+- **Le premier aperçu de campagne (07/10/2026) a tranché deux points** : Google refuse en
+  Demand Gen le plafond de CPC et les automatismes réglés à la campagne. Décision de
+  Florent : `CLICS` part sans plafond, `CPC_CIBLE` s'ajoute, plafonné par `ADS_CPC_MAX`, et
+  les automatismes ne se coupent plus qu'à l'annonce. Détail : §8 de la décision.
 - **Reste à confirmer par Google**, au premier aperçu de chaque outil : la présence réelle,
-  le plafond de CPC et les automatismes coupés, que la référence ne documente pas pour
-  Demand Gen ; le texte du bouton. Un refus n'écrit rien : la question revient à Florent.
+  l'objectif posé dans la même requête que la campagne, les automatismes à l'annonce ; le
+  texte du bouton. Un refus n'écrit rien : la question revient à Florent.
 
 ### L'incident du 02/10/2026 — quatre exécutions concurrentes
 
@@ -439,7 +443,7 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `DB` | binding D1 (`luminose-mcp`) | les journaux des écritures (V7) — Google Ads et corpus —, qui comptent aussi les plafonds V9 |
 | `ADS_APERCU_KEY` | secret | signe les jetons d'aperçu (V2). Absent : l'écriture est fermée, la lecture continue |
 | `ADS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 — 30 exécutions sur 24 heures. Absent ou illisible : l'écriture est fermée |
-| `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 15 €, 45 €, 2 € (relevés le 07/10/2026). Absents ou illisibles : la création est fermée |
+| `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 15 €, 45 €, 2 € (relevés le 07/10/2026). `ADS_CPC_MAX` borne le CPC max du Search et le CPC cible de Demand Gen. Absents ou illisibles : la création est fermée |
 | `ADS_BUDGET_MAX_CAMPAGNE` | `[vars]` de wrangler.toml | DG1 — le plafond du budget total d'une campagne Demand Gen. Absent ou illisible : la création de campagne Demand Gen est fermée |
 | `ADS_OBJECTIFS_CONVERSION` | `[vars]` de wrangler.toml | DG3 — `clé:id,clé:id`, les objectifs personnalisés créés par Florent. Vide ou illisible : la création de campagne Demand Gen est fermée |
 | `ADS_ZONE_LOCALE` | `[vars]` de wrangler.toml | DG4 — les lieux du préréglage `locale` (`geoTargetConstants`). Vide : ce préréglage est fermé ; illisible : les groupes Demand Gen le sont |

@@ -50,7 +50,7 @@ ADS_ECRITURES_MAX_JOUR = "30"
 # Relevés le 07/10/2026 (DG1 du cadrage Demand Gen) : 10 → 15 et 25 → 45.
 ADS_BUDGET_MAX_JOUR = "15"    # R3 — budget quotidien d'une campagne créée ; équivalent quotidien d'un budget total
 ADS_BUDGET_MAX_TOTAL = "45"   # R3 — actives + « [Claude] » en pause, nouvelle comprise
-ADS_CPC_MAX = "2"             # R3 — CPC max en « Maximiser les clics »
+ADS_CPC_MAX = "2"             # R3 — CPC max en « Maximiser les clics » (Search) ; CPC cible (Demand Gen, DG2)
 # R4 — la campagne dont le ciblage est recopié (« Psychopraticien - Prospects - Troubles anxieux »).
 ADS_CAMPAGNE_MODELE = "24187680610"
 

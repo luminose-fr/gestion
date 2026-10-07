@@ -160,7 +160,7 @@ const apercuPuisExecution = async (env: EnvFactice, outil: string, args: Record<
 };
 
 /** 150 € sur trente jours : 5 € par jour. */
-const CAMPAGNE = { nom: 'Essai Demand Gen', budget_total: 150, debut: '2026-10-10', fin: '2026-11-08', encheres: { strategie: 'CLICS', cpc_max: 1.2 }, objectif: 'rdv' };
+const CAMPAGNE = { nom: 'Essai Demand Gen', budget_total: 150, debut: '2026-10-10', fin: '2026-11-08', encheres: { strategie: 'CPC_CIBLE', cpc_cible: 1.2 }, objectif: 'rdv' };
 const GROUPE = { campagne: '777', nom: 'Groupe essai', zone: 'france_metropolitaine' };
 const ANNONCE = {
   groupe: '888',
@@ -171,12 +171,11 @@ const ANNONCE = {
   url_finale: 'https://luminose.fr/seances/',
 };
 
-/** Ce que la référence v25 rattache à Demand Gen, recopié ici et non importé : le test ne se règle pas sur le code. */
-const AUTOMATISMES_CAMPAGNE = [
-  'GENERATE_LANDING_PAGE_TEXT', 'GENERATE_VERTICAL_YOUTUBE_VIDEOS', 'GENERATE_SHORTER_YOUTUBE_VIDEOS',
-  'GENERATE_DESIGN_VERSIONS_FOR_IMAGES', 'GENERATE_VIDEOS_FROM_OTHER_ASSETS', 'GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS',
-  'GENERATE_LANDING_PAGE_PREVIEW', 'GENERATE_IMAGE_EXTRACTION',
-];
+/**
+ * Ce que la référence v25 rattache à l'annonce multi-élément, recopié ici et
+ * non importé : le test ne se règle pas sur le code. Rien à la campagne :
+ * Demand Gen y refuse le champ entier (premier envoi à blanc, 07/10/2026).
+ */
 const AUTOMATISMES_ANNONCE = ['GENERATE_DESIGN_VERSIONS_FOR_IMAGES', 'GENERATE_VIDEOS_FROM_OTHER_ASSETS', 'GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS'];
 const coupes = (types: string[]) => types.map((t) => ({ assetAutomationType: t, assetAutomationStatus: 'OPTED_OUT' }));
 const CANAUX = { youtubeInFeed: true, youtubeInStream: true, youtubeShorts: true, discover: true, gmail: true, display: false, maps: false };
@@ -194,10 +193,10 @@ describe('ads_dg_campagne_creer — DG1, DG2, DG3, DG6, DG8', () => {
     expect(t).toMatch(/Campagne Demand Gen « \[Claude\] Essai Demand Gen », EN PAUSE/);
     expect(t).toMatch(/Budget total : 150,00 €, du 10\/10\/2026 au 08\/11\/2026 \(30 jours\), soit 5,00 € par jour\. Plafonds : 400,00 € par campagne, 10,00 € par jour/);
     expect(t).toMatch(/Engagement après création : 15,00 € par jour sur 25,00 €/);
-    expect(t).toMatch(/Enchères : Maximiser les clics, CPC max 1,20 € \(plafond 2,00 €\)/);
+    expect(t).toMatch(/Enchères : CPC cible 1,20 € — une moyenne visée, pas un plafond ; un clic peut coûter plus \(plafond du réglage : 2,00 €\)/);
     expect(t).toMatch(/Objectif de conversion « rdv » : l'objectif personnalisé « Rendez-vous » \(555\) — « Prise de rendez-vous », « Formulaire »/);
     expect(t).toMatch(/Canaux : posés au groupe — YouTube \(flux, InStream, Shorts\), Discover, Gmail ; Display et Maps coupés/);
-    expect(t).toMatch(/: coupé/);
+    expect(t).toMatch(/: coupé à chaque annonce \(ads_dg_annonce_creer\)/);
     expect(texteDe(execution)).toMatch(/^FAIT/);
 
     const [vue, faite] = mutations(appels);
@@ -225,8 +224,7 @@ describe('ads_dg_campagne_creer — DG1, DG2, DG3, DG6, DG8', () => {
       demandGenCampaignSettings: { upgradedTargeting: true },
       geoTargetTypeSetting: { positiveGeoTargetType: 'PRESENCE', negativeGeoTargetType: 'PRESENCE' },
       containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
-      targetSpend: { cpcBidCeilingMicros: '1200000' },
-      assetAutomationSettings: coupes(AUTOMATISMES_CAMPAGNE),
+      targetCpc: { targetCpcMicros: '1200000' },
     });
     expect(objectif).toEqual({ conversionGoalCampaignConfigOperation: {
       update: {
@@ -306,19 +304,29 @@ describe('ads_dg_campagne_creer — DG1, DG2, DG3, DG6, DG8', () => {
     expect(texteDe(ce.corps)).toMatch(/^APERÇU/);
   });
 
-  it('NORMATIF — DG2 : Maximiser les clics plafonné, ou Maximiser les conversions sans cible ; rien d’autre', async () => {
+  it('NORMATIF — DG2 : Maximiser les clics sans plafond, CPC cible plafonné, ou Maximiser les conversions sans cible ; rien d’autre', async () => {
     const env = creerEnv();
     const appels = simulerCompte();
-    const conversions = await appelerOutil(env, 'ads_dg_campagne_creer', { ...CAMPAGNE, encheres: { strategie: 'CONVERSIONS' } }, LIRE_ECRIRE);
-    expect(texteDe(conversions.corps)).toMatch(/Enchères : Maximiser les conversions, sans CPA ni ROAS cible/);
-    const c = mutations(appels)[0].operations[1].campaignOperation.create;
-    expect(c.maximizeConversions).toEqual({});
-    expect(c.targetSpend).toBeUndefined();
+    // Chaque stratégie envoie un seul champ d'enchères, et lui seul.
+    for (const [encheres, apercu, champ, valeur] of [
+      [{ strategie: 'CLICS' }, /Enchères : Maximiser les clics, sans plafond par clic \(Google n’en accepte pas en Demand Gen\) : le budget total est le seul frein/, 'targetSpend', {}],
+      [{ strategie: 'CPC_CIBLE', cpc_cible: 1 }, /Enchères : CPC cible 1,00 € — une moyenne visée, pas un plafond/, 'targetCpc', { targetCpcMicros: '1000000' }],
+      [{ strategie: 'CONVERSIONS' }, /Enchères : Maximiser les conversions, sans CPA ni ROAS cible/, 'maximizeConversions', {}],
+    ] as const) {
+      const { corps } = await appelerOutil(env, 'ads_dg_campagne_creer', { ...CAMPAGNE, encheres }, LIRE_ECRIRE);
+      expect(texteDe(corps), encheres.strategie).toMatch(apercu);
+      const c = mutations(appels).at(-1)!.operations[1].campaignOperation.create;
+      expect(c[champ], encheres.strategie).toEqual(valeur);
+      const autres = ['targetSpend', 'targetCpc', 'maximizeConversions'].filter((k) => k !== champ);
+      expect(autres.filter((k) => k in c), encheres.strategie).toEqual([]);
+    }
 
     const avant = mutations(appels).length;
     for (const encheres of [
-      { strategie: 'CLICS' },
-      { strategie: 'CLICS', cpc_max: 1, cible: 2 },
+      // Le plafond que Google refuse en Demand Gen ne s'accepte plus en entrée.
+      { strategie: 'CLICS', cpc_max: 1 },
+      { strategie: 'CPC_CIBLE' },
+      { strategie: 'CPC_CIBLE', cpc_cible: 1, cpc_max: 2 },
       { strategie: 'CONVERSIONS', cpa_cible: 20 },
       { strategie: 'CONVERSIONS', roas_cible: 3 },
       { strategie: 'CPA_CIBLE', cpa: 20 },
@@ -326,8 +334,8 @@ describe('ads_dg_campagne_creer — DG1, DG2, DG3, DG6, DG8', () => {
       const { corps } = await appelerOutil(env, 'ads_dg_campagne_creer', { ...CAMPAGNE, encheres }, LIRE_ECRIRE);
       expect(texteDe(corps), JSON.stringify(encheres)).toMatch(/Arguments invalides/);
     }
-    const cher = await appelerOutil(env, 'ads_dg_campagne_creer', { ...CAMPAGNE, encheres: { strategie: 'CLICS', cpc_max: 2.01 } }, LIRE_ECRIRE);
-    expect(texteDe(cher.corps)).toMatch(/au plus 2,00 € \(ADS_CPC_MAX\)/);
+    const cher = await appelerOutil(env, 'ads_dg_campagne_creer', { ...CAMPAGNE, encheres: { strategie: 'CPC_CIBLE', cpc_cible: 2.01 } }, LIRE_ECRIRE);
+    expect(texteDe(cher.corps)).toMatch(/CPC cible de 2,01 € hors des bornes : au plus 2,00 € \(ADS_CPC_MAX\)/);
     expect(mutations(appels)).toHaveLength(avant);
   });
 
@@ -351,12 +359,12 @@ describe('ads_dg_campagne_creer — DG1, DG2, DG3, DG6, DG8', () => {
     expect(mutations(appels)).toEqual([]);
   });
 
-  it('NORMATIF — DG6 : tout ce que Google génèrerait est coupé, quelle que soit la stratégie', async () => {
-    for (const encheres of [CAMPAGNE.encheres, { strategie: 'CONVERSIONS' }]) {
+  it('NORMATIF — DG6 : aucun automatisme n’est réglé à la campagne, quelle que soit la stratégie — Demand Gen le refuse', async () => {
+    for (const encheres of [CAMPAGNE.encheres, { strategie: 'CLICS' }, { strategie: 'CONVERSIONS' }]) {
       const env = creerEnv();
       const appels = simulerCompte();
       await appelerOutil(env, 'ads_dg_campagne_creer', { ...CAMPAGNE, encheres }, LIRE_ECRIRE);
-      expect(mutations(appels)[0].operations[1].campaignOperation.create.assetAutomationSettings).toEqual(coupes(AUTOMATISMES_CAMPAGNE));
+      expect('assetAutomationSettings' in mutations(appels)[0].operations[1].campaignOperation.create, encheres.strategie).toBe(false);
     }
   });
 
@@ -668,8 +676,7 @@ describe('NORMATIF — la table fermée revérifie Demand Gen, même construit p
       demandGenCampaignSettings: { upgradedTargeting: true },
       geoTargetTypeSetting: { positiveGeoTargetType: 'PRESENCE', negativeGeoTargetType: 'PRESENCE' },
       containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
-      targetSpend: { cpcBidCeilingMicros: '1000000' },
-      assetAutomationSettings: coupes(AUTOMATISMES_CAMPAGNE),
+      targetCpc: { targetCpcMicros: '1000000' },
       ...c,
     } } },
     { conversionGoalCampaignConfigOperation: {
@@ -682,13 +689,20 @@ describe('NORMATIF — la table fermée revérifie Demand Gen, même construit p
   ];
   const sans = (o: Record<string, unknown>, cle: string) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== cle));
 
-  it('la création de campagne conforme passe, en clics comme en conversions', () => {
+  /** La campagne de base, son enchère remplacée par une autre. */
+  const enchere = (champ: string, valeur: Record<string, unknown>): Operation[] => {
+    const ops = campagne();
+    const c = (ops[1].campaignOperation as { create: Record<string, unknown> }).create;
+    delete c.targetCpc;
+    c[champ] = valeur;
+    return ops;
+  };
+
+  it('la création de campagne conforme passe, en CPC cible, en clics comme en conversions', () => {
     expect(() => verifierCreationCampagneDG(campagne(), LIMITES, OBJECTIFS_PERMIS)).not.toThrow();
-    const conversions = campagne();
-    const c = (conversions[1].campaignOperation as { create: Record<string, unknown> }).create;
-    delete c.targetSpend;
-    c.maximizeConversions = {};
-    expect(() => verifierCreationCampagneDG(conversions, LIMITES, OBJECTIFS_PERMIS)).not.toThrow();
+    expect(() => verifierCreationCampagneDG(campagne({}, { targetCpc: { targetCpcMicros: '2000000' } }), LIMITES, OBJECTIFS_PERMIS)).not.toThrow();
+    expect(() => verifierCreationCampagneDG(enchere('targetSpend', {}), LIMITES, OBJECTIFS_PERMIS)).not.toThrow();
+    expect(() => verifierCreationCampagneDG(enchere('maximizeConversions', {}), LIMITES, OBJECTIFS_PERMIS)).not.toThrow();
   });
 
   it('et toute dérive de campagne est refusée', () => {
@@ -710,13 +724,20 @@ describe('NORMATIF — la table fermée revérifie Demand Gen, même construit p
       ['heure de début', campagne({}, { startDateTime: '2026-10-10 08:00:00' })],
       ['ciblage à la campagne', campagne({}, { demandGenCampaignSettings: { upgradedTargeting: false } })],
       ['présence ou intérêt', campagne({}, { geoTargetTypeSetting: { positiveGeoTargetType: 'PRESENCE_OR_INTEREST', negativeGeoTargetType: 'PRESENCE' } })],
-      ['un automatisme laissé', campagne({}, { assetAutomationSettings: coupes(AUTOMATISMES_CAMPAGNE.slice(1)) })],
-      ['un automatisme ouvert', campagne({}, { assetAutomationSettings: [...coupes(AUTOMATISMES_CAMPAGNE.slice(1)), { assetAutomationType: AUTOMATISMES_CAMPAGNE[0], assetAutomationStatus: 'OPTED_IN' }] })],
-      ['montant cible déprécié', campagne({}, { targetSpend: { cpcBidCeilingMicros: '1000000', targetSpendMicros: '5000000' } })],
-      ['clics sans plafond', campagne({}, { targetSpend: {} })],
-      ['CPC au-delà du plafond', campagne({}, { targetSpend: { cpcBidCeilingMicros: '2010000' } })],
-      ['CPA cible', [base[0], { campaignOperation: { create: { ...sans((base[1].campaignOperation as any).create, 'targetSpend'), maximizeConversions: { targetCpaMicros: '20000000' } } } }, base[2]]],
-      ['ROAS cible', [base[0], { campaignOperation: { create: { ...sans((base[1].campaignOperation as any).create, 'targetSpend'), maximizeConversionValue: { targetRoas: 3 } } } }, base[2]]],
+      // DG6 — Demand Gen refuse les automatismes à la campagne : même tous coupés, ils ne partent pas.
+      ['automatismes à la campagne', campagne({}, { assetAutomationSettings: coupes(AUTOMATISMES_ANNONCE) })],
+      ['un automatisme ouvert à la campagne', campagne({}, { assetAutomationSettings: [{ assetAutomationType: AUTOMATISMES_ANNONCE[0], assetAutomationStatus: 'OPTED_IN' }] })],
+      // DG2 — le plafond que Google refuse, le montant déprécié, deux enchères à la fois.
+      ['clics plafonnés', enchere('targetSpend', { cpcBidCeilingMicros: '1000000' })],
+      ['montant cible déprécié', enchere('targetSpend', { targetSpendMicros: '5000000' })],
+      ['deux enchères', campagne({}, { targetSpend: {} })],
+      ['CPC cible au-delà du plafond', campagne({}, { targetCpc: { targetCpcMicros: '2010000' } })],
+      ['CPC cible absent', campagne({}, { targetCpc: {} })],
+      ['CPC cible nul', campagne({}, { targetCpc: { targetCpcMicros: '0' } })],
+      ['CPC cible hors du centime', campagne({}, { targetCpc: { targetCpcMicros: '1005000' } })],
+      ['CPC cible et autre réglage', campagne({}, { targetCpc: { targetCpcMicros: '1000000', cpcBidCeilingMicros: '1500000' } })],
+      ['CPA cible', enchere('maximizeConversions', { targetCpaMicros: '20000000' })],
+      ['ROAS cible', enchere('maximizeConversionValue', { targetRoas: 3 })],
       ['objectif hors liste', campagne({}, {}, { customConversionGoal: `customers/${COMPTE}/customConversionGoals/557` })],
       ['objectif du compte', campagne({}, {}, { goalConfigLevel: 'CUSTOMER' })],
       ['objectif d’une autre campagne', campagne({}, {}, { resourceName: `customers/${COMPTE}/conversionGoalCampaignConfigs/111` })],
@@ -821,6 +842,7 @@ describe('NORMATIF — la table fermée revérifie Demand Gen, même construit p
     const appels = simulerCompte({ libelle: false });
     for (const [outil, args] of [
       ['ads_dg_campagne_creer', CAMPAGNE], ['ads_dg_campagne_creer', { ...CAMPAGNE, encheres: { strategie: 'CONVERSIONS' } }],
+      ['ads_dg_campagne_creer', { ...CAMPAGNE, encheres: { strategie: 'CLICS' } }],
       ['ads_dg_groupe_creer', GROUPE], ['ads_dg_groupe_creer', { ...GROUPE, nom: 'ENABLED', zone: 'locale' }],
       ['ads_dg_annonce_creer', { ...ANNONCE, titres: ['ENABLED'] }],
     ] as const) {

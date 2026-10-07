@@ -160,17 +160,12 @@ export const LIMITES_LISTES = { parCompte: 20, entreesParListe: 5000 } as const;
 // ── Demand Gen (cadrage du 07/10/2026) — les constantes, à un seul endroit ─
 
 /**
- * DG6 — ce que Google génère pour Demand Gen, coupé à la campagne : les types
- * que la référence v25 rattache à Demand Gen (`AssetAutomationType`), plus
- * l'aperçu et l'extraction d'images de la page d'arrivée. Si Google en refuse
- * un à l'aperçu, D6 joue : Demand Gen reste fermé jusqu'à décision de Florent.
+ * DG6 — ce que Google génère pour Demand Gen se coupe À L'ANNONCE, jamais à
+ * la campagne : le premier envoi à blanc (07/10/2026) a refusé le champ
+ * `asset_automation_settings` d'une campagne Demand Gen tout entier
+ * (OPERATION_NOT_PERMITTED_FOR_CONTEXT, sur le champ et non sur un type). Les
+ * trois types que la référence rattache à l'annonce multi-élément, tous coupés.
  */
-export const AUTOMATISMES_DG_CAMPAGNE = [
-  'GENERATE_LANDING_PAGE_TEXT', 'GENERATE_VERTICAL_YOUTUBE_VIDEOS', 'GENERATE_SHORTER_YOUTUBE_VIDEOS',
-  'GENERATE_DESIGN_VERSIONS_FOR_IMAGES', 'GENERATE_VIDEOS_FROM_OTHER_ASSETS', 'GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS',
-  'GENERATE_LANDING_PAGE_PREVIEW', 'GENERATE_IMAGE_EXTRACTION',
-] as const;
-/** DG6 — coupés aussi à chaque annonce multi-élément : les trois types que la référence lui rattache. */
 export const AUTOMATISMES_DG_ANNONCE = [
   'GENERATE_DESIGN_VERSIONS_FOR_IMAGES', 'GENERATE_VIDEOS_FROM_OTHER_ASSETS', 'GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS',
 ] as const;
@@ -989,9 +984,10 @@ export const verifierCreationCampagneDG = (operations: Operation[], limites: Lim
   const campagne = operations[1].campaignOperation as Record<string, unknown>;
   if (cles(campagne) !== 'create') refuser('campagne : seule la création');
   const c = campagne.create as Record<string, unknown>;
-  const communs = ['advertisingChannelType', 'assetAutomationSettings', 'campaignBudget', 'containsEuPoliticalAdvertising',
+  // Pas d'`assetAutomationSettings` : Demand Gen les refuse à la campagne (DG6).
+  const communs = ['advertisingChannelType', 'campaignBudget', 'containsEuPoliticalAdvertising',
     'demandGenCampaignSettings', 'endDateTime', 'geoTargetTypeSetting', 'name', 'resourceName', 'startDateTime', 'status'];
-  if (![[...communs, 'targetSpend'], [...communs, 'maximizeConversions']].some((k) => k.sort().join(',') === cles(c))) refuser(`campagne : champs ${cles(c)}`);
+  if (!['targetSpend', 'targetCpc', 'maximizeConversions'].some((e) => [...communs, e].sort().join(',') === cles(c))) refuser(`campagne : champs ${cles(c)}`);
   if (c.status !== 'PAUSED') refuser(`campagne : statut ${String(c.status)}`);
   if (c.advertisingChannelType !== 'DEMAND_GEN') refuser('campagne : Demand Gen seulement');
   if (!marque(c.name)) refuser('campagne : nom sans la marque [Claude]');
@@ -1000,7 +996,6 @@ export const verifierCreationCampagneDG = (operations: Operation[], limites: Lim
   if (c.containsEuPoliticalAdvertising !== 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING') refuser('campagne : déclaration UE');
   if (!memesChamps(c.demandGenCampaignSettings, { upgradedTargeting: true })) refuser('campagne : ciblage au groupe');
   if (!memesChamps(c.geoTargetTypeSetting, { positiveGeoTargetType: 'PRESENCE', negativeGeoTargetType: 'PRESENCE' })) refuser('campagne : présence réelle');
-  if (automatismes(c.assetAutomationSettings) !== coupes(AUTOMATISMES_DG_CAMPAGNE)) refuser('campagne : automatismes, tous coupés (DG6)');
 
   // DG1 — des dates, l'une et l'autre, et l'équivalent quotidien sous son plafond.
   const debut = /^(\d{4}-\d{2}-\d{2}) 00:00:00$/.exec(String(c.startDateTime))?.[1];
@@ -1009,11 +1004,16 @@ export const verifierCreationCampagneDG = (operations: Operation[], limites: Lim
   if (debut! < aujourdhui() || fin! < debut!) refuser('campagne : dates hors bornes');
   if (equivalentQuotidien(total, debut!, fin!) > limites.budgetMaxJour) refuser('campagne : équivalent quotidien au-delà du plafond');
 
-  // DG2 — Maximiser les clics plafonné, ou Maximiser les conversions sans cible.
+  // DG2 — Maximiser les clics sans plafond (Google refuse le plafond en Demand
+  // Gen), CPC cible plafonné par ADS_CPC_MAX, ou Maximiser les conversions sans cible.
   if ('targetSpend' in c) {
-    const t = c.targetSpend as Record<string, unknown>;
-    const cpc = Number(t?.cpcBidCeilingMicros);
-    if (cles(t) !== 'cpcBidCeilingMicros' || !Number.isInteger(cpc) || cpc <= 0 || cpc > limites.cpcMax) refuser('campagne : CPC max absent ou au-delà du plafond');
+    if (!estObjet(c.targetSpend) || cles(c.targetSpend) !== '') refuser('campagne : Maximiser les clics, sans plafond ni montant cible');
+  } else if ('targetCpc' in c) {
+    const t = c.targetCpc as Record<string, unknown>;
+    const cpc = Number(t?.targetCpcMicros);
+    if (!estObjet(t) || cles(t) !== 'targetCpcMicros' || !Number.isInteger(cpc) || cpc <= 0 || cpc % 10_000 !== 0 || cpc > limites.cpcMax) {
+      refuser('campagne : CPC cible absent ou au-delà du plafond');
+    }
   } else if (cles(c.maximizeConversions) !== '') {
     refuser('campagne : Maximiser les conversions, sans CPA ni ROAS cible');
   }

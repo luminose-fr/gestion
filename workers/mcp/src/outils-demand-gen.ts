@@ -16,7 +16,7 @@ import { enMicros, engagement, euros } from './argent';
 import { aujourdhui, dateFr, dateValide, equivalentQuotidien, joursEntre } from './dates';
 import { compteEcriture, ecrire, exigerEcriture, trouverLibelle } from './ecriture';
 import {
-  BOUTONS, AUTOMATISMES_DG_ANNONCE, AUTOMATISMES_DG_CAMPAGNE, CANAUX_DG, IMAGES_DG, LANGUE_DG, LIMITES_DG,
+  BOUTONS, AUTOMATISMES_DG_ANNONCE, CANAUX_DG, IMAGES_DG, LANGUE_DG, LIMITES_DG,
   NOM_ENTREPRISE, limitesDG, objectifsDG, zonesDG,
   type Bouton, type FormatImage, type Operation,
 } from './google-ads';
@@ -84,18 +84,23 @@ const campagneCreer = outil({
     '',
     DEUX_TEMPS,
     '',
-    'Enchères : CLICS (« Maximiser les clics », cpc_max obligatoire) ou CONVERSIONS (« Maximiser les conversions », sans CPA ni ' +
-    'ROAS cible). Objectif : une clé de la liste du serveur (ADS_OBJECTIFS_CONVERSION). Le budget total, son équivalent quotidien ' +
-    "(total ÷ jours) et le CPC max sont plafonnés ; l'aperçu dit les plafonds et l'engagement après création. Tout ce que Google " +
-    'génèrerait pour Demand Gen (textes, images, vidéos) est coupé.',
+    'Enchères : CLICS (« Maximiser les clics », sans plafond par clic : Google n’en accepte pas en Demand Gen), CPC_CIBLE ' +
+    '(« CPC cible », cpc_cible obligatoire — une moyenne visée, pas un plafond) ou CONVERSIONS (« Maximiser les conversions », sans ' +
+    'CPA ni ROAS cible). Objectif : une clé de la liste du serveur (ADS_OBJECTIFS_CONVERSION). Le budget total, son équivalent ' +
+    "quotidien (total ÷ jours) et le CPC cible sont plafonnés ; l'aperçu dit les plafonds et l'engagement après création. Ce que " +
+    'Google génèrerait (images retouchées, vidéos, animations) se coupe à chaque annonce, par ads_dg_annonce_creer : Demand Gen ne ' +
+    'le règle pas à la campagne.',
   ].join('\n'),
   schema: z.object({
     nom: z.string().min(1).max(100).describe(`Le nom de la campagne ; le serveur y ajoute ${MARQUE}.`),
     budget_total: z.number().positive().describe('Budget total de la campagne, en euros.'),
     debut: DATE.describe('Premier jour de diffusion, AAAA-MM-JJ, au plus tôt aujourd’hui.'),
     fin: DATE.describe('Dernier jour de diffusion, AAAA-MM-JJ.'),
+    // DG2 — CLICS sans cpc_max : Google refuse le plafond en Demand Gen (premier
+    // envoi à blanc, 07/10/2026), et un cpc_max envoyé ici serait un frein fictif.
     encheres: z.discriminatedUnion('strategie', [
-      z.object({ strategie: z.literal('CLICS'), cpc_max: z.number().positive().describe('CPC maximal, en euros.') }).strict(),
+      z.object({ strategie: z.literal('CLICS') }).strict(),
+      z.object({ strategie: z.literal('CPC_CIBLE'), cpc_cible: z.number().positive().describe('CPC moyen visé, en euros.') }).strict(),
       z.object({ strategie: z.literal('CONVERSIONS') }).strict(),
     ]),
     objectif: z.string().min(1).max(40).describe("Une clé de la liste des objectifs de conversion du serveur."),
@@ -124,9 +129,9 @@ const campagneCreer = outil({
       throw new Refus(`${euros(total)} sur ${jours} jour${jours > 1 ? 's' : ''}, c'est ${euros(parJour)} par jour : au-delà du plafond de ` +
         `${euros(limites.budgetMaxJour)} (ADS_BUDGET_MAX_JOUR). Allonger la période, ou réduire le budget.`);
     }
-    const cpc = encheres.strategie === 'CLICS' ? enMicros(encheres.cpc_max) : 0;
-    if (encheres.strategie === 'CLICS' && (cpc <= 0 || cpc > limites.cpcMax)) {
-      throw new Refus(`CPC max de ${euros(cpc)} hors des bornes : au plus ${euros(limites.cpcMax)} (ADS_CPC_MAX).`);
+    const cpc = encheres.strategie === 'CPC_CIBLE' ? enMicros(encheres.cpc_cible) : 0;
+    if (encheres.strategie === 'CPC_CIBLE' && (cpc <= 0 || cpc > limites.cpcMax)) {
+      throw new Refus(`CPC cible de ${euros(cpc)} hors des bornes : au plus ${euros(limites.cpcMax)} (ADS_CPC_MAX).`);
     }
 
     const but = await exigerObjectif(env, compte, objectif);
@@ -158,9 +163,13 @@ const campagneCreer = outil({
         demandGenCampaignSettings: { upgradedTargeting: true },
         geoTargetTypeSetting: { positiveGeoTargetType: 'PRESENCE', negativeGeoTargetType: 'PRESENCE' },
         containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
-        ...(encheres.strategie === 'CLICS' ? { targetSpend: { cpcBidCeilingMicros: String(cpc) } } : { maximizeConversions: {} }),
-        // DG6 — rien de ce que Google génèrerait : V4 ne l'aurait jamais vu.
-        assetAutomationSettings: AUTOMATISMES_DG_CAMPAGNE.map((t) => ({ assetAutomationType: t, assetAutomationStatus: 'OPTED_OUT' })),
+        ...{
+          CLICS: { targetSpend: {} },
+          CPC_CIBLE: { targetCpc: { targetCpcMicros: String(cpc) } },
+          CONVERSIONS: { maximizeConversions: {} },
+        }[encheres.strategie],
+        // DG6 — aucun automatisme ici : Demand Gen les refuse à la campagne ; ils
+        // se coupent à chaque annonce (ads_dg_annonce_creer).
       } } },
       { conversionGoalCampaignConfigOperation: {
         update: {
@@ -184,13 +193,16 @@ const campagneCreer = outil({
           `- Budget total : ${euros(total)}, du ${dateFr(debut)} au ${dateFr(fin)} (${jours} jour${jours > 1 ? 's' : ''}), ` +
           `soit ${euros(parJour)} par jour. Plafonds : ${euros(limites.budgetMaxCampagne)} par campagne, ${euros(limites.budgetMaxJour)} par jour.`,
           `- Engagement après création : ${euros(deja + parJour)} par jour sur ${euros(limites.budgetMaxTotal)}.`,
-          encheres.strategie === 'CLICS'
-            ? `- Enchères : Maximiser les clics, CPC max ${euros(cpc)} (plafond ${euros(limites.cpcMax)}).`
-            : '- Enchères : Maximiser les conversions, sans CPA ni ROAS cible.',
+          {
+            CLICS: '- Enchères : Maximiser les clics, sans plafond par clic (Google n’en accepte pas en Demand Gen) : le budget total est le seul frein.',
+            CPC_CIBLE: `- Enchères : CPC cible ${euros(cpc)} — une moyenne visée, pas un plafond ; un clic peut coûter plus (plafond du réglage : ${euros(limites.cpcMax)}).`,
+            CONVERSIONS: '- Enchères : Maximiser les conversions, sans CPA ni ROAS cible.',
+          }[encheres.strategie],
           `- Objectif de conversion « ${objectif} » : l'objectif personnalisé « ${but.nom} » (${but.id}) — ${but.actions.map((a) => `« ${a} »`).join(', ')}.`,
           '- Zone et langue : posées au groupe (ads_dg_groupe_creer), en présence réelle.',
           `- Canaux : posés au groupe — ${CANAUX_EN_CLAIR}.`,
-          `- Ce que Google génèrerait (${AUTOMATISMES_DG_CAMPAGNE.length} automatismes : textes de la page d'arrivée, images retouchées, vidéos) : coupé.`,
+          '- Ce que Google génèrerait (images retouchées, vidéos, animations) : coupé à chaque annonce (ads_dg_annonce_creer), ' +
+          "Demand Gen ne le réglant pas à la campagne. L'extraction d'images suit le réglage « images dynamiques » du compte.",
         ].join('\n'),
         bilan: `Campagne « ${nomMarque} » créée, en pause. Suite : ads_dg_groupe_creer.`,
       },

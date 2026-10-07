@@ -8,6 +8,10 @@
 >
 > **Codé le même jour, non déployé.** B, D, F et H attendent le premier envoi à blanc sur le
 > compte (§7).
+>
+> **Corrigé le même soir (§8).** Le premier aperçu de campagne a tranché D et F : Google
+> refuse le plafond de CPC et les automatismes réglés à la campagne. DG2 et DG6 sont
+> réécrits en conséquence, sur décision de Florent.
 
 ## 1. Le besoin
 
@@ -139,6 +143,9 @@ de vérifier un ratio), `YOUTUBE_VIDEO`, `CALL_TO_ACTION`.
 
 B, D, F et H sont les propositions du cadrage, appliquées sans objection de Florent.
 
+D et F ont été refusés par Google au premier aperçu, le 07/10/2026 au soir ; ce qui les
+remplace est au §8.
+
 ## 4. Les règles — NORMATIF
 
 ### DG1 — Budget total, jamais partagé (D1)
@@ -162,9 +169,12 @@ B, D, F et H sont les propositions du cadrage, appliquées sans objection de Flo
 
 ### DG2 — Enchères (D2)
 
-Deux choix, fermés. `CLICS` : `target_spend` avec `cpc_bid_ceiling_micros` ≤ `ADS_CPC_MAX`,
-jamais `target_spend_micros`. `CONVERSIONS` : `maximize_conversions` vide — ni CPA ni ROAS
-cible. **R3 est corrigé** : « Performance Max et Demand Gen enchérissent sur les
+**Réécrit le 07/10/2026 au soir (§8).** Trois choix, fermés. `CLICS` : `target_spend`
+**vide** — ni `cpc_bid_ceiling_micros`, que Google refuse en Demand Gen, ni
+`target_spend_micros`, déprécié ; le budget total est le seul frein. `CPC_CIBLE` :
+`target_cpc` avec `target_cpc_micros` ≤ `ADS_CPC_MAX`, au centime — une moyenne visée, pas
+un plafond, et l'aperçu le dit. `CONVERSIONS` : `maximize_conversions` vide — ni CPA ni
+ROAS cible. **R3 est corrigé** : « Performance Max et Demand Gen enchérissent sur les
 conversions » devient « Demand Gen enchérit en Maximiser les clics, plafonné, ou en
 Maximiser les conversions, sans cible ; le budget total est son frein ».
 
@@ -193,9 +203,11 @@ pas. `classic_display_images` n'est jamais envoyé.
 
 ### DG6 — Automatismes coupés (D6, F)
 
-À la campagne : les types de §2.5, `GENERATE_LANDING_PAGE_PREVIEW` et
-`GENERATE_IMAGE_EXTRACTION` compris, tous `OPTED_OUT`. À chaque annonce multi-élément : ses
-trois types, `OPTED_OUT`. La liste vit à un seul endroit du code.
+**Réécrit le 07/10/2026 au soir (§8).** À chaque annonce multi-élément : ses trois types,
+`OPTED_OUT`. **Rien à la campagne** : Google refuse le champ en Demand Gen, et la table
+fermée refuse une campagne qui le porte. `GENERATE_LANDING_PAGE_PREVIEW` n'est donc plus
+coupé par le serveur ; `GENERATE_IMAGE_EXTRACTION` suit le réglage « images dynamiques » du
+compte (référence v25), à vérifier dans l'interface. La liste vit à un seul endroit du code.
 
 ### DG7 — Annonces : le multi-élément (D7, G, H)
 
@@ -258,3 +270,40 @@ cassant, dans l'outil et dans la table séparément : son test échoue.
 3. Déployer (`./scripts/deploy.sh mcp`), puis un aperçu de chaque outil : rien n'est créé,
    mais Google tranche B, D et F. Puis une campagne d'essai par Claude, relue dans
    l'interface.
+
+## 8. Le premier aperçu — 07/10/2026 au soir
+
+**Ce qui a été envoyé.** `ads_dg_campagne_creer`, deux aperçus (campagnes Oracle et
+Breathwork, `CLICS` à 1 €), puis un troisième en `CONVERSIONS` pour isoler les causes.
+Les trois refusés par Google (`validateOnly`) : rien n'a été créé.
+
+**Ce que Google a refusé** (`contextError.OPERATION_NOT_PERMITTED_FOR_CONTEXT`) :
+
+| Champ | Verdict | Lecture |
+| :--- | :--- | :--- |
+| `campaign_operation.create.target_spend.cpc_bid_ceiling_micros` | refusé | le plafond de CPC n'existe pas en Demand Gen — D ne tient pas |
+| `campaign_operation.create.asset_automation_settings` | refusé, en `CONVERSIONS` aussi | le refus porte sur **le champ**, sans index de type : Demand Gen ne règle pas ses automatismes à la campagne — F ne tient pas |
+| `conversion_goal_campaign_config_operation.update.campaign` | `RESOURCE_NOT_FOUND` sur `-2` | conséquence : la campagne refusée n'existe pas pour l'objectif. **À confirmer** au prochain aperçu, qui ne portera plus les deux premiers refus |
+
+**Ce que dit la référence** (protos v25 de `googleapis/googleapis`, relus le 07/10/2026) :
+les types de l'annonce multi-élément (`GENERATE_DESIGN_VERSIONS_FOR_IMAGES`,
+`GENERATE_VIDEOS_FROM_OTHER_ASSETS`, `GENERATE_ANIMATED_IMAGES_FROM_OTHER_ASSETS`) sont
+décrits « for DemandGenMultiAssetAd », ceux de la vidéo « for
+DemandGenVideoResponsiveAdInfo » : des réglages d'annonce. `GENERATE_IMAGE_EXTRACTION`
+« defaults to account level Dynamic Image Extension control value ». `Campaign.target_cpc`
+(`TargetCpc.target_cpc_micros`, « Average CPC target ») existe ; les notes de version
+l'ouvrent à Demand Gen.
+
+**Décidé avec Florent.**
+
+| | Avant | Maintenant |
+| :--- | :--- | :--- |
+| D | `CLICS` plafonné ; refusé, `CLICS` se ferme | `CLICS` **sans plafond** ; `CPC_CIBLE` **ajouté**, ≤ `ADS_CPC_MAX` — les deux, au choix de chaque campagne |
+| F | automatismes coupés à la campagne et à l'annonce | coupés **à l'annonce seulement** ; la table refuse une campagne qui en porte |
+
+Le Search garde `CLICS` plafonné (`ads_campagne_creer`) : Google l'y accepte.
+
+**Tests** : DG2 et DG6 réécrits, la table fermée refuse le plafond de clics, le montant
+déprécié, deux enchères à la fois, un CPC cible absent, nul, hors du centime ou au-delà du
+plafond, et toute campagne qui porte des automatismes. Chaque verrou nouveau a été cassé
+dans l'outil et dans la table : son test échoue.
