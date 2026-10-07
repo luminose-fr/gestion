@@ -1,18 +1,19 @@
 ---
 type: fact
 statut: actif
-revu: 2026-08
+revu: 2026-10
 expose: public
 ---
 
-# L'Oracle des Ressources
+# L'Oracle de mes ressources
 
 Support d'introspection propriétaire, créé par Florent Jaouali. Vendu sur `luminose.fr`.
 
 **27 € + 8 € de frais de port = 35 € tout compris, France métropolitaine.**
 
-> Deux corrections issues de l'inventaire : le nom est **« L'Oracle des Ressources »** (et non
-> « Oracle de mes ressources »), et l'ancien prix mémorisé — 31 € port inclus — est **faux**.
+> **Le nom est « L'Oracle de mes ressources »**, celui du site. Tranché par Florent le
+> 06/10/2026 : l'inventaire du 25/08 avait retenu « L'Oracle des Ressources », à tort.
+> L'ancien prix mémorisé — 31 € port inclus — est **faux**.
 
 Cohérent avec les thèmes centraux : ressources intérieures, symboles, introspection,
 exploration projective.
