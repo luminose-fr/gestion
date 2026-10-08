@@ -451,12 +451,14 @@ describe('NORMATIF — V4 : chaque terme de refus fait échouer un texte d’ann
     expect(t).toMatch(/hypnothérapeute/);
     expect(t).toMatch(/Le Seuil » : offre suspendue/);
     expect(t).toMatch(/atelier » : offre terminée/);
-    expect(t).toMatch(/breathwork sans mention du questionnaire/);
+    // Depuis le 08/10/2026, le questionnaire se mentionne sur la page, pas dans l'annonce qui y mène.
+    expect(t).not.toMatch(/questionnaire/);
 
-    const avecQuestionnaire = await appelerOutil(env, 'ads_annonce_creer', {
-      ...ANNONCE, titres: ['Breathwork à Lyon', ...ANNONCE.titres.slice(1)], descriptions: ['Questionnaire de santé préalable.', ANNONCE.descriptions[1]],
+    const breathwork = await appelerOutil(env, 'ads_annonce_creer', {
+      ...ANNONCE, titres: ['Breathwork à Lyon', ...ANNONCE.titres.slice(1)],
     }, LIRE_ECRIRE);
-    expect(texteDe(avecQuestionnaire.corps)).not.toMatch(/AVERTISSEMENTS/);
+    expect(texteDe(breathwork.corps)).toMatch(/^APERÇU/);
+    expect(texteDe(breathwork.corps)).not.toMatch(/AVERTISSEMENTS/);
   });
 });
 

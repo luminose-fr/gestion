@@ -624,7 +624,8 @@ describe('NORMATIF — V4 : chaque terme de refus fait échouer un titre et une 
     expect(t).toMatch(/AVERTISSEMENTS — à relire avant de valider/);
     expect(t).toMatch(/hypnothérapeute/);
     expect(t).toMatch(/atelier » : offre terminée/);
-    expect(t).toMatch(/breathwork sans mention du questionnaire/);
+    // Le questionnaire se mentionne sur la page d'arrivée, plus dans l'annonce (cadre du 08/10/2026).
+    expect(t).not.toMatch(/questionnaire/);
   });
 });
 

@@ -60,7 +60,7 @@ const etatInitial = (): Etat => ({
     7005: { type: 'CALLOUT', calloutAsset: { calloutText: 'Guérison durable' } },
     7006: { type: 'SITELINK', finalUrls: ['https://passage.luminose.fr/'], sitelinkAsset: { linkText: 'Le Passage' } },
     7007: { type: 'IMAGE' },
-    // Le prix du compte réel, relevé le 06/10/2026 : sa ligne de breathwork ne dit rien du questionnaire.
+    // Le prix du compte réel, relevé le 06/10/2026 : sa ligne de breathwork ne dit rien du questionnaire — et n'a plus à le dire.
     7008: { type: 'PRICE', priceAsset: { type: 'SERVICES', languageCode: 'fr', priceOfferings: [
       { header: 'Séance adulte et ado', description: 'Séance de 1h30', price: { currencyCode: 'EUR', amountMicros: '80000000' }, finalUrl: 'https://www.luminose.fr/tarifs-seances-adresse.html' },
       { header: 'Séance enfant', description: 'Séance de 1h', price: { currencyCode: 'EUR', amountMicros: '60000000' }, finalUrl: 'https://www.luminose.fr/tarifs-seances-adresse.html' },
@@ -423,7 +423,7 @@ describe('NORMATIF — le filtre des annonces, pour chaque texte d’élément',
     expect(appels).toEqual([]);
   });
 
-  it('« hypnothérapeute » avertit ; un lien annexe vers une page de breathwork rappelle le questionnaire de santé', async () => {
+  it('« hypnothérapeute » avertit ; un lien annexe vers une page de breathwork n’avertit plus (cadre du 08/10/2026)', async () => {
     const env = creerEnv();
     simulerCompte();
     const t = await apercu(env, 'ads_elements_creer', {
@@ -437,8 +437,7 @@ describe('NORMATIF — le filtre des annonces, pour chaque texte d’élément',
     expect(t).toMatch(/^APERÇU/);
     expect(t).toMatch(/AVERTISSEMENTS — à relire avant de valider :/);
     expect(t).toMatch(/- info-bulle « Hypnothérapeute à Lyon » : « hypnothérapeute » : l'hypnose est un outil, pas un titre \(socle\/identite\.md\)/);
-    expect(t).toMatch(/le lien annexe « Respiration » mène à une page de breathwork : le cadre déontologique exige que toute promotion du breathwork mentionne le questionnaire de santé préalable/);
-    expect(t).toMatch(/le lien annexe « Le breathwork » mène à une page de breathwork/);
+    expect(t).not.toMatch(/questionnaire|mène à une page de breathwork/);
   });
 
   it('associer : refuse un élément au texte interdit, un lien hors de luminose.fr, un autre type', async () => {
@@ -451,10 +450,12 @@ describe('NORMATIF — le filtre des annonces, pour chaque texte d’élément',
     expect(mutations(appels)).toEqual([]);
   });
 
-  it('associer un lien annexe de breathwork : l’avertissement aussi', async () => {
+  it('associer un lien annexe de breathwork : plus d’avertissement non plus', async () => {
     const env = creerEnv();
     simulerCompte();
-    expect(await apercu(env, 'ads_elements_associer', { asset: '7004', campagne: '113' })).toMatch(/mène à une page de breathwork/);
+    const t = await apercu(env, 'ads_elements_associer', { asset: '7004', campagne: '113' });
+    expect(t).toMatch(/^APERÇU/);
+    expect(t).not.toMatch(/AVERTISSEMENTS|questionnaire/);
   });
 });
 
@@ -930,7 +931,7 @@ describe('éléments de prix', () => {
     expect(await refus({ type: 'SERVICES', qualificatif: 'ENVIRON', lignes: [1, 2, 3].map((i) => ligne(i)) })).toMatch(/Arguments invalides pour ads_elements_creer/);
   });
 
-  it('le filtre : un terme interdit fait refuser l’élément ; une ligne de breathwork sans questionnaire avertit — par son texte ou par sa page', async () => {
+  it('le filtre : un terme interdit fait refuser l’élément ; une ligne de breathwork sans questionnaire n’avertit plus', async () => {
     expect(await refus({ type: 'SERVICES', lignes: [ligne(1, { description: 'Guérison garantie' }), ligne(2), ligne(3)] }))
       .toMatch(/élément de prix .+ : texte refusé par le filtre déontologique — guéri…/);
     const t = await passe({ type: 'SERVICES', lignes: [
@@ -938,19 +939,17 @@ describe('éléments de prix', () => {
       ligne(2, { titre: 'Journée de respiration', url_finale: 'https://luminose.fr/respiration-holotropique/' }),
       ligne(3, { titre: 'Breathwork', description: 'Après questionnaire' }),
     ] });
-    expect(t).toMatch(/AVERTISSEMENTS — à relire avant de valider :/);
-    expect(t).toMatch(/ligne « Breathwork holotropique » : breathwork sans mention du questionnaire de santé préalable \(socle\/cadre-deontologique\.md\)/);
-    expect(t).toMatch(/ligne « Journée de respiration » : mène à une page de breathwork sans mention du questionnaire de santé préalable/);
-    expect(t).not.toMatch(/ligne « Breathwork » :/);
+    expect(t).toMatch(/^APERÇU/);
+    expect(t).not.toMatch(/AVERTISSEMENTS/);
   });
 
-  it('associer le prix existant du compte : l’avertissement de sa ligne de breathwork', async () => {
+  it('associer le prix existant du compte : sa ligne de breathwork n’avertit plus', async () => {
     const env = creerEnv();
     simulerCompte();
     const t = await apercu(env, 'ads_elements_associer', { asset: '7008', campagne: '113' });
     expect(t).toMatch(/^APERÇU/);
     expect(t).toMatch(/Associer l'élément de prix services : « Séance adulte et ado » Séance de 1h30, 80 € →/);
-    expect(t).toMatch(/- ligne « Breathwork holotropique » : breathwork sans mention du questionnaire de santé préalable/);
+    expect(t).not.toMatch(/questionnaire/);
   });
 
   it('un prix identique à celui du compte est un doublon : l’associer plutôt', async () => {

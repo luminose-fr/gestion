@@ -198,10 +198,9 @@ Détail : [decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-e
 - **Doublons** : un élément au contenu identique déjà dans le compte est écarté, et l'aperçu
   donne l'appel `ads_elements_associer` qui le réutiliserait. Même texte à la casse près, ou
   lien annexe au même texte vers une autre page : signalé, pas écarté.
-- **Breathwork** : un lien annexe vers une page dont l'URL contient `respiration-holotropique`
-  ou `breathwork` avertit — toute promotion du breathwork mentionne le questionnaire de santé.
-  Une ligne de prix avertit quand elle promeut le breathwork, par son texte ou par sa page,
-  sans mentionner le questionnaire.
+- **Breathwork** : plus d'avertissement sur le questionnaire de santé depuis le 08/10/2026. Le
+  cadre déontologique le veut là où l'on s'engage — page d'offre, d'arrivée, réservation — et en
+  dispense ce qui y mène : annonces, liens annexes, lignes de prix.
 - **Insertion de mot-clé** dans `ads_annonce_creer` : `{keyword:…}`, `{Keyword:…}`,
   `{KeyWord:…}`, `{KEYWord:…}`, `{KeyWORD:…}`, rien d'autre ; la longueur se compte sur le
   texte par défaut. L'aperçu rend le titre de chaque mot-clé du groupe, casse appliquée — le

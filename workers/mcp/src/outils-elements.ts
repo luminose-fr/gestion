@@ -63,10 +63,6 @@ const REGLE_NAISSANCE =
   "L'aperçu dit lequel s'applique. Pour un même type, le niveau le plus fin l’emporte — un groupe qui a ses propres liens annexes " +
   'masque ceux de sa campagne, qui masquent ceux du compte ; l’aperçu dit ce qui serait masqué.';
 
-/** Le cadre déontologique : toute promotion du breathwork mentionne le questionnaire de santé (socle/cadre-deontologique.md). */
-const PAGE_BREATHWORK = /respiration-holotropique|breathwork/i;
-const QUESTIONNAIRE = /questionnaire/i;
-
 // ── Un élément, tel que le serveur le manipule ───────────────────────────
 
 type LignePrix = { titre: string; description: string; micros: string; unite?: Unite; url: string };
@@ -177,25 +173,19 @@ const depuisAsset = (a: LigneAsset['asset']): Element | null => {
   return null;
 };
 
-/** Ce que le filtre et le cadre déontologique disent d'un élément : refus et avertissements. */
+/**
+ * Ce que le filtre et le cadre déontologique disent d'un élément : refus et avertissements.
+ * Plus d'avertissement sur le questionnaire de santé depuis le 08/10/2026 : un lien annexe
+ * ou une ligne de prix MÈNE à la page, et c'est la page qui le mentionne (socle/cadre-deontologique.md).
+ */
 const examiner = (e: Element) => {
   if (e.type === 'PRICE') {
     // Les refus portent sur l'élément entier — ses lignes s'affichent ensemble ; les avertissements, ligne par ligne.
     const { refus } = examinerAnnonce(textesDe(e));
-    const avertissements = e.lignes.flatMap((l) => {
-      const ici = examinerAnnonce([l.titre, l.description]).avertissements;
-      const page = PAGE_BREATHWORK.test(l.url) && !QUESTIONNAIRE.test(`${l.titre} ${l.description}`) && !ici.some((a) => a.startsWith('breathwork'))
-        ? ['mène à une page de breathwork sans mention du questionnaire de santé préalable (socle/cadre-deontologique.md)'] : [];
-      return [...ici, ...page].map((a) => `ligne « ${l.titre} » : ${a}`);
-    });
+    const avertissements = e.lignes.flatMap((l) => examinerAnnonce([l.titre, l.description]).avertissements.map((a) => `ligne « ${l.titre} » : ${a}`));
     return { refus, avertissements };
   }
-  const { refus, avertissements } = examinerAnnonce(textesDe(e));
-  if (e.type === 'SITELINK' && PAGE_BREATHWORK.test(e.url)) {
-    avertissements.push(`le lien annexe « ${e.texte} » mène à une page de breathwork : le cadre déontologique exige que toute promotion ` +
-      'du breathwork mentionne le questionnaire de santé préalable (socle/cadre-deontologique.md)');
-  }
-  return { refus, avertissements };
+  return examinerAnnonce(textesDe(e));
 };
 
 // ── Lectures ─────────────────────────────────────────────────────────────
@@ -376,8 +366,8 @@ const elementsCreer = outil({
     '',
     DEUX_TEMPS,
     '',
-    'Les textes passent le filtre déontologique des annonces ; une ligne de prix qui promeut le breathwork sans mention du ' +
-    "questionnaire de santé avertit. Un élément au contenu identique qui existe déjà dans le compte est écarté : l'aperçu donne " +
+    'Les textes passent le filtre déontologique des annonces. Un élément au contenu identique qui existe déjà dans le compte ' +
+    "est écarté : l'aperçu donne " +
     "son identifiant, pour l'associer avec ads_elements_associer plutôt que de le recréer.",
     `En-têtes d'extrait : ${EN_TETES_EXTRAITS.join(', ')}.`,
     `Types de prix : ${Object.entries(TYPES_PRIX).map(([k, v]) => `${k} (${v})`).join(', ')}. ` +

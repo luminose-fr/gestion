@@ -4,8 +4,10 @@
  *
  * LA RÈGLE ET SON MOTIF FONT FOI DANS LE CORPUS, pas ici :
  *   - packages/corpus/content/socle/cadre-deontologique.md — « Aucune promesse de
- *     guérison, explicite ou suggérée », et le questionnaire de santé obligatoire
- *     avant tout breathwork. Ce fichier gagne tous les arbitrages.
+ *     guérison, explicite ou suggérée » dans une annonce. Ce fichier gagne tous les
+ *     arbitrages. Le questionnaire de santé se mentionne là où l'on s'engage (page
+ *     d'offre, d'arrivée, réservation), plus dans ce qui y mène : depuis le
+ *     08/10/2026, une annonce de breathwork sans le mot n'avertit plus.
  *   - packages/corpus/content/socle/identite.md — l'hypnose est un outil, pas un
  *     titre.
  *   - packages/corpus/content/socle/offres/ — le statut de chaque offre.
@@ -55,9 +57,6 @@ const AVERTISSEMENTS: Regle[] = [
   { motif: /\batelier/, terme: '« atelier » : offre terminée (socle/offres/ateliers.md)' },
 ];
 
-const BREATHWORK = /\b(breathwork|respiration holotropique)/;
-const QUESTIONNAIRE = /\bquestionnaire/;
-
 export type Examen = { refus: string[]; avertissements: string[] };
 
 /**
@@ -77,9 +76,6 @@ export const examinerAnnonce = (textes: string[]): Examen => {
     if (tous.every((m) => m.test(tout))) refus.push(terme);
   }
   const avertissements = AVERTISSEMENTS.filter(({ motif }) => motif.test(tout)).map(({ terme }) => terme);
-  if (BREATHWORK.test(tout) && !QUESTIONNAIRE.test(tout)) {
-    avertissements.push('breathwork sans mention du questionnaire de santé préalable (socle/cadre-deontologique.md)');
-  }
   return { refus, avertissements };
 };
 
