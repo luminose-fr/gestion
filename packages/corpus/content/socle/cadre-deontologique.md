@@ -23,10 +23,10 @@ acte médical, aucune prescription, aucune promesse de guérison, explicite ou s
 La personne est le sujet du changement ; la pratique l'accompagne.
 
 - **Oui** : « favorise », « soutient », « peut aider à » + un état (apaisement, clarté,
-  conscience de soi) ; « le potentiel de guérison de chacun », hors annonces ; face à un
-  trouble nommé, « aide à diminuer les symptômes de l'anxiété ou de la dépression », « aide à
-  mieux vivre avec », « aide à traverser la période », « en complément du travail médical » ;
-  la recherche, sourcée, en disant ce qu'elle mesure.
+  conscience de soi) ; hors annonces, la guérison comme issue possible, jamais promise ;
+  face à un trouble nommé, « aide à diminuer les symptômes de l'anxiété ou de la dépression »,
+  « aide à mieux vivre avec », « aide à traverser la période », « en complément du travail
+  médical » ; la recherche, sourcée, en disant ce qu'elle mesure.
 - **Non** : guérir, traiter ou soigner un trouble nommé ; promettre un résultat ; se poser en
   alternative à un suivi médical.
 
@@ -44,7 +44,8 @@ Un **questionnaire de santé est obligatoire** avant tout accès, individuel com
 - traumatisme psychique aigu (moins de 6 semaines)
 - grossesse et post-partum immédiat (moins de 3 mois)
 
-Toute promotion du breathwork mentionne le questionnaire préalable.
+Le questionnaire est mentionné là où l'on s'engage (page d'offre, d'arrivée, réservation) ;
+ce qui y mène en est dispensé.
 
 ## Médiation et hébergement
 
