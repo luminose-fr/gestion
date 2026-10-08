@@ -21,6 +21,7 @@ import { Refus } from './refus';
 import { MARQUE, examinerAnnonce, textesParDefaut, urlAdmise } from './regles';
 import { analyser, longueur as longueurAffichee, texteParDefaut } from './insertion';
 import { aujourdhui, dateValide, equivalentQuotidien } from './dates';
+import { exigerSecret, jetonGoogle, oublierJetonsGoogle } from './jeton-google';
 import type { Env } from './env';
 
 /**
@@ -32,7 +33,6 @@ import type { Env } from './env';
 export const VERSION_API = 'v25';
 
 const RACINE = `https://googleads.googleapis.com/${VERSION_API}`;
-const JETON_GOOGLE = 'https://oauth2.googleapis.com/token';
 
 /** Un identifiant de compte Google Ads : dix chiffres, sans tirets. */
 const FORME_COMPTE = /^\d{10}$/;
@@ -323,60 +323,13 @@ export const connexionPour = (env: Env, compte: string): string | undefined => {
 
 // ── Jeton d'accès ────────────────────────────────────────────────────────
 
-/**
- * Le jeton d'accès vit une heure ; on le garde dans l'isolat jusqu'à une
- * minute de son expiration. Indexé par le refresh token : un secret changé ne
- * sert jamais l'ancien jeton.
- */
-let cache: { refresh: string; acces: string; expire: number } | null = null;
+/** Pour les tests : chaque cas repart d'un isolat neuf — Tag Manager compris. */
+export const oublierJetonAds = oublierJetonsGoogle;
 
-/** Pour les tests : chaque cas repart d'un isolat neuf. */
-export const oublierJetonAds = () => { cache = null; };
-
-const exiger = (valeur: string | undefined, nom: string): string => {
-  if (!valeur) {
-    throw new Refus(
-      `Secret ${nom} absent du Worker MCP. Posez-le depuis la VM : ` +
-      `cd workers/mcp && npx wrangler secret put ${nom} (voir workers/mcp/README.md).`,
-      503,
-    );
-  }
-  return valeur;
-};
-
-const jetonAcces = async (env: Env): Promise<string> => {
-  const refresh = exiger(env.GOOGLE_ADS_REFRESH_TOKEN, 'GOOGLE_ADS_REFRESH_TOKEN');
-  const clientId = exiger(env.GOOGLE_OAUTH_CLIENT_ID, 'GOOGLE_OAUTH_CLIENT_ID');
-  const clientSecret = exiger(env.GOOGLE_OAUTH_CLIENT_SECRET, 'GOOGLE_OAUTH_CLIENT_SECRET');
-
-  if (cache && cache.refresh === refresh && cache.expire > Date.now() + 60_000) return cache.acces;
-
-  const reponse = await fetch(JETON_GOOGLE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refresh,
-      client_id: clientId,
-      client_secret: clientSecret,
-    }),
-  });
-  const corps = await reponse.json().catch(() => ({})) as { access_token?: string; expires_in?: number; error?: string };
-
-  if (!reponse.ok || !corps.access_token) {
-    if (corps.error === 'invalid_grant') {
-      throw new Refus(
-        'Google refuse le refresh token (invalid_grant) : il a été révoqué, ou le client OAuth a changé. ' +
-        'Régénérez-le avec workers/mcp/scripts/jeton-google-ads.mjs, puis wrangler secret put GOOGLE_ADS_REFRESH_TOKEN.',
-        503,
-      );
-    }
-    throw new Error(`Renouvellement du jeton Google Ads : HTTP ${reponse.status}${corps.error ? ` (${corps.error})` : ''}`);
-  }
-
-  cache = { refresh, acces: corps.access_token, expire: Date.now() + (corps.expires_in ?? 3600) * 1000 };
-  return cache.acces;
-};
+/** Le renouvellement est commun à Google Ads et à Tag Manager : jeton-google.ts. */
+const jetonAcces = (env: Env): Promise<string> =>
+  jetonGoogle(env, exigerSecret(env.GOOGLE_ADS_REFRESH_TOKEN, 'GOOGLE_ADS_REFRESH_TOKEN'), 'GOOGLE_ADS_REFRESH_TOKEN',
+    'workers/mcp/scripts/jeton-google-ads.mjs');
 
 // ── Appels ───────────────────────────────────────────────────────────────
 

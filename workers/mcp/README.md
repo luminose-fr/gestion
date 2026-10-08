@@ -9,11 +9,15 @@ Voir « Écrire », plus bas.
 Depuis le 03/10/2026, il lit aussi **le corpus** de Luminose tel que la branche `main` le
 porte, et y écrit par commit, dans les mêmes deux temps. Voir « Le corpus », plus bas.
 
+Depuis le 08/10/2026, il lit **le conteneur Google Tag Manager** du site, et le compare aux
+conversions Google Ads ; il n'y écrit rien. Voir « Google Tag Manager », plus bas.
+
 Adresse du connecteur : **`https://mcp.luminose.fr/mcp`** — avec `/mcp`, au caractère près.
 
 ```
 Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche B)──▶ API Google Ads v25
-                                          └─(jeton GitHub, couche C)──▶ dépôt luminose-fr/gestion
+                                          ├─(jeton GitHub, couche C)──▶ dépôt luminose-fr/gestion
+                                          └─(refresh token, couche D)──▶ API Tag Manager v2, lecture seule
 ```
 
 - **Couche A** — Claude vers ce Worker, par
@@ -27,6 +31,8 @@ Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche
   9-10/09/2026, l'accès est porté par le projet Google Cloud.
 - **Couche C** — ce Worker vers GitHub, pour le corpus. Un jeton à grain fin posé en
   secret, **le sien** : pas celui de la console ([src/github.ts](src/github.ts)).
+- **Couche D** — ce Worker vers Google Tag Manager. Un refresh token à part, scope
+  `tagmanager.readonly` seul : il ne peut ni modifier ni publier ([src/gtm.ts](src/gtm.ts)).
 
 ### Qui fait quoi dans la couche A
 
@@ -78,6 +84,9 @@ Rien n'est en cours. Dans l'ordre où ils ont été décidés :
 2. **Lot 3 — Performance Max.** À cadrer : rien n'est décidé.
 3. **Lot 5 — modifier un budget** (`ads_budget_modifier`), l'ancien lot 3 du cadrage du
    02/10/2026.
+4. **Google Tag Manager — écrire** (lot 2 de Tag Manager). À cadrer après la première
+   lecture du conteneur réel ; une proposition est écrite
+   ([decisions/2026-10-08-gtm.md](decisions/2026-10-08-gtm.md), §6).
 
 **Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
 une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une annonce
@@ -358,6 +367,46 @@ Relire le journal du corpus :
 npx wrangler d1 execute luminose-mcp --remote --command "SELECT id, datetime(created_at/1000, 'unixepoch') AS quand, outil, issue, erreur FROM corpus_ecritures ORDER BY id DESC LIMIT 20"
 ```
 
+## Google Tag Manager — lire
+
+Décision du 08/10/2026 : [decisions/2026-10-08-gtm.md](decisions/2026-10-08-gtm.md).
+Le conteneur du site, **en lecture seule** : rien ne s'y modifie ni ne s'y publie par ce
+serveur.
+
+| Outil | Ce qu'il lit | Tag Manager |
+| :--- | :--- | :--- |
+| `gtm_conteneur` | la version en ligne en chiffres, les balises par type, les espaces de travail et ce qu'ils changent sans être publiés | 2 requêtes, + 3 statuts au plus |
+| `gtm_lire` | chaque balise — type, déclencheurs et leurs conditions, paramètres, état —, chaque déclencheur avec ses balises, chaque variable ; la version en ligne ou un espace ; filtre par nom | 1 requête, ou 4 listes |
+| `gtm_verifier_conversions` | les conversions Google Ads actives face aux balises de conversion : OK, à voir, manquantes, orphelines ; la balise Google et le linker | 1 requête Google Ads, + la même lecture |
+
+**La comparaison se fait sur l'identifiant ET le libellé** (`AW-…/…`), lus des deux côtés
+par le serveur : dans l'extrait de la conversion côté Google Ads, dans les paramètres de la
+balise côté Tag Manager — une constante de GTM résolue. C'est là que se cache l'erreur
+qu'aucune interface ne signale : un libellé mal recopié, une balise en pause, une balise
+sans déclencheur, deux balises pour une conversion.
+
+| | Verrou | Où |
+| :--- | :--- | :--- |
+| G1 | lecture seule : le jeton n'a que `tagmanager.readonly`, et `appeler` ne fait que des GET | [src/gtm.ts](src/gtm.ts), `scripts/jeton-google-ads.mjs gtm` |
+| G2 | un conteneur, `GTM_CONTENEUR`, résolu par Google ; tout chemin de contenu porte son compte et son identifiant (`cheminPermis`). Vide : seule la liste des conteneurs visibles se lit | [src/gtm.ts](src/gtm.ts) |
+| G3 | un jeton à part : absent, Tag Manager est fermé et Google Ads continue ; le jeton de l'un ne sert jamais l'autre | [src/gtm.ts](src/gtm.ts), [src/jeton-google.ts](src/jeton-google.ts) |
+| G4 | des lectures bornées : le quota de Tag Manager est bas | outils, [src/outils-gtm.ts](src/outils-gtm.ts) |
+
+Chaque verrou a son test NORMATIF ([test/gtm.test.ts](test/gtm.test.ts)), et chacun a été
+vérifié en le cassant : son test échoue.
+
+### Mise en place de Tag Manager — ce que Florent fait
+
+1. Dans le projet Google Cloud du client OAuth (`GOOGLE_OAUTH_CLIENT_ID`) : activer
+   **Tag Manager API**.
+2. Sur le Mac : `node workers/mcp/scripts/jeton-google-ads.mjs gtm`, connecté avec le compte
+   qui a accès au conteneur. Le script vérifie l'accès et liste les conteneurs visibles.
+3. Sur la VM, depuis `workers/mcp` : `npx wrangler secret put GTM_REFRESH_TOKEN`.
+4. Recopier l'identifiant `GTM-…` du conteneur de www.luminose.fr dans `GTM_CONTENEUR`
+   (`wrangler.toml`). Vide, `gtm_conteneur` liste les conteneurs visibles pour le choisir.
+5. Depuis la racine : `./scripts/deploy.sh mcp`, puis une **nouvelle** conversation Claude —
+   la liste des outils se charge à l'ouverture d'une conversation.
+
 ## Mise en place — ce que Florent fait, dans cet ordre
 
 L'accès à l'API peut prendre du temps : commencer par l'étape 1.
@@ -446,7 +495,7 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | Nom | Où | Contenu |
 | :--- | :--- | :--- |
 | `ALLOWED_EMAIL` | `[vars]` de wrangler.toml | la seule adresse admise — `florent@luminose.fr`. Absente : personne |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | secrets | le client « Application Web », commun aux deux couches |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | secrets | le client « Application Web », commun aux couches A, B et D |
 | `GOOGLE_ADS_REFRESH_TOKEN` | secret | couche B |
 | `GOOGLE_ADS_CUSTOMER_ID` | secret | compte Luminose, dix chiffres |
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | secret, facultatif | le compte administrateur, s'il y en a un |
@@ -462,6 +511,8 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `ADS_CAMPAGNE_MODELE` | `[vars]` de wrangler.toml | R4 — la campagne dont le ciblage est recopié |
 | `GITHUB_TOKEN` | secret | couche C — jeton à grain fin, dépôt `luminose-fr/gestion`, Contents et Actions en lecture-écriture. Absent : le corpus est fermé, Google Ads continue |
 | `CORPUS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 du corpus — 20 commits et déploiements sur 24 heures. Absent ou illisible : l'écriture du corpus est fermée |
+| `GTM_REFRESH_TOKEN` | secret | couche D — refresh token, scope `tagmanager.readonly` seul (`scripts/jeton-google-ads.mjs gtm`). Absent : Tag Manager est fermé, Google Ads continue |
+| `GTM_CONTENEUR` | `[vars]` de wrangler.toml | G2 — le seul conteneur lu, `GTM-…`. Vide : aucun contenu ne se lit ; les outils listent les conteneurs visibles |
 | `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne |
 
 Un secret absent ne fait pas tomber le Worker : l'outil ou la page concernée **nomme** le

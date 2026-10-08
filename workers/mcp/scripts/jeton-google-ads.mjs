@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
- * Obtenir, une fois, le refresh token de la couche B (scope `adwords`).
+ * Obtenir, une fois, le refresh token de la couche B (scope `adwords`) — ou,
+ * avec `gtm`, celui de la couche D (scope `tagmanager.readonly` seul : ce
+ * jeton ne peut ni modifier ni publier un conteneur).
  *
- *   node workers/mcp/scripts/jeton-google-ads.mjs
+ *   node workers/mcp/scripts/jeton-google-ads.mjs        # Google Ads
+ *   node workers/mcp/scripts/jeton-google-ads.mjs gtm    # Google Tag Manager
  *
  * SUR LE MAC, là où s'ouvre le navigateur : Google renvoie sur
  * http://localhost:8976/retour, qui doit être la machine du navigateur. Rien à
@@ -15,7 +18,7 @@
  * `wrangler secret put`. Un jeton qui traîne dans un fichier finit dans une
  * sauvegarde, un commit ou un partage d'écran.
  *
- * Se connecter avec le compte qui a accès à Google Ads : florent@luminose.fr.
+ * Se connecter avec le compte qui a accès à Google Ads — ou à Tag Manager : florent@luminose.fr.
  * L'écran de consentement « Interne » garantit un jeton qui n'expire pas au
  * bout de sept jours.
  */
@@ -26,13 +29,28 @@ import { spawn } from 'node:child_process';
 
 const PORT = 8976;
 const RETOUR = `http://localhost:${PORT}/retour`;
-const SCOPE = 'https://www.googleapis.com/auth/adwords';
 const DELAI = 5 * 60 * 1000;
 
-// La version de l'API s'écrit à un seul endroit, src/google-ads.ts. On l'y
-// lit plutôt que de la recopier : une copie finirait par mentir.
+const CIBLE = process.argv[2] ?? 'ads';
+if (!['ads', 'gtm'].includes(CIBLE)) {
+  console.error(`Cible inconnue : ${CIBLE}. Rien (Google Ads) ou « gtm » (Google Tag Manager).`);
+  process.exit(1);
+}
+const GTM = CIBLE === 'gtm';
+const SECRET = GTM ? 'GTM_REFRESH_TOKEN' : 'GOOGLE_ADS_REFRESH_TOKEN';
+
+// La version de l'API Google Ads et le scope de Tag Manager s'écrivent chacun
+// à un seul endroit, dans src/. On les y lit plutôt que de les recopier : une
+// copie finirait par mentir.
 const VERSION_API = readFileSync(new URL('../src/google-ads.ts', import.meta.url), 'utf8')
   .match(/export const VERSION_API = '(v\d+)'/)?.[1];
+const SCOPE_GTM = readFileSync(new URL('../src/gtm.ts', import.meta.url), 'utf8')
+  .match(/export const SCOPE_GTM = '([^']+)'/)?.[1];
+const SCOPE = GTM ? SCOPE_GTM : 'https://www.googleapis.com/auth/adwords';
+if (!SCOPE) {
+  console.error('Scope de Tag Manager introuvable dans src/gtm.ts.');
+  process.exit(1);
+}
 
 const base64url = (octets) => octets.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -100,8 +118,32 @@ const echanger = async (code) => {
   return corps;
 };
 
+/** Vérification immédiate pour Tag Manager : l'API répond-elle, et quels conteneurs ce compte voit-il ? */
+const verifierGtm = async (acces) => {
+  const api = 'https://tagmanager.googleapis.com/tagmanager/v2';
+  const lire = async (chemin) => {
+    const reponse = await fetch(api + chemin, { headers: { Authorization: `Bearer ${acces}` } });
+    const texte = await reponse.text();
+    if (!reponse.ok) throw new Error(`HTTP ${reponse.status} :\n${texte.slice(0, 1500)}`);
+    return JSON.parse(texte);
+  };
+  try {
+    const { account = [] } = await lire('/accounts');
+    console.log("\nAccès à l'API Tag Manager : OK. Conteneurs visibles — l'identifiant GTM-… va dans GTM_CONTENEUR (wrangler.toml) :");
+    for (const a of account) {
+      const { container = [] } = await lire(`/accounts/${a.accountId}/containers`);
+      for (const c of container) console.log(`  - ${c.publicId}  « ${c.name} »  ${(c.domainName ?? []).join(', ')}`);
+    }
+    if (account.length === 0) console.log('  (aucun : ce compte Google n’a accès à aucun compte Tag Manager)');
+  } catch (e) {
+    console.log(`\nLe jeton est valide, mais l'API Tag Manager répond ${e.message}`);
+    console.log('\nCause fréquente : « Tag Manager API » non activée dans le projet Cloud du client OAuth.');
+  }
+};
+
 /** Vérification immédiate : le projet Cloud a-t-il bien accès à l'API ? */
 const verifierAcces = async (acces) => {
+  if (GTM) return verifierGtm(acces);
   if (!VERSION_API) return console.log('\n(Version de l’API introuvable dans src/google-ads.ts : vérification sautée.)');
   const reponse = await fetch(`https://googleads.googleapis.com/${VERSION_API}/customers:listAccessibleCustomers`, {
     headers: { Authorization: `Bearer ${acces}` },
@@ -151,11 +193,11 @@ const traiter = async (requete, reponse) => {
     html(200, 'Jeton obtenu', 'Vous pouvez fermer cet onglet et revenir au terminal.');
     await verifierAcces(jetons.access_token);
     console.log(
-      '\n──────────── GOOGLE_ADS_REFRESH_TOKEN ────────────\n' +
+      `\n──────────── ${SECRET} ────────────\n` +
       `${jetons.refresh_token}\n` +
       '──────────────────────────────────────────────────\n\n' +
       'À poser depuis la VM, sans l’écrire ailleurs :\n' +
-      '  cd workers/mcp && npx wrangler secret put GOOGLE_ADS_REFRESH_TOKEN\n\n' +
+      `  cd workers/mcp && npx wrangler secret put ${SECRET}\n\n` +
       'Pour le développement local, la même valeur va dans workers/mcp/.dev.vars.',
     );
     arreter(0);
@@ -175,7 +217,7 @@ for (const hote of ['127.0.0.1', '::1']) {
   serveurs.push(serveur);
 }
 
-console.log(`Ouvrez cette adresse, connecté en florent@luminose.fr :\n\n${autorisation}\n`);
+console.log(`${GTM ? 'Google Tag Manager, lecture seule' : 'Google Ads'} — ouvrez cette adresse, connecté en florent@luminose.fr :\n\n${autorisation}\n`);
 console.log(`(L'URL de retour ${RETOUR} doit être déclarée dans le client OAuth Google.)`);
 const ouvrir = process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : null;
 if (ouvrir) spawn(ouvrir, [autorisation.toString()], { stdio: 'ignore', detached: true }).on('error', () => {}).unref();

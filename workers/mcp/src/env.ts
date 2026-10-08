@@ -107,4 +107,20 @@ export type Env = {
    * celui de Google Ads. Absent ou illisible, l'écriture du corpus est fermée.
    */
   CORPUS_ECRITURES_MAX_JOUR?: string;
+
+  // ── Google Tag Manager (décision du 08/10/2026) ───────────────────────
+
+  /**
+   * Couche D — obtenu une fois par `scripts/jeton-google-ads.mjs gtm`, scope
+   * `tagmanager.readonly` SEUL : ce jeton ne peut ni modifier ni publier, quoi
+   * que fasse le code. À part de celui de Google Ads : absent, Tag Manager est
+   * fermé et Google Ads continue.
+   */
+  GTM_REFRESH_TOKEN?: string;
+  /**
+   * Le seul conteneur lu, par son identifiant public (`GTM-…`). [vars] de
+   * wrangler.toml. Vide, aucun conteneur ne se lit : les outils listent ceux
+   * que le jeton voit, pour le choisir.
+   */
+  GTM_CONTENEUR?: string;
 };

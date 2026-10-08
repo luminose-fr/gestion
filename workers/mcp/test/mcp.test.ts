@@ -122,6 +122,7 @@ describe('époque moderne (2026-07-28)', () => {
         'ads_liste_associer', 'ads_liste_dissocier', 'ads_negatifs_retirer',
         'ads_elements_creer', 'ads_elements_associer', 'ads_elements_dissocier',
         'ads_dg_campagne_creer', 'ads_dg_groupe_creer', 'ads_dg_annonce_creer',
+        'gtm_conteneur', 'gtm_lire', 'gtm_verifier_conversions',
         'corpus_index', 'corpus_lire', 'corpus_contexte', 'corpus_modifier', 'corpus_decision_ajouter', 'corpus_deployer',
       ]);
     // Destructeurs : les seuls outils qui lèvent une exclusion, donc peuvent rouvrir du trafic — ou retirent un élément d'une annonce.
@@ -130,7 +131,8 @@ describe('époque moderne (2026-07-28)', () => {
       expect(outil.inputSchema.type).toBe('object');
       expect(outil.inputSchema.$schema).toBeUndefined();
       expect(outil.annotations.readOnlyHint, outil.name)
-        .toBe(['ads_lister_comptes', 'ads_requete', 'corpus_index', 'corpus_lire', 'corpus_contexte'].includes(outil.name));
+        .toBe(['ads_lister_comptes', 'ads_requete', 'gtm_conteneur', 'gtm_lire', 'gtm_verifier_conversions', 'corpus_index', 'corpus_lire', 'corpus_contexte']
+          .includes(outil.name));
       expect(outil.annotations.destructiveHint, outil.name).toBe(retraits.includes(outil.name));
     }
     // Les info-bulles (06/10/2026) : le nom de l'interface française, et l'ancien, `accroches`, accepté pendant la transition.
