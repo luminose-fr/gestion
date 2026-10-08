@@ -63,9 +63,21 @@ lot 3, décision de Florent du 07/10/2026.
 | 2 — créer, Search | `ads_campagne_creer`, `ads_groupe_creer`, `ads_annonce_creer`, `ads_mots_cles_ajouter` | livré |
 | 2 bis — listes de négatifs | `ads_liste_negatifs_creer`, `ads_liste_negatifs_ajouter`, `ads_liste_negatifs_retirer`, `ads_liste_associer`, `ads_liste_dissocier`, `ads_negatifs_retirer` | livré ([decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md)) |
 | 2 ter — éléments d'annonce, insertion de mot-clé | `ads_elements_creer`, `ads_elements_associer`, `ads_elements_dissocier` — liens annexes, info-bulles, extraits structurés, prix ; l'insertion dans `ads_annonce_creer`, contrôlée aussi par `ads_mots_cles_ajouter` | livré ([decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-elements-et-insertion.md)) |
-| 3 — Performance Max | à définir | à venir |
-| 4 — Demand Gen | `ads_dg_campagne_creer`, `ads_dg_groupe_creer`, `ads_dg_annonce_creer` — budget total, zone par préréglage, annonce multi-élément | livré, à essayer ([decisions/2026-10-07-demand-gen.md](decisions/2026-10-07-demand-gen.md)) |
-| 5 — le budget | `ads_budget_modifier` | à venir |
+| 3 — Performance Max | à définir | **à faire** |
+| 4 — Demand Gen | `ads_dg_campagne_creer`, `ads_dg_groupe_creer`, `ads_dg_annonce_creer` — budget total, zone par préréglage, annonce multi-élément | en service depuis le 08/10/2026 ([decisions/2026-10-07-demand-gen.md](decisions/2026-10-07-demand-gen.md)) |
+| 5 — le budget | `ads_budget_modifier` | **à faire** |
+
+### À faire
+
+Rien n'est en cours. Dans l'ordre où ils ont été décidés :
+
+1. **Demand Gen — l'annonce vidéo responsive.** Le serveur ne crée que l'annonce
+   multi-élément ; la vidéo se crée aujourd'hui dans l'interface, hors de ses verrous.
+   Un envoi à blanc confirmera ses limites, absentes de la référence v25, avant tout code
+   ([decisions/2026-10-07-demand-gen.md](decisions/2026-10-07-demand-gen.md), §10).
+2. **Lot 3 — Performance Max.** À cadrer : rien n'est décidé.
+3. **Lot 5 — modifier un budget** (`ads_budget_modifier`), l'ancien lot 3 du cadrage du
+   02/10/2026.
 
 **Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
 une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une annonce
@@ -226,15 +238,16 @@ contre la référence v25 de l'API.
 - **La zone est un préréglage.** Le ciblage d'une campagne Demand Gen vit au groupe, où un
   rayon n'existe pas : le préréglage `locale` est une liste fermée de lieux, posée par
   Florent dans `ADS_ZONE_LOCALE`.
-- **Le multi-élément d'abord.** La vidéo responsive viendra quand un envoi à blanc aura
-  confirmé ses limites, absentes de la référence.
+- **Le multi-élément d'abord.** La vidéo responsive est à faire (« À faire », plus haut) :
+  un envoi à blanc confirmera d'abord ses limites, absentes de la référence.
 - **Le premier aperçu de campagne (07/10/2026) a tranché deux points** : Google refuse en
   Demand Gen le plafond de CPC et les automatismes réglés à la campagne. Décision de
   Florent : `CLICS` part sans plafond, `CPC_CIBLE` s'ajoute, plafonné par `ADS_CPC_MAX`, et
   les automatismes ne se coupent plus qu'à l'annonce. Détail : §8 de la décision.
-- **Reste à confirmer par Google**, au premier aperçu de chaque outil : la présence réelle,
-  l'objectif posé dans la même requête que la campagne, les automatismes à l'annonce ; le
-  texte du bouton. Un refus n'écrit rien : la question revient à Florent.
+- **Confirmé par Google le 08/10/2026**, sur les deux premières campagnes créées par le
+  serveur : la présence réelle, l'objectif posé dans la même requête que la campagne, les
+  automatismes coupés à l'annonce, le texte du bouton. Ce qui se change ensuite dans
+  l'interface échappe aux verrous du serveur (§9 de la décision).
 
 ### L'incident du 02/10/2026 — quatre exécutions concurrentes
 

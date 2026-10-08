@@ -6,12 +6,16 @@
 > s'étendent à Demand Gen sans s'assouplir. Trois trouvailles contredisaient ou laissaient
 > ouvertes ses décisions ; §3 dit comment elles ont été tranchées.
 >
-> **Codé le même jour, non déployé.** B, D, F et H attendent le premier envoi à blanc sur le
-> compte (§7).
+> **Codé le même jour**, déployé le soir même : B, D, F et H attendaient le premier envoi à
+> blanc sur le compte (§7).
 >
 > **Corrigé le même soir (§8).** Le premier aperçu de campagne a tranché D et F : Google
 > refuse le plafond de CPC et les automatismes réglés à la campagne. DG2 et DG6 sont
 > réécrits en conséquence, sur décision de Florent.
+>
+> **En service depuis le 08/10/2026 (§9).** Deux campagnes créées par le serveur, relues et
+> activées par Florent ; les derniers points ouverts sont confirmés. **À faire** : l'annonce
+> vidéo (§10).
 
 ## 1. Le besoin
 
@@ -211,7 +215,7 @@ compte (référence v25), à vérifier dans l'interface. La liste vit à un seul
 
 ### DG7 — Annonces : le multi-élément (D7, G, H)
 
-- `DemandGenMultiAssetAdInfo` seulement ; la vidéo responsive viendra à part.
+- `DemandGenMultiAssetAdInfo` seulement ; la vidéo responsive est à faire (§10).
 - Images et logos désignés par identifiant ; le serveur vérifie qu'ils existent, qu'ils
   sont de type `IMAGE`, et le ratio (±1 %) et la taille minimale du champ (§2.7).
 - Titres 1 à 5 (30), descriptions 1 à 5 (90) : V4 sur l'ensemble des textes de l'annonce,
@@ -255,7 +259,7 @@ enchères hors DG2 refusées ; objectif hors liste refusé ; zone hors prérégl
 `locale` égale exactement à `ADS_ZONE_LOCALE` ; Display et Maps toujours coupés ;
 automatismes DG6 toujours `OPTED_OUT` ; élément inexistant, de mauvais type ou de mauvais
 ratio refusé ; nom d'entreprise imposé ; chaque terme de refus V4 fait échouer un titre et
-une description (le titre long n'existe que dans l'annonce vidéo, à venir) ; URL hors de
+une description (le titre long n'existe que dans l'annonce vidéo, à faire) ; URL hors de
 `luminose.fr` refusée.
 
 [test/demand-gen.test.ts](../test/demand-gen.test.ts). Chaque verrou a été vérifié en le
@@ -283,7 +287,7 @@ Les trois refusés par Google (`validateOnly`) : rien n'a été créé.
 | :--- | :--- | :--- |
 | `campaign_operation.create.target_spend.cpc_bid_ceiling_micros` | refusé | le plafond de CPC n'existe pas en Demand Gen — D ne tient pas |
 | `campaign_operation.create.asset_automation_settings` | refusé, en `CONVERSIONS` aussi | le refus porte sur **le champ**, sans index de type : Demand Gen ne règle pas ses automatismes à la campagne — F ne tient pas |
-| `conversion_goal_campaign_config_operation.update.campaign` | `RESOURCE_NOT_FOUND` sur `-2` | conséquence : la campagne refusée n'existe pas pour l'objectif. **À confirmer** au prochain aperçu, qui ne portera plus les deux premiers refus |
+| `conversion_goal_campaign_config_operation.update.campaign` | `RESOURCE_NOT_FOUND` sur `-2` | conséquence : la campagne refusée n'existe pas pour l'objectif. **Confirmé le 08/10/2026** (§9) : sans les deux premiers refus, l'objectif se pose dans la même requête |
 
 **Ce que dit la référence** (protos v25 de `googleapis/googleapis`, relus le 07/10/2026) :
 les types de l'annonce multi-élément (`GENERATE_DESIGN_VERSIONS_FOR_IMAGES`,
@@ -307,3 +311,31 @@ Le Search garde `CLICS` plafonné (`ads_campagne_creer`) : Google l'y accepte.
 déprécié, deux enchères à la fois, un CPC cible absent, nul, hors du centime ou au-delà du
 plafond, et toute campagne qui porte des automatismes. Chaque verrou nouveau a été cassé
 dans l'outil et dans la table : son test échoue.
+
+## 9. En service — 08/10/2026
+
+Deux campagnes Demand Gen créées par le serveur le 07/10/2026 au soir, chacune avec son
+groupe et une annonce multi-élément, relues puis activées par Florent dans l'interface.
+Ce que le compte montre, relu le 08/10/2026 :
+
+| Point ouvert | Verdict de Google |
+| :--- | :--- |
+| B — présence réelle | acceptée (`geo_target_type_setting` en `PRESENCE`) |
+| Objectif posé dans la même requête que la campagne (§8) | accepté : chaque campagne porte sa configuration `CAMPAIGN` et l'objectif personnalisé choisi |
+| H — texte du bouton | accepté (« Book now »), annonce approuvée |
+| DG6 — automatismes coupés à l'annonce | acceptés : l'historique du compte montre les trois `OPTED_OUT` à la création |
+| DG4, DG5 — lieux, langue, canaux au groupe | acceptés, ni Display ni Maps |
+
+Ce qui se change ensuite dans l'interface ne passe pas par le serveur, et ses verrous ne s'y
+appliquent pas. Le 08/10/2026, Florent y a rouvert deux automatismes sur chaque annonce
+multi-élément, et ajouté à chaque campagne une annonce vidéo responsive : ni filtre V4, ni
+contrôle d'URL, ni table fermée pour celles-là.
+
+## 10. À faire
+
+- **L'annonce vidéo responsive** (`DemandGenVideoResponsiveAdInfo`), décision G : les
+  vidéos désignées par identifiant d'élément `YOUTUBE_VIDEO` ; titres, titres longs et
+  descriptions passés au filtre V4 ; URL V6. Ses automatismes, que DG6 coupe, sont à revoir
+  avec Florent, qui en a rouvert dans l'interface. Ses limites ne sont pas dans la
+  référence v25 : un envoi à blanc les confirmera avant tout code. Les deux annonces vidéo
+  créées dans l'interface le 08/10/2026 en donnent un exemple accepté par Google.
