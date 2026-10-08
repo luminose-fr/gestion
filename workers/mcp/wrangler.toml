@@ -78,7 +78,7 @@ CORPUS_ECRITURES_MAX_JOUR = "20"
 # Le seul conteneur lu, par son identifiant public (GTM-…, dans le code du site). Vide,
 # aucun conteneur ne se lit : gtm_conteneur liste ceux que le jeton voit, pour le choisir.
 # Le jeton est un secret à part : GTM_REFRESH_TOKEN (scope tagmanager.readonly seul).
-GTM_CONTENEUR = ""
+GTM_CONTENEUR = "GTM-KG7VNQL"
 
 [observability]
 enabled = true
