@@ -114,7 +114,10 @@ const echanger = async (code) => {
     }),
   });
   const corps = await reponse.json().catch(() => ({}));
-  if (!reponse.ok) throw new Error(`Google refuse l'échange : ${corps.error ?? reponse.status} ${corps.error_description ?? ''}`);
+  if (!reponse.ok) {
+    throw new Error(`Google refuse l'échange : ${corps.error ?? reponse.status} ${corps.error_description ?? ''}` +
+      (corps.error === 'invalid_grant' ? '\nLe code a déjà servi, ou il a expiré (quelques minutes) : relancez le script et ouvrez la nouvelle adresse.' : ''));
+  }
   return corps;
 };
 
@@ -166,6 +169,15 @@ const arreter = (codeSortie) => {
   setTimeout(() => process.exit(codeSortie), 100);
 };
 
+/**
+ * Un navigateur peut appeler deux fois la page de retour (rechargement,
+ * préchargement). Le code ne s'échange qu'une fois : le second échange
+ * échouait en invalid_grant et arrêtait le script pendant que le premier,
+ * réussi, vérifiait encore l'accès — le jeton n'était jamais affiché
+ * (08/10/2026). Seul le premier retour est traité.
+ */
+let recu = false;
+
 const traiter = async (requete, reponse) => {
   const url = new URL(requete.url, RETOUR);
   if (url.pathname !== '/retour') {
@@ -178,6 +190,11 @@ const traiter = async (requete, reponse) => {
     html(400, 'Retour inattendu', 'Ce retour ne correspond pas à la demande en cours.');
     return;
   }
+  if (recu) {
+    html(200, 'Déjà reçu', 'Ce retour est déjà traité : revenez au terminal.');
+    return;
+  }
+  recu = true;
   if (url.searchParams.get('error')) {
     html(400, 'Autorisation refusée', `Google : ${url.searchParams.get('error')}.`);
     console.error(`\nGoogle a refusé : ${url.searchParams.get('error')}`);
@@ -191,7 +208,7 @@ const traiter = async (requete, reponse) => {
       throw new Error("Google n'a pas rendu de refresh token. Révoquez l'accès de ce client sur myaccount.google.com/permissions, puis relancez.");
     }
     html(200, 'Jeton obtenu', 'Vous pouvez fermer cet onglet et revenir au terminal.');
-    await verifierAcces(jetons.access_token);
+    // Le jeton d'abord : une vérification qui échoue ou s'éternise ne doit pas le perdre.
     console.log(
       `\n──────────── ${SECRET} ────────────\n` +
       `${jetons.refresh_token}\n` +
@@ -200,6 +217,7 @@ const traiter = async (requete, reponse) => {
       `  cd workers/mcp && npx wrangler secret put ${SECRET}\n\n` +
       'Pour le développement local, la même valeur va dans workers/mcp/.dev.vars.',
     );
+    await verifierAcces(jetons.access_token);
     arreter(0);
   } catch (e) {
     html(500, 'Échec', 'Voir le terminal.');
