@@ -28,7 +28,7 @@ export const VERSION_MODERNE = '2026-07-28';
 export const VERSIONS_HERITEES = ['2025-11-25', '2025-06-18', '2025-03-26'];
 export const VERSIONS = [VERSION_MODERNE, ...VERSIONS_HERITEES];
 
-const SERVEUR = { name: 'luminose-google-ads', title: 'Luminose — Google Ads, Tag Manager et corpus', version: '1.2.0' };
+const SERVEUR = { name: 'luminose-google-ads', title: 'Luminose — Google Ads, Tag Manager et corpus', version: '1.3.0' };
 
 const INSTRUCTIONS =
   "Le compte Google Ads de Luminose. Lire : ads_requete exécute du GAQL sur le compte Luminose par défaut ; " +
@@ -39,8 +39,10 @@ const INSTRUCTIONS =
   "Le corpus de Luminose — sa source de vérité : identité, offres, voix, canaux, stratégie — se lit avec corpus_contexte " +
   "(un profil composé), corpus_index et corpus_lire (les fiches), tel que la branche main du dépôt le porte. Il s'écrit " +
   "par commit, dans les mêmes deux temps : corpus_modifier, corpus_decision_ajouter, puis corpus_deployer pour publier. " +
-  "Le conteneur Google Tag Manager du site se lit, sans jamais s'écrire : gtm_conteneur (vue d'ensemble), gtm_lire (balises, " +
-  "déclencheurs, variables), gtm_verifier_conversions (les conversions Google Ads face à leurs balises).";
+  "Le conteneur Google Tag Manager du site se lit : gtm_conteneur (vue d'ensemble), gtm_lire (balises, déclencheurs, variables), " +
+  "gtm_verifier_conversions (les conversions Google Ads face à leurs balises). Il s'y prépare, dans les mêmes deux temps, des " +
+  "déclencheurs et des balises — gtm_declencheur_creer, gtm_conversion_creer, gtm_evenement_ga4_creer — dans l'espace de travail " +
+  "« [Claude] », jamais en ligne : ce serveur ne publie rien, Florent publie dans Tag Manager.";
 
 const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
 const META_CAPACITES = 'io.modelcontextprotocol/clientCapabilities';

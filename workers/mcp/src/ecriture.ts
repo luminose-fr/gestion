@@ -33,6 +33,8 @@ export const SCOPE_LECTURE = 'ads:lire';
 export const SCOPE_ECRITURE = 'ads:ecrire';
 /** Écrire dans le corpus : une case à part du consentement (décision du 03/10/2026). */
 export const SCOPE_CORPUS = 'corpus:ecrire';
+/** Préparer dans Tag Manager : une case à part, elle aussi (décision du 09/10/2026). */
+export const SCOPE_TAG_MANAGER = 'gtm:ecrire';
 
 const DUREE_APERCU_MS = 10 * 60 * 1000;
 
@@ -124,8 +126,21 @@ export const exigerEcritureCorpus = (contexte: Contexte): void => {
   }
 };
 
+/** V8 pour Tag Manager. Vérifié avant toute autre chose, aperçu compris. */
+export const exigerEcritureGtm = (contexte: Contexte): void => {
+  if (!contexte.scopes.includes(SCOPE_TAG_MANAGER)) {
+    throw new Refus(
+      "L'écriture dans Tag Manager n'est pas accordée à cette connexion. Dans Claude, déconnecter puis reconnecter le connecteur, " +
+      "et cocher « Préparer des balises dans Tag Manager » sur la page de consentement.",
+      403,
+    );
+  }
+};
+
 /** Chaque journal a son plafond, dans [vars] de wrangler.toml. */
-const PLAFONDS = { ads: 'ADS_ECRITURES_MAX_JOUR', corpus: 'CORPUS_ECRITURES_MAX_JOUR' } as const satisfies Record<Journal, keyof Env>;
+const PLAFONDS = {
+  ads: 'ADS_ECRITURES_MAX_JOUR', corpus: 'CORPUS_ECRITURES_MAX_JOUR', gtm: 'GTM_ECRITURES_MAX_JOUR',
+} as const satisfies Record<Journal, keyof Env>;
 
 const plafondJour = (env: Env, journal: Journal): number => {
   const nom = PLAFONDS[journal];
@@ -137,7 +152,7 @@ const plafondJour = (env: Env, journal: Journal): number => {
   return plafond;
 };
 
-// ── Le jeton et le journal, communs à Google Ads et au corpus ────────────
+// ── Le jeton et le journal, communs à Google Ads, au corpus et à Tag Manager ──
 
 /** V2 : signe ce que l'aperçu a montré, pour dix minutes. */
 export const emettreJeton = (env: Env, outil: string, h: string, fige?: unknown): Promise<string> =>

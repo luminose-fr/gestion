@@ -2,10 +2,13 @@
 /**
  * Obtenir, une fois, le refresh token de la couche B (scope `adwords`) — ou,
  * avec `gtm`, celui de la couche D (scope `tagmanager.readonly` seul : ce
- * jeton ne peut ni modifier ni publier un conteneur).
+ * jeton ne peut ni modifier ni publier un conteneur) — ou, avec
+ * `gtm-ecriture`, celui qui crée dans un espace de travail (scope
+ * `tagmanager.edit.containers` seul : ni version ni publication).
  *
- *   node workers/mcp/scripts/jeton-google-ads.mjs        # Google Ads
- *   node workers/mcp/scripts/jeton-google-ads.mjs gtm    # Google Tag Manager
+ *   node workers/mcp/scripts/jeton-google-ads.mjs                # Google Ads
+ *   node workers/mcp/scripts/jeton-google-ads.mjs gtm            # Tag Manager, lire
+ *   node workers/mcp/scripts/jeton-google-ads.mjs gtm-ecriture   # Tag Manager, préparer
  *
  * SUR LE MAC, là où s'ouvre le navigateur : Google renvoie sur
  * http://localhost:8976/retour, qui doit être la machine du navigateur. Rien à
@@ -32,21 +35,23 @@ const RETOUR = `http://localhost:${PORT}/retour`;
 const DELAI = 5 * 60 * 1000;
 
 const CIBLE = process.argv[2] ?? 'ads';
-if (!['ads', 'gtm'].includes(CIBLE)) {
-  console.error(`Cible inconnue : ${CIBLE}. Rien (Google Ads) ou « gtm » (Google Tag Manager).`);
+if (!['ads', 'gtm', 'gtm-ecriture'].includes(CIBLE)) {
+  console.error(`Cible inconnue : ${CIBLE}. Rien (Google Ads), « gtm » (Tag Manager, lire) ou « gtm-ecriture » (Tag Manager, préparer).`);
   process.exit(1);
 }
-const GTM = CIBLE === 'gtm';
-const SECRET = GTM ? 'GTM_REFRESH_TOKEN' : 'GOOGLE_ADS_REFRESH_TOKEN';
+const GTM = CIBLE !== 'ads';
+const ECRITURE = CIBLE === 'gtm-ecriture';
+const SECRET = { ads: 'GOOGLE_ADS_REFRESH_TOKEN', gtm: 'GTM_REFRESH_TOKEN', 'gtm-ecriture': 'GTM_ECRITURE_REFRESH_TOKEN' }[CIBLE];
 
 // La version de l'API Google Ads et le scope de Tag Manager s'écrivent chacun
 // à un seul endroit, dans src/. On les y lit plutôt que de les recopier : une
 // copie finirait par mentir.
 const VERSION_API = readFileSync(new URL('../src/google-ads.ts', import.meta.url), 'utf8')
   .match(/export const VERSION_API = '(v\d+)'/)?.[1];
-const SCOPE_GTM = readFileSync(new URL('../src/gtm.ts', import.meta.url), 'utf8')
-  .match(/export const SCOPE_GTM = '([^']+)'/)?.[1];
-const SCOPE = GTM ? SCOPE_GTM : 'https://www.googleapis.com/auth/adwords';
+const SOURCE_GTM = readFileSync(new URL('../src/gtm.ts', import.meta.url), 'utf8');
+const SCOPE_GTM = SOURCE_GTM.match(/export const SCOPE_GTM = '([^']+)'/)?.[1];
+const SCOPE_GTM_ECRITURE = SOURCE_GTM.match(/export const SCOPE_GTM_ECRITURE = '([^']+)'/)?.[1];
+const SCOPE = ECRITURE ? SCOPE_GTM_ECRITURE : GTM ? SCOPE_GTM : 'https://www.googleapis.com/auth/adwords';
 if (!SCOPE) {
   console.error('Scope de Tag Manager introuvable dans src/gtm.ts.');
   process.exit(1);
@@ -207,6 +212,15 @@ const traiter = async (requete, reponse) => {
     if (!jetons.refresh_token) {
       throw new Error("Google n'a pas rendu de refresh token. Révoquez l'accès de ce client sur myaccount.google.com/permissions, puis relancez.");
     }
+    // Ce que Google a réellement accordé — un accord antérieur peut s'y ajouter.
+    // Le Worker refuserait un jeton de Tag Manager plus large que son scope
+    // (gtm.ts, controleLecture et controleEcriture) : autant le dire ici.
+    const accordes = String(jetons.scope ?? '').split(/\s+/).filter(Boolean);
+    const deTrop = accordes.filter((s) => /\/auth\/tagmanager\./.test(s) && s !== SCOPE && !(ECRITURE && s === SCOPE_GTM));
+    if (GTM && deTrop.length) {
+      throw new Error(`Google a accordé à ce jeton, en plus de ${SCOPE} : ${deTrop.join(', ')}. Le Worker le refuserait.\n` +
+        "Révoquez l'accès de ce client sur myaccount.google.com/permissions, puis relancez.");
+    }
     html(200, 'Jeton obtenu', 'Vous pouvez fermer cet onglet et revenir au terminal.');
     // Le jeton d'abord : une vérification qui échoue ou s'éternise ne doit pas le perdre.
     console.log(
@@ -235,7 +249,8 @@ for (const hote of ['127.0.0.1', '::1']) {
   serveurs.push(serveur);
 }
 
-console.log(`${GTM ? 'Google Tag Manager, lecture seule' : 'Google Ads'} — ouvrez cette adresse, connecté en florent@luminose.fr :\n\n${autorisation}\n`);
+console.log(`${ECRITURE ? 'Google Tag Manager, préparer (ni version ni publication)' : GTM ? 'Google Tag Manager, lecture seule' : 'Google Ads'} — ` +
+  `ouvrez cette adresse, connecté en florent@luminose.fr :\n\n${autorisation}\n`);
 console.log(`(L'URL de retour ${RETOUR} doit être déclarée dans le client OAuth Google.)`);
 const ouvrir = process.platform === 'darwin' ? 'open' : process.platform === 'linux' ? 'xdg-open' : null;
 if (ouvrir) spawn(ouvrir, [autorisation.toString()], { stdio: 'ignore', detached: true }).on('error', () => {}).unref();

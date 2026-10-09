@@ -73,6 +73,8 @@ export const pageConsentement = (options: {
   ecrireCoche: boolean;
   /** Même règle pour la case « Modifier le corpus ». */
   corpusCoche: boolean;
+  /** Et pour la case « Préparer des balises dans Tag Manager ». */
+  gtmCoche: boolean;
   jeton: string;
   cookie: string;
 }) => {
@@ -81,7 +83,7 @@ export const pageConsentement = (options: {
     ? `Client publié par <strong>${echapper(d.clientDomain)}</strong>.`
     : "Client préenregistré sur ce serveur.";
   const corps = `<h1>Connecter Claude à Google Ads</h1>
-<p><strong>${echapper(d.clientName)}</strong> demande l'accès au compte Google Ads et au corpus de Luminose.</p>
+<p><strong>${echapper(d.clientName)}</strong> demande l'accès au compte Google Ads, au conteneur Tag Manager du site et au corpus de Luminose.</p>
 <p>${provenance} Après la connexion Google, l'accès sera envoyé à <strong>${echapper(d.redirectHost)}</strong>.</p>
 ${d.redirectIsLoopback
     ? `<p class="alerte">Cette adresse de retour est locale. N'autorisez que si vous venez de lancer la connexion depuis Claude Code ou l'inspecteur MCP, sur cette machine.</p>\n`
@@ -92,6 +94,8 @@ ${d.redirectIsLoopback
 <label><input type="checkbox" name="ecrire" value="1"${options.ecrireCoche ? ' checked' : ''}> Préparer des modifications : exclure des recherches, mettre en pause. Chaque écriture est montrée avant d'être faite, et rien ne s'active : l'activation reste dans Google Ads.</label>
 <label><input type="checkbox" checked disabled> Lire le corpus de Luminose, tel que le dépôt le porte.</label>
 <label><input type="checkbox" name="corpus" value="1"${options.corpusCoche ? ' checked' : ''}> Modifier le corpus : corriger une fiche, ajouter une décision, par commit sur le dépôt, et lancer le déploiement qui les publie. Chaque écriture est montrée avant d'être faite.</label>
+<label><input type="checkbox" checked disabled> Lire le conteneur Tag Manager du site : balises, déclencheurs, variables.</label>
+<label><input type="checkbox" name="gtm" value="1"${options.gtmCoche ? ' checked' : ''}> Préparer des balises dans Tag Manager : créer des déclencheurs, des balises de conversion et d'événement GA4 dans un espace de travail « [Claude] ». Chaque écriture est montrée avant d'être faite, et rien n'est publié : la publication reste dans Tag Manager.</label>
 </fieldset>
 <p><button type="submit">Continuer avec Google</button></p>
 </form>

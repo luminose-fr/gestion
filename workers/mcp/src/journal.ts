@@ -3,9 +3,10 @@
  * endroit où le Worker parle à sa base. snake_case dedans, camelCase dehors
  * (CLAUDE.md).
  *
- * Deux journaux, une seule forme : `ads_ecritures` pour Google Ads,
- * `corpus_ecritures` pour le dépôt (migration 0002). Seule la colonne qui
- * nomme la cible diffère — le compte, ou le dépôt.
+ * Trois journaux, une seule forme : `ads_ecritures` pour Google Ads,
+ * `corpus_ecritures` pour le dépôt (migration 0002), `gtm_ecritures` pour Tag
+ * Manager (migration 0003). Seule la colonne qui nomme la cible diffère — le
+ * compte, le dépôt, ou le conteneur.
  *
  * Trois requêtes par écriture, jamais plus : compter, ouvrir, clore.
  */
@@ -18,13 +19,14 @@ const JOUR_MS = 24 * 60 * 60 * 1000;
 const JOURNAUX = {
   ads: { table: 'ads_ecritures', cible: 'compte' },
   corpus: { table: 'corpus_ecritures', cible: 'depot' },
+  gtm: { table: 'gtm_ecritures', cible: 'conteneur' },
 } as const;
 
 export type Journal = keyof typeof JOURNAUX;
 
 export type Ouverture = {
   outil: string;
-  /** Le compte Google Ads, ou le dépôt. */
+  /** Le compte Google Ads, le dépôt, ou le conteneur Tag Manager. */
   cible: string;
   auteur: string;
   contenu: unknown;

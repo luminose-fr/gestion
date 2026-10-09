@@ -113,8 +113,9 @@ export type Env = {
   /**
    * Couche D — obtenu une fois par `scripts/jeton-google-ads.mjs gtm`, scope
    * `tagmanager.readonly` SEUL : ce jeton ne peut ni modifier ni publier, quoi
-   * que fasse le code. À part de celui de Google Ads : absent, Tag Manager est
-   * fermé et Google Ads continue.
+   * que fasse le code — et le serveur le vérifie à chaque renouvellement. À
+   * part de celui de Google Ads : absent, Tag Manager est fermé et Google Ads
+   * continue.
    */
   GTM_REFRESH_TOKEN?: string;
   /**
@@ -123,4 +124,19 @@ export type Env = {
    * que le jeton voit, pour le choisir.
    */
   GTM_CONTENEUR?: string;
+
+  // ── Google Tag Manager, écrire (décision du 09/10/2026) ───────────────
+
+  /**
+   * Couche D, écriture — obtenu une fois par `scripts/jeton-google-ads.mjs
+   * gtm-ecriture`, scope `tagmanager.edit.containers` SEUL : créer dans un
+   * espace de travail, jamais créer une version ni publier (G6). À part de
+   * celui de lecture : absent, l'écriture est fermée et la lecture continue.
+   */
+  GTM_ECRITURE_REFRESH_TOKEN?: string;
+  /**
+   * V9 pour Tag Manager — exécutions permises sur 24 heures glissantes. Son
+   * plafond à lui. Absent ou illisible, l'écriture dans Tag Manager est fermée.
+   */
+  GTM_ECRITURES_MAX_JOUR?: string;
 };

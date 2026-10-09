@@ -142,7 +142,8 @@ gestion.luminose.fr/
 │   │   └── src/routes/
 │   └── mcp/                serveur MCP pour Claude, mcp.luminose.fr —
 │       │                   OAuth + Google Ads : lire, et préparer en pause ;
-│       │                   le corpus : lire main, écrire par commit
+│       │                   le corpus : lire main, écrire par commit ;
+│       │                   Tag Manager : lire, et préparer dans « [Claude] »
 │       └── migrations/     journaux des écritures, base `luminose-mcp`
 └── scripts/
     └── deploy.sh
@@ -166,7 +167,7 @@ packages/{subtitles, psychedelics} ──▶ (rien)
 - `workers/mcp` ne partage avec `workers/api` ni code, ni secret, ni binding. Son
   authentification n'est pas celle de la console (OAuth pour Claude), et une erreur de
   configuration de l'un ne doit pas pouvoir exposer l'autre. Sa base D1 est la sienne
-  (`luminose-mcp`, les journaux des écritures Google Ads et corpus) : celle de la console
+  (`luminose-mcp`, les journaux des écritures Google Ads, corpus et Tag Manager) : celle de la console
   porte les clés des fournisseurs IA (§5.5), et il n'a pas à les voir. Son jeton GitHub est
   le sien, pas celui de la console. Dépendances runtime : `zod`,
   `@cloudflare/workers-oauth-provider` et, depuis le 03/10/2026, `@luminose/corpus` — pur,

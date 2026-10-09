@@ -10,14 +10,16 @@ Depuis le 03/10/2026, il lit aussi **le corpus** de Luminose tel que la branche 
 porte, et y écrit par commit, dans les mêmes deux temps. Voir « Le corpus », plus bas.
 
 Depuis le 08/10/2026, il lit **le conteneur Google Tag Manager** du site, et le compare aux
-conversions Google Ads ; il n'y écrit rien. Voir « Google Tag Manager », plus bas.
+conversions Google Ads. Depuis le 09/10/2026, il y **prépare** des déclencheurs et des
+balises, dans un espace de travail « [Claude] » que Florent publie : ce serveur ne publie
+rien. Voir « Google Tag Manager », plus bas.
 
 Adresse du connecteur : **`https://mcp.luminose.fr/mcp`** — avec `/mcp`, au caractère près.
 
 ```
 Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche B)──▶ API Google Ads v25
                                           ├─(jeton GitHub, couche C)──▶ dépôt luminose-fr/gestion
-                                          └─(refresh token, couche D)──▶ API Tag Manager v2, lecture seule
+                                          └─(2 refresh tokens, couche D)─▶ API Tag Manager v2 : lire ; créer dans « [Claude] »
 ```
 
 - **Couche A** — Claude vers ce Worker, par
@@ -31,8 +33,10 @@ Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche
   9-10/09/2026, l'accès est porté par le projet Google Cloud.
 - **Couche C** — ce Worker vers GitHub, pour le corpus. Un jeton à grain fin posé en
   secret, **le sien** : pas celui de la console ([src/github.ts](src/github.ts)).
-- **Couche D** — ce Worker vers Google Tag Manager. Un refresh token à part, scope
-  `tagmanager.readonly` seul : il ne peut ni modifier ni publier ([src/gtm.ts](src/gtm.ts)).
+- **Couche D** — ce Worker vers Google Tag Manager. Deux refresh tokens à part : l'un,
+  scope `tagmanager.readonly` seul, pour lire ; l'autre, `tagmanager.edit.containers` seul,
+  pour créer dans un espace de travail — ni version ni publication. Le serveur vérifie
+  les scopes de chacun à chaque service ([src/gtm.ts](src/gtm.ts)).
 
 ### Qui fait quoi dans la couche A
 
@@ -84,9 +88,10 @@ Rien n'est en cours. Dans l'ordre où ils ont été décidés :
 2. **Lot 3 — Performance Max.** À cadrer : rien n'est décidé.
 3. **Lot 5 — modifier un budget** (`ads_budget_modifier`), l'ancien lot 3 du cadrage du
    02/10/2026.
-4. **Google Tag Manager — écrire** (lot 2 de Tag Manager). À cadrer après la première
-   lecture du conteneur réel ; une proposition est écrite
-   ([decisions/2026-10-08-gtm.md](decisions/2026-10-08-gtm.md), §6).
+4. **Google Tag Manager — modifier** (lot 3 de Tag Manager) : mettre en pause une balise,
+   ajouter un déclencheur à une balise existante, retirer le second `send_page_view` vers
+   GA4. À cadrer : toucher à une balise de Florent n'est pas en créer une marquée
+   ([decisions/2026-10-09-gtm-ecriture.md](decisions/2026-10-09-gtm-ecriture.md), §5).
 
 **Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
 une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une annonce
@@ -370,14 +375,15 @@ npx wrangler d1 execute luminose-mcp --remote --command "SELECT id, datetime(cre
 ## Google Tag Manager — lire
 
 Décision du 08/10/2026 : [decisions/2026-10-08-gtm.md](decisions/2026-10-08-gtm.md).
-Le conteneur du site, **en lecture seule** : rien ne s'y modifie ni ne s'y publie par ce
-serveur.
+Le conteneur du site, lu avec un jeton qui ne peut que lire. Ce serveur n'y publie rien ;
+il y prépare, depuis le 09/10/2026, ce que Florent publie (« Google Tag Manager —
+préparer », plus bas).
 
 | Outil | Ce qu'il lit | Tag Manager |
 | :--- | :--- | :--- |
 | `gtm_conteneur` | la version en ligne en chiffres, les balises par type, les espaces de travail et ce qu'ils changent sans être publiés | 2 requêtes, + 3 statuts au plus |
-| `gtm_lire` | chaque balise — type, déclencheurs et leurs conditions, paramètres, état —, chaque déclencheur avec ses balises, chaque variable ; la version en ligne ou un espace ; filtre par nom | 1 requête, ou 4 listes |
-| `gtm_verifier_conversions` | les conversions Google Ads actives face aux balises de conversion : OK, à voir, manquantes, orphelines ; la balise Google et le linker | 1 requête Google Ads, + la même lecture |
+| `gtm_lire` | chaque balise — numéro, type, déclencheurs et leurs conditions, paramètres, état —, chaque déclencheur avec son numéro et ses balises, chaque variable ; la version en ligne ou un espace ; filtre par nom | 1 requête, ou 4 listes |
+| `gtm_verifier_conversions` | les conversions Google Ads actives, avec leur numéro, face aux balises de conversion : OK, à voir, manquantes, orphelines ; la balise Google et le linker | 1 requête Google Ads, + la même lecture |
 
 **La comparaison se fait sur l'identifiant ET le libellé** (`AW-…/…`), lus des deux côtés
 par le serveur : dans l'extrait de la conversion côté Google Ads, dans les paramètres de la
@@ -387,7 +393,7 @@ sans déclencheur, deux balises pour une conversion.
 
 | | Verrou | Où |
 | :--- | :--- | :--- |
-| G1 | lecture seule : le jeton n'a que `tagmanager.readonly`, et `appeler` ne fait que des GET | [src/gtm.ts](src/gtm.ts), `scripts/jeton-google-ads.mjs gtm` |
+| G1 | lecture seule : le jeton n'a que `tagmanager.readonly` — vérifié à chaque service (`controleLecture`) —, et `appeler` ne fait que des GET | [src/gtm.ts](src/gtm.ts), `scripts/jeton-google-ads.mjs gtm` |
 | G2 | un conteneur, `GTM_CONTENEUR`, résolu par Google ; tout chemin de contenu porte son compte et son identifiant (`cheminPermis`). Vide : seule la liste des conteneurs visibles se lit | [src/gtm.ts](src/gtm.ts) |
 | G3 | un jeton à part : absent, Tag Manager est fermé et Google Ads continue ; le jeton de l'un ne sert jamais l'autre | [src/gtm.ts](src/gtm.ts), [src/jeton-google.ts](src/jeton-google.ts) |
 | G4 | des lectures bornées : le quota de Tag Manager est bas | outils, [src/outils-gtm.ts](src/outils-gtm.ts) |
@@ -406,6 +412,55 @@ vérifié en le cassant : son test échoue.
    (`wrangler.toml`). Vide, `gtm_conteneur` liste les conteneurs visibles pour le choisir.
 5. Depuis la racine : `./scripts/deploy.sh mcp`, puis une **nouvelle** conversation Claude —
    la liste des outils se charge à l'ouverture d'une conversation.
+
+## Google Tag Manager — préparer
+
+Décision du 09/10/2026 : [decisions/2026-10-09-gtm-ecriture.md](decisions/2026-10-09-gtm-ecriture.md).
+**Claude prépare, Florent publie** — ici au sens propre : tout se crée dans l'espace de
+travail « [Claude] » du conteneur, ouvert au premier besoin, et Florent le publie dans Tag
+Manager. Ce serveur ne peut ni publier ni créer de version : son jeton ne le permet pas.
+Rien ne s'y modifie ni ne s'y supprime.
+
+| Outil | Ce qu'il crée |
+| :--- | :--- |
+| `gtm_declencheur_creer` | un déclencheur — vue de page, événement de la couche de données, clic sur un élément —, avec au moins une condition |
+| `gtm_conversion_creer` | la balise d'une conversion Google Ads mesurée sur une page, son identifiant et son libellé lus dans Google Ads ; valeur et conversions améliorées par variable |
+| `gtm_evenement_ga4_creer` | une balise d'événement GA4, l'identifiant de mesure lu dans la balise Google du conteneur |
+
+Le chemin d'une conversion qui manque : `gtm_verifier_conversions` (son numéro) →
+`gtm_lire quoi = declencheurs` (le numéro du déclencheur, ou `gtm_declencheur_creer`) →
+`gtm_conversion_creer`, aperçu puis jeton → `gtm_verifier_conversions espace = …` (ce que
+l'espace publierait) → Tag Manager : relire, prévisualiser, publier.
+
+| | Verrou | Où |
+| :--- | :--- | :--- |
+| G6 | rien ne se publie : le jeton d'écriture n'a que `tagmanager.edit.containers`, vérifié à chaque service — un scope de version, de publication, de suppression ou de gestion ferme l'écriture | [src/gtm.ts](src/gtm.ts) `controleEcriture`, `scripts/jeton-google-ads.mjs gtm-ecriture` |
+| G7 | un espace « [Claude] », et lui seul ; deux de ce nom : refus | [src/ecriture-gtm.ts](src/ecriture-gtm.ts) |
+| G8 | trois POST : ouvrir l'espace, y créer un déclencheur ou une balise — l'espace rendu par Google vérifié, nom et identifiant | [src/gtm.ts](src/gtm.ts) `cheminEcriturePermis` |
+| G9 | balises `awct` et `gaawe`, déclencheurs de page, d'événement et de clic, toujours conditionnés ; jamais de code ; marque « [Claude] » — revérifié juste avant l'envoi | [src/gtm.ts](src/gtm.ts) `formeRefusee` |
+| G10 | identifiant et libellé de conversion lus dans Google Ads, identifiant GA4 lu dans le conteneur ; déclencheurs et variables vérifiés | [src/outils-gtm-ecriture.ts](src/outils-gtm-ecriture.ts) |
+| G11 | une conversion, une balise : une seconde est refusée | [src/outils-gtm-ecriture.ts](src/outils-gtm-ecriture.ts) |
+| G12 | deux temps ; journal `gtm_ecritures` avant l'appel ; `GTM_ECRITURES_MAX_JOUR` ; case « Préparer des balises dans Tag Manager » (`gtm:ecrire`) ; l'espace vu à l'aperçu, ou refus | [src/ecriture-gtm.ts](src/ecriture-gtm.ts), [src/ecriture.ts](src/ecriture.ts) |
+
+Chaque verrou a son test NORMATIF ([test/gtm-ecriture.test.ts](test/gtm-ecriture.test.ts)),
+et chacun a été vérifié en le cassant : son test échoue.
+
+### Mise en place de l'écriture dans Tag Manager — ce que Florent fait
+
+1. Sur le Mac : `node workers/mcp/scripts/jeton-google-ads.mjs gtm-ecriture`, connecté avec
+   le compte qui a le droit **Modifier** sur le conteneur. Le script refuse un jeton plus
+   large que `edit.containers`.
+2. Sur la VM, depuis `workers/mcp` : `npx wrangler secret put GTM_ECRITURE_REFRESH_TOKEN`.
+3. Depuis la racine : `./scripts/deploy.sh mcp` — la migration 0003 (le journal), puis le
+   Worker.
+4. Dans Claude : **retirer puis rajouter** le connecteur, et cocher « Préparer des balises
+   dans Tag Manager » avec les autres cases voulues. Puis une **nouvelle** conversation.
+
+Relire le journal :
+
+```bash
+npx wrangler d1 execute luminose-mcp --remote --command "SELECT id, datetime(created_at/1000, 'unixepoch') AS quand, outil, issue, erreur FROM gtm_ecritures ORDER BY id DESC LIMIT 20"
+```
 
 ## Mise en place — ce que Florent fait, dans cet ordre
 
@@ -501,7 +556,7 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | secret, facultatif | le compte administrateur, s'il y en a un |
 | `COOKIE_SIGNING_KEY` | secret | signe le cookie de connexion (le cadrage l'appelait `COOKIE_ENCRYPTION_KEY` : il signe, il ne chiffre pas) |
 | `OAUTH_KV` | binding KV | l'état de la bibliothèque : grants, codes et jetons par empreinte, props chiffrées |
-| `DB` | binding D1 (`luminose-mcp`) | les journaux des écritures (V7) — Google Ads et corpus —, qui comptent aussi les plafonds V9 |
+| `DB` | binding D1 (`luminose-mcp`) | les journaux des écritures (V7) — Google Ads, corpus et Tag Manager —, qui comptent aussi les plafonds V9 |
 | `ADS_APERCU_KEY` | secret | signe les jetons d'aperçu (V2). Absent : l'écriture est fermée, la lecture continue |
 | `ADS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 — 30 exécutions sur 24 heures. Absent ou illisible : l'écriture est fermée |
 | `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 15 €, 45 €, 2 € (relevés le 07/10/2026). `ADS_CPC_MAX` borne le CPC max du Search et le CPC cible de Demand Gen. Absents ou illisibles : la création est fermée |
@@ -513,6 +568,8 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `CORPUS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 du corpus — 20 commits et déploiements sur 24 heures. Absent ou illisible : l'écriture du corpus est fermée |
 | `GTM_REFRESH_TOKEN` | secret | couche D — refresh token, scope `tagmanager.readonly` seul (`scripts/jeton-google-ads.mjs gtm`). Absent : Tag Manager est fermé, Google Ads continue |
 | `GTM_CONTENEUR` | `[vars]` de wrangler.toml | G2 — le seul conteneur lu, `GTM-…`. Vide : aucun contenu ne se lit ; les outils listent les conteneurs visibles |
+| `GTM_ECRITURE_REFRESH_TOKEN` | secret | G6 — refresh token, scope `tagmanager.edit.containers` seul (`scripts/jeton-google-ads.mjs gtm-ecriture`) : créer dans « [Claude] », ni version ni publication. Absent : l'écriture dans Tag Manager est fermée, la lecture continue |
+| `GTM_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 de Tag Manager — 20 créations sur 24 heures. Absent ou illisible : l'écriture dans Tag Manager est fermée |
 | `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne |
 
 Un secret absent ne fait pas tomber le Worker : l'outil ou la page concernée **nomme** le

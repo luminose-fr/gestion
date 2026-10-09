@@ -80,6 +80,13 @@ CORPUS_ECRITURES_MAX_JOUR = "20"
 # Le jeton est un secret à part : GTM_REFRESH_TOKEN (scope tagmanager.readonly seul).
 GTM_CONTENEUR = "GTM-KG7VNQL"
 
+# Tag Manager, écrire — décision du 09/10/2026 (workers/mcp/decisions/2026-10-09-gtm-ecriture.md).
+# Créations permises sur 24 heures glissantes, à part des plafonds de Google Ads et du corpus.
+# Absent ou illisible, l'écriture dans Tag Manager est fermée ; la lecture continue. Le jeton
+# est un secret à part : GTM_ECRITURE_REFRESH_TOKEN (scope tagmanager.edit.containers seul —
+# ni version ni publication).
+GTM_ECRITURES_MAX_JOUR = "20"
+
 [observability]
 enabled = true
 

@@ -75,16 +75,16 @@ const demande = async (surcharges: Record<string, string | null> = {}) => {
   return `/authorize?${q}`;
 };
 
-const formulaire = (cookie: string, n: string, ecrire = false, corpus = false) => ({
+const formulaire = (cookie: string, n: string, ecrire = false, corpus = false, gtm = false) => ({
   method: 'POST',
   headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({ n, ...(ecrire ? { ecrire: '1' } : {}), ...(corpus ? { corpus: '1' } : {}) }).toString(),
+  body: new URLSearchParams({ n, ...(ecrire ? { ecrire: '1' } : {}), ...(corpus ? { corpus: '1' } : {}), ...(gtm ? { gtm: '1' } : {}) }).toString(),
 });
 
 /** Le parcours du navigateur, du consentement au retour de Google. */
 const connecter = async (
   env: EnvFactice,
-  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string; ecrire?: boolean; corpus?: boolean } = {},
+  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string; ecrire?: boolean; corpus?: boolean; gtm?: boolean } = {},
 ) => {
   const appels = simulerExterieur({ identite: options.identite });
   const consentement = await appeler(env, await demande({
@@ -96,7 +96,7 @@ const connecter = async (
   const html = await consentement.text();
   const n = /name="n" value="([^"]+)"/.exec(html)![1];
 
-  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n, options.ecrire, options.corpus));
+  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n, options.ecrire, options.corpus, options.gtm));
   const google = new URL(versGoogle.headers.get('Location')!);
   // Le bouton réécrit le cookie : il y range les scopes choisis (V8).
   const cookieChoisi = versGoogle.headers.get('Set-Cookie')?.split(';')[0] ?? cookie;
@@ -419,8 +419,8 @@ describe('parcours complet', () => {
 describe('V8 — l’écriture s’accorde sur la page de consentement, case cochée', () => {
   const ecrireCoche = (html: string) => /name="ecrire" value="1" checked/.test(html);
 
-  const jetonsApres = async (env: EnvFactice, ecrire: boolean, corpus = false) => {
-    const { retour } = await connecter(env, { ecrire, corpus });
+  const jetonsApres = async (env: EnvFactice, ecrire: boolean, corpus = false, gtm = false) => {
+    const { retour } = await connecter(env, { ecrire, corpus, gtm });
     const reponse = await echanger(env, { grant_type: 'authorization_code', code: codeDe(retour), code_verifier: VERIFICATEUR, client_id: CLIENT_CIMD, redirect_uri: CLAUDE });
     return await reponse.json() as { access_token: string; scope?: string };
   };
@@ -481,16 +481,47 @@ describe('V8 — l’écriture s’accorde sur la page de consentement, case coc
     expect(await ecritureRefuseePourScope(env2, corpus.access_token)).toBe(true);
   });
 
+  /** Un outil d'écriture de Tag Manager refuse-t-il pour défaut de scope ? */
+  const gtmRefusePourScope = async (env: EnvFactice, jeton: string) => {
+    simulerFetch();
+    const appel = await appeler(env, '/mcp', requeteModerne(jeton, 'tools/call', {
+      name: 'gtm_declencheur_creer', arguments: { nom: 'Essai', type: 'evenement', evenement: 'essai' },
+    }));
+    const corps = await appel.json() as any;
+    return /L'écriture dans Tag Manager n'est pas accordée/.test(corps.result.content[0].text);
+  };
+
+  it('la case de Tag Manager est à part : cochée seulement si le client la demande, et elle seule ouvre l’écriture dans Tag Manager', async () => {
+    const env = creerEnv();
+    simulerExterieur();
+    const gtmCoche = (html: string) => /name="gtm" value="1" checked/.test(html);
+    expect(gtmCoche(await (await appeler(env, await demande({ scope: 'ads:lire ads:ecrire corpus:ecrire' }))).text())).toBe(false);
+    expect(gtmCoche(await (await appeler(env, await demande({ scope: 'ads:lire gtm:ecrire' }))).text())).toBe(true);
+
+    // Google Ads et le corpus : Tag Manager reste fermé.
+    const env1 = creerEnv();
+    const autres = await jetonsApres(env1, true, true);
+    expect(autres.scope).toBe('ads:lire ads:ecrire corpus:ecrire');
+    expect(await gtmRefusePourScope(env1, autres.access_token)).toBe(true);
+    // Tag Manager seul : il s'ouvre, et Google Ads comme le corpus restent fermés.
+    const env2 = creerEnv();
+    const gtm = await jetonsApres(env2, false, false, true);
+    expect(gtm.scope).toBe('ads:lire gtm:ecrire');
+    expect(await gtmRefusePourScope(env2, gtm.access_token)).toBe(false);
+    expect(await ecritureRefuseePourScope(env2, gtm.access_token)).toBe(true);
+    expect(await corpusRefusePourScope(env2, gtm.access_token)).toBe(true);
+  });
+
   it('sans la case du corpus, l’écriture du corpus est refusée', async () => {
     const env = creerEnv();
     const { access_token } = await jetonsApres(env, true, false);
     expect(await corpusRefusePourScope(env, access_token)).toBe(true);
   });
 
-  it('les trois scopes sont annoncés, sans en exiger aucun au départ', async () => {
+  it('les quatre scopes sont annoncés, sans en exiger aucun au départ', async () => {
     const env = creerEnv();
     const serveur = await (await appeler(env, '/.well-known/oauth-authorization-server')).json() as any;
-    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire', 'corpus:ecrire']);
+    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire', 'corpus:ecrire', 'gtm:ecrire']);
     const ressource = await (await appeler(env, '/.well-known/oauth-protected-resource/mcp')).json() as any;
     expect(ressource.scopes_supported).toBeUndefined();
   });

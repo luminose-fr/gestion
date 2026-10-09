@@ -24,7 +24,7 @@ import {
   type AuthRequest, type ConsentDescription,
 } from '@cloudflare/workers-oauth-provider';
 import { aleatoire, depuisBase64url, empreinte, signer, verifier } from './crypto';
-import { SCOPE_CORPUS, SCOPE_ECRITURE, SCOPE_LECTURE } from './ecriture';
+import { SCOPE_CORPUS, SCOPE_ECRITURE, SCOPE_LECTURE, SCOPE_TAG_MANAGER } from './ecriture';
 import { page, pageConsentement } from './pages';
 import { Refus } from './refus';
 import type { Env } from './env';
@@ -115,6 +115,7 @@ const afficherConsentement = async (requete: Request, env: Env): Promise<Respons
     description,
     ecrireCoche: demande.scope.includes(SCOPE_ECRITURE),
     corpusCoche: demande.scope.includes(SCOPE_CORPUS),
+    gtmCoche: demande.scope.includes(SCOPE_TAG_MANAGER),
     jeton: connexion.n,
     cookie: cookie(await signer('connexion', connexion, secret), DUREE_CONNEXION),
   });
@@ -131,13 +132,14 @@ const partirVersGoogle = async (requete: Request, env: Env): Promise<Response> =
 
   // V8 : l'écriture s'accorde ici, case cochée — jamais par effet de bord. Le
   // choix voyage dans le cookie, signé à nouveau, jusqu'au retour de Google.
-  // Deux cases, deux scopes : écrire dans Google Ads n'emporte pas le corpus, ni l'inverse.
+  // Une case par scope : écrire dans Google Ads n'emporte ni le corpus ni Tag Manager, et inversement.
   const choisie: Connexion = {
     ...connexion,
     s: [
       SCOPE_LECTURE,
       ...(formulaire.get('ecrire') === '1' ? [SCOPE_ECRITURE] : []),
       ...(formulaire.get('corpus') === '1' ? [SCOPE_CORPUS] : []),
+      ...(formulaire.get('gtm') === '1' ? [SCOPE_TAG_MANAGER] : []),
     ],
   };
   const secret = exiger(env.COOKIE_SIGNING_KEY, 'COOKIE_SIGNING_KEY');

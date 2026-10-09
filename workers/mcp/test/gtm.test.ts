@@ -8,12 +8,13 @@
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { cheminPermis, oublierConteneursGtm, type Conteneur } from '../src/gtm';
+import { oublierJetonsGoogle } from '../src/jeton-google';
 import { COMPTE, appelerOutil, creerEnv as creerEnvBase, simulerFetch, texteDe as texteBrut, type Appel, type EnvFactice } from './aides';
 import type { Env } from '../src/env';
 
 const texteDe = (corps: unknown) => texteBrut(corps).replace(/[  ]/g, ' ');
 
-beforeEach(() => { oublierConteneursGtm(); });
+beforeEach(() => { oublierConteneursGtm(); oublierJetonsGoogle(); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 const API = 'https://tagmanager.googleapis.com/tagmanager/v2';
@@ -64,10 +65,17 @@ const CONVERSIONS = [
 
 type Monde = { balises?: unknown[]; espaces?: unknown[]; conteneur?: Record<string, unknown>; erreur?: { statut: number; corps: unknown } };
 
-const simulerGtm = (monde: Monde = {}) => simulerFetch(({ url, corps }) => {
+/** Google rend les scopes de chaque jeton : celui de Tag Manager est vérifié à chaque service (G1). */
+const SCOPES: Record<string, string> = {
+  'refresh-gtm': 'https://www.googleapis.com/auth/tagmanager.readonly',
+  'refresh-ads': 'https://www.googleapis.com/auth/adwords',
+};
+
+const simulerGtm = (monde: Monde & { scopes?: string } = {}) => simulerFetch(({ url, corps }) => {
   if (url === 'https://oauth2.googleapis.com/token') {
-    const refresh = new URLSearchParams(corps).get('refresh_token');
-    return Response.json({ access_token: refresh === 'refresh-gtm' ? 'acces-gtm' : 'acces-ads', expires_in: 3599 });
+    const refresh = new URLSearchParams(corps).get('refresh_token') ?? '';
+    const scope = refresh === 'refresh-gtm' && 'scopes' in monde ? monde.scopes : SCOPES[refresh];
+    return Response.json({ access_token: refresh === 'refresh-gtm' ? 'acces-gtm' : 'acces-ads', expires_in: 3599, ...(scope === undefined ? {} : { scope }) });
   }
   if (url.endsWith(':search')) {
     const q: string = JSON.parse(corps).query;
@@ -138,6 +146,27 @@ describe('NORMATIF — Tag Manager, les verrous', () => {
     const ads = appels.filter((a) => a.url.startsWith('https://googleads.'));
     expect(ads.length).toBeGreaterThan(0);
     expect(ads.every((a) => a.entetes.authorization === 'Bearer acces-ads')).toBe(true);
+  });
+
+  it('un jeton de lecture qui porte plus que la lecture, ou dont Google tait les scopes, ferme Tag Manager avant tout appel', async () => {
+    for (const scopes of [
+      'https://www.googleapis.com/auth/tagmanager.readonly https://www.googleapis.com/auth/tagmanager.edit.containers',
+      'https://www.googleapis.com/auth/tagmanager.publish',
+      undefined,
+    ]) {
+      oublierJetonsGoogle();
+      const appels = simulerGtm({ scopes });
+      const { corps } = await appelerOutil(creerEnv(), 'gtm_conteneur', {});
+      expect(corps.result.isError, String(scopes)).toBe(true);
+      expect(texteDe(corps), String(scopes)).toMatch(scopes
+        ? /Le jeton de lecture de Tag Manager porte aussi https:\/\/www\.googleapis\.com\/auth\/tagmanager\.(edit\.containers|publish) .* Tag Manager est fermé\. Régénérez GTM_REFRESH_TOKEN/
+        : /Google ne dit pas les scopes du jeton de lecture de Tag Manager/);
+      expect(versGtm(appels), String(scopes)).toEqual([]);
+    }
+    // Sans la lecture elle-même : refus aussi.
+    oublierJetonsGoogle();
+    simulerGtm({ scopes: 'openid email' });
+    expect(texteDe((await appelerOutil(creerEnv(), 'gtm_conteneur', {})).corps)).toMatch(/n'a pas le scope https:\/\/www\.googleapis\.com\/auth\/tagmanager\.readonly/);
   });
 
   it('rien que des GET, et rien d’autre que le conteneur de GTM_CONTENEUR — quel que soit l’outil', async () => {
@@ -249,7 +278,8 @@ describe('gtm_lire', () => {
     expect(t).toMatch(/- Déclenchée par : « All Pages \(toutes les pages\) »/);
     expect(t).toMatch(/- conversionId = \{\{ID Google Ads\}\}/);
     expect(t).toMatch(/- html = <script>x{292}… \(1017 caractères\)/);
-    expect(t).toMatch(/### « Achat confirmé » — Événement personnalisé \(customEvent\) — \{\{_event\}\} égale « achat »\n- Balises : « Conversion — Achat », « Conversion — Variable »/);
+    // Le numéro d'un déclencheur : ce que les outils qui créent une balise attendent.
+    expect(t).toMatch(/### « Achat confirmé » \(n° 22\) — Événement personnalisé \(customEvent\) — \{\{_event\}\} égale « achat »\n- Balises : « Conversion — Achat », « Conversion — Variable »/);
     expect(t).toMatch(/### \{\{ID Google Ads\}\} — Constante \(c\)\n- value = 1234567890/);
     expect(t).toMatch(/Variables intégrées activées : \{\{Page Path\}\}, \{\{Event\}\}\./);
   });

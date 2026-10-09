@@ -5,7 +5,9 @@
  * conversion avec les conversions Google Ads actives — les deux côtés lus
  * par le serveur, là où une recopie d'identifiant se trompe en silence.
  *
- * Aucun n'écrit. L'accès, sa table fermée et ses refus sont gtm.ts.
+ * Aucun n'écrit : l'écriture, dans l'espace « [Claude] », est
+ * outils-gtm-ecriture.ts (09/10/2026). L'accès, ses tables fermées et ses
+ * refus sont gtm.ts.
  */
 import { z } from 'zod';
 import {
@@ -62,7 +64,7 @@ const TYPES_DECLENCHEURS: Record<string, string> = {
 };
 
 /** Les déclencheurs intégrés de GTM : absents des listes, présents dans les balises par leur identifiant. */
-const DECLENCHEURS_INTEGRES: Record<string, string> = {
+export const DECLENCHEURS_INTEGRES: Record<string, string> = {
   2147479553: 'All Pages (toutes les pages)',
   2147479572: 'Consent Initialization - All Pages',
   2147479573: 'Initialization - All Pages',
@@ -105,7 +107,7 @@ const OPERATEURS: Record<string, string> = {
 const nomType = (table: Record<string, string>, t: string | undefined) =>
   (!t ? '?' : table[t] ? `${table[t]} (${t})` : t.startsWith('cvt_') ? `modèle personnalisé (${t})` : t);
 
-const param = (ps: Parametre[] | undefined, cle: string) => ps?.find((p) => p.key === cle)?.value;
+export const param = (ps: Parametre[] | undefined, cle: string) => ps?.find((p) => p.key === cle)?.value;
 
 const couper = (t: string, max: number) => (t.length > max ? `${t.slice(0, max)}… (${t.length} caractères)` : t);
 
@@ -122,12 +124,12 @@ const condition = (c: Condition): string => {
   return `${non ? 'NON ' : ''}${param(c.parameter, 'arg0') ?? '?'} ${op} « ${param(c.parameter, 'arg1') ?? ''} »`;
 };
 
-const resumeDeclencheur = (d: Declencheur): string => {
+export const resumeDeclencheur = (d: Declencheur): string => {
   const conditions = [...(d.customEventFilter ?? []), ...(d.filter ?? []), ...(d.autoEventFilter ?? [])].map(condition);
   return `${nomType(TYPES_DECLENCHEURS, d.type)}${conditions.length ? ` — ${conditions.join(' ET ')}` : ''}`;
 };
 
-const indexDeclencheurs = (c: Contenu) => new Map(c.declencheurs.map((d) => [String(d.triggerId), d]));
+export const indexDeclencheurs = (c: Contenu) => new Map(c.declencheurs.map((d) => [String(d.triggerId), d]));
 
 const nomDeclencheur = (id: string, index: Map<string, Declencheur>): string => {
   if (DECLENCHEURS_INTEGRES[id]) return `« ${DECLENCHEURS_INTEGRES[id]} »`;
@@ -142,8 +144,8 @@ const normal = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLower
 
 type Quoi = 'tout' | 'balises' | 'declencheurs' | 'variables';
 
-const blocBalise = (b: Balise, index: Map<string, Declencheur>, max: number): string[] => [
-  `### « ${b.name ?? '?'} » — ${nomType(TYPES_BALISES, b.type)}${b.paused ? ' — EN PAUSE' : ''}`,
+export const blocBalise = (b: Balise, index: Map<string, Declencheur>, max: number): string[] => [
+  `### « ${b.name ?? '?'} »${b.tagId ? ` (n° ${b.tagId})` : ''} — ${nomType(TYPES_BALISES, b.type)}${b.paused ? ' — EN PAUSE' : ''}`,
   `- Déclenchée par : ${b.firingTriggerId?.length ? b.firingTriggerId.map((id) => nomDeclencheur(id, index)).join(', ') : 'AUCUN DÉCLENCHEUR — elle ne part jamais'}`,
   ...(b.blockingTriggerId?.length ? [`- Bloquée par : ${b.blockingTriggerId.map((id) => nomDeclencheur(id, index)).join(', ')}`] : []),
   ...(b.setupTag?.length ? [`- Après : ${b.setupTag.map((s) => `« ${s.tagName ?? '?'} »`).join(', ')}`] : []),
@@ -154,7 +156,7 @@ const blocBalise = (b: Balise, index: Map<string, Declencheur>, max: number): st
 ];
 
 const blocDeclencheur = (d: Declencheur, utilisateurs: string[], max: number): string[] => [
-  `### « ${d.name ?? '?'} » — ${resumeDeclencheur(d)}`,
+  `### « ${d.name ?? '?'} »${d.triggerId ? ` (n° ${d.triggerId})` : ''} — ${resumeDeclencheur(d)}`,
   `- Balises : ${utilisateurs.length ? utilisateurs.map((n) => `« ${n} »`).join(', ') : 'aucune'}`,
   ...(d.parameter ?? []).map((p) => `- ${p.key ?? '?'} = ${valeur(p, max)}`),
 ];
@@ -210,7 +212,8 @@ const conteneur = outil({
     'exécute —, le nombre de balises par type, de déclencheurs et de variables, et ses espaces de travail avec ce qu’ils changent ' +
     'sans être publiés. Le détail se lit avec gtm_lire ; la comparaison avec les conversions Google Ads, avec gtm_verifier_conversions.',
     '',
-    'Ce serveur ne modifie ni ne publie rien dans Tag Manager : son jeton ne le permet pas.',
+    'Ce serveur ne publie rien dans Tag Manager : son jeton ne le permet pas. Il peut seulement préparer, dans l’espace de travail ' +
+    '« [Claude] », des déclencheurs et des balises (gtm_declencheur_creer, gtm_conversion_creer, gtm_evenement_ga4_creer), que Florent publie.',
   ].join('\n'),
   schema: z.object({}).strict(),
   annotations: LECTURE,
@@ -251,8 +254,9 @@ const lire = outil({
   name: 'gtm_lire',
   title: 'Google Tag Manager — balises, déclencheurs, variables',
   description: [
-    'Le contenu du conteneur Google Tag Manager du site, en LECTURE seule : chaque balise avec son type, ses déclencheurs ' +
-    '(conditions comprises), ses paramètres, son état ; chaque déclencheur avec les balises qu’il fait partir ; chaque variable.',
+    'Le contenu du conteneur Google Tag Manager du site, en LECTURE seule : chaque balise avec son numéro, son type, ses déclencheurs ' +
+    '(conditions comprises), ses paramètres, son état ; chaque déclencheur avec son numéro et les balises qu’il fait partir ; chaque variable. ' +
+    'Le numéro d’un déclencheur est ce que gtm_conversion_creer et gtm_evenement_ga4_creer attendent.',
     '',
     'Par défaut, la version en ligne : ce que le site exécute. Avec espace (identifiant donné par gtm_conteneur) : ce qu’un espace ' +
     'de travail publierait. quoi restreint à balises, declencheurs ou variables ; recherche filtre sur le nom, sans tenir compte ' +
@@ -293,12 +297,12 @@ const lire = outil({
 // ── gtm_verifier_conversions ─────────────────────────────────────────────
 
 /** `AW-11038825595/m_WhCOKjvIcYEPu43I8p` — dans un extrait d'événement Google Ads comme dans une balise. */
-const ENVOI = /AW-(\d+)\/([A-Za-z0-9_-]+)/;
+export const ENVOI = /AW-(\d+)\/([A-Za-z0-9_-]+)/;
 
 type LigneConversion = {
   conversionAction?: { id?: string; name?: string; type?: string; tagSnippets?: { eventSnippet?: string }[] };
 };
-type Attendue = { nom: string; type: string; aw?: string; libelle?: string };
+type Attendue = { id?: string; nom: string; type: string; aw?: string; libelle?: string };
 /** `variables` : celles qui ne se résolvent qu'au chargement de la page. */
 type BaliseConversion = { balise: Balise; aw?: string; libelle?: string; variables: string[] };
 
@@ -307,7 +311,7 @@ type BaliseConversion = { balise: Balise; aw?: string; libelle?: string; variabl
  * `{{ID Google Ads}}` est souvent une variable de type « c ». Une autre
  * variable ne se résout qu'au chargement de la page : elle reste nommée.
  */
-const resoudre = (v: string | undefined, variables: Variable[]): { valeur?: string; via?: string } => {
+export const resoudre = (v: string | undefined, variables: Variable[]): { valeur?: string; via?: string } => {
   const m = /^\{\{(.+)\}\}$/.exec((v ?? '').trim());
   if (!m) return { valeur: v?.trim() };
   const variable = variables.find((x) => x.name === m[1]);
@@ -316,7 +320,7 @@ const resoudre = (v: string | undefined, variables: Variable[]): { valeur?: stri
 
 const TYPES_CONVERSION = ['awct', 'awcc'];
 
-const balisesDeConversion = (contenu: Contenu): BaliseConversion[] => contenu.balises
+export const balisesDeConversion = (contenu: Contenu): BaliseConversion[] => contenu.balises
   .filter((b) => TYPES_CONVERSION.includes(b.type ?? ''))
   .map((b) => {
     const id = resoudre(param(b.parameter, 'conversionId'), contenu.variables);
@@ -340,7 +344,8 @@ const verifier = outil({
     'Google Tag Manager du site : pour chaque conversion mesurée sur le site, la balise qui porte son identifiant et son libellé ' +
     '(AW-…/…), active ou en pause, et ses déclencheurs. Signale les conversions sans balise, les balises en double, en pause ou ' +
     'sans déclencheur, les balises dont le libellé ne correspond à aucune conversion active, et la présence de la balise Google ' +
-    'et du linker de conversion. Les identifiants passés par une variable constante sont résolus.',
+    'et du linker de conversion. Les identifiants passés par une variable constante sont résolus. Chaque conversion porte son ' +
+    'numéro : c’est lui que gtm_conversion_creer attend pour créer la balise qui manque.',
     '',
     'Par défaut, la version en ligne : ce que le site exécute. Avec espace : ce qu’un espace de travail publierait.',
   ].join('\n'),
@@ -363,7 +368,7 @@ const verifier = outil({
 
     const attendues: Attendue[] = ((reponse.results ?? []) as LigneConversion[]).map(({ conversionAction: a = {} }) => {
       const envoi = (a.tagSnippets ?? []).map((s) => ENVOI.exec(s.eventSnippet ?? '')).find(Boolean);
-      return { nom: a.name ?? a.id ?? '?', type: a.type ?? '?', aw: envoi?.[1], libelle: envoi?.[2] };
+      return { id: a.id, nom: a.name ?? a.id ?? '?', type: a.type ?? '?', aw: envoi?.[1], libelle: envoi?.[2] };
     });
     const balises = balisesDeConversion(contenu);
     const index = indexDeclencheurs(contenu);
@@ -379,7 +384,8 @@ const verifier = outil({
     const lignesSite = surLeSite.map((a) => {
       const trouvees = balises.filter((b) => correspond(a, b));
       const actives = trouvees.filter((b) => !b.balise.paused && b.balise.firingTriggerId?.length);
-      const tete = `« ${a.nom} » (${a.type}, AW-${a.aw}/${a.libelle})`;
+      // Le numéro : c'est lui que gtm_conversion_creer attend pour une conversion qui manque.
+      const tete = `« ${a.nom} » (${a.id ? `n° ${a.id}, ` : ''}${a.type}, AW-${a.aw}/${a.libelle})`;
       if (trouvees.length === 0) { manque++; return `- MANQUE — ${tete} : aucune balise dans ${contenu.source}.`; }
       const detail = trouvees.map((b) => `balise « ${b.balise.name ?? '?'} » ${etatBalise(b.balise, index)}`).join(' ; ');
       if (actives.length === 1) { ok++; return `- OK — ${tete} : ${detail}.`; }
