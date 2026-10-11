@@ -585,7 +585,8 @@ describe('NORMATIF — gtm_conversion_creer : l’identifiant et le libellé vie
       [{ declencheurs: ['2147479573'] }, /« Initialization - All Pages » : réservé aux balises de configuration/],
       [{ declencheurs: ['21'], donnees_utilisateur: 'dl.prix' }, /\{\{dl\.prix\}\} n'est pas une variable « Données fournies par l'utilisateur »/],
       [{ declencheurs: ['21'], valeur: 10, valeur_variable: 'dl.prix' }, /`valeur` OU `valeur_variable`/],
-      [{ declencheurs: ['2147479553'] }, /^APERÇU/],
+      // Toutes les pages : permis, mais dit — une conversion y compterait chaque page vue (essai du 09/10/2026).
+      [{ declencheurs: ['2147479553'] }, /^APERÇU[\s\S]*ATTENTION — « All Pages » : cette conversion compterait chaque page vue du site/],
     ] as const) {
       const { corps } = await appelerOutil(env, 'gtm_conversion_creer', { conversion: '502', ...args }, GTM);
       expect(texteDe(corps), JSON.stringify(args)).toMatch(raison);

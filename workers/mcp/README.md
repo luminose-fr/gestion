@@ -12,14 +12,16 @@ porte, et y écrit par commit, dans les mêmes deux temps. Voir « Le corpus »,
 Depuis le 08/10/2026, il lit **le conteneur Google Tag Manager** du site, et le compare aux
 conversions Google Ads. Depuis le 09/10/2026, il y **prépare** des déclencheurs et des
 balises, dans un espace de travail « [Claude] » que Florent publie : ce serveur ne publie
-rien. Voir « Google Tag Manager », plus bas.
+rien. Depuis le 11/10/2026, il y **modifie** aussi une balise existante, de trois façons —
+la mettre en pause, lui ajouter un déclencheur, couper un `send_page_view` en double. Voir
+« Google Tag Manager », plus bas.
 
 Adresse du connecteur : **`https://mcp.luminose.fr/mcp`** — avec `/mcp`, au caractère près.
 
 ```
 Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche B)──▶ API Google Ads v25
                                           ├─(jeton GitHub, couche C)──▶ dépôt luminose-fr/gestion
-                                          └─(2 refresh tokens, couche D)─▶ API Tag Manager v2 : lire ; créer dans « [Claude] »
+                                          └─(2 refresh tokens, couche D)─▶ API Tag Manager v2 : lire ; créer et modifier dans « [Claude] »
 ```
 
 - **Couche A** — Claude vers ce Worker, par
@@ -35,7 +37,7 @@ Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche
   secret, **le sien** : pas celui de la console ([src/github.ts](src/github.ts)).
 - **Couche D** — ce Worker vers Google Tag Manager. Deux refresh tokens à part : l'un,
   scope `tagmanager.readonly` seul, pour lire ; l'autre, `tagmanager.edit.containers` seul,
-  pour créer dans un espace de travail — ni version ni publication. Le serveur vérifie
+  pour créer et modifier dans un espace de travail — ni version ni publication. Le serveur vérifie
   les scopes de chacun à chaque service ([src/gtm.ts](src/gtm.ts)).
 
 ### Qui fait quoi dans la couche A
@@ -88,10 +90,11 @@ Rien n'est en cours. Dans l'ordre où ils ont été décidés :
 2. **Lot 3 — Performance Max.** À cadrer : rien n'est décidé.
 3. **Lot 5 — modifier un budget** (`ads_budget_modifier`), l'ancien lot 3 du cadrage du
    02/10/2026.
-4. **Google Tag Manager — modifier** (lot 3 de Tag Manager) : mettre en pause une balise,
-   ajouter un déclencheur à une balise existante, retirer le second `send_page_view` vers
-   GA4. À cadrer : toucher à une balise de Florent n'est pas en créer une marquée
-   ([decisions/2026-10-09-gtm-ecriture.md](decisions/2026-10-09-gtm-ecriture.md), §5).
+
+Tag Manager — modifier, le lot 3 de Tag Manager, est livré le 11/10/2026 (« Google Tag
+Manager — modifier », plus bas). Reste à y regarder, sans rien de décidé : la balise
+« FB_CONVERSIONS_API-…-GA4_Event » (n° 56), qui envoie à GA4 chaque événement de la couche
+de données ([decisions/2026-10-11-gtm-modifier.md](decisions/2026-10-11-gtm-modifier.md), §1).
 
 **Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
 une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une annonce
@@ -419,7 +422,8 @@ Décision du 09/10/2026 : [decisions/2026-10-09-gtm-ecriture.md](decisions/2026-
 **Claude prépare, Florent publie** — ici au sens propre : tout se crée dans l'espace de
 travail « [Claude] » du conteneur, ouvert au premier besoin, et Florent le publie dans Tag
 Manager. Ce serveur ne peut ni publier ni créer de version : son jeton ne le permet pas.
-Rien ne s'y modifie ni ne s'y supprime.
+Rien ne s'y supprime ; une balise existante s'y modifie de trois façons, et de trois
+seulement (« Google Tag Manager — modifier », plus bas).
 
 | Outil | Ce qu'il crée |
 | :--- | :--- |
@@ -461,6 +465,47 @@ Relire le journal :
 ```bash
 npx wrangler d1 execute luminose-mcp --remote --command "SELECT id, datetime(created_at/1000, 'unixepoch') AS quand, outil, issue, erreur FROM gtm_ecritures ORDER BY id DESC LIMIT 20"
 ```
+
+## Google Tag Manager — modifier
+
+Décision du 11/10/2026 : [decisions/2026-10-11-gtm-modifier.md](decisions/2026-10-11-gtm-modifier.md).
+Une balise existante se modifie dans le même espace « [Claude] », avec le même jeton, le
+même journal, le même plafond et la même case de consentement que les créations — de trois
+façons, et d'aucune autre. Ni rétablir, ni retirer, ni supprimer, ni toucher au code.
+
+| Outil | Ce qu'il modifie |
+| :--- | :--- |
+| `gtm_mettre_en_pause` | met en pause une balise de mesure : conversion, appel, remarketing, événement ou configuration GA4, Universal Analytics, Floodlight |
+| `gtm_declencheurs_ajouter` | ajoute un à cinq déclencheurs à une conversion Google Ads ou un événement GA4, à la suite des siens |
+| `gtm_pages_vues_couper` | `send_page_view` à `false` sur une balise Google GA4, quand une autre continue d'envoyer les pages vues |
+
+**Le nom de la balise ne change pas** — c'est celui de Florent. La marque va dans ses notes :
+une ligne « [Claude] … — *raison* », la raison étant exigée. Le journal garde la balise
+d'avant, entière, pour la rétablir à la main.
+
+**La balise est relue à l'exécution**, puisque le corps envoyé, c'est elle, entière : changée
+depuis l'aperçu, rien ne part. Puis la couche D la relit encore, juste avant le PUT, et passe
+son empreinte à Tag Manager, qui refuse une balise changée entre-temps.
+
+Pour le second `send_page_view` du conteneur réel : `gtm_pages_vues_couper balise = "55"` —
+« GA - Init » part plus tôt et reste. Avant de publier, vérifier que l'intégration Meta ne lit
+pas ses pages vues dans GA4 (§4 de la décision).
+
+| | Verrou | Où |
+| :--- | :--- | :--- |
+| G13 | un PUT, sur une balise de l'espace « [Claude] », avec l'empreinte que la couche D vient de relire — ni déclencheur, ni variable, ni `:revert`, ni DELETE | [src/gtm.ts](src/gtm.ts) `cheminModificationPermis`, `modifierBaliseGtm` |
+| G14 | le corps est la balise relue, sans les champs que Tag Manager tient à jour ; il n'en diffère que du champ demandé et d'une ligne de notes — joué à l'aperçu, rejoué juste avant le PUT | [src/gtm.ts](src/gtm.ts) `modificationRefusee` |
+| G15 | pause : balises de mesure seulement, jamais la balise Google, le linker, du HTML, une image ni un modèle (le mode Consentement en est un) ; jamais rétablir. Déclencheurs : à `awct` et `gaawe`, à la suite, ni initialisation ni bloquant | [src/gtm.ts](src/gtm.ts), [src/outils-gtm-modification.ts](src/outils-gtm-modification.ts) |
+| G16 | `send_page_view` passe à `false`, rien d'autre ; jamais la dernière balise Google qui envoie les pages vues à cet identifiant — revérifié à l'exécution | [src/gtm.ts](src/gtm.ts) `couperPagesVues`, [src/outils-gtm-modification.ts](src/outils-gtm-modification.ts) |
+| G17 | le nom ne change pas ; une ligne « [Claude] … — raison » s'ajoute aux notes ; le journal garde la balise d'avant | [src/gtm.ts](src/gtm.ts) `noter`, [src/ecriture-gtm.ts](src/ecriture-gtm.ts) |
+
+Chaque verrou a son test NORMATIF ([test/gtm-modification.test.ts](test/gtm-modification.test.ts)),
+et chacun a été vérifié en le cassant : son test échoue.
+
+### Mise en place de la modification — ce que Florent fait
+
+Rien de neuf à poser : ni jeton, ni migration, ni case à cocher. Depuis la racine, sur la VM :
+`./scripts/deploy.sh mcp`, puis une **nouvelle** conversation Claude.
 
 ## Mise en place — ce que Florent fait, dans cet ordre
 

@@ -191,12 +191,15 @@ describe('NORMATIF — Tag Manager, les verrous', () => {
       '/accounts/6001/containers/7001/versions:live', '/accounts/6001/containers/7001/workspaces',
       '/accounts/6001/containers/7001/workspaces/3/status', '/accounts/6001/containers/7001/workspaces/3/tags',
       '/accounts/6001/containers/7001/workspaces/3/tags?pageToken=abc%3D', '/accounts/6001/containers/7001/workspaces/3/built_in_variables',
+      // Une balise seule, depuis le 11/10/2026 : celle qu'on modifie, relue juste avant. En lecture, comme le reste.
+      '/accounts/6001/containers/7001/workspaces/3/tags/5',
     ]) expect(cheminPermis(chemin, c), chemin).toBe(true);
     for (const chemin of [
       '/accounts/6001/containers/7002/versions:live', '/accounts/6002/containers/7001/versions:live',
       '/accounts/6001/containers/7001/../7002/versions:live', '/accounts/6001/containers/70011/versions:live',
       '/accounts/6001/containers/7001/versions/12:publish', '/accounts/6001/containers/7001/workspaces/3:create_version',
-      '/accounts/6001/containers/7001/workspaces/3/tags/5', '/accounts/6001/containers/7001/workspaces/3:quick_preview',
+      '/accounts/6001/containers/7001/workspaces/3/tags/5?fingerprint=1', '/accounts/6001/containers/7001/workspaces/3/triggers/5',
+      '/accounts/6001/containers/7001/workspaces/3/tags/5:revert', '/accounts/6001/containers/7001/workspaces/3:quick_preview',
       '/accounts/6001/user_permissions', '/accounts/containers:lookup?destinationId=AW-1', '/accounts/6001/containers/7001',
       '/accounts/6001/containers/7001/workspaces/3/tags?pageToken=a&x=1',
     ]) expect(cheminPermis(chemin, c), chemin).toBe(false);

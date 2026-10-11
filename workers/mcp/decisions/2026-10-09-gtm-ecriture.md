@@ -1,10 +1,13 @@
 # Décision — serveur MCP : Google Tag Manager, préparer (lot 2)
 
 > **Statut : demandé par Florent le 09/10/2026 (« le lot suivant »), le lendemain du
-> déploiement du lot 1 ; livré le même jour, non déployé.** Cadré sur la proposition du
+> déploiement du lot 1 ; livré le même jour, puis déployé et essayé en aperçu sur le
+> conteneur réel : un déclencheur, deux conversions — dont le refus G11 attendu —, un
+> événement GA4. Aucune exécution encore.** Cadré sur la proposition du
 > 08/10/2026 ([2026-10-08-gtm.md](2026-10-08-gtm.md), §6), ajustée à ce que la première
 > lecture du conteneur réel a montré. Ce lot CRÉE, dans un espace de travail « [Claude] »,
-> des déclencheurs et des balises ; il ne modifie, ne supprime ni ne publie rien.
+> des déclencheurs et des balises ; il ne modifie, ne supprime ni ne publie rien. Modifier :
+> le lot 3, [2026-10-11-gtm-modifier.md](2026-10-11-gtm-modifier.md).
 
 ## 1. Ce que la première lecture a montré (09/10/2026)
 
@@ -142,6 +145,7 @@ Les numéros de déclencheurs se lisent dans `gtm_lire` ; celui d'une conversion
 - **Modifier** (PUT, avec l'empreinte `fingerprint`) : mettre en pause une balise, ajouter un
   déclencheur à une balise existante, retirer le second `send_page_view`. C'est le lot 3 de
   Tag Manager, à cadrer : toucher à une balise de Florent n'est pas en créer une marquée.
+  **Cadré et livré le 11/10/2026 : [2026-10-11-gtm-modifier.md](2026-10-11-gtm-modifier.md).**
 - **Créer une variable, activer une variable intégrée** : une variable « JavaScript
   personnalisé » est du code ; les autres, à cadrer si le besoin vient.
 

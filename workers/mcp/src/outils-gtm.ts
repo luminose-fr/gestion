@@ -6,8 +6,8 @@
  * par le serveur, là où une recopie d'identifiant se trompe en silence.
  *
  * Aucun n'écrit : l'écriture, dans l'espace « [Claude] », est
- * outils-gtm-ecriture.ts (09/10/2026). L'accès, ses tables fermées et ses
- * refus sont gtm.ts.
+ * outils-gtm-ecriture.ts (09/10/2026) et outils-gtm-modification.ts
+ * (11/10/2026). L'accès, ses tables fermées et ses refus sont gtm.ts.
  */
 import { z } from 'zod';
 import {
@@ -131,7 +131,7 @@ export const resumeDeclencheur = (d: Declencheur): string => {
 
 export const indexDeclencheurs = (c: Contenu) => new Map(c.declencheurs.map((d) => [String(d.triggerId), d]));
 
-const nomDeclencheur = (id: string, index: Map<string, Declencheur>): string => {
+export const nomDeclencheur = (id: string, index: Map<string, Declencheur>): string => {
   if (DECLENCHEURS_INTEGRES[id]) return `« ${DECLENCHEURS_INTEGRES[id]} »`;
   const d = index.get(id);
   return d ? `« ${d.name ?? '?'} » (${resumeDeclencheur(d)})` : `n° ${id} (introuvable)`;
@@ -213,7 +213,8 @@ const conteneur = outil({
     'sans être publiés. Le détail se lit avec gtm_lire ; la comparaison avec les conversions Google Ads, avec gtm_verifier_conversions.',
     '',
     'Ce serveur ne publie rien dans Tag Manager : son jeton ne le permet pas. Il peut seulement préparer, dans l’espace de travail ' +
-    '« [Claude] », des déclencheurs et des balises (gtm_declencheur_creer, gtm_conversion_creer, gtm_evenement_ga4_creer), que Florent publie.',
+    '« [Claude] », des déclencheurs et des balises (gtm_declencheur_creer, gtm_conversion_creer, gtm_evenement_ga4_creer), et y ' +
+    'modifier une balise existante (gtm_mettre_en_pause, gtm_declencheurs_ajouter, gtm_pages_vues_couper), ce que Florent publie.',
   ].join('\n'),
   schema: z.object({}).strict(),
   annotations: LECTURE,
@@ -256,7 +257,8 @@ const lire = outil({
   description: [
     'Le contenu du conteneur Google Tag Manager du site, en LECTURE seule : chaque balise avec son numéro, son type, ses déclencheurs ' +
     '(conditions comprises), ses paramètres, son état ; chaque déclencheur avec son numéro et les balises qu’il fait partir ; chaque variable. ' +
-    'Le numéro d’un déclencheur est ce que gtm_conversion_creer et gtm_evenement_ga4_creer attendent.',
+    'Le numéro d’un déclencheur est ce que gtm_conversion_creer et gtm_evenement_ga4_creer attendent ; celui d’une balise, ce ' +
+    'qu’attendent gtm_mettre_en_pause, gtm_declencheurs_ajouter et gtm_pages_vues_couper.',
     '',
     'Par défaut, la version en ligne : ce que le site exécute. Avec espace (identifiant donné par gtm_conteneur) : ce qu’un espace ' +
     'de travail publierait. quoi restreint à balises, declencheurs ou variables ; recherche filtre sur le nom, sans tenir compte ' +

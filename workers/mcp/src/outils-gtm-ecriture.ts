@@ -4,7 +4,8 @@
  * CRÉENT dans l'espace de travail « [Claude] » du conteneur, et rien
  * d'autre : un déclencheur, une balise de conversion Google Ads, une balise
  * d'événement GA4. Florent relit l'espace dans Tag Manager et le publie ; ce
- * serveur ne le peut pas.
+ * serveur ne le peut pas. Modifier une balise existante : outils-gtm-modification.ts
+ * (11/10/2026).
  *
  * Ce que le modèle ne recopie jamais : l'identifiant et le libellé d'une
  * conversion, lus dans Google Ads ; l'identifiant de mesure GA4, lu dans les
@@ -23,7 +24,7 @@ import { marquer } from './regles';
 import { Refus } from './refus';
 import type { Env } from './env';
 
-const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+export const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
 const DEUX_TEMPS =
   'Deux temps, toujours. 1) Appeler SANS jeton : rien ne part, l’outil rend un aperçu — ce qui serait créé, paramètre par ' +
@@ -34,12 +35,13 @@ const DANS_L_ESPACE =
   'Tout se crée dans l’espace de travail « [Claude] » du conteneur, ouvert au premier besoin — jamais dans « Default Workspace », ' +
   'jamais en ligne. Ce serveur ne peut ni publier ni créer de version : son jeton ne le permet pas. Florent relit l’espace dans ' +
   'Tag Manager et le publie ; gtm_verifier_conversions et gtm_lire, avec espace = son identifiant, montrent ce qu’il publierait. ' +
-  'Rien ne se modifie ni ne se supprime par ce serveur.';
+  'Rien ne se supprime par ce serveur ; une balise existante ne se modifie que par gtm_mettre_en_pause, gtm_declencheurs_ajouter ' +
+  'et gtm_pages_vues_couper.';
 
 const RIEN_NE_PART =
   `Rien ne part sur le site : l'élément n'existera que dans l'espace « ${ESPACE_CLAUDE} », que Florent relit et publie dans Tag Manager.`;
 
-const ID = z.string().regex(/^\d{1,20}$/, 'identifiant numérique');
+export const ID = z.string().regex(/^\d{1,20}$/, 'identifiant numérique');
 const NOM = z.string().min(1).max(100).regex(/^[^<>]+$/, 'sans < ni >');
 const NOM_VARIABLE = z.string().min(1).max(100).regex(/^[^{}<>]+$/, 'le nom seul, sans accolades');
 const DECLENCHEURS = z.array(ID).min(1).max(5)
@@ -48,6 +50,16 @@ const DECLENCHEURS = z.array(ID).min(1).max(5)
 
 /** Le déclencheur intégré « All Pages » — le seul permis à une balise créée ici. */
 const TOUTES_LES_PAGES = '2147479553';
+
+/**
+ * Une conversion sur toutes les pages compte chaque page vue : presque toujours
+ * une erreur, parfois voulu. Dit, pas refusé — l'essai du 09/10/2026 l'a montré
+ * dans un aperçu qui n'en disait rien.
+ */
+export const avertirToutesLesPages = (type: string, ids: string[]): string[] => (type === 'awct' && ids.includes(TOUTES_LES_PAGES)
+  ? ['ATTENTION — « All Pages » : cette conversion compterait chaque page vue du site. Un déclencheur sur la page de confirmation ' +
+    'est presque toujours ce qu’il faut.']
+  : []);
 const NOTES = 'Préparé par Claude (serveur MCP mcp.luminose.fr), dans une conversation. Relire avant de publier.';
 /** « Aucun consentement supplémentaire » : la convention des balises Google du conteneur, dont le mode Consentement règle déjà le comportement. */
 const CONSENTEMENT = { consentStatus: 'notNeeded' };
@@ -58,10 +70,10 @@ const b = (key: string, value: boolean): Parametre => ({ type: 'boolean', key, v
 // ── Ce que l'aperçu vérifie ──────────────────────────────────────────────
 
 /** L'espace « [Claude] » s'il existe ; sinon la version en ligne, dont il partira. */
-const lireContenu = (env: Env, c: Conteneur, espace: Espace | undefined): Promise<Contenu> =>
+export const lireContenu = (env: Env, c: Conteneur, espace: Espace | undefined): Promise<Contenu> =>
   (espace ? contenuEspace(env, c, espace) : versionEnLigne(env, c));
 
-const ou = (espace: Espace | undefined, contenu: Contenu) => (espace
+export const ou = (espace: Espace | undefined, contenu: Contenu) => (espace
   ? `dans l'espace de travail « ${ESPACE_CLAUDE} » (n° ${espace.workspaceId})`
   : `dans un espace de travail « ${ESPACE_CLAUDE} », ouvert à l'exécution depuis la dernière version du conteneur (vérifié sur ${contenu.source})`);
 
@@ -79,7 +91,7 @@ const exigerVariables = (noms: string[], contenu: Contenu) => {
   }
 };
 
-const exigerDeclencheurs = (ids: string[], contenu: Contenu) => {
+export const exigerDeclencheurs = (ids: string[], contenu: Contenu) => {
   const reserves = ids.filter((id) => DECLENCHEURS_INTEGRES[id] && id !== TOUTES_LES_PAGES);
   if (reserves.length) {
     throw new Refus(`${reserves.map((id) => `« ${DECLENCHEURS_INTEGRES[id]} »`).join(', ')} : réservé aux balises de configuration ` +
@@ -304,6 +316,7 @@ const conversionCreer = outil({
             ...blocBalise(corps as Balise, indexDeclencheurs(contenu), 1000),
             '',
             valeur !== undefined || valeur_variable ? 'Valeur dans la devise du compte Google Ads.' : 'Sans valeur : Google Ads applique celle de la conversion, s’il en a une.',
+            ...avertirToutesLesPages('awct', ids),
             RIEN_NE_PART,
           ].join('\n');
         }

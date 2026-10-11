@@ -129,9 +129,10 @@ export type Env = {
 
   /**
    * Couche D, écriture — obtenu une fois par `scripts/jeton-google-ads.mjs
-   * gtm-ecriture`, scope `tagmanager.edit.containers` SEUL : créer dans un
-   * espace de travail, jamais créer une version ni publier (G6). À part de
-   * celui de lecture : absent, l'écriture est fermée et la lecture continue.
+   * gtm-ecriture`, scope `tagmanager.edit.containers` SEUL : créer et
+   * modifier dans un espace de travail, jamais créer une version ni publier
+   * (G6). À part de celui de lecture : absent, l'écriture est fermée et la
+   * lecture continue.
    */
   GTM_ECRITURE_REFRESH_TOKEN?: string;
   /**

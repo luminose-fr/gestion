@@ -1,9 +1,11 @@
 /**
  * Couche D — le Worker vers Google Tag Manager (décisions du 08/10/2026,
- * decisions/2026-10-08-gtm.md, et du 09/10/2026, decisions/2026-10-09-gtm-ecriture.md).
+ * decisions/2026-10-08-gtm.md, du 09/10/2026, decisions/2026-10-09-gtm-ecriture.md,
+ * et du 11/10/2026, decisions/2026-10-11-gtm-modifier.md).
  * Ce lot LIT le conteneur du site et le compare aux conversions Google Ads ;
  * il CRÉE, dans un espace de travail « [Claude] », des déclencheurs et des
- * balises que Florent relit et publie. Il ne publie rien.
+ * balises que Florent relit et publie ; il y MODIFIE une balise existante de
+ * trois façons, et de trois seulement. Il ne publie rien.
  *
  * Les verrous, du plus solide au plus fragile :
  * - DEUX JETONS. Celui de lecture (`GTM_REFRESH_TOKEN`) n'a que le scope
@@ -21,7 +23,10 @@
  *   l'identifiant. `creerGtm` ne fait que des POST, avec le jeton
  *   d'écriture, sur les trois chemins de `cheminEcriturePermis` — créer
  *   l'espace « [Claude] », y créer un déclencheur ou une balise —, d'un corps
- *   que `formeRefusee` accepte. Aucune URL de l'API ne se construit ailleurs
+ *   que `formeRefusee` accepte. `modifierBaliseGtm` ne fait qu'un PUT, sur
+ *   une balise de l'espace « [Claude] » relue à l'instant, avec son empreinte,
+ *   d'un corps qui ne diffère de la balise relue que de ce que
+ *   `modificationRefusee` permet. Aucune URL de l'API ne se construit ailleurs
  *   que dans ce fichier.
  * - Chaque lecture borne son nombre de requêtes : le quota de l'API Tag
  *   Manager est bas, et une page de plus n'apprendrait rien au modèle.
@@ -68,6 +73,7 @@ export type Balise = {
   firingTriggerId?: string[]; blockingTriggerId?: string[]; tagFiringOption?: string;
   consentSettings?: { consentStatus?: string; consentType?: Parametre };
   setupTag?: { tagName?: string }[]; teardownTag?: { tagName?: string }[];
+  notes?: string; fingerprint?: string;
 };
 export type Declencheur = {
   triggerId?: string; name?: string; tagManagerUrl?: string; type?: string; parameter?: Parametre[];
@@ -108,6 +114,8 @@ const DANS_LE_CONTENEUR: RegExp[] = [
   /^\/workspaces$/,
   /^\/workspaces\/\d{1,20}\/status$/,
   /^\/workspaces\/\d{1,20}\/(tags|triggers|variables|built_in_variables)(\?pageToken=[A-Za-z0-9%_.~-]{1,500})?$/,
+  // Une balise seule : celle qu'on modifie, relue juste avant (11/10/2026).
+  /^\/workspaces\/\d{1,20}\/tags\/\d{1,20}$/,
 ];
 
 /** Un chemin que `appeler` accepte. Exporté pour le test qui le vérifie. */
@@ -189,9 +197,10 @@ type ErreurGoogle = { error?: { code?: number; message?: string; status?: string
  * Un appel à l'API Tag Manager. Les codes de Google deviennent des refus en
  * clair : un 403 veut presque toujours dire « l'API n'est pas activée » ou
  * « le jeton n'a pas le bon scope », et c'est ce qu'il faut lire pour agir.
- * Privé : seuls `appeler` et `creerGtm`, qui gardent leurs chemins, s'en servent.
+ * Privé : seuls `appeler`, `creerGtm` et `modifierBaliseGtm`, qui gardent leurs
+ * chemins, s'en servent.
  */
-const envoyer = async <T>(env: Env, acces: Acces, methode: 'GET' | 'POST', chemin: string, corps?: unknown): Promise<T> => {
+const envoyer = async <T>(env: Env, acces: Acces, methode: 'GET' | 'POST' | 'PUT', chemin: string, corps?: unknown): Promise<T> => {
   const reponse = await fetch(API + chemin, {
     method: methode,
     headers: {
@@ -214,14 +223,19 @@ const envoyer = async <T>(env: Env, acces: Acces, methode: 'GET' | 'POST', chemi
       throw new Refus(`Le jeton Tag Manager n'a pas le scope ${acces.scope}. Régénérez-le : ${acces.script}.`, 503);
     }
     throw new Refus(`Tag Manager refuse ${acces.quoi} (${message}) : le compte Google du jeton a-t-il accès à ce conteneur` +
-      `${methode === 'POST' ? ', avec le droit « Modifier »' : ''} ?`, 403);
+      `${methode === 'GET' ? '' : ', avec le droit « Modifier »'} ?`, 403);
   }
   if (reponse.status === 404) throw new Refus(`Introuvable dans Tag Manager (${message}).`, 404);
   if (reponse.status === 429) throw new Refus(`Quota de l'API Tag Manager atteint (${message}) : réessayer dans une minute.`, 503);
   // Une écriture que Tag Manager juge invalide — un nom déjà pris, un déclencheur
-  // inconnu — n'a rien créé : c'est un refus, que l'appelant peut corriger.
+  // inconnu, une empreinte qui n'est plus celle de la balise — n'a rien changé :
+  // c'est un refus, que l'appelant peut corriger.
   if (methode === 'POST' && (reponse.status === 400 || reponse.status === 409)) {
     throw new Refus(`Tag Manager refuse la création (${message}).`, reponse.status);
+  }
+  // 409 ou 412 : l'empreinte n'est plus celle de la balise — elle a changé entre la relecture et l'envoi.
+  if (methode === 'PUT' && [400, 409, 412].includes(reponse.status)) {
+    throw new Refus(`Tag Manager refuse la modification (${message}).`, reponse.status === 400 ? 400 : 409);
   }
   throw new Error(`Tag Manager : HTTP ${reponse.status} — ${message}`);
 };
@@ -355,6 +369,10 @@ export const contenuEspace = async (env: Env, c: Conteneur, espace: Espace): Pro
     tronque: balises.tronque || declencheurs.tronque || variables.tronque || integrees.tronque,
   };
 };
+
+/** Une balise d'un espace de travail, par son numéro, avec son empreinte. Une requête. */
+export const baliseEspace = (env: Env, c: Conteneur, espace: string, balise: string): Promise<Balise> =>
+  appeler<Balise>(env, `/accounts/${c.accountId}/containers/${c.containerId}/workspaces/${espace}/tags/${balise}`, c);
 
 // ── Écrire (décision du 09/10/2026) ──────────────────────────────────────
 
@@ -523,4 +541,180 @@ export const creerGtm = async <T>(env: Env, c: Conteneur, entite: EntiteGtm, cor
   const refus = formeRefusee(entite, corps);
   if (refus) throw new Error(`Écriture refusée par la table fermée de Tag Manager : ${refus}`);
   return envoyer<T>(env, ECRIRE, 'POST', chemin, corps);
+};
+
+// ── Modifier (décision du 11/10/2026) ────────────────────────────────────
+
+/**
+ * Les trois modifications permises d'une balise existante, et elles seules :
+ * la mettre en pause, lui ajouter des déclencheurs, couper son envoi de page
+ * vue. Ni rétablir, ni retirer, ni renommer, ni toucher au code.
+ */
+export type NatureModification = 'pause' | 'declencheurs' | 'pages_vues';
+
+/**
+ * G15 — ce qui se met en pause : des balises de mesure. Jamais la balise
+ * Google (googtag), qui porte la configuration de Google Ads ou de GA4 ; ni le
+ * linker (gclidw), qui garde le clic d'origine des conversions ; ni du HTML,
+ * une image ou un modèle personnalisés : le mode Consentement du conteneur est
+ * un modèle (cvt_K8GSG), et un bandeau de consentement s'y cache souvent. Une
+ * pause là ferait partir le reste sans consentement réglé.
+ */
+export const TYPES_PAUSE = ['awct', 'awcc', 'sp', 'gaawe', 'gaawc', 'ua', 'flc', 'fls'];
+
+/** G15 — ce qui reçoit un déclencheur : les types que ce serveur crée. Étendre une balise de code, c'est exécuter ce code ailleurs. */
+export const TYPES_AJOUT = ['awct', 'gaawe'];
+
+/** Les déclencheurs d'initialisation : ceux de la configuration et du consentement, jamais ajoutés. */
+const INITIALISATION = ['2147479572', '2147479573'];
+const MAX_AJOUTS = 5;
+
+/** Ce que Tag Manager tient à jour lui-même : ni renvoyé, ni comparé. */
+const VOLATILS = ['path', 'accountId', 'containerId', 'workspaceId', 'tagId', 'fingerprint', 'tagManagerUrl'];
+
+/** Une balise telle qu'elle se renvoie dans un PUT : sans ce que Tag Manager tient à jour lui-même. */
+export const normaliserBalise = (b: Balise): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(b).filter(([k]) => !VOLATILS.includes(k)));
+
+/** Une chaîne qui ne dépend pas de l'ordre des clés : la même balise, relue, donne la même. */
+const canon = (v: unknown): string => JSON.stringify(v, (_k, x: unknown) => (x && typeof x === 'object' && !Array.isArray(x)
+  ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, (x as Record<string, unknown>)[k]])) : x));
+
+const sans = (o: Record<string, unknown>, cles: string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !cles.includes(k)));
+
+/**
+ * G17 — la trace : une ligne « [Claude] … » ajoutée aux notes de la balise. Le
+ * nom ne change pas — c'est celui de Florent ; les notes se lisent dans Tag
+ * Manager, à côté de la modification.
+ */
+export const noter = (notes: unknown, ligne: string): string => (typeof notes === 'string' && notes ? `${notes}\n${ligne}` : ligne);
+
+const notesRefusees = (avant: unknown, apres: unknown): string | null => {
+  const prefixe = typeof avant === 'string' && avant ? `${avant}\n` : '';
+  if (typeof apres !== 'string' || !apres.startsWith(prefixe)) return 'notes : celles de la balise restent, une ligne s\'y ajoute';
+  const ligne = apres.slice(prefixe.length);
+  return ligne.startsWith(`${MARQUE} `) && ligne.length <= 400 && !/[\n\r<]/.test(ligne)
+    ? null : `notes : une ligne « ${MARQUE} … », courte, sans balisage`;
+};
+
+// La balise Google : send_page_view, dans sa table de configuration.
+const ENVOI_PAGES = 'send_page_view';
+const lignesConfig = (ps: Parametre[] | undefined) => ps?.find((p) => p.key === 'configSettingsTable')?.list ?? [];
+const estEnvoiPages = (l: Parametre) => Boolean(l.map?.some((m) => m.key === 'parameter' && m.value === ENVOI_PAGES));
+
+/**
+ * Une balise Google envoie-t-elle une page vue à chaque chargement ? « oui »
+ * par défaut, sauf `send_page_view` à false ; « inconnu » quand la valeur
+ * passe par une variable, qui ne se lit qu'au chargement de la page.
+ */
+export const pagesVues = (b: Balise): 'oui' | 'non' | 'inconnu' => {
+  const ligne = lignesConfig(b.parameter).find(estEnvoiPages);
+  if (ligne) {
+    const v = ligne.map?.find((m) => m.key === 'parameterValue')?.value?.trim().toLowerCase();
+    return v === 'false' ? 'non' : v === 'true' ? 'oui' : 'inconnu';
+  }
+  return b.parameter?.some((p) => p.key === 'configSettingsVariable') ? 'inconnu' : 'oui';
+};
+
+/** G16 — les paramètres d'une balise Google, send_page_view à false. Rien d'autre ne change, l'ordre non plus. */
+export const couperPagesVues = (ps: Parametre[]): Parametre[] => {
+  const ligne: Parametre = { type: 'map', map: [{ type: 'template', key: 'parameter', value: ENVOI_PAGES }, { type: 'template', key: 'parameterValue', value: 'false' }] };
+  const table = ps.find((p) => p.key === 'configSettingsTable');
+  if (!table) return [...ps, { type: 'list', key: 'configSettingsTable', list: [ligne] }];
+  const lignes = table.list ?? [];
+  const i = lignes.findIndex(estEnvoiPages);
+  const nouvelles = i < 0 ? [...lignes, ligne]
+    : lignes.map((l, j) => (j === i ? { ...l, map: (l.map ?? []).map((m) => (m.key === 'parameterValue' ? { ...m, value: 'false' } : m)) } : l));
+  return ps.map((p) => (p === table ? { ...table, list: nouvelles } : p));
+};
+
+const CHAMP_MODIFIE: Record<NatureModification, string> = { pause: 'paused', declencheurs: 'firingTriggerId', pages_vues: 'parameter' };
+
+/**
+ * G14 — la table fermée des différences. `stockee` : la balise telle que Tag
+ * Manager la tient ; `apres` : le corps qui partirait. Il n'en diffère que du
+ * champ de la nature demandée, dans le seul sens permis, et d'une ligne
+ * « [Claude] … » ajoutée aux notes. Jouée à l'aperçu, et rejouée par
+ * `modifierBaliseGtm` contre la balise relue au moment d'écrire. Rend la
+ * raison d'un refus, ou null. Exportée pour le test.
+ */
+export const modificationRefusee = (nature: NatureModification, stockee: Balise, apres: unknown): string | null => {
+  if (!apres || typeof apres !== 'object' || Array.isArray(apres)) return 'corps absent';
+  const a = apres as Record<string, unknown>;
+  const avant = normaliserBalise(stockee);
+  const tenus = Object.keys(a).filter((k) => VOLATILS.includes(k));
+  if (tenus.length) return `champ tenu par Tag Manager dans le corps : ${tenus.join(', ')}`;
+  const champ = CHAMP_MODIFIE[nature];
+  if (canon(sans(avant, [champ, 'notes'])) !== canon(sans(a, [champ, 'notes']))) {
+    return `la modification change autre chose que ${champ} et les notes`;
+  }
+  const notes = notesRefusees(avant.notes, a.notes);
+  if (notes) return notes;
+  const type = String(avant.type);
+
+  if (nature === 'pause') {
+    if (!TYPES_PAUSE.includes(type)) return `une balise ${type} ne se met pas en pause par ce serveur`;
+    if (avant.paused === true) return 'la balise est déjà en pause';
+    // Une pause, jamais l'inverse : rétablir une balise se fait dans Tag Manager.
+    return a.paused === true ? null : 'une pause met paused à true';
+  }
+
+  if (nature === 'declencheurs') {
+    if (!TYPES_AJOUT.includes(type)) return `une balise ${type} ne reçoit pas de déclencheur par ce serveur`;
+    const ids = (avant.firingTriggerId ?? []) as string[];
+    const nouveaux = a.firingTriggerId;
+    if (!Array.isArray(nouveaux) || canon(nouveaux.slice(0, ids.length)) !== canon(ids)) {
+      return 'les déclencheurs de la balise restent, dans leur ordre : on en ajoute, on n\'en retire pas';
+    }
+    const ajout = nouveaux.slice(ids.length);
+    if (ajout.length === 0 || ajout.length > MAX_AJOUTS) return `de 1 à ${MAX_AJOUTS} déclencheurs ajoutés`;
+    if (!ajout.every((x) => typeof x === 'string' && /^\d{1,20}$/.test(x))) return 'des déclencheurs, par identifiant';
+    if (new Set(nouveaux).size !== nouveaux.length) return 'un déclencheur en double';
+    if (ajout.some((x) => INITIALISATION.includes(x as string))) return 'un déclencheur d\'initialisation';
+    if (ajout.some((x) => ((avant.blockingTriggerId ?? []) as string[]).includes(x as string))) return 'un déclencheur qui bloque la balise';
+    return null;
+  }
+
+  if (type !== 'googtag') return 'send_page_view n\'existe que dans une balise Google (googtag)';
+  if (pagesVues(stockee) !== 'oui') return 'la balise n\'envoie pas de page vue certaine : rien à couper';
+  return canon(a.parameter) === canon(couperPagesVues((avant.parameter ?? []) as Parametre[]))
+    ? null : 'send_page_view passe à false, et rien d\'autre ne change dans les paramètres';
+};
+
+/**
+ * G13 — le seul chemin où le serveur modifie : une balise de l'espace
+ * « [Claude] », avec l'empreinte de la version qu'il vient de relire. Ni un
+ * déclencheur, ni une variable, ni un autre espace. Exporté pour le test.
+ */
+export const cheminModificationPermis = (chemin: string, c: Conteneur, espace?: Espace): boolean => {
+  if (!/^\d{1,20}$/.test(c.accountId) || !/^\d{1,20}$/.test(c.containerId)) return false;
+  if (espace?.name !== ESPACE_CLAUDE || !/^\d{1,20}$/.test(espace.workspaceId ?? '')) return false;
+  const base = `/accounts/${c.accountId}/containers/${c.containerId}/workspaces/${espace.workspaceId}/tags/`;
+  return chemin.startsWith(base) && /^\d{1,20}\?fingerprint=[A-Za-z0-9_-]{1,64}$/.test(chemin.slice(base.length));
+};
+
+/**
+ * La seule modification de la couche D. Elle relit ELLE-MÊME la balise dans
+ * l'espace « [Claude] », avec le jeton de lecture ; vérifie que le corps n'en
+ * diffère que de ce que `modificationRefusee` permet ; puis l'envoie, avec le
+ * jeton d'écriture, accompagné de l'empreinte relue : une balise changée entre
+ * la relecture et l'envoi, Tag Manager la refuse. Quel que soit l'appelant.
+ */
+export const modifierBaliseGtm = async <T>(
+  env: Env, c: Conteneur, espace: Espace, balise: string, nature: NatureModification, apres: unknown,
+): Promise<T> => {
+  const base = `/accounts/${c.accountId}/containers/${c.containerId}/workspaces/${espace.workspaceId}/tags/${balise}`;
+  // L'espace et la balise d'abord : rien ne se lit hors de « [Claude] » pour l'écrire.
+  if (!cheminModificationPermis(`${base}?fingerprint=0`, c, espace)) throw new Error(`Écriture refusée par la couche D : ${base}`);
+  const stockee = await appeler<Balise>(env, base, c);
+  const refus = modificationRefusee(nature, stockee, apres);
+  if (refus) {
+    // L'aperçu a joué la même table : un écart ici veut dire que la balise a
+    // changé depuis — dans l'espace, ou dans la copie que Tag Manager vient d'ouvrir.
+    throw new Refus(`La balise n° ${balise} de l'espace « ${ESPACE_CLAUDE} » n'est plus celle de l'aperçu (${refus}) : rien n'est parti. ` +
+      'Refaites un aperçu.', 409);
+  }
+  const chemin = `${base}?fingerprint=${stockee.fingerprint ?? ''}`;
+  if (!cheminModificationPermis(chemin, c, espace)) throw new Error(`Écriture refusée par la couche D : ${chemin}`);
+  return envoyer<T>(env, ECRIRE, 'PUT', chemin, apres);
 };
