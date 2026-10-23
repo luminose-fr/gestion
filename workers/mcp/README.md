@@ -99,7 +99,8 @@ de données ([decisions/2026-10-11-gtm-modifier.md](decisions/2026-10-11-gtm-mod
 
 **Tout ce qui est créé naît en pause et porte la marque « [Claude] »** : dans le nom pour
 une campagne ou un groupe, en libellé pour une annonce ou un mot-clé (une annonce
-responsive n'a pas de nom). Florent relit, retire la marque, et active. Un élément
+responsive n'a pas de nom). Florent relit, retire la marque, et active — le libellé reste
+parfois : la marque ne prouve pas qu'un élément n'a pas été relu (23/10/2026). Un élément
 d'annonce n'a ni nom ni libellé visibles : c'est son **association** qui porte la barrière —
 en pause derrière une campagne active, active derrière une campagne en pause, dont la pause
 suffit (06/10/2026). Une annonce Demand Gen peut porter un nom interne : immuable, il ne
@@ -126,7 +127,7 @@ en le cassant : son test échoue.
 
 | | Verrou | Où |
 | :--- | :--- | :--- |
-| V1 | aucune opération ne passe à `ENABLED`, sauf l'association d'un élément d'annonce derrière une campagne en pause, que **le compte confirme** avant chaque envoi, et l'annulation par `ads_reactiver` d'une pause que **le journal** dit faite par ce serveur, sur un élément que **le compte** dit relu et non refusé ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — ou du lien d'un élément d'annonce à une campagne ou un groupe (jamais l'élément), que **le compte confirme** avant chaque envoi | table fermée, `verifierRetraits` et `verifierReactivations`, [src/google-ads.ts](src/google-ads.ts) |
+| V1 | aucune opération ne passe à `ENABLED`, sauf l'association d'un élément d'annonce derrière une campagne en pause, que **le compte confirme** avant chaque envoi, et l'annulation par `ads_reactiver` d'une pause que **le journal** dit faite par ce serveur, sur un élément que **le journal** ou **l'historique de Google** disent actif à la pause, et que **le compte** dit non refusé ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — ou du lien d'un élément d'annonce à une campagne ou un groupe (jamais l'élément), que **le compte confirme** avant chaque envoi | table fermée, `verifierRetraits` et `verifierReactivations`, [src/google-ads.ts](src/google-ads.ts) |
 | V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu, ou d'une partie quand le compte en a rendu le reste sans objet ; ce que l'aperçu a lu voyage dans le jeton | [src/ecriture.ts](src/ecriture.ts) |
 | V5 | une table fermée de services, et pour chacun la seule forme d'opération permise | `OPERATIONS_PERMISES`, [src/google-ads.ts](src/google-ads.ts) |
 | V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
@@ -153,10 +154,12 @@ en le cassant : son test échoue.
 - **Annuler une pause n'est pas activer** (23/10/2026, [decisions/2026-10-23-reactiver.md](decisions/2026-10-23-reactiver.md)).
   `ads_reactiver` remet en `ENABLED` un groupe, une annonce, un mot-clé ou une association
   que le serveur a mis en pause, quand le journal le garde et que l'historique de Google ne
-  montre pas de pause plus récente faite ailleurs. Jamais une campagne, jamais ce qui porte
-  encore `[Claude]`, jamais ce que Google a refusé. L'aperçu dit la date et le numéro de la
-  pause, l'état du groupe et de la campagne, ce que l'élément a fait sur les 30 jours
-  d'avant, et pour un mot-clé son niveau de qualité.
+  montre pas de pause plus récente faite ailleurs. Jamais une campagne, jamais ce qui
+  n'était pas actif à la pause — le journal garde l'état remplacé ; pour une pause plus
+  ancienne, l'historique de Google, sur 30 jours ; sinon, refus —, jamais ce que Google a
+  refusé. La marque `[Claude]` ne compte pas. L'aperçu dit la date et le numéro de la
+  pause, d'où l'on sait que l'élément tournait, l'état du groupe et de la campagne, ce que
+  l'élément a fait sur les 30 jours d'avant, et pour un mot-clé son niveau de qualité.
 - **Le Search seulement** : une campagne Performance Max est refusée.
 - **Le compte Luminose seulement** : les outils d'écriture n'ont pas de paramètre `compte`.
 - **Une base à part** pour le journal (`luminose-mcp`) : celle de la console porte les clés
