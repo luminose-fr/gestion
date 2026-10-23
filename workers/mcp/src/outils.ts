@@ -5,7 +5,8 @@
  * — son périmètre, pas son code : il passe par gRPC, qui ne tourne pas dans un
  * Worker. ÉCRIRE : outils-ecriture.ts, lot par lot (cadrage du 01/10/2026),
  * outils-creation.ts (02/10/2026), outils-listes.ts (03/10/2026),
- * outils-elements.ts (04/10/2026), outils-demand-gen.ts (07/10/2026).
+ * outils-elements.ts (04/10/2026), outils-demand-gen.ts (07/10/2026),
+ * outils-reactiver.ts (23/10/2026) — annuler une pause du serveur, pas activer.
  * LE CORPUS : outils-corpus.ts (03/10/2026) — lire main, écrire par commit.
  * TAG MANAGER : outils-gtm.ts (08/10/2026) — lire le conteneur du site ;
  * outils-gtm-ecriture.ts (09/10/2026) — y préparer, dans l'espace « [Claude] », ce que Florent publie ;
@@ -22,6 +23,7 @@ import {
 } from './google-ads';
 import { LECTURE, outil, texte, type ResultatOutil } from './outil';
 import { OUTILS_ECRITURE } from './outils-ecriture';
+import { OUTILS_REACTIVER } from './outils-reactiver';
 import { OUTILS_CREATION } from './outils-creation';
 import { OUTILS_LISTES } from './outils-listes';
 import { OUTILS_ELEMENTS } from './outils-elements';
@@ -186,7 +188,7 @@ const requeteGaql = outil({
 
 // ── Registre ─────────────────────────────────────────────────────────────
 
-const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_ELEMENTS, ...OUTILS_DEMAND_GEN, ...OUTILS_GTM, ...OUTILS_GTM_ECRITURE, ...OUTILS_GTM_MODIFICATION, ...OUTILS_CORPUS] as const;
+const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_REACTIVER, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_ELEMENTS, ...OUTILS_DEMAND_GEN, ...OUTILS_GTM, ...OUTILS_GTM_ECRITURE, ...OUTILS_GTM_MODIFICATION, ...OUTILS_CORPUS] as const;
 
 /**
  * Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en

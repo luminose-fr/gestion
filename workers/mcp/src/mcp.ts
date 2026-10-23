@@ -35,7 +35,8 @@ const INSTRUCTIONS =
   "ads_lister_comptes n'est utile que pour la devise ou un diagnostic d'accès. Les montants sont en micros : diviser par 1 000 000. " +
   "Écrire : Claude prépare, Florent publie. Chaque écriture se fait en deux temps — un aperçu vérifié par Google sans rien " +
   "appliquer, puis l'exécution avec le jeton de l'aperçu, après l'accord de Florent. Rien ne s'active par ce serveur : " +
-  "l'activation, donc la dépense, se fait dans l'interface Google Ads. " +
+  "l'activation, donc la dépense, se fait dans l'interface Google Ads. Seule exception : ads_reactiver annule une pause que ce " +
+  "serveur a lui-même faite avec ads_mettre_en_pause, et que son journal garde — ce n'est pas une activation. " +
   "Le corpus de Luminose — sa source de vérité : identité, offres, voix, canaux, stratégie — se lit avec corpus_contexte " +
   "(un profil composé), corpus_index et corpus_lire (les fiches), tel que la branche main du dépôt le porte. Il s'écrit " +
   "par commit, dans les mêmes deux temps : corpus_modifier, corpus_decision_ajouter, puis corpus_deployer pour publier. " +

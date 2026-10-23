@@ -671,6 +671,10 @@ describe('NORMATIF — les associations et leurs retraits', () => {
       ['adGroupAssets', { remove: rn.groupe('445', '7008', 'PRICE') }],
       // La forme admet une association active ; c'est le compte qui dit si sa campagne est en pause (verifierActivations).
       ['campaignAssets', { create: { campaign: campagne, asset, fieldType: 'PRICE', status: 'ENABLED' } }],
+      // Depuis le 23/10/2026, la pause d'une association, et son annulation : la forme admet le statut seul ; que la pause
+      // soit celle du serveur, c'est le journal et le compte qui le disent (verifierReactivations, reactiver.test.ts).
+      ['campaignAssets', { update: { resourceName: rn.campagne('111', '7002', 'CALLOUT'), status: 'PAUSED' }, updateMask: 'status' }],
+      ['adGroupAssets', { update: { resourceName: rn.groupe('445', '7002', 'SITELINK'), status: 'ENABLED' }, updateMask: 'status' }],
     ];
     for (const [service, op] of acceptees) expect(() => verifierOperation(service, op), JSON.stringify(op)).not.toThrow();
 
@@ -680,7 +684,10 @@ describe('NORMATIF — les associations et leurs retraits', () => {
       ['campaignAssets', { create: { campaign: campagne, asset, fieldType: 'HEADLINE', status: 'PAUSED' } }],
       ['campaignAssets', { create: { campaign: groupe, asset, fieldType: 'CALLOUT', status: 'PAUSED' } }],
       ['adGroupAssets', { create: { campaign: campagne, asset, fieldType: 'CALLOUT', status: 'PAUSED' } }],
-      ['campaignAssets', { update: { resourceName: rn.campagne('111', '7002', 'CALLOUT'), status: 'ENABLED' }, updateMask: 'status' }],
+      ['campaignAssets', { update: { resourceName: rn.campagne('111', '7002', 'HEADLINE'), status: 'ENABLED' }, updateMask: 'status' }],
+      ['campaignAssets', { update: { resourceName: rn.campagne('111', '7002', 'CALLOUT'), status: 'REMOVED' }, updateMask: 'status' }],
+      ['campaignAssets', { update: { resourceName: rn.campagne('111', '7002', 'CALLOUT'), status: 'ENABLED', fieldType: 'SITELINK' }, updateMask: 'status,fieldType' }],
+      ['adGroupAssets', { update: { resourceName: rn.campagne('111', '7002', 'CALLOUT'), status: 'PAUSED' }, updateMask: 'status' }],
       ['campaignAssets', { remove: rn.campagne('111', '7002', 'HEADLINE') }],
       ['campaignAssets', { remove: asset }],
       ['adGroupAssets', { remove: rn.campagne('111', '7002', 'CALLOUT') }],

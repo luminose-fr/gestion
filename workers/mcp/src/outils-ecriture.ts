@@ -11,7 +11,7 @@
  */
 import { z } from 'zod';
 import { compteEcriture, ecrire, exigerEcriture } from './ecriture';
-import { connexionPour, rechercher, type Operation, type ServiceEcriture } from './google-ads';
+import { TYPES_ELEMENTS, connexionPour, rechercher, type Operation, type ServiceEcriture } from './google-ads';
 import { outil, texte } from './outil';
 import { Refus } from './refus';
 import type { Env } from './env';
@@ -148,7 +148,12 @@ type Ligne = {
   adGroup?: { name?: string; status?: string };
   adGroupAd?: { status?: string };
   adGroupCriterion?: { status?: string; negative?: boolean; keyword?: { text?: string; matchType?: string } };
+  campaignAsset?: { status?: string; fieldType?: string };
+  adGroupAsset?: { status?: string; fieldType?: string };
 };
+
+/** Une association d'élément : « cible~élément~type », pour les types que ce serveur gère. */
+const ASSOCIATION = new RegExp(`^\\d{1,20}~\\d{1,20}~(${TYPES_ELEMENTS.join('|')})$`);
 
 /**
  * Ce qu'on peut mettre en pause, et comment le lire avant. Les identifiants
@@ -195,24 +200,45 @@ const ENTITES: Record<string, { service: ServiceEcriture; forme: RegExp; exemple
         `du groupe « ${l.adGroup?.name} »`,
     }),
   },
+  // Depuis le 23/10/2026 : ce qui se met en pause ici peut se réactiver par ads_reactiver.
+  association_campagne: {
+    service: 'campaignAssets',
+    forme: ASSOCIATION,
+    exemple: 'campaign.id~asset.id~TYPE',
+    requete: ([campagne, element, type]) =>
+      'SELECT campaign.id, asset.id, campaign_asset.field_type, campaign_asset.status, campaign.name, campaign.advertising_channel_type ' +
+      `FROM campaign_asset WHERE campaign.id = ${campagne} AND asset.id = ${element} AND campaign_asset.field_type = '${type}'`,
+    lire: (l) => ({ statut: l.campaignAsset?.status, canal: l.campaign?.advertisingChannelType, nom: `l'association ${l.campaignAsset?.fieldType} à la campagne « ${l.campaign?.name} »` }),
+  },
+  association_groupe: {
+    service: 'adGroupAssets',
+    forme: ASSOCIATION,
+    exemple: 'ad_group.id~asset.id~TYPE',
+    requete: ([groupe, element, type]) =>
+      'SELECT ad_group.id, asset.id, ad_group_asset.field_type, ad_group_asset.status, ad_group.name, campaign.name, campaign.advertising_channel_type ' +
+      `FROM ad_group_asset WHERE ad_group.id = ${groupe} AND asset.id = ${element} AND ad_group_asset.field_type = '${type}'`,
+    lire: (l) => ({ statut: l.adGroupAsset?.status, canal: l.campaign?.advertisingChannelType, nom: `l'association ${l.adGroupAsset?.fieldType} au groupe « ${l.adGroup?.name} » (campagne « ${l.campaign?.name} »)` }),
+  },
 };
 
 const mettreEnPause = outil({
   name: 'ads_mettre_en_pause',
   title: 'Mettre en pause',
   description: [
-    "Met en pause une campagne, un groupe d'annonces, une annonce ou un mot-clé du Search. Ce qui est en pause ne dépense plus. " +
-    "Ce serveur ne réactive jamais rien : la réactivation se fait dans l'interface Google Ads, par Florent.",
+    "Met en pause une campagne, un groupe d'annonces, une annonce, un mot-clé ou l'association d'un élément d'annonce du Search. " +
+    "Ce qui est en pause ne dépense plus. ads_reactiver peut annuler une pause faite ici — jamais une campagne ; " +
+    "toute autre réactivation se fait dans l'interface Google Ads, par Florent.",
     '',
     DEUX_TEMPS,
     '',
     'Identifiants : campagne = campaign.id ; groupe = ad_group.id ; annonce = "ad_group.id~ad_group_ad.ad.id" ; ' +
-    'mot_cle = "ad_group.id~ad_group_criterion.criterion_id" (à lire avec ads_requete). ' +
+    'mot_cle = "ad_group.id~ad_group_criterion.criterion_id" ; association_campagne = "campaign.id~asset.id~TYPE" ; ' +
+    `association_groupe = "ad_group.id~asset.id~TYPE", TYPE parmi ${TYPES_ELEMENTS.join(', ')} (à lire avec ads_requete). ` +
     "Un mot-clé négatif ne se met pas en pause : ce serait rouvrir du trafic.",
   ].join('\n'),
   schema: z.object({
-    type: z.enum(['campagne', 'groupe', 'annonce', 'mot_cle']),
-    identifiant: z.string().max(45).describe('Voir la description de l’outil pour la forme selon le type.'),
+    type: z.enum(['campagne', 'groupe', 'annonce', 'mot_cle', 'association_campagne', 'association_groupe']),
+    identifiant: z.string().max(70).describe('Voir la description de l’outil pour la forme selon le type.'),
     jeton: JETON,
   }).strict(),
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },

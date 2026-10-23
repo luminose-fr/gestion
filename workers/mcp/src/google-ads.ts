@@ -22,6 +22,7 @@ import { MARQUE, examinerAnnonce, textesParDefaut, urlAdmise } from './regles';
 import { analyser, longueur as longueurAffichee, texteParDefaut } from './insertion';
 import { aujourdhui, dateValide, equivalentQuotidien } from './dates';
 import { exigerSecret, jetonGoogle, oublierJetonsGoogle } from './jeton-google';
+import { dernierChangementDeStatut } from './journal';
 import type { Env } from './env';
 
 /**
@@ -80,22 +81,31 @@ const FORME_COMPTE = /^\d{10}$/;
  * - `creer-annonce-dg` : une annonce multi-élément, « Luminose » pour nom
  *   d'entreprise, automatismes coupés.
  *
+ * Réactiver (23/10/2026) — annuler une pause, pas activer :
+ * - `mettre-en-pause` vaut aussi pour une association d'élément d'annonce.
+ * - `reactiver` : remettre en ENABLED un groupe, une annonce, un mot-clé ou une
+ *   association — jamais une campagne. La forme ne suffit pas :
+ *   `verifierReactivations` demande au journal que la dernière écriture de
+ *   statut de cette ressource soit une mise en pause de CE serveur, et au
+ *   compte qu'elle ne porte plus la marque « [Claude] » et que Google ne l'ait
+ *   pas refusée.
+ *
  * Aucun autre `remove`, aucun autre passage à ENABLED : l'activation — donc la
  * dépense — reste dans l'interface Google Ads.
  */
 export const OPERATIONS_PERMISES = {
   campaignCriteria: ['creer-negatif', 'retirer-negatif'],
   campaigns: ['mettre-en-pause'],
-  adGroups: ['mettre-en-pause', 'creer-groupe'],
-  adGroupAds: ['mettre-en-pause', 'creer-annonce', 'creer-annonce-dg'],
-  adGroupCriteria: ['mettre-en-pause', 'creer-mot-cle'],
+  adGroups: ['mettre-en-pause', 'creer-groupe', 'reactiver'],
+  adGroupAds: ['mettre-en-pause', 'creer-annonce', 'creer-annonce-dg', 'reactiver'],
+  adGroupCriteria: ['mettre-en-pause', 'creer-mot-cle', 'reactiver'],
   adGroupAdLabels: ['lier-libelle'],
   adGroupCriterionLabels: ['lier-libelle'],
   labels: ['creer-libelle'],
   sharedCriteria: ['ajouter-a-liste', 'retirer-de-liste'],
   campaignSharedSets: ['associer-liste', 'dissocier-liste'],
-  campaignAssets: ['associer-element', 'dissocier-element'],
-  adGroupAssets: ['associer-element', 'dissocier-element'],
+  campaignAssets: ['associer-element', 'dissocier-element', 'mettre-en-pause', 'reactiver'],
+  adGroupAssets: ['associer-element', 'dissocier-element', 'mettre-en-pause', 'reactiver'],
   googleAds: ['creer-campagne', 'creer-liste', 'creer-elements', 'creer-campagne-dg', 'creer-groupe-dg'],
 } as const;
 
@@ -475,6 +485,22 @@ const retrait = (type: string, op: Operation): string | null => {
   return null;
 };
 
+/** Une association d'élément se nomme « cible~élément~type » ; le reste, comme partout. */
+const modifiable = (service: ServiceEcriture) => (service === 'campaignAssets' || service === 'adGroupAssets'
+  ? new RegExp(`^customers/\\d{10}/${service}/\\d+~\\d+~(${TYPES_ELEMENTS.join('|')})$`)
+  : ressource(service));
+
+/** Le statut, et lui seul, d'une ressource existante. */
+const changerStatut = (service: ServiceEcriture, op: Operation, statut: 'PAUSED' | 'ENABLED'): string | null => {
+  if (cles(op) !== 'update,updateMask') return `clés ${cles(op)}`;
+  const u = op.update as Record<string, unknown>;
+  if (op.updateMask !== 'status') return `updateMask ${String(op.updateMask)}`;
+  if (cles(u) !== 'resourceName,status') return `champs ${cles(u)}`;
+  if (u.status !== statut) return `statut ${String(u.status)}`;
+  if (!modifiable(service).test(String(u.resourceName))) return 'resourceName';
+  return null;
+};
+
 /** Chaque forme rend `null` si l'opération lui est conforme, sinon la raison. */
 const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-elements' | 'creer-campagne-dg' | 'creer-groupe-dg'>, (service: ServiceEcriture, op: Operation) => string | null> = {
   'creer-negatif': (_service, op) => {
@@ -545,15 +571,10 @@ const FORMES: Record<Exclude<Forme, 'creer-campagne' | 'creer-liste' | 'creer-el
     return refusMultiElement(ad.demandGenMultiAssetAd);
   },
 
-  'mettre-en-pause': (service, op) => {
-    if (cles(op) !== 'update,updateMask') return `clés ${cles(op)}`;
-    const u = op.update as Record<string, unknown>;
-    if (op.updateMask !== 'status') return `updateMask ${String(op.updateMask)}`;
-    if (cles(u) !== 'resourceName,status') return `champs ${cles(u)}`;
-    if (u.status !== 'PAUSED') return `statut ${String(u.status)}`;
-    if (!ressource(service).test(String(u.resourceName))) return 'resourceName';
-    return null;
-  },
+  'mettre-en-pause': (service, op) => changerStatut(service, op, 'PAUSED'),
+
+  // Que la pause soit la sienne, et l'élément relu : verifierReactivations, au journal et au compte.
+  'reactiver': (service, op) => changerStatut(service, op, 'ENABLED'),
 
   'creer-groupe': (_service, op) => {
     if (cles(op) !== 'create') return `clés ${cles(op)}`;
@@ -1130,6 +1151,48 @@ const verifierActivations = async (env: Env, compte: string, service: ServiceEcr
   }
 };
 
+type LigneMarque = {
+  adGroup?: { name?: string };
+  adGroupAd?: { labels?: string[]; policySummary?: { approvalStatus?: string } };
+  adGroupCriterion?: { labels?: string[]; approvalStatus?: string };
+};
+
+/**
+ * Remettre en ENABLED n'est permis qu'à l'annulation d'une pause de CE serveur
+ * (23/10/2026). Avant chaque envoi, aperçu compris, quel que soit l'outil qui
+ * a préparé l'opération : le journal, puis le compte. Une requête au journal
+ * et deux au compte au plus, par opération.
+ */
+const verifierReactivations = async (env: Env, compte: string, service: ServiceEcriture, operations: Operation[]): Promise<void> => {
+  for (const o of operations) {
+    const u = o.update as Record<string, unknown> | undefined;
+    if (!estObjet(u) || u.status !== 'ENABLED') continue;
+    const nom = String(u.resourceName);
+    const refuser = (pourquoi: string): never => {
+      throw new Refus(`Réactivation refusée par la table fermée — ${nom} : ${pourquoi}. Rien n'est parti.`);
+    };
+    const dernier = await dernierChangementDeStatut(env, compte, nom);
+    if (dernier?.outil !== 'ads_mettre_en_pause') refuser('aucune mise en pause de ce serveur à annuler dans le journal');
+
+    const lire = async (requete: string) => ((await rechercher(env, compte, requete, connexionPour(env, compte))).results ?? []) as LigneMarque[];
+    const [, a, b] = /\/(\d+)(?:~(\d+))?(?:~[A-Z_]+)?$/.exec(nom) ?? [];
+    if (service === 'adGroups') {
+      const [l] = await lire(`SELECT ad_group.id, ad_group.name FROM ad_group WHERE ad_group.id = ${a}`);
+      if (!l || l.adGroup?.name?.startsWith(`${MARQUE} `)) refuser(`introuvable, ou nom encore marqué ${MARQUE}`);
+    } else if (service === 'adGroupAds' || service === 'adGroupCriteria') {
+      const [libelle] = await lire(`SELECT label.resource_name, label.name FROM label WHERE label.name = '${MARQUE}'`) as { label?: { resourceName?: string } }[];
+      const [l] = await lire(service === 'adGroupAds'
+        ? `SELECT ad_group.id, ad_group_ad.ad.id, ad_group_ad.labels, ad_group_ad.policy_summary.approval_status FROM ad_group_ad WHERE ad_group.id = ${a} AND ad_group_ad.ad.id = ${b}`
+        : `SELECT ad_group.id, ad_group_criterion.criterion_id, ad_group_criterion.labels, ad_group_criterion.approval_status FROM ad_group_criterion WHERE ad_group.id = ${a} AND ad_group_criterion.criterion_id = ${b}`);
+      const e = l?.adGroupAd ?? l?.adGroupCriterion;
+      if (!e) refuser('introuvable');
+      if (libelle?.label?.resourceName && e!.labels?.includes(libelle.label.resourceName)) refuser(`libellé ${MARQUE} encore posé`);
+      const statut = l!.adGroupAd ? l!.adGroupAd.policySummary?.approvalStatus : l!.adGroupCriterion?.approvalStatus;
+      if (statut === 'DISAPPROVED') refuser('refusé par Google');
+    }
+  }
+};
+
 const verifierRetraits = async (env: Env, compte: string, service: ServiceEcriture, operations: Operation[]): Promise<void> => {
   const noms = operations.filter((o) => 'remove' in o).map((o) => String(o.remove));
   if (noms.length === 0) return;
@@ -1185,6 +1248,7 @@ export const muter = async (
     await verifierRetraits(env, compte, service, operations);
   }
   await verifierActivations(env, compte, service, operations);
+  await verifierReactivations(env, compte, service, operations);
   const champ = service === 'googleAds' ? 'mutateOperations' : 'operations';
   return await appeler(env, `/customers/${compte}/${service}:mutate`, {
     corps: { [champ]: operations, validateOnly, partialFailure: false },

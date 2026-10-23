@@ -71,7 +71,8 @@ lot 3, décision de Florent du 07/10/2026.
 
 | Lot | Outils | État |
 | :--- | :--- | :--- |
-| 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` | en service |
+| 1 — réduire la dépense | `ads_negatifs_ajouter`, `ads_mettre_en_pause` — associations d'éléments comprises depuis le 23/10/2026 | en service |
+| 1 bis — annuler une pause | `ads_reactiver` — ce que le serveur a lui-même mis en pause, jamais une campagne ; pas une activation | livré, à déployer ([decisions/2026-10-23-reactiver.md](decisions/2026-10-23-reactiver.md)) |
 | 2 — créer, Search | `ads_campagne_creer`, `ads_groupe_creer`, `ads_annonce_creer`, `ads_mots_cles_ajouter` | livré |
 | 2 bis — listes de négatifs | `ads_liste_negatifs_creer`, `ads_liste_negatifs_ajouter`, `ads_liste_negatifs_retirer`, `ads_liste_associer`, `ads_liste_dissocier`, `ads_negatifs_retirer` | livré ([decisions/2026-10-03-listes-de-negatifs.md](decisions/2026-10-03-listes-de-negatifs.md)) |
 | 2 ter — éléments d'annonce, insertion de mot-clé | `ads_elements_creer`, `ads_elements_associer`, `ads_elements_dissocier` — liens annexes, info-bulles, extraits structurés, prix ; l'insertion dans `ads_annonce_creer`, contrôlée aussi par `ads_mots_cles_ajouter` | livré ([decisions/2026-10-04-elements-et-insertion.md](decisions/2026-10-04-elements-et-insertion.md)) |
@@ -125,7 +126,7 @@ en le cassant : son test échoue.
 
 | | Verrou | Où |
 | :--- | :--- | :--- |
-| V1 | aucune opération ne passe à `ENABLED`, sauf l'association d'un élément d'annonce derrière une campagne en pause, que **le compte confirme** avant chaque envoi ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — ou du lien d'un élément d'annonce à une campagne ou un groupe (jamais l'élément), que **le compte confirme** avant chaque envoi | table fermée et `verifierRetraits`, [src/google-ads.ts](src/google-ads.ts) |
+| V1 | aucune opération ne passe à `ENABLED`, sauf l'association d'un élément d'annonce derrière une campagne en pause, que **le compte confirme** avant chaque envoi, et l'annulation par `ads_reactiver` d'une pause que **le journal** dit faite par ce serveur, sur un élément que **le compte** dit relu et non refusé ; un `status` en entrée est refusé ; aucun `remove`, sauf le retrait d'une exclusion — négatif de campagne, entrée d'une liste de négatifs, lien d'une telle liste à une campagne — ou du lien d'un élément d'annonce à une campagne ou un groupe (jamais l'élément), que **le compte confirme** avant chaque envoi | table fermée, `verifierRetraits` et `verifierReactivations`, [src/google-ads.ts](src/google-ads.ts) |
 | V2 | aperçu `validateOnly`, puis exécution du contenu exact de l'aperçu, ou d'une partie quand le compte en a rendu le reste sans objet ; ce que l'aperçu a lu voyage dans le jeton | [src/ecriture.ts](src/ecriture.ts) |
 | V5 | une table fermée de services, et pour chacun la seule forme d'opération permise | `OPERATIONS_PERMISES`, [src/google-ads.ts](src/google-ads.ts) |
 | V7 | une ligne de journal écrite **avant** l'appel ; sans elle, Google n'est pas appelé | [src/journal.ts](src/journal.ts), base `luminose-mcp` |
@@ -149,6 +150,13 @@ en le cassant : son test échoue.
 - **Les négatifs naissent actifs** (01/10/2026). Un négatif ne dépense rien, il exclut ; en
   pause, il n'exclurait rien. Le forçage `PAUSED` de V1 vaut pour ce qui peut dépenser.
 - **Un négatif ne se met pas en pause** : ce serait rouvrir du trafic, donc de la dépense.
+- **Annuler une pause n'est pas activer** (23/10/2026, [decisions/2026-10-23-reactiver.md](decisions/2026-10-23-reactiver.md)).
+  `ads_reactiver` remet en `ENABLED` un groupe, une annonce, un mot-clé ou une association
+  que le serveur a mis en pause, quand le journal le garde et que l'historique de Google ne
+  montre pas de pause plus récente faite ailleurs. Jamais une campagne, jamais ce qui porte
+  encore `[Claude]`, jamais ce que Google a refusé. L'aperçu dit la date et le numéro de la
+  pause, l'état du groupe et de la campagne, ce que l'élément a fait sur les 30 jours
+  d'avant, et pour un mot-clé son niveau de qualité.
 - **Le Search seulement** : une campagne Performance Max est refusée.
 - **Le compte Luminose seulement** : les outils d'écriture n'ont pas de paramètre `compte`.
 - **Une base à part** pour le journal (`luminose-mcp`) : celle de la console porte les clés
@@ -293,7 +301,9 @@ juger.
 
 Règle depuis : **tout champ que WHERE ou ORDER BY référence figure dans le SELECT**, pour
 toutes les requêtes du serveur. Google ne l'exige pas partout, mais une règle sans exception
-se vérifie. [test/gaql.test.ts](test/gaql.test.ts) relit dans le code source chaque requête
+se vérifie. Une seule exception depuis le 23/10/2026, `segments.date` : le sélectionner
+découpe le résultat par jour et fait taire le niveau de qualité historique, dont
+`ads_reactiver` a besoin. [test/gaql.test.ts](test/gaql.test.ts) relit dans le code source chaque requête
 construite, avec ses variantes, et la vérifie ; une requête qu'il ne sait pas relire le fait
 échouer. Les simulateurs de l'API ([test/aides.ts](test/aides.ts)) rendent désormais
 l'erreur de Google à une requête qui l'enfreint. Sur le code d'avant, le premier relève

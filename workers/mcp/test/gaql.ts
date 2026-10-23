@@ -9,7 +9,16 @@
  * toutes ses requêtes : sélectionner un champ de plus ne coûte rien, et une
  * règle sans exception se vérifie. Les simulateurs de l'API la font respecter
  * aussi : sans cela, ils acceptaient ce que Google refuse.
+ *
+ * Une seule exception, `segments.date` (23/10/2026) : le sélectionner n'est
+ * pas gratuit, il découpe le résultat en une ligne par jour, et Google refuse
+ * alors les niveaux de qualité historiques — la seule source pour un mot-clé
+ * en pause, dont `quality_info` est vide. Filtrer une période sans la
+ * sélectionner est ce que Google documente ; vérifié sur le compte.
  */
+
+/** Les champs qui peuvent filtrer sans être sélectionnés. */
+const HORS_REGLE = ['segments.date'];
 
 export type Gaql = { select: string[]; from: string; references: string[] };
 
@@ -32,7 +41,7 @@ export const lireGaql = (requete: string): Gaql | null => {
 /** Les champs référencés après FROM qui manquent au SELECT. */
 export const horsSelect = (requete: string): string[] => {
   const g = lireGaql(requete);
-  return g ? g.references.filter((r) => !g.select.includes(r)) : [];
+  return g ? g.references.filter((r) => !g.select.includes(r) && !HORS_REGLE.includes(r)) : [];
 };
 
 /** Ce que Google répond à une requête qui enfreint la règle — ou rien. Pour les simulateurs. */

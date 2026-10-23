@@ -6,9 +6,20 @@
 /** Le fuseau du compte Luminose : c'est lui qui borne les dates d'une campagne. */
 const FUSEAU = 'Europe/Paris';
 
+/** Le jour d'un instant dans le fuseau du compte, « AAAA-MM-JJ ». */
+export const jourDe = (ms: number): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: FUSEAU, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+
+/** L'heure d'un instant dans le fuseau du compte, « 14:05 ». */
+export const heureDe = (ms: number): string =>
+  new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+
 /** La date du jour dans le fuseau du compte, « AAAA-MM-JJ ». */
-export const aujourdhui = (): string =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: FUSEAU, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now()));
+export const aujourdhui = (): string => jourDe(Date.now());
+
+/** `jours` plus tard (ou plus tôt, si négatif) : « 2026-10-01 », -1 → « 2026-09-30 ». */
+export const decaler = (d: string, jours: number): string =>
+  new Date(Date.parse(`${d}T00:00:00Z`) + jours * 86_400_000).toISOString().slice(0, 10);
 
 /** Une date « AAAA-MM-JJ » qui existe au calendrier — « 2026-02-30 » n'en est pas une. */
 export const dateValide = (d: string): boolean => {
