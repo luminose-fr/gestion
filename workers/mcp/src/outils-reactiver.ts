@@ -8,19 +8,18 @@
  *
  * Comme les autres outils d'écriture, il ne fait que PRÉPARER : vérifier, lire
  * de quoi éclairer la décision, construire l'opération. Scope, aperçu, jeton,
- * journal et appel sont ecriture.ts ; la table fermée de google-ads.ts
- * revérifie journal, marque et refus de Google avant chaque envoi.
+ * journal et appel sont ecriture.ts ; la pause et l'état d'avant, c'est
+ * `examinerPause` (google-ads.ts), que la table fermée rappelle avant chaque
+ * envoi, avec le refus de Google.
  *
- * Six lectures au plus : l'élément, le libellé « [Claude] », le journal,
- * l'historique de Google (30 jours), les métriques d'avant la pause — plus ce
- * que la table relit.
+ * Quatre lectures : l'élément, le journal, l'historique de Google (30 jours),
+ * les métriques d'avant la pause — plus ce que la table relit.
  */
 import { z } from 'zod';
 import { euros } from './argent';
-import { aujourdhui, dateFr, decaler, heureDe, jourDe } from './dates';
-import { compteEcriture, ecrire, exigerEcriture, trouverLibelle } from './ecriture';
-import { TYPES_ELEMENTS, type ServiceEcriture } from './google-ads';
-import { dernierChangementDeStatut } from './journal';
+import { dateFr, decaler, heureDe, jourDe } from './dates';
+import { compteEcriture, ecrire, exigerEcriture } from './ecriture';
+import { TYPES_ELEMENTS, examinerPause, type ServiceEcriture } from './google-ads';
 import { outil, texte } from './outil';
 import { DEUX_TEMPS, JETON, exigerSearch, lignes, premiereLigne } from './outils-ecriture';
 import { MARQUE } from './regles';
@@ -44,7 +43,6 @@ type Ligne = {
     historicalQualityScore?: string; historicalCreativeQualityScore?: string;
     historicalLandingPageQualityScore?: string; historicalSearchPredictedCtr?: string;
   };
-  changeEvent?: { changeDateTime?: string; changeResourceName?: string; clientType?: string; changedFields?: string };
 };
 
 /** Ce que l'outil retient d'un élément, quel que soit son type. */
@@ -54,10 +52,6 @@ type Element = {
   canal?: string;
   campagne: { id?: string; nom?: string; statut?: string };
   groupe?: { nom?: string; statut?: string };
-  /** Les libellés de l'élément ; `undefined` pour ce qui n'en porte pas (groupe, association). */
-  libelles?: string[];
-  /** Un groupe porte sa marque dans son nom. */
-  nomMarque?: boolean;
   approbation?: string;
   qualite?: Qualite;
 };
@@ -70,44 +64,42 @@ type Type = 'groupe' | 'annonce' | 'mot_cle' | 'association_campagne' | 'associa
 /**
  * Ce qui se réactive, et comment le lire : les mêmes types et les mêmes
  * identifiants qu'`ads_mettre_en_pause` — jamais une campagne.
- * `changement` : le type de ressource de l'historique de Google (change_event).
  */
 const ENTITES: Record<Type, {
-  service: ServiceEcriture; forme: RegExp; exemple: string; changement: string;
+  service: ServiceEcriture; forme: RegExp; exemple: string;
   requete: (p: string[]) => string; lire: (l: Ligne) => Element; metriques: (p: string[], periode: string) => string;
 }> = {
   groupe: {
-    service: 'adGroups', forme: /^\d{1,20}$/, exemple: 'ad_group.id', changement: 'AD_GROUP',
+    service: 'adGroups', forme: /^\d{1,20}$/, exemple: 'ad_group.id',
     requete: ([g]) =>
       'SELECT ad_group.id, ad_group.name, ad_group.status, campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type ' +
       `FROM ad_group WHERE ad_group.id = ${g}`,
     lire: (l) => ({
       nom: `le groupe « ${l.adGroup?.name} »`, statut: l.adGroup?.status, canal: l.campaign?.advertisingChannelType,
       campagne: { id: l.campaign?.id, nom: l.campaign?.name, statut: l.campaign?.status },
-      nomMarque: Boolean(l.adGroup?.name?.startsWith(`${MARQUE} `)),
     }),
     metriques: ([g], periode) => `SELECT ad_group.id, ${METRIQUES} FROM ad_group WHERE ad_group.id = ${g} AND ${periode}`,
   },
   annonce: {
-    service: 'adGroupAds', forme: /^\d{1,20}~\d{1,20}$/, exemple: 'ad_group.id~ad_group_ad.ad.id', changement: 'AD_GROUP_AD',
+    service: 'adGroupAds', forme: /^\d{1,20}~\d{1,20}$/, exemple: 'ad_group.id~ad_group_ad.ad.id',
     requete: ([g, a]) =>
-      'SELECT ad_group.id, ad_group_ad.ad.id, ad_group_ad.status, ad_group_ad.labels, ad_group_ad.policy_summary.approval_status, ' +
+      'SELECT ad_group.id, ad_group_ad.ad.id, ad_group_ad.status, ad_group_ad.policy_summary.approval_status, ' +
       'ad_group.name, ad_group.status, campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type ' +
       `FROM ad_group_ad WHERE ad_group.id = ${g} AND ad_group_ad.ad.id = ${a}`,
     lire: (l) => ({
       nom: `une annonce du groupe « ${l.adGroup?.name} »`, statut: l.adGroupAd?.status, canal: l.campaign?.advertisingChannelType,
       campagne: { id: l.campaign?.id, nom: l.campaign?.name, statut: l.campaign?.status },
       groupe: { nom: l.adGroup?.name, statut: l.adGroup?.status },
-      libelles: l.adGroupAd?.labels ?? [], approbation: l.adGroupAd?.policySummary?.approvalStatus,
+      approbation: l.adGroupAd?.policySummary?.approvalStatus,
     }),
     metriques: ([g, a], periode) =>
       `SELECT ad_group.id, ad_group_ad.ad.id, ${METRIQUES} FROM ad_group_ad WHERE ad_group.id = ${g} AND ad_group_ad.ad.id = ${a} AND ${periode}`,
   },
   mot_cle: {
-    service: 'adGroupCriteria', forme: /^\d{1,20}~\d{1,20}$/, exemple: 'ad_group.id~ad_group_criterion.criterion_id', changement: 'AD_GROUP_CRITERION',
+    service: 'adGroupCriteria', forme: /^\d{1,20}~\d{1,20}$/, exemple: 'ad_group.id~ad_group_criterion.criterion_id',
     requete: ([g, c]) =>
       'SELECT ad_group.id, ad_group_criterion.criterion_id, ad_group_criterion.type, ad_group_criterion.status, ad_group_criterion.negative, ' +
-      'ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.labels, ad_group_criterion.approval_status, ' +
+      'ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.approval_status, ' +
       'ad_group_criterion.quality_info.quality_score, ad_group_criterion.quality_info.creative_quality_score, ' +
       'ad_group_criterion.quality_info.post_click_quality_score, ad_group_criterion.quality_info.search_predicted_ctr, ' +
       'ad_group.name, ad_group.status, campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type ' +
@@ -117,7 +109,7 @@ const ENTITES: Record<Type, {
       statut: l.adGroupCriterion?.negative ? 'NEGATIF' : l.adGroupCriterion?.status, canal: l.campaign?.advertisingChannelType,
       campagne: { id: l.campaign?.id, nom: l.campaign?.name, statut: l.campaign?.status },
       groupe: { nom: l.adGroup?.name, statut: l.adGroup?.status },
-      libelles: l.adGroupCriterion?.labels ?? [], approbation: l.adGroupCriterion?.approvalStatus, qualite: l.adGroupCriterion?.qualityInfo,
+      approbation: l.adGroupCriterion?.approvalStatus, qualite: l.adGroupCriterion?.qualityInfo,
     }),
     // Les niveaux de qualité historiques ne se lisent que sur une période non découpée par jour (test/gaql.ts).
     metriques: ([g, c], periode) =>
@@ -126,7 +118,7 @@ const ENTITES: Record<Type, {
       `FROM keyword_view WHERE ad_group.id = ${g} AND ad_group_criterion.criterion_id = ${c} AND ${periode}`,
   },
   association_campagne: {
-    service: 'campaignAssets', forme: ASSOCIATION, exemple: 'campaign.id~asset.id~TYPE', changement: 'CAMPAIGN_ASSET',
+    service: 'campaignAssets', forme: ASSOCIATION, exemple: 'campaign.id~asset.id~TYPE',
     requete: ([c, a, t]) =>
       'SELECT campaign.id, asset.id, campaign_asset.field_type, campaign_asset.status, campaign.name, campaign.status, campaign.advertising_channel_type ' +
       `FROM campaign_asset WHERE campaign.id = ${c} AND asset.id = ${a} AND campaign_asset.field_type = '${t}'`,
@@ -140,7 +132,7 @@ const ENTITES: Record<Type, {
       `WHERE campaign.id = ${c} AND asset.id = ${a} AND campaign_asset.field_type = '${t}' AND ${periode}`,
   },
   association_groupe: {
-    service: 'adGroupAssets', forme: ASSOCIATION, exemple: 'ad_group.id~asset.id~TYPE', changement: 'AD_GROUP_ASSET',
+    service: 'adGroupAssets', forme: ASSOCIATION, exemple: 'ad_group.id~asset.id~TYPE',
     requete: ([g, a, t]) =>
       'SELECT ad_group.id, asset.id, ad_group_asset.field_type, ad_group_asset.status, ad_group.name, ad_group.status, ' +
       'campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type ' +
@@ -166,17 +158,6 @@ const NIVEAUX: Record<string, string> = {
   ABOVE_AVERAGE: 'au-dessus de la moyenne', AVERAGE: 'dans la moyenne', BELOW_AVERAGE: 'en dessous de la moyenne', UNKNOWN: 'inconnu',
 };
 const niveau = (n?: string) => NIVEAUX[n ?? ''] ?? n ?? 'non communiqué';
-
-/** Qui a changé le statut en dernier, selon l'historique de Google. */
-const CLIENTS: Record<string, string> = {
-  GOOGLE_ADS_WEB_CLIENT: "l'interface Google Ads",
-  GOOGLE_ADS_EDITOR: 'Google Ads Editor',
-  GOOGLE_ADS_MOBILE_APP: "l'application mobile Google Ads",
-  GOOGLE_ADS_AUTOMATED_RULE: 'une règle automatique',
-  GOOGLE_ADS_SCRIPTS: 'un script Google Ads',
-  GOOGLE_ADS_BULK_UPLOAD: 'un import groupé',
-  GOOGLE_ADS_RECOMMENDATIONS: 'une recommandation de Google appliquée',
-};
 
 const qualite = (e: Element, m: Ligne['metrics']): string => {
   const q = e.qualite;
@@ -205,12 +186,13 @@ const reactiver = outil({
     'un mot-clé ou l\'association d\'un élément d\'annonce du Search, quand le journal des écritures du serveur garde cette pause. ' +
     'Ce n\'est PAS une activation. Jamais une campagne. ' + RESTE,
     '',
-    'Refusé : une pause absente du journal du serveur, ou faite dans l\'interface ; un élément qui porte encore la marque ' +
-    `${MARQUE} (nom ou libellé) — il n'a pas été relu ; une annonce ou un mot-clé refusé par Google.`,
+    'Refusé : une pause absente du journal du serveur, ou faite dans l\'interface ; un élément qui n\'était pas actif quand ' +
+    'le serveur l\'a mis en pause — né en pause, il n\'a jamais tourné ni été relu —, ou dont rien ne dit qu\'il l\'était ; ' +
+    `une annonce ou un mot-clé refusé par Google. La marque ${MARQUE} ne compte pas : un élément actif a été activé, donc relu.`,
     '',
     'L\'aperçu dit l\'élément, son groupe, sa campagne et leur état — réactiver dans une campagne en pause ne dépense rien —, ' +
-    'la date de la pause et son numéro au journal, ce que l\'élément a fait sur les 30 jours précédant la pause, et pour un ' +
-    'mot-clé son niveau de qualité.',
+    'la date de la pause et son numéro au journal, d\'où l\'on sait que l\'élément était actif, ce qu\'il a fait sur les ' +
+    '30 jours précédant la pause, et pour un mot-clé son niveau de qualité.',
     '',
     DEUX_TEMPS,
     '',
@@ -243,41 +225,14 @@ const reactiver = outil({
     if (e.statut === 'ENABLED') throw new Refus(`${e.nom} n'est pas en pause : rien à annuler.`);
     if (e.statut !== 'PAUSED') throw new Refus(`${e.nom} est dans un état inattendu (${e.statut ?? 'inconnu'}) : rien n'est parti.`);
 
-    // Règle 2 — la marque : ce qui la porte encore n'a pas été relu.
-    const libelle = e.libelles ? await trouverLibelle(env, compte) : undefined;
-    if (e.nomMarque || (libelle && e.libelles?.includes(libelle))) {
-      throw new Refus(`${e.nom} porte encore la marque ${MARQUE} (${e.nomMarque ? 'dans son nom' : 'en libellé'}) : il n'a pas été relu. ` +
-        'Le relire et retirer la marque dans l\'interface Google Ads ; l\'y activer, ou revenir ensuite ici.');
-    }
     // Règle 4 — ce que Google a refusé ne se réactive pas.
     if (e.approbation === 'DISAPPROVED') {
       throw new Refus(`${e.nom} est refusé par Google (DISAPPROVED) : le réactiver ne le ferait pas diffuser. Le corriger d'abord.`);
     }
-
-    // Règle 1 — la pause est-elle celle de ce serveur ? Le journal, puis l'historique de Google.
+    // Règles 1 et 2 — la pause est celle de ce serveur, et l'élément tournait quand elle a été faite.
     const ressource = `customers/${compte}/${entite.service}/${identifiant}`;
-    const pause = await dernierChangementDeStatut(env, compte, ressource);
-    if (!pause) {
-      throw new Refus(`${e.nom} n'a jamais été mis en pause par ce serveur : sa pause n'est pas dans le journal des écritures. ` +
-        'Une pause faite dans l\'interface Google Ads se lève dans l\'interface. ' + RESTE);
-    }
-    if (pause.outil !== 'ads_mettre_en_pause') {
-      throw new Refus(`La dernière pause de ${e.nom} par ce serveur a déjà été annulée (écriture n° ${pause.id} du journal) : ` +
-        'la pause actuelle vient d\'ailleurs — de l\'interface Google Ads, sans doute. ' + RESTE);
-    }
-    const historique = await lignes<Ligne>(env, compte,
-      'SELECT change_event.change_date_time, change_event.change_resource_name, change_event.change_resource_type, change_event.client_type, ' +
-      'change_event.changed_fields, change_event.campaign FROM change_event ' +
-      `WHERE change_event.change_date_time >= '${decaler(aujourdhui(), -29)}' AND change_event.change_date_time <= '${aujourdhui()} 23:59:59' ` +
-      `AND change_event.change_resource_type = '${entite.changement}' AND change_event.campaign = 'customers/${compte}/campaigns/${e.campagne.id}' ` +
-      'ORDER BY change_event.change_date_time DESC LIMIT 1000');
-    // Le plus récent changement de statut que Google connaisse (30 jours) : s'il ne vient pas de l'API, la pause n'est plus la nôtre.
-    const dernier = historique.map((l) => l.changeEvent ?? {})
-      .find((c) => c.changeResourceName === ressource && (c.changedFields ?? '').split(',').includes('status'));
-    if (dernier && dernier.clientType !== 'GOOGLE_ADS_API') {
-      throw new Refus(`Le dernier changement de statut de ${e.nom} vient de ${CLIENTS[dernier.clientType ?? ''] ?? dernier.clientType} ` +
-        `(${dernier.changeDateTime?.slice(0, 16)}), après la pause de ce serveur (écriture n° ${pause.id}) : la pause actuelle n'est pas la sienne. ` + RESTE);
-    }
+    const pause = await examinerPause(env, compte, entite.service, ressource);
+    if ('refus' in pause) throw new Refus(`Réactivation refusée pour ${e.nom} — ${pause.refus}. ${RESTE}`);
 
     // Ce que l'élément faisait avant sa pause : les 30 jours qui la précèdent.
     const jour = jourDe(pause.createdAt);
@@ -308,7 +263,8 @@ const reactiver = outil({
         description: [
           `ANNULER UNE PAUSE — ${e.nom} (${identifiant}) repasse en ENABLED (« Activé »). Ce n'est pas une activation : ` +
           'cela annule la pause que ce serveur a faite.',
-          `- Mis en pause par ce serveur le ${dateFr(jour)} à ${heureDe(pause.createdAt)} — écriture n° ${pause.id} du journal.`,
+          `- Mis en pause par ce serveur le ${dateFr(jour)} à ${heureDe(pause.createdAt)} — écriture n° ${pause.id} du journal. ` +
+          `L'élément était alors actif (ENABLED), d'après ${pause.source === 'journal' ? 'le journal' : "l'historique de Google"}.`,
           `- ${e.groupe ? `Groupe « ${e.groupe.nom} » : ${statut(e.groupe.statut)}. ` : ''}Campagne « ${e.campagne.nom} » : ${statut(e.campagne.statut)}. ${effet}`,
           `- Sur les 30 jours précédant la pause (du ${dateFr(debut)} au ${dateFr(fin)}) : ${Number(m.impressions ?? 0)} impressions, ` +
           `${Number(m.clicks ?? 0)} clics, ${euros(Number(m.costMicros ?? 0))}, ${Number(m.conversions ?? 0).toLocaleString('fr-FR')} conversions.`,

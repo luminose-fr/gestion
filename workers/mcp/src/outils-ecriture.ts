@@ -267,8 +267,12 @@ const mettreEnPause = outil({
         service: entite.service,
         operations: [{ updateMask: 'status', update: { resourceName: `customers/${compte}/${entite.service}/${identifiant}`, status: 'PAUSED' } }],
         description: `Mettre en pause ${e.nom} (${identifiant}), aujourd'hui ${e.statut ?? 'statut inconnu'}. ` +
-          "Ce qui est en pause ne dépense plus ; la réactivation se fera dans l'interface Google Ads.",
+          'Ce qui est en pause ne dépense plus. ' + (type === 'campagne'
+          ? "La réactivation se fera dans l'interface Google Ads."
+          : "ads_reactiver pourra annuler cette pause ; toute autre réactivation se fait dans l'interface Google Ads."),
         bilan: `En pause : ${e.nom}.`,
+        // Le statut que la pause remplace, relu à l'exécution : ads_reactiver ne rend que ce qui tournait.
+        avant: { status: e.statut },
       },
     }));
   },

@@ -79,6 +79,14 @@ export type Preparation = {
    * n'a pas montré ne part jamais.
    */
   sansObjet?: { rang: number; raison: string }[];
+  /**
+   * Ce que l'écriture remplace, champ par champ, lu dans le compte au moment
+   * d'exécuter : le journal le garde à côté des opérations. Une pause garde
+   * ainsi le statut d'avant, que `ads_reactiver` exige actif (RE2, décision du
+   * 23/10/2026). Hors empreinte : l'outil le lit, il ne vient jamais des
+   * arguments, et rien n'en part chez Google.
+   */
+  avant?: Record<string, unknown>;
 };
 
 /** Le temps de l'appel, tel que l'outil le voit quand il prépare. `fige` : ce que l'aperçu avait arrêté, rendu par le jeton vérifié. */
@@ -251,7 +259,7 @@ export const ecrire = async (
 
   const numero = await ouvrirEcriture(env, 'ads', {
     outil, cible: compte, auteur: contexte.email,
-    contenu: { service: p.service, operations },
+    contenu: { service: p.service, operations, ...(p.avant ? { avant: p.avant } : {}) },
     jetonEmpreinte: await empreinte(jeton),
   }, 'Google');
 
