@@ -20,7 +20,7 @@
 import { Refus } from './refus';
 import { MARQUE, examinerAnnonce, textesParDefaut, urlAdmise } from './regles';
 import { analyser, longueur as longueurAffichee, texteParDefaut } from './insertion';
-import { aujourdhui, dateValide, equivalentQuotidien } from './dates';
+import { aujourdhui, dateFr, dateValide, decaler, equivalentQuotidien, jourDe } from './dates';
 import { exigerSecret, jetonGoogle, oublierJetonsGoogle } from './jeton-google';
 import { dernierChangementDeStatut } from './journal';
 import type { Env } from './env';
@@ -86,9 +86,9 @@ const FORME_COMPTE = /^\d{10}$/;
  * - `reactiver` : remettre en ENABLED un groupe, une annonce, un mot-clé ou une
  *   association — jamais une campagne. La forme ne suffit pas :
  *   `verifierReactivations` demande au journal que la dernière écriture de
- *   statut de cette ressource soit une mise en pause de CE serveur, et au
- *   compte qu'elle ne porte plus la marque « [Claude] » et que Google ne l'ait
- *   pas refusée.
+ *   statut de cette ressource soit une mise en pause de CE serveur, au journal
+ *   ou à l'historique de Google que l'élément ait été actif quand elle a été
+ *   faite, et au compte que Google ne l'ait pas refusé.
  *
  * Aucun autre `remove`, aucun autre passage à ENABLED : l'activation — donc la
  * dépense — reste dans l'interface Google Ads.
@@ -1151,17 +1151,118 @@ const verifierActivations = async (env: Env, compte: string, service: ServiceEcr
   }
 };
 
-type LigneMarque = {
-  adGroup?: { name?: string };
-  adGroupAd?: { labels?: string[]; policySummary?: { approvalStatus?: string } };
-  adGroupCriterion?: { labels?: string[]; approvalStatus?: string };
+// ── Annuler une pause : RE1 et RE2 (décision du 23/10/2026) ──────────────
+
+/**
+ * Où l'historique de Google range chaque service réactivable : le type de
+ * ressource de `change_event`, et la clé de `old_resource` et `new_resource`.
+ */
+const HISTORIQUE: Partial<Record<ServiceEcriture, { type: string; champ: string }>> = {
+  adGroups: { type: 'AD_GROUP', champ: 'adGroup' },
+  adGroupAds: { type: 'AD_GROUP_AD', champ: 'adGroupAd' },
+  adGroupCriteria: { type: 'AD_GROUP_CRITERION', champ: 'adGroupCriterion' },
+  campaignAssets: { type: 'CAMPAIGN_ASSET', champ: 'campaignAsset' },
+  adGroupAssets: { type: 'AD_GROUP_ASSET', champ: 'adGroupAsset' },
+};
+
+/** Qui a changé un statut, selon l'historique de Google. */
+const CLIENTS: Record<string, string> = {
+  GOOGLE_ADS_WEB_CLIENT: "l'interface Google Ads",
+  GOOGLE_ADS_EDITOR: 'Google Ads Editor',
+  GOOGLE_ADS_MOBILE_APP: "l'application mobile Google Ads",
+  GOOGLE_ADS_AUTOMATED_RULE: 'une règle automatique',
+  GOOGLE_ADS_SCRIPTS: 'un script Google Ads',
+  GOOGLE_ADS_BULK_UPLOAD: 'un import groupé',
+  GOOGLE_ADS_RECOMMENDATIONS: 'une recommandation de Google appliquée',
+};
+
+type Changement = {
+  changeDateTime?: string; changeResourceName?: string; clientType?: string; resourceChangeOperation?: string; changedFields?: string;
+  oldResource?: Record<string, { status?: string } | undefined>; newResource?: Record<string, { status?: string } | undefined>;
+};
+
+/** Une pause de ce serveur qui peut s'annuler : son écriture au journal, et d'où l'on sait que l'élément tournait. */
+export type PauseAnnulable = { id: number; createdAt: number; source: 'journal' | 'historique' };
+
+/**
+ * RE1 et RE2 — la pause est-elle celle de ce serveur, et l'élément était-il
+ * actif quand elle a été faite ? Ce qui tournait, Florent l'avait activé, donc
+ * relu ; ce qui est né en pause n'a jamais été activé, qu'il porte la marque
+ * « [Claude] » ou non. La marque elle-même ne dit rien : Florent active sans
+ * toujours retirer le libellé.
+ *
+ * L'état d'avant se lit au journal, qui le garde depuis le 23/10/2026. Pour une
+ * pause plus ancienne, dans l'historique de Google (30 jours) : le changement
+ * qui a fait la pause garde le statut qu'il remplaçait ; si le dernier
+ * changement est la création, le statut n'a pas bougé depuis la naissance. Ni
+ * l'un ni l'autre : refus, en le disant.
+ *
+ * L'outil l'appelle pour son aperçu, la table avant chaque envoi. Rend la
+ * pause, ou la raison du refus. Deux lectures : le journal, l'historique.
+ */
+export const examinerPause = async (
+  env: Env,
+  compte: string,
+  service: ServiceEcriture,
+  ressource: string,
+): Promise<PauseAnnulable | { refus: string }> => {
+  const h = HISTORIQUE[service];
+  const cible = /\/(\d+)(?:~|$)/.exec(ressource)?.[1];
+  if (!h || !cible) throw new Error(`Réactivation : ${ressource} sans historique lisible`);
+
+  const pause = await dernierChangementDeStatut(env, compte, ressource);
+  if (!pause) {
+    return { refus: "ce serveur n'a jamais mis cet élément en pause : sa pause n'est pas dans le journal des écritures. " +
+      "Une pause faite dans l'interface Google Ads se lève dans l'interface" };
+  }
+  if (pause.outil !== 'ads_mettre_en_pause') {
+    return { refus: `la dernière pause faite par ce serveur a déjà été annulée (écriture n° ${pause.id} du journal) : ` +
+      "la pause actuelle vient d'ailleurs — de l'interface Google Ads, sans doute" };
+  }
+
+  // Borné à la campagne pour une association de campagne, au groupe sinon : son identifiant est le premier
+  // nombre du nom de ressource, la table n'a rien à relire pour le trouver.
+  const { results = [] } = await rechercher(env, compte,
+    'SELECT change_event.change_date_time, change_event.change_resource_name, change_event.change_resource_type, change_event.client_type, ' +
+    'change_event.resource_change_operation, change_event.changed_fields, change_event.old_resource, change_event.new_resource, ' +
+    'change_event.campaign, change_event.ad_group FROM change_event ' +
+    `WHERE change_event.change_date_time >= '${decaler(aujourdhui(), -29)}' AND change_event.change_date_time <= '${aujourdhui()} 23:59:59' ` +
+    `AND change_event.change_resource_type = '${h.type}' AND ` +
+    (service === 'campaignAssets' ? `change_event.campaign = 'customers/${compte}/campaigns/${cible}'` : `change_event.ad_group = 'customers/${compte}/adGroups/${cible}'`) +
+    ' ORDER BY change_event.change_date_time DESC LIMIT 1000', connexionPour(env, compte));
+  // Le plus récent changement de statut que Google connaisse : s'il ne vient pas de l'API, la pause n'est plus la nôtre.
+  const dernier = (results as { changeEvent?: Changement }[]).map((l) => l.changeEvent ?? {})
+    .find((c) => c.changeResourceName === ressource && (c.changedFields ?? '').split(',').includes('status'));
+  if (dernier && dernier.clientType !== 'GOOGLE_ADS_API') {
+    return { refus: `le dernier changement de statut de l'élément vient de ${CLIENTS[dernier.clientType ?? ''] ?? dernier.clientType} ` +
+      `(${dernier.changeDateTime?.slice(0, 16)}), après la pause de ce serveur (écriture n° ${pause.id}) : la pause actuelle n'est pas la sienne` };
+  }
+
+  const historique = dernier && (dernier.resourceChangeOperation === 'CREATE' ? dernier.newResource : dernier.oldResource)?.[h.champ]?.status;
+  const avant = pause.avant ?? historique;
+  const source = pause.avant ? 'journal' : 'historique';
+  if (!avant) {
+    return { refus: `rien ne dit que l'élément était actif quand ce serveur l'a mis en pause (écriture n° ${pause.id} du ${dateFr(jourDe(pause.createdAt))}) : ` +
+      "le journal ne gardait pas encore l'état d'avant, et l'historique de Google, limité à 30 jours, n'en montre rien. Dans le doute, refusé" };
+  }
+  if (avant !== 'ENABLED') {
+    return { refus: `l'élément n'était pas actif (${avant}) quand ce serveur l'a mis en pause (écriture n° ${pause.id}), ` +
+      `d'après ${source === 'journal' ? 'le journal' : "l'historique de Google"} : ce qui n'a jamais tourné n'a pas été relu` };
+  }
+  return { id: pause.id, createdAt: pause.createdAt, source };
+};
+
+type LigneApprobation = {
+  adGroupAd?: { policySummary?: { approvalStatus?: string } };
+  adGroupCriterion?: { approvalStatus?: string };
 };
 
 /**
- * Remettre en ENABLED n'est permis qu'à l'annulation d'une pause de CE serveur
- * (23/10/2026). Avant chaque envoi, aperçu compris, quel que soit l'outil qui
- * a préparé l'opération : le journal, puis le compte. Une requête au journal
- * et deux au compte au plus, par opération.
+ * Remettre en ENABLED n'est permis qu'à l'annulation d'une pause de CE serveur,
+ * faite sur un élément actif (23/10/2026). Avant chaque envoi, aperçu compris,
+ * quel que soit l'outil qui a préparé l'opération : le journal et l'historique
+ * (`examinerPause`), puis le compte pour un refus de Google. Une requête au
+ * journal et deux au compte au plus, par opération.
  */
 const verifierReactivations = async (env: Env, compte: string, service: ServiceEcriture, operations: Operation[]): Promise<void> => {
   for (const o of operations) {
@@ -1171,22 +1272,16 @@ const verifierReactivations = async (env: Env, compte: string, service: ServiceE
     const refuser = (pourquoi: string): never => {
       throw new Refus(`Réactivation refusée par la table fermée — ${nom} : ${pourquoi}. Rien n'est parti.`);
     };
-    const dernier = await dernierChangementDeStatut(env, compte, nom);
-    if (dernier?.outil !== 'ads_mettre_en_pause') refuser('aucune mise en pause de ce serveur à annuler dans le journal');
+    const examen = await examinerPause(env, compte, service, nom);
+    if ('refus' in examen) refuser(examen.refus);
 
-    const lire = async (requete: string) => ((await rechercher(env, compte, requete, connexionPour(env, compte))).results ?? []) as LigneMarque[];
-    const [, a, b] = /\/(\d+)(?:~(\d+))?(?:~[A-Z_]+)?$/.exec(nom) ?? [];
-    if (service === 'adGroups') {
-      const [l] = await lire(`SELECT ad_group.id, ad_group.name FROM ad_group WHERE ad_group.id = ${a}`);
-      if (!l || l.adGroup?.name?.startsWith(`${MARQUE} `)) refuser(`introuvable, ou nom encore marqué ${MARQUE}`);
-    } else if (service === 'adGroupAds' || service === 'adGroupCriteria') {
-      const [libelle] = await lire(`SELECT label.resource_name, label.name FROM label WHERE label.name = '${MARQUE}'`) as { label?: { resourceName?: string } }[];
-      const [l] = await lire(service === 'adGroupAds'
-        ? `SELECT ad_group.id, ad_group_ad.ad.id, ad_group_ad.labels, ad_group_ad.policy_summary.approval_status FROM ad_group_ad WHERE ad_group.id = ${a} AND ad_group_ad.ad.id = ${b}`
-        : `SELECT ad_group.id, ad_group_criterion.criterion_id, ad_group_criterion.labels, ad_group_criterion.approval_status FROM ad_group_criterion WHERE ad_group.id = ${a} AND ad_group_criterion.criterion_id = ${b}`);
-      const e = l?.adGroupAd ?? l?.adGroupCriterion;
-      if (!e) refuser('introuvable');
-      if (libelle?.label?.resourceName && e!.labels?.includes(libelle.label.resourceName)) refuser(`libellé ${MARQUE} encore posé`);
+    if (service === 'adGroupAds' || service === 'adGroupCriteria') {
+      const [, a, b] = /\/(\d+)~(\d+)$/.exec(nom) ?? [];
+      const [l] = ((await rechercher(env, compte, service === 'adGroupAds'
+        ? `SELECT ad_group.id, ad_group_ad.ad.id, ad_group_ad.policy_summary.approval_status FROM ad_group_ad WHERE ad_group.id = ${a} AND ad_group_ad.ad.id = ${b}`
+        : `SELECT ad_group.id, ad_group_criterion.criterion_id, ad_group_criterion.approval_status FROM ad_group_criterion WHERE ad_group.id = ${a} AND ad_group_criterion.criterion_id = ${b}`,
+      connexionPour(env, compte))).results ?? []) as LigneApprobation[];
+      if (!l?.adGroupAd && !l?.adGroupCriterion) refuser('introuvable');
       const statut = l!.adGroupAd ? l!.adGroupAd.policySummary?.approvalStatus : l!.adGroupCriterion?.approvalStatus;
       if (statut === 'DISAPPROVED') refuser('refusé par Google');
     }

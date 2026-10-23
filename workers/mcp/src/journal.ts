@@ -68,20 +68,24 @@ export const ouvrir = async (env: Env, journal: Journal, o: Ouverture): Promise<
 /**
  * La dernière fois que CE serveur a mis en pause ou réactivé `ressource`, avec
  * succès. C'est ce qui dit si une pause est la sienne : `ads_reactiver` n'annule
- * que la pause la plus récente, et seulement si elle vient d'ici. Une requête.
+ * que la pause la plus récente, et seulement si elle vient d'ici. `avant` : le
+ * statut que l'écriture a remplacé — absent des pauses faites avant que le
+ * journal le garde (23/10/2026). Une requête.
  */
 export const dernierChangementDeStatut = async (
   env: Env,
   compte: string,
   ressource: string,
-): Promise<{ id: number; outil: string; createdAt: number } | null> => {
+): Promise<{ id: number; outil: string; createdAt: number; avant?: string } | null> => {
   const ligne = await env.DB
-    .prepare("SELECT id, outil, created_at FROM ads_ecritures WHERE compte = ? AND issue = 'ok' " +
+    .prepare("SELECT id, outil, created_at, json_extract(contenu, '$.avant.status') AS avant FROM ads_ecritures WHERE compte = ? AND issue = 'ok' " +
       "AND outil IN ('ads_mettre_en_pause', 'ads_reactiver') AND json_extract(contenu, '$.operations[0].update.resourceName') = ? " +
       'ORDER BY id DESC LIMIT 1')
     .bind(compte, ressource)
-    .first<{ id: number; outil: string; created_at: number }>();
-  return ligne ? { id: Number(ligne.id), outil: ligne.outil, createdAt: Number(ligne.created_at) } : null;
+    .first<{ id: number; outil: string; created_at: number; avant: string | null }>();
+  return ligne
+    ? { id: Number(ligne.id), outil: ligne.outil, createdAt: Number(ligne.created_at), ...(ligne.avant ? { avant: String(ligne.avant) } : {}) }
+    : null;
 };
 
 export const clore = async (
