@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
     verifierReelExplique, segmentsSurlignes, texteAffiche, motsNormalises, motsSitues,
     positionsDesReperes, dureeEstimee, reelToMarkdown, reelToPlainText,
-    estReelExplique, minuterReel, horlogeEstimee, type ReelExplique,
+    estReelExplique, minuterReel, horlogeEstimee, COUP_MIN, COUP_MAX, type ReelExplique,
 } from '../src/reelExplique';
 import { getFormatDef, parseDraftResponse, TargetFormat, FORMAT_REGISTRY } from '../src/index';
 
@@ -254,5 +254,66 @@ describe('le minutage', () => {
         const m = minuterReel(valide(), prise);
         expect(m.sequences[0].debut).toBe(2);
         expect(m.sequences[2].apparitions[0]).toBe(5);
+    });
+});
+
+/**
+ * Le coup de poing (SPEC §12.5.3) : quelques mots plein écran, le temps de les
+ * dire, sur un passage face caméra du milieu.
+ */
+describe('le coup de poing', () => {
+    const avecCoup = (): ReelExplique => {
+        const data = valide();
+        data.sequences[1].coup = { texte: 'Pas de la [politesse]', apparait_sur: 'pas de la politesse' };
+        return data;
+    };
+
+    it('passe le contrôle quand il est à sa place', () => {
+        expect(problemesDe(avecCoup())).toEqual([]);
+    });
+
+    it('frappe au mot de son repère, et tient le temps de le dire plus un souffle', () => {
+        const m = minuterReel(avecCoup(), horlogeEstimee(150));
+        // « pas de la politesse » : mots 12 à 15 de la séquence 2 (« n'est » en compte deux), à 0,4 s le mot.
+        expect(m.sequences[1].coup!.debut).toBeCloseTo(12 * 0.4);
+        expect(m.sequences[1].coup!.fin - m.sequences[1].coup!.debut).toBeCloseTo(4 * 0.4 + 0.4);
+        expect(m.sequences[0].coup).toBeNull();
+    });
+
+    it('ne tient ni moins qu’il ne faut pour le lire, ni assez pour faire oublier le visage', () => {
+        const court = avecCoup();
+        court.sequences[1].coup!.apparait_sur = 'politesse';
+        const m = minuterReel(court, horlogeEstimee(150));
+        expect(m.sequences[1].coup!.fin - m.sequences[1].coup!.debut).toBeCloseTo(COUP_MIN);
+        const long = avecCoup();
+        long.sequences[1].coup!.apparait_sur = "pas de la politesse : c'est un système d'alarme";
+        const l = minuterReel(long, horlogeEstimee(110));
+        expect(l.sequences[1].coup!.fin - l.sequences[1].coup!.debut).toBeCloseTo(COUP_MAX);
+    });
+
+    it('se refuse sur une scène, sur l’accroche, et au-delà de deux', () => {
+        const scene = avecCoup();
+        scene.sequences[2].coup = { texte: 'Trop', apparait_sur: 'une alarme incendie' };
+        expect(problemesDe(scene)).toContain('séquence 3, coup de poing — un coup de poing frappe sur un passage face caméra : une scène occupe déjà l\'écran');
+        const accroche = avecCoup();
+        accroche.sequences[0].coup = { texte: 'Trois fois', apparait_sur: 'trois fois' };
+        expect(problemesDe(accroche).some(p => p.startsWith('séquence 1, coup de poing — ni sur l\'accroche'))).toBe(true);
+        const trois = avecCoup();
+        trois.sequences[0].coup = { texte: 'Trois fois', apparait_sur: 'trois fois' };
+        trois.sequences[4].coup = { texte: 'En séance', apparait_sur: 'en séance' };
+        expect(problemesDe(trois)).toContain('script — 3 coups de poing (max 2) : au-delà, la rupture devient le rythme');
+    });
+
+    it('se compte, et cherche son repère dans la voix', () => {
+        const long = avecCoup();
+        long.sequences[1].coup!.texte = 'Ce n’est pas de la politesse du tout';
+        expect(problemesDe(long).some(p => p.startsWith('séquence 2, coup de poing — 36 caractères (max 24)'))).toBe(true);
+        const perdu = avecCoup();
+        perdu.sequences[1].coup!.apparait_sur = 'de la courtoisie';
+        expect(problemesDe(perdu).some(p => p.includes('« de la courtoisie » introuvable'))).toBe(true);
+    });
+
+    it('se lit dans le script en texte, pour le Lecteur froid', () => {
+        expect(reelToMarkdown(avecCoup())).toContain('Écran — coup de poing : Pas de la [politesse] — frappe sur « pas de la politesse »');
     });
 });

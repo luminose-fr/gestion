@@ -153,7 +153,7 @@ describe('planDeMontage', () => {
         expect(pub.segments.map(s => s.source)).toEqual(['accroche', 'principale']);
         const longueur = pub.segments[0].jusqua - pub.segments[0].depuis;
         expect(pub.segments[1].a).toBeCloseTo(longueur);
-        expect(pub.minutage.sequences[0]).toEqual({ debut: 0, fin: longueur, apparitions: [] });
+        expect(pub.minutage.sequences[0]).toEqual({ debut: 0, fin: longueur, apparitions: [], coup: null });
         expect(pub.minutage.sequences[1].debut).toBeCloseTo(longueur);
         // Les cartes de la scène restent sur leurs mots : même écart au premier mot de la scène.
         const motScene = (p: typeof pub, prise: number) => p.minutage.sequences[1].debut + p.minutage.sequences[1].apparitions[0]! - prise;

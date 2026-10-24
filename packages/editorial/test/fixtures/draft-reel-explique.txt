@@ -114,6 +114,9 @@ UNE SCÈNE :
 - "visuel" : une illustration ou un schéma, quand l'image dit mieux que le mot — surtout en pédagogie, et pour l'humour. { "nature": "illustration" | "schema", "description": "Ce que l'image montre concrètement, en 1 à 2 phrases, en français." } Florent la produit lui-même : décris ce qu'on doit voir, n'écris pas de prompt. Une carte qui porte un visuel peut se passer de texte. Pas d'icône ni d'emoji, pas d'imagerie littérale de la détresse, pas de symboles ésotériques appuyés. Sinon, "visuel" vaut null.
 - "apparait_sur" : OBLIGATOIRE pour chaque élément — 2 à 6 mots RECOPIÉS À L'IDENTIQUE de la "voix" de la même séquence, ceux sur lesquels l'élément apparaît. Les repères d'une scène suivent l'ordre de la voix. Aucun minutage, aucune seconde : le calage se fait sur la prise.
 
+COUP DE POING (facultatif, 2 au plus dans la vidéo) :
+Sur un passage face caméra du milieu — ni l'accroche ni l'appel à l'action —, "coup" fait envahir l'écran par quelques mots, le temps de les dire : la formule qu'on veut graver, une rupture, un chiffre. Fond prune, grandes lettres ; puis le visage revient. { "texte": "24 caractères MAXIMUM, au plus un passage entre crochets", "apparait_sur": "1 à 4 mots RECOPIÉS À L'IDENTIQUE de la voix de la séquence, ceux qu'il frappe" }. Comme une carte, il retient la voix sans la recopier. Sans raison de rompre, "coup" vaut null : un coup de poing par habitude n'en est plus un.
+
 SECONDE ACCROCHE (PUBLICITÉ) :
 "accroche_pub" est une autre ouverture face caméra, tournée dans la foulée, qui remplace la première quand la vidéo sert de publicité Meta ou Google : même longueur, même enchaînement avec la séquence 2. Elle nomme la situation SANS présumer de l'état de celui qui regarde — jamais 'Vous souffrez de…', 'Votre anxiété…', 'Vous êtes déprimé ?' : les régies le refusent. Et elle ne promet aucun résultat.
 
@@ -135,6 +138,7 @@ SECONDE ACCROCHE (PUBLICITÉ) :
         { "type": "pastille", "texte": "La [conclusion]", "ton": "lumiere", "apparait_sur": "mots recopiés de la voix" }
       ]
     },
+    { "plan": "camera", "role": "Bascule", "voix": "…", "intention": "…", "coup": { "texte": "Pas un [défaut]", "apparait_sur": "mots recopiés de la voix" } },
     { "plan": "camera", "role": "Appel à l'action", "voix": "…", "intention": "…" }
   ],
   "accroche_pub": { "voix": "La seconde ouverture, pour la publicité.", "intention": "…" },

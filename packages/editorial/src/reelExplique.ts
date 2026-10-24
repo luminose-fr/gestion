@@ -34,6 +34,17 @@ export interface ElementScene {
     apparait_sur: string;
 }
 
+/**
+ * Quelques mots qui envahissent l'écran, le temps de les dire, au milieu d'un
+ * passage face caméra (SPEC §12.5.3). C'est la rupture de rythme de la seconde
+ * référence : le visage s'efface, la formule frappe, le visage revient.
+ */
+export interface CoupDePoing {
+    texte: string;
+    /** Les mots de la voix sur lesquels il frappe, recopiés à l'identique. */
+    apparait_sur: string;
+}
+
 export interface SequenceReel {
     plan: PlanReel;
     role: string;
@@ -43,6 +54,8 @@ export interface SequenceReel {
     titre?: string | null;
     registre?: RegistreScene;
     elements?: ElementScene[];
+    /** Sur un passage face caméra seulement, ni le premier ni le dernier. */
+    coup?: CoupDePoing | null;
 }
 
 export interface ReelExplique {
@@ -74,6 +87,8 @@ export const LIMITES_REEL = {
     accrocheMots: 15,
     dureeMinSecondes: 45,
     dureeMaxSecondes: 90,
+    coup: 24,
+    coupsMax: 2,
 } as const;
 
 /**
@@ -218,11 +233,30 @@ export interface MinutageSequence {
      * `null` pour un repère introuvable, qui ne s'affiche donc qu'à la fin.
      */
     apparitions: Array<number | null>;
+    /** Le coup de poing d'un passage face caméra, en secondes depuis le début de la séquence. */
+    coup?: { debut: number; fin: number } | null;
 }
 
 export interface MinutageReel {
     duree: number;
     sequences: MinutageSequence[];
+}
+
+/**
+ * Combien de temps un coup de poing tient l'écran : le temps de dire ses mots,
+ * plus un souffle pour qu'il se lise ; jamais moins qu'il ne faut pour le lire,
+ * jamais assez pour que le visage se fasse oublier.
+ */
+export const COUP_SOUFFLE = 0.4;
+export const COUP_MIN = 0.9;
+export const COUP_MAX = 2.5;
+
+/** Où frappe le coup de poing d'une séquence, en rang de mot dans sa voix — ou `null`. */
+export function positionDuCoup(sequence: SequenceReel): { position: number; longueur: number } | null {
+    const repere = motsNormalises(sequence.coup?.apparait_sur);
+    if (!sequence.coup || repere.length === 0) return null;
+    const position = trouverRepere(motsNormalises(sequence.voix), repere);
+    return position === -1 ? null : { position, longueur: repere.length };
 }
 
 /**
@@ -238,9 +272,18 @@ export function minuterReel(data: ReelExplique, horloge: Horloge): MinutageReel 
         const premier = rang;
         rang += compterMots(sequence.voix);
         const debut = horloge(premier);
+        const fin = horloge(rang);
         const apparitions = positionsDesReperes(sequence).map(position =>
             position === null ? null : horloge(premier + position) - debut);
-        return { debut, fin: horloge(rang), apparitions };
+        const situe = sequence.plan === 'camera' ? positionDuCoup(sequence) : null;
+        let coup: MinutageSequence['coup'] = null;
+        if (situe) {
+            const frappe = horloge(premier + situe.position) - debut;
+            const dit = horloge(premier + situe.position + situe.longueur) - debut;
+            const tenue = Math.min(COUP_MAX, Math.max(COUP_MIN, dit - frappe + COUP_SOUFFLE));
+            coup = { debut: frappe, fin: Math.min(fin - debut, frappe + tenue) };
+        }
+        return { debut, fin, apparitions, coup };
     });
     return { duree: horloge(total), sequences: minutees };
 }
@@ -334,6 +377,30 @@ export function verifierReelExplique(data: unknown): ProblemeReel[] {
         });
     });
 
+    const coups = sequences.flatMap((s, i) => s.coup ? [i] : []);
+    if (coups.length > LIMITES_REEL.coupsMax) {
+        problemes.push({ ou: 'script', probleme: `${coups.length} coups de poing (max ${LIMITES_REEL.coupsMax}) : au-delà, la rupture devient le rythme` });
+    }
+    coups.forEach(i => {
+        const sequence = sequences[i];
+        const ou = `séquence ${i + 1}, coup de poing`;
+        if (sequence.plan !== 'camera') {
+            problemes.push({ ou, probleme: 'un coup de poing frappe sur un passage face caméra : une scène occupe déjà l\'écran' });
+            return;
+        }
+        if (i === 0 || i === sequences.length - 1) {
+            problemes.push({ ou, probleme: 'ni sur l\'accroche ni sur l\'appel à l\'action : la vidéo s\'ouvre et se ferme sur le visage' });
+        }
+        const texte = texteAffiche(sequence.coup!.texte);
+        if (!texte) problemes.push({ ou, probleme: 'coup de poing vide' });
+        else if (texte.length > LIMITES_REEL.coup) problemes.push({ ou, probleme: trop(texte, LIMITES_REEL.coup) });
+        if (!sequence.coup!.apparait_sur?.trim()) {
+            problemes.push({ ou, probleme: 'repère "apparait_sur" absent : le coup de poing n\'a pas de moment où frapper' });
+        } else if (!positionDuCoup(sequence)) {
+            problemes.push({ ou, probleme: `repère « ${sequence.coup!.apparait_sur} » introuvable dans la voix de la séquence — il doit en être recopié à l'identique` });
+        }
+    });
+
     if (!data.accroche_pub?.voix?.trim()) {
         problemes.push({ ou: 'seconde accroche', probleme: '"accroche_pub" absente : la variante publicitaire n\'aura pas d\'ouverture' });
     }
@@ -380,6 +447,10 @@ export function reelToMarkdown(data: ReelExplique): string {
         if (s.plan === 'scene') {
             const ecran = [`Écran — titre : ${t(s.titre)}`, ...(s.elements ?? []).map(decrireElement)];
             out.push(ecran.join('\n'));
+        }
+        if (s.plan === 'camera' && s.coup) {
+            const repere = t(s.coup.apparait_sur) ? ` — frappe sur « ${t(s.coup.apparait_sur)} »` : '';
+            out.push(`Écran — coup de poing : ${t(s.coup.texte)}${repere}`);
         }
         if (t(s.intention)) out.push(`_${t(s.intention)}_`);
     });
