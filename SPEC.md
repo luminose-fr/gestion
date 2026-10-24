@@ -1,4 +1,4 @@
-# SPEC v2.11 — gestion.luminose.fr
+# SPEC v2.12 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -52,6 +52,8 @@
 > phrases reprises se coupent d'office, l'improvisation se propose ; chaque coupe se
 > rétablit, et le cadre alterne à chaque raccord (§12.5.2). Final Cut n'est plus une
 > étape du Reel expliqué.
+> **v2.12 (25/10/2026)** : le sous-titre suit la voix mot à mot — le mot qui se dit
+> s'éclaire en rose brumeux (§12.5). Le « pas de karaoké » de la v2.4 est levé.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1333,7 +1335,8 @@ suffit).
 
 | Question | Décision | Conséquence |
 | :--- | :--- | :--- |
-| Où se termine le montage ? | **Dans l'application.** La prise est nettoyée dans Final Cut (ratés, silences), l'application pose les scènes et les sous-titres et rend le fichier final. | Les variantes (4:5, seconde accroche) sortent sans refaire de montage. |
+| Où se termine le montage ? | **Dans l'application.** L'application pose les scènes et les sous-titres et rend le fichier final. Révisé le 24/10/2026 : elle nettoie aussi la prise — ratés, silences —, qui ne passe plus par Final Cut (§12.5.2). | Les variantes (4:5, seconde accroche) sortent sans refaire de montage. |
+| Que retenir de la seconde référence (24/10/2026) ? | **Le dérushage, les sous-titres mot à mot, le rythme.** Ni son avatar dessiné ni le mode sans caméra : le visage de Florent fait la confiance. | §12.5.2, §12.5, §12.5.3. |
 | Quelle identité pour les scènes ? | **L'habillage Luminose** : la mécanique de la référence, habillée de la gamme de `voix/direction-artistique.md` (ivoire, prune, violet nuit), en Futura. | Un gabarit, pas deux. |
 | Que porte une carte ? | **Du texte, et quand l'image dit mieux que le mot, une illustration ou un schéma** — surtout en pédagogie, et aussi pour l'humour. Les cartes n'ont pas toutes la même taille. Révisé le jour même : « Faut de la souplesse. » | Le Rédacteur **décrit** le visuel ; Florent le produit (ChatGPT Images, Sketch) et le dépose sur la carte. |
 | Où vivent prises et visuels ? | **Chez Cloudflare** (04/10/2026) : prises et visuels dans R2, transcription et repères dans D1. La première version les gardait dans le navigateur. | Un montage survit à des données de site vidées et se reprend depuis un autre poste ; une prise met une à deux minutes à partir, et l'espace gratuit (10 Go) se surveille. |
@@ -1633,8 +1636,15 @@ des centaines de mégaoctets.
 **Les sous-titres** des passages caméra sortent des mots dits, groupés par quatre au
 plus, coupés à une fin de phrase ou à un silence de plus de 0,6 s. Un mot dit qui
 répond au script s'écrit **comme dans le script** (« luminose.fr », pas « luminoz ») ;
-un mot improvisé, comme Whisper l'a entendu. Un « ? » rendu seul rejoint son mot. Pas
-de karaoké, et rien sur les scènes : la référence n'en a pas.
+un mot improvisé, comme Whisper l'a entendu. Un « ? » rendu seul rejoint son mot. Rien
+sur les scènes : leurs cartes portent déjà le texte.
+
+**Le mot qui se dit s'éclaire** (v2.12, décision du 24/10/2026) : chaque bloc garde ses
+mots à leur instant, et le mot en cours passe en rose brumeux (`#E9B9BB`) jusqu'au
+suivant. La plupart des vidéos courtes se regardent sans le son ; suivre la voix mot à
+mot retient l'œil quand l'oreille est coupée. Seule la couleur change — une autre police
+ou une autre taille ferait danser la ligne à chaque mot. La première référence n'en
+avait pas, la seconde en a : c'est elle qui a tranché.
 
 ### 12.5.1 Le rendu final (V4) — NORMATIF
 
@@ -1737,6 +1747,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V3** | **Le calage** — dépôt du rush, son extrait, Whisper mot à mot, repères alignés, ajustement à la main (§12.5) | Les scènes tombent sur les bons mots d'une vraie prise |
 | **V4** | **Le rendu** — face caméra, scènes, sous-titres, 9:16 et 4:5, seconde accroche (§12.5.1) | Une vidéo publiée, et une variante publicitaire |
 | **V5** | **Le dérushage** — silences, reprises, improvisations ; cadre alterné aux raccords (§12.5.2) | Une prise brute, déposée sans passer par Final Cut, sort publiable |
+| **V6** | **Les sous-titres mot à mot** — le mot qui se dit s'éclaire (§12.5) | Un Reel suivi sans le son |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

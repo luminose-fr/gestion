@@ -284,6 +284,12 @@ export interface SousTitre {
     texte: string;
     debut: number;
     fin: number;
+    /**
+     * Ses mots, chacun à son instant : le mot qui se dit s'éclaire (§12.5, v2.12).
+     * La plupart des vidéos courtes se regardent sans le son ; suivre la voix
+     * mot à mot, c'est ce qui retient l'œil quand l'oreille est coupée.
+     */
+    mots: MotAffiche[];
 }
 
 /**
@@ -296,7 +302,7 @@ export function enBlocs(mots: MotAffiche[], motsParBloc = 4): SousTitre[] {
     let courant: MotAffiche[] = [];
     const fermer = () => {
         if (courant.length === 0) return;
-        blocs.push({ texte: courant.map(m => m.texte).join(' '), debut: courant[0].debut, fin: courant[courant.length - 1].fin });
+        blocs.push({ texte: courant.map(m => m.texte).join(' '), debut: courant[0].debut, fin: courant[courant.length - 1].fin, mots: courant });
         courant = [];
     };
     mots.forEach((m, i) => {
@@ -408,7 +414,12 @@ function sousTitresDe(mots: MotAffiche[], coupes: Intervalle[], vers: (t: number
         return !coupes.some(c => milieu > c.debut && milieu < c.fin);
     });
     return enBlocs(restants)
-        .map(b => ({ ...b, debut: vers(b.debut), fin: vers(b.fin) }))
+        .map(b => ({
+            ...b,
+            debut: vers(b.debut),
+            fin: vers(b.fin),
+            mots: b.mots.map(m => ({ ...m, debut: vers(m.debut), fin: vers(m.fin) })),
+        }))
         .filter(b => b.fin - b.debut >= SOUS_TITRE_MIN);
 }
 

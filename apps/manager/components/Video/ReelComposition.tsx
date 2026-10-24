@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { loadFont } from '@remotion/fonts';
 import { Video } from '@remotion/media';
-import type { MinutageReel, PlanDeMontage, ReelExplique, SequenceReel } from '@luminose/editorial';
+import type { MinutageReel, PlanDeMontage, ReelExplique, SequenceReel, SousTitre } from '@luminose/editorial';
 import { DEFAULT_STYLE } from '@luminose/subtitles';
 import { SceneLuminose, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
 
@@ -155,17 +155,27 @@ export const CompositionReel: React.FC<ProprietesReel> = ({ data, minutage, visu
  * sous le centre d'un cadre vertical. La taille, elle, est celle de l'image —
  * 64 pixels du cadre, lisibles sur un téléphone.
  *
+ * Le mot qui se dit passe en rose brumeux, la couleur de surlignage de la
+ * marque (§12.5, v2.12), et le reste jusqu'au mot suivant. Seule la couleur
+ * change : une autre police, ou une autre taille, ferait danser la ligne à
+ * chaque mot.
+ *
  * L'ombre est une seconde couche de texte, décalée, peinte AVANT le blanc : le
  * rendu dans le navigateur ne dessine pas `text-shadow`, et peint dans l'ordre
- * du document faute de `z-index`.
+ * du document faute de `z-index`. Elle porte les mêmes mots, coupés pareil, pour
+ * tomber exactement sous eux.
  */
-const SousTitreCamera: React.FC<{ texte: string; format: FormatVideo }> = ({ texte, format }) => {
+const SousTitreCamera: React.FC<{ sousTitre: SousTitre; format: FormatVideo }> = ({ sousTitre, format }) => {
+    const image = useCurrentFrame() + enImages(sousTitre.debut);
     const cadre = CADRES[format];
     const centre = format === '9:16' ? cadre.hauteur / 2 - DEFAULT_STYLE.positionY : cadre.hauteur * 0.74;
     const ombre = DEFAULT_STYLE.shadow;
     const angle = (ombre.angle * Math.PI) / 180;
     const dx = ombre.enabled ? ombre.distance * Math.cos(angle) : 0;
     const dy = ombre.enabled ? -ombre.distance * Math.sin(angle) : 0;
+    const mots = sousTitre.mots?.length ? sousTitre.mots : [{ texte: sousTitre.texte, debut: sousTitre.debut, fin: sousTitre.fin }];
+    let enCours = -1;
+    mots.forEach((m, i) => { if (enImages(m.debut) <= image) enCours = i; });
     const couche = (couleur: string, x: number, y: number): React.CSSProperties => ({
         position: 'absolute',
         left: 90 + x,
@@ -178,10 +188,16 @@ const SousTitreCamera: React.FC<{ texte: string; format: FormatVideo }> = ({ tex
         lineHeight: 1.2,
         color: couleur,
     });
+    const ligne = (accent: string | null) => mots.map((m, i) => (
+        <React.Fragment key={i}>
+            {i > 0 && ' '}
+            <span style={accent && i === enCours ? { color: accent } : undefined}>{m.texte}</span>
+        </React.Fragment>
+    ));
     return (
         <AbsoluteFill>
-            {ombre.enabled && <div style={{ ...couche(ombre.color, dx, dy), opacity: ombre.opacity / 100 }}>{texte}</div>}
-            <div style={couche(DEFAULT_STYLE.fontColor, 0, 0)}>{texte}</div>
+            {ombre.enabled && <div style={{ ...couche(ombre.color, dx, dy), opacity: ombre.opacity / 100 }}>{ligne(null)}</div>}
+            <div style={couche(DEFAULT_STYLE.fontColor, 0, 0)}>{ligne(GAMME.roseBrumeux)}</div>
         </AbsoluteFill>
     );
 };
@@ -258,7 +274,7 @@ export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sour
         })}
         {plan.sousTitres.map((st, i) => (
             <Sequence key={`st-${i}`} from={enImages(st.debut)} durationInFrames={Math.max(1, enImages(st.fin - st.debut))}>
-                <SousTitreCamera texte={st.texte} format={format} />
+                <SousTitreCamera sousTitre={st} format={format} />
             </Sequence>
         ))}
     </AbsoluteFill>

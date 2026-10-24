@@ -205,6 +205,16 @@ describe('planDeMontage, prise dérushée', () => {
         expect(plan.sousTitres.every(s => s.fin > s.debut)).toBe(true);
     });
 
+    it('chaque mot d’un sous-titre passe, lui aussi, dans le temps de la vidéo', () => {
+        const lien = plan.sousTitres.flatMap(s => s.mots).find(m => m.texte === 'lien')!;
+        const dit = prise.find(m => m.mot === 'lien')!;
+        expect(lien.debut).toBeCloseTo(instantDansLaVideo(plan, 'principale', dit.debut)!);
+        // Un bloc rogné au bord d'une scène garde ses mots : ceux qui se disaient
+        // sous la scène sont déjà dits quand il apparaît, et ne s'éclairent plus.
+        const tous = plan.sousTitres.flatMap(s => s.mots.map(m => m.debut));
+        expect(tous.every((t, i) => t >= 0 && t <= plan.duree && (i === 0 || t >= tous[i - 1]))).toBe(true);
+    });
+
     it('le cadre change à chaque raccord', () => {
         expect(plan.cadrages.map(c => c.a)).toEqual(plan.segments.map(s => s.a));
         expect(plan.cadrages.map(c => c.serre)).toEqual(plan.segments.map((_, i) => i % 2 === 1));
