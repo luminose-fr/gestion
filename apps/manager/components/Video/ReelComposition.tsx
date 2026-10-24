@@ -4,7 +4,7 @@ import { loadFont } from '@remotion/fonts';
 import { Video } from '@remotion/media';
 import type { MinutageReel, PlanDeMontage, ReelExplique, SequenceReel, SousTitre } from '@luminose/editorial';
 import { DEFAULT_STYLE } from '@luminose/subtitles';
-import { SceneLuminose, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
+import { SceneLuminose, CoupDePoingLuminose, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
 
 /**
  * La composition Remotion d'un Reel expliqué (SPEC §12.4, étape V2).
@@ -86,6 +86,34 @@ export const SceneAnimee: React.FC<ProprietesScene> = ({ sequence, apparitions, 
     );
 };
 
+/** Le coup de poing se pose en un cinquième de seconde : assez pour se voir arriver, trop peu pour être une transition. */
+const CoupAnime: React.FC<{ texte: string; format: FormatVideo }> = ({ texte, format }) => {
+    const image = useCurrentFrame();
+    const { fps } = useVideoConfig();
+    const avancee = spring({ frame: image, fps, config: { damping: 200 }, durationInFrames: Math.round(fps * 0.2) });
+    return (
+        <AbsoluteFill>
+            <CoupDePoingLuminose texte={texte} largeur={CADRES[format].largeur} avancee={avancee} format={format} arrondi={0} />
+        </AbsoluteFill>
+    );
+};
+
+/** Les coups de poing de la vidéo, chacun à son heure. Posés en dernier : ils couvrent tout, sous-titres compris. */
+const Coups: React.FC<{ data: ReelExplique; minutage: MinutageReel; format: FormatVideo }> = ({ data, minutage, format }) => (
+    <>
+        {(data.sequences ?? []).map((sequence, i) => {
+            const m = minutage.sequences[i];
+            if (sequence.plan !== 'camera' || !sequence.coup || !m?.coup) return null;
+            const debut = enImages(m.debut + m.coup.debut);
+            return (
+                <Sequence key={`coup-${i}`} from={debut} durationInFrames={Math.max(1, enImages(m.debut + m.coup.fin) - debut)}>
+                    <CoupAnime texte={sequence.coup.texte} format={format} />
+                </Sequence>
+            );
+        })}
+    </>
+);
+
 /**
  * Un passage face caméra, en attendant la prise (V3) : on lit ce qui s'y dit,
  * au rythme où ça se dira. C'est ce qui permet de juger l'alternance avant de
@@ -144,6 +172,7 @@ export const CompositionReel: React.FC<ProprietesReel> = ({ data, minutage, visu
                 </Sequence>
             );
         })}
+        <Coups data={data} minutage={minutage} format={format} />
     </AbsoluteFill>
 );
 
@@ -277,5 +306,6 @@ export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sour
                 <SousTitreCamera sousTitre={st} format={format} />
             </Sequence>
         ))}
+        <Coups data={data} minutage={plan.minutage} format={format} />
     </AbsoluteFill>
 );

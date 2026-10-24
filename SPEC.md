@@ -1,4 +1,4 @@
-# SPEC v2.12 — gestion.luminose.fr
+# SPEC v2.13 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -54,6 +54,10 @@
 > étape du Reel expliqué.
 > **v2.12 (25/10/2026)** : le sous-titre suit la voix mot à mot — le mot qui se dit
 > s'éclaire en rose brumeux (§12.5). Le « pas de karaoké » de la v2.4 est levé.
+> **v2.13 (25/10/2026)** : le rythme. Le cadre de la prise change aux phrases d'un long
+> passage face caméra, le Rédacteur peut écrire deux « coups de poing » plein écran, et le
+> montage signale tout moment figé plus de cinq secondes (§12.5.3). Correction : Remotion
+> envoie bien un signal à chaque export ; la §12.4.1 disait le contraire.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1336,7 +1340,7 @@ suffit).
 | Question | Décision | Conséquence |
 | :--- | :--- | :--- |
 | Où se termine le montage ? | **Dans l'application.** L'application pose les scènes et les sous-titres et rend le fichier final. Révisé le 24/10/2026 : elle nettoie aussi la prise — ratés, silences —, qui ne passe plus par Final Cut (§12.5.2). | Les variantes (4:5, seconde accroche) sortent sans refaire de montage. |
-| Que retenir de la seconde référence (24/10/2026) ? | **Le dérushage, les sous-titres mot à mot, le rythme.** Ni son avatar dessiné ni le mode sans caméra : le visage de Florent fait la confiance. | §12.5.2, §12.5, §12.5.3. |
+| Que retenir de la seconde référence (24/10/2026) ? | **Le dérushage, les sous-titres mot à mot, le rythme.** Le mode « voix seule » et une bibliothèque de visuels réutilisables, proposés aussi, restent en réserve. | §12.5.2, §12.5, §12.5.3. |
 | Quelle identité pour les scènes ? | **L'habillage Luminose** : la mécanique de la référence, habillée de la gamme de `voix/direction-artistique.md` (ivoire, prune, violet nuit), en Futura. | Un gabarit, pas deux. |
 | Que porte une carte ? | **Du texte, et quand l'image dit mieux que le mot, une illustration ou un schéma** — surtout en pédagogie, et aussi pour l'humour. Les cartes n'ont pas toutes la même taille. Révisé le jour même : « Faut de la souplesse. » | Le Rédacteur **décrit** le visuel ; Florent le produit (ChatGPT Images, Sketch) et le dépose sur la carte. |
 | Où vivent prises et visuels ? | **Chez Cloudflare** (04/10/2026) : prises et visuels dans R2, transcription et repères dans D1. La première version les gardait dans le navigateur. | Un montage survit à des données de site vidées et se reprend depuis un autre poste ; une prise met une à deux minutes à partir, et l'espace gratuit (10 Go) se surveille. |
@@ -1363,6 +1367,8 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme :
   "format": "Reel expliqué",
   "sequences": [
     { "plan": "camera", "role": "Accroche", "voix": "…", "intention": "…" },
+    { "plan": "camera", "role": "Bascule", "voix": "…", "intention": "…",
+      "coup": { "texte": "Pas un [défaut]", "apparait_sur": "mots exacts de la voix" } },
     { "plan": "scene", "role": "Mécanique", "registre": "pedagogie", "voix": "…", "intention": "…",
       "titre": "Le titre, avec [un mot] surligné",
       "elements": [
@@ -1397,6 +1403,9 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme :
 - **Les tons sont `ombre`, `lumiere`, `neutre`** — ce qui coince, ce qui s'ouvre, ce qui
   informe. La référence code le coût en rose et la solution en vert ; la lumière et
   l'ombre sont déjà des symboles de la direction artistique.
+- **`coup` est un coup de poing** (v2.13) : sur un passage face caméra du milieu, quelques
+  mots qui envahissent l'écran le temps de les dire (§12.5.3). Facultatif, deux au plus,
+  ni sur l'accroche ni sur l'appel à l'action ; sans raison de rompre, il vaut `null`.
 - **`accroche_pub`** est une seconde ouverture, à tourner dans la foulée, pour la
   publicité. Meta refuse un texte qui présume de l'état de santé de celui qui regarde
   (« Vous souffrez d'anxiété ? »), et le cadre déontologique interdit toute promesse de
@@ -1416,6 +1425,7 @@ réseau :
 | longueurs d'écran (titre ≤ 32, carte ≤ 30, détail ≤ 45, pastille ≤ 30, liaison ≤ 10 caractères) | l'œil a deux secondes ; le cadre a 1 080 pixels de large |
 | chaque `apparait_sur` se retrouve dans la voix de sa séquence, dans l'ordre | sans ça, l'élément n'a pas de moment où apparaître |
 | durée estimée entre 45 et 90 s, à 150 mots par minute | le débit réel corrigera ; l'ordre de grandeur, lui, se vérifie avant de tourner |
+| deux coups de poing au plus, face caméra, ni en ouverture ni en clôture, ≤ 24 caractères, repère retrouvé dans la voix | au-delà de deux, la rupture devient le rythme ; la vidéo s'ouvre et se ferme sur le visage |
 
 Un écart déclenche **une** passe d'ajustement automatique après rédaction ou retouche,
 comme les longueurs du carrousel. Ce qui subsiste s'affiche au-dessus du storyboard : on
@@ -1480,9 +1490,14 @@ la voix de la prise. Un bouton par scène plutôt qu'un lot : un navigateur dema
 autorisation pour plusieurs téléchargements d'un coup, et une scène se refait seule.
 L'export s'annonce dans le bandeau d'activité, avec sa progression réelle, et s'annule.
 
-**Aucune télémétrie.** `renderMediaOnWeb` ne reçoit pas de `licenseKey` : avant Remotion
-5.0 c'est facultatif, et c'est ce qui l'empêche d'envoyer quoi que ce soit — pas même
-l'origine de la page. À revoir au passage à Remotion 5.
+**Un signal part à chaque export — corrigé le 25/10/2026.** Il était écrit ici « aucune
+télémétrie » : c'était faux. `renderMediaOnWeb` (Remotion 4.0.532) envoie à
+`www.remotion.pro/api/track/register-usage-point`, à chaque export réussi ou échoué,
+l'origine de la page, le succès, et une clé de licence — nulle ici, avec ou sans
+`licenseKey`. Constaté en interceptant les requêtes d'un export. **Rien de la vidéo ne
+part** : ni image, ni son, ni texte. Le bloquer, ou déclarer la licence gratuite
+(`licenseKey: "free-license"`, qui ne fait que taire un avertissement), reste à décider
+par Florent ; d'ici là, le comportement est celui de la bibliothèque.
 
 **Les visuels déposés sont rangés chez Cloudflare** (§12.4.2), une ligne par (contenu,
 séquence, élément), avec la description à laquelle l'image répondait. Le storyboard
@@ -1736,6 +1751,36 @@ quitte les sous-titres. La seconde accroche se dérushe de la même façon.
 tiers haut, où est le visage), puis large. Deux morceaux de la même prise au même cadre
 font sauter le visage ; à deux cadres, c'est un changement de plan.
 
+### 12.5.3 Le rythme (V7) — NORMATIF
+
+Décision du 24/10/2026, après la seconde référence, où quelque chose change à l'écran
+toutes les deux à trois secondes. Nos passages face caméra pouvaient rester fixes dix à
+quinze secondes : c'est le moment où le pouce reprend le défilement.
+
+**Le cadre change aux phrases.** Au-delà des raccords (§12.5.2), où il change toujours, le
+cadre de la prise alterne au début d'une phrase dite face caméra (`cadrer`,
+`packages/editorial/src/calage.ts`) — si le plan en cours a duré au moins 2,5 s et
+qu'aucun raccord n'arrive dans la seconde : plus court, le recadrage se remarque comme un
+tic, et deux changements de plan coup sur coup se lisent comme une erreur. Une phrase finit
+sur `.`, `?`, `!` ou `…` suivi d'un blanc : le point de « luminose.fr » ne ferme rien. Rien
+ne change au premier mot d'un passage : le visage qui revient d'une scène est déjà un
+changement.
+
+**Le coup de poing** (`coup`, §12.3) : quelques mots, en capitales ivoire sur le prune de la
+marque, plein cadre — le passage entre crochets en Abril italique rose brumeux. Il se pose
+en un cinquième de seconde et repart sec : c'est une rupture, pas une transition. Il frappe
+au premier mot de son repère et tient le temps de le dire plus 0,4 s, jamais moins de
+0,9 s ni plus de 2,5 s. Il couvre tout, sous-titres compris ; une coupe qui en mange la fin
+lui laisse ses 0,9 s. Le storyboard le montre en miniature et souligne ses mots dans la voix.
+
+**L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **5 s** sans
+changement à l'écran — début de séquence, apparition d'un élément, coup de poing qui frappe
+ou s'en va, recadrage face caméra. Un recadrage sous une scène ne compte pas : il ne se
+voit pas ; les sous-titres non plus : c'est l'image qu'on regarde. Avant le tournage,
+l'alerte se calcule au débit estimé, recadrages aux phrases compris — c'est alors une
+affaire d'écriture : une carte de plus, un coup de poing, une phrase coupée en deux. Sur la
+prise calée, elle porte sur la vidéo qui sortira. Chaque moment mène l'aperçu à son début.
+
 ### 12.6 Phasage — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert seule.
@@ -1748,6 +1793,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V4** | **Le rendu** — face caméra, scènes, sous-titres, 9:16 et 4:5, seconde accroche (§12.5.1) | Une vidéo publiée, et une variante publicitaire |
 | **V5** | **Le dérushage** — silences, reprises, improvisations ; cadre alterné aux raccords (§12.5.2) | Une prise brute, déposée sans passer par Final Cut, sort publiable |
 | **V6** | **Les sous-titres mot à mot** — le mot qui se dit s'éclaire (§12.5) | Un Reel suivi sans le son |
+| **V7** | **Le rythme** — recadrage aux phrases, coup de poing, moments figés (§12.5.3) | Une vidéo dont l'image change au moins toutes les cinq secondes |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

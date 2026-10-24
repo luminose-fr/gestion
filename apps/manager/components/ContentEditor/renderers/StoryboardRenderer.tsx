@@ -1,13 +1,13 @@
 import React, { Suspense, lazy, useRef, useState } from 'react';
-import { Camera, Clapperboard, Megaphone, TriangleAlert, ImageIcon, Upload, Trash2 } from 'lucide-react';
+import { Camera, Clapperboard, Megaphone, TriangleAlert, ImageIcon, Upload, Trash2, Zap } from 'lucide-react';
 import {
-    verifierReelExplique, dureeEstimee, compterMots, positionsDesReperes, motsSitues, motsNormalises,
+    verifierReelExplique, dureeEstimee, compterMots, positionsDesReperes, positionDuCoup, motsSitues, motsNormalises,
     type ReelExplique, type SequenceReel, type ElementScene,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../../ui';
 import { Patience } from '../../Feedback';
 import { CarrouselLegende, t } from './shared';
-import { SceneLuminose } from '../../Video/SceneLuminose';
+import { SceneLuminose, CoupDePoingLuminose } from '../../Video/SceneLuminose';
 import { useVisuelsReel, type VisuelAffiche, type VisuelsReel } from '../../Video/useVisuelsReel';
 import { useMontage } from '../../Video/useMontage';
 
@@ -22,19 +22,30 @@ const PanneauMontage = lazy(() => import('../../Video/PanneauMontage'));
  * fait apparaître.
  */
 
-interface Marque { debut: number; fin: number; numeros: number[] }
+interface Marque { debut: number; fin: number; numeros: Array<number | string> }
 
-/** Les empans de la voix qui font apparaître un élément — calculés comme le contrôle les calcule. */
+/**
+ * Les empans de la voix qui font apparaître un élément — ou frapper le coup de
+ * poing d'un passage face caméra —, calculés comme le contrôle les calcule.
+ */
 function marquesDesReperes(sequence: SequenceReel): Marque[] {
     const mots = motsSitues(sequence.voix);
     const positions = positionsDesReperes(sequence);
-    const brutes = (sequence.elements ?? []).flatMap((element, j) => {
-        const position = positions[j];
-        if (position === null) return [];
+    const empan = (position: number, longueur: number) => {
         const premier = mots[position];
-        const dernier = mots[position + motsNormalises(element.apparait_sur).length - 1];
-        return premier && dernier ? [{ debut: premier.debut, fin: dernier.fin, numeros: [j + 1] }] : [];
-    }).sort((a, b) => a.debut - b.debut);
+        const dernier = mots[position + longueur - 1];
+        return premier && dernier ? { debut: premier.debut, fin: dernier.fin } : null;
+    };
+    const coup = sequence.plan === 'camera' ? positionDuCoup(sequence) : null;
+    const marqueDuCoup = coup && empan(coup.position, coup.longueur);
+    const brutes = [
+        ...(sequence.elements ?? []).flatMap((element, j) => {
+            const position = positions[j];
+            const e = position === null ? null : empan(position, motsNormalises(element.apparait_sur).length);
+            return e ? [{ ...e, numeros: [j + 1] as Array<number | string> }] : [];
+        }),
+        ...(marqueDuCoup ? [{ ...marqueDuCoup, numeros: ['coup'] as Array<number | string> }] : []),
+    ].sort((a, b) => a.debut - b.debut);
 
     // Deux éléments sur les mêmes mots (une liaison et la carte qu'elle annonce) :
     // un seul soulignement, deux numéros.
@@ -70,13 +81,29 @@ const VoixAvecReperes: React.FC<{ sequence: SequenceReel }> = ({ sequence }) => 
 const Intention: React.FC<{ texte?: string | null }> = ({ texte }) =>
     t(texte) ? <p className="text-xs italic text-brand-main/60 dark:text-dark-text/60">{t(texte)}</p> : null;
 
+/**
+ * Un passage face caméra. S'il porte un coup de poing (SPEC §12.5.3), ses mots
+ * sont soulignés dans la voix et il se montre en miniature, comme une scène.
+ */
 const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }> = ({ sequence, numero }) => (
-    <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 space-y-2">
-        <Etiquette forme="entete" avecIcone>
-            <Camera /> {numero}. Face caméra{t(sequence.role) ? ` · ${t(sequence.role)}` : ''}
-        </Etiquette>
-        <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{t(sequence.voix)}</p>
-        <Intention texte={sequence.intention} />
+    <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="space-y-2 min-w-0">
+            <Etiquette forme="entete" avecIcone>
+                <Camera /> {numero}. Face caméra{t(sequence.role) ? ` · ${t(sequence.role)}` : ''}
+            </Etiquette>
+            <VoixAvecReperes sequence={sequence} />
+            <Intention texte={sequence.intention} />
+            {sequence.coup && (
+                <p className="flex items-center gap-1.5 text-xs text-brand-main/70 dark:text-dark-text/70">
+                    <Zap className="size-3.5 shrink-0" /> Coup de poing : l'écran passe aux mots, le temps de les dire.
+                </p>
+            )}
+        </div>
+        {sequence.coup && (
+            <div className="justify-self-center">
+                <CoupDePoingLuminose texte={sequence.coup.texte} largeur={108} />
+            </div>
+        )}
     </div>
 );
 

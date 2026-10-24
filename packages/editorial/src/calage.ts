@@ -12,7 +12,7 @@
  * découpe en mots est CELLE du contrôle (`motsSitues`) — un repère que le
  * storyboard trouve, le calage le trouve aussi.
  */
-import { motsSitues, minuterReel, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
+import { motsSitues, minuterReel, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
 import type { Intervalle } from './derushage';
 
 /** Un mot prononcé, en secondes depuis le début du fichier (la forme que rend la transcription). */
@@ -506,16 +506,118 @@ export function planDeMontage(
         let debut = vers(s.debut);
         const fin = i === derniere ? duree : vers(s.fin);
         if (accroche && i === 1) debut = longueur;
-        return { debut, fin, apparitions: absolues.map(a => a === null ? null : a - debut) };
+        // Un coup de poing dont une coupe a mangé la fin se lit quand même.
+        const coup = s.coup ? (() => {
+            const frappe = vers(s.debut + s.coup.debut);
+            return { debut: frappe - debut, fin: Math.min(fin, Math.max(vers(s.debut + s.coup.fin), frappe + COUP_MIN)) - debut };
+        })() : null;
+        return { debut, fin, apparitions: absolues.map(a => a === null ? null : a - debut), coup };
     });
-    if (accroche) sequences[0] = { debut: 0, fin: longueur, apparitions: [] };
+    if (accroche) sequences[0] = { debut: 0, fin: longueur, apparitions: [], coup: null };
     const minutage: MinutageReel = { duree, sequences };
 
     sousTitres.push(...sousTitresCamera(sousTitresDe(principale.calage.motsAffiches, coupes, vers), minutage, data)
         .filter(b => b.debut >= longueur));
 
-    // Un raccord à chaque début de morceau, sauf le premier : le cadre alterne.
-    const cadrages = segments.map((s, i) => ({ a: s.a, serre: i % 2 === 1 }));
+    // Le cadre alterne à chaque raccord, et aux phrases d'un long passage face caméra.
+    const phrases = debutsDePhrases(voixEntiere(data))
+        .map(rang => vers(principale.calage.horloge(rang)))
+        .filter(a => a > longueur);
+    const cadrages = cadrer(data, minutage, phrases, segments.slice(1).map(s => s.a));
 
     return { duree, segments, minutage, sousTitres, cadrages };
+}
+
+// ── Le rythme (V7) ───────────────────────────────────────────────────
+
+/**
+ * Le rang de chaque mot qui ouvre une phrase, la première exceptée : c'est là
+ * qu'un recadrage tombe naturellement, sur une respiration de la voix.
+ */
+export function debutsDePhrases(texte: string): number[] {
+    const mots = motsSitues(texte);
+    return mots.flatMap((m, i) => {
+        const entre = i > 0 ? texte.slice(mots[i - 1].fin, m.debut) : '';
+        // Une ponctuation suivie d'un blanc : le point de « luminose.fr » ne ferme rien.
+        return /[.?!…]/.test(entre) && /\s/.test(entre) ? [i] : [];
+    });
+}
+
+/** Un plan plus court se remarque comme un tic : on ne recadre pas deux phrases brèves d'affilée. */
+export const PLAN_MIN = 2.5;
+/** Un recadrage juste avant un raccord ferait deux changements de plan coup sur coup. */
+const AVANT_RACCORD = 1;
+
+const dansUnPassageCamera = (data: ReelExplique, minutage: MinutageReel, a: number) =>
+    minutage.sequences.some((m, i) => data.sequences[i]?.plan === 'camera' && a > m.debut && a < m.fin);
+
+/**
+ * Où le cadre de la prise change, et pour quoi (SPEC §12.5.3). À chaque
+ * raccord, toujours : c'est ce qui fait d'une coupe un changement de plan. Et
+ * au début d'une phrase dite face caméra, quand le plan en cours a duré assez
+ * et qu'aucun raccord n'arrive : un visage immobile pendant toute une tirade
+ * est le moment où le pouce reprend le défilement.
+ */
+export function cadrer(
+    data: ReelExplique,
+    minutage: MinutageReel,
+    phrases: number[],
+    raccords: number[],
+): Array<{ a: number; serre: boolean }> {
+    const obligatoires = new Set(raccords);
+    const candidats = [
+        ...raccords,
+        ...phrases.filter(a => dansUnPassageCamera(data, minutage, a)),
+    ].sort((x, y) => x - y);
+    const points: number[] = [0];
+    for (const a of candidats) {
+        const dernier = points[points.length - 1];
+        if (obligatoires.has(a)) {
+            if (a > dernier) points.push(a);
+            continue;
+        }
+        const prochainRaccord = raccords.find(r => r > a) ?? Infinity;
+        if (a - dernier >= PLAN_MIN && prochainRaccord - a >= AVANT_RACCORD) points.push(a);
+    }
+    return points.map((a, i) => ({ a, serre: i % 2 === 1 }));
+}
+
+/** Au-delà, l'image est figée : en vidéo courte, cinq secondes sans que rien ne bouge, c'est long. */
+export const FIGE_MAX = 5;
+
+export interface MomentFige {
+    debut: number;
+    fin: number;
+    /** La séquence où il commence, à partir de 0. */
+    sequence: number;
+}
+
+/**
+ * Les moments où rien ne change à l'écran plus de `seuil` secondes. Compte
+ * comme un changement : le début d'une séquence, l'apparition d'un élément, un
+ * coup de poing qui frappe ou s'en va, un recadrage — s'il tombe face caméra :
+ * sous une scène, il ne se voit pas. Les sous-titres ne comptent pas : ils
+ * changent sans cesse, et c'est l'image qu'on regarde.
+ */
+export function momentsFiges(
+    data: ReelExplique,
+    minutage: MinutageReel,
+    cadrages: Array<{ a: number }> = [],
+    seuil = FIGE_MAX,
+): MomentFige[] {
+    const instants = [0, minutage.duree];
+    minutage.sequences.forEach(m => {
+        instants.push(m.debut);
+        m.apparitions.forEach(a => { if (a !== null) instants.push(m.debut + a); });
+        if (m.coup) instants.push(m.debut + m.coup.debut, m.debut + m.coup.fin);
+    });
+    cadrages.forEach(c => { if (dansUnPassageCamera(data, minutage, c.a)) instants.push(c.a); });
+    const tries = [...new Set(instants)].sort((x, y) => x - y);
+    const figes: MomentFige[] = [];
+    for (let i = 0; i + 1 < tries.length; i++) {
+        if (tries[i + 1] - tries[i] <= seuil) continue;
+        const sequence = Math.max(0, minutage.sequences.findIndex(m => tries[i] >= m.debut && tries[i] < m.fin));
+        figes.push({ debut: tries[i], fin: tries[i + 1], sequence });
+    }
+    return figes;
 }

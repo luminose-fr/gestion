@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { segmentsSurlignes, type ElementScene, type SequenceReel } from '@luminose/editorial';
+import { segmentsSurlignes, texteAffiche, type ElementScene, type SequenceReel } from '@luminose/editorial';
 
 /**
  * Une scène de Reel expliqué, à l'habillage Luminose (SPEC §12.2).
@@ -107,6 +107,8 @@ const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: s
             <span key={i} style={{
                 fontFamily: ABRIL,
                 fontStyle: 'italic',
+                // L'Abril reste en bas de casse, même dans un texte en capitales : c'est elle qui fait l'accent.
+                textTransform: 'none',
                 color: accent,
                 padding: '0 6px',
                 backgroundImage: marque === 'transparent'
@@ -334,6 +336,65 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
                             </div>
                         ))}
                     </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/**
+ * Le coup de poing (SPEC §12.5.3) : quelques mots plein écran, sur le prune de
+ * la marque, le temps de les dire — puis le visage revient. Dessiné comme une
+ * scène, dans le cadre puis réduit, pour que le storyboard et la vidéo le
+ * montrent pareil. Il arrive en se posant (`avancee`, de 0 à 1) et repart sec :
+ * c'est une rupture, pas une transition.
+ */
+export const CoupDePoingLuminose: React.FC<{
+    texte: string;
+    largeur: number;
+    avancee?: number;
+    format?: FormatVideo;
+    arrondi?: number;
+}> = ({ texte, largeur, avancee = 1, format = '9:16', arrondi = 8 }) => {
+    const CADRE = CADRES[format];
+    const ZONE = ZONES[format];
+    const p = Math.min(1, Math.max(0, avancee));
+    return (
+        <div
+            role="img"
+            aria-label={`Coup de poing : ${texteAffiche(texte)}`}
+            style={{ width: largeur, height: Math.round(largeur * CADRE.hauteur / CADRE.largeur), overflow: 'hidden', borderRadius: arrondi, flexShrink: 0 }}
+        >
+            <div style={{
+                width: CADRE.largeur,
+                height: CADRE.hauteur,
+                transform: `scale(${largeur / CADRE.largeur})`,
+                transformOrigin: 'top left',
+                position: 'relative',
+                backgroundColor: GAMME.prune,
+                color: GAMME.ivoire,
+                fontFamily: FUTURA,
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: ZONE.haut,
+                    left: ZONE.gauche,
+                    right: ZONE.droite,
+                    height: ZONE.bas - ZONE.haut,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    fontSize: 132,
+                    fontWeight: 700,
+                    lineHeight: 1.05,
+                    letterSpacing: 2,
+                    textTransform: 'uppercase',
+                    textWrap: 'balance',
+                    opacity: p,
+                    transform: `scale(${1.12 - 0.12 * p})`,
+                } as React.CSSProperties}>
+                    <span><TexteSurligne texte={texte} accent={GAMME.roseBrumeux} marque="transparent" /></span>
                 </div>
             </div>
         </div>

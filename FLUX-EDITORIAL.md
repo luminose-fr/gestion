@@ -882,13 +882,21 @@ pastilles ; des liaisons (« vs », « donc »). Un élément ne porte pas de mi
 porte les mots de la voix sur lesquels il apparaît (`apparait_sur`), et c'est la prise
 qui donnera les secondes.
 
+Depuis le 25/10/2026 (SPEC §12.5.3), un passage face caméra du milieu peut porter un
+**coup de poing** : quelques mots — 24 caractères au plus — qui envahissent l'écran le
+temps de les dire, fond prune, puis le visage revient. Deux au plus dans la vidéo, jamais
+sur l'accroche ni sur l'appel à l'action, et seulement s'il y a une raison de rompre : la
+grille le dit au Rédacteur, « un coup de poing par habitude n'en est plus un ». Comme une
+carte, il porte ses mots de repère (`apparait_sur`) et non une durée.
+
 Le format livre aussi une **seconde accroche**, à tourner dans la foulée pour la
 publicité : elle nomme la situation sans présumer de l'état de celui qui regarde, ce que
 Meta et Google exigent pour tout ce qui touche à la santé.
 
 Ce qui se compte se compte dans le code (`packages/editorial/src/reelExplique.ts`) :
 ouverture et fermeture face caméra, deux à quatre scènes, longueurs d'écran, repères
-retrouvés dans la voix et dans l'ordre, durée estimée entre 45 et 90 secondes. Un écart
+retrouvés dans la voix et dans l'ordre, durée estimée entre 45 et 90 secondes, coups de
+poing à leur place et au plus deux. Un écart
 déclenche une passe d'ajustement, comme les longueurs du carrousel ; ce qui subsiste
 s'affiche au-dessus du storyboard. Le Lecteur froid lit la voix ET l'écran, et vérifie
 que l'un ne recopie pas l'autre.

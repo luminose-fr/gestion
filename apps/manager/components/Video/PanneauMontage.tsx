@@ -4,6 +4,7 @@ import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Clapperboard, Download, X } from 'lucide-react';
 import {
     minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
+    cadrer, debutsDePhrases, momentsFiges, voixEntiere,
     type MinutageReel, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
@@ -20,6 +21,7 @@ import { DepotPrise, poids } from './DepotPrise';
 import type { Montage } from './useMontage';
 import { ReperesPrise } from './ReperesPrise';
 import { CoupesPrise } from './CoupesPrise';
+import { RythmeReel } from './RythmeReel';
 
 /**
  * Le montage d'un Reel expliqué, de l'aperçu à la vidéo publiée (SPEC §12.4 à
@@ -36,9 +38,10 @@ import { CoupesPrise } from './CoupesPrise';
  * lorsqu'on ouvre un storyboard, jamais dans le paquet principal.
  *
  * **Le rendu se fait ici, dans l'onglet.** `renderMediaOnWeb` encode avec
- * WebCodecs : aucun serveur, aucun envoi. Aucune `licenseKey` ne lui est
- * passée — c'est ce qui coupe la télémétrie de Remotion (licence gratuite,
- * versions < 5.0) : rien ne sort, pas même l'origine de la page.
+ * WebCodecs : aucun serveur, et la vidéo ne sort pas. Un signal, si : à chaque
+ * export, Remotion envoie à remotion.pro l'origine de la page et le succès de
+ * l'export, avec ou sans `licenseKey` — constaté le 25/10/2026, alors qu'il
+ * était écrit ici le contraire (SPEC §12.4.1).
  */
 
 const PLAYER_LARGEUR = 270;
@@ -176,6 +179,14 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
             coupesAccroche: accroche?.appliquees,
         },
     ) : null, [data, principale, accroche, versionEffective]);
+
+    // Le rythme se juge sur ce qui sortira : la prise calée, ou à défaut le débit
+    // estimé, avec les recadrages que la prise recevra aux phrases.
+    const figes = useMemo(() => {
+        if (plan) return momentsFiges(data, plan.minutage, plan.cadrages);
+        const phrases = debutsDePhrases(voixEntiere(data)).map(horlogeEstimee(debit));
+        return momentsFiges(data, estime, cadrer(data, estime, phrases, []));
+    }, [data, plan, estime, debit]);
 
     const cadre = CADRES[format];
     const finale: ProprietesFinale | null = plan && principale ? {
@@ -323,6 +334,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                 ) : (
                     <Player
                         key={`estime-${format}`}
+                        ref={lecteur}
                         component={CompositionReel}
                         inputProps={reel}
                         durationInFrames={dureeDuReel(estime)}
@@ -432,6 +444,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         </p>
                     </div>
                 )}
+
+                <RythmeReel data={data} figes={figes} surLaPrise={!!plan} onAller={(s) => lecteur.current?.seekTo(enImages(s))} />
 
                 <div className="space-y-3">
                     <Etiquette>Format et version</Etiquette>

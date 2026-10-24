@@ -49,6 +49,8 @@ import { MontageView, etapeDuReel } from '../components/Video/MontageView';
 import { IdeaModal } from '../components/IdeaModal';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { CoupesPrise } from '../components/Video/CoupesPrise';
+import { RythmeReel } from '../components/Video/RythmeReel';
+import { CoupDePoingLuminose } from '../components/Video/SceneLuminose';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo } from '@luminose/editorial';
 
 /*
@@ -2244,6 +2246,31 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(decisions[2]).toMatchObject({ coupee: false });
     fireEvent.click(boutons.find(b => b.textContent?.includes('1 silence'))!);
     expect(container.textContent).toContain('de silence');
+  });
+
+  it('le rythme dit quand l\u2019image reste figée, et y mène (SPEC §12.5.3)', () => {
+    const data = reel();
+    const calme = render(<RythmeReel data={data} figes={[]} surLaPrise={false} onAller={noop} />);
+    expect(calme.container.textContent).toContain('L\'image change au moins toutes les 5 secondes, au débit estimé.');
+    cleanup();
+    const vus: number[] = [];
+    const { container } = render(<RythmeReel data={data} figes={[{ debut: 3.2, fin: 9.8, sequence: 1 }]} surLaPrise onAller={(s) => vus.push(s)} />);
+    expect(container.textContent).toContain('Un moment où rien ne bouge plus de 5 secondes.');
+    expect(container.textContent).toContain('6,6 s sans changement — séquence 2, scène · Mécanique');
+    fireEvent.click(container.querySelector('button[title="Voir ce moment dans l\'aperçu"]')!);
+    expect(vus).toEqual([3.2]);
+  });
+
+  it('le coup de poing se dessine, et le storyboard le montre sur son passage face caméra', () => {
+    const { container } = render(<CoupDePoingLuminose texte="Pas un [défaut]" largeur={108} />);
+    expect(container.querySelector('[aria-label="Coup de poing : Pas un défaut"]')).not.toBeNull();
+    cleanup();
+    const data = reel();
+    data.sequences.splice(2, 0, { plan: 'camera', role: 'Bascule', voix: 'Ce n\'est pas un défaut de caractère.', coup: { texte: 'Pas un [défaut]', apparait_sur: 'pas un défaut' } });
+    const story = render(<StoryboardRenderer data={data} />);
+    expect(story.container.textContent).toContain('Coup de poing : l\'écran passe aux mots');
+    expect(story.container.querySelector('[aria-label="Coup de poing : Pas un défaut"]')).not.toBeNull();
+    expect(story.container.textContent).toContain('pas un défautcoup');
   });
 
   it('les repères se corrigent au dixième, et se rendent au calage', () => {
