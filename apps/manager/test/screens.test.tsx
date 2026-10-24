@@ -48,7 +48,8 @@ import { DepotPrise } from '../components/Video/DepotPrise';
 import { MontageView, etapeDuReel } from '../components/Video/MontageView';
 import { IdeaModal } from '../components/IdeaModal';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
-import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage } from '@luminose/editorial';
+import { CoupesPrise } from '../components/Video/CoupesPrise';
+import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo } from '@luminose/editorial';
 
 /*
  * Le lecteur Remotion mesure son conteneur et le moteur de rendu exige
@@ -2202,6 +2203,47 @@ describe('Reel expliqué — prise et rendu', () => {
   it('une prise en échec garde le message', () => {
     const { container } = render(<DepotPrise titre="La prise" consigne="" erreur="ce fichier n'a pas de son." deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
     expect(container.textContent).toContain("ce fichier n'a pas de son.");
+  });
+
+  it('une prise dite d\u2019un trait n\u2019a rien à couper, et le dit', () => {
+    const { container } = render(<CoupesPrise titre="Coupes de la prise" coupes={[]} choix={{}} onTrancher={noop} situer={() => 0} onAller={noop} />);
+    expect(container.textContent).toContain('Rien à couper');
+  });
+
+  it('les coupes se listent, se rétablissent, et une improvisation se coupe sur demande (SPEC §12.5.2)', () => {
+    const data = reel();
+    const texte = voixEntiere(data);
+    // Une reprise, un long silence, une improvisation : ce qu'une vraie prise contient.
+    const mots = texte.split(/\s+/);
+    const dits: Array<{ mot: string; debut: number; fin: number }> = [];
+    let t = 1;
+    const dire = (bout: string[]) => bout.forEach(mot => { dits.push({ mot, debut: t, fin: t + 0.3 }); t += 0.4; });
+    dire(mots.slice(0, 7));
+    dire(mots.slice(7, 9)); t += 0.6; dire(['pardon']); t += 0.6;
+    dire(mots.slice(7, 12)); t += 0.3; dire('comme je dis souvent'.split(' ')); t += 0.3;
+    dire(mots.slice(12, 14)); t += 2;
+    dire(mots.slice(14));
+    const calage = calerSurLaPrise(texte, dits);
+    const coupes = coupesProposees(calage);
+    expect(coupes.map(c => c.motif).sort()).toEqual(['hors-script', 'reprise', 'silence']);
+    const plan = planDeMontage(data, { calage, duree: 30 }, { coupes: coupesAppliquees(coupes, {}) });
+
+    const decisions: any[] = [];
+    const { container } = render(<CoupesPrise titre="Coupes de la prise" coupes={coupes} choix={{}}
+      onTrancher={(d) => decisions.push(...d)} situer={(c) => instantDansLaVideo(plan, 'principale', c.debut)} onAller={noop} />);
+    expect(container.textContent).toContain('Reprise');
+    expect(container.textContent).toContain('« comme je dis souvent »');
+    expect(container.textContent).toContain('1 silence');
+    const boutons = Array.from(container.querySelectorAll('button'));
+    // La reprise est coupée d'office : son bouton la rétablit. L'improvisation ne l'est pas.
+    fireEvent.click(boutons.find(b => b.textContent?.trim() === 'Rétablir')!);
+    fireEvent.click(boutons.find(b => b.textContent?.trim() === 'Couper')!);
+    expect(decisions.map(d => [d.coupe.motif, d.coupee])).toEqual([['reprise', false], ['hors-script', true]]);
+    // Les silences se tranchent d'un geste, et se déplient au besoin.
+    fireEvent.click(boutons.find(b => b.textContent?.trim() === 'Tout rétablir')!);
+    expect(decisions[2]).toMatchObject({ coupee: false });
+    fireEvent.click(boutons.find(b => b.textContent?.includes('1 silence'))!);
+    expect(container.textContent).toContain('de silence');
   });
 
   it('les repères se corrigent au dixième, et se rendent au calage', () => {

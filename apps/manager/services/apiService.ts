@@ -610,7 +610,10 @@ export const terminerEnvoi = (contentId: string, role: RolePrise, parties: Array
 export const abandonnerEnvoi = (contentId: string, role: RolePrise) =>
   api<{ ok: true }>(`/montage/${enc(contentId)}/prises/${role}/envoi`, { method: 'DELETE' });
 
-export const majPrise = (contentId: string, role: RolePrise, maj: { transcription?: Transcription; reperes?: Record<string, number> }) =>
+export const majPrise = (
+  contentId: string, role: RolePrise,
+  maj: { transcription?: Transcription; reperes?: Record<string, number>; coupes?: Record<string, boolean> },
+) =>
   api<{ prise: PriseDistante }>(`/montage/${enc(contentId)}/prises/${role}`, { method: 'PATCH', ...body(maj) });
 
 export const retirerPriseDistante = (contentId: string, role: RolePrise) =>

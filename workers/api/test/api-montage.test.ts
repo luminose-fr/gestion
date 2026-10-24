@@ -110,6 +110,29 @@ describe('les prises', () => {
         expect((await json(await appeler('GET', `/api/montage/${contenu}`))).prises).toHaveLength(1);
     });
 
+    it('gardent les choix du dérushage, sans toucher au reste (SPEC §12.5.2)', async () => {
+        await deposer();
+        await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { reperes: { '2:0': 12.5 } });
+        const r = await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 's12.4': false, 'h41.7': true } });
+        expect(r.status).toBe(200);
+        const prise = (await json(r)).prise;
+        expect(prise.coupes).toEqual({ 's12.4': false, 'h41.7': true });
+        expect(prise.reperes).toEqual({ '2:0': 12.5 });
+        expect((await json(await appeler('GET', `/api/montage/${contenu}`))).prises[0].coupes).toEqual({ 's12.4': false, 'h41.7': true });
+
+        // Une clé qui ne désigne pas une coupe est refusée à la frontière.
+        expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 'x12.4': true } })).status).toBe(400);
+        expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 's12': true } })).status).toBe(400);
+    });
+
+    it('remplacées, oublient les choix de coupe : ils désignaient l’ancien fichier', async () => {
+        await deposer();
+        await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 's12.4': false } });
+        const seconde = await deposer('principale', ['xyz']);
+        expect(seconde.coupes).toEqual({});
+        expect((await json(await appeler('GET', `/api/montage/${contenu}`))).prises[0].coupes).toEqual({});
+    });
+
     it('un envoi abandonné ne laisse rien', async () => {
         await appeler('POST', `/api/montage/${contenu}/prises/accroche`, DECLAREE);
         await appeler('PUT', `/api/montage/${contenu}/prises/accroche/parties/1`, octets('abc'), { 'Content-Length': '3' });

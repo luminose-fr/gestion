@@ -222,7 +222,10 @@ montage.post('/:contentId/prises/:role', async (c) => {
         id: newId(), content_id: id, role, nom: declaree.nom, type: declaree.type, taille: declaree.taille,
         duree: declaree.duree, largeur: declaree.largeur, hauteur: declaree.hauteur, r2_cle: cle,
         envoi_id: envoi.uploadId, pret_le: null, transcription: null, transcrite_le: null,
-        reperes: precedente?.reperes ?? '{}', created_at: t, updated_at: t,
+        reperes: precedente?.reperes ?? '{}',
+        // Les choix de coupe désignent des instants de l'ANCIEN fichier : ils ne suivent pas.
+        coupes: '{}',
+        created_at: t, updated_at: t,
     };
     await c.env.DB.batch([
         ...(precedente ? [c.env.DB.prepare('UPDATE montage_prises SET deleted_at = ?, updated_at = ? WHERE id = ?').bind(t, t, precedente.id)] : []),
@@ -285,7 +288,7 @@ montage.get('/:contentId/prises/:role/fichier', async (c) => {
     return servir(objet);
 });
 
-/** La transcription, les repères corrigés. D1 seule : 2 requêtes. */
+/** La transcription, les repères corrigés, les choix du dérushage. D1 seule : 2 requêtes. */
 montage.patch('/:contentId/prises/:role', async (c) => {
     const maj = MajPriseSchema.parse(await c.req.json());
     const ligne = await priseVivante(c.env, c.req.param('contentId'), roleDe(c.req.param('role')));
@@ -304,6 +307,11 @@ montage.patch('/:contentId/prises/:role', async (c) => {
         suite.reperes = JSON.stringify(maj.reperes);
         champs.push('reperes = ?');
         valeurs.push(suite.reperes);
+    }
+    if (maj.coupes !== undefined) {
+        suite.coupes = JSON.stringify(maj.coupes);
+        champs.push('coupes = ?');
+        valeurs.push(suite.coupes);
     }
     await c.env.DB.prepare(`UPDATE montage_prises SET ${champs.join(', ')} WHERE id = ?`).bind(...valeurs, ligne.id).run();
     return c.json({ prise: rowToPrise(suite) });

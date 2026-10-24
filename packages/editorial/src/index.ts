@@ -24,6 +24,8 @@ export * from './jekyll';
 export * from './reelExplique';
 // … son calage sur la prise et son plan de montage (SPEC §12.5, §12.6)
 export * from './calage';
+// … et ce qui s'en coupe : silences, reprises, improvisations (SPEC §12.5.2)
+export * from './derushage';
 
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';

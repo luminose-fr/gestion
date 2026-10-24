@@ -198,6 +198,32 @@ export type ProprietesFinale = {
 export const dureeDuPlan = (plan: PlanDeMontage): number => Math.max(1, enImages(plan.duree));
 
 /**
+ * Le plan serré : assez pour qu'un raccord se lise comme un changement de plan
+ * et non comme un visage qui saute, pas assez pour que l'image s'abîme — une
+ * prise de téléphone en 1080 × 1920 supporte 12 % (§12.5.2).
+ */
+const ZOOM_SERRE = 1.12;
+
+/**
+ * La prise, au cadre que le plan dit à cet instant. Le zoom part d'un point
+ * placé au tiers haut, où se trouve le visage dans un cadrage vertical : centré,
+ * il couperait le haut de la tête.
+ */
+const PriseCadree: React.FC<{ cadrages: PlanDeMontage['cadrages']; children: React.ReactNode }> = ({ cadrages, children }) => {
+    const image = useCurrentFrame();
+    let serre = false;
+    for (const c of cadrages ?? []) {
+        if (enImages(c.a) > image) break;
+        serre = c.serre;
+    }
+    return (
+        <AbsoluteFill style={serre ? { transform: `scale(${ZOOM_SERRE})`, transformOrigin: '50% 35%' } : undefined}>
+            {children}
+        </AbsoluteFill>
+    );
+};
+
+/**
  * La vidéo publiée : la prise, coupée comme le plan le dit ; par-dessus, chaque
  * scène à son heure ; et les sous-titres sur les passages face caméra. La voix
  * vient de la prise et ne s'interrompt jamais — une scène couvre l'image, pas
@@ -205,15 +231,21 @@ export const dureeDuPlan = (plan: PlanDeMontage): number => Math.max(1, enImages
  */
 export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sources, visuels, format }) => (
     <AbsoluteFill style={{ backgroundColor: GAMME.violetNuit }}>
-        {plan.segments.map((segment, i) => {
-            const src = sources[segment.source];
-            if (!src) return null;
-            return (
-                <Sequence key={`prise-${i}`} from={enImages(segment.a)} durationInFrames={Math.max(1, enImages(segment.jusqua - segment.depuis))}>
-                    <Video src={src} trimBefore={enImages(segment.depuis)} objectFit="cover" style={{ width: '100%', height: '100%' }} />
-                </Sequence>
-            );
-        })}
+        <PriseCadree cadrages={plan.cadrages}>
+            {plan.segments.map((segment, i) => {
+                const src = sources[segment.source];
+                if (!src) return null;
+                // Bord à bord : chaque morceau commence à l'image où finit le précédent,
+                // sans quoi l'arrondi laisserait une image noire ou deux voix superposées.
+                const debut = enImages(segment.a);
+                const fin = enImages(segment.a + segment.jusqua - segment.depuis);
+                return (
+                    <Sequence key={`prise-${i}`} from={debut} durationInFrames={Math.max(1, fin - debut)}>
+                        <Video src={src} trimBefore={enImages(segment.depuis)} objectFit="cover" style={{ width: '100%', height: '100%' }} />
+                    </Sequence>
+                );
+            })}
+        </PriseCadree>
         {(data.sequences ?? []).map((sequence, i) => {
             const m = plan.minutage.sequences[i];
             if (sequence.plan !== 'scene' || !m) return null;

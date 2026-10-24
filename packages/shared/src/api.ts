@@ -258,7 +258,13 @@ export const MajPriseSchema = z.object({
   transcription: TranscriptionSchema.optional(),
   /** `séquence:élément` → secondes dans la prise (SPEC §12.5). */
   reperes: z.record(z.string().regex(/^\d+:\d+$/), z.number().min(0).max(36_000)).optional(),
-}).refine(m => m.transcription !== undefined || m.reperes !== undefined, { message: 'Rien à mettre à jour.' });
+  /**
+   * Les choix du dérushage, contre le défaut (SPEC §12.5.2) : `true` coupe,
+   * `false` garde. La clé est le motif (s, r, h) et le début de la coupe au
+   * dixième de seconde.
+   */
+  coupes: z.record(z.string().regex(/^[srh]\d{1,5}\.\d$/), z.boolean()).optional(),
+}).refine(m => m.transcription !== undefined || m.reperes !== undefined || m.coupes !== undefined, { message: 'Rien à mettre à jour.' });
 
 export interface PriseDistante {
   id: string;
@@ -277,6 +283,8 @@ export interface PriseDistante {
   transcription: Transcription | null;
   transcriteLe: number | null;
   reperes: Record<string, number>;
+  /** Les choix du dérushage contre le défaut (SPEC §12.5.2). */
+  coupes: Record<string, boolean>;
   createdAt: number;
   updatedAt: number;
 }
