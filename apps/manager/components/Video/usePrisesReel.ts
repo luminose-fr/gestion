@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { calerSurLaPrise, voixEntiere, type Calage, type ReelExplique } from '@luminose/editorial';
+import {
+    calerSurLaPrise, voixEntiere, coupesProposees, coupesAppliquees, choisir,
+    type Calage, type CoupeProposee, type Intervalle, type ReelExplique,
+} from '@luminose/editorial';
 import type { PriseDistante, RolePrise } from '@luminose/shared';
 import * as Api from '../../services/apiService';
 import * as Cache from '../../services/montageService';
@@ -18,6 +21,7 @@ import type { Montage } from './useMontage';
  *
  * Le calage se calcule à la volée : il se déduit de la transcription et du
  * script, et une nouvelle rédaction recale la même prise sans rien retranscrire.
+ * Le dérushage aussi (§12.5.2) : seuls les choix de Florent se gardent.
  */
 
 export type EtapePrise = 'lecture' | 'envoi' | 'telechargement' | 'son' | 'transcription';
@@ -27,6 +31,9 @@ export interface PriseAffichee {
     /** L'URL de lecture du fichier, `undefined` tant qu'il n'est pas arrivé. */
     url?: string;
     calage: Calage | null;
+    /** Ce que le dérushage propose de couper, et ce qui l'est, choix de Florent compris. */
+    coupes: CoupeProposee[];
+    appliquees: Intervalle[];
 }
 
 export interface PrisesReel {
@@ -39,6 +46,8 @@ export interface PrisesReel {
     retirer: (role: RolePrise) => Promise<void>;
     /** `null` rend le repère au calage. */
     corrigerRepere: (sequence: number, element: number, secondes: number | null) => Promise<void>;
+    /** Coupe ou garde des passages de la prise, en un seul enregistrement. */
+    trancher: (role: RolePrise, decisions: Array<{ coupe: CoupeProposee; coupee: boolean }>) => Promise<void>;
     indisponible: boolean;
 }
 
@@ -123,7 +132,8 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
         if (!prise) return undefined;
         const texte = texteDe(role, data);
         const calage = prise.transcription && texte.trim() ? calerSurLaPrise(texte, prise.transcription.mots) : null;
-        return { prise, url: urls[prise.r2Cle], calage };
+        const coupes = calage ? coupesProposees(calage) : [];
+        return { prise, url: urls[prise.r2Cle], calage, coupes, appliquees: coupesAppliquees(coupes, prise.coupes) };
     }, [distantes, urls, data]);
 
     const principale = useMemo(() => affichee('principale'), [affichee]);
@@ -236,8 +246,20 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
         await montage.recharger();
     }, [contentId, distantes, montage]);
 
+    const trancher = useCallback(async (role: RolePrise, decisions: Array<{ coupe: CoupeProposee; coupee: boolean }>) => {
+        const prise = distantes.find(p => p.role === role);
+        if (!contentId || !prise) return;
+        const coupes = decisions.reduce((choix, d) => choisir(choix, d.coupe, d.coupee), prise.coupes ?? {});
+        try {
+            await Api.majPrise(contentId, role, { coupes });
+        } catch (e: any) {
+            erreur(role, e?.message ?? String(e));
+        }
+        await montage.recharger();
+    }, [contentId, distantes, montage]);
+
     return {
-        principale, accroche, enCours, erreurs, deposer, transcrire, retirer, corrigerRepere,
+        principale, accroche, enCours, erreurs, deposer, transcrire, retirer, corrigerRepere, trancher,
         indisponible: !montage.etat?.stockage.disponible,
     };
 }

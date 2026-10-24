@@ -3,7 +3,7 @@ import { Player, type PlayerRef } from '@remotion/player';
 import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Clapperboard, Download, X } from 'lucide-react';
 import {
-    minuterReel, horlogeEstimee, planDeMontage, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
+    minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
     type MinutageReel, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
@@ -19,6 +19,7 @@ import { usePrisesReel } from './usePrisesReel';
 import { DepotPrise, poids } from './DepotPrise';
 import type { Montage } from './useMontage';
 import { ReperesPrise } from './ReperesPrise';
+import { CoupesPrise } from './CoupesPrise';
 
 /**
  * Le montage d'un Reel expliqué, de l'aperçu à la vidéo publiée (SPEC §12.4 à
@@ -28,7 +29,8 @@ import { ReperesPrise } from './ReperesPrise';
  * (V2). Une prise déposée est transcrite et calée : l'aperçu devient la vraie
  * vidéo — la prise, les scènes sur leurs mots, les sous-titres —, les repères
  * se corrigent à la main, et la vidéo s'exporte en 9:16 ou 4:5, organique ou
- * publicitaire (V3, V4).
+ * publicitaire (V3, V4). La prise arrive telle que tournée : ses silences et
+ * ses phrases reprises se coupent ici (§12.5.2).
  *
  * Chargé à la demande : Remotion et Mediabunny n'entrent dans le navigateur que
  * lorsqu'on ouvre un storyboard, jamais dans le paquet principal.
@@ -169,7 +171,9 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         { calage: principale.calage!, duree: principale.prise.duree },
         {
             reperes: principale.prise.reperes,
+            coupes: principale.appliquees,
             accroche: versionEffective === 'publicite' && accroche ? { calage: accroche.calage!, duree: accroche.prise.duree } : null,
+            coupesAccroche: accroche?.appliquees,
         },
     ) : null, [data, principale, accroche, versionEffective]);
 
@@ -345,7 +349,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                 <div className="space-y-4">
                     <DepotPrise
                         titre="La prise"
-                        consigne="Déposez la prise nettoyée, exportée de Final Cut (H.264 de préférence). Elle est rangée chez Cloudflare, et son son est transcrit."
+                        consigne="Déposez la prise telle que tournée (H.264 de préférence) : ses silences et ses phrases reprises se coupent ici, une fois le son transcrit. Elle est rangée chez Cloudflare."
                         prise={prises.principale}
                         enCours={prises.enCours.principale}
                         erreur={prises.erreurs.principale}
@@ -377,6 +381,27 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         </p>
                     )}
                 </div>
+
+                {principale && plan && (
+                    <CoupesPrise
+                        titre="Coupes de la prise"
+                        coupes={principale.coupes}
+                        choix={principale.prise.coupes ?? {}}
+                        onTrancher={(d) => void prises.trancher('principale', d)}
+                        situer={(c) => instantDansLaVideo(plan, 'principale', c.debut)}
+                        onAller={(s) => lecteur.current?.seekTo(enImages(s))}
+                    />
+                )}
+                {accroche && plan && (
+                    <CoupesPrise
+                        titre="Coupes de la seconde accroche"
+                        coupes={accroche.coupes}
+                        choix={accroche.prise.coupes ?? {}}
+                        onTrancher={(d) => void prises.trancher('accroche', d)}
+                        situer={(c) => instantDansLaVideo(plan, 'accroche', c.debut)}
+                        onAller={(s) => lecteur.current?.seekTo(enImages(s))}
+                    />
+                )}
 
                 {principale && calageBrut && plan ? (
                     <ReperesPrise

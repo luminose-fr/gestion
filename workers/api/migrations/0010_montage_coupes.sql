@@ -1,0 +1,11 @@
+-- Les choix de Florent sur le dérushage d'une prise (SPEC §12.5.2).
+--
+-- Les coupes elles-mêmes ne se stockent pas : elles se déduisent de la
+-- transcription et du script, comme le calage. Ce qui se garde, c'est ce que
+-- Florent a décidé contre le défaut — un silence rétabli, une improvisation
+-- coupée — : JSON {"<motif><début au dixième>": true | false}, « s12.4 »,
+-- « r33.0 », « h41.7 ».
+--
+-- Contrairement aux repères, ces choix ne passent pas à la prise qui en
+-- remplace une autre : ils désignent des instants de CE fichier.
+ALTER TABLE montage_prises ADD COLUMN coupes TEXT NOT NULL DEFAULT '{}';

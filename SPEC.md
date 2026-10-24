@@ -1,4 +1,4 @@
-# SPEC v2.10 — gestion.luminose.fr
+# SPEC v2.11 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -48,6 +48,10 @@
 > **v2.10 (04/10/2026)** : le montage a une porte. L'espace Vidéos s'ouvre sur un onglet
 > **Montage** qui liste les Reels expliqués et dit où chacun en est ; le montage se tient
 > aussi sur un contenu Prêt ou Publié, et chaque export réussi est noté (§12.4.3).
+> **v2.11 (25/10/2026)** : la prise se dérushe dans l'outil. Silences trop longs et
+> phrases reprises se coupent d'office, l'improvisation se propose ; chaque coupe se
+> rétablit, et le cadre alterne à chaque raccord (§12.5.2). Final Cut n'est plus une
+> étape du Reel expliqué.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -728,7 +732,7 @@ PUT    /api/montage/:id/prises/:role/parties/:n      une partie, 50 Mo au plus (
 POST   /api/montage/:id/prises/:role/terminer        ferme l'envoi (2)
 DELETE /api/montage/:id/prises/:role/envoi           abandonne un envoi raté (2)
 GET    /api/montage/:id/prises/:role/fichier         le fichier, en flux (1)
-PATCH  /api/montage/:id/prises/:role                 transcription, repères (2)
+PATCH  /api/montage/:id/prises/:role                 transcription, repères, choix de coupe (2)
 DELETE /api/montage/:id/prises/:role                 retire la prise et son fichier (2)
 PUT    /api/montage/:id/visuels/:seq/:el             l'image d'une carte, 15 Mo au plus (4)
 GET    /api/montage/:id/visuels/:seq/:el             (1)
@@ -1578,8 +1582,9 @@ est déjà téléchargé. L'export de la base (§9.4) emporte ce journal.
 
 ### 12.5 Le calage sur la prise (V3) — NORMATIF
 
-**La prise se dépose dans le storyboard.** Florent la nettoie dans Final Cut (ratés,
-silences) et l'exporte — H.264 de préférence. Le navigateur la lit avec Mediabunny,
+**La prise se dépose dans le storyboard**, telle que tournée — H.264 de préférence. Ses
+silences et ses phrases reprises se coupent ici, une fois le son transcrit (§12.5.2) :
+jusqu'au 25/10/2026, Florent la nettoyait d'abord dans Final Cut. Le navigateur la lit avec Mediabunny,
 par morceaux : une prise de plusieurs centaines de mégaoctets ne se charge jamais en
 entier, et un .mov se lit comme un .mp4. Une prise que ce navigateur ne sait pas
 décoder est refusée **au dépôt**, pas à l'export : c'est ici que se fera le rendu.
@@ -1635,8 +1640,9 @@ de karaoké, et rien sur les scènes : la référence n'en a pas.
 
 `planDeMontage` (même fichier) dit ce que la vidéo montre et quand :
 
-- **Organique** : la prise principale, débarrassée de ses silences — 0,3 s gardées avant
-  le premier mot, 0,6 s après le dernier.
+- **Organique** : la prise principale, débarrassée de ses silences de tête et de queue —
+  0,3 s gardées avant le premier mot, 0,6 s après le dernier — et de ce que le dérushage
+  coupe (§12.5.2) : elle se monte alors en plusieurs morceaux, bout à bout.
 - **Publicité** : la seconde accroche, tournée à part et calée sur son propre texte,
   puis la prise principale **reprise juste avant le premier mot de la séquence 2**. Les
   scènes gardent leurs mots ; seule l'ouverture change, et c'est elle que la publicité
@@ -1658,8 +1664,9 @@ est rognée au centre et les scènes sont **recomposées** dans le cadre plus co
 leur propre zone sûre. Sortie MP4, H.264 et AAC.
 
 **Ce qui n'est pas fait, et pourquoi** : pas de musique (§12.1 : optionnelle, et la
-référence n'en a pas), pas de normalisation du volume (la prise sort de Final Cut, où
-elle se règle), pas de 16:9 (§12.4).
+référence n'en a pas), pas de normalisation du volume (depuis
+le dérushage, la prise ne passe plus par Final Cut : un son trop faible se règle au
+tournage, et c'est un manque connu), pas de 16:9 (§12.4).
 
 **Ce qui reste à vérifier sur une vraie prise.** Le parcours entier a été vérifié dans
 le navigateur le 04/10/2026, avec une prise synthétique (voix de macOS) : lecture,
@@ -1676,6 +1683,49 @@ et repère retrouvés, exports 9:16 et 4:5. Le Worker et ses routes sont couvert
 tests contre un R2 en mémoire ; **le passage du flux d'une partie à R2 (`uploadPart` sur
 le corps de la requête) ne se vérifie qu'une fois déployé.**
 
+### 12.5.2 Le dérushage (V5) — NORMATIF
+
+Décision de Florent, le 24/10/2026, après une seconde référence
+(`youtube.com/shorts/umbNtdVqQsM`) dont la voix avait été débarrassée de ses silences et
+de ses erreurs sans logiciel de montage : **la prise arrive telle que tournée**, et
+l'outil la nettoie. Final Cut n'est plus une étape.
+
+**Les coupes se déduisent, comme le calage** (`packages/editorial/src/derushage.ts`) : le
+calage sait quel mot dit répond à quel mot du script. Seuls se stockent les choix de
+Florent qui s'écartent du défaut (`montage_prises.coupes`, migration 0010).
+
+| Motif | Ce que c'est | Par défaut |
+| :--- | :--- | :--- |
+| **Silence** | plus de 0,7 s entre deux mots | **coupé** : il en reste 0,35 s |
+| **Reprise** | des mots dits hors du script qui reprennent ceux qui les entourent — on recommence une phrase ratée, ou on la répète | **coupée** : l'alignement retient la dernière version, la bonne |
+| **Hors script** | trois mots ou plus dits hors du script, qui ne reprennent rien | **gardé**, et proposé : une improvisation peut être ce que la prise a de meilleur |
+
+Un ou deux mots improvisés (« vraiment », « et donc ») restent, sans même être proposés :
+les couper ferait sauter l'image au milieu d'une phrase. On ne regarde qu'entre le premier
+et le dernier mot du script — **une phrase ratée en ouverture tombe avec la tête**, que le
+plan de montage retire déjà.
+
+**L'air autour d'une coupe** : 0,2 s gardées après le dernier mot, 0,15 s avant le
+suivant. Whisper place les bords d'un mot à quelques centièmes près ; couper au ras
+amputerait une syllabe. Une coupe de moins de 0,25 s ne vaut pas le saut d'image qu'elle
+crée, et n'est pas proposée.
+
+**Chaque coupe se rétablit**, et une improvisation se coupe d'un clic. Un choix porte le
+motif et le début de sa coupe au dixième (`s12.4`, `r33.0`, `h41.7`) ; une nouvelle
+transcription qui en décale le bord le retrouve à trois dixièmes près. Il ne passe pas à
+la prise qui en remplace une autre : il désigne un instant de CE fichier. Les reprises et
+les improvisations se listent une à une, avec ce qui y a été dit ; les silences, nombreux
+et sans contenu, se résument en une ligne qui se déplie.
+
+**Le plan de montage monte les morceaux bout à bout** (`planDeMontage`, option `coupes`) :
+chaque séquence, chaque apparition et chaque sous-titre passe du temps de la prise au
+temps de la vidéo. **Un repère pris dans une coupe tombe au raccord** ; un mot coupé
+quitte les sous-titres. La seconde accroche se dérushe de la même façon.
+
+**Le cadre alterne à chaque raccord** : plan large, puis serré (zoom de 12 %, centré au
+tiers haut, où est le visage), puis large. Deux morceaux de la même prise au même cadre
+font sauter le visage ; à deux cadres, c'est un changement de plan.
+
 ### 12.6 Phasage — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert seule.
@@ -1686,6 +1736,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V2** | **Les scènes animées** — composition Remotion, emplacement des visuels, aperçu cadencé sur le débit estimé, export des scènes seules | Les scènes d'un vrai script exportées en MP4 et posées dans Final Cut |
 | **V3** | **Le calage** — dépôt du rush, son extrait, Whisper mot à mot, repères alignés, ajustement à la main (§12.5) | Les scènes tombent sur les bons mots d'une vraie prise |
 | **V4** | **Le rendu** — face caméra, scènes, sous-titres, 9:16 et 4:5, seconde accroche (§12.5.1) | Une vidéo publiée, et une variante publicitaire |
+| **V5** | **Le dérushage** — silences, reprises, improvisations ; cadre alterné aux raccords (§12.5.2) | Une prise brute, déposée sans passer par Final Cut, sort publiable |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

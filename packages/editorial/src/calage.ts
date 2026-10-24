@@ -13,6 +13,7 @@
  * storyboard trouve, le calage le trouve aussi.
  */
 import { motsSitues, minuterReel, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
+import type { Intervalle } from './derushage';
 
 /** Un mot prononcé, en secondes depuis le début du fichier (la forme que rend la transcription). */
 export interface MotPrononce {
@@ -139,6 +140,22 @@ function jetonsDeLaPrise(mots: MotPrononce[]): Jeton[] {
     return jetons;
 }
 
+/**
+ * Un mot dit, et ce que le script en fait. C'est ce que lit le dérushage
+ * (SPEC §12.5.2) : un mot dit qui ne répond à aucun mot du script est une
+ * reprise ou une improvisation — candidat à la coupe.
+ */
+export interface Prononce {
+    /** Normalisé, comme ceux du script. */
+    mot: string;
+    debut: number;
+    fin: number;
+    /** Le rang du mot du script auquel il répond, ou `null`. */
+    rang: number | null;
+    /** Le mot tel que Whisper l'a écrit, sur le premier morceau d'un mot coupé en deux ; vide sur les suivants. */
+    ecrit: string;
+}
+
 export interface Calage {
     /** Rang d'un mot du script → instant où il est dit. Celle qu'attend `minuterReel`. */
     horloge: Horloge;
@@ -151,6 +168,8 @@ export interface Calage {
     fin: number;
     /** Ce qui a été dit, mot à mot, dans l'orthographe du script quand c'en est. */
     motsAffiches: MotAffiche[];
+    /** Chaque mot dit, dans l'ordre de la prise, avec le mot du script qui lui répond. */
+    prononces: Prononce[];
 }
 
 /** La ponctuation qui se lit dans un sous-titre : une question, une exclamation, des points de suspension. */
@@ -234,6 +253,16 @@ export function calerSurLaPrise(texte: string, mots: MotPrononce[]): Calage {
         });
     });
 
+    const rangDuJeton = new Map<number, number>();
+    alignement.forEach((a, i) => { if (a) rangDuJeton.set(a.j, i); });
+    const prononces: Prononce[] = jetons.map((j, k) => ({
+        mot: j.mot,
+        debut: j.debut,
+        fin: j.fin,
+        rang: rangDuJeton.get(k) ?? null,
+        ecrit: k > 0 && jetons[k - 1].source === j.source ? '' : mots[j.source].mot.trim(),
+    }));
+
     return {
         horloge: rang => rang < instants.length ? instants[rang] : fin,
         couverture: script.length ? retrouves / script.length : 0,
@@ -241,6 +270,7 @@ export function calerSurLaPrise(texte: string, mots: MotPrononce[]): Calage {
         mesures,
         fin,
         motsAffiches,
+        prononces,
     };
 }
 
@@ -309,19 +339,24 @@ export interface PlanDeMontage {
     minutage: MinutageReel;
     /** Sur les passages face caméra seulement : sur une scène, l'écran ne transcrit pas (§12.1). */
     sousTitres: SousTitre[];
+    /**
+     * Le cadre de la prise, plan large ou serré, à partir de `a` (secondes de la
+     * vidéo). Il change à chaque raccord : deux morceaux de la même prise mis
+     * bout à bout, au même cadre, font sauter le visage ; à deux cadres, c'est
+     * un changement de plan (§12.5.2).
+     */
+    cadrages: Array<{ a: number; serre: boolean }>;
 }
 
 /** Le silence qu'on garde avant le premier mot et après le dernier : assez pour respirer, pas pour attendre. */
 const AIR_AVANT = 0.3;
 const AIR_APRES = 0.6;
 
+/** Un sous-titre plus court ne se lit pas : c'est le reste d'un bloc dont la coupe a emporté les mots. */
+const SOUS_TITRE_MIN = 0.1;
+
 /** Un repère corrigé à la main, en secondes dans la prise principale, par `séquence:élément`. */
 export type ReperesCorriges = Record<string, number>;
-
-const decaler = (minutage: MinutageReel, delta: number): MinutageReel => ({
-    duree: minutage.duree + delta,
-    sequences: minutage.sequences.map(s => ({ ...s, debut: s.debut + delta, fin: s.fin + delta })),
-});
 
 /** Les sous-titres d'un intervalle de la prise, rognés aux passages face caméra. */
 function sousTitresCamera(blocs: SousTitre[], minutage: MinutageReel, data: ReelExplique): SousTitre[] {
@@ -333,15 +368,76 @@ function sousTitresCamera(blocs: SousTitre[], minutage: MinutageReel, data: Reel
     });
 }
 
+/** Ce qu'on garde d'un passage de la prise, une fois les coupes ôtées. `coupes` triées et fusionnées. */
+function garder(depuis: number, jusqua: number, coupes: Intervalle[]): Intervalle[] {
+    const gardes: Intervalle[] = [];
+    let curseur = depuis;
+    for (const c of coupes) {
+        if (c.fin <= curseur || c.debut >= jusqua) continue;
+        if (c.debut > curseur) gardes.push({ debut: curseur, fin: c.debut });
+        curseur = Math.max(curseur, c.fin);
+    }
+    if (curseur < jusqua) gardes.push({ debut: curseur, fin: jusqua });
+    return gardes;
+}
+
+const longueurDe = (gardes: Intervalle[]) => gardes.reduce((s, g) => s + g.fin - g.debut, 0);
+
+/**
+ * Le temps de la prise → le temps de la vidéo, pour des morceaux posés bout à
+ * bout à partir de `a`. Un instant coupé tombe au raccord : un repère pris dans
+ * une coupe apparaît quand la voix reprend.
+ */
+function versLaVideo(gardes: Intervalle[], a: number): (t: number) => number {
+    const departs: number[] = [];
+    let x = a;
+    for (const g of gardes) { departs.push(x); x += g.fin - g.debut; }
+    return t => {
+        for (let i = 0; i < gardes.length; i++) {
+            if (t < gardes[i].debut) return departs[i];
+            if (t <= gardes[i].fin) return departs[i] + t - gardes[i].debut;
+        }
+        return x;
+    };
+}
+
+/** Les mots que les coupes laissent, en blocs, reportés dans le temps de la vidéo. */
+function sousTitresDe(mots: MotAffiche[], coupes: Intervalle[], vers: (t: number) => number): SousTitre[] {
+    const restants = mots.filter(m => {
+        const milieu = (m.debut + m.fin) / 2;
+        return !coupes.some(c => milieu > c.debut && milieu < c.fin);
+    });
+    return enBlocs(restants)
+        .map(b => ({ ...b, debut: vers(b.debut), fin: vers(b.fin) }))
+        .filter(b => b.fin - b.debut >= SOUS_TITRE_MIN);
+}
+
+/** Où une seconde de la prise tombe dans la vidéo — au raccord si elle a été coupée, `null` si la vidéo ne la montre pas. */
+export function instantDansLaVideo(plan: PlanDeMontage, source: SegmentVideo['source'], t: number): number | null {
+    const morceaux = plan.segments.filter(s => s.source === source);
+    for (const s of morceaux) {
+        if (t < s.depuis) return s === morceaux[0] ? null : s.a;
+        if (t <= s.jusqua) return s.a + t - s.depuis;
+    }
+    return null;
+}
+
 /**
  * Ce que la vidéo finale montre, et quand. Organique : la prise principale,
- * débarrassée de ses silences de tête et de queue. Publicité : la seconde
- * accroche, puis la prise principale reprise au premier mot de la séquence 2.
+ * débarrassée de ses silences de tête et de queue et de ce que le dérushage a
+ * coupé (§12.5.2). Publicité : la seconde accroche, puis la prise principale
+ * reprise au premier mot de la séquence 2.
  */
 export function planDeMontage(
     data: ReelExplique,
     principale: PriseCalee,
-    options: { accroche?: PriseCalee | null; reperes?: ReperesCorriges } = {},
+    options: {
+        accroche?: PriseCalee | null;
+        reperes?: ReperesCorriges;
+        /** Ce que le dérushage retire de chaque prise, en secondes de cette prise (`coupesAppliquees`). */
+        coupes?: Intervalle[];
+        coupesAccroche?: Intervalle[];
+    } = {},
 ): PlanDeMontage {
     const brut = minuterReel(data, principale.calage.horloge);
     // Un repère corrigé à la main l'emporte sur le calage : c'est Florent qui a vu la vidéo.
@@ -354,54 +450,61 @@ export function planDeMontage(
 
     const tete = Math.max(0, (brut.sequences[0]?.debut ?? 0) - AIR_AVANT);
     const queue = Math.min(principale.duree, principale.calage.fin + AIR_APRES);
-    const derniere = brut.sequences[brut.sequences.length - 1];
-    if (derniere) derniere.fin = queue;
-    const blocs = enBlocs(principale.calage.motsAffiches);
+    const coupes = options.coupes ?? [];
+    const accroche = options.accroche && brut.sequences.length >= 2 ? options.accroche : null;
 
-    const accroche = options.accroche;
-    if (!accroche || brut.sequences.length < 2) {
-        const minutage = decaler({ ...brut, duree: queue }, -tete);
-        return {
-            duree: queue - tete,
-            segments: [{ source: 'principale', depuis: tete, jusqua: queue, a: 0 }],
-            minutage,
-            sousTitres: sousTitresCamera(blocs.map(b => ({ ...b, debut: b.debut - tete, fin: b.fin - tete })), minutage, data),
-        };
-    }
+    const segments: SegmentVideo[] = [];
+    const poser = (source: SegmentVideo['source'], gardes: Intervalle[], a: number) => {
+        let x = a;
+        for (const g of gardes) {
+            segments.push({ source, depuis: g.debut, jusqua: g.fin, a: x });
+            x += g.fin - g.debut;
+        }
+    };
 
     // La seconde accroche, calée sur son propre texte, dans son propre fichier.
-    const depuis = Math.max(0, accroche.calage.horloge(0) - AIR_AVANT);
-    const jusqua = Math.min(accroche.duree, accroche.calage.fin + AIR_APRES / 2);
-    const longueur = jusqua - depuis;
-    // On reprend la prise principale juste avant le premier mot de la séquence 2.
-    const coupe = Math.max(0, brut.sequences[1].debut - 0.12);
-    const suite = decaler({ ...brut, duree: queue }, longueur - coupe);
-    suite.sequences[0] = { debut: 0, fin: longueur, apparitions: [] };
-    // La séquence 2 commence au raccord, un peu avant son premier mot : ses
-    // apparitions, comptées depuis son début, reculent d'autant pour rester
-    // sur leurs mots.
-    const avance = suite.sequences[1].debut - longueur;
-    suite.sequences[1] = {
-        ...suite.sequences[1],
-        debut: longueur,
-        apparitions: suite.sequences[1].apparitions.map(a => a === null ? null : a + avance),
-    };
+    let longueur = 0;
+    let depart = tete;
+    const sousTitres: SousTitre[] = [];
+    if (accroche) {
+        const coupesAccroche = options.coupesAccroche ?? [];
+        const gardes = garder(
+            Math.max(0, accroche.calage.horloge(0) - AIR_AVANT),
+            Math.min(accroche.duree, accroche.calage.fin + AIR_APRES / 2),
+            coupesAccroche,
+        );
+        poser('accroche', gardes, 0);
+        longueur = longueurDe(gardes);
+        sousTitres.push(...sousTitresDe(accroche.calage.motsAffiches, coupesAccroche, versLaVideo(gardes, 0))
+            .map(b => ({ ...b, fin: Math.min(longueur, b.fin) })));
+        // On reprend la prise principale juste avant le premier mot de la séquence 2.
+        depart = Math.max(0, brut.sequences[1].debut - 0.12);
+    }
 
-    const sousTitresAccroche = enBlocs(accroche.calage.motsAffiches)
-        .filter(b => b.fin > depuis && b.debut < jusqua)
-        .map(b => ({ ...b, debut: Math.max(0, b.debut - depuis), fin: Math.min(longueur, b.fin - depuis) }));
-    const sousTitresSuite = sousTitresCamera(
-        blocs.filter(b => b.debut >= coupe).map(b => ({ ...b, debut: b.debut - coupe + longueur, fin: b.fin - coupe + longueur })),
-        suite, data,
-    );
+    const gardes = garder(depart, queue, coupes);
+    poser('principale', gardes, longueur);
+    const vers = versLaVideo(gardes, longueur);
+    const duree = longueur + longueurDe(gardes);
 
-    return {
-        duree: longueur + (queue - coupe),
-        segments: [
-            { source: 'accroche', depuis, jusqua, a: 0 },
-            { source: 'principale', depuis: coupe, jusqua: queue, a: longueur },
-        ],
-        minutage: suite,
-        sousTitres: [...sousTitresAccroche, ...sousTitresSuite],
-    };
+    // Chaque séquence et chaque apparition, reportées dans le temps de la vidéo.
+    // Une apparition se compte depuis le début de SA séquence : on passe par
+    // l'instant absolu, puis on retranche le début retenu.
+    const derniere = brut.sequences.length - 1;
+    const sequences = brut.sequences.map((s, i) => {
+        const absolues = s.apparitions.map(a => a === null ? null : vers(s.debut + a));
+        let debut = vers(s.debut);
+        const fin = i === derniere ? duree : vers(s.fin);
+        if (accroche && i === 1) debut = longueur;
+        return { debut, fin, apparitions: absolues.map(a => a === null ? null : a - debut) };
+    });
+    if (accroche) sequences[0] = { debut: 0, fin: longueur, apparitions: [] };
+    const minutage: MinutageReel = { duree, sequences };
+
+    sousTitres.push(...sousTitresCamera(sousTitresDe(principale.calage.motsAffiches, coupes, vers), minutage, data)
+        .filter(b => b.debut >= longueur));
+
+    // Un raccord à chaque début de morceau, sauf le premier : le cadre alterne.
+    const cadrages = segments.map((s, i) => ({ a: s.a, serre: i % 2 === 1 }));
+
+    return { duree, segments, minutage, sousTitres, cadrages };
 }

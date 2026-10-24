@@ -142,6 +142,7 @@ export const rowToPrise = (r: any): PriseDistante => ({
   transcription: jsonObjet<Transcription | null>(r.transcription, null),
   transcriteLe: r.transcrite_le ?? null,
   reperes: jsonObjet<Record<string, number>>(r.reperes, {}),
+  coupes: jsonObjet<Record<string, boolean>>(r.coupes, {}),
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
