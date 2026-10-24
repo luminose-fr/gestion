@@ -117,6 +117,11 @@ describe('enBlocs', () => {
         const [a, b] = enBlocs([m('a', 0), m('b', 0.3), m('c', 0.6), m('d', 0.9), m('e', 1.3)]);
         expect(a.fin).toBe(b.debut);
     });
+
+    it('garde chaque mot à son instant : c’est lui qui s’éclaire quand il se dit (v2.12)', () => {
+        const [bloc] = enBlocs([m('Vous', 0), m('relisez', 0.4), m('trois', 0.8)]);
+        expect(bloc.mots.map(x => [x.texte, x.debut])).toEqual([['Vous', 0], ['relisez', 0.4], ['trois', 0.8]]);
+    });
 });
 
 describe('planDeMontage', () => {
