@@ -13,7 +13,7 @@ import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
-  RdvType, RdvCreneau, RdvConfirme, Transcription,
+  RdvType, RdvCreneau, RdvConfirme, Transcription, MoteurTranscription,
   EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise, ResumeMontages, ExportNote,
 } from '@luminose/shared';
 
@@ -577,9 +577,9 @@ export const creerRdv = (payload: {
  * Le SON d'une prise, en WAV base64 — jamais la vidéo. La durée se mesure sous
  * sa propre clé : une minute de son ne se transcrit pas au rythme d'un appel IA.
  */
-export const transcrire = (audio: string) =>
-  api<Transcription>('/transcription', { method: 'POST', ...body({ audio, langue: 'fr' }) },
-    { label: 'Transcription de la prise', cle: 'api:transcription' });
+export const transcrire = (audio: string, moteur: MoteurTranscription = 'whisper') =>
+  api<Transcription>('/transcription', { method: 'POST', ...body({ audio, langue: 'fr', moteur }) },
+    { label: moteur === 'nova-3' ? 'Transcription de la prise (Nova-3)' : 'Transcription de la prise', cle: 'api:transcription' });
 
 // ── Le montage, rangé chez Cloudflare (SPEC §12.4) ───────────────────────
 

@@ -2192,6 +2192,21 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(ecart.container.textContent).toContain('vérifiez les repères avant d\u2019exporter');
   });
 
+  it('une prise se retranscrit avec le moteur voulu, et dit lequel l\u2019a transcrite (SPEC §12.5.6)', () => {
+    const moteurs: string[] = [];
+    const calee = priseCalee();
+    const { container } = render(<DepotPrise titre="La prise" consigne="" prise={calee} deposable onDeposer={noop} onTranscrire={(m) => moteurs.push(m)} onRetirer={noop} />);
+    expect(container.textContent).toContain('(transcrite par Whisper)');
+    expect(container.textContent).toContain('Transcrire à nouveau');
+    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Nova-3')!);
+    expect(moteurs).toEqual(['nova-3']);
+    cleanup();
+    const parNova = priseCalee();
+    parNova.prise.transcription = { ...parNova.prise.transcription, moteur: 'nova-3' };
+    const nova = render(<DepotPrise titre="La prise" consigne="" prise={parNova} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(nova.container.textContent).toContain('(transcrite par Nova-3)');
+  });
+
   it('un envoi interrompu, sur ce poste ou un autre, se dit, et ne propose pas de transcrire', () => {
     const interrompue = priseCalee();
     interrompue.prise.pretLe = null;

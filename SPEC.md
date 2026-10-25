@@ -1,4 +1,4 @@
-# SPEC v2.15 — gestion.luminose.fr
+# SPEC v2.16 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -66,6 +66,8 @@
 > version de chaque phrase, d'un seul tenant — et le montage se fait par le texte : la
 > transcription se lit, le barré est coupé, tout passage se coupe ou se rétablit, et une
 > phrase se reprend dans la version qu'on préfère (§12.5.5).
+> **v2.16 (25/10/2026)** : un second moteur de transcription, Deepgram Nova-3, à comparer
+> à Whisper sur une vraie prise (§12.5.6).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -128,7 +130,7 @@ Deux bases Notion : « Contenu » et « Modèles IA ».
 | Time Travel | 7 jours | complété par l'export, §9.4 |
 | Stockage R2 (montage, §12.4.2) | 10 Go | quelques prises vidéo de 100 à 500 Mo |
 | Opérations R2 classe A / B, **par mois** | 1 000 000 / 10 000 000 | quelques centaines |
-| Neurones Workers AI / jour (transcription, §12.5) | 10 000 | ≈ 47 par minute de son |
+| Neurones Workers AI / jour (transcription, §12.5) | 10 000 | ≈ 47 par minute de son avec Whisper, ≈ 470 avec Nova-3 (§12.5.6) |
 
 Le quota n'est pas un facteur limitant. La limite des 50 requêtes par invocation, si.
 
@@ -1624,6 +1626,8 @@ et rien d'autre ne bouge. Un échec de Workers AI revient en 502 avec **son** me
 (un quota épuisé se corrige). Le corps est borné à dix minutes de son : une vidéo
 envoyée par erreur est refusée à la frontière. 0 requête D1.
 
+Depuis la v2.16, Nova-3 peut remplacer Whisper à la demande (§12.5.6).
+
 Un segment rendu sans ses mots voit son texte réparti sur sa durée, au prorata des
 lettres : une approximation, mais qui laisse le calage retrouver ses repères plutôt
 que de perdre tout un passage.
@@ -1902,6 +1906,33 @@ pause notable, est préférée aux autres bonnes versions — choisir la premiè
 « Derrière la digue », c'est choisir cette tentative. « Tout réinitialiser » oublie tous
 les choix.
 
+### 12.5.6 Deux moteurs de transcription (V10) — NORMATIF
+
+Les instants de Whisper sont approximatifs (§12.5.4). Workers AI propose aussi **Deepgram
+Nova-3** (`@cf/deepgram/nova-3`), qui transcrit le français et a la réputation d'horodater
+les mots plus justement — réputation à vérifier sur la voix de Florent, d'où un choix
+plutôt qu'un remplacement.
+
+| Moteur | Coût (Workers AI) | Rôle |
+| :--- | :--- | :--- |
+| Whisper (`@cf/openai/whisper-large-v3-turbo`) | ≈ 47 neurones la minute de son | le défaut, au dépôt |
+| Nova-3 | ≈ 470 neurones la minute — dix fois plus | sur demande, pour comparer |
+
+Avec 10 000 neurones gratuits par jour, Nova-3 transcrit une vingtaine de minutes de son
+quotidiennes : assez pour des Reels, et l'écran des quotas (§0.4) le compte comme le reste
+de Workers AI.
+
+**La route** (`POST /api/transcription`) prend `moteur` (`whisper` par défaut, ou
+`nova-3`). Nova-3 reçoit le WAV en flux d'octets (`audio: { body, contentType }`), avec la
+ponctuation demandée : le mot ponctué est celui qu'on garde. Les deux moteurs rendent la
+même forme — les mots, le texte, la durée, et **le moteur** — : le reste de la chaîne
+(enveloppe, choix des prises, dérushage) ne sait pas qui a transcrit. Une panne nomme le
+moteur qui a échoué.
+
+**L'écran** : « Transcrire à nouveau : Whisper | Nova-3 » sous la prise, et la ligne du
+calage dit qui a fait la transcription affichée. Le dépôt transcrit toujours avec
+Whisper ; si Nova-3 l'emporte sur pièces, il deviendra le défaut par décision de Florent.
+
 ### 12.6 Phasage — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert seule.
@@ -1917,6 +1948,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V7** | **Le rythme** — recadrage aux phrases, coup de poing, moments figés (§12.5.3) | Une vidéo dont l'image change au moins toutes les cinq secondes |
 | **V8** | **Le son corrige Whisper** — mots recalés, coupes dans les silences, micro-fondu (§12.5.4) | Une prise brouillonne sort sans silence de plus d'une seconde ni syllabe amputée |
 | **V9** | **Le choix des prises et le montage par le texte** (§12.5.5) | Aucune coupe ne joint deux versions au milieu d'une phrase ; tout passage se tranche en lisant |
+| **V10** | **Deux moteurs de transcription** — Whisper et Nova-3 (§12.5.6) | La même prise, transcrite par les deux, départage le défaut |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

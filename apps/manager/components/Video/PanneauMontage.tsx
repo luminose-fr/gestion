@@ -371,7 +371,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         erreur={prises.erreurs.principale}
                         deposable={!prises.indisponible}
                         onDeposer={(f) => void prises.deposer('principale', f)}
-                        onTranscrire={() => void prises.transcrire('principale')}
+                        onTranscrire={(moteur) => void prises.transcrire('principale', moteur)}
                         onRetirer={() => void prises.retirer('principale')}
                     />
                     {data.accroche_pub?.voix && (
@@ -383,7 +383,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                             erreur={prises.erreurs.accroche}
                             deposable={!prises.indisponible && !!prises.principale}
                             onDeposer={(f) => void prises.deposer('accroche', f)}
-                            onTranscrire={() => void prises.transcrire('accroche')}
+                            onTranscrire={(moteur) => void prises.transcrire('accroche', moteur)}
                             onRetirer={() => void prises.retirer('accroche')}
                         />
                     )}

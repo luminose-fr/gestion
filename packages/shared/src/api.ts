@@ -185,6 +185,15 @@ export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
  */
 export const TRANSCRIPTION_BASE64_MAX = 26_000_000;
 
+/**
+ * Les moteurs de transcription de Workers AI (SPEC §12.5.6). Whisper est le
+ * défaut : environ 47 neurones la minute de son. Deepgram Nova-3, environ 470 —
+ * dix fois plus —, mais réputé plus juste sur les instants des mots ; il est là
+ * pour comparer sur une vraie prise, et l'emporter s'il le mérite.
+ */
+export const MOTEURS_TRANSCRIPTION = ['whisper', 'nova-3'] as const;
+export type MoteurTranscription = (typeof MOTEURS_TRANSCRIPTION)[number];
+
 export const TranscriptionRequestSchema = z.object({
   /** Le son de la prise, en WAV, encodé en base64. Jamais la vidéo : elle ne quitte pas le navigateur. */
   audio: z.string().min(64).max(
@@ -192,6 +201,7 @@ export const TranscriptionRequestSchema = z.object({
     'Son trop long pour une transcription (dix minutes au plus) : seule la piste son, en mono 16 kHz, doit partir.',
   ),
   langue: z.string().regex(/^[a-z]{2}$/).default('fr'),
+  moteur: z.enum(MOTEURS_TRANSCRIPTION).default('whisper'),
 });
 export type TranscriptionRequest = z.infer<typeof TranscriptionRequestSchema>;
 
@@ -207,6 +217,8 @@ export interface Transcription {
   texte: string;
   /** Durée du son selon le modèle ; `null` s'il ne l'a pas dite. */
   duree: number | null;
+  /** Qui l'a faite. Absent : Whisper, le seul moteur avant le 25/10/2026. */
+  moteur?: MoteurTranscription;
   /**
    * Le volume du son, toutes les dix millisecondes, mesuré dans le navigateur
    * (SPEC §12.5.4) : c'est lui qui recale les mots de Whisper sur la voix.
@@ -259,6 +271,7 @@ export const TranscriptionSchema = z.object({
   mots: z.array(MotTranscritSchema).max(30_000),
   texte: z.string().max(400_000),
   duree: z.number().nullable(),
+  moteur: z.enum(MOTEURS_TRANSCRIPTION).optional(),
   /** Un caractère par pas : 400 000 caractères font plus d'une heure de son à 10 ms. */
   enveloppe: z.object({
     pas: z.number().positive().max(1),

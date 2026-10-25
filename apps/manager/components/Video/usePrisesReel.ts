@@ -3,7 +3,7 @@ import {
     calerSurLaPrise, voixEntiere, coupesProposees, coupesAppliquees, choisir, trancherUnPassage, versionsImposees,
     type Calage, type ChoixDesCoupes, type CoupeProposee, type Intervalle, type ReelExplique,
 } from '@luminose/editorial';
-import type { PriseDistante, RolePrise } from '@luminose/shared';
+import type { MoteurTranscription, PriseDistante, RolePrise } from '@luminose/shared';
 import * as Api from '../../services/apiService';
 import * as Cache from '../../services/montageService';
 import * as Activite from '../../services/activityService';
@@ -42,7 +42,7 @@ export interface PrisesReel {
     enCours: Partial<Record<RolePrise, { etape: EtapePrise; part: number | null }>>;
     erreurs: Partial<Record<RolePrise, string>>;
     deposer: (role: RolePrise, fichier: File) => Promise<void>;
-    transcrire: (role: RolePrise) => Promise<void>;
+    transcrire: (role: RolePrise, moteur?: MoteurTranscription) => Promise<void>;
     retirer: (role: RolePrise) => Promise<void>;
     /** `null` rend le repère au calage. */
     corrigerRepere: (sequence: number, element: number, secondes: number | null) => Promise<void>;
@@ -164,11 +164,11 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
         }
     }, []);
 
-    const transcrireFichier = useCallback(async (role: RolePrise, fichier: Blob) => {
+    const transcrireFichier = useCallback(async (role: RolePrise, fichier: Blob, moteur: MoteurTranscription = 'whisper') => {
         if (!contentId) return;
         const { audio, enveloppe } = await extraire(role, fichier, 'Extraction du son de la prise');
         etape(role, { etape: 'transcription', part: null });
-        const transcription = await Api.transcrire(audio);
+        const transcription = await Api.transcrire(audio, moteur);
         await Api.majPrise(contentId, role, { transcription: { ...transcription, enveloppe } });
         await montage.recharger();
     }, [contentId, montage, extraire]);
@@ -243,13 +243,13 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
         }
     }, [contentId, montage, transcrireFichier]);
 
-    const transcrire = useCallback(async (role: RolePrise) => {
+    const transcrire = useCallback(async (role: RolePrise, moteur: MoteurTranscription = 'whisper') => {
         const prise = distantes.find(p => p.role === role);
         const fichier = prise && fichiers[prise.r2Cle];
         if (!prise || !fichier) return;
         erreur(role, null);
         try {
-            await transcrireFichier(role, fichier);
+            await transcrireFichier(role, fichier, moteur);
         } catch (e: any) {
             erreur(role, e?.message ?? String(e));
         } finally {

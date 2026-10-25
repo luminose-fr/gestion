@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import app from '../src/index';
 import { createSessionToken } from '../src/auth';
-import { versTranscription, MODELE_TRANSCRIPTION } from '../src/routes/transcription';
+import { versTranscription, versTranscriptionNova, MODELE_TRANSCRIPTION, MODELE_NOVA } from '../src/routes/transcription';
 import { TRANSCRIPTION_BASE64_MAX } from '@luminose/shared';
 import { makeEnv } from './helpers/d1';
 
@@ -67,8 +67,50 @@ describe('POST /api/transcription', () => {
             ],
             texte: 'Vous relisez trois fois ?',
             duree: 2.4,
+            moteur: 'whisper',
         });
         expect(appels).toEqual([{ modele: MODELE_TRANSCRIPTION, entree: { audio: AUDIO, task: 'transcribe', language: 'fr' } }]);
+    });
+
+    it('passe par Nova-3 sur demande, le son en flux, et rend la même forme (SPEC §12.5.6)', async () => {
+        env.AI.run = async (modele: string, entree: any) => {
+            appels.push({ modele, entree });
+            return {
+                metadata: { duration: 2.4 },
+                results: { channels: [{ alternatives: [{
+                    transcript: 'Vous relisez trois fois ?',
+                    words: [
+                        { word: 'vous', punctuated_word: 'Vous', start: 0.12, end: 0.3 },
+                        { word: 'relisez', start: 0.31, end: 0.79 },
+                        { word: 'fois', punctuated_word: 'fois ?', start: 1.1, end: 1.5 },
+                    ],
+                }] }] },
+            };
+        };
+        const res = await poster({ audio: AUDIO, moteur: 'nova-3' });
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
+            mots: [
+                { mot: 'Vous', debut: 0.12, fin: 0.3 },
+                { mot: 'relisez', debut: 0.31, fin: 0.79 },
+                { mot: 'fois ?', debut: 1.1, fin: 1.5 },
+            ],
+            texte: 'Vous relisez trois fois ?',
+            duree: 2.4,
+            moteur: 'nova-3',
+        });
+        expect(appels[0].modele).toBe(MODELE_NOVA);
+        expect(appels[0].entree.audio.contentType).toBe('audio/wav');
+        expect(appels[0].entree.audio.body).toBeInstanceOf(ReadableStream);
+        expect(appels[0].entree).toMatchObject({ language: 'fr', punctuate: true });
+    });
+
+    it('dit lequel des deux moteurs a échoué', async () => {
+        env.AI.run = async () => { throw new Error('quota'); };
+        const res = await poster({ audio: AUDIO, moteur: 'nova-3' });
+        expect(res.status).toBe(502);
+        expect((await res.json() as any).error).toBe("Nova-3 (Workers AI) n'a pas transcrit le son : quota");
+        expect((await poster({ audio: AUDIO, moteur: 'gemini' })).status).toBe(400);
     });
 
     it('dit quoi ajouter à wrangler.toml quand la liaison manque', async () => {
@@ -115,6 +157,7 @@ describe('versTranscription', () => {
     it('écarte ce qui n’a ni mot ni instant', () => {
         const t = versTranscription({ segments: [{ start: 0, end: 1, words: [{ word: '  ', start: 0, end: 1 }, { word: 'oui', start: 'x', end: 1 }] }] });
         expect(t.mots).toEqual([]);
-        expect(versTranscription(null)).toEqual({ mots: [], texte: '', duree: null });
+        expect(versTranscription(null)).toEqual({ mots: [], texte: '', duree: null, moteur: 'whisper' });
+        expect(versTranscriptionNova(null)).toEqual({ mots: [], texte: '', duree: null, moteur: 'nova-3' });
     });
 });

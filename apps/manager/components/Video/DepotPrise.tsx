@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Film, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { Bouton, Etiquette } from '../ui';
 import { Barre, EnCours } from '../Feedback';
+import type { MoteurTranscription } from '@luminose/shared';
 import type { EtapePrise, PriseAffichee } from './usePrisesReel';
 
 /**
@@ -39,9 +40,12 @@ export interface DepotPriseProps {
     erreur?: string;
     deposable: boolean;
     onDeposer: (fichier: File) => void;
-    onTranscrire: () => void;
+    /** Retranscrire la prise, avec le moteur voulu (SPEC §12.5.6). */
+    onTranscrire: (moteur: MoteurTranscription) => void;
     onRetirer: () => void;
 }
+
+const MOTEUR: Record<MoteurTranscription, string> = { whisper: 'Whisper', 'nova-3': 'Nova-3' };
 
 export const DepotPrise: React.FC<DepotPriseProps> = ({
     titre, consigne, prise, enCours, erreur, deposable, onDeposer, onTranscrire, onRetirer,
@@ -89,6 +93,7 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
             {!enCours && calage && (
                 <p className={`text-xs ${calage.couverture < COUVERTURE_SURE ? 'text-alerte' : 'text-brand-main/70 dark:text-dark-text/70'}`}>
                     Calée : {Math.round(calage.couverture * 100)} % des mots du script retrouvés dans la prise
+                    {` (transcrite par ${MOTEUR[prise?.prise.transcription?.moteur ?? 'whisper']})`}
                     {calage.couverture < COUVERTURE_SURE ? ' — elle s’en écarte : vérifiez les repères avant d’exporter.' : '.'}
                 </p>
             )}
@@ -106,9 +111,17 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
                         <Upload /> {prise ? 'Remplacer' : 'Déposer la prise'}
                     </Bouton>
                     {prise?.prise.pretLe && (
-                        <Bouton taille="petit" intention="secondaire" disabled={occupe || !prise.url} onClick={onTranscrire}>
-                            <RefreshCw /> Transcrire à nouveau
-                        </Bouton>
+                        <>
+                            <span className="text-xs text-brand-main/70 dark:text-dark-text/70">Transcrire à nouveau :</span>
+                            <Bouton taille="petit" intention="secondaire" disabled={occupe || !prise.url} onClick={() => onTranscrire('whisper')}
+                                title="Whisper : environ 47 neurones par minute de son, sur 10 000 gratuits par jour">
+                                <RefreshCw /> Whisper
+                            </Bouton>
+                            <Bouton taille="petit" intention="secondaire" disabled={occupe || !prise.url} onClick={() => onTranscrire('nova-3')}
+                                title="Deepgram Nova-3 : environ 470 neurones par minute de son — dix fois Whisper —, réputé plus juste sur les instants des mots">
+                                <RefreshCw /> Nova-3
+                            </Bouton>
+                        </>
                     )}
                     {prise && (
                         <Bouton taille="petit" intention="discrete" disabled={occupe} onClick={onRetirer}>
