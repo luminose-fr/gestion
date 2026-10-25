@@ -1,4 +1,4 @@
-# SPEC v2.14 — gestion.luminose.fr
+# SPEC v2.15 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -62,6 +62,10 @@
 > que Whisper étire le premier mot d'une reprise sur le silence qui la précède : les mots
 > sont désormais recalés sur l'enveloppe sonore, les coupes tombent dans les silences, un
 > micro-fondu adoucit chaque raccord, et le sous-titre devance la voix d'un dixième (§12.5.4).
+> **v2.15 (25/10/2026)** : les prises se choisissent phrase par phrase — la dernière bonne
+> version de chaque phrase, d'un seul tenant — et le montage se fait par le texte : la
+> transcription se lit, le barré est coupé, tout passage se coupe ou se rétablit, et une
+> phrase se reprend dans la version qu'on préfère (§12.5.5).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1742,9 +1746,8 @@ crée, et n'est pas proposée.
 **Chaque coupe se rétablit**, et une improvisation se coupe d'un clic. Un choix porte le
 motif et le début de sa coupe au dixième (`s12.4`, `r33.0`, `h41.7`) ; une nouvelle
 transcription qui en décale le bord le retrouve à trois dixièmes près. Il ne passe pas à
-la prise qui en remplace une autre : il désigne un instant de CE fichier. Les reprises et
-les improvisations se listent une à une, avec ce qui y a été dit ; les silences, nombreux
-et sans contenu, se résument en une ligne qui se déplie.
+la prise qui en remplace une autre : il désigne un instant de CE fichier. Depuis la v2.15,
+tout se tranche dans le montage par le texte (§12.5.5).
 
 **Le plan de montage monte les morceaux bout à bout** (`planDeMontage`, option `coupes`) :
 chaque séquence, chaque apparition et chaque sous-titre passe du temps de la prise au
@@ -1754,6 +1757,36 @@ quitte les sous-titres. La seconde accroche se dérushe de la même façon.
 **Le cadre alterne à chaque raccord** : plan large, puis serré (zoom de 12 %, centré au
 tiers haut, où est le visage), puis large. Deux morceaux de la même prise au même cadre
 font sauter le visage ; à deux cadres, c'est un changement de plan.
+
+### 12.5.3 Le rythme (V7) — NORMATIF
+
+Décision du 24/10/2026, après la seconde référence, où quelque chose change à l'écran
+toutes les deux à trois secondes. Nos passages face caméra pouvaient rester fixes dix à
+quinze secondes : c'est le moment où le pouce reprend le défilement.
+
+**Le cadre change aux phrases.** Au-delà des raccords (§12.5.2), où il change toujours, le
+cadre de la prise alterne au début d'une phrase dite face caméra (`cadrer`,
+`packages/editorial/src/calage.ts`) — si le plan en cours a duré au moins 2,5 s et
+qu'aucun raccord n'arrive dans la seconde : plus court, le recadrage se remarque comme un
+tic, et deux changements de plan coup sur coup se lisent comme une erreur. Une phrase finit
+sur `.`, `?`, `!` ou `…` suivi d'un blanc : le point de « luminose.fr » ne ferme rien. Rien
+ne change au premier mot d'un passage : le visage qui revient d'une scène est déjà un
+changement.
+
+**Le coup de poing** (`coup`, §12.3) : quelques mots, en capitales ivoire sur le prune de la
+marque, plein cadre — le passage entre crochets en Abril italique rose brumeux. Il se pose
+en un cinquième de seconde et repart sec : c'est une rupture, pas une transition. Il frappe
+au premier mot de son repère et tient le temps de le dire plus 0,4 s, jamais moins de
+0,9 s ni plus de 2,5 s. Il couvre tout, sous-titres compris ; une coupe qui en mange la fin
+lui laisse ses 0,9 s. Le storyboard le montre en miniature et souligne ses mots dans la voix.
+
+**L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **5 s** sans
+changement à l'écran — début de séquence, apparition d'un élément, coup de poing qui frappe
+ou s'en va, recadrage face caméra. Un recadrage sous une scène ne compte pas : il ne se
+voit pas ; les sous-titres non plus : c'est l'image qu'on regarde. Avant le tournage,
+l'alerte se calcule au débit estimé, recadrages aux phrases compris — c'est alors une
+affaire d'écriture : une carte de plus, un coup de poing, une phrase coupée en deux. Sur la
+prise calée, elle porte sur la vidéo qui sortira. Chaque moment mène l'aperçu à son début.
 
 ### 12.5.4 Le son corrige Whisper (V8) — NORMATIF
 
@@ -1810,35 +1843,64 @@ paraît en retard.
 **Le garde-fou est une vraie prise** : `packages/editorial/test/prises/digue.json` (les
 mots de Whisper, l'enveloppe, le script), rejouée par `prise-reelle.test.ts`.
 
-### 12.5.3 Le rythme (V7) — NORMATIF
+### 12.5.5 Le choix des prises et le montage par le texte (V9) — NORMATIF
 
-Décision du 24/10/2026, après la seconde référence, où quelque chose change à l'écran
-toutes les deux à trois secondes. Nos passages face caméra pouvaient rester fixes dix à
-quinze secondes : c'est le moment où le pouce reprend le défilement.
+Constaté le 25/10/2026 sur la même prise réelle : aligné mot à mot sur toute la vidéo, le
+script prenait le début d'une phrase dans une version et sa fin dans une autre —
+« apprenez-moi à ne » (1ʳᵉ), puis « ne plus être submergé » (2ᵉ). Et la liste des coupes
+ne laissait trancher que ce qu'elle proposait.
 
-**Le cadre change aux phrases.** Au-delà des raccords (§12.5.2), où il change toujours, le
-cadre de la prise alterne au début d'une phrase dite face caméra (`cadrer`,
-`packages/editorial/src/calage.ts`) — si le plan en cours a duré au moins 2,5 s et
-qu'aucun raccord n'arrive dans la seconde : plus court, le recadrage se remarque comme un
-tic, et deux changements de plan coup sur coup se lisent comme une erreur. Une phrase finit
-sur `.`, `?`, `!` ou `…` suivi d'un blanc : le point de « luminose.fr » ne ferme rien. Rien
-ne change au premier mot d'un passage : le visage qui revient d'une scène est déjà un
-changement.
+**Les phrases** (`phrasesDuScript`, `packages/editorial/src/selection.ts`) : la voix
+entière coupée aux `.`, `?`, `!` suivis d'un blanc et aux changements de séquence — pas aux
+points de suspension, qui marquent une pause dans la phrase. Une phrase de moins de trois
+mots (« Bon. », « Sparadrap. ») rejoint sa voisine : seule, on la trouverait partout.
 
-**Le coup de poing** (`coup`, §12.3) : quelques mots, en capitales ivoire sur le prune de la
-marque, plein cadre — le passage entre crochets en Abril italique rose brumeux. Il se pose
-en un cinquième de seconde et repart sec : c'est une rupture, pas une transition. Il frappe
-au premier mot de son repère et tient le temps de le dire plus 0,4 s, jamais moins de
-0,9 s ni plus de 2,5 s. Il couvre tout, sous-titres compris ; une coupe qui en mange la fin
-lui laisse ses 0,9 s. Le storyboard le montre en miniature et souligne ses mots dans la voix.
+**Les versions d'une phrase** (`versionsDePhrase`) : alignement « ajusté » de la phrase
+entière contre la prise, répété en masquant chaque version trouvée. Une marque est glissée
+par seconde de silence : une version paie chaque seconde qu'elle enjambe comme un mot
+sauté, et ne va pas chercher un mot isolé dans une autre tentative. Une version retrouve
+au moins 40 % de la phrase, et ne s'étale pas sur plus de deux fois sa longueur et six
+mots.
 
-**L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **5 s** sans
-changement à l'écran — début de séquence, apparition d'un élément, coup de poing qui frappe
-ou s'en va, recadrage face caméra. Un recadrage sous une scène ne compte pas : il ne se
-voit pas ; les sous-titres non plus : c'est l'image qu'on regarde. Avant le tournage,
-l'alerte se calcule au débit estimé, recadrages aux phrases compris — c'est alors une
-affaire d'écriture : une carte de plus, un coup de poing, une phrase coupée en deux. Sur la
-prise calée, elle porte sur la vidéo qui sortira. Chaque moment mène l'aperçu à son début.
+**La version retenue** (`choisirLesPrises`) : une seule par phrase, d'un seul tenant, les
+phrases dans l'ordre — programmation dynamique sur toute la prise. Une version est
+**bonne** si elle retrouve au moins 60 % des mots, et pas plus de 15 points de moins que
+la meilleure. D'abord le plus de phrases bien dites ; entre deux bonnes versions, **la
+plus récente** — quand on refait une phrase, c'est d'ordinaire que la première ne
+convenait pas (sur la prise du 25/10, la 1ʳᵉ disait « une fatigue qui ne dépasse pas »).
+L'alignement de chaque phrase se fait dans sa version retenue : les cartes tombent sur
+les mots de cette version-là.
+
+**Une version écartée est coupée comme une reprise**, quels que soient ses mots — si
+c'en est vraiment une : 60 % de la phrase et trois mots retrouvés au moins. Plus maigre,
+c'est une coïncidence (« c'est » trouvé dans « c'est un bassin »), et couper sur elle
+amputait une phrase bien dite.
+
+**Le début et la fin de la vidéo** ne mordent pas sur un mot dit juste avant la première
+phrase ou juste après la dernière : « s'il vous plaît | apprenez-moi » s'enchaînent sans
+pause.
+
+**Le montage par le texte** (`MontageTexte`) remplace la liste des coupes. La
+transcription se lit comme un texte, à la ligne à chaque pause de plus de 1,2 s — on y lit
+les tentatives successives. **Le barré est ce que la vidéo ne montre pas**, coupes, tête et
+queue comprises. Un clic sur un mot y mène l'aperçu ; Maj + clic étend la sélection, qui
+se coupe ou se rétablit. Les silences proposés sont des pastilles qui se tranchent d'un
+clic. Quand une phrase a plusieurs vraies versions, la retenue porte « Version retenue »
+et chacune des autres « Garder cette version ».
+
+**Les choix se rangent avec la prise**, dans le même objet que ceux du dérushage :
+
+| Clé | Valeur | Ce qu'elle dit |
+| :--- | :--- | :--- |
+| `s12.4`, `r33.0`, `h41.7` | oui / non | une coupe proposée, coupée ou gardée |
+| `m12.30-14.85` | oui / non | un passage tranché à la main, coupé ou gardé — la main a le dernier mot |
+| `p9` | un nombre | la phrase 9 se prend dans la version qui commence à cet instant (à 1,5 s près : l'enveloppe peut recaler son premier mot après coup) |
+
+Un passage tranché à la main qui recouvre une coupe proposée tranche cette coupe-là. Une
+version imposée **entraîne sa suite** : la phrase qui la suit dans la même tentative, sans
+pause notable, est préférée aux autres bonnes versions — choisir la première version de
+« Derrière la digue », c'est choisir cette tentative. « Tout réinitialiser » oublie tous
+les choix.
 
 ### 12.6 Phasage — NORMATIF
 
@@ -1854,6 +1916,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V6** | **Les sous-titres mot à mot** — le mot qui se dit s'éclaire (§12.5) | Un Reel suivi sans le son |
 | **V7** | **Le rythme** — recadrage aux phrases, coup de poing, moments figés (§12.5.3) | Une vidéo dont l'image change au moins toutes les cinq secondes |
 | **V8** | **Le son corrige Whisper** — mots recalés, coupes dans les silences, micro-fondu (§12.5.4) | Une prise brouillonne sort sans silence de plus d'une seconde ni syllabe amputée |
+| **V9** | **Le choix des prises et le montage par le texte** (§12.5.5) | Aucune coupe ne joint deux versions au milieu d'une phrase ; tout passage se tranche en lisant |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

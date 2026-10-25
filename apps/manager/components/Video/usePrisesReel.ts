@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    calerSurLaPrise, voixEntiere, coupesProposees, coupesAppliquees, choisir,
-    type Calage, type CoupeProposee, type Intervalle, type ReelExplique,
+    calerSurLaPrise, voixEntiere, coupesProposees, coupesAppliquees, choisir, trancherUnPassage, versionsImposees,
+    type Calage, type ChoixDesCoupes, type CoupeProposee, type Intervalle, type ReelExplique,
 } from '@luminose/editorial';
 import type { PriseDistante, RolePrise } from '@luminose/shared';
 import * as Api from '../../services/apiService';
@@ -48,6 +48,12 @@ export interface PrisesReel {
     corrigerRepere: (sequence: number, element: number, secondes: number | null) => Promise<void>;
     /** Coupe ou garde des passages de la prise, en un seul enregistrement. */
     trancher: (role: RolePrise, decisions: Array<{ coupe: CoupeProposee; coupee: boolean }>) => Promise<void>;
+    /** Coupe (`true`) ou rétablit (`false`) un passage choisi à la main, en secondes de la prise (§12.5.5). */
+    trancherPassage: (role: RolePrise, passage: Intervalle, coupe: boolean) => Promise<void>;
+    /** Impose une version pour une phrase du script : son début, en secondes de la prise. */
+    choisirVersion: (role: RolePrise, phrase: number, debut: number) => Promise<void>;
+    /** Oublie tous les choix : la prise revient au dérushage proposé. */
+    reinitialiser: (role: RolePrise) => Promise<void>;
     indisponible: boolean;
 }
 
@@ -132,7 +138,7 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
         if (!prise) return undefined;
         const texte = texteDe(role, data);
         const calage = prise.transcription && texte.trim()
-            ? calerSurLaPrise(texte, prise.transcription.mots, prise.transcription.enveloppe)
+            ? calerSurLaPrise(texte, prise.transcription.mots, prise.transcription.enveloppe, { prises: versionsImposees(prise.coupes) })
             : null;
         const coupes = calage ? coupesProposees(calage) : [];
         return { prise, url: urls[prise.r2Cle], calage, coupes, appliquees: coupesAppliquees(coupes, prise.coupes) };
@@ -277,20 +283,33 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
         await montage.recharger();
     }, [contentId, distantes, montage]);
 
-    const trancher = useCallback(async (role: RolePrise, decisions: Array<{ coupe: CoupeProposee; coupee: boolean }>) => {
+    /** Un nouveau jeu de choix pour une prise, enregistré puis relu. */
+    const enregistrerChoix = useCallback(async (role: RolePrise, suite: (choix: ChoixDesCoupes) => ChoixDesCoupes) => {
         const prise = distantes.find(p => p.role === role);
         if (!contentId || !prise) return;
-        const coupes = decisions.reduce((choix, d) => choisir(choix, d.coupe, d.coupee), prise.coupes ?? {});
         try {
-            await Api.majPrise(contentId, role, { coupes });
+            await Api.majPrise(contentId, role, { coupes: suite(prise.coupes ?? {}) });
         } catch (e: any) {
             erreur(role, e?.message ?? String(e));
         }
         await montage.recharger();
     }, [contentId, distantes, montage]);
 
+    const trancher = useCallback((role: RolePrise, decisions: Array<{ coupe: CoupeProposee; coupee: boolean }>) =>
+        enregistrerChoix(role, choix => decisions.reduce((c, d) => choisir(c, d.coupe, d.coupee), choix)), [enregistrerChoix]);
+
+    const trancherPassage = useCallback((role: RolePrise, passage: Intervalle, coupe: boolean) => {
+        const proposees = (role === 'principale' ? principale : accroche)?.coupes ?? [];
+        return enregistrerChoix(role, choix => trancherUnPassage(choix, passage, coupe, proposees));
+    }, [enregistrerChoix, principale, accroche]);
+
+    const choisirVersion = useCallback((role: RolePrise, phrase: number, debut: number) =>
+        enregistrerChoix(role, choix => ({ ...choix, [`p${phrase}`]: Math.round(debut * 100) / 100 })), [enregistrerChoix]);
+
+    const reinitialiser = useCallback((role: RolePrise) => enregistrerChoix(role, () => ({})), [enregistrerChoix]);
+
     return {
-        principale, accroche, enCours, erreurs, deposer, transcrire, retirer, corrigerRepere, trancher,
+        principale, accroche, enCours, erreurs, deposer, transcrire, retirer, corrigerRepere, trancher, trancherPassage, choisirVersion, reinitialiser,
         indisponible: !montage.etat?.stockage.disponible,
     };
 }

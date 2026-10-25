@@ -5,9 +5,10 @@
  * Merci. ». Les mots sont ceux qu'a rendus Whisper sur Workers AI ;
  * l'enveloppe a été mesurée sur le son, avec l'encodage du navigateur.
  *
- * Ce fichier est le garde-fou de ce qui a été corrigé sur pièces (§12.5.4) :
- * un mot qui enjambait un silence de quatre secondes, des coupes qui en
- * laissaient trois et demie, une fin étirée jusqu'à une hallucination.
+ * Ce fichier est le garde-fou de ce qui a été corrigé sur pièces : un mot qui
+ * enjambait un silence de quatre secondes, des coupes qui en laissaient trois
+ * et demie, une fin étirée jusqu'à une hallucination (§12.5.4) ; des phrases
+ * commencées dans une version et finies dans une autre (§12.5.5).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -53,5 +54,53 @@ describe('une vraie prise, recalée sur le son', () => {
             const porte = calage.prononces.some(p => p.rang !== null && (p.debut + p.fin) / 2 > s.depuis && (p.debut + p.fin) / 2 < s.jusqua);
             expect(s.jusqua - s.depuis >= 0.4 || porte).toBe(true);
         }
+    });
+});
+
+describe('une vraie prise, choisie phrase par phrase (§12.5.5)', () => {
+    const dans = (t: number) => plan.segments.some(s => t > s.depuis && t < s.jusqua);
+    const phraseDuRang = (rang: number) => calage.phrases.findIndex(c => rang >= c.phrase.debut && rang < c.phrase.fin);
+
+    it('aucune coupe ne joint deux versions au milieu d’une phrase', () => {
+        for (let k = 0; k + 1 < plan.segments.length; k++) {
+            const fin = plan.segments[k].jusqua;
+            const debut = plan.segments[k + 1].depuis;
+            const avant = [...calage.prononces].reverse().find(p => p.rang !== null && p.fin <= fin + 0.05);
+            const apres = calage.prononces.find(p => p.rang !== null && p.debut >= debut - 0.05);
+            if (!avant || !apres || phraseDuRang(avant.rang!) !== phraseDuRang(apres.rang!)) continue;
+            // Même phrase des deux côtés : seule une pause a pu être retirée, pas un mot.
+            expect(calage.prononces.filter(p => (p.debut + p.fin) / 2 > fin && (p.debut + p.fin) / 2 < debut)).toEqual([]);
+        }
+    });
+
+    it('une phrase refaite garde sa dernière bonne version : « ne dépasse pas » est parti', () => {
+        expect(dans(premier('dépasse', 85).debut)).toBe(false);
+        expect(dans(premier('derrière', 91).debut + 0.05)).toBe(true);
+    });
+
+    it('la vidéo s’ouvre sur « apprenez-moi » de la seconde version, sans la fin de « plaît »', () => {
+        expect(plan.segments[0].depuis).toBeGreaterThanOrEqual(premier('plaît', 15).fin);
+        expect(plan.segments[0].depuis).toBeLessThanOrEqual(premier('apprenez', 15).debut);
+    });
+
+    it('une version maigre ne fait pas couper une phrase bien dite : « c’est un meilleur sparadrap » reste entier', () => {
+        expect(dans(premier('c', 53).debut + 0.02)).toBe(true);
+    });
+
+    it('la fin improvisée, refaite autrement, n’est pas gardée en plus de la première', () => {
+        expect(dans(premier('travaille', 171).debut + 0.05)).toBe(true);
+        expect(plan.segments.every(s => s.jusqua < 180)).toBe(true);
+    });
+});
+
+describe('une version imposée sur la vraie prise', () => {
+    it('garder la première version de « Derrière la digue » garde la tentative entière', () => {
+        const avecChoix = calerSurLaPrise(texte, prise.mots, prise.enveloppe, { prises: { 9: 74.42 } });
+        const retenue = (s: number) => avecChoix.prononces[avecChoix.phrases[s].versions[avecChoix.phrases[s].retenue!].debut].debut;
+        expect(avecChoix.phrases[9].phrase.mots.slice(0, 3)).toEqual(['derriere', 'la', 'digue']);
+        expect(retenue(9)).toBeLessThan(80);
+        // La suite de la même tentative, sans pause : elle vient avec.
+        expect(retenue(10)).toBeLessThan(86);
+        expect(retenue(11)).toBeLessThan(91);
     });
 });

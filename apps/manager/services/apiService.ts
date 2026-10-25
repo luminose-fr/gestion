@@ -612,7 +612,7 @@ export const abandonnerEnvoi = (contentId: string, role: RolePrise) =>
 
 export const majPrise = (
   contentId: string, role: RolePrise,
-  maj: { transcription?: Transcription; reperes?: Record<string, number>; coupes?: Record<string, boolean> },
+  maj: { transcription?: Transcription; reperes?: Record<string, number>; coupes?: Record<string, boolean | number> },
 ) =>
   api<{ prise: PriseDistante }>(`/montage/${enc(contentId)}/prises/${role}`, { method: 'PATCH', ...body(maj) });
 
