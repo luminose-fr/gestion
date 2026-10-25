@@ -96,6 +96,11 @@ describe('les prises', () => {
         expect(prise.transcription).toEqual(transcription);
 
         expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { reperes: { 'scene': 1 } })).status).toBe(400);
+
+        // L'enveloppe sonore voyage avec la transcription (SPEC §12.5.4).
+        const avecEnveloppe = { ...transcription, enveloppe: { pas: 0.01, niveaux: '#$%}' } };
+        const e = await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { transcription: avecEnveloppe });
+        expect((await json(e)).prise.transcription.enveloppe).toEqual({ pas: 0.01, niveaux: '#$%}' });
         expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, {})).status).toBe(400);
     });
 

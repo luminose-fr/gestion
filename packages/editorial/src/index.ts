@@ -26,6 +26,8 @@ export * from './reelExplique';
 export * from './calage';
 // … et ce qui s'en coupe : silences, reprises, improvisations (SPEC §12.5.2)
 export * from './derushage';
+// … et ce que le son corrige dans la transcription (SPEC §12.5.4)
+export * from './enveloppe';
 
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';
