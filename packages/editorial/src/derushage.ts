@@ -122,7 +122,9 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
         const avant = retenus.slice(0, r + 1).map(i => p[i]);
         const apres = retenus.slice(r + 1).map(i => p[i]);
         const texte = passage.map(x => x.ecrit).filter(Boolean).join(' ');
-        if (estUneReprise(passage, avant, apres)) {
+        // Une autre version d'une phrase du script, écartée par le choix des prises (§12.5.5),
+        // est une reprise, quels que soient ses mots : elle redirait ce qui est dit.
+        if (passage.some(x => x.autrePrise) || estUneReprise(passage, avant, apres)) {
             proposer('reprise', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, true, p[k], p[k2]);
             for (let g = k; g < k2; g++) couverts.add(g);
         } else if (passage.length >= HORS_SCRIPT_MIN) {
@@ -144,8 +146,15 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
     return coupes.sort((a, b) => a.debut - b.debut);
 }
 
-/** Un choix de Florent : `true` coupe, `false` garde. Absent, la coupe suit son défaut. */
-export type ChoixDesCoupes = Record<string, boolean>;
+/**
+ * Les choix de Florent sur une prise, dans un seul objet (rangé en base tel
+ * quel, §12.5.2 et §12.5.5) :
+ * - `s12.4`, `r33.0`, `h41.7` → `true` coupe, `false` garde une coupe proposée ;
+ * - `m12.30-14.85` → `true` coupe, `false` garde un passage choisi à la main ;
+ * - `p7` → la version imposée pour la phrase 7 : son début, en secondes.
+ * Absent, tout suit son défaut.
+ */
+export type ChoixDesCoupes = Record<string, boolean | number>;
 
 /**
  * Le choix qui vaut pour une coupe. Une nouvelle transcription de la même
@@ -154,10 +163,10 @@ export type ChoixDesCoupes = Record<string, boolean>;
  */
 export function estCoupee(coupe: CoupeProposee, choix: ChoixDesCoupes | undefined): boolean {
     if (!choix) return coupe.parDefaut;
-    if (coupe.cle in choix) return choix[coupe.cle];
+    if (typeof choix[coupe.cle] === 'boolean') return choix[coupe.cle] as boolean;
     const prefixe = MOTIFS[coupe.motif];
     for (const [cle, valeur] of Object.entries(choix)) {
-        if (cle[0] === prefixe && Math.abs(Number(cle.slice(1)) - coupe.debut) <= 0.3) return valeur;
+        if (typeof valeur === 'boolean' && cle[0] === prefixe && Math.abs(Number(cle.slice(1)) - coupe.debut) <= 0.3) return valeur;
     }
     return coupe.parDefaut;
 }
@@ -169,25 +178,93 @@ export function estCoupee(coupe: CoupeProposee, choix: ChoixDesCoupes | undefine
  */
 export function choisir(choix: ChoixDesCoupes | undefined, coupe: CoupeProposee, coupee: boolean): ChoixDesCoupes {
     const prefixe = MOTIFS[coupe.motif];
+    // Le dernier geste l'emporte : un passage tranché à la main sur cette coupe s'efface aussi.
+    const manuel = (cle: string) => {
+        const m = /^m(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/.exec(cle);
+        return !!m && Number(m[2]) > coupe.debut && Number(m[1]) < coupe.fin;
+    };
     const suite = Object.fromEntries(Object.entries(choix ?? {}).filter(([cle]) =>
-        cle !== coupe.cle && !(cle[0] === prefixe && Math.abs(Number(cle.slice(1)) - coupe.debut) <= 0.3)));
+        cle !== coupe.cle && !manuel(cle) && !(cle[0] === prefixe && Math.abs(Number(cle.slice(1)) - coupe.debut) <= 0.3)));
     if (coupee !== coupe.parDefaut) suite[coupe.cle] = coupee;
     return suite;
 }
 
-/** Les intervalles à retirer de la prise, triés et fusionnés : c'est ce que le plan de montage attend. */
-export function coupesAppliquees(proposees: CoupeProposee[], choix: ChoixDesCoupes | undefined): Intervalle[] {
-    const retenues = proposees
-        .filter(c => estCoupee(c, choix))
-        .map(c => ({ debut: c.debut, fin: c.fin }))
-        .sort((a, b) => a.debut - b.debut);
+const fusionner = (intervalles: Intervalle[]): Intervalle[] => {
     const fusion: Intervalle[] = [];
-    for (const c of retenues) {
+    for (const c of [...intervalles].sort((a, b) => a.debut - b.debut)) {
         const derniere = fusion[fusion.length - 1];
         if (derniere && c.debut <= derniere.fin) derniere.fin = Math.max(derniere.fin, c.fin);
         else fusion.push({ ...c });
     }
     return fusion;
+};
+
+/** `a` privé de `b` : ce qui reste de chaque intervalle de `a` hors de ceux de `b`. */
+const retirer = (a: Intervalle[], b: Intervalle[]): Intervalle[] => a.flatMap(x => {
+    let morceaux = [x];
+    for (const y of b) {
+        morceaux = morceaux.flatMap(m => y.fin <= m.debut || y.debut >= m.fin ? [m] : [
+            ...(y.debut > m.debut ? [{ debut: m.debut, fin: y.debut }] : []),
+            ...(y.fin < m.fin ? [{ debut: y.fin, fin: m.fin }] : []),
+        ]);
+    }
+    return morceaux;
+});
+
+/** Les passages tranchés à la main (`m…`), dans l'ordre. */
+export function passagesManuels(choix: ChoixDesCoupes | undefined): Array<Intervalle & { coupe: boolean; cle: string }> {
+    return Object.entries(choix ?? {}).flatMap(([cle, valeur]) => {
+        const m = /^m(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/.exec(cle);
+        return m && typeof valeur === 'boolean' ? [{ debut: Number(m[1]), fin: Number(m[2]), coupe: valeur, cle }] : [];
+    }).sort((a, b) => a.debut - b.debut);
+}
+
+/** Les versions imposées (`p…`) : rang de phrase → début de la version, en secondes dans la prise. */
+export function versionsImposees(choix: ChoixDesCoupes | undefined): Record<number, number> {
+    return Object.fromEntries(Object.entries(choix ?? {}).flatMap(([cle, valeur]) => {
+        const m = /^p(\d+)$/.exec(cle);
+        return m && typeof valeur === 'number' ? [[Number(m[1]), valeur]] : [];
+    }));
+}
+
+/**
+ * Les intervalles à retirer de la prise, triés et fusionnés : c'est ce que le
+ * plan de montage attend. Les coupes proposées et tranchées, plus les passages
+ * coupés à la main, moins ceux rétablis à la main — la main a le dernier mot.
+ */
+export function coupesAppliquees(proposees: CoupeProposee[], choix: ChoixDesCoupes | undefined): Intervalle[] {
+    const manuels = passagesManuels(choix);
+    const auto = proposees.filter(c => estCoupee(c, choix)).map(c => ({ debut: c.debut, fin: c.fin }));
+    const coupes = fusionner([...auto, ...manuels.filter(m => m.coupe)]);
+    return fusionner(retirer(coupes, manuels.filter(m => !m.coupe)));
+}
+
+/** Un passage tranché à la main, et la coupe proposée qu'il recouvre presque entièrement, s'il y en a une. */
+const recouvre = (passage: Intervalle, coupe: Intervalle) => {
+    const commun = Math.max(0, Math.min(passage.fin, coupe.fin) - Math.max(passage.debut, coupe.debut));
+    return commun >= 0.9 * (coupe.fin - coupe.debut) && commun >= 0.5 * (passage.fin - passage.debut);
+};
+
+/**
+ * Le choix suivant, une fois un passage tranché à la main dans le montage par
+ * le texte. S'il correspond à une coupe proposée, c'est elle qu'on tranche :
+ * le choix reste lisible, et suit la coupe si une transcription la décale. Sinon
+ * un passage manuel s'ajoute, et remplace ceux qu'il englobe.
+ */
+export function trancherUnPassage(
+    choix: ChoixDesCoupes | undefined,
+    passage: Intervalle,
+    coupe: boolean,
+    proposees: CoupeProposee[],
+): ChoixDesCoupes {
+    const proposee = proposees.find(c => recouvre(passage, c));
+    if (proposee) return choisir(choix, proposee, coupe);
+    const suite = Object.fromEntries(Object.entries(choix ?? {}).filter(([cle]) => {
+        const m = passagesManuels({ [cle]: true })[0];
+        return !m || m.debut < passage.debut || m.fin > passage.fin;
+    }));
+    suite[`m${passage.debut.toFixed(2)}-${passage.fin.toFixed(2)}`] = coupe;
+    return suite;
 }
 
 /** Le temps que les coupes retirent, en secondes. */

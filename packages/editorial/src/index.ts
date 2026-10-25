@@ -28,6 +28,8 @@ export * from './calage';
 export * from './derushage';
 // … et ce que le son corrige dans la transcription (SPEC §12.5.4)
 export * from './enveloppe';
+// … et le choix des prises, phrase par phrase (SPEC §12.5.5)
+export * from './selection';
 
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';

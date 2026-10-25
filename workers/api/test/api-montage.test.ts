@@ -128,6 +128,12 @@ describe('les prises', () => {
         // Une clé qui ne désigne pas une coupe est refusée à la frontière.
         expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 'x12.4': true } })).status).toBe(400);
         expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 's12': true } })).status).toBe(400);
+
+        // Un passage tranché à la main, une version imposée (SPEC §12.5.5).
+        const manuel = await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 'm12.30-14.85': true, p7: 92.25 } });
+        expect((await json(manuel)).prise.coupes).toEqual({ 'm12.30-14.85': true, p7: 92.25 });
+        expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { p7: true } })).status).toBe(400);
+        expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { coupes: { 's12.4': 3 } })).status).toBe(400);
     });
 
     it('remplacées, oublient les choix de coupe : ils désignaient l’ancien fichier', async () => {

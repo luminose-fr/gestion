@@ -5,7 +5,7 @@ import { Clapperboard, Download, X } from 'lucide-react';
 import {
     minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
     cadrer, debutsDePhrases, momentsFiges, voixEntiere,
-    type MinutageReel, type ReelExplique,
+    type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
 import { Barre, EnCours } from '../Feedback';
@@ -20,7 +20,7 @@ import { usePrisesReel } from './usePrisesReel';
 import { DepotPrise, poids } from './DepotPrise';
 import type { Montage } from './useMontage';
 import { ReperesPrise } from './ReperesPrise';
-import { CoupesPrise } from './CoupesPrise';
+import { MontageTexte } from './MontageTexte';
 import { RythmeReel } from './RythmeReel';
 
 /**
@@ -85,6 +85,10 @@ const telecharger = (blob: Blob, nom: string) => {
 };
 
 const secondes = (s: number) => `${s.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`;
+
+/** Les passages d'une prise que la vidéo montre, en secondes de cette prise. */
+const morceaux = (plan: PlanDeMontage, source: 'principale' | 'accroche') =>
+    plan.segments.filter(s => s.source === source).map(s => ({ debut: s.depuis, fin: s.jusqua }));
 
 /**
  * Décode d'avance les images que le rendu va poser : `<Img>` de Remotion retient
@@ -394,24 +398,40 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                     )}
                 </div>
 
-                {principale && plan && (
-                    <CoupesPrise
-                        titre="Coupes de la prise"
+                {principale?.calage && plan && (
+                    <MontageTexte
+                        titre="Montage de la prise"
+                        calage={principale.calage}
                         coupes={principale.coupes}
+                        appliquees={principale.appliquees}
+                        gardes={morceaux(plan, 'principale')}
                         choix={principale.prise.coupes ?? {}}
-                        onTrancher={(d) => void prises.trancher('principale', d)}
-                        situer={(c) => instantDansLaVideo(plan, 'principale', c.debut)}
+                        dureePrise={principale.prise.duree}
+                        dureeGardee={versionEffective === 'organique' ? plan.duree : null}
+                        situer={(t) => instantDansLaVideo(plan, 'principale', t)}
                         onAller={(s) => lecteur.current?.seekTo(enImages(s))}
+                        onTrancher={(d) => void prises.trancher('principale', d)}
+                        onTrancherPassage={(passage, coupe) => void prises.trancherPassage('principale', passage, coupe)}
+                        onChoisirVersion={(phrase, debut) => void prises.choisirVersion('principale', phrase, debut)}
+                        onReinitialiser={() => void prises.reinitialiser('principale')}
                     />
                 )}
-                {accroche && plan && (
-                    <CoupesPrise
-                        titre="Coupes de la seconde accroche"
+                {accroche?.calage && plan && (
+                    <MontageTexte
+                        titre="Montage de la seconde accroche"
+                        calage={accroche.calage}
                         coupes={accroche.coupes}
+                        appliquees={accroche.appliquees}
+                        gardes={versionEffective === 'publicite' ? morceaux(plan, 'accroche') : null}
                         choix={accroche.prise.coupes ?? {}}
-                        onTrancher={(d) => void prises.trancher('accroche', d)}
-                        situer={(c) => instantDansLaVideo(plan, 'accroche', c.debut)}
+                        dureePrise={accroche.prise.duree}
+                        dureeGardee={null}
+                        situer={(t) => instantDansLaVideo(plan, 'accroche', t)}
                         onAller={(s) => lecteur.current?.seekTo(enImages(s))}
+                        onTrancher={(d) => void prises.trancher('accroche', d)}
+                        onTrancherPassage={(passage, coupe) => void prises.trancherPassage('accroche', passage, coupe)}
+                        onChoisirVersion={(phrase, debut) => void prises.choisirVersion('accroche', phrase, debut)}
+                        onReinitialiser={() => void prises.reinitialiser('accroche')}
                     />
                 )}
 

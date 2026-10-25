@@ -15,6 +15,7 @@
 import { motsSitues, minuterReel, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
 import type { Intervalle } from './derushage';
 import { regionsDeParole, recalerSurLeSon, type Enveloppe } from './enveloppe';
+import { phrasesDuScript, choisirLesPrises, estUneVraieVersion, type PhraseChoisie } from './selection';
 
 /** Un mot prononcé, en secondes depuis le début du fichier (la forme que rend la transcription). */
 export interface MotPrononce {
@@ -56,7 +57,7 @@ function distance(a: string, b: string, plafond: number): number {
     return precedente[b.length];
 }
 
-type Accord = 'exact' | 'proche' | 'substitution';
+export type Accord = 'exact' | 'proche' | 'substitution';
 
 /**
  * Deux mots se valent-ils ? Whisper écrit parfois de travers ce qu'il a bien
@@ -65,7 +66,7 @@ type Accord = 'exact' | 'proche' | 'substitution';
  * mot court : « tout » et « bout » ne sont pas le même mot, et un mot mal
  * entendu garde d'ordinaire sa première lettre.
  */
-function accord(script: string, prise: string): Accord {
+export function accord(script: string, prise: string): Accord {
     if (script === prise) return 'exact';
     const longueur = Math.min(script.length, prise.length);
     if (longueur < 5 || script[0] !== prise[0]) return 'substitution';
@@ -155,6 +156,8 @@ export interface Prononce {
     rang: number | null;
     /** Le mot tel que Whisper l'a écrit, sur le premier morceau d'un mot coupé en deux ; vide sur les suivants. */
     ecrit: string;
+    /** Il appartient à une version d'une phrase du script qui n'a pas été retenue (§12.5.5). */
+    autrePrise?: boolean;
 }
 
 export interface Calage {
@@ -174,6 +177,8 @@ export interface Calage {
     /** Les passages où l'on parle, lus dans le son (§12.5.4) ; absents sans enveloppe. */
     parole?: Intervalle[];
     enveloppe?: Enveloppe;
+    /** Chaque phrase du script, ses versions dans la prise, et celle qui a été retenue (§12.5.5). */
+    phrases: PhraseChoisie[];
 }
 
 /** La ponctuation qui se lit dans un sous-titre : une question, une exclamation, des points de suspension. */
@@ -187,12 +192,34 @@ const PONCTUATION_LUE = /^[\s ]*([?!…])/;
  * Avec l'enveloppe sonore, les mots de Whisper sont d'abord recalés sur la voix
  * (§12.5.4) : tout ce qui suit — instants, sous-titres, dérushage — en hérite.
  */
-export function calerSurLaPrise(texte: string, motsDeWhisper: MotPrononce[], enveloppe?: Enveloppe | null): Calage {
+export function calerSurLaPrise(
+    texte: string,
+    motsDeWhisper: MotPrononce[],
+    enveloppe?: Enveloppe | null,
+    options: {
+        /** Les versions imposées par Florent : rang de phrase → début de la version, en secondes dans la prise. */
+        prises?: Record<number, number>;
+    } = {},
+): Calage {
     const parole = enveloppe ? regionsDeParole(enveloppe) : undefined;
     const mots = parole ? recalerSurLeSon(motsDeWhisper, parole) : motsDeWhisper;
     const script = motsSitues(texte);
     const jetons = jetonsDeLaPrise(mots);
-    const alignement = aligner(script.map(s => s.mot), jetons.map(j => j.mot));
+
+    // Phrase par phrase, une seule version de chacune (§12.5.5) : l'alignement
+    // de chaque phrase se fait dans sa version retenue, d'un seul tenant.
+    const phrases = choisirLesPrises(phrasesDuScript(texte), jetons, accord, options.prises);
+    const alignement: Array<{ j: number; accord: Accord } | null> = new Array(script.length).fill(null);
+    const autres = new Set<number>();
+    for (const c of phrases) {
+        c.versions.forEach((v, k) => {
+            if (k === c.retenue) {
+                for (const m of v.correspondances) {
+                    alignement[c.phrase.debut + m.i] = { j: m.j, accord: accord(script[c.phrase.debut + m.i].mot, jetons[m.j].mot) };
+                }
+            } else if (estUneVraieVersion(v)) for (let j = v.debut; j <= v.fin; j++) autres.add(j);
+        });
+    }
 
     // Aux deux bouts, une substitution n'est pas une preuve : quand la fin du
     // script n'a pas été dite (« luminose.fr » oublié), l'alignement l'accroche
@@ -283,6 +310,7 @@ export function calerSurLaPrise(texte: string, motsDeWhisper: MotPrononce[], env
         fin: j.fin,
         rang: rangDuJeton.get(k) ?? null,
         ecrit: k > 0 && jetons[k - 1].source === j.source ? '' : mots[j.source].mot.trim(),
+        ...(autres.has(k) && !rangDuJeton.has(k) ? { autrePrise: true } : {}),
     }));
 
     return {
@@ -293,6 +321,7 @@ export function calerSurLaPrise(texte: string, motsDeWhisper: MotPrononce[], env
         fin,
         motsAffiches,
         prononces,
+        phrases,
         ...(parole ? { parole, enveloppe: enveloppe! } : {}),
     };
 }
@@ -498,8 +527,16 @@ export function planDeMontage(
         });
     });
 
-    const tete = Math.max(0, (brut.sequences[0]?.debut ?? 0) - AIR_AVANT);
-    const queue = Math.min(principale.duree, principale.calage.fin + AIR_APRES);
+    // L'air autour de la voix, sans mordre sur un mot dit juste avant ou juste
+    // après qui n'est pas du script : « …vous plaît | apprenez-moi » s'enchaînent
+    // sans pause, et 0,3 s d'air faisait entendre la fin de « plaît ».
+    const dits = principale.calage.prononces ?? [];
+    const premierMot = brut.sequences[0]?.debut ?? 0;
+    const avant = [...dits].reverse().find(m => m.fin <= premierMot + 1e-6);
+    const tete = Math.max(0, premierMot - AIR_AVANT, avant ? Math.min(premierMot, avant.fin + 0.02) : 0);
+    const apres = dits.find(m => m.debut >= principale.calage.fin - 1e-6);
+    const queue = Math.min(principale.duree, principale.calage.fin + AIR_APRES,
+        apres ? Math.max(principale.calage.fin, apres.debut - 0.02) : Infinity);
     const coupes = options.coupes ?? [];
     const accroche = options.accroche && brut.sequences.length >= 2 ? options.accroche : null;
 

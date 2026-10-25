@@ -271,11 +271,22 @@ export const MajPriseSchema = z.object({
   /** `séquence:élément` → secondes dans la prise (SPEC §12.5). */
   reperes: z.record(z.string().regex(/^\d+:\d+$/), z.number().min(0).max(36_000)).optional(),
   /**
-   * Les choix du dérushage, contre le défaut (SPEC §12.5.2) : `true` coupe,
-   * `false` garde. La clé est le motif (s, r, h) et le début de la coupe au
-   * dixième de seconde.
+   * Les choix du montage, contre le défaut (SPEC §12.5.2, §12.5.5) :
+   * - `s12.4`, `r33.0`, `h41.7` (motif et début d'une coupe proposée) → `true`
+   *   coupe, `false` garde ;
+   * - `m12.30-14.85` (un passage tranché à la main) → `true` coupe, `false` garde ;
+   * - `p7` (la phrase 7 du script) → le début, en secondes, de la version imposée.
    */
-  coupes: z.record(z.string().regex(/^[srh]\d{1,5}\.\d$/), z.boolean()).optional(),
+  coupes: z.record(
+    z.string().regex(/^([srh]\d{1,5}\.\d|m\d{1,5}\.\d{1,2}-\d{1,5}\.\d{1,2}|p\d{1,3})$/),
+    z.union([z.boolean(), z.number().min(0).max(36_000)]),
+  ).superRefine((choix, ctx) => {
+    for (const [cle, valeur] of Object.entries(choix)) {
+      if ((cle[0] === 'p') !== (typeof valeur === 'number')) {
+        ctx.addIssue({ code: 'custom', message: `« ${cle} » : une version se désigne par son début (un nombre), une coupe par oui ou non.` });
+      }
+    }
+  }).optional(),
 }).refine(m => m.transcription !== undefined || m.reperes !== undefined || m.coupes !== undefined, { message: 'Rien à mettre à jour.' });
 
 export interface PriseDistante {
@@ -295,8 +306,8 @@ export interface PriseDistante {
   transcription: Transcription | null;
   transcriteLe: number | null;
   reperes: Record<string, number>;
-  /** Les choix du dérushage contre le défaut (SPEC §12.5.2). */
-  coupes: Record<string, boolean>;
+  /** Les choix du montage contre le défaut (SPEC §12.5.2, §12.5.5) — voir `MajPriseSchema`. */
+  coupes: Record<string, boolean | number>;
   createdAt: number;
   updatedAt: number;
 }
