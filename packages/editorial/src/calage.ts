@@ -14,6 +14,7 @@
  */
 import { motsSitues, minuterReel, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
 import type { Intervalle } from './derushage';
+import { regionsDeParole, recalerSurLeSon, type Enveloppe } from './enveloppe';
 
 /** Un mot prononcé, en secondes depuis le début du fichier (la forme que rend la transcription). */
 export interface MotPrononce {
@@ -170,6 +171,9 @@ export interface Calage {
     motsAffiches: MotAffiche[];
     /** Chaque mot dit, dans l'ordre de la prise, avec le mot du script qui lui répond. */
     prononces: Prononce[];
+    /** Les passages où l'on parle, lus dans le son (§12.5.4) ; absents sans enveloppe. */
+    parole?: Intervalle[];
+    enveloppe?: Enveloppe;
 }
 
 /** La ponctuation qui se lit dans un sous-titre : une question, une exclamation, des points de suspension. */
@@ -179,11 +183,27 @@ const PONCTUATION_LUE = /^[\s ]*([?!…])/;
  * Cale le texte d'un script sur les mots d'une prise. `texte` est la voix
  * entière, séquences mises bout à bout dans l'ordre — la même suite de mots que
  * celle dont `minuterReel` compte les rangs.
+ *
+ * Avec l'enveloppe sonore, les mots de Whisper sont d'abord recalés sur la voix
+ * (§12.5.4) : tout ce qui suit — instants, sous-titres, dérushage — en hérite.
  */
-export function calerSurLaPrise(texte: string, mots: MotPrononce[]): Calage {
+export function calerSurLaPrise(texte: string, motsDeWhisper: MotPrononce[], enveloppe?: Enveloppe | null): Calage {
+    const parole = enveloppe ? regionsDeParole(enveloppe) : undefined;
+    const mots = parole ? recalerSurLeSon(motsDeWhisper, parole) : motsDeWhisper;
     const script = motsSitues(texte);
     const jetons = jetonsDeLaPrise(mots);
     const alignement = aligner(script.map(s => s.mot), jetons.map(j => j.mot));
+
+    // Aux deux bouts, une substitution n'est pas une preuve : quand la fin du
+    // script n'a pas été dite (« luminose.fr » oublié), l'alignement l'accroche
+    // au premier bruit venu — un « ok », un « Merci » — et la vidéo s'étirerait
+    // jusqu'à lui. Seul un mot retrouvé tel quel, ou presque, borne la prise.
+    const fiable = (a: (typeof alignement)[number]) => !!a && a.accord !== 'substitution';
+    const premierFiable = alignement.findIndex(fiable);
+    const dernierFiable = alignement.length - 1 - [...alignement].reverse().findIndex(fiable);
+    alignement.forEach((a, i) => {
+        if (a && !fiable(a) && (premierFiable < 0 || i < premierFiable || i > dernierFiable)) alignement[i] = null;
+    });
 
     const instants = new Array<number>(script.length).fill(NaN);
     const mesures = new Array<boolean>(script.length).fill(false);
@@ -213,7 +233,9 @@ export function calerSurLaPrise(texte: string, mots: MotPrononce[]): Calage {
         }
     }
 
-    const dernier = alignement[alignement.length - 1];
+    // La fin de la prise est celle du dernier mot du script RETROUVÉ : des mots
+    // de fin jamais dits ne doivent pas l'étirer d'autant de durées supposées.
+    const dernier = [...alignement].reverse().find(a => a);
     const fin = dernier ? jetons[dernier.j].fin
         : instants.length ? instants[instants.length - 1] + DUREE_DU_MOT : 0;
 
@@ -271,6 +293,7 @@ export function calerSurLaPrise(texte: string, mots: MotPrononce[]): Calage {
         fin,
         motsAffiches,
         prononces,
+        ...(parole ? { parole, enveloppe: enveloppe! } : {}),
     };
 }
 
@@ -360,6 +383,14 @@ const AIR_APRES = 0.6;
 
 /** Un sous-titre plus court ne se lit pas : c'est le reste d'un bloc dont la coupe a emporté les mots. */
 const SOUS_TITRE_MIN = 0.1;
+/**
+ * Le sous-titre arrive un dixième de seconde avant la voix : l'œil lit plus
+ * lentement que l'oreille n'entend, et un texte pile sur le son paraît en retard
+ * (§12.5.4).
+ */
+export const AVANCE_SOUS_TITRE = 0.1;
+/** Un morceau plus court, entre deux coupes, sans un mot du script, est un reste : il saute à l'image et ne dit rien. */
+const ECLAT_GARDE = 0.4;
 
 /** Un repère corrigé à la main, en secondes dans la prise principale, par `séquence:élément`. */
 export type ReperesCorriges = Record<string, number>;
@@ -413,14 +444,22 @@ function sousTitresDe(mots: MotAffiche[], coupes: Intervalle[], vers: (t: number
         const milieu = (m.debut + m.fin) / 2;
         return !coupes.some(c => milieu > c.debut && milieu < c.fin);
     });
-    return enBlocs(restants)
-        .map(b => ({
-            ...b,
-            debut: vers(b.debut),
-            fin: vers(b.fin),
-            mots: b.mots.map(m => ({ ...m, debut: vers(m.debut), fin: vers(m.fin) })),
-        }))
-        .filter(b => b.fin - b.debut >= SOUS_TITRE_MIN);
+    const blocs = enBlocs(restants).map(b => ({
+        ...b,
+        debut: Math.max(0, vers(b.debut) - AVANCE_SOUS_TITRE),
+        fin: vers(b.fin),
+        mots: b.mots.map(m => ({ ...m, debut: vers(m.debut) - AVANCE_SOUS_TITRE, fin: vers(m.fin) })),
+    }));
+    // Avancé, un bloc ne doit pas recouvrir la fin du précédent : deux sous-titres à la fois se superposent.
+    blocs.forEach((b, i) => { const suivant = blocs[i + 1]; if (suivant && b.fin > suivant.debut) b.fin = suivant.debut; });
+    return blocs.filter(b => b.fin - b.debut >= SOUS_TITRE_MIN);
+}
+
+/** Les morceaux gardés, sans les restes : ce qui est court et ne porte aucun mot du script part avec les coupes voisines. */
+function sansEclats(gardes: Intervalle[], calage: Calage): Intervalle[] {
+    if (gardes.length < 2) return gardes;
+    return gardes.filter(g => g.fin - g.debut >= ECLAT_GARDE || (calage.prononces ?? []).some(p =>
+        p.rang !== null && (p.debut + p.fin) / 2 > g.debut && (p.debut + p.fin) / 2 < g.fin));
 }
 
 /** Où une seconde de la prise tombe dans la vidéo — au raccord si elle a été coupée, `null` si la vidéo ne la montre pas. */
@@ -492,7 +531,7 @@ export function planDeMontage(
         depart = Math.max(0, brut.sequences[1].debut - 0.12);
     }
 
-    const gardes = garder(depart, queue, coupes);
+    const gardes = sansEclats(garder(depart, queue, coupes), principale.calage);
     poser('principale', gardes, longueur);
     const vers = versLaVideo(gardes, longueur);
     const duree = longueur + longueurDe(gardes);

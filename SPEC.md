@@ -1,4 +1,4 @@
-# SPEC v2.13 — gestion.luminose.fr
+# SPEC v2.14 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -58,6 +58,10 @@
 > passage face caméra, le Rédacteur peut écrire deux « coups de poing » plein écran, et le
 > montage signale tout moment figé plus de cinq secondes (§12.5.3). Correction : Remotion
 > envoie bien un signal à chaque export ; la §12.4.1 disait le contraire.
+> **v2.14 (25/10/2026)** : le son corrige Whisper. Une vraie prise de Florent a montré
+> que Whisper étire le premier mot d'une reprise sur le silence qui la précède : les mots
+> sont désormais recalés sur l'enveloppe sonore, les coupes tombent dans les silences, un
+> micro-fondu adoucit chaque raccord, et le sous-titre devance la voix d'un dixième (§12.5.4).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1751,6 +1755,61 @@ quitte les sous-titres. La seconde accroche se dérushe de la même façon.
 tiers haut, où est le visage), puis large. Deux morceaux de la même prise au même cadre
 font sauter le visage ; à deux cadres, c'est un changement de plan.
 
+### 12.5.4 Le son corrige Whisper (V8) — NORMATIF
+
+Constaté le 25/10/2026 sur une vraie prise de Florent (3 min 25, plusieurs versions de
+plusieurs phrases) : **quand il reprend la parole après une pause, Whisper fait commencer
+le premier mot dès la fin du mot précédent**. « en » durait 4,4 s, « et » 3,7 s : le
+silence était avalé par le mot. Trois défauts en découlaient — les silences
+n'existaient pas pour le dérushage (une coupe en laissait 3,6 s), les coupes tombaient à
+côté de la voix, et sous-titres et cartes arrivaient jusqu'à quatre secondes trop tôt.
+En fin de fichier, Whisper avait aussi inventé « donc ok ok ok Merci. » sur un son à
+−55 dB.
+
+**Whisper reste l'autorité sur ce qui est dit ; le son, sur quand on parle.**
+
+**L'enveloppe** (`packages/editorial/src/enveloppe.ts`) : le volume du son, en décibels
+entiers, toutes les 10 ms, mesuré dans le navigateur sur le WAV extrait pour la
+transcription (`enveloppeDuWav`, qui lit l'en-tête plutôt que de supposer le format), et
+rangé avec la transcription (`transcription.enveloppe`, un caractère par mesure : 20 ko
+pour 3 min 30). Une prise transcrite avant le 25/10 la reçoit à sa première ouverture,
+sans rappeler Whisper.
+
+**Où l'on parle** (`regionsDeParole`) : au-dessus d'un seuil placé à 35 % du chemin entre
+le fond de la pièce (10ᵉ centile) et la voix (95ᵉ) — un seuil fixe ne vaudrait que pour un
+micro et une pièce ; les trous de moins de 0,15 s sont comblés, les éclats de moins de
+0,08 s ignorés. Sans contraste (moins de 6 dB), tout est parole : on ne coupe pas à
+l'aveugle.
+
+**Les mots recalés** (`recalerSurLeSon`), avant tout calage :
+
+| Le mot de Whisper… | …devient |
+| :--- | :--- |
+| contient un silence de plus de 0,3 s | commence après ce silence |
+| commence dans un silence | commence à la reprise de la voix |
+| finit dans un silence | finit quand la voix s'arrête |
+| est posé à plus de 0,15 s de toute voix | retiré : Whisper l'a imaginé |
+| a ses deux bords dans la voix | inchangé : au milieu d'une phrase, le son n'en sait pas plus |
+
+Tout ce qui suit en hérite : instants des cartes, sous-titres, silences du dérushage.
+
+**Les bords de coupe tombent dans un silence** : poussés au bout de la voix qu'on garde,
+ou ramenés au début de celle qu'on coupe, à 0,25 s près ; au-delà, au creux sonore le plus
+proche. **Un morceau de moins de 0,4 s** entre deux coupes, sans un mot du script, part
+avec elles : c'est un reste qui saute à l'image sans rien dire.
+
+**Les bouts de la prise** se bornent sur un mot du script retrouvé tel quel ou presque,
+jamais sur une substitution : quand la fin du script n'a pas été dite, l'alignement
+l'accrochait au premier bruit venu, et la vidéo s'étirait jusqu'à lui.
+
+**Un micro-fondu** de deux images (≈ 70 ms) adoucit le son de part et d'autre de chaque
+raccord, pour qu'il ne claque pas. **Le sous-titre devance la voix d'un dixième de
+seconde** : l'œil lit plus lentement que l'oreille n'entend, et un texte pile sur le son
+paraît en retard.
+
+**Le garde-fou est une vraie prise** : `packages/editorial/test/prises/digue.json` (les
+mots de Whisper, l'enveloppe, le script), rejouée par `prise-reelle.test.ts`.
+
 ### 12.5.3 Le rythme (V7) — NORMATIF
 
 Décision du 24/10/2026, après la seconde référence, où quelque chose change à l'écran
@@ -1794,6 +1853,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V5** | **Le dérushage** — silences, reprises, improvisations ; cadre alterné aux raccords (§12.5.2) | Une prise brute, déposée sans passer par Final Cut, sort publiable |
 | **V6** | **Les sous-titres mot à mot** — le mot qui se dit s'éclaire (§12.5) | Un Reel suivi sans le son |
 | **V7** | **Le rythme** — recadrage aux phrases, coup de poing, moments figés (§12.5.3) | Une vidéo dont l'image change au moins toutes les cinq secondes |
+| **V8** | **Le son corrige Whisper** — mots recalés, coupes dans les silences, micro-fondu (§12.5.4) | Une prise brouillonne sort sans silence de plus d'une seconde ni syllabe amputée |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

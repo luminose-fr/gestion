@@ -250,6 +250,19 @@ export const dureeDuPlan = (plan: PlanDeMontage): number => Math.max(1, enImages
 const ZOOM_SERRE = 1.12;
 
 /**
+ * Le micro-fondu d'un raccord (§12.5.4) : deux images, soixante-dix
+ * millisecondes, pour que le son ne claque pas là où la coupe le tranche. Rien
+ * au tout début ni à la toute fin : il n'y a pas de raccord à adoucir.
+ */
+const FONDU = 2;
+
+const volumeDuMorceau = (rang: number, nombre: number, images: number) => (image: number): number => {
+    const entree = rang > 0 ? Math.min(1, (image + 1) / (FONDU + 1)) : 1;
+    const sortie = rang < nombre - 1 ? Math.min(1, (images - image) / (FONDU + 1)) : 1;
+    return Math.max(0, Math.min(entree, sortie));
+};
+
+/**
  * La prise, au cadre que le plan dit à cet instant. Le zoom part d'un point
  * placé au tiers haut, où se trouve le visage dans un cadrage vertical : centré,
  * il couperait le haut de la tête.
@@ -284,9 +297,16 @@ export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sour
                 // sans quoi l'arrondi laisserait une image noire ou deux voix superposées.
                 const debut = enImages(segment.a);
                 const fin = enImages(segment.a + segment.jusqua - segment.depuis);
+                const images = Math.max(1, fin - debut);
                 return (
-                    <Sequence key={`prise-${i}`} from={debut} durationInFrames={Math.max(1, fin - debut)}>
-                        <Video src={src} trimBefore={enImages(segment.depuis)} objectFit="cover" style={{ width: '100%', height: '100%' }} />
+                    <Sequence key={`prise-${i}`} from={debut} durationInFrames={images}>
+                        <Video
+                            src={src}
+                            trimBefore={enImages(segment.depuis)}
+                            volume={volumeDuMorceau(i, plan.segments.length, images)}
+                            objectFit="cover"
+                            style={{ width: '100%', height: '100%' }}
+                        />
                     </Sequence>
                 );
             })}

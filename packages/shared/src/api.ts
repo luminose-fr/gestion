@@ -207,6 +207,13 @@ export interface Transcription {
   texte: string;
   /** Durée du son selon le modèle ; `null` s'il ne l'a pas dite. */
   duree: number | null;
+  /**
+   * Le volume du son, toutes les dix millisecondes, mesuré dans le navigateur
+   * (SPEC §12.5.4) : c'est lui qui recale les mots de Whisper sur la voix.
+   * Absent des transcriptions antérieures au 25/10/2026 ; l'écran le mesure
+   * alors à la première ouverture.
+   */
+  enveloppe?: { pas: number; niveaux: string };
 }
 
 // ── Le montage, rangé chez Cloudflare (SPEC §12.4, v2.8) ────────────────
@@ -252,6 +259,11 @@ export const TranscriptionSchema = z.object({
   mots: z.array(MotTranscritSchema).max(30_000),
   texte: z.string().max(400_000),
   duree: z.number().nullable(),
+  /** Un caractère par pas : 400 000 caractères font plus d'une heure de son à 10 ms. */
+  enveloppe: z.object({
+    pas: z.number().positive().max(1),
+    niveaux: z.string().max(400_000),
+  }).optional(),
 });
 
 export const MajPriseSchema = z.object({

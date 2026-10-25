@@ -6,7 +6,7 @@
  * qu'une improvisation ne disparaisse jamais sans qu'on l'ait demandé.
  */
 import { describe, it, expect } from 'vitest';
-import { calerSurLaPrise, planDeMontage, voixEntiere, instantDansLaVideo, type MotPrononce } from '../src/calage';
+import { calerSurLaPrise, planDeMontage, voixEntiere, instantDansLaVideo, AVANCE_SOUS_TITRE, type MotPrononce } from '../src/calage';
 import { coupesProposees, coupesAppliquees, estCoupee, choisir, dureeCoupee, SILENCE_MAX } from '../src/derushage';
 import type { ReelExplique } from '../src/reelExplique';
 
@@ -208,7 +208,8 @@ describe('planDeMontage, prise dérushée', () => {
     it('chaque mot d’un sous-titre passe, lui aussi, dans le temps de la vidéo', () => {
         const lien = plan.sousTitres.flatMap(s => s.mots).find(m => m.texte === 'lien')!;
         const dit = prise.find(m => m.mot === 'lien')!;
-        expect(lien.debut).toBeCloseTo(instantDansLaVideo(plan, 'principale', dit.debut)!);
+        // Un dixième de seconde en avance sur la voix (§12.5.4).
+        expect(lien.debut).toBeCloseTo(instantDansLaVideo(plan, 'principale', dit.debut)! - AVANCE_SOUS_TITRE);
         // Un bloc rogné au bord d'une scène garde ses mots : ceux qui se disaient
         // sous la scène sont déjà dits quand il apparaît, et ne s'éclairent plus.
         const tous = plan.sousTitres.flatMap(s => s.mots.map(m => m.debut));

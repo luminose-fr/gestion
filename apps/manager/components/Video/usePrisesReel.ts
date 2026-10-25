@@ -131,7 +131,9 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
         const prise = distantes.find(p => p.role === role);
         if (!prise) return undefined;
         const texte = texteDe(role, data);
-        const calage = prise.transcription && texte.trim() ? calerSurLaPrise(texte, prise.transcription.mots) : null;
+        const calage = prise.transcription && texte.trim()
+            ? calerSurLaPrise(texte, prise.transcription.mots, prise.transcription.enveloppe)
+            : null;
         const coupes = calage ? coupesProposees(calage) : [];
         return { prise, url: urls[prise.r2Cle], calage, coupes, appliquees: coupesAppliquees(coupes, prise.coupes) };
     }, [distantes, urls, data]);
@@ -139,26 +141,55 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
     const principale = useMemo(() => affichee('principale'), [affichee]);
     const accroche = useMemo(() => affichee('accroche'), [affichee]);
 
-    const transcrireFichier = useCallback(async (role: RolePrise, fichier: Blob) => {
-        if (!contentId) return;
-        const temoin = Activite.ouvrir({ label: 'Extraction du son de la prise', part: 0 });
-        let audio: string;
+    /** Le son de la prise et son enveloppe, annoncés au bandeau. */
+    const extraire = useCallback(async (role: RolePrise, fichier: Blob, libelle: string) => {
+        const temoin = Activite.ouvrir({ label: libelle, part: 0 });
         try {
             etape(role, { etape: 'son', part: 0 });
-            audio = await extraireLeSon(fichier, part => {
+            const son = await extraireLeSon(fichier, part => {
                 etape(role, { etape: 'son', part });
                 temoin.avancer({ part });
             });
             temoin.fermer(true);
+            return son;
         } catch (e) {
             temoin.fermer(false);
             throw e;
         }
+    }, []);
+
+    const transcrireFichier = useCallback(async (role: RolePrise, fichier: Blob) => {
+        if (!contentId) return;
+        const { audio, enveloppe } = await extraire(role, fichier, 'Extraction du son de la prise');
         etape(role, { etape: 'transcription', part: null });
         const transcription = await Api.transcrire(audio);
-        await Api.majPrise(contentId, role, { transcription });
+        await Api.majPrise(contentId, role, { transcription: { ...transcription, enveloppe } });
         await montage.recharger();
-    }, [contentId, montage]);
+    }, [contentId, montage, extraire]);
+
+    // Une prise transcrite avant l'enveloppe (§12.5.4) la reçoit à la première
+    // ouverture : le son se relit ici, Whisper n'est pas rappelé. Une fois par
+    // prise et par session : un échec ne doit pas boucler.
+    const analysees = useRef(new Set<string>());
+    useEffect(() => {
+        if (!contentId) return;
+        for (const prise of distantes) {
+            const fichier = fichiers[prise.r2Cle];
+            if (!fichier || !prise.transcription || prise.transcription.enveloppe || analysees.current.has(prise.r2Cle)) continue;
+            analysees.current.add(prise.r2Cle);
+            void (async () => {
+                try {
+                    const { enveloppe } = await extraire(prise.role, fichier, 'Analyse du son de la prise');
+                    await Api.majPrise(contentId, prise.role, { transcription: { ...prise.transcription!, enveloppe } });
+                    await montage.recharger();
+                } catch (e: any) {
+                    erreur(prise.role, `Le son de la prise n'a pas pu être analysé : ${e?.message ?? String(e)}`);
+                } finally {
+                    etape(prise.role, null);
+                }
+            })();
+        }
+    }, [contentId, distantes, fichiers, extraire, montage]);
 
     const deposer = useCallback(async (role: RolePrise, fichier: File) => {
         if (!contentId) return;

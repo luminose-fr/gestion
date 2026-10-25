@@ -17,6 +17,7 @@
  * prise.
  */
 import type { Calage, Prononce } from './calage';
+import { creuxLePlusProche } from './enveloppe';
 
 export interface Intervalle {
     debut: number;
@@ -48,6 +49,8 @@ const GARDE_AVANT = 0.15;
 const COUPE_MIN = 0.25;
 /** Une improvisation de un ou deux mots (« vraiment », « et donc ») reste : la couper ferait sauter l'image au milieu d'une phrase. */
 const HORS_SCRIPT_MIN = 3;
+/** Jusqu'où l'on déplace un bord de coupe pour le faire tomber dans un silence. */
+const VERS_LE_SILENCE = 0.25;
 
 const MOTIFS: Record<MotifCoupe, string> = { silence: 's', reprise: 'r', 'hors-script': 'h' };
 
@@ -84,7 +87,28 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
     // Les écarts (entre le mot k et le suivant) qu'une reprise coupée couvre déjà.
     const couverts = new Set<number>();
 
-    const proposer = (motif: MotifCoupe, debut: number, fin: number, texte: string, parDefaut: boolean) => {
+    /*
+     * Un bord de coupe tombe dans un silence, quand le son le permet (§12.5.4).
+     * `garde` est l'instant de la parole qu'on garde de ce côté — la fin du mot
+     * avant la coupe, ou le début du mot après. Si le bord tombe dans la voix de
+     * ce mot-là, on le pousse au bout de cette voix ; s'il tombe dans la voix
+     * qu'on coupe, on le ramène à son début (ou à sa fin). Plus loin que
+     * VERS_LE_SILENCE, ou sans enveloppe, on prend le creux sonore le plus
+     * proche : c'est là qu'une coupe s'entend le moins.
+     */
+    const parole = calage.parole;
+    const aplomb = (t: number, garde: number, cote: 'debut' | 'fin'): number => {
+        if (!parole) return t;
+        const r = parole.find(x => t > x.debut && t < x.fin);
+        if (!r) return t;
+        const sienne = garde >= r.debut && garde <= r.fin;
+        const bord = cote === 'debut' ? (sienne ? r.fin : r.debut) : (sienne ? r.debut : r.fin);
+        return Math.abs(bord - t) <= VERS_LE_SILENCE ? bord : creuxLePlusProche(calage.enveloppe, t, 0.1);
+    };
+
+    const proposer = (motif: MotifCoupe, debutVise: number, finVisee: number, texte: string, parDefaut: boolean, avant: Prononce, apres: Prononce) => {
+        const debut = aplomb(debutVise, avant.fin, 'debut');
+        const fin = aplomb(finVisee, apres.debut, 'fin');
         if (fin - debut < COUPE_MIN) return;
         coupes.push({ cle: cleDeCoupe(motif, debut), motif, debut, fin, texte, parDefaut });
     };
@@ -99,10 +123,10 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
         const apres = retenus.slice(r + 1).map(i => p[i]);
         const texte = passage.map(x => x.ecrit).filter(Boolean).join(' ');
         if (estUneReprise(passage, avant, apres)) {
-            proposer('reprise', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, true);
+            proposer('reprise', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, true, p[k], p[k2]);
             for (let g = k; g < k2; g++) couverts.add(g);
         } else if (passage.length >= HORS_SCRIPT_MIN) {
-            proposer('hors-script', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, false);
+            proposer('hors-script', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, false, p[k], p[k2]);
         }
     }
 
@@ -113,7 +137,7 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
     for (let g = premier; g < dernier; g++) {
         if (couverts.has(g)) continue;
         if (p[g + 1].debut - p[g].fin > SILENCE_MAX) {
-            proposer('silence', p[g].fin + GARDE_APRES, p[g + 1].debut - GARDE_AVANT, '', true);
+            proposer('silence', p[g].fin + GARDE_APRES, p[g + 1].debut - GARDE_AVANT, '', true, p[g], p[g + 1]);
         }
     }
 
