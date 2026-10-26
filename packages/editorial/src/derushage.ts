@@ -18,13 +18,14 @@
  */
 import type { Calage, Prononce } from './calage';
 import { creuxLePlusProche } from './enveloppe';
+import { HESITATIONS } from './directe';
 
 export interface Intervalle {
     debut: number;
     fin: number;
 }
 
-export type MotifCoupe = 'silence' | 'reprise' | 'hors-script';
+export type MotifCoupe = 'silence' | 'reprise' | 'hors-script' | 'hesitation';
 
 export interface CoupeProposee extends Intervalle {
     /** Ce qui identifie la coupe d'une lecture à l'autre : son motif et son début, au dixième. */
@@ -52,7 +53,7 @@ const HORS_SCRIPT_MIN = 3;
 /** Jusqu'où l'on déplace un bord de coupe pour le faire tomber dans un silence. */
 const VERS_LE_SILENCE = 0.25;
 
-const MOTIFS: Record<MotifCoupe, string> = { silence: 's', reprise: 'r', 'hors-script': 'h' };
+const MOTIFS: Record<MotifCoupe, string> = { silence: 's', reprise: 'r', 'hors-script': 'h', hesitation: 'e' };
 
 export const cleDeCoupe = (motif: MotifCoupe, debut: number): string => `${MOTIFS[motif]}${debut.toFixed(1)}`;
 
@@ -122,6 +123,12 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
         const avant = retenus.slice(0, r + 1).map(i => p[i]);
         const apres = retenus.slice(r + 1).map(i => p[i]);
         const texte = passage.map(x => x.ecrit).filter(Boolean).join(' ');
+        // « Euh », « hum » : une hésitation se coupe d'office, même seule (§12.7).
+        if (passage.every(x => HESITATIONS.has(x.mot))) {
+            proposer('hesitation', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, true, p[k], p[k2]);
+            for (let g = k; g < k2; g++) couverts.add(g);
+            continue;
+        }
         // Une autre version d'une phrase du script, écartée par le choix des prises (§12.5.5),
         // est une reprise, quels que soient ses mots : elle redirait ce qui est dit.
         if (passage.some(x => x.autrePrise) || estUneReprise(passage, avant, apres)) {

@@ -4,7 +4,7 @@ import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayP
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import {
-  AI_ACTIONS, bodyJsonToText, buildSerieContextSection,
+  AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection,
   type PlanSeriesEntry, type SerieSibling,
 } from '@luminose/editorial';
 import * as AiService from './services/aiService';
@@ -609,6 +609,28 @@ function App() {
         throw e; // Permet à la vue de savoir qu'il y a eu une erreur
     } finally {
         setIsSyncing(false);
+    }
+  };
+
+  /**
+   * Une vidéo directe sans script (SPEC §12.7) : un contenu en Brouillon dont le
+   * format et le brouillon vide viennent du registre, ouvert sur son montage.
+   */
+  const creerVideoDirecte = async (titre: string): Promise<void> => {
+    try {
+        const { content } = await Api.createContent({
+            title: titre,
+            status: ContentStatus.DRAFTING,
+            targetFormat: VIDEO_DIRECTE.format,
+            draft: VIDEO_DIRECTE.brouillon(),
+        });
+        const suite = [content, ...items];
+        setItems(suite);
+        await StorageService.setCachedContent(suite);
+        ouvrirMontage(content);
+    } catch (e: any) {
+        setAlertInfo({ isOpen: true, title: 'Création impossible', message: e?.message || 'La vidéo n’a pas pu être créée.', type: 'error' });
+        throw e;
     }
   };
 
@@ -1284,7 +1306,7 @@ function App() {
         {currentSpace === 'videos' && currentVideosSection === 'montage' && (
             <main className="flex-1 overflow-y-auto">
                 <div className={ecran('liste')}>
-                    <MontageView items={items} onOuvrir={ouvrirMontage} onAllerAuxIdees={() => updateRoute('social', 'ideas')} />
+                    <MontageView items={items} onOuvrir={ouvrirMontage} onAllerAuxIdees={() => updateRoute('social', 'ideas')} onCreerVideoDirecte={creerVideoDirecte} />
                 </div>
             </main>
         )}

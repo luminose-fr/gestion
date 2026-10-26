@@ -30,6 +30,8 @@ export * from './derushage';
 export * from './enveloppe';
 // … et le choix des prises, phrase par phrase (SPEC §12.5.5)
 export * from './selection';
+// … et la vidéo directe sans script : la transcription pour texte (SPEC §12.7)
+export * from './directe';
 
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';

@@ -285,13 +285,13 @@ export const MajPriseSchema = z.object({
   reperes: z.record(z.string().regex(/^\d+:\d+$/), z.number().min(0).max(36_000)).optional(),
   /**
    * Les choix du montage, contre le défaut (SPEC §12.5.2, §12.5.5) :
-   * - `s12.4`, `r33.0`, `h41.7` (motif et début d'une coupe proposée) → `true`
-   *   coupe, `false` garde ;
+   * - `s12.4`, `r33.0`, `h41.7`, `e8.2` (motif — silence, reprise, hors script,
+   *   hésitation — et début d'une coupe proposée) → `true` coupe, `false` garde ;
    * - `m12.30-14.85` (un passage tranché à la main) → `true` coupe, `false` garde ;
    * - `p7` (la phrase 7 du script) → le début, en secondes, de la version imposée.
    */
   coupes: z.record(
-    z.string().regex(/^([srh]\d{1,5}\.\d|m\d{1,5}\.\d{1,2}-\d{1,5}\.\d{1,2}|p\d{1,3})$/),
+    z.string().regex(/^([srhe]\d{1,5}\.\d|m\d{1,5}\.\d{1,2}-\d{1,5}\.\d{1,2}|p\d{1,3})$/),
     z.union([z.boolean(), z.number().min(0).max(36_000)]),
   ).superRefine((choix, ctx) => {
     for (const [cle, valeur] of Object.entries(choix)) {

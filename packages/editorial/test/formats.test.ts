@@ -73,7 +73,9 @@ describe('routage — comportement attendu par l’éditeur', () => {
 
   it('dit quels formats se montent en vidéo — l\u2019espace Vidéos le demande au registre', () => {
     expect(estMontable(TargetFormat.REEL_EXPLIQUE)).toBe(true);
-    expect(estMontable(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe(false);
+    // Depuis le 26/10/2026 : le Script Reel se monte en vidéo directe (SPEC §12.7).
+    expect(estMontable(TargetFormat.SCRIPT_VIDEO_REEL_SHORT)).toBe(true);
+    expect(estMontable('Script Reel')).toBe(true);
     expect(estMontable(TargetFormat.CARROUSEL_SLIDE)).toBe(false);
     expect(estMontable(null)).toBe(false);
     expect(estMontable('format inconnu')).toBe(false);
