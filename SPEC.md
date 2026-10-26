@@ -1,4 +1,4 @@
-# SPEC v2.16 — gestion.luminose.fr
+# SPEC v2.17 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -68,6 +68,8 @@
 > phrase se reprend dans la version qu'on préfère (§12.5.5).
 > **v2.16 (25/10/2026)** : un second moteur de transcription, Deepgram Nova-3, à comparer
 > à Whisper sur une vraie prise (§12.5.6).
+> **v2.17 (26/10/2026)** : les réglages d'une prise — rotation de l'image et
+> synchronisation du son —, et un message qui dit quoi faire d'un ProRes (§12.5.7).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -743,12 +745,12 @@ horodatés. Workers AI, 0 requête D1. Voir §12.5.
 ```
 GET    /api/montage                                  le résumé de tous les montages (1 batch)
 GET    /api/montage/:id                              prises, visuels, espace occupé (1 batch)
-POST   /api/montage/:id/prises/:role                 déclare une prise, ouvre son envoi (4)
+POST   /api/montage/:id/prises/:role                 déclare une prise, ouvre son envoi (5)
 PUT    /api/montage/:id/prises/:role/parties/:n      une partie, 50 Mo au plus (1)
 POST   /api/montage/:id/prises/:role/terminer        ferme l'envoi (2)
 DELETE /api/montage/:id/prises/:role/envoi           abandonne un envoi raté (2)
 GET    /api/montage/:id/prises/:role/fichier         le fichier, en flux (1)
-PATCH  /api/montage/:id/prises/:role                 transcription, repères, choix de coupe (2)
+PATCH  /api/montage/:id/prises/:role                 transcription, repères, choix, réglages (2)
 DELETE /api/montage/:id/prises/:role                 retire la prise et son fichier (2)
 PUT    /api/montage/:id/visuels/:seq/:el             l'image d'une carte, 15 Mo au plus (4)
 GET    /api/montage/:id/visuels/:seq/:el             (1)
@@ -1933,6 +1935,46 @@ moteur qui a échoué.
 calage dit qui a fait la transcription affichée. Le dépôt transcrit toujours avec
 Whisper ; si Nova-3 l'emporte sur pièces, il deviendra le défaut par décision de Florent.
 
+### 12.5.7 Les réglages d'une prise (V11) — NORMATIF
+
+Constaté le 26/10/2026 sur une prise de Florent, enregistrée dans QuickTime sur le Mac
+(qualité « Maximale », donc ProRes 422, 4K, 25 images/s) : l'image vient d'une caméra
+montée à la verticale, livrée **couchée** (3840 × 2160, aucune rotation dans le fichier),
+et le son d'un **micro USB** (Blue Yeti). Deux chaînes de capture, deux latences : les
+lèvres précèdent le son de 150 à 250 ms, dès les premières secondes et jusqu'à la fin —
+mesuré image par image aux reprises de parole. Rien de tout cela ne se lit dans le
+fichier.
+
+**Deux réglages par prise**, rangés avec elle (`montage_prises.decalage_son`,
+`montage_prises.rotation`, migration 0011) :
+
+| Réglage | Valeur | Effet au rendu |
+| :--- | :--- | :--- |
+| `rotation` | 0, 90, 180, 270 (°, sens horaire) | l'image tourne dans une boîte aux dimensions du cadre inversées, puis la remplit (`cover`) |
+| `decalageSon` | secondes, positif si le son arrive APRÈS les lèvres ; ± 2 s | **l'image** est avancée d'autant ; le son ne bouge pas |
+
+Le temps du montage est celui du son : mots, coupes, sous-titres et cartes en viennent.
+Corriger la synchronisation déplace donc l'image, jamais le son — rien d'autre ne bouge.
+Une prise décalée se rend en deux éléments par morceau (`<Video muted>` pour l'image,
+`<Audio>` pour le son, depuis le même fichier) ; sans décalage, un seul.
+
+**Le décalage se règle en images** (1/30 s), en regardant l'aperçu : un mot qui commence
+par p, b ou m, les lèvres doivent s'ouvrir avec le son. Une mesure automatique a été
+tentée sur la prise du 26/10 (mouvement et ouverture de la bouche contre le niveau du
+son) : trop bruitée pour décider. Un clap en début de prise rend le réglage évident.
+
+**Une prise neuve reprend les réglages de la plus récente**, de n'importe quel contenu :
+même caméra, même micro, même décalage. C'est la cinquième requête de la déclaration.
+
+Vérifié à l'export sur la prise du 26/10 convertie en H.264 : rotation d'un quart de
+tour, son recalé de 200 ms — chaque image de la vidéo produite est celle de la prise
+200 ms avant le son, à 20 ms près.
+
+**Le ProRes ne se lit pas dans le navigateur** (WebCodecs ne le décode pas, Chrome
+compris) : le dépôt le refuse en disant le remède — enregistrer en qualité « Haute »
+(H.264) dans QuickTime, ou convertir en H.264 ou HEVC. Sur le Mac, `avconvert -p
+Preset1920x1080 -s prise.mov -o prise.mp4` convertit 79 s de ProRes 4K en 12 s.
+
 ### 12.6 Phasage — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert seule.
@@ -1949,6 +1991,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V8** | **Le son corrige Whisper** — mots recalés, coupes dans les silences, micro-fondu (§12.5.4) | Une prise brouillonne sort sans silence de plus d'une seconde ni syllabe amputée |
 | **V9** | **Le choix des prises et le montage par le texte** (§12.5.5) | Aucune coupe ne joint deux versions au milieu d'une phrase ; tout passage se tranche en lisant |
 | **V10** | **Deux moteurs de transcription** — Whisper et Nova-3 (§12.5.6) | La même prise, transcrite par les deux, départage le défaut |
+| **V11** | **Les réglages d'une prise** — rotation, synchronisation du son (§12.5.7) | Une prise couchée et décalée sort droite et synchrone |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

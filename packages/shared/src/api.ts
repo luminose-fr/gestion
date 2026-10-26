@@ -300,7 +300,15 @@ export const MajPriseSchema = z.object({
       }
     }
   }).optional(),
-}).refine(m => m.transcription !== undefined || m.reperes !== undefined || m.coupes !== undefined, { message: 'Rien à mettre à jour.' });
+  /**
+   * La synchronisation du son (SPEC §12.5.7), en secondes : positive quand le
+   * son de la prise arrive APRÈS les lèvres. Deux secondes au plus : au-delà,
+   * ce n'est plus un décalage, c'est une autre prise.
+   */
+  decalageSon: z.number().min(-2).max(2).optional(),
+  /** La rotation de l'image, dans le sens des aiguilles d'une montre. */
+  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]).optional(),
+}).refine(m => Object.values(m).some(v => v !== undefined), { message: 'Rien à mettre à jour.' });
 
 export interface PriseDistante {
   id: string;
@@ -321,6 +329,10 @@ export interface PriseDistante {
   reperes: Record<string, number>;
   /** Les choix du montage contre le défaut (SPEC §12.5.2, §12.5.5) — voir `MajPriseSchema`. */
   coupes: Record<string, boolean | number>;
+  /** Le son de la prise arrive après les lèvres de tant de secondes (négatif : avant). §12.5.7. */
+  decalageSon: number;
+  /** La rotation à appliquer à l'image, en degrés, sens horaire. */
+  rotation: 0 | 90 | 180 | 270;
   createdAt: number;
   updatedAt: number;
 }

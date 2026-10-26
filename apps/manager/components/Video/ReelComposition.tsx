@@ -1,7 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, Img, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { loadFont } from '@remotion/fonts';
-import { Video } from '@remotion/media';
+import { Audio, Video } from '@remotion/media';
 import type { MinutageReel, PlanDeMontage, ReelExplique, SequenceReel, SousTitre } from '@luminose/editorial';
 import { DEFAULT_STYLE } from '@luminose/subtitles';
 import { SceneLuminose, CoupDePoingLuminose, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
@@ -231,11 +231,15 @@ const SousTitreCamera: React.FC<{ sousTitre: SousTitre; format: FormatVideo }> =
     );
 };
 
+/** Les réglages d'une prise (§12.5.7) : décalage du son (s, positif si le son arrive après les lèvres) et rotation (°). */
+export type ReglageDePrise = { decalageSon: number; rotation: number };
+
 export type ProprietesFinale = {
     data: ReelExplique;
     plan: PlanDeMontage;
     /** Les URL des fichiers de prise, dans ce navigateur. */
     sources: { principale?: string; accroche?: string };
+    reglages?: { principale?: ReglageDePrise; accroche?: ReglageDePrise };
     visuels: Record<number, Record<number, string>>;
     format: FormatVideo;
 };
@@ -263,6 +267,25 @@ const volumeDuMorceau = (rang: number, nombre: number, images: number) => (image
 };
 
 /**
+ * Une image tournée d'un quart de tour garde le cadre plein : la boîte qu'on
+ * tourne a les dimensions du cadre inversées, puis la vidéo la remplit
+ * (`cover`). Une caméra montée à la verticale livre souvent une image couchée,
+ * sans rien dans le fichier pour le dire (§12.5.7).
+ */
+const Pivot: React.FC<{ rotation: number; children: React.ReactNode }> = ({ rotation, children }) => {
+    const { width, height } = useVideoConfig();
+    if (!rotation) return <AbsoluteFill>{children}</AbsoluteFill>;
+    const quart = rotation % 180 !== 0;
+    return (
+        <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: quart ? height : width, height: quart ? width : height, flexShrink: 0, transform: `rotate(${rotation}deg)` }}>
+                {children}
+            </div>
+        </AbsoluteFill>
+    );
+};
+
+/**
  * La prise, au cadre que le plan dit à cet instant. Le zoom part d'un point
  * placé au tiers haut, où se trouve le visage dans un cadrage vertical : centré,
  * il couperait le haut de la tête.
@@ -287,7 +310,7 @@ const PriseCadree: React.FC<{ cadrages: PlanDeMontage['cadrages']; children: Rea
  * vient de la prise et ne s'interrompt jamais — une scène couvre l'image, pas
  * le son.
  */
-export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sources, visuels, format }) => (
+export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sources, reglages, visuels, format }) => (
     <AbsoluteFill style={{ backgroundColor: GAMME.violetNuit }}>
         <PriseCadree cadrages={plan.cadrages}>
             {plan.segments.map((segment, i) => {
@@ -298,15 +321,24 @@ export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sour
                 const debut = enImages(segment.a);
                 const fin = enImages(segment.a + segment.jusqua - segment.depuis);
                 const images = Math.max(1, fin - debut);
+                const reglage = reglages?.[segment.source];
+                const decalage = reglage?.decalageSon ?? 0;
+                const volume = volumeDuMorceau(i, plan.segments.length, images);
+                // Le temps du montage est celui du SON : les mots, donc les coupes, en
+                // viennent. Un son en retard sur les lèvres se corrige en avançant
+                // l'image d'autant, le son restant où il est (§12.5.7).
                 return (
                     <Sequence key={`prise-${i}`} from={debut} durationInFrames={images}>
-                        <Video
-                            src={src}
-                            trimBefore={enImages(segment.depuis)}
-                            volume={volumeDuMorceau(i, plan.segments.length, images)}
-                            objectFit="cover"
-                            style={{ width: '100%', height: '100%' }}
-                        />
+                        <Pivot rotation={reglage?.rotation ?? 0}>
+                            {decalage === 0 ? (
+                                <Video src={src} trimBefore={enImages(segment.depuis)} volume={volume} objectFit="cover" style={{ width: '100%', height: '100%' }} />
+                            ) : (
+                                <>
+                                    <Video src={src} muted trimBefore={enImages(Math.max(0, segment.depuis - decalage))} objectFit="cover" style={{ width: '100%', height: '100%' }} />
+                                    <Audio src={src} trimBefore={enImages(segment.depuis)} volume={volume} />
+                                </>
+                            )}
+                        </Pivot>
                     </Sequence>
                 );
             })}

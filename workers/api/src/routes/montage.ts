@@ -200,9 +200,11 @@ montage.get('/:contentId', async (c) => {
 /**
  * Déclare une prise et ouvre son envoi. Remplace la précédente du même rôle,
  * dont elle reprend les repères corrigés — on remplace souvent une prise par sa
- * version mieux nettoyée.
+ * version mieux nettoyée. Elle reprend aussi la rotation et la synchronisation
+ * du son de la prise la plus récente, de n'importe quel contenu (§12.5.7) : la
+ * même caméra et le même micro donnent les mêmes réglages.
  *
- * 4 requêtes (dont un batch).
+ * 5 requêtes (dont un batch).
  */
 montage.post('/:contentId/prises/:role', async (c) => {
     const r2 = bucket(c.env);
@@ -212,6 +214,9 @@ montage.post('/:contentId/prises/:role', async (c) => {
     await contenuExiste(c.env, id);
     const precedente = await priseVivante(c.env, id, role);
     resterDansLeGratuit(await occupe(c.env), precedente?.taille ?? 0, declaree.taille);
+    const reglages = precedente ?? await c.env.DB.prepare(
+        'SELECT decalage_son, rotation FROM montage_prises ORDER BY created_at DESC LIMIT 1',
+    ).first<any>();
 
     const cle = `prises/${id}/${role}-${newId()}`;
     const envoi = await r2.createMultipartUpload(cle, {
@@ -225,16 +230,19 @@ montage.post('/:contentId/prises/:role', async (c) => {
         reperes: precedente?.reperes ?? '{}',
         // Les choix de coupe désignent des instants de l'ANCIEN fichier : ils ne suivent pas.
         coupes: '{}',
+        decalage_son: Number(reglages?.decalage_son ?? 0),
+        rotation: Number(reglages?.rotation ?? 0),
         created_at: t, updated_at: t,
     };
     await c.env.DB.batch([
         ...(precedente ? [c.env.DB.prepare('UPDATE montage_prises SET deleted_at = ?, updated_at = ? WHERE id = ?').bind(t, t, precedente.id)] : []),
         c.env.DB.prepare(
             `INSERT INTO montage_prises (id, content_id, role, nom, type, taille, duree, largeur, hauteur, r2_cle,
-                                         envoi_id, pret_le, transcription, transcrite_le, reperes, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)`,
+                                         envoi_id, pret_le, transcription, transcrite_le, reperes, decalage_son, rotation,
+                                         created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?)`,
         ).bind(ligne.id, id, role, ligne.nom, ligne.type, ligne.taille, ligne.duree, ligne.largeur, ligne.hauteur,
-            cle, ligne.envoi_id, ligne.reperes, t, t),
+            cle, ligne.envoi_id, ligne.reperes, ligne.decalage_son, ligne.rotation, t, t),
     ]);
     if (precedente) await effacerFichierDePrise(r2, precedente);
 
@@ -288,7 +296,7 @@ montage.get('/:contentId/prises/:role/fichier', async (c) => {
     return servir(objet);
 });
 
-/** La transcription, les repères corrigés, les choix du dérushage. D1 seule : 2 requêtes. */
+/** La transcription, les repères corrigés, les choix du montage, les réglages de la prise. D1 seule : 2 requêtes. */
 montage.patch('/:contentId/prises/:role', async (c) => {
     const maj = MajPriseSchema.parse(await c.req.json());
     const ligne = await priseVivante(c.env, c.req.param('contentId'), roleDe(c.req.param('role')));
@@ -312,6 +320,16 @@ montage.patch('/:contentId/prises/:role', async (c) => {
         suite.coupes = JSON.stringify(maj.coupes);
         champs.push('coupes = ?');
         valeurs.push(suite.coupes);
+    }
+    if (maj.decalageSon !== undefined) {
+        suite.decalage_son = maj.decalageSon;
+        champs.push('decalage_son = ?');
+        valeurs.push(maj.decalageSon);
+    }
+    if (maj.rotation !== undefined) {
+        suite.rotation = maj.rotation;
+        champs.push('rotation = ?');
+        valeurs.push(maj.rotation);
     }
     await c.env.DB.prepare(`UPDATE montage_prises SET ${champs.join(', ')} WHERE id = ?`).bind(...valeurs, ligne.id).run();
     return c.json({ prise: rowToPrise(suite) });
