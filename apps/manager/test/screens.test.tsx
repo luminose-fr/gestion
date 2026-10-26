@@ -2229,6 +2229,24 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(container.textContent).not.toContain('Repères');
   });
 
+  it('l\u2019onglet Script et l\u2019aperçu d\u2019un Script Reel portent le montage, avec ou sans script (SPEC §12.7)', async () => {
+    vi.stubGlobal('isSecureContext', true);
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ prises: [], visuels: [], stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
+    // Les deux écrans rendent le script en tableau : c'est cette variante qui doit porter le montage.
+    const avecScript = render(<ScriptVideoRenderer variant="table" contentId="d3"
+      raw={JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Suis-je le bon thérapeute pour vous ?' }] })} />);
+    await avecScript.findByText(/Montage — vidéo directe/);
+    expect(avecScript.container.textContent).toContain('Suis-je le bon thérapeute pour vous ?');
+    cleanup();
+    const sansScript = render(<ScriptVideoRenderer variant="table" contentId="d4" raw={JSON.stringify({ format: 'Script Reel', sections: [], legende: null })} />);
+    await sansScript.findByText(/Montage — vidéo directe/);
+    expect(sansScript.container.textContent).toContain('sa transcription servira de texte');
+    cleanup();
+    // Sans contenu enregistré — un aperçu, un test —, le script se lit mais ne se monte pas.
+    const nu = render(<ScriptVideoRenderer variant="table" raw={JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Bonjour.' }] })} />);
+    expect(nu.container.textContent).not.toContain('Montage');
+  });
+
   it('les réglages d\u2019une prise pivotent l\u2019image et recalent le son d\u2019une image à la fois (SPEC §12.5.7)', () => {
     const reglages: any[] = [];
     const brut = render(<ReglagesPrise decalageSon={0} rotation={0} onRegler={(r) => reglages.push(r)} />);
