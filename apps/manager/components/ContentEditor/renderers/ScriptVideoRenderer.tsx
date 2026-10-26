@@ -40,27 +40,36 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
     const isYoutube   = fmt === TargetFormat.SCRIPT_VIDEO_YOUTUBE || fmt === "Script Youtube";
 
     if (isReelShort) {
+        // L'onglet Script et l'aperçu passent tous deux par le tableau : c'est là
+        // que le montage doit vivre. Posé d'abord dans la seule variante par
+        // défaut, qu'aucun des deux n'emploie, il n'apparaissait nulle part.
         if (variant === 'table') {
             return (
-                <div className="p-6 overflow-x-auto">
-                    <div className="min-w-[840px] space-y-3">
-                        {(data.sections || []).map((s: any, i: number) => (
-                            <div
-                                key={i}
-                                className="grid grid-cols-[160px_minmax(0,1.4fr)_minmax(0,1fr)] gap-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/40 p-4"
-                            >
-                                <div className="text-sm font-semibold text-brand-main dark:text-white whitespace-pre-wrap">
-                                    {[t(s.timing), t(s.role)].filter(Boolean).join(' - ')}
+                <div className="p-6 space-y-4">
+                    {contentId && <MontageDirect brouillon={data} contentId={contentId} />}
+                    {/* Le défilement horizontal reste au tableau : autour du montage, il
+                        ferait du bloc un conteneur de défilement, et le lecteur ne
+                        resterait plus collé en haut de l'écran. */}
+                    <div className="overflow-x-auto">
+                        <div className="min-w-[840px] space-y-3">
+                            {(data.sections || []).map((s: any, i: number) => (
+                                <div
+                                    key={i}
+                                    className="grid grid-cols-[160px_minmax(0,1.4fr)_minmax(0,1fr)] gap-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg/40 p-4"
+                                >
+                                    <div className="text-sm font-semibold text-brand-main dark:text-white whitespace-pre-wrap">
+                                        {[t(s.timing), t(s.role)].filter(Boolean).join(' - ')}
+                                    </div>
+                                    <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
+                                        {t(s.texte)}
+                                    </div>
+                                    <div className="text-sm leading-relaxed text-brand-main/75 dark:text-dark-text/75 whitespace-pre-wrap">
+                                        {t(s.intention)}
+                                    </div>
                                 </div>
-                                <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
-                                    {t(s.texte)}
-                                </div>
-                                <div className="text-sm leading-relaxed text-brand-main/75 dark:text-dark-text/75 whitespace-pre-wrap">
-                                    {t(s.intention)}
-                                </div>
-                            </div>
-                        ))}
-                        <CarrouselLegende legende={data.legende} />
+                            ))}
+                            <CarrouselLegende legende={data.legende} />
+                        </div>
                     </div>
                 </div>
             );
