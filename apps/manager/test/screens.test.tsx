@@ -49,6 +49,7 @@ import { MontageView, etapeDuReel } from '../components/Video/MontageView';
 import { IdeaModal } from '../components/IdeaModal';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
+import { ReglagesPrise } from '../components/Video/ReglagesPrise';
 import { RythmeReel } from '../components/Video/RythmeReel';
 import { CoupDePoingLuminose } from '../components/Video/SceneLuminose';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo } from '@luminose/editorial';
@@ -2205,6 +2206,29 @@ describe('Reel expliqué — prise et rendu', () => {
     parNova.prise.transcription = { ...parNova.prise.transcription, moteur: 'nova-3' };
     const nova = render(<DepotPrise titre="La prise" consigne="" prise={parNova} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
     expect(nova.container.textContent).toContain('(transcrite par Nova-3)');
+  });
+
+  it('les réglages d\u2019une prise pivotent l\u2019image et recalent le son d\u2019une image à la fois (SPEC §12.5.7)', () => {
+    const reglages: any[] = [];
+    const brut = render(<ReglagesPrise decalageSon={0} rotation={0} onRegler={(r) => reglages.push(r)} />);
+    expect(brut.container.textContent).toContain('son d\u2019origine');
+    expect(brut.container.textContent).toContain('droite');
+    const bouton = (texte: string) => Array.from(brut.container.querySelectorAll('button')).find(b => b.textContent?.trim() === texte)!;
+    fireEvent.click(bouton('Pivoter'));
+    fireEvent.click(bouton('Son en retard'));
+    expect(reglages).toEqual([{ rotation: 90 }, { decalageSon: 0.033 }]);
+    expect(Array.from(brut.container.querySelectorAll('button')).some(b => b.textContent?.trim() === 'Rétablir')).toBe(false);
+    cleanup();
+
+    const recale = render(<ReglagesPrise decalageSon={0.2} rotation={270} onRegler={(r) => reglages.push(r)} />);
+    expect(recale.container.textContent).toContain('il arrivait 200 ms après les lèvres');
+    expect(recale.container.textContent).toContain('tournée de 270°');
+    fireEvent.click(Array.from(recale.container.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Pivoter')!);
+    fireEvent.click(Array.from(recale.container.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Rétablir')!);
+    expect(reglages.slice(-2)).toEqual([{ rotation: 0 }, { decalageSon: 0 }]);
+    // On compte en images : à 200 ms (six images), un clic de plus fait 233 ms, pas 233,3 ni 231.
+    fireEvent.click(Array.from(recale.container.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Son en retard')!);
+    expect(reglages[reglages.length - 1]).toEqual({ decalageSon: 0.233 });
   });
 
   it('un envoi interrompu, sur ce poste ou un autre, se dit, et ne propose pas de transcrire', () => {

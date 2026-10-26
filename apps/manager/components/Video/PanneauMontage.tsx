@@ -21,6 +21,7 @@ import { DepotPrise, poids } from './DepotPrise';
 import type { Montage } from './useMontage';
 import { ReperesPrise } from './ReperesPrise';
 import { MontageTexte } from './MontageTexte';
+import { ReglagesPrise } from './ReglagesPrise';
 import { RythmeReel } from './RythmeReel';
 
 /**
@@ -193,9 +194,12 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
     }, [data, plan, estime, debit]);
 
     const cadre = CADRES[format];
+    const reglageDe = (p?: { prise: { decalageSon?: number; rotation?: number } }) =>
+        p ? { decalageSon: p.prise.decalageSon ?? 0, rotation: p.prise.rotation ?? 0 } : undefined;
     const finale: ProprietesFinale | null = plan && principale ? {
         data, plan, visuels, format,
         sources: { principale: principale.url, accroche: accroche?.url },
+        reglages: { principale: reglageDe(principale), accroche: reglageDe(accroche) },
     } : null;
     const reel: ProprietesReel = { data, minutage: estime, visuels, format };
     // Les scènes exportées seules suivent la prise quand il y en a une : elles
@@ -374,6 +378,14 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         onTranscrire={(moteur) => void prises.transcrire('principale', moteur)}
                         onRetirer={() => void prises.retirer('principale')}
                     />
+                    {prises.principale?.prise.pretLe && (
+                        <ReglagesPrise
+                            decalageSon={prises.principale.prise.decalageSon ?? 0}
+                            rotation={(prises.principale.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
+                            onRegler={(r) => void prises.regler('principale', r)}
+                            desactive={!!prises.enCours.principale}
+                        />
+                    )}
                     {data.accroche_pub?.voix && (
                         <DepotPrise
                             titre="La seconde accroche (publicité)"
@@ -385,6 +397,14 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                             onDeposer={(f) => void prises.deposer('accroche', f)}
                             onTranscrire={(moteur) => void prises.transcrire('accroche', moteur)}
                             onRetirer={() => void prises.retirer('accroche')}
+                        />
+                    )}
+                    {data.accroche_pub?.voix && prises.accroche?.prise.pretLe && (
+                        <ReglagesPrise
+                            decalageSon={prises.accroche.prise.decalageSon ?? 0}
+                            rotation={(prises.accroche.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
+                            onRegler={(r) => void prises.regler('accroche', r)}
+                            desactive={!!prises.enCours.accroche}
                         />
                     )}
                     {montage.etat && prises.indisponible && (

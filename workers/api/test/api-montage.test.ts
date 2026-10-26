@@ -144,6 +144,19 @@ describe('les prises', () => {
         expect((await json(await appeler('GET', `/api/montage/${contenu}`))).prises[0].coupes).toEqual({});
     });
 
+    it('gardent leurs réglages, et une prise neuve reprend ceux de la plus récente (SPEC §12.5.7)', async () => {
+        const premiere = await deposer();
+        expect(premiere).toMatchObject({ decalageSon: 0, rotation: 0 });
+        const r = await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { decalageSon: 0.2, rotation: 90 });
+        expect((await json(r)).prise).toMatchObject({ decalageSon: 0.2, rotation: 90 });
+        expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { rotation: 45 })).status).toBe(400);
+        expect((await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { decalageSon: 5 })).status).toBe(400);
+
+        // La seconde accroche, déposée ensuite, part des mêmes réglages : même caméra, même micro.
+        const accroche = await deposer('accroche');
+        expect(accroche).toMatchObject({ decalageSon: 0.2, rotation: 90 });
+    });
+
     it('un envoi abandonné ne laisse rien', async () => {
         await appeler('POST', `/api/montage/${contenu}/prises/accroche`, DECLAREE);
         await appeler('PUT', `/api/montage/${contenu}/prises/accroche/parties/1`, octets('abc'), { 'Content-Length': '3' });

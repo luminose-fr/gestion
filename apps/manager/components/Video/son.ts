@@ -31,7 +31,11 @@ export async function lireLaPrise(fichier: Blob): Promise<Metadonnees> {
         if (!video) throw new Error("ce fichier n'a pas de piste vidéo.");
         if (!(await input.getPrimaryAudioTrack())) throw new Error("ce fichier n'a pas de son : sans voix, rien à caler.");
         if (!(await video.canDecode())) {
-            throw new Error(`ce navigateur ne sait pas décoder cette vidéo (${video.codec ?? 'codec inconnu'}) : exportez-la en H.264 depuis Final Cut.`);
+            // Le ProRes est ce que QuickTime enregistre en qualité « Maximale » : le dire
+            // donne le remède, sans renvoyer vers un logiciel de montage (§12.5.7).
+            throw new Error(video.codec === 'prores'
+                ? "ce navigateur ne lit pas le ProRes — ce que QuickTime enregistre en qualité « Maximale ». Enregistrez en qualité « Haute » (H.264), ou convertissez la vidéo en H.264 ou HEVC."
+                : `ce navigateur ne sait pas décoder cette vidéo (${video.codec ?? 'codec inconnu'}) : convertissez-la en H.264.`);
         }
         return { duree: await input.computeDuration(), largeur: video.displayWidth, hauteur: video.displayHeight };
     } finally {

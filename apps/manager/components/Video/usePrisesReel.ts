@@ -54,6 +54,8 @@ export interface PrisesReel {
     choisirVersion: (role: RolePrise, phrase: number, debut: number) => Promise<void>;
     /** Oublie tous les choix : la prise revient au dérushage proposé. */
     reinitialiser: (role: RolePrise) => Promise<void>;
+    /** Règle la rotation de l'image ou la synchronisation du son (§12.5.7). */
+    regler: (role: RolePrise, reglage: { decalageSon?: number; rotation?: 0 | 90 | 180 | 270 }) => Promise<void>;
     indisponible: boolean;
 }
 
@@ -308,8 +310,18 @@ export function usePrisesReel(contentId: string | undefined, data: ReelExplique,
 
     const reinitialiser = useCallback((role: RolePrise) => enregistrerChoix(role, () => ({})), [enregistrerChoix]);
 
+    const regler = useCallback(async (role: RolePrise, reglage: { decalageSon?: number; rotation?: 0 | 90 | 180 | 270 }) => {
+        if (!contentId) return;
+        try {
+            await Api.majPrise(contentId, role, reglage);
+        } catch (e: any) {
+            erreur(role, e?.message ?? String(e));
+        }
+        await montage.recharger();
+    }, [contentId, montage]);
+
     return {
-        principale, accroche, enCours, erreurs, deposer, transcrire, retirer, corrigerRepere, trancher, trancherPassage, choisirVersion, reinitialiser,
+        principale, accroche, enCours, erreurs, deposer, transcrire, retirer, corrigerRepere, trancher, trancherPassage, choisirVersion, reinitialiser, regler,
         indisponible: !montage.etat?.stockage.disponible,
     };
 }

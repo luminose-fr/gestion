@@ -143,6 +143,8 @@ export const rowToPrise = (r: any): PriseDistante => ({
   transcriteLe: r.transcrite_le ?? null,
   reperes: jsonObjet<Record<string, number>>(r.reperes, {}),
   coupes: jsonObjet<Record<string, boolean | number>>(r.coupes, {}),
+  decalageSon: Number(r.decalage_son ?? 0),
+  rotation: ([0, 90, 180, 270].includes(Number(r.rotation)) ? Number(r.rotation) : 0) as 0 | 90 | 180 | 270,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
