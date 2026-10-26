@@ -16,10 +16,12 @@ export interface RythmeReelProps {
     figes: MomentFige[];
     /** Sur la prise calée, ou au débit estimé : le conseil n'est pas le même. */
     surLaPrise: boolean;
+    /** Une vidéo directe (§12.7) n'a ni carte ni coup de poing à ajouter : le conseil change. */
+    animations?: boolean;
     onAller: (secondesDansLaVideo: number) => void;
 }
 
-export const RythmeReel: React.FC<RythmeReelProps> = ({ data, figes, surLaPrise, onAller }) => (
+export const RythmeReel: React.FC<RythmeReelProps> = ({ data, figes, surLaPrise, animations = true, onAller }) => (
     <div className="space-y-2">
         <Etiquette avecIcone><Activity /> Rythme</Etiquette>
         {figes.length === 0 ? (
@@ -30,9 +32,11 @@ export const RythmeReel: React.FC<RythmeReelProps> = ({ data, figes, surLaPrise,
             <>
                 <p className="text-xs text-alerte">
                     {figes.length === 1 ? 'Un moment' : `${figes.length} moments`} où rien ne bouge plus de {FIGE_MAX} secondes.
-                    {surLaPrise
-                        ? ' Un repère avancé, ou une coupe, peut suffire ; sinon, c\'est à l\'écriture : une carte de plus, un coup de poing.'
-                        : ' Une carte de plus, un coup de poing, ou une phrase coupée en deux le remettent en mouvement.'}
+                    {!animations
+                        ? ' Une phrase plus courte au tournage, ou un passage coupé dans le montage par le texte, le remet en mouvement.'
+                        : surLaPrise
+                            ? ' Un repère avancé, ou une coupe, peut suffire ; sinon, c\'est à l\'écriture : une carte de plus, un coup de poing.'
+                            : ' Une carte de plus, un coup de poing, ou une phrase coupée en deux le remettent en mouvement.'}
                 </p>
                 {figes.map(f => {
                     const sequence = data.sequences?.[f.sequence];

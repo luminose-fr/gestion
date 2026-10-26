@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { calerSurLaPrise, planDeMontage, voixEntiere } from '../src/calage';
 import { coupesProposees, coupesAppliquees } from '../src/derushage';
 import { regionsDeParole } from '../src/enveloppe';
+import { scriptDepuisLaTranscription } from '../src/directe';
 
 const prise = JSON.parse(readFileSync(join(import.meta.dirname, 'prises', 'digue.json'), 'utf8'));
 const texte = voixEntiere(prise.script);
@@ -102,5 +103,34 @@ describe('une version imposée sur la vraie prise', () => {
         // La suite de la même tentative, sans pause : elle vient avec.
         expect(retenue(10)).toBeLessThan(86);
         expect(retenue(11)).toBeLessThan(91);
+    });
+});
+
+describe('la même prise, montée sans script (§12.7)', () => {
+    const sansScript = scriptDepuisLaTranscription(prise.mots, prise.enveloppe);
+    const calageDirect = calerSurLaPrise(voixEntiere(sansScript), prise.mots, prise.enveloppe);
+    const planDirect = planDeMontage(sansScript, { calage: calageDirect, duree: prise.duree },
+        { coupes: coupesAppliquees(coupesProposees(calageDirect), {}) });
+    const dansDirect = (mot: string, apres: number) => {
+        const m = calageDirect.prononces.find(p => p.ecrit.toLowerCase().startsWith(mot) && p.debut > apres)!;
+        return planDirect.segments.some(s => (m.debut + m.fin) / 2 > s.depuis && (m.debut + m.fin) / 2 < s.jusqua);
+    };
+
+    it('les phrases redites ne gardent que leur dernière version', () => {
+        // « En séance… » : la première version (34 s) part, la seconde (43 s) reste.
+        expect(dansDirect('en', 34)).toBe(false);
+        expect(dansDirect('en', 43)).toBe(true);
+        // « Derrière la digue… » : la version avec « dépasse » part.
+        expect(dansDirect('dépasse', 85)).toBe(false);
+    });
+
+    it('ce qui précède une tentative ratée, sans avoir été refait, reste', () => {
+        // « la boule au ventre… les larmes… » précédait sans pause la version ratée de « Derrière la digue ».
+        expect(dansDirect('boule', 60)).toBe(true);
+        expect(dansDirect('larmes', 60)).toBe(true);
+    });
+
+    it('sans script, la vidéo reste de la longueur de celle montée avec', () => {
+        expect(planDirect.duree).toBeLessThan(plan.duree + 12);
     });
 });

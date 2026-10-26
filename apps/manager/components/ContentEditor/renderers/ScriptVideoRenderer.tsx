@@ -3,11 +3,15 @@ import { estReelExplique } from '@luminose/editorial';
 import { TargetFormat } from '../../../types';
 import { parseBodyJson, t, BlockPre, CarrouselLegende } from './shared';
 import { StoryboardRenderer } from './StoryboardRenderer';
+import { MontageDirect } from '../../Video/MontageDirect';
 
 interface ScriptVideoRendererProps {
     raw: string;
     variant?: 'default' | 'table';
-    /** Le contenu enregistré : un Reel expliqué devient alors montable (visuels, aperçu, export). */
+    /**
+     * Le contenu enregistré : la vidéo devient alors montable — un Reel expliqué
+     * avec ses scènes, un Script Reel en vidéo directe (§12.7).
+     */
     contentId?: string;
 }
 
@@ -64,6 +68,7 @@ export const ScriptVideoRenderer: React.FC<ScriptVideoRendererProps> = ({ raw, v
 
         return (
             <div className="p-6 space-y-4">
+                {contentId && <MontageDirect brouillon={data} contentId={contentId} />}
                 {data.contrainte && <p className="text-micro font-bold text-amber-600/60 dark:text-amber-400/60 uppercase">{t(data.contrainte)}</p>}
                 {(data.sections || []).map((s: any, i: number) => (
                     <BlockPre key={i} label={`${t(s.timing)} ${t(s.role)}`} color={

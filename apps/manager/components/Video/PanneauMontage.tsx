@@ -4,7 +4,7 @@ import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Clapperboard, Download, X } from 'lucide-react';
 import {
     minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
-    cadrer, debutsDePhrases, momentsFiges, voixEntiere,
+    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations,
     type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
@@ -146,9 +146,13 @@ export interface PanneauMontageProps {
     montage: Montage;
     /** Les visuels déposés, par séquence puis par élément. */
     visuelsDeLaScene: (sequence: number) => Record<number, string>;
+    /** Vidéo directe sans script (§12.7) : le texte de référence vient de la transcription. */
+    sansScript?: boolean;
 }
 
-const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuelsDeLaScene }) => {
+const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuelsDeLaScene, sansScript = false }) => {
+    // Une vidéo directe (§12.7) n'a ni scène, ni repère, ni export de scènes seules.
+    const animations = avecAnimations(data);
     const prises = usePrisesReel(contentId, data, montage);
     const [debit, setDebit] = useState(MOTS_PAR_MINUTE);
     const [format, setFormat] = useState<FormatVideo>('9:16');
@@ -358,11 +362,13 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
 
             <div className="space-y-5 min-w-0">
                 <div className="space-y-1">
-                    <Etiquette forme="entete" avecIcone><Clapperboard /> Montage</Etiquette>
+                    <Etiquette forme="entete" avecIcone><Clapperboard /> {animations ? 'Montage' : 'Montage — vidéo directe'}</Etiquette>
                     <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
                         {finale
                             ? `L'aperçu est la vidéo telle qu'elle sortira : ${secondes(plan!.duree)}.`
-                            : "Sans prise, l'aperçu suit le débit estimé et les passages face caméra montrent ce qui s'y dit."}
+                            : sansScript
+                                ? "Sans script : déposez la prise telle que tournée, sa transcription servira de texte."
+                                : "Sans prise, l'aperçu suit le débit estimé et les passages face caméra montrent ce qui s'y dit."}
                     </p>
                 </div>
 
@@ -455,7 +461,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                     />
                 )}
 
-                {principale && calageBrut && plan ? (
+                {principale && calageBrut && plan ? animations && (
                     <ReperesPrise
                         data={data}
                         calage={calageBrut}
@@ -464,7 +470,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         onCorriger={(i, j, t) => void prises.corrigerRepere(i, j, t)}
                         onAller={(s) => lecteur.current?.seekTo(enImages(s))}
                     />
-                ) : (
+                ) : sequences.length > 0 && (
                     <div>
                         <label htmlFor="debit-reel" className="block mb-1 text-xs text-brand-main dark:text-dark-text">
                             Débit : <span className="font-bold">{debit} mots par minute</span> — durée ≈ {secondes(estime.duree)}
@@ -485,7 +491,9 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                     </div>
                 )}
 
-                <RythmeReel data={data} figes={figes} surLaPrise={!!plan} onAller={(s) => lecteur.current?.seekTo(enImages(s))} />
+                {sequences.length > 0 && (
+                    <RythmeReel data={data} figes={figes} surLaPrise={!!plan} animations={animations} onAller={(s) => lecteur.current?.seekTo(enImages(s))} />
+                )}
 
                 <div className="space-y-3">
                     <Etiquette>Format et version</Etiquette>
@@ -520,7 +528,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                     </div>
                 </div>
 
-                <div className="space-y-2">
+                {erreur && !animations && <p className="text-xs text-erreur">{erreur}</p>}
+                {animations && <div className="space-y-2">
                     <Etiquette>Les scènes seules (MP4 sans son, pour Final Cut)</Etiquette>
                     {sequences.map((sequence, rang) => {
                         if (sequence.plan !== 'scene') return null;
@@ -538,7 +547,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         );
                     })}
                     {erreur && <p className="text-xs text-erreur">{erreur}</p>}
-                </div>
+                </div>}
             </div>
         </div>
     );

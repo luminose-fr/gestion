@@ -1,4 +1,4 @@
-# SPEC v2.17 — gestion.luminose.fr
+# SPEC v2.18 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -70,6 +70,10 @@
 > à Whisper sur une vraie prise (§12.5.6).
 > **v2.17 (26/10/2026)** : les réglages d'une prise — rotation de l'image et
 > synchronisation du son —, et un message qui dit quoi faire d'un ProRes (§12.5.7).
+> **v2.18 (26/10/2026)** : la vidéo directe. Un Script Reel se monte face caméra de bout en
+> bout, et une vidéo sans script se crée depuis Vidéos → Montage : sa transcription sert de
+> texte. Les hésitations se coupent d'office. L'espace Montage distingue « directe » et
+> « avec animations » (§12.7).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1992,9 +1996,59 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V9** | **Le choix des prises et le montage par le texte** (§12.5.5) | Aucune coupe ne joint deux versions au milieu d'une phrase ; tout passage se tranche en lisant |
 | **V10** | **Deux moteurs de transcription** — Whisper et Nova-3 (§12.5.6) | La même prise, transcrite par les deux, départage le défaut |
 | **V11** | **Les réglages d'une prise** — rotation, synchronisation du son (§12.5.7) | Une prise couchée et décalée sort droite et synchrone |
+| **V12** | **La vidéo directe** — Script Reel monté, vidéo sans script, hésitations (§12.7) | Une vidéo face caméra, filmée d'un jet, sort publiable sans Final Cut |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.
+
+
+### 12.7 La vidéo directe (V12) — NORMATIF
+
+Demande de Florent, le 26/10/2026 : une vidéo **sans animation** — face caméra de bout en
+bout — doit pouvoir passer par l'outil aussi, pour se passer de Final Cut. Décision : **les
+deux** — depuis un Script Reel, et sans script du tout.
+
+**Le registre dit ce que chaque format donne au montage** (`FormatDefinition.versMontage`,
+`animee`) ; `estMontable` et l'espace Vidéos le lui demandent, sans nommer de format :
+
+| Format | Ce que voit le montage | Sorte |
+| :--- | :--- | :--- |
+| Reel expliqué | ses séquences, telles quelles | avec animations |
+| Script Reel | chaque section non vide : un passage face caméra (`voix` = son texte) | directe |
+
+**Une vidéo directe sans script** est un Script Reel dont le brouillon n'a pas de section
+(`VIDEO_DIRECTE`). Elle se crée dans Vidéos → Montage (« Nouvelle vidéo directe » : un
+titre, et le contenu naît en Brouillon, ouvert sur son montage). Son texte de référence
+vient de la transcription (`scriptDepuisLaTranscription`, `packages/editorial/src/directe.ts`) :
+
+1. Les mots, **recalés sur l'enveloppe** (§12.5.4) — sans quoi Whisper avale les pauses, et
+   une phrase reste collée à sa reprise.
+2. Découpés en phrases : une ponctuation forte de Whisper, ou une pause de 0,6 s. Les
+   hésitations (« euh », « hum »…) n'y entrent pas.
+3. Une phrase dont 60 % des mots se retrouvent, dans l'ordre, dans l'une des trois
+   suivantes (à moins de 25 s) est une **première version** : on n'en retire que la
+   tentative ratée — à partir du point le plus tardif d'où l'on retrouve encore autant de
+   mots de la reprise —, ce qui la précède restant. Sur la prise du 25/10, « la boule au
+   ventre… les larmes… » précédait sans pause la version ratée de « Derrière la digue », et
+   ne devait pas partir avec elle. Ce qui se dit de court entre le raté et sa reprise
+   (« pardon », « je reprends ») part avec le raté.
+
+Le reste de la chaîne — choix des prises, dérushage, montage par le texte, sous-titres,
+réglages, rendu — n'y voit qu'un script : la première version d'une phrase redite devient
+une version écartée, et se coupe. Sans script, c'est la dernière version qui gagne ; le
+montage par le texte la change d'un clic. Rejouée sur la prise réelle du 25/10, la vidéo
+sans script fait 75 s, contre 73 s avec.
+
+**Les hésitations se coupent d'office**, dans toutes les vidéos : un passage hors script
+fait seulement d'hésitations est une coupe `hesitation` (clé `e…`), même d'un seul mot.
+
+**L'espace Vidéos → Montage** dit sur chaque ligne « Directe » ou « Avec animations », et
+propose « Nouvelle vidéo directe » et « Nouveau Reel expliqué » (qui mène à la boîte à
+idées). Une vidéo directe ne s'y liste que **en chantier** — Brouillon ou Prêt, une prise
+déposée, ou pas de script — : les Script Reels publiés avant, jamais montés ici,
+encombreraient la liste. **Le panneau de montage** d'une vidéo directe n'a ni repère ni
+export de scènes seules ; sans script et sans prise, il dit que la transcription servira de
+texte.
 
 ---
 

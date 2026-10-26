@@ -12,7 +12,7 @@
 import { TargetFormat } from './domain';
 import { SITE_URL } from './config';
 import { composerArticleJekyll, type LivrableArticle } from './jekyll';
-import { LIMITES_REEL, MOTS_PAR_MINUTE, reelToMarkdown, reelToPlainText, verifierReelExplique } from './reelExplique';
+import { LIMITES_REEL, MOTS_PAR_MINUTE, estReelExplique, reelToMarkdown, reelToPlainText, verifierReelExplique, type ReelExplique } from './reelExplique';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -69,11 +69,22 @@ export interface FormatDefinition {
      */
     controler?: (data: any) => string[];
     /**
-     * Le format se monte en vidéo dans l'application (SPEC §12) : storyboard,
-     * prises, rendu. C'est ce que l'espace Vidéos liste — il le demande au
-     * registre, il ne nomme aucun format.
+     * Ce que le montage voit du brouillon (SPEC §12, §12.7) : des séquences,
+     * face caméra ou scènes animées. Présent, le format se monte en vidéo dans
+     * l'application — prise, coupes, sous-titres, rendu — et l'espace Vidéos le
+     * liste : il le demande au registre, il ne nomme aucun format.
+     *
+     * Le Reel expliqué livre ses séquences telles quelles ; le Script Reel, ses
+     * sections, chacune un passage face caméra — c'est la vidéo directe. Un
+     * brouillon illisible donne `null`.
      */
-    montable?: boolean;
+    versMontage?: (data: any) => ReelExplique | null;
+    /**
+     * La vidéo de ce format a des scènes animées (Reel expliqué), ou se tourne
+     * face caméra de bout en bout (vidéo directe). L'espace Vidéos le dit sur
+     * chaque ligne, sans nommer de format.
+     */
+    animee?: boolean;
     /**
      * Ce que le format sait livrer prêt à publier hors de l'application — le
      * fichier du site, les prompts d'illustration, les posts qui l'annoncent.
@@ -275,7 +286,16 @@ Le bloc "legende" est OBLIGATOIRE : c'est la description publiée sous la vidéo
         const reelLegende = legendeToMarkdown(data.legende);
         if (reelLegende) out.push(`**Légende de publication**\n${reelLegende}`);
         return out.join('\n\n');
-    }
+    },
+    // Chaque section se dit face caméra : la vidéo directe (SPEC §12.7).
+    versMontage: (data: any): ReelExplique | null => !data || typeof data !== 'object' ? null : {
+        format: 'Script Reel',
+        sequences: (Array.isArray(data.sections) ? data.sections : [])
+            .filter((sec: any) => typeof sec?.texte === 'string' && sec.texte.trim())
+            .map((sec: any) => ({ plan: 'camera' as const, role: t(sec.role), voix: t(sec.texte), intention: t(sec.intention) || null })),
+        legende: data.legende ?? null,
+    },
+    animee: false,
 };
 
 /**
@@ -356,7 +376,8 @@ Ces limites sont vérifiées automatiquement après ta génération : un dépass
     toMarkdown: reelToMarkdown,
     controler: (data: any): string[] =>
         verifierReelExplique(data).map(p => `${p.ou} — ${p.probleme}`),
-    montable: true,
+    versMontage: (data: any) => estReelExplique(data) ? data : null,
+    animee: true,
 };
 
 const SCRIPT_YOUTUBE: FormatDefinition = {
@@ -764,9 +785,37 @@ export function getEditorTab(format: TargetFormat | null | undefined): EditorTab
 
 /** Le format se monte-t-il en vidéo dans l'application (espace Vidéos → Montage) ? */
 export function estMontable(format: TargetFormat | string | null | undefined): boolean {
-    if (!format) return false;
-    return FORMAT_REGISTRY[format as TargetFormat]?.montable === true;
+    return !!getFormatDef(format)?.versMontage;
 }
+
+/**
+ * Ce que le montage voit d'un brouillon : le format est lu dans le brouillon
+ * lui-même (`format`), à défaut dans celui du contenu. `null` : le format ne se
+ * monte pas, ou le brouillon ne se lit pas.
+ */
+export function montageDuBrouillon(data: any, formatDuContenu?: string | null): ReelExplique | null {
+    if (!data || typeof data !== 'object') return null;
+    const def = getFormatDef(data.format) ?? getFormatDef(formatDuContenu);
+    return def?.versMontage?.(data) ?? null;
+}
+
+/** Le format se monte-t-il avec des scènes animées ? Faux pour la vidéo directe — et pour un format qui ne se monte pas. */
+export const estVideoAnimee = (format: TargetFormat | string | null | undefined): boolean =>
+    getFormatDef(format)?.animee === true;
+
+/** La vidéo a-t-elle des scènes animées, ou est-elle directe (face caméra de bout en bout) ? */
+export const avecAnimations = (data: ReelExplique | null | undefined): boolean =>
+    !!data?.sequences?.some(s => s.plan === 'scene');
+
+/**
+ * La vidéo directe sans script (SPEC §12.7) : un contenu au format Script Reel
+ * dont le brouillon n'a pas encore de section. Le montage prend alors la
+ * transcription pour texte. C'est le registre qui dit quel format la porte.
+ */
+export const VIDEO_DIRECTE = {
+    format: TargetFormat.SCRIPT_VIDEO_REEL_SHORT,
+    brouillon: (): string => JSON.stringify({ format: 'Script Reel', sections: [], legende: null }),
+};
 
 /** Le format bénéficie-t-il d'une relecture à froid après rédaction ? */
 export function supportsColdRead(format: TargetFormat | null | undefined): boolean {

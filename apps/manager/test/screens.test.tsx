@@ -50,6 +50,7 @@ import { IdeaModal } from '../components/IdeaModal';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
 import { ReglagesPrise } from '../components/Video/ReglagesPrise';
+import { MontageDirect } from '../components/Video/MontageDirect';
 import { RythmeReel } from '../components/Video/RythmeReel';
 import { CoupDePoingLuminose } from '../components/Video/SceneLuminose';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo } from '@luminose/editorial';
@@ -2208,6 +2209,26 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(nova.container.textContent).toContain('(transcrite par Nova-3)');
   });
 
+  it('une vidéo directe sans script dit que la transcription servira de texte, et n\u2019a ni scène ni repère (SPEC §12.7)', async () => {
+    vi.stubGlobal('isSecureContext', true);
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ prises: [], visuels: [], stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
+    const { container, findByText } = render(<MontageDirect brouillon={{ format: 'Script Reel', sections: [] }} contentId="d1" />);
+    await findByText(/Montage — vidéo directe/);
+    expect(container.textContent).toContain('sa transcription servira de texte');
+    expect(container.textContent).not.toContain('Les scènes seules');
+    expect(container.textContent).not.toContain('Débit :');
+  });
+
+  it('une vidéo directe avec script se lit au débit estimé, sans scène à exporter', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ prises: [], visuels: [], stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
+    const { container, findByText } = render(<MontageDirect contentId="d2"
+      brouillon={{ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Suis-je le bon thérapeute pour vous ?' }, { role: 'Ouverture', texte: 'Ça dépend de vous.' }] }} />);
+    await findByText(/Montage — vidéo directe/);
+    expect(container.textContent).toContain('Débit :');
+    expect(container.textContent).not.toContain('Les scènes seules');
+    expect(container.textContent).not.toContain('Repères');
+  });
+
   it('les réglages d\u2019une prise pivotent l\u2019image et recalent le son d\u2019une image à la fois (SPEC §12.5.7)', () => {
     const reglages: any[] = [];
     const brut = render(<ReglagesPrise decalageSon={0} rotation={0} onRegler={(r) => reglages.push(r)} />);
@@ -2368,10 +2389,30 @@ describe('Vidéos — Montage', () => {
   const reel = (over: Partial<ContentItem>): ContentItem =>
     ({ ...ITEM, targetFormat: 'Reel expliqué (scènes animées)' as any, ...over });
 
-  it('sans Reel expliqué, dit où il commence', () => {
-    const { container } = render(<MontageView items={[{ ...ITEM, targetFormat: 'Post Texte (Court)' as any }]} onOuvrir={noop} onAllerAuxIdees={noop} />);
-    expect(container.textContent).toContain('Aucun Reel expliqué');
-    expect(container.textContent).toContain('Aller à la boîte à idées');
+  it('sans vidéo en chantier, dit où commence chacune des deux sortes', () => {
+    const { container } = render(<MontageView items={[{ ...ITEM, targetFormat: 'Post Texte (Court)' as any }]} onOuvrir={noop} onAllerAuxIdees={noop} onCreerVideoDirecte={asyncNoop} />);
+    expect(container.textContent).toContain('Aucune vidéo en chantier');
+    expect(container.textContent).toContain('Nouvelle vidéo directe');
+    expect(container.textContent).toContain('Nouveau Reel expliqué');
+  });
+
+  it('liste les vidéos directes en chantier, et en crée une sans script (SPEC §12.7)', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ contenus: {}, stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
+    const directe = (over: Partial<ContentItem>): ContentItem => ({ ...ITEM, targetFormat: 'Script Vidéo (Reel/Short)' as any, ...over });
+    const crees: string[] = [];
+    const { container, findByText } = render(<MontageView
+      items={[
+        directe({ id: 'd1', title: 'Suis-je le bon thérapeute ?', status: ContentStatus.DRAFTING, draft: JSON.stringify({ format: 'Script Reel', sections: [], legende: null }) }),
+        directe({ id: 'd2', title: 'Un ancien Reel publié', status: ContentStatus.PUBLISHED, draft: JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Bonjour.' }] }) }),
+      ]}
+      onOuvrir={noop} onAllerAuxIdees={noop} onCreerVideoDirecte={async (t) => { crees.push(t); }} />);
+    await findByText(/sa transcription servira de texte/);
+    expect(container.textContent).toContain('Directe');
+    expect(container.textContent).not.toContain('Un ancien Reel publié');
+    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Nouvelle vidéo directe'))!);
+    fireEvent.change(container.querySelector('input')!, { target: { value: 'Pourquoi consulter ?' } });
+    fireEvent.submit(container.querySelector('form')!);
+    await waitFor(() => expect(crees).toEqual(['Pourquoi consulter ?']));
   });
 
   it('liste les Reels, seulement eux, avec leur étape, et ouvre le bon', async () => {
