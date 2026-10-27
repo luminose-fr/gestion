@@ -16,6 +16,7 @@ import {
     type ProprietesFinale, type ProprietesReel, type ProprietesScene,
 } from './ReelComposition';
 import { CADRES, type FormatVideo } from './SceneLuminose';
+import { preparerEncodage } from './encodage';
 import { usePrisesReel } from './usePrisesReel';
 import { DepotPrise, poids } from './DepotPrise';
 import type { Montage } from './useMontage';
@@ -220,6 +221,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         };
         try {
             await chargerPolices();
+            await preparerEncodage(cadre.largeur, cadre.hauteur);
             await decoderLesVisuels(visuels);
             let blob: Blob;
             try {
