@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, RotateCcw, Scissors, X } from 'lucide-react';
 import {
     estCoupee, estUneVraieVersion,
@@ -16,7 +16,14 @@ import { Bouton, Etiquette } from '../ui';
  * coupe ou se rétablit, et une phrase dite plusieurs fois se reprend dans la
  * version qu'on préfère — en un clic, en voyant les mots.
  *
- * Un clic sur un mot amène l'aperçu sur lui ; Maj + clic étend la sélection.
+ * Un clic sur un mot amène l'aperçu sur lui ; glisser sur des mots les
+ * sélectionne (Maj + clic aussi).
+ *
+ * Repris le 27/10/2026, après un essai en ligne : rétablir un passage voulait
+ * une sélection par Maj + clic, puis une barre qui s'ouvrait au-dessus du texte,
+ * loin du passage. Chaque passage barré porte maintenant son « Rétablir », avec
+ * sa durée ; la barre d'action reste au bas du panneau et ne déplace pas le
+ * texte ; la sélection survit au geste, pour se raviser d'un clic.
  */
 
 const secondes = (s: number) => `${s.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;
@@ -59,6 +66,20 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
 }) => {
     const [selection, setSelection] = useState<{ ancre: number; bout: number } | null>(null);
     const prononces = calage.prononces ?? [];
+    // Le glissé en cours, et le clic qui le termine : celui-là ne doit pas réduire la sélection à un mot.
+    const glisse = useRef<{ ancre: number; aBouge: boolean } | null>(null);
+    const ignorerClic = useRef(false);
+    useEffect(() => {
+        const lacher = () => {
+            if (glisse.current?.aBouge) {
+                ignorerClic.current = true;
+                setTimeout(() => { ignorerClic.current = false; }, 0);
+            }
+            glisse.current = null;
+        };
+        window.addEventListener('mouseup', lacher);
+        return () => window.removeEventListener('mouseup', lacher);
+    }, []);
 
     // Les jetons regroupés en mots tels que Whisper les a écrits : « l'envoyer » est un mot à l'écran.
     const mots = useMemo<MotAffiche[]>(() => {
@@ -101,6 +122,34 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
         return avant;
     }, [calage.phrases, mots, prononces]);
 
+    // Les passages barrés, d'un seul tenant : chacun se rétablit d'un bouton.
+    const passages = useMemo(() => {
+        const liste: Array<{ premier: number; dernier: number }> = [];
+        mots.forEach((m, i) => {
+            if (!estCoupe(m)) return;
+            const precedent = liste[liste.length - 1];
+            if (precedent && precedent.dernier === i - 1) precedent.dernier = i;
+            else liste.push({ premier: i, dernier: i });
+        });
+        return new Map(liste.map(p => [p.premier, p]));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mots, gardes, appliquees]);
+
+    // Couper prend de l'air de part et d'autre, sans mordre sur les mots voisins ;
+    // rétablir rend un peu d'air autour des mots, pour qu'ils ne soient pas collés.
+    const intervalle = (de: number, a: number, coupe: boolean): Intervalle => {
+        const premier = mots[de];
+        const dernier = mots[a];
+        const avant = mots[de - 1];
+        const apres = mots[a + 1];
+        return coupe
+            ? {
+                debut: Math.min(premier.debut, Math.max(premier.debut - 0.15, avant ? avant.fin + 0.05 : 0)),
+                fin: Math.max(dernier.fin, Math.min(dernier.fin + 0.15, apres ? apres.debut - 0.05 : Infinity)),
+            }
+            : { debut: Math.max(0, premier.debut - 0.15), fin: dernier.fin + 0.2 };
+    };
+
     const choisis = selection
         ? mots.slice(Math.min(selection.ancre, selection.bout), Math.max(selection.ancre, selection.bout) + 1)
         : [];
@@ -116,23 +165,20 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
         if (instant !== null) onAller(Math.max(0, instant - 0.3));
     };
 
+    // La sélection reste après le geste : le bouton inverse est là pour se raviser.
     const trancherLaSelection = (coupe: boolean) => {
         if (choisis.length === 0) return;
-        const premier = choisis[0];
-        const dernier = choisis[choisis.length - 1];
-        const avant = mots[debutChoisi - 1];
-        const apres = mots[debutChoisi + choisis.length];
-        // Couper prend de l'air de part et d'autre, sans mordre sur les mots voisins ;
-        // rétablir rend un peu d'air autour des mots, pour qu'ils ne soient pas collés.
-        const passage = coupe
-            ? {
-                debut: Math.min(premier.debut, Math.max(premier.debut - 0.15, avant ? avant.fin + 0.05 : 0)),
-                fin: Math.max(dernier.fin, Math.min(dernier.fin + 0.15, apres ? apres.debut - 0.05 : Infinity)),
-            }
-            : { debut: Math.max(0, premier.debut - 0.15), fin: dernier.fin + 0.2 };
-        onTrancherPassage(passage, coupe);
-        setSelection(null);
+        onTrancherPassage(intervalle(debutChoisi, debutChoisi + choisis.length - 1, coupe), coupe);
     };
+
+    const libelleRetablir = (p: { premier: number; dernier: number }) => {
+        const duree = secondes(mots[p.dernier].fin - mots[p.premier].debut);
+        if (gardes && p.dernier === mots.length - 1) return `Rétablir la fin · ${duree}`;
+        if (gardes && p.premier === 0) return `Rétablir le début · ${duree}`;
+        return `Rétablir · ${duree}`;
+    };
+    const toutCoupe = choisis.length > 0 && choisis.every(estCoupe);
+    const rienCoupe = choisis.length > 0 && !choisis.some(estCoupe);
 
     const ecartees = calage.phrases?.reduce((n, c) =>
         n + c.versions.filter((v, k) => k !== c.retenue && estUneVraieVersion(v)).length, 0) ?? 0;
@@ -154,23 +200,8 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                 {dureeGardee !== null ? `${secondes(dureeGardee)} gardées sur ${secondes(dureePrise)}` : `Prise de ${secondes(dureePrise)}`}
                 {ecartees > 0 ? ` · ${ecartees} version${ecartees > 1 ? 's' : ''} écartée${ecartees > 1 ? 's' : ''}` : ''}
                 {silences.length > 0 ? ` · ${silencesCoupes} silence${silencesCoupes > 1 ? 's' : ''} raccourci${silencesCoupes > 1 ? 's' : ''} sur ${silences.length}` : ''}.
-                {' '}Le barré est coupé. Un clic sur un mot y mène l'aperçu ; Maj + clic sélectionne un passage, à couper ou à rétablir.
+                {' '}Le barré n'est pas dans la vidéo. Un clic sur un mot y amène l'aperçu ; glissez sur des mots pour les couper ou les rétablir.
             </p>
-
-            {choisis.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-brand-border dark:border-dark-sec-border p-2">
-                    <span className="min-w-0 flex-1 truncate text-xs text-brand-main dark:text-dark-text">
-                        « {choisis.map(m => m.texte).join(' ')} » — {choisis.length} mot{choisis.length > 1 ? 's' : ''}
-                    </span>
-                    {choisis.some(m => !estCoupe(m)) && (
-                        <Bouton taille="petit" intention="secondaire" onClick={() => trancherLaSelection(true)}><Scissors /> Couper</Bouton>
-                    )}
-                    {choisis.some(estCoupe) && (
-                        <Bouton taille="petit" intention="secondaire" onClick={() => trancherLaSelection(false)}><RotateCcw /> Rétablir</Bouton>
-                    )}
-                    <Bouton taille="petit" intention="discrete" onClick={() => setSelection(null)} title="Annuler la sélection"><X /></Bouton>
-                </div>
-            )}
 
             {mots.length === 0 ? (
                 <p className="text-xs text-brand-main/60 dark:text-dark-text/60">La transcription est vide : rien à monter.</p>
@@ -182,6 +213,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                         const nouvelleLigne = i > 0 && m.debut - mots[i - 1].fin > PAUSE_DE_LIGNE;
                         const choisi = selection !== null && i >= debutChoisi && i < debutChoisi + choisis.length;
                         const coupe = estCoupe(m);
+                        const passage = passages.get(i);
                         return (
                             <React.Fragment key={m.premier}>
                                 {nouvelleLigne && <br />}
@@ -209,12 +241,36 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                                             Garder cette version
                                         </Bouton>
                                     ))}
+                                {passage && !(version && !version.retenue) && (
+                                    <Bouton
+                                        taille="petit"
+                                        intention="secondaire"
+                                        className="align-middle mx-1"
+                                        title={gardes && (passage.premier === 0 || passage.dernier === mots.length - 1)
+                                            ? 'Ce passage est hors du script, et hors de la vidéo : l\'y remettre'
+                                            : 'Remettre ce passage dans la vidéo'}
+                                        onClick={() => onTrancherPassage(intervalle(passage.premier, passage.dernier, false), false)}
+                                    >
+                                        <RotateCcw /> {libelleRetablir(passage)}
+                                    </Bouton>
+                                )}
                                 {' '}
                                 <span
                                     role="button"
                                     tabIndex={-1}
                                     data-mot={i}
-                                    onClick={(e) => cliquer(i, e.shiftKey)}
+                                    onMouseDown={(e) => {
+                                        if (e.button !== 0 || e.shiftKey) return;
+                                        e.preventDefault();
+                                        glisse.current = { ancre: i, aBouge: false };
+                                    }}
+                                    onMouseEnter={() => {
+                                        const g = glisse.current;
+                                        if (!g || (i === g.ancre && !g.aBouge)) return;
+                                        g.aBouge = true;
+                                        setSelection({ ancre: g.ancre, bout: i });
+                                    }}
+                                    onClick={(e) => { if (!ignorerClic.current) cliquer(i, e.shiftKey); }}
                                     className={`cursor-pointer rounded-md hover:underline ${coupe ? 'line-through text-brand-main/40 dark:text-dark-text/40' : ''} ${choisi ? 'bg-brand-main/10 dark:bg-white/15' : ''}`}
                                 >
                                     {m.texte}
@@ -223,6 +279,26 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                         );
                     })}
                 </p>
+            )}
+
+            {choisis.length > 0 && (
+                <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-3">
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-brand-main dark:text-dark-text">
+                            « {choisis.map(m => m.texte).join(' ')} » — {choisis.length} mot{choisis.length > 1 ? 's' : ''}
+                        </p>
+                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
+                            {toutCoupe ? 'Pas dans la vidéo.' : rienCoupe ? 'Dans la vidéo.' : 'En partie coupé.'}
+                        </p>
+                    </div>
+                    {!toutCoupe && (
+                        <Bouton intention={rienCoupe ? 'principale' : 'secondaire'} onClick={() => trancherLaSelection(true)}><Scissors /> Couper</Bouton>
+                    )}
+                    {!rienCoupe && (
+                        <Bouton intention="principale" onClick={() => trancherLaSelection(false)}><RotateCcw /> Rétablir</Bouton>
+                    )}
+                    <Bouton intention="discrete" onClick={() => setSelection(null)} title="Fermer" aria-label="Fermer la sélection"><X /></Bouton>
+                </div>
             )}
         </div>
     );

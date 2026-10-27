@@ -4,7 +4,7 @@ import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Download, X } from 'lucide-react';
 import {
     minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
-    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire,
+    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire, passagesManuels,
     type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, ControleSegmente, Etiquette } from '../ui';
@@ -175,6 +175,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
             coupes: principale.appliquees,
             accroche: versionEffective === 'publicite' && accroche ? { calage: accroche.calage!, duree: accroche.prise.duree } : null,
             coupesAccroche: accroche?.appliquees,
+            retablis: passagesManuels(principale.prise.coupes).filter(m => !m.coupe),
+            retablisAccroche: accroche ? passagesManuels(accroche.prise.coupes).filter(m => !m.coupe) : [],
         },
     ) : null, [data, principale, accroche, versionEffective]);
 

@@ -1,4 +1,4 @@
-# SPEC v2.19 — gestion.luminose.fr
+# SPEC v2.20 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -79,6 +79,10 @@
 > à côté de ce qu'elle produit. Les statuts restent en base mais ne s'affichent plus :
 > l'écran montre une **étape calculée**, la même partout (§13). Les gestes de Florent
 > sont datés (`gestes`, migration 0012).
+> **v2.20 (27/10/2026)** : rétablir hors du script. Un passage gardé à la main avant la
+> première phrase ou après la dernière revient dans la vidéo ; chaque passage barré porte
+> son bouton « Rétablir », la sélection se fait en glissant, et le dernier geste l'emporte
+> — recouper ce qu'on vient de rétablir le recoupe (§12.5.5).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1921,9 +1925,21 @@ et chacune des autres « Garder cette version ».
 | `m12.30-14.85` | oui / non | un passage tranché à la main, coupé ou gardé — la main a le dernier mot |
 | `p9` | un nombre | la phrase 9 se prend dans la version qui commence à cet instant (à 1,5 s près : l'enveloppe peut recaler son premier mot après coup) |
 
-Un passage tranché à la main qui recouvre une coupe proposée tranche cette coupe-là. Une
-version imposée **entraîne sa suite** : la phrase qui la suit dans la même tentative, sans
-pause notable, est préférée aux autres bonnes versions — choisir la première version de
+Un passage tranché à la main qui recouvre une coupe proposée tranche cette coupe-là.
+**Ailleurs, le dernier geste l'emporte** (`trancherUnPassage`, v2.20) : le passage remplace
+les choix à la main qu'il contient, et rogne ceux qu'il chevauche dans l'autre sens — un
+bout de moins de 0,3 s disparaît. Avant, un passage gardé soustrayait toujours ses
+secondes aux coupes : recouper ce qu'on venait de rétablir ne coupait rien.
+
+**Rétablir vaut aussi hors du script** (v2.20). Un passage gardé à la main avant la
+première phrase ou après la dernière étend ce qui est monté (`planDeMontage`, options
+`retablis` et `retablisAccroche`) : sans cela, la fin improvisée d'une prise ne pouvait
+jamais revenir. Chaque passage barré porte son bouton — « Rétablir la fin · 2,4 s »,
+« Rétablir le début · 1,1 s », « Rétablir · 0,8 s » —, la sélection se fait aussi en glissant sur
+les mots, et une barre la suit en bas du texte pour la couper ou la rétablir.
+
+Une version imposée **entraîne sa suite** : la phrase qui la suit dans la même tentative,
+sans pause notable, est préférée aux autres bonnes versions — choisir la première version de
 « Derrière la digue », c'est choisir cette tentative. « Tout réinitialiser » oublie tous
 les choix.
 

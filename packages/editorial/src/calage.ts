@@ -516,6 +516,14 @@ export function planDeMontage(
         /** Ce que le dérushage retire de chaque prise, en secondes de cette prise (`coupesAppliquees`). */
         coupes?: Intervalle[];
         coupesAccroche?: Intervalle[];
+        /**
+         * Les passages rétablis à la main (`passagesManuels`, `coupe: false`),
+         * en secondes de chaque prise. Hors du script, avant la première phrase
+         * ou après la dernière, ils étendent ce qui est monté : sans eux, ce que
+         * Florent a improvisé en fin de prise ne pouvait jamais revenir.
+         */
+        retablis?: Intervalle[];
+        retablisAccroche?: Intervalle[];
     } = {},
 ): PlanDeMontage {
     const brut = minuterReel(data, principale.calage.horloge);
@@ -537,6 +545,10 @@ export function planDeMontage(
     const apres = dits.find(m => m.debut >= principale.calage.fin - 1e-6);
     const queue = Math.min(principale.duree, principale.calage.fin + AIR_APRES,
         apres ? Math.max(principale.calage.fin, apres.debut - 0.02) : Infinity);
+    // Rétablir l'emporte sur les bornes du script : la main a le dernier mot (§12.5.5).
+    const retablis = options.retablis ?? [];
+    const debutMonte = Math.max(0, Math.min(tete, ...retablis.map(r => r.debut)));
+    const finMontee = Math.min(principale.duree, Math.max(queue, ...retablis.map(r => r.fin)));
     const coupes = options.coupes ?? [];
     const accroche = options.accroche && brut.sequences.length >= 2 ? options.accroche : null;
 
@@ -551,13 +563,13 @@ export function planDeMontage(
 
     // La seconde accroche, calée sur son propre texte, dans son propre fichier.
     let longueur = 0;
-    let depart = tete;
+    let depart = debutMonte;
     const sousTitres: SousTitre[] = [];
     if (accroche) {
         const coupesAccroche = options.coupesAccroche ?? [];
         const gardes = garder(
-            Math.max(0, accroche.calage.horloge(0) - AIR_AVANT),
-            Math.min(accroche.duree, accroche.calage.fin + AIR_APRES / 2),
+            Math.max(0, Math.min(accroche.calage.horloge(0) - AIR_AVANT, ...(options.retablisAccroche ?? []).map(r => r.debut))),
+            Math.min(accroche.duree, Math.max(accroche.calage.fin + AIR_APRES / 2, ...(options.retablisAccroche ?? []).map(r => r.fin))),
             coupesAccroche,
         );
         poser('accroche', gardes, 0);
@@ -568,7 +580,7 @@ export function planDeMontage(
         depart = Math.max(0, brut.sequences[1].debut - 0.12);
     }
 
-    const gardes = sansEclats(garder(depart, queue, coupes), principale.calage);
+    const gardes = sansEclats(garder(depart, finMontee, coupes), principale.calage);
     poser('principale', gardes, longueur);
     const vers = versLaVideo(gardes, longueur);
     const duree = longueur + longueurDe(gardes);
