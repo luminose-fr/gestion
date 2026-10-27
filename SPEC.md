@@ -1,4 +1,4 @@
-# SPEC v2.21 — gestion.luminose.fr
+# SPEC v2.22 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -88,6 +88,9 @@
 > coupe, un clic sur un passage barré le rétablit (§12.5.5). Correction : l'export
 > chargeait ses polices par un chemin qui n'existait qu'en développement, et échouait
 > toujours en ligne.
+> **v2.22 (27/10/2026)** : l'export dans Safari. Son encodeur H.264 ne rend aucune image
+> dans le mode que Remotion impose, et l'export restait à 0 % ; une sonde le repère au
+> premier export, et l'encodage passe alors en temps réel (§12.4.1).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1534,6 +1537,19 @@ l'origine de la page, le succès, et une clé de licence — nulle ici, avec ou 
 part** : ni image, ni son, ni texte. Le bloquer, ou déclarer la licence gratuite
 (`licenseKey: "free-license"`, qui ne fait que taire un avertissement), reste à décider
 par Florent ; d'ici là, le comportement est celui de la bibliothèque.
+
+**Safari encode en temps réel — constaté le 27/10/2026.** Dans Safari 27.0.1, un
+`VideoEncoder` H.264 en profil Main ou High, en mode `latencyMode: 'quality'`, ne rend
+aucune image : ni sortie, ni erreur, et `flush()` ne se résout jamais. Remotion impose ce
+mode, Mediabunny choisit le profil High : l'export s'arrêtait à la huitième image, et
+affichait 0 % sans un mot. Le mode `'realtime'` rend toutes les images (641 sur 641 à
+l'essai, d'une prise H.264 comme d'une prise HEVC). D'où `encodage.ts` : au premier
+export de la page, cinq images d'essai en mode qualité. Si elles ne sortent pas en trois
+secondes, un encodeur H.264 enregistré auprès de Mediabunny (`registerEncoder`) prend la
+main et encode en temps réel. La sonde vise le défaut et non le navigateur : Chrome, qui
+rend ses cinq images en une centaine de millisecondes, garde le chemin de Mediabunny, et
+un Safari corrigé le retrouvera de lui-même. Le réglage par quantificateur, que Safari ne
+connaît pas, passe son tour.
 
 **Les visuels déposés sont rangés chez Cloudflare** (§12.4.2), une ligne par (contenu,
 séquence, élément), avec la description à laquelle l'image répondait. Le storyboard
