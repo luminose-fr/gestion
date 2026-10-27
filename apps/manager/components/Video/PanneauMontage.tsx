@@ -1,13 +1,13 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Player, type PlayerRef } from '@remotion/player';
 import { renderMediaOnWeb } from '@remotion/web-renderer';
-import { Clapperboard, Download, X } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 import {
     minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
-    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations,
+    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire,
     type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
-import { Bouton, Etiquette } from '../ui';
+import { Bouton, ControleSegmente, Etiquette } from '../ui';
 import { Barre, EnCours } from '../Feedback';
 import * as Activite from '../../services/activityService';
 import * as Api from '../../services/apiService';
@@ -23,6 +23,8 @@ import { ReperesPrise } from './ReperesPrise';
 import { MontageTexte } from './MontageTexte';
 import { ReglagesPrise } from './ReglagesPrise';
 import { RythmeReel } from './RythmeReel';
+import { SequenceCamera, SequenceScene } from './CartesDeScene';
+import type { VisuelsReel } from './useVisuelsReel';
 
 /**
  * Le montage d'un Reel expliqué, de l'aperçu à la vidéo publiée (SPEC §12.4 à
@@ -45,7 +47,13 @@ import { RythmeReel } from './RythmeReel';
  * était écrit ici le contraire (SPEC §12.4.1).
  */
 
-const PLAYER_LARGEUR = 270;
+/** L'aperçu du studio : 306 px de large, 544 en 9:16 (SPEC §13.11). */
+const PLAYER_LARGEUR = 306;
+
+/** Une vidéo sans scène n'a pas de visuel : la même fonction à chaque rendu, pour ne rien recalculer. */
+const AUCUN_VISUEL = () => ({});
+
+export type OngletStudio = 'texte' | 'scenes' | 'rythme' | 'prise';
 
 type Version = 'organique' | 'publicite';
 
@@ -114,43 +122,24 @@ const decoderLesVisuels = async (visuels: Record<number, Record<number, string>>
  */
 const estUnHoquetDeChargement = (e: unknown) => /delayRender\(\)/.test(String((e as any)?.message ?? e));
 
-/** Deux ou trois choix exclusifs, en boutons : un sélecteur se lit mal pour si peu. */
-function Choix<T extends string>({ valeur, options, onChange }: {
-    valeur: T;
-    options: Array<{ valeur: T; libelle: string; desactive?: boolean }>;
-    onChange: (v: T) => void;
-}) {
-    return (
-        <div className="flex flex-wrap gap-2">
-            {options.map(o => (
-                <Bouton
-                    key={o.valeur}
-                    taille="petit"
-                    intention={o.valeur === valeur ? 'principale' : 'secondaire'}
-                    disabled={o.desactive}
-                    aria-pressed={o.valeur === valeur}
-                    onClick={() => onChange(o.valeur)}
-                >
-                    {o.libelle}
-                </Bouton>
-            ))}
-        </div>
-    );
-}
-
 export interface PanneauMontageProps {
     data: ReelExplique;
     /** Le contenu enregistré : les prises s'y rattachent. */
     contentId: string;
-    /** L'état du montage chez Cloudflare, lu par le storyboard. */
+    /** L'état du montage chez Cloudflare. */
     montage: Montage;
-    /** Les visuels déposés, par séquence puis par élément. */
-    visuelsDeLaScene: (sequence: number) => Record<number, string>;
+    /** Les visuels des scènes : ce que l'aperçu montre, et ce qui se dépose (onglet Scènes). */
+    visuels?: VisuelsReel | null;
     /** Vidéo directe sans script (§12.7) : le texte de référence vient de la transcription. */
     sansScript?: boolean;
+    /** Le dernier export noté : la ligne de sortie le dit, et le bouton devient « Exporter à nouveau ». */
+    dernierExport?: { format: string; version: string; le: number } | null;
+    /** L'onglet d'entrée ; à défaut, Prise, puis Texte dès que la prise est calée. */
+    ongletInitial?: OngletStudio;
 }
 
-const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuelsDeLaScene, sansScript = false }) => {
+const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuels: visuelsDuReel = null, sansScript = false, dernierExport = null, ongletInitial }) => {
+    const visuelsDeLaScene = visuelsDuReel?.deLaScene ?? AUCUN_VISUEL;
     // Une vidéo directe (§12.7) n'a ni scène, ni repère, ni export de scènes seules.
     const animations = avecAnimations(data);
     const prises = usePrisesReel(contentId, data, montage);
@@ -324,11 +313,65 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         );
 
     const hauteur = Math.round(PLAYER_LARGEUR * cadre.hauteur / cadre.largeur);
-    const style = { width: PLAYER_LARGEUR, height: hauteur, borderRadius: 8, overflow: 'hidden' };
+    const style = { width: PLAYER_LARGEUR, height: hauteur, borderRadius: 12, overflow: 'hidden' };
+
+    // ── Les onglets (SPEC §13.11) ──
+
+    const calee = !!principale;
+    const aProduire = animations ? visuelsAProduire(data) : 0;
+    const deposes = animations ? sequences.reduce((n, _, i) => n + Object.keys(visuelsDeLaScene(i)).length, 0) : 0;
+    const [onglet, setOnglet] = useState<OngletStudio>(ongletInitial ?? 'prise');
+    /*
+     * Le seul changement de vue automatique, et il reste dans le studio : la
+     * transcription finie, l'onglet Texte s'ouvre — c'est là que le travail
+     * reprend. Une prise déjà calée à l'ouverture y mène aussi.
+     */
+    const etaitCalee = useRef(false);
+    useEffect(() => {
+        if (calee && !etaitCalee.current && ongletInitial !== 'prise') setOnglet('texte');
+        etaitCalee.current = calee;
+    }, [calee, ongletInitial]);
+
+    const brute = prises.principale?.prise;
+    const onglets: Array<{ id: OngletStudio; libelle: string; actif: boolean; pastille?: { texte: string; ton: 'succes' | 'alerte' } }> = [
+        { id: 'texte', libelle: 'Texte', actif: calee },
+        // Les visuels se déposent avant le tournage : l'onglet Scènes n'attend pas la prise.
+        ...(animations ? [{
+            id: 'scenes' as const, libelle: 'Scènes', actif: true,
+            pastille: aProduire > 0 ? (deposes >= aProduire ? { texte: 'visuels déposés', ton: 'succes' as const } : { texte: `${aProduire - deposes} à déposer`, ton: 'alerte' as const }) : undefined,
+        }] : []),
+        {
+            id: 'rythme', libelle: 'Rythme', actif: calee,
+            pastille: calee ? (figes.length > 0 ? { texte: `${figes.length} moment${figes.length > 1 ? 's' : ''} figé${figes.length > 1 ? 's' : ''}`, ton: 'alerte' } : { texte: 'tenu', ton: 'succes' }) : undefined,
+        },
+        {
+            id: 'prise', libelle: 'Prise', actif: true,
+            pastille: calee ? { texte: 'calée', ton: 'succes' }
+                : brute && !brute.pretLe ? { texte: 'interrompue', ton: 'alerte' }
+                    : brute && !brute.transcription ? { texte: 'à transcrire', ton: 'alerte' } : undefined,
+        },
+    ];
+    const ouvert: OngletStudio = onglets.some(o => o.id === onglet && o.actif) ? onglet : 'prise';
+
+    const exportee = dernierExport;
+    const resume = export_?.cible === 'video'
+        ? null
+        : exportee
+            ? `Exportée le ${jourCourt(exportee.le)} · ${exportee.format} · ${exportee.version === 'publicite' ? 'publicité' : 'organique'}`
+            : plan ? `${secondes(plan.duree)} gardées · ${format} · ${versionEffective === 'publicite' ? 'publicité' : 'organique'}` : null;
+    const [scenesSeules, setScenesSeules] = useState(false);
+
+    const ligne = (libelle: string, contenu: React.ReactNode) => (
+        <div className="grid gap-2 sm:grid-cols-[220px_minmax(0,1fr)] py-4 border-t border-brand-border dark:border-dark-sec-border">
+            <p className="text-sm font-semibold text-brand-main dark:text-white">{libelle}</p>
+            <div className="min-w-0">{contenu}</div>
+        </div>
+    );
 
     return (
-        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)]">
-            <div className="justify-self-center sm:sticky sm:top-4 self-start">
+        <div className="h-full min-h-0 grid grid-cols-[440px_minmax(0,1fr)]">
+            {/* Niveau 1 : la vidéo telle qu'elle sortira, sur une scène sombre dans les deux thèmes. */}
+            <div className="min-h-0 overflow-y-auto bg-dark-bg flex flex-col items-center gap-4 px-6 py-6">
                 {finale && plan ? (
                     <Player
                         key={`finale-${format}`}
@@ -343,7 +386,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         controls
                         acknowledgeRemotionLicense
                     />
-                ) : (
+                ) : animations ? (
+                    // Sans prise, les scènes s'animent au débit estimé : on vérifie les visuels avant de tourner.
                     <Player
                         key={`estime-${format}`}
                         ref={lecteur}
@@ -357,197 +401,225 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         controls
                         acknowledgeRemotionLicense
                     />
+                ) : (
+                    <div style={{ width: PLAYER_LARGEUR, height: hauteur }} className="rounded-xl border border-dashed border-white/30 flex items-center justify-center p-6 text-center">
+                        <p className="text-sm text-white/70">L’aperçu apparaîtra avec la prise.</p>
+                    </div>
+                )}
+
+                <div className="flex flex-wrap justify-center gap-2">
+                    <ControleSegmente<FormatVideo> libelle="Format" valeur={format} onChange={setFormat}
+                        options={[{ valeur: '9:16', libelle: '9:16', titre: 'Reels, Shorts' }, { valeur: '4:5', libelle: '4:5', titre: 'Le fil de Meta' }]} />
+                    <ControleSegmente<Version> libelle="Version" valeur={versionEffective} onChange={setVersion}
+                        options={[
+                            { valeur: 'organique', libelle: 'Organique' },
+                            { valeur: 'publicite', libelle: 'Publicité', desactive: !(principale && accroche), titre: principale && accroche ? undefined : 'Déposez la seconde accroche, onglet Prise' },
+                        ]} />
+                </div>
+
+                <div className="w-[306px] space-y-2">
+                    {export_?.cible === 'video' ? (
+                        <div className="space-y-2">
+                            <Barre part={export_.part} libelle="Export" />
+                            <p className="flex items-center justify-between text-xs text-white">
+                                <span>Export · {Math.round(export_.part * 100)} %</span>
+                                <button type="button" className="underline hover:no-underline" onClick={() => annulation.current?.abort()}>Annuler</button>
+                            </p>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={exporterVideo}
+                            disabled={!finale || indisponible !== null || occupe}
+                            className="w-full h-12 rounded-lg bg-white text-brand-main text-sm font-bold inline-flex items-center justify-center gap-2 hover:bg-brand-light transition-colors disabled:opacity-40 [&_svg]:size-4"
+                        >
+                            <Download /> {exportee ? 'Exporter à nouveau' : 'Exporter la vidéo'}
+                        </button>
+                    )}
+                    {!finale && <p className="text-xs text-center text-white/70">Il faut une prise calée pour exporter.</p>}
+                    {indisponible && <p className="text-xs text-center text-white/80">{indisponible}</p>}
+                    {resume && <p className="text-xs text-center text-white/70">{resume}</p>}
+                    {erreur && <p className="text-xs text-center text-erreur">{erreur}</p>}
+                </div>
+
+                {animations && (
+                    <div className="w-[306px] space-y-2">
+                        <button type="button" onClick={() => setScenesSeules(o => !o)} className="text-xs text-white/80 underline hover:no-underline">
+                            Exporter les scènes seules
+                        </button>
+                        {scenesSeules && sequences.map((sequence, rang) => {
+                            if (sequence.plan !== 'scene') return null;
+                            const m = minutageDesScenes.sequences[rang];
+                            return (
+                                <div key={rang} className="space-y-1">
+                                    <div className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                                        <span className="text-xs text-brand-main truncate">{rang + 1}. {sequence.role || 'Scène'} — {secondes(m.fin - m.debut)}</span>
+                                        {boutonExport(`scene-${rang}`, () => exporterScene(rang))}
+                                    </div>
+                                    {progression(`scene-${rang}`)}
+                                </div>
+                            );
+                        })}
+                    </div>
                 )}
             </div>
 
-            <div className="space-y-5 min-w-0">
-                <div className="space-y-1">
-                    <Etiquette forme="entete" avecIcone><Clapperboard /> {animations ? 'Montage' : 'Montage — vidéo directe'}</Etiquette>
-                    <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
-                        {finale
-                            ? `L'aperçu est la vidéo telle qu'elle sortira : ${secondes(plan!.duree)}.`
-                            : sansScript
-                                ? "Sans script : déposez la prise telle que tournée, sa transcription servira de texte."
-                                : "Sans prise, l'aperçu suit le débit estimé et les passages face caméra montrent ce qui s'y dit."}
-                    </p>
+            {/* Niveau 2 : ce qu'on ajuste, un onglet à la fois. */}
+            <div className="min-h-0 flex flex-col bg-white dark:bg-dark-surface">
+                <div role="tablist" className="h-[52px] shrink-0 flex items-stretch gap-6 px-7 border-b border-brand-border dark:border-dark-sec-border">
+                    {onglets.map(o => (
+                        <button
+                            key={o.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={ouvert === o.id}
+                            disabled={!o.actif}
+                            title={o.actif ? undefined : 'Il faut une prise transcrite.'}
+                            onClick={() => setOnglet(o.id)}
+                            className={`inline-flex items-center gap-2 border-b-2 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                ouvert === o.id ? 'border-brand-main text-brand-main dark:border-white dark:text-white' : 'border-transparent text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white'
+                            }`}
+                        >
+                            {o.libelle}
+                            {o.pastille && <Etiquette as="span" forme="pastille" ton={o.pastille.ton}>{o.pastille.texte}</Etiquette>}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="space-y-4">
-                    <DepotPrise
-                        titre="La prise"
-                        consigne="Déposez la prise telle que tournée (H.264 de préférence) : ses silences et ses phrases reprises se coupent ici, une fois le son transcrit. Elle est rangée chez Cloudflare."
-                        prise={prises.principale}
-                        enCours={prises.enCours.principale}
-                        erreur={prises.erreurs.principale}
-                        deposable={!prises.indisponible}
-                        onDeposer={(f) => void prises.deposer('principale', f)}
-                        onTranscrire={(moteur) => void prises.transcrire('principale', moteur)}
-                        onRetirer={() => void prises.retirer('principale')}
-                    />
-                    {prises.principale?.prise.pretLe && (
-                        <ReglagesPrise
-                            decalageSon={prises.principale.prise.decalageSon ?? 0}
-                            rotation={(prises.principale.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
-                            onRegler={(r) => void prises.regler('principale', r)}
-                            desactive={!!prises.enCours.principale}
+                <div className="flex-1 min-h-0 overflow-y-auto p-7 space-y-6">
+                    {ouvert === 'texte' && principale?.calage && plan && (
+                        <MontageTexte
+                            titre="Montage de la prise"
+                            calage={principale.calage}
+                            coupes={principale.coupes}
+                            appliquees={principale.appliquees}
+                            gardes={morceaux(plan, 'principale')}
+                            choix={principale.prise.coupes ?? {}}
+                            dureePrise={principale.prise.duree}
+                            dureeGardee={versionEffective === 'organique' ? plan.duree : null}
+                            situer={(t) => instantDansLaVideo(plan, 'principale', t)}
+                            onAller={(s) => lecteur.current?.seekTo(enImages(s))}
+                            onTrancher={(d) => void prises.trancher('principale', d)}
+                            onTrancherPassage={(passage, coupe) => void prises.trancherPassage('principale', passage, coupe)}
+                            onChoisirVersion={(phrase, debut) => void prises.choisirVersion('principale', phrase, debut)}
+                            onReinitialiser={() => void prises.reinitialiser('principale')}
                         />
                     )}
-                    {data.accroche_pub?.voix && (
-                        <DepotPrise
-                            titre="La seconde accroche (publicité)"
-                            consigne="Facultative : la seconde accroche, tournée à part. Elle remplace la séquence 1 dans la version publicitaire."
-                            prise={prises.accroche}
-                            enCours={prises.enCours.accroche}
-                            erreur={prises.erreurs.accroche}
-                            deposable={!prises.indisponible && !!prises.principale}
-                            onDeposer={(f) => void prises.deposer('accroche', f)}
-                            onTranscrire={(moteur) => void prises.transcrire('accroche', moteur)}
-                            onRetirer={() => void prises.retirer('accroche')}
+                    {ouvert === 'texte' && accroche?.calage && plan && (
+                        <MontageTexte
+                            titre="Montage de la seconde accroche"
+                            calage={accroche.calage}
+                            coupes={accroche.coupes}
+                            appliquees={accroche.appliquees}
+                            gardes={versionEffective === 'publicite' ? morceaux(plan, 'accroche') : null}
+                            choix={accroche.prise.coupes ?? {}}
+                            dureePrise={accroche.prise.duree}
+                            dureeGardee={null}
+                            situer={(t) => instantDansLaVideo(plan, 'accroche', t)}
+                            onAller={(s) => lecteur.current?.seekTo(enImages(s))}
+                            onTrancher={(d) => void prises.trancher('accroche', d)}
+                            onTrancherPassage={(passage, coupe) => void prises.trancherPassage('accroche', passage, coupe)}
+                            onChoisirVersion={(phrase, debut) => void prises.choisirVersion('accroche', phrase, debut)}
+                            onReinitialiser={() => void prises.reinitialiser('accroche')}
                         />
                     )}
-                    {data.accroche_pub?.voix && prises.accroche?.prise.pretLe && (
-                        <ReglagesPrise
-                            decalageSon={prises.accroche.prise.decalageSon ?? 0}
-                            rotation={(prises.accroche.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
-                            onRegler={(r) => void prises.regler('accroche', r)}
-                            desactive={!!prises.enCours.accroche}
-                        />
-                    )}
-                    {montage.etat && prises.indisponible && (
-                        <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : aucune prise ne peut être déposée.</p>
-                    )}
-                    {montage.etat?.stockage.disponible && montage.etat.stockage.plafond > 0 && (
-                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
-                            Stockage Cloudflare : {poids(montage.etat.stockage.octets)} sur {poids(montage.etat.stockage.plafond)} gratuits, tous contenus confondus.
-                            Une prise retirée rend sa place.
-                        </p>
-                    )}
-                </div>
 
-                {principale?.calage && plan && (
-                    <MontageTexte
-                        titre="Montage de la prise"
-                        calage={principale.calage}
-                        coupes={principale.coupes}
-                        appliquees={principale.appliquees}
-                        gardes={morceaux(plan, 'principale')}
-                        choix={principale.prise.coupes ?? {}}
-                        dureePrise={principale.prise.duree}
-                        dureeGardee={versionEffective === 'organique' ? plan.duree : null}
-                        situer={(t) => instantDansLaVideo(plan, 'principale', t)}
-                        onAller={(s) => lecteur.current?.seekTo(enImages(s))}
-                        onTrancher={(d) => void prises.trancher('principale', d)}
-                        onTrancherPassage={(passage, coupe) => void prises.trancherPassage('principale', passage, coupe)}
-                        onChoisirVersion={(phrase, debut) => void prises.choisirVersion('principale', phrase, debut)}
-                        onReinitialiser={() => void prises.reinitialiser('principale')}
-                    />
-                )}
-                {accroche?.calage && plan && (
-                    <MontageTexte
-                        titre="Montage de la seconde accroche"
-                        calage={accroche.calage}
-                        coupes={accroche.coupes}
-                        appliquees={accroche.appliquees}
-                        gardes={versionEffective === 'publicite' ? morceaux(plan, 'accroche') : null}
-                        choix={accroche.prise.coupes ?? {}}
-                        dureePrise={accroche.prise.duree}
-                        dureeGardee={null}
-                        situer={(t) => instantDansLaVideo(plan, 'accroche', t)}
-                        onAller={(s) => lecteur.current?.seekTo(enImages(s))}
-                        onTrancher={(d) => void prises.trancher('accroche', d)}
-                        onTrancherPassage={(passage, coupe) => void prises.trancherPassage('accroche', passage, coupe)}
-                        onChoisirVersion={(phrase, debut) => void prises.choisirVersion('accroche', phrase, debut)}
-                        onReinitialiser={() => void prises.reinitialiser('accroche')}
-                    />
-                )}
-
-                {principale && calageBrut && plan ? animations && (
-                    <ReperesPrise
-                        data={data}
-                        calage={calageBrut}
-                        plan={plan}
-                        reperes={principale.prise.reperes}
-                        onCorriger={(i, j, t) => void prises.corrigerRepere(i, j, t)}
-                        onAller={(s) => lecteur.current?.seekTo(enImages(s))}
-                    />
-                ) : sequences.length > 0 && (
-                    <div>
-                        <label htmlFor="debit-reel" className="block mb-1 text-xs text-brand-main dark:text-dark-text">
-                            Débit : <span className="font-bold">{debit} mots par minute</span> — durée ≈ {secondes(estime.duree)}
-                        </label>
-                        <input
-                            id="debit-reel"
-                            type="range"
-                            min={DEBIT_MIN}
-                            max={DEBIT_MAX}
-                            step={5}
-                            value={debit}
-                            onChange={e => setDebit(Number(e.target.value))}
-                            className="w-full accent-brand-main dark:accent-dark-text"
-                        />
-                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
-                            Lisez le script à voix haute, chronométrez, et réglez le débit pour retrouver votre durée : les scènes exportées tomberont au bon rythme.
-                        </p>
-                    </div>
-                )}
-
-                {sequences.length > 0 && (
-                    <RythmeReel data={data} figes={figes} surLaPrise={!!plan} animations={animations} onAller={(s) => lecteur.current?.seekTo(enImages(s))} />
-                )}
-
-                <div className="space-y-3">
-                    <Etiquette>Format et version</Etiquette>
-                    <Choix<FormatVideo>
-                        valeur={format}
-                        onChange={setFormat}
-                        options={[
-                            { valeur: '9:16', libelle: '9:16 — Reels, Shorts' },
-                            { valeur: '4:5', libelle: '4:5 — fil Meta' },
-                        ]}
-                    />
-                    <Choix<Version>
-                        valeur={versionEffective}
-                        onChange={setVersion}
-                        options={[
-                            { valeur: 'organique', libelle: 'Organique' },
-                            { valeur: 'publicite', libelle: 'Publicité', desactive: !(principale && accroche) },
-                        ]}
-                    />
-                    {indisponible && <p className="text-xs text-alerte">{indisponible}</p>}
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm text-brand-main dark:text-dark-text">
-                                La vidéo, son compris{plan ? ` — ${secondes(plan.duree)}` : ''}
-                            </span>
-                            {boutonExport('video', exporterVideo, 'Exporter la vidéo', !finale)}
-                        </div>
-                        {!finale && (
-                            <p className="text-xs text-brand-main/60 dark:text-dark-text/60">Il faut une prise calée pour exporter la vidéo entière.</p>
-                        )}
-                        {progression('video')}
-                    </div>
-                </div>
-
-                {erreur && !animations && <p className="text-xs text-erreur">{erreur}</p>}
-                {animations && <div className="space-y-2">
-                    <Etiquette>Les scènes seules (MP4 sans son, pour Final Cut)</Etiquette>
-                    {sequences.map((sequence, rang) => {
-                        if (sequence.plan !== 'scene') return null;
-                        const m = minutageDesScenes.sequences[rang];
-                        return (
-                            <div key={rang} className="space-y-1">
-                                <div className="flex items-center justify-between gap-3">
-                                    <span className="text-sm text-brand-main dark:text-dark-text truncate">
-                                        {rang + 1}. {sequence.role || 'Scène'} — {secondes(m.fin - m.debut)}
-                                    </span>
-                                    {boutonExport(`scene-${rang}`, () => exporterScene(rang))}
-                                </div>
-                                {progression(`scene-${rang}`)}
+                    {ouvert === 'scenes' && (
+                        <>
+                            {principale && calageBrut && plan && (
+                                <ReperesPrise
+                                    data={data}
+                                    calage={calageBrut}
+                                    plan={plan}
+                                    reperes={principale.prise.reperes}
+                                    onCorriger={(i, j, t) => void prises.corrigerRepere(i, j, t)}
+                                    onAller={(s) => lecteur.current?.seekTo(enImages(s))}
+                                />
+                            )}
+                            {visuelsDuReel?.indisponible && (
+                                <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : les visuels ne peuvent pas être déposés.</p>
+                            )}
+                            <div className="space-y-4">
+                                {sequences.map((sequence, i) => sequence.plan === 'scene' && visuelsDuReel
+                                    ? <SequenceScene key={i} sequence={sequence} numero={i + 1} visuels={visuelsDuReel} deposable={!visuelsDuReel.indisponible} />
+                                    : sequence.coup ? <SequenceCamera key={i} sequence={sequence} numero={i + 1} /> : null)}
                             </div>
-                        );
-                    })}
-                    {erreur && <p className="text-xs text-erreur">{erreur}</p>}
-                </div>}
+                        </>
+                    )}
+
+                    {ouvert === 'rythme' && (
+                        <RythmeReel data={data} figes={figes} surLaPrise={!!plan} animations={animations}
+                            onAller={(s) => { lecteur.current?.seekTo(enImages(s)); setOnglet('texte'); }} />
+                    )}
+
+                    {ouvert === 'prise' && (
+                        <div>
+                            <DepotPrise
+                                titre="La prise"
+                                consigne={sansScript
+                                    ? 'Déposez la prise telle que tournée (H.264 de préférence) : sa transcription servira de texte, ses hésitations et ses phrases reprises se coupent ici.'
+                                    : 'Déposez la prise telle que tournée (H.264 de préférence) : ses silences et ses phrases reprises se coupent ici, une fois le son transcrit. Elle est rangée chez Cloudflare.'}
+                                prise={prises.principale}
+                                enCours={prises.enCours.principale}
+                                erreur={prises.erreurs.principale}
+                                deposable={!prises.indisponible}
+                                onDeposer={(f) => void prises.deposer('principale', f)}
+                                onTranscrire={(moteur) => void prises.transcrire('principale', moteur)}
+                                onRetirer={() => void prises.retirer('principale')}
+                            />
+                            <div className="mt-6">
+                                {prises.principale?.prise.pretLe && ligne('Réglages de prise', (
+                                    <ReglagesPrise
+                                        decalageSon={prises.principale.prise.decalageSon ?? 0}
+                                        rotation={(prises.principale.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
+                                        onRegler={(r) => void prises.regler('principale', r)}
+                                        desactive={!!prises.enCours.principale}
+                                    />
+                                ))}
+                                {data.accroche_pub?.voix && ligne('Seconde accroche, pour la publicité', (
+                                    <div className="space-y-3">
+                                        <DepotPrise
+                                            titre="La seconde accroche"
+                                            consigne="Facultative : tournée à part, elle remplace la séquence 1 dans la version publicitaire."
+                                            prise={prises.accroche}
+                                            enCours={prises.enCours.accroche}
+                                            erreur={prises.erreurs.accroche}
+                                            deposable={!prises.indisponible && !!prises.principale}
+                                            onDeposer={(f) => void prises.deposer('accroche', f)}
+                                            onTranscrire={(moteur) => void prises.transcrire('accroche', moteur)}
+                                            onRetirer={() => void prises.retirer('accroche')}
+                                        />
+                                        {prises.accroche?.prise.pretLe && (
+                                            <ReglagesPrise
+                                                decalageSon={prises.accroche.prise.decalageSon ?? 0}
+                                                rotation={(prises.accroche.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
+                                                onRegler={(r) => void prises.regler('accroche', r)}
+                                                desactive={!!prises.enCours.accroche}
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                                {animations && !plan && sequences.length > 0 && ligne('Débit, sans prise', (
+                                    <div className="space-y-1">
+                                        <label htmlFor="debit-reel" className="block text-xs text-brand-main dark:text-dark-text">
+                                            <span className="font-bold">{debit} mots par minute</span> — durée ≈ {secondes(estime.duree)}
+                                        </label>
+                                        <input id="debit-reel" type="range" min={DEBIT_MIN} max={DEBIT_MAX} step={5} value={debit}
+                                            onChange={e => setDebit(Number(e.target.value))} className="w-full accent-brand-main dark:accent-dark-text" />
+                                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
+                                            Lisez le script à voix haute, chronométrez, et réglez le débit : l’aperçu et les scènes seules tomberont au bon rythme.
+                                        </p>
+                                    </div>
+                                ))}
+                                {ligne('Stockage', montage.etat && prises.indisponible
+                                    ? <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : aucune prise ne peut être déposée.</p>
+                                    : montage.etat?.stockage.disponible && montage.etat.stockage.plafond > 0
+                                        ? <p className="text-xs text-brand-main/70 dark:text-dark-text/70">{poids(montage.etat.stockage.octets)} sur {poids(montage.etat.stockage.plafond)} gratuits, tous contenus confondus. Une prise retirée rend sa place.</p>
+                                        : <p className="text-xs text-brand-main/60 dark:text-dark-text/60">—</p>)}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

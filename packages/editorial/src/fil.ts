@@ -220,6 +220,8 @@ export interface EntreeDuFil {
     montage?: MontageDuFil | null;
     /** Ce que le contrôle du format relève sur le script d'aujourd'hui. */
     controles?: string[];
+    /** L'instant présent : la date du contrôle du format quand le fil n'a encore rien d'autre. */
+    maintenant?: number;
 }
 
 const lireJson = (texte: string): any | null => {
@@ -432,7 +434,7 @@ export function composerLeFil(entree: EntreeDuFil): ElementDuFil[] {
     if (entree.controles?.length) {
         const fin = elements.reduce((a, e) => Math.max(a, e.le), 0);
         elements.push({
-            type: 'bulle', id: 'controle', role: 'Contrôle du format', de: 'ia', le: fin + 1, ton: 'alerte', controle: true,
+            type: 'bulle', id: 'controle', role: 'Contrôle du format', de: 'ia', le: fin ? fin + 1 : entree.maintenant ?? Date.now(), ton: 'alerte', controle: true,
             verdict: `${entree.controles.length} point${entree.controles.length > 1 ? 's' : ''} à corriger avant de tourner`,
             texte: '', points: entree.controles,
         });
