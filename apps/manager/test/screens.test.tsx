@@ -36,6 +36,7 @@ import { IdeesView } from '../components/Contenus/IdeesView';
 import { PubliesView } from '../components/Contenus/PubliesView';
 import { etapeCourante, etapesDuSelecteur, composerLeFil, buildColdReadApplyInstruction } from '@luminose/editorial';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
+import { PanneauSerie, AvancementSerie } from '../components/Contenu/Serie';
 import { ConfirmSuppressionSerie } from '../components/Series/ConfirmSuppressionSerie';
 import ContentEditor from '../components/ContentEditor';
 import { Fil } from '../components/Contenu/Fil';
@@ -844,13 +845,44 @@ describe('séries', () => {
   const planProps = {
     contents: [] as ContentItem[],
     sourceContent: null,
-    onBack: noop,
+    etapes: {},
+    suppressionDemandee: false,
+    onFermerSuppression: noop,
     onUpdate: asyncNoop,
     onDelete: asyncNoop,
     onCreateContents: asyncNoop,
     onOpenContent: noop,
     onGeneratePlan: async () => [],
   };
+
+  it('le panneau Série : le plan, puis chaque publication avec son étape, qui s’ouvre d’un clic (SPEC §13.12)', () => {
+    const pubs = [
+      { ...ITEM, id: 'p1', title: 'Première', serieId: SERIE.id, seriePosition: 1, status: ContentStatus.PUBLISHED },
+      { ...ITEM, id: 'p2', title: 'Deuxième', serieId: SERIE.id, seriePosition: 2, coachStatus: 'in_progress' as const },
+    ];
+    const etapes = Object.fromEntries(pubs.map(p => [p.id, etapeCourante({ contenu: p })]));
+    const ouvertes: string[] = [];
+    let plan = 0;
+    const { container, getByText } = render(<PanneauSerie serie={SERIE} publications={pubs} etapes={etapes} active="p2"
+      onPlan={() => { plan += 1; }} onOuvrir={(i) => ouvertes.push(i.id)} />);
+    expect(container.textContent).toContain('Atelier en cours');
+    expect(container.querySelector('[aria-current="page"]')?.textContent).toContain('Deuxième');
+    fireEvent.click(getByText('Première'));
+    fireEvent.click(getByText('Plan de la série'));
+    expect(ouvertes).toEqual(['p1']);
+    expect(plan).toBe(1);
+    cleanup();
+    const avancement = render(<AvancementSerie publications={pubs} etapes={etapes} />);
+    expect(avancement.container.textContent).toContain('1 sur 2 publiée');
+  });
+
+  it('le plan n’a qu’une action principale : une publication de plus, demandée à l’Éclateur', async () => {
+    const demandes: number[] = [];
+    const { getByText } = render(<SeriePlanView {...(planProps as any)} serie={SERIE}
+      onGeneratePlan={async (n: number) => { demandes.push(n); return []; }} />);
+    fireEvent.click(getByText('Générer une publication de plus'));
+    await waitFor(() => expect(demandes).toEqual([1]));
+  });
 
   it('SeriePlanView se monte avec un plan vide', () => {
     const { container } = render(<SeriePlanView {...(planProps as any)} serie={SERIE} />);

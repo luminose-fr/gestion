@@ -41,6 +41,8 @@ import { ConversationsView, type FiltreGeste, type DernierMot } from './componen
 import { IdeesView } from './components/Contenus/IdeesView';
 import { PubliesView, type VuePublies } from './components/Contenus/PubliesView';
 import { REDIRECTIONS, estListe, libelleDeListe, listeDuContenu, type ListeContenus } from './components/Contenus/listes';
+import { PanneauSerie, AvancementSerie } from './components/Contenu/Serie';
+import { CadreContenu, PiedContenu } from './components/Contenu/CadreContenu';
 
 type SpaceView = 'social' | 'clients' | 'psychedelics' | 'corpus' | 'settings';
 /** Les trois listes, et `series` : l'adresse d'un plan de série (SPEC §13). */
@@ -176,6 +178,8 @@ function App() {
   const [vuePublies, setVuePublies] = useState<VuePublies>('liste');
   /** « + Nouveau → Idée » : Idées s'ouvre le champ d'ajout en main. */
   const [ideeEnAvant, setIdeeEnAvant] = useState(false);
+  /** « Supprimer la série », au pied du plan : la confirmation s'ouvre. */
+  const [suppressionSerie, setSuppressionSerie] = useState(false);
 
   /**
    * Ce que les listes savent du fil et du montage de chaque contenu, sans
@@ -999,32 +1003,6 @@ function App() {
    * une série (SPEC §6.4) : le thème, l'intention, le texte du pilier, et les
    * angles des frères — jamais leur texte.
    */
-  /**
-   * De quoi situer la publication ouverte dans sa série, pour l'éditeur : son
-   * rang, le total, et ses voisines. C'est ce qui permet d'enchaîner sans
-   * repasser par le plan.
-   */
-  const editorSerieNav = useMemo(() => {
-      if (!editingItem?.serieId || !editingSerieId) return null;
-      const serie = series.find(s => s.id === editingSerieId);
-      if (!serie) return null;
-
-      const fratrie = items
-          .filter(i => i.serieId === serie.id)
-          .sort((a, b) => (a.seriePosition ?? 9999) - (b.seriePosition ?? 9999));
-      const index = fratrie.findIndex(i => i.id === editingItem.id);
-
-      return {
-          titre: serie.titre,
-          // Le RANG du plan fait foi, pas la place dans ce qui existe déjà :
-          // une série se compte comme elle a été pensée, même à moitié créée.
-          position: editingItem.seriePosition ?? (index >= 0 ? index + 1 : null),
-          total: fratrie.length,
-          precedent: index > 0 ? fratrie[index - 1] : null,
-          suivant: index >= 0 && index < fratrie.length - 1 ? fratrie[index + 1] : null,
-      };
-  }, [editingItem, editingSerieId, series, items]);
-
   const editorSerieContext = useMemo(() => {
       if (!editingItem?.serieId) return undefined;
       const serie = series.find(s => s.id === editingItem.serieId);
@@ -1108,7 +1086,20 @@ function App() {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const isEditorTakeover = currentSpace === 'social' && !!editingItem;
+  // Un contenu ouvert, ou un plan de série : le cadre du contenu prend l'écran (SPEC §13.9).
+  const surLePlan = currentSocialTab === 'series' && !!editingSerie && !editingItem;
+  const isEditorTakeover = currentSpace === 'social' && (!!editingItem || surLePlan);
+
+  /** Les publications d'une série, dans l'ordre du plan. */
+  const publicationsDe = (serieId: string) => items
+      .filter(i => i.serieId === serieId)
+      .sort((a, b) => (a.seriePosition ?? 9999) - (b.seriePosition ?? 9999));
+
+  const serieDuContenu = editingItem?.serieId ? series.find(s => s.id === editingItem.serieId) ?? null : null;
+  const panneauDeLaSerie = (serie: Serie, active: string | null) => (
+      <PanneauSerie serie={serie} publications={publicationsDe(serie.id)} etapes={etapes} active={active}
+          onPlan={() => updateSerieRoute(serie.id)} onOuvrir={handleOpenSerieContent} />
+  );
 
   return (
     <div className="flex h-screen bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans transition-colors duration-200 overflow-hidden border-t border-brand-border dark:border-dark-sec-border">
@@ -1343,11 +1334,43 @@ function App() {
                         serieContext={editorSerieContext}
                         activeStep={currentEditorStep ?? etapeDe(editingItem).etape}
                         onStepChange={handleStepChange}
+                        panneauSerie={serieDuContenu ? panneauDeLaSerie(serieDuContenu, editingItem.id) : undefined}
                         resumeFil={fils?.contenus[editingItem.id] ?? null}
                         resumeMontage={montages?.contenus[editingItem.id] ?? null}
                         onAnalyser={() => triggerSingleAnalysis(editingItem)}
                         analyseEnCours={isSingleAnalyzing}
                     />
+                ) : surLePlan && editingSerie ? (
+                    <CadreContenu
+                        retour={{ libelle: 'Conversations', onClick: () => updateRoute('social', 'conversations') }}
+                        titre={editingSerie.titre}
+                        pastilles={(() => {
+                            const pubs = publicationsDe(editingSerie.id);
+                            const publiees = pubs.filter(p => p.status === ContentStatus.PUBLISHED).length;
+                            return ['Série', `${pubs.length} publication${pubs.length > 1 ? 's' : ''} · ${publiees} publiée${publiees > 1 ? 's' : ''}`];
+                        })()}
+                        selecteur={<AvancementSerie publications={publicationsDe(editingSerie.id)} etapes={etapes} />}
+                        panneauSerie={panneauDeLaSerie(editingSerie, null)}
+                        pied={<PiedContenu etat="idle" libelleSupprimer="Supprimer la série" onSupprimer={() => setSuppressionSerie(true)} />}
+                    >
+                        <SeriePlanView
+                            serie={editingSerie}
+                            contents={publicationsDe(editingSerie.id)}
+                            sourceContent={
+                                editingSerie.sourceContentId
+                                    ? items.find(i => i.id === editingSerie.sourceContentId) || null
+                                    : null
+                            }
+                            etapes={etapes}
+                            onUpdate={(patch) => handleUpdateSerie(editingSerie.id, patch)}
+                            suppressionDemandee={suppressionSerie}
+                            onFermerSuppression={() => setSuppressionSerie(false)}
+                            onDelete={async (mode) => { setSuppressionSerie(false); await handleDeleteSerie(editingSerie, mode); }}
+                            onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
+                            onOpenContent={handleOpenSerieContent}
+                            onGeneratePlan={handleGenerateSeriePlan(editingSerie)}
+                        />
+                    </CadreContenu>
                 ) : (
                     <div className="flex-1 overflow-y-auto">
                         <div className={ecran('liste')}>
@@ -1399,23 +1422,6 @@ function App() {
                                 />
                             )}
 
-                            {currentSocialTab === 'series' && editingSerie && (
-                                <SeriePlanView
-                                    serie={editingSerie}
-                                    contents={items.filter(i => i.serieId === editingSerie.id)}
-                                    sourceContent={
-                                        editingSerie.sourceContentId
-                                            ? items.find(i => i.id === editingSerie.sourceContentId) || null
-                                            : null
-                                    }
-                                    onBack={() => updateRoute('social', 'conversations')}
-                                    onUpdate={(patch) => handleUpdateSerie(editingSerie.id, patch)}
-                                    onDelete={(mode) => handleDeleteSerie(editingSerie, mode)}
-                                    onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
-                                    onOpenContent={handleOpenSerieContent}
-                                    onGeneratePlan={handleGenerateSeriePlan(editingSerie)}
-                                />
-                            )}
 
                         </div>
                     </div>

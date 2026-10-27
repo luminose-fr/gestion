@@ -2352,6 +2352,25 @@ Disparaissent avec lui : le storyboard de l'ancien onglet Script (`StoryboardRen
 ses cartes de scène vivent dans `Video/CartesDeScene.tsx`), `MontageDirect`,
 `ScriptVideoRenderer`.
 
+### 13.12 La série (F6)
+
+**Le panneau Série** (272 px) se tient à gauche du fil dès qu'un contenu appartient à une
+série — **d'où qu'on l'ouvre**, et non plus seulement depuis le plan : c'était un défaut.
+En tête, « Plan de la série » ; puis chaque publication dans l'ordre du plan, avec son
+rang, sa barre et son étape. Un clic ouvre la publication sur **son** étape courante. Il
+remplace les boutons « Précédente » et « Suivante ».
+
+**Le plan de série vit dans le cadre d'un contenu** : le bandeau porte le titre de la
+série et, à la place du sélecteur d'étape, un bloc « Avancement » qui ne se clique pas —
+un segment par publication, publiée, commencée ou à venir. Le panneau Série y a « Plan de
+la série » actif. La matière a **une** action principale, « Générer une publication de
+plus » (l'Éclateur, §6.2, pour une publication ; le plan de publication garde le choix du
+nombre), puis l'intention, le plan de publication, et les publications dans l'ordre avec
+leur avancement. « Supprimer la série » est au pied, et se confirme comme avant (§3.3).
+
+La liste des séries (`SeriesView`) a disparu en F2 : une série se trouve dans
+Conversations et se crée par « + Nouveau ».
+
 ### Phasage de la refonte — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée.
