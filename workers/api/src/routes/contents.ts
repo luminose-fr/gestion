@@ -138,7 +138,10 @@ contents.get('/fils', async (c) => {
 
 // ── Détail ───────────────────────────────────────────────────────────────
 
-/** 2 requêtes : le contenu, puis ses messages Coach. */
+/**
+ * 4 requêtes : le contenu, ses messages Coach, l'agrégat de son coût, et ses
+ * gestes — que le fil affiche à leur date (SPEC §13.6).
+ */
 contents.get('/:id', async (c) => {
   const id = c.req.param('id');
   const row = await c.env.DB.prepare(`SELECT ${C} FROM contents WHERE id = ?`).bind(id).first();
@@ -181,9 +184,14 @@ contents.get('/:id', async (c) => {
       WHERE content_id = ?`
   ).bind(id).first();
 
+  const { results: gestes } = await c.env.DB
+    .prepare('SELECT statut, avant, created_at FROM gestes WHERE content_id = ? ORDER BY created_at ASC, rowid ASC')
+    .bind(id).all();
+
   return c.json({
     content,
     coachSession,
+    gestes: (gestes as any[]).map((g) => ({ statut: g.statut, avant: g.avant, le: g.created_at })),
     cout: {
       appels: Number(cout?.appels ?? 0),
       tokensEntree: cout?.entree === null || cout?.entree === undefined ? null : Number(cout.entree),

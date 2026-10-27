@@ -34,18 +34,18 @@ import RdvView from '../components/Clients/RdvView';
 import { ConversationsView } from '../components/Contenus/ConversationsView';
 import { IdeesView } from '../components/Contenus/IdeesView';
 import { PubliesView } from '../components/Contenus/PubliesView';
-import { etapeCourante } from '@luminose/editorial';
+import { etapeCourante, etapesDuSelecteur, composerLeFil, buildColdReadApplyInstruction } from '@luminose/editorial';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
 import { ConfirmSuppressionSerie } from '../components/Series/ConfirmSuppressionSerie';
-import { CoachChat } from '../components/CoachChat';
-import { DraftView } from '../components/ContentEditor/DraftView';
+import ContentEditor from '../components/ContentEditor';
+import { Fil } from '../components/Contenu/Fil';
+import { SelecteurEtape } from '../components/Contenu/CadreContenu';
 import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
 import { ScriptVideoRenderer } from '../components/ContentEditor/renderers/ScriptVideoRenderer';
 import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
 import { StoryboardRenderer } from '../components/ContentEditor/renderers/StoryboardRenderer';
 import { DepotPrise } from '../components/Video/DepotPrise';
-import { IdeaModal } from '../components/IdeaModal';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
 import { ReglagesPrise } from '../components/Video/ReglagesPrise';
@@ -440,268 +440,136 @@ describe('espace Réglages', () => {
  * seule DÉFINITIVEMENT, et une rédaction qui échouait derrière laissait la
  * publication sans aucune action possible.
  */
-describe('atelier du Coach', () => {
-  const msg = (role: 'user' | 'assistant', content: string): CoachMessage => ({
-    id: `m-${role}-${content.length}`, contentId: 'i1', role, content,
-    raw: null, quickReplies: [], readyForEditor: false, createdAt: now,
+describe('le contenu ouvert (SPEC §13.9, §13.10)', () => {
+  const editeur = (item: ContentItem, etape: any, over: Record<string, unknown> = {}) => (
+    <ContentEditor item={item} aiModels={MODELS} activeModelId="m1" modelFor={() => 'm1'}
+      onClose={noop} libelleRetour="Conversations" onSave={asyncNoop} onDelete={asyncNoop}
+      activeStep={etape} onStepChange={noop} {...over} />
+  );
+  const boutons = (c: HTMLElement) => Array.from(c.querySelectorAll('button')).map(b => b.textContent?.trim());
+  const POST = JSON.stringify({ format: 'Post Texte', accroche: 'Une accroche.', corps: 'Un corps qui se lit.' });
+
+  it('une idée s’ouvre à l’Ouverture : notes, format, et l’atelier ne part jamais seul', async () => {
+    const appels: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => { appels.push(String(url)); return new Response('{}', { status: 200 }); });
+    const idee = { ...ITEM, status: ContentStatus.IDEA, targetFormat: 'Post Texte (Court)' as any, notes: 'Une note' };
+    const { container, findByText } = render(editeur(idee, 'ouverture', { onAnalyser: noop }));
+    await findByText('Ouvrir l’atelier avec le Coach');
+    expect(container.textContent).toContain('Modifiable jusqu’à l’ouverture de l’atelier.');
+    expect(container.textContent).toContain('Demander l’ouverture à l’Analyste');
+    expect(container.textContent).toContain('Enregistré automatiquement');
+    expect(boutons(container)).not.toContain('Enregistrer');
+    // Rien n'est parti chez un modèle : l'atelier attend qu'on l'ouvre.
+    expect(appels.some(u => u.includes('/ai'))).toBe(false);
+    vi.unstubAllGlobals();
   });
 
-  const session = (over: Partial<CoachSession> = {}): CoachSession => ({
-    status: 'in_progress', formatCible: null, brief: null, validatedAt: null,
-    messages: [msg('user', 'TITRE : Le piège chinois'), msg('assistant', 'Voici une direction.')],
-    ...over,
+  it('un brouillon : « Bon à publier » en action principale, le reste sous « ⋯ », le composeur au Rédacteur', async () => {
+    const { container, findByText, getByLabelText } = render(editeur({ ...ITEM, targetFormat: 'Post Texte (Court)' as any, draft: POST }, 'brouillon'));
+    await findByText('Bon à publier');
+    expect(container.textContent).toContain('Au Rédacteur');
+    fireEvent.click(getByLabelText('Autres actions'));
+    expect(container.textContent).toContain('Relire à froid');
+    expect(container.textContent).toContain('Régénérer');
+    expect(container.textContent).toContain('Modifier à la main');
   });
 
-  const monte = (over: Partial<CoachSession> = {}, handlers: Record<string, any> = {}) =>
-    render(
-      <CoachChat
-        item={ITEM}
-        aiModels={MODELS}
-        modelId="m1"
-        session={session(over)}
-        onAppendMessage={noop}
-        onValidate={asyncNoop}
-        onReopen={asyncNoop}
-        onReset={asyncNoop}
-        {...handlers}
-      />
-    );
-
-  it('se monte session en cours, et propose de valider', () => {
-    const { container } = monte();
-    expect(container.textContent).toContain('Voici une direction.');
-    expect(container.textContent).toContain('Go Éditeur');
+  it('une vidéo prête à tourner : le script en grand, ce qui sera à l’écran, et « Déposer la prise »', async () => {
+    const reel = JSON.stringify({ format: 'Reel expliqué', sequences: [
+      { plan: 'camera', role: 'Accroche', voix: 'Vous relisez trois fois un message ?' },
+      { plan: 'scene', role: 'Mécanique', voix: 'Une alarme qui sonne.', titre: 'Une [alarme]', elements: [{ type: 'carte', texte: 'Une [alarme]', apparait_sur: 'une alarme' }] },
+    ] });
+    const { container, findByText } = render(editeur({ ...ITEM, status: ContentStatus.READY, targetFormat: 'Reel expliqué (scènes animées)' as any, draft: reel }, 'tournage'));
+    await findByText('Déposer la prise');
+    expect(container.textContent).toContain('À l’écran');
+    expect(container.textContent).toContain('Une alarme');
+    expect(container.textContent).toContain('Votre visage, face caméra.');
   });
 
-  it('se monte session validée, et offre le chemin du retour', () => {
-    const { container } = monte({ status: 'validated', validatedAt: now });
-    expect(container.textContent).toContain('Validée');
-    expect(container.textContent).toContain('Rouvrir');
-    // Le pied ne doit plus promettre une transmission à venir : elle a eu lieu.
-    expect(container.textContent).not.toContain('prête à être transmise');
+  it('la Publication : ce qui sera publié, la date, et la porte des séries', async () => {
+    const { container, findByText } = render(editeur({ ...ITEM, status: ContentStatus.READY, targetFormat: 'Post Texte (Court)' as any, draft: POST }, 'publication', { onDecline: noop }));
+    await findByText('Marquer publié');
+    expect(container.textContent).toContain('Ce qui sera publié');
+    expect(container.textContent).toContain('Texte à copier');
+    expect(container.textContent).toContain('Décliner en série');
   });
 
-  it('rouvrir rend l’atelier utilisable sans attendre le réseau', () => {
-    let rouvert = 0;
-    const { container, getByText } = monte(
-      { status: 'validated', validatedAt: now },
-      { onReopen: async () => { rouvert++; } }
-    );
-    expect(container.textContent).not.toContain('Go Éditeur');
-
-    fireEvent.click(getByText('Rouvrir'));
-
-    expect(rouvert).toBe(1);
-    expect(container.textContent).toContain('Go Éditeur');
-    expect(container.textContent).not.toContain('Validée');
+  it('une étape verrouillée de l’adresse retombe sur l’étape courante', async () => {
+    const { container, findByText } = render(editeur({ ...ITEM, targetFormat: 'Post Texte (Court)' as any }, 'publication'));
+    await findByText('Ouvrir l’atelier avec le Coach');
+    expect(container.textContent).not.toContain('Marquer publié');
   });
 
-  it('réinitialiser demande confirmation avant de jeter la conversation', () => {
-    let reinit = 0;
-    const { container, getByText } = monte({}, { onReset: async () => { reinit++; } });
-
-    fireEvent.click(getByText('Réinitialiser'));
-    expect(container.textContent).toContain('Réinitialiser la session ?');
-    expect(reinit).toBe(0);
+  it('réinitialiser l’atelier demande confirmation', async () => {
+    vi.stubGlobal('fetch', async (url: string) => new Response(String(url).includes('/generations') ? '{"generations":[]}' : JSON.stringify({
+      content: ITEM, coachSession: { status: 'in_progress', formatCible: null, brief: null, validatedAt: null, messages: [
+        { id: 'm1', contentId: 'i1', role: 'assistant', content: 'Une question ?', createdAt: now, quickReplies: [], readyForEditor: false },
+      ] },
+    }), { status: 200 }));
+    const { container, findByText, getByLabelText } = render(editeur({ ...ITEM, coachStatus: 'in_progress' }, 'atelier'));
+    await findByText('Une question ?');
+    fireEvent.click(getByLabelText('Autres actions'));
+    fireEvent.click(Array.from(container.querySelectorAll('[role="menuitem"]')).find(b => b.textContent?.includes('Réinitialiser'))!);
+    expect(document.body.textContent).toContain('Réinitialiser l’atelier ?');
+    vi.unstubAllGlobals();
   });
 
-  /** Le parent renvoie une session vide, mais l'effet d'adoption ignore le vide :
-   *  la vue doit se vider elle-même, sans quoi le JSON resterait à l'écran. */
-  it('après réinitialisation, la conversation quitte l’écran', async () => {
-    const { container, getByText, getAllByText } = monte({}, { onReset: asyncNoop });
-
-    fireEvent.click(getByText('Réinitialiser'));
-    const boutons = getAllByText('Réinitialiser');
-    fireEvent.click(boutons[boutons.length - 1]);
-
-    await waitFor(() => {
-      expect(container.textContent).not.toContain('Voici une direction.');
-    });
-    expect(container.textContent).toContain('Prêt à démarrer ?');
-  });
-
-  it('sans message, rien à rouvrir ni à réinitialiser', () => {
-    const { container } = monte({ status: null, messages: [] });
-    expect(container.textContent).toContain('Prêt à démarrer ?');
-    expect(container.textContent).not.toContain('Réinitialiser');
-    expect(container.textContent).not.toContain('Rouvrir');
+  it('le sélecteur dit où en est chaque étape, et verrouille ce qui manque', () => {
+    const lignes = etapesDuSelecteur({ contenu: { ...ITEM, targetFormat: 'Carrousel (Slide par Slide)', draft: '{"format":"Carrousel","slides":[]}' } as any });
+    const choisies: string[] = [];
+    const { container, getByText } = render(<SelecteurEtape lignes={lignes} affichee="brouillon" onChoisir={(e) => choisies.push(e)} />);
+    expect(container.textContent).toContain('Étape 3 sur 5');
+    fireEvent.click(container.querySelector('button')!);
+    expect(getByText('Aller à une étape')).toBeTruthy();
+    const slides = Array.from(container.querySelectorAll('[role="menuitem"]')).find(b => b.textContent?.includes('Slides')) as HTMLButtonElement;
+    expect(slides.disabled).toBe(true);
+    expect(slides.title).toContain('slides');
+    fireEvent.click(Array.from(container.querySelectorAll('[role="menuitem"]')).find(b => b.textContent?.includes('Atelier'))!);
+    expect(choisies).toEqual(['atelier']);
   });
 });
 
-/**
- * Le panneau du Lecteur froid.
- *
- * Il partait dès le clic sur « Appliquer les corrections », sans attendre le
- * résultat. Un échec côté fournisseur laissait donc une erreur à l'écran et
- * plus rien pour réessayer : les problèmes relevés et les corrections
- * proposées étaient perdus, et c'était la seule copie sous les yeux.
- */
-describe('Lecteur froid — panneau', () => {
-    const RAPPORT = {
-        lecture_naive: { sujet: 'Le piège chinois', auteur: 'un praticien', action: 'lire' },
-        controles: [{ regle: 'Zéro emoji', statut: 'OK' as const }],
-        problemes: [
-            { gravite: 'Important' as const, localisation: 'accroche',
-              probleme: 'On ne sait pas de quoi ça parle', correction_proposee: 'Nommer le piège dès la première ligne.' },
-        ],
-        verdict: 'À retoucher',
-    };
+describe('le fil (SPEC §13.10)', () => {
+  const relecture = (problemes: any[]) => JSON.stringify({ verdict: 'À retoucher', lecture_naive: { sujet: 'le contrôle' }, problemes });
+  const fil = (generations: any[]) => composerLeFil({ sorte: 'carrousel', atelierValide: false, coach: [], generations });
 
-    const AVEC_BROUILLON: ContentItem = {
-        ...ITEM,
-        targetFormat: 'Post Texte (Court)' as any,
-        draft: JSON.stringify({ body: 'Un brouillon rédigé.' }),
-    };
+  it('une relecture propose ses corrections, qu’on applique ou qu’on ignore', () => {
+    const appliquees: string[] = [];
+    const elements = fil([{ id: 'c1', kind: 'cold_read', target: null, instruction: null, createdAt: now,
+      payload: relecture([{ probleme: 'trop long', correction_proposee: 'raccourcir' }, { probleme: 'flou', correction_proposee: 'préciser' }]) }]);
+    const { container, getByText, queryByText } = render(<Fil elements={elements} zone={null} onAppliquer={(c) => appliquees.push(c)} />);
+    expect(container.textContent).toContain('À retoucher, 2 points.');
+    fireEvent.click(getByText('Appliquer les deux'));
+    expect(appliquees).toEqual(['raccourcir\npréciser']);
+    fireEvent.click(getByText('Ignorer'));
+    expect(queryByText('Appliquer les deux')).toBeNull();
+  });
 
-    const monte = (handlers: Record<string, any> = {}, coldRead: any = RAPPORT) =>
-        render(
-            <DraftView
-                item={AVEC_BROUILLON}
-                onChange={noop}
-                onLaunchDrafting={noop}
-                onLaunchCarrouselSlides={noop}
-                onLaunchAdjustment={asyncNoop}
-                onLaunchPromptsAdjustment={noop}
-                coachSession={null}
-                onChangeStatus={asyncNoop}
-                onSave={asyncNoop}
-                isGenerating={false}
-                aiModels={MODELS}
-                activeModelId="m1"
-                onCoachMessage={noop}
-                onCoachValidate={asyncNoop}
-                onCoachReopen={asyncNoop}
-                onCoachReset={asyncNoop}
-                coldRead={coldRead}
-                onDismissColdRead={noop}
-                onRunColdRead={noop}
-                activeTab="brouillon"
-                onTabChange={noop}
-                {...handlers}
-            />
-        );
+  it('une relecture sans correction proposée n’offre pas d’appliquer ; appliquée, elle dit quand', () => {
+    const sans = render(<Fil elements={fil([{ id: 'c1', kind: 'cold_read', target: null, instruction: null, createdAt: now, payload: relecture([{ probleme: 'flou' }]) }])} zone={null} onAppliquer={noop} />);
+    expect(sans.queryByText('Appliquer les corrections')).toBeNull();
+    cleanup();
+    const apres = render(<Fil zone={null} onAppliquer={noop} elements={fil([
+      { id: 'c1', kind: 'cold_read', target: null, instruction: null, createdAt: Date.parse('2026-10-15T10:00:00Z'), payload: relecture([{ probleme: 'x', correction_proposee: 'y' }]) },
+      { id: 'a1', kind: 'adjustment', target: 'draft', instruction: buildColdReadApplyInstruction('y'), createdAt: Date.parse('2026-10-16T10:00:00Z'), payload: '{}' },
+    ])} />);
+    expect(apres.container.textContent).toContain('Appliquées le 16 oct.');
+  });
 
-    it('affiche la provenance d’un rapport repris du journal', () => {
-        const { container } = monte({
-            coldReadMeta: { at: new Date('2026-08-24T14:32:00').getTime(), modelLabel: 'Claude Fable 5' },
-        });
-        expect(container.textContent).toContain('Relecture du 24/08/2026');
-        expect(container.textContent).toContain('par Claude Fable 5');
-        // La mise en garde compte autant que la date : le texte a pu changer depuis.
-        expect(container.textContent).toContain('relancez-la si le texte a changé');
-    });
-
-    it('se passe de provenance quand elle manque', () => {
-        const { container } = monte();
-        expect(container.textContent).toContain('Lecteur froid');
-        expect(container.textContent).not.toContain('Relecture du');
-    });
-
-    it('se monte avec et sans rapport', () => {
-        expect(() => monte({}, null)).not.toThrow();
-        cleanup();
-        const { container } = monte();
-        expect(container.textContent).toContain('Lecteur froid');
-        expect(container.textContent).toContain('On ne sait pas de quoi ça parle');
-    });
-
-    it('garde le rapport quand l’ajustement échoue', async () => {
-        let ecarte = 0;
-        const { container, getByText } = monte({
-            onLaunchAdjustment: async () => false,
-            onDismissColdRead: () => { ecarte++; },
-        });
-
-        fireEvent.click(getByText('Appliquer les corrections'));
-        await waitFor(() => expect(ecarte).toBe(0));
-
-        // Tout est encore là : on peut réessayer sans avoir rien perdu.
-        expect(container.textContent).toContain('Nommer le piège dès la première ligne.');
-    });
-
-    it('ne l’écarte qu’une fois l’ajustement abouti', async () => {
-        let ecarte = 0;
-        let recu = '';
-        const { getByText } = monte({
-            onLaunchAdjustment: async (t: string) => { recu = t; return true; },
-            onDismissColdRead: () => { ecarte++; },
-        });
-
-        fireEvent.click(getByText('Appliquer les corrections'));
-        await waitFor(() => expect(ecarte).toBe(1));
-        expect(recu).toContain('Nommer le piège dès la première ligne.');
-        expect(recu).toContain('[accroche]');
-    });
-
-    it('un rapport sans correction proposée n’offre pas d’appliquer', () => {
-        const { container } = monte({}, { ...RAPPORT, problemes: [
-            { gravite: 'Détail', probleme: 'Une virgule de trop' },
-        ] });
-        expect(container.textContent).not.toContain('Appliquer les corrections');
-        expect(container.textContent).toContain('Une virgule de trop');
-    });
-});
-
-/**
- * L'atelier n'appartient qu'à SA publication.
- *
- * Ce que ce test protège : le 25/08/2026, passer d'une publication de série à
- * la suivante affichait la conversation de la PRÉCÉDENTE — React réutilisait le
- * composant faute de `key`, et gardait avec lui « la session a démarré », le
- * drapeau anti-relance et les messages. Une publication jamais touchée
- * présentait donc un atelier en cours, et ce qu'on y écrivait partait sur elle.
- */
-describe('atelier — une publication, une session', () => {
-    const message = (id: string, role: 'user' | 'assistant', content: string): CoachMessage =>
-        ({ id, contentId: 'a', role, content, raw: null, quickReplies: [], readyForEditor: false, createdAt: 1 });
-
-    const SESSION_A: CoachSession = {
-        status: 'in_progress', formatCible: null, brief: null, validatedAt: null,
-        messages: [message('m1', 'user', 'TITRE : A'), message('m2', 'assistant', 'Réponse pour A.')],
-    };
-
-    const publication = (id: string): ContentItem =>
-        ({ ...ITEM, id, targetFormat: 'Post Texte (Court)' as any, depth: null });
-
-    const atelier = (item: ContentItem, coachSession: CoachSession | null) => (
-        <DraftView
-            item={item} onChange={noop}
-            onLaunchDrafting={noop} onLaunchCarrouselSlides={noop}
-            onLaunchAdjustment={asyncNoop} onLaunchPromptsAdjustment={noop}
-            coachSession={coachSession}
-            onChangeStatus={asyncNoop} onSave={asyncNoop} isGenerating={false}
-            aiModels={MODELS} activeModelId="m1"
-            onCoachMessage={noop} onCoachValidate={asyncNoop}
-            onCoachReopen={asyncNoop} onCoachReset={asyncNoop}
-            coldRead={null} onDismissColdRead={noop} onRunColdRead={noop}
-            activeTab="atelier" onTabChange={noop}
-        />
-    );
-
-    it('la conversation d’une publication ne suit pas sur la suivante', () => {
-        const { container, rerender } = render(atelier(publication('a'), SESSION_A));
-        expect(container.textContent).toContain('Réponse pour A.');
-
-        // On passe à une publication jamais touchée, sans démonter l'éditeur.
-        rerender(atelier(publication('b'), null));
-        expect(container.textContent).not.toContain('Réponse pour A.');
-        // Et son sas revient : rien n'a démarré sur elle.
-        expect(container.textContent).toContain('Prêt à démarrer');
-    });
-
-    it('revenir sur la première retrouve sa conversation', () => {
-        const { container, rerender } = render(atelier(publication('a'), SESSION_A));
-        rerender(atelier(publication('b'), null));
-        rerender(atelier(publication('a'), SESSION_A));
-        expect(container.textContent).toContain('Réponse pour A.');
-        expect(container.textContent).not.toContain('Prêt à démarrer');
-    });
-
-    it('une publication neuve attend qu’on démarre — elle ne part jamais seule', () => {
-        const { container } = render(atelier(publication('neuve'), null));
-        expect(container.textContent).toContain('Prêt à démarrer');
-        expect(container.textContent).toContain('Démarrer la session');
-    });
+  it('le composeur parle au Coach, et « Go » est une réponse rapide', () => {
+    const envoyes: string[] = [];
+    let go = 0;
+    const { getByLabelText, getByText, container } = render(<Fil elements={[]} attente="Coach" zone={{
+      type: 'composeur', destinataire: 'coach', onEnvoyer: (t) => envoyes.push(t),
+      reponses: [{ libelle: 'Go, passe à l’Éditeur', onChoisir: () => { go += 1; } }],
+    }} />);
+    expect(container.textContent).toContain('réfléchit…');
+    fireEvent.change(getByLabelText('Message au Coach'), { target: { value: 'Le sac, en slide 2.' } });
+    fireEvent.submit(container.querySelector('form')!);
+    fireEvent.click(getByText('Go, passe à l’Éditeur'));
+    expect(envoyes).toEqual(['Le sac, en slide 2.']);
+    expect(go).toBe(1);
+  });
 });
 
 describe('écrans autonomes', () => {
@@ -908,45 +776,6 @@ describe('les listes de Contenus (SPEC §13)', () => {
     expect(() => render(<PubliesView {...props} vue="calendrier" />)).not.toThrow();
     cleanup();
     expect(render(<PubliesView {...props} items={[]} vue="liste" />).container.textContent).toContain('Rien de publié');
-  });
-});
-
-describe('tiroir d’une idée', () => {
-  const IDEE: ContentItem = { ...ITEM, id: 'idee', status: ContentStatus.IDEA, title: 'Si vous venez pour rester blindé, restez chez vous' };
-  const props = {
-    onClose: noop, onChange: asyncNoop, onDelete: asyncNoop, onTransformToDraft: asyncNoop,
-    onAnalyze: noop, isReanalyzing: false,
-  };
-  const travailler = (c: HTMLElement) =>
-    Array.from(c.querySelectorAll('button')).find(b => b.textContent?.includes('Travailler cette idée'))!;
-  const enregistrer = (c: HTMLElement) =>
-    Array.from(c.querySelectorAll('button')).find(b => b.textContent?.includes('Enregistrer'))!;
-
-  it('se monte, et « Travailler » attend l’analyse', () => {
-    const { container } = render(<IdeaModal {...props} item={IDEE} />);
-    expect(travailler(container).disabled).toBe(true);
-  });
-
-  // Le bug du 04/10/2026 : la date restait nulle dans la copie du tiroir, et
-  // « Travailler cette idée » grisé alors que le verdict s'affichait.
-  it('une analyse arrivée tiroir ouvert débloque « Travailler cette idée »', () => {
-    const { container, rerender } = render(<IdeaModal {...props} item={IDEE} />);
-    rerender(<IdeaModal {...props} item={{ ...IDEE, analyzedAt: now, verdict: 'Valide', strategicAngle: 'Un angle' }} />);
-    expect(container.textContent).toContain('Valide');
-    expect(travailler(container).disabled).toBe(false);
-  });
-
-  it('rien de modifié, rien à enregistrer — et la date d’analyse n’est pas renvoyée nulle', async () => {
-    const onChange = vi.fn(async () => {});
-    const analysee = { ...IDEE, analyzedAt: now, verdict: 'Valide' as const };
-    const { container, rerender } = render(<IdeaModal {...props} onChange={onChange} item={IDEE} />);
-    rerender(<IdeaModal {...props} onChange={onChange} item={analysee} />);
-    expect(enregistrer(container).disabled).toBe(true);
-
-    fireEvent.change(container.querySelector('input[type="text"]')!, { target: { value: 'Nouveau titre' } });
-    fireEvent.click(enregistrer(container));
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
-    expect((onChange.mock.calls[0] as any)[0].analyzedAt).toBe(now);
   });
 });
 

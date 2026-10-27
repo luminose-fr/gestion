@@ -87,8 +87,11 @@ export interface CoutContenu {
 }
 
 /** Le détail porte la session Coach assemblée ; la liste ne l'a pas. */
+/** Un geste de Florent, daté (SPEC §13.6). */
+export interface GesteDate { statut: string; avant: string; le: number }
+
 export const fetchContent = (id: string) =>
-  api<{ content: Content; coachSession: CoachSession; cout?: CoutContenu }>(`/contents/${id}`);
+  api<{ content: Content; coachSession: CoachSession; cout?: CoutContenu; gestes?: GesteDate[] }>(`/contents/${id}`);
 
 export const createContent = (input: Partial<Content>) =>
   api<{ content: Content }>('/contents', { method: 'POST', ...body(input) });

@@ -1,33 +1,47 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Save, CheckCircle2, AlertCircle, Lightbulb, Pencil, Video, Copy, Images, Undo2, X, Layers, ChevronLeft, ChevronRight, Coins } from 'lucide-react';
-import { ContentItem, ContentStatus, AIModel, Verdict, TargetFormat, Profondeur, CoachSession, CoachMessage } from '../../types';
-import type { UsageIA } from '@luminose/shared';
-import { STATUS_COLORS, SIGNATURE_SLIDE } from '../../constants';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ContentItem, ContentStatus, AIModel, TargetFormat, CoachSession, CoachMessage } from '../../types';
+import type { ResumeFil, ResumeMontage, UsageIA } from '@luminose/shared';
+import { SIGNATURE_SLIDE } from '../../constants';
 import * as AiService from '../../services/aiService';
 import { generateLockedBrief, createEmptySession } from '../../services/coachService';
 import { AlertModal, ConfirmModal } from '../CommonModals';
-import { EnCours } from '../Feedback';
+import { useActionIA } from '../Feedback';
 import { AI_ACTIONS, AI_ACTION_CATALOG } from '@luminose/editorial';
-import { bodyJsonToText, getEditorTab, supportsColdRead, getFormatDef, parseBodyJson } from '@luminose/editorial';
+import { getEditorTab, supportsColdRead, getFormatDef, parseBodyJson, bodyJsonToText } from '@luminose/editorial';
 import {
     getFormatPromptTemplate, getObjectifCtaRules,
-    buildColdReadHistorySection, isColdReadApplyInstruction, stripColdReadApplyPrefix,
+    buildColdReadHistorySection, buildColdReadApplyInstruction, isColdReadApplyInstruction, stripColdReadApplyPrefix,
+    etapeCourante, etapesDuSelecteur, etapeDEcriture, composerLeFil, NOMS_DES_ETAPES,
+    type Etape, type GenerationDuFil, type GesteDuFil, type RoleDuFil,
 } from '@luminose/editorial';
 import * as Api from '../../services/apiService';
 import {
-    parseDraftResponse, parseAIResponse, sanitizeSlidesResponse,
+    parseDraftResponse, sanitizeSlidesResponse,
     extractJsonPayload, formatDraftContent,
     appendSignatureSlide, findSlideLengthIssues, SLIDE_TITLE_MAX, SLIDE_TEXT_MAX
 } from '@luminose/editorial';
-import type { ColdReadReport } from './DraftView';
 
-// Sub-components
-import { EditorLayout } from './EditorLayout';
-import { DraftView } from './DraftView';
-import { PreviewView } from './PreviewView';
-import { Bouton } from '../ui';
+import { CadreContenu, PiedContenu, SelecteurEtape } from '../Contenu/CadreContenu';
+import { Fil, type ZoneComposeur, type ZoneOuverture } from '../Contenu/Fil';
+import { EnteteMatiere, MatiereOuverture, MatiereVide, BlocPublier, type ActionMatiere } from '../Contenu/Matiere';
+import { CeQuiSeraPublie, LectureScript, LectureTournage, TrameCarrousel, VignettesSlides } from '../Contenu/Lecture';
+import { useAtelier } from '../Contenu/useAtelier';
+import { BodyRenderer } from './renderers/BodyRenderer';
+import { SlidesRenderer } from './renderers/SlidesRenderer';
+import { StoryboardRenderer } from './renderers/StoryboardRenderer';
+import { MontageDirect } from '../Video/MontageDirect';
+import { Etiquette, type EntreeMenu } from '../ui';
 
-export type EditorStep = 'idea' | 'atelier' | 'brouillon' | 'slides' | 'postcourt' | 'script';
+/** Le rapport du Lecteur froid, tel que le journal le garde (SPEC §2.6). */
+export interface ColdReadReport {
+    lecture_naive: { sujet?: string; auteur?: string; action?: string; decrochage?: string | null };
+    controles?: Array<{ regle: string; statut: 'OK' | 'KO'; detail?: string }>;
+    problemes?: Array<{ gravite: 'Bloquant' | 'Important' | 'Détail'; localisation?: string; probleme: string; correction_proposee?: string }>;
+    verdict?: 'Publiable' | 'À retoucher' | 'À revoir' | string;
+}
+
+/** L'étape affichée : celle du sélecteur (SPEC §13.9). */
+export type EditorStep = Etape;
 
 interface ContentEditorProps {
   item: ContentItem | null;
@@ -37,6 +51,8 @@ interface ContentEditorProps {
   /** Le modèle réglé pour une action donnée (Réglages → Modèles IA). */
   modelFor: (action: string) => string;
   onClose: () => void;
+  /** Le libellé du retour : la liste d'où l'on vient (SPEC §13.4). */
+  libelleRetour: string;
   onSave: (item: ContentItem) => Promise<void>;
   onDelete?: (item: ContentItem) => Promise<void>;
   /** « Décliner » : ce contenu devient le pilier d'une nouvelle série (SPEC §6.3). */
@@ -46,27 +62,17 @@ interface ContentEditorProps {
    * @luminose/editorial. `undefined` quand le contenu n'appartient à aucune série.
    */
   serieContext?: string;
-  /**
-   * La place de ce contenu dans sa série, quand il est ouvert depuis elle.
-   * Sans ça, on travaillait une publication comme une idée isolée — et on
-   * repassait par le plan à chaque fois pour savoir où l'on en était.
-   */
-  serieNav?: {
-      titre: string;
-      position: number | null;
-      total: number;
-      precedent: ContentItem | null;
-      suivant: ContentItem | null;
-  } | null;
-  onOpenSerie?: () => void;
-  onOpenSerieContent?: (item: ContentItem) => void;
-  // Navigation Props
-  activeStep: EditorStep;
-  onStepChange: (step: EditorStep) => void;
-  /** Action à déclencher automatiquement à l'ouverture (ex: 'interview' après "Travailler cette idée"). */
-  initialAction?: 'interview' | null;
-  /** Appelé une fois l'action initiale consommée, pour éviter qu'elle ne se rejoue. */
-  onInitialActionConsumed?: () => void;
+  /** Le panneau Série, à gauche du fil, quand le contenu en a une. */
+  panneauSerie?: React.ReactNode;
+  /** L'étape affichée, et le geste qui en change. */
+  activeStep: Etape;
+  onStepChange: (etape: Etape) => void;
+  /** Ce que les listes savent du fil et du montage de ce contenu. */
+  resumeFil?: ResumeFil | null;
+  resumeMontage?: ResumeMontage | null;
+  /** « Demander l'ouverture à l'Analyste » : l'analyse d'une idée, à la demande. */
+  onAnalyser?: () => void;
+  analyseEnCours?: boolean;
 }
 
 // extractJsonPayload, parseDraftResponse, parseAIResponse → ai/executors.ts
@@ -78,10 +84,8 @@ export { bodyJsonToText } from '@luminose/editorial';
 // parseAIResponse → ai/executors.ts
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
-    item, aiModels = [], activeModelId, modelFor, onClose, onSave, onDelete, onDecline, serieContext,
-    serieNav, onOpenSerie, onOpenSerieContent,
-    activeStep, onStepChange,
-    initialAction = null, onInitialActionConsumed
+    item, aiModels = [], activeModelId, modelFor, onClose, libelleRetour, onSave, onDelete, onDecline, serieContext,
+    panneauSerie, activeStep, onStepChange, resumeFil, resumeMontage, onAnalyser, analyseEnCours,
 }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
 
@@ -120,25 +124,51 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    */
   const [cout, setCout] = useState<Api.CoutContenu | null>(null);
 
+  /**
+   * Le fil (SPEC §13.10) : le journal des productions et les gestes datés. Ils
+   * arrivent avec l'ouverture, et le journal se relit après chaque production —
+   * c'est lui que le fil rend lisible.
+   */
+  const [journal, setJournal] = useState<GenerationDuFil[]>([]);
+  const [gestes, setGestes] = useState<GesteDuFil[]>([]);
+
+  const relireLeJournal = async (contentId: string) => {
+      try {
+          const { generations } = await Api.fetchGenerations(contentId, undefined, 50);
+          if (isMountedRef.current) setJournal((generations ?? []).map(g => ({
+              id: g.id, kind: g.kind, target: g.target ?? null, instruction: g.instruction ?? null,
+              payload: g.payload, createdAt: g.createdAt,
+          })));
+      } catch (e) {
+          console.warn('Journal non relu :', e);
+      }
+  };
+
   useEffect(() => {
-      if (!item?.id) { setCoachSessionState(null); setCout(null); return; }
+      if (!item?.id) { setCoachSessionState(null); setCout(null); setJournal([]); setGestes([]); return; }
       let annule = false;
       // On VIDE avant de charger. Sans ça, entre le changement de contenu et la
       // réponse du serveur, l'atelier affiche la session du contenu précédent —
       // et tout ce qu'on y écrit part sur le nouveau.
       setCoachSessionState(null);
       setCout(null);
+      setJournal([]);
+      setGestes([]);
       Api.fetchContent(item.id)
-          .then(({ coachSession, cout }) => {
+          .then(({ coachSession, cout, gestes }) => {
               if (annule) return;
               setCoachSessionState(coachSession);
               setCout(cout ?? null);
+              setGestes(gestes ?? []);
           })
           .catch((e) => console.error('Chargement de la session Coach :', e));
+      void relireLeJournal(item.id);
       return () => { annule = true; };
   }, [item?.id]);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** Jeter l'atelier se confirme : c'est au moment où il s'est mal passé qu'on voudra peut-être le relire (SPEC §2.7). */
+  const [confirmReset, setConfirmReset] = useState(false);
 
   /**
    * Rapport du Lecteur Froid. Il EST journalisé (`kind: 'cold_read'`) depuis
@@ -197,7 +227,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       isOpen: false, title: '', message: '', type: 'info'
   });
 
-  // Sync internal state & Smart Redirect Logic
+  // L'étape ne se choisit plus ici : elle arrive calculée par l'application,
+  // d'où qu'on vienne (SPEC §13.4). L'éditeur ne fait que suivre le contenu.
   useEffect(() => {
     if (item) {
         if (!editedItem || item.id !== editedItem.id) {
@@ -208,31 +239,18 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             setLastGeneration(null);
             setSlidesStale(false);
             setSaveError(null);
-
-            if (activeStep === 'idea') {
-                const hasContent = (item.draft || "").trim().length > 0;
-                // La session n'est plus dans l'item : son état suffit à savoir
-                // qu'un travail a commencé, sans charger les messages.
-                const hasCoachSession = !!item.coachStatus;
-                if (hasContent || hasCoachSession || item.legacyJson) {
-                    onStepChange('atelier');
-                }
-            }
+            setEditionManuelle(null);
+            setVersLeCoach(false);
         } else {
             setEditedItem(prev => prev ? { ...prev, ...item } : item);
         }
     }
-  }, [item, activeStep]); 
+  }, [item]);
 
-  // Navigation auto vers l'Atelier lorsqu'on arrive via "Travailler cette idée".
-  // Le Coach affichera son sas "Prêt à démarrer ?" pour que Florent confirme le modèle AVANT tout appel IA.
-  useEffect(() => {
-      if (initialAction === 'interview' && editedItem && editedItem.status === ContentStatus.DRAFTING) {
-          onStepChange('atelier');
-          onInitialActionConsumed?.();
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAction, editedItem?.id, editedItem?.status]);
+  /** La retouche à la main d'un brouillon : le texte en cours, ou `null`. */
+  const [editionManuelle, setEditionManuelle] = useState<string | null>(null);
+  /** Avec un brouillon, le composeur parle au Rédacteur ; « Parler au Coach » rouvre l'atelier. */
+  const [versLeCoach, setVersLeCoach] = useState(false);
 
   /*
    * Le témoin d'appel IA ne vit plus ici.
@@ -247,6 +265,30 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // isDirty : vrai si editedItem diffère de l'item source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
+
+  /**
+   * Plus de bouton « Enregistrer » (SPEC §13.9) : ce qu'on tape — titre, notes,
+   * format — part tout seul, une seconde après la dernière frappe. Les
+   * productions de l'IA, elles, s'enregistrent déjà en arrivant.
+   */
+  useEffect(() => {
+      if (!isDirty || isGenerating || isSaving || !editedItem) return;
+      const minuteur = setTimeout(() => { void saveWithStatus(editedItem); }, 1000);
+      return () => clearTimeout(minuteur);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editedItem, isDirty, isGenerating, isSaving]);
+
+  const atelier = useAtelier({
+      item: editedItem,
+      session: coachSessionState ?? createEmptySession((editedItem?.targetFormat ?? null) as TargetFormat | null),
+      modelId: modelFor('COACH_CHAT'),
+      aiModels,
+      contexteSerie: serieContext,
+      onMessage: (m) => handleCoachMessage(m),
+      onValider: (session) => handleCoachValidate(session),
+  });
+
+  const actionIA = useActionIA();
 
   if (!editedItem) return null;
 
@@ -294,56 +336,45 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   };
 
   /**
-   * Revient à la version qui précédait la dernière génération.
-   *
-   * L'annulation passe par le JOURNAL (SPEC §2.6) : elle ajoute une ligne dont
-   * la charge reprend celle visée, plutôt que d'effacer. Elle survit donc à la
-   * fermeture de l'éditeur — et annuler l'annulation reste possible.
-   *
-   * Repli sur la valeur gardée en mémoire quand le journal ne porte rien
-   * d'antérieur : les contenus d'avant la bascule n'ont pas d'historique.
+   * « Revenir à la version précédente », depuis le fil (SPEC §13.10) : la
+   * dernière écriture du brouillon ou des slides cède la place à celle d'avant.
+   * Comme l'annulation d'avant, elle passe par le journal et AJOUTE une ligne —
+   * annuler l'annulation reste possible.
    */
-  const undoLastGeneration = async () => {
-      if (!lastGeneration || !editedItem || isGenerating || isSaving) return;
-      const field = lastGeneration.field;
-
+  const revenirALaVersionPrecedente = async () => {
+      if (!editedItem || isGenerating || isSaving) return;
+      const ecritures = journal
+          .filter(g => g.target === 'draft' || g.target === 'slides')
+          .sort((a, b) => b.createdAt - a.createdAt);
+      const derniere = ecritures[0];
+      const precedente = derniere && ecritures.find(g => g.target === derniere.target && g.id !== derniere.id);
+      if (!derniere || !precedente) return;
       try {
-          const { generations } = await Api.fetchGenerations(editedItem.id);
-          // [0] est celle qu'on vient d'écrire ; [1] est celle d'avant.
-          const precedente = generations.filter(g => g.target === field)[1];
-          if (precedente) {
-              await Api.revertGeneration(editedItem.id, precedente.id);
-              const restored = { ...editedItem, [field]: precedente.payload };
-              setEditedItem(restored);
-              setLastGeneration(null);
-              await saveWithStatus(restored);
-              return;
-          }
-      } catch (e) {
-          console.warn('Retour par le journal impossible — repli sur la version en mémoire.', e);
+          await Api.revertGeneration(editedItem.id, precedente.id);
+          const restored = { ...editedItem, [derniere.target as 'draft' | 'slides']: precedente.payload };
+          setEditedItem(restored);
+          setLastGeneration(null);
+          await saveWithStatus(restored);
+          void relireLeJournal(editedItem.id);
+      } catch (e: any) {
+          setAlertInfo({ isOpen: true, title: 'Retour impossible', message: e?.message || 'La version précédente n’a pas pu être reprise.', type: 'error' });
       }
-
-      const restored = { ...editedItem, [field]: lastGeneration.previousValue };
-      setEditedItem(restored);
-      setLastGeneration(null);
-      await saveWithStatus(restored);
   };
 
-  // --- ACTIONS ---
-
-  const handleManualSave = async () => {
-      if (isSaving || !editedItem) return;
-      await saveWithStatus(editedItem);
-  };
-
-  const changeStatus = async (newStatus: ContentStatus, scheduledDate?: string) => {
-      if (isSaving || !editedItem) return;
+  const changeStatus = async (newStatus: ContentStatus, scheduledDate?: string): Promise<boolean> => {
+      if (isSaving || !editedItem) return false;
+      const avant = editedItem.status;
       const newItem = { ...editedItem, status: newStatus };
       if (scheduledDate !== undefined) {
           newItem.scheduledDate = scheduledDate;
       }
       setEditedItem(newItem);
-      await saveWithStatus(newItem);
+      const ok = await saveWithStatus(newItem);
+      // Le Worker date le geste (SPEC §13.6) ; le fil l'affiche sans attendre de le relire.
+      if (ok && avant !== newStatus && isMountedRef.current) {
+          setGestes(prev => [...prev, { statut: newStatus, avant, le: Date.now() }]);
+      }
+      return ok;
   };
 
   const handleDelete = async () => {
@@ -392,6 +423,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               costUsd: input.usage?.coutUsd ?? null,
               apply: !!input.target,
           });
+          void relireLeJournal(editedItem.id);
       } catch (e: any) {
           // La production n'est pas perdue pour autant : l'enregistrement
           // ordinaire qui suit écrit la colonne. Seule la trace manque, et
@@ -635,7 +667,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   kind: 'cold_read', modelId: modeleRelecture || null, modelLabel: modelLabel(modeleRelecture),
                   payload: JSON.stringify(report),
                   promptTokens: usage.entree, completionTokens: usage.sortie, costUsd: usage.coutUsd,
-              }).catch((e) => {
+              }).then(() => relireLeJournal(item.id)).catch((e) => {
                   // Sans cette ligne en base, le rapport ne survit pas à la
                   // fermeture du panneau : c'est exactement la perte qu'on répare.
                   console.warn('Relecture non journalisée :', e);
@@ -813,8 +845,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               if (base.slides) setSlidesStale(true);
               await journalise({ usage, kind: 'draft', target: 'draft', payload: finalContent, modelId: modeleRedaction });
               await saveWithStatus(newItem);
-              // Où atterrir après la rédaction : déclaré par format dans le registre
-              onStepChange(getEditorTab(base.targetFormat as TargetFormat));
+              // L'écran passe à l'étape d'écriture une fois le brouillon arrivé (SPEC §13.10).
+              onStepChange(etapeDEcriture(etapeCourante({ contenu: newItem }).sorte));
 
               // Relecture "Lecteur Froid" (non bloquante) sur le contenu fraîchement rédigé
               await executeColdRead(newItem);
@@ -853,6 +885,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               setSlidesStale(false);
               await journalise({ usage, kind: 'slides', target: 'slides', payload: cleaned, modelId: modeleSlides });
               await saveWithStatus(newItem);
+              onStepChange('slides');
           }
       } catch (error: any) {
           if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Slides impossibles", message: error.message, type: "error" });
@@ -1001,355 +1034,345 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   const triggerCarrouselSlides = () => { void executeCarrouselSlides(); };
 
-  // --- UI HELPERS ---
+  // --- LE CADRE (SPEC §13.9) ---
 
-  const getVerdictColor = (verdict?: string | null) => {
-      switch (verdict) {
-          case Verdict.VALID: return 'bg-succes/10 text-succes border-succes/30';
-          case Verdict.TOO_BLAND: return 'bg-alerte/10 text-alerte border-alerte/30';
-          case Verdict.NEEDS_WORK: return 'bg-erreur/10 text-erreur border-erreur/30';
-          default: return 'bg-brand-light text-brand-main border-brand-border';
+  /*
+   * L'éditeur en sait plus que les listes sur le contenu ouvert : la
+   * conversation est chargée, le journal relu après chaque production. Il
+   * calcule donc l'étape avec ce qu'il a de plus frais, et ne prend aux listes
+   * que le montage.
+   */
+  const relectures = journal.filter(g => g.kind === 'cold_read').sort((a, b) => b.createdAt - a.createdAt);
+  const lireRelecture = (g: GenerationDuFil) => {
+      try {
+          const r = JSON.parse(g.payload);
+          const ko = Array.isArray(r?.controles) ? r.controles.filter((c: any) => c?.statut === 'KO').length : 0;
+          return { verdict: typeof r?.verdict === 'string' ? r.verdict : null, points: (Array.isArray(r?.problemes) ? r.problemes.length : 0) + ko, le: g.createdAt };
+      } catch {
+          return { verdict: null, points: 0, le: g.createdAt };
       }
   };
+  const ecrituresDuBrouillon = journal.filter(g => g.target === 'draft').map(g => g.createdAt);
+  const messagesCoach = coachSessionState?.messages ?? [];
+  const entree = {
+      contenu: editedItem,
+      session: coachSessionState
+          ? { messages: messagesCoach.length, tours: messagesCoach.filter(m => m.role === 'assistant').length }
+          : resumeFil ? { messages: resumeFil.messages, tours: resumeFil.tours } : null,
+      relecture: relectures[0] ? lireRelecture(relectures[0]) : resumeFil?.relecture ?? null,
+      brouillonLe: ecrituresDuBrouillon.length ? Math.max(...ecrituresDuBrouillon) : resumeFil?.brouillonLe ?? null,
+      montage: resumeMontage ?? null,
+  };
+  const courante = etapeCourante(entree);
+  const lignes = etapesDuSelecteur(entree);
+  const sorte = courante.sorte;
+  const video = sorte === 'video' || sorte === 'video-sans-script';
+  // Une adresse qui demande une étape absente ou verrouillée retombe sur l'étape courante.
+  const affichee: Etape = lignes.some(l => l.etape === activeStep && !l.verrouillee) ? activeStep : courante.etape;
+  const ligneAffichee = lignes.find(l => l.etape === affichee);
 
-  /**
-   * Ce que ce contenu a coûté, en clair.
-   *
-   * Il ne s'affiche QUE si au moins un appel a été chiffré : « 0,00 $ » sur des
-   * appels dont personne n'a compté serait un mensonge chiffré, et c'est pire
-   * qu'un silence. Quand une partie seulement est chiffrée, le titre le dit.
-   */
-  const CoutIndicator = () => {
-      if (!cout || cout.usd === null) return null;
-      const partiel = cout.appelsSansPrix > 0;
-      const montant = cout.usd < 0.01 && cout.usd > 0
-          ? '< 0,01 $'
-          : `${cout.usd.toFixed(2).replace('.', ',')} $`;
-      const jetons = cout.tokensEntree !== null && cout.tokensSortie !== null
-          ? ` · ${(cout.tokensEntree + cout.tokensSortie).toLocaleString('fr-FR')} jetons`
-          : '';
-      return (
-          <span
-              className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-micro font-semibold bg-brand-main/10 text-brand-main dark:bg-white/15 dark:text-white tabular-nums"
-              title={`${cout.appels} appel${cout.appels > 1 ? 's' : ''} IA${jetons}${partiel ? ` — ${cout.appelsSansPrix} sans prix déclaré, le total est donc un minimum` : ''}`}
-          >
-              <Coins className="w-3 h-3" />
-              {partiel ? `≥ ${montant}` : montant}
-          </span>
-      );
+  const pret = editedItem.status === ContentStatus.READY || editedItem.status === ContentStatus.PUBLISHED;
+  const aUnBrouillon = !!editedItem.draft?.trim();
+  const relisible = supportsColdRead(editedItem.targetFormat as TargetFormat);
+  const relectureCourante = entree.relecture && (entree.brouillonLe === null || entree.relecture.le >= entree.brouillonLe) ? entree.relecture : null;
+  const pointsRelecture = relectureCourante && relectureCourante.verdict !== 'Publiable' ? Math.max(relectureCourante.points, 1) : 0;
+  const controles = video && aUnBrouillon ? (getFormatDef(editedItem.targetFormat)?.controler?.(parseBodyJson(editedItem.draft!)) ?? []) : [];
+  const occupe = isGenerating || atelier.enCours || isSaving;
+  const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+
+  // --- LE FIL (SPEC §13.10) ---
+
+  const elements = composerLeFil({
+      sorte,
+      analyse: editedItem,
+      generations: journal,
+      coach: messagesCoach.map(m => ({ role: m.role, content: m.content, createdAt: m.createdAt })),
+      atelierValide: coachSessionState?.status === 'validated',
+      gestes,
+      montage: resumeMontage ?? null,
+      controles,
+  });
+
+  const attente: RoleDuFil | null = atelier.enCours
+      ? 'Coach'
+      : (isGenerating || analyseEnCours) && actionIA
+          ? ((AI_ACTION_CATALOG.find(a => a.label === actionIA)?.persona as RoleDuFil | undefined) ?? null)
+          : null;
+
+  /** Une idée qu'on ouvre quitte Idées pour Conversations : elle devient un contenu en chantier. */
+  const mettreEnChantier = async (): Promise<ContentItem | null> => {
+      if (editedItem.status !== ContentStatus.IDEA) return editedItem;
+      return (await changeStatus(ContentStatus.DRAFTING)) ? { ...editedItem, status: ContentStatus.DRAFTING } : null;
   };
 
-  const SaveIndicator = () => {
-      if (saveStatus === 'saving') return (
-          <span className="flex items-center gap-1.5 text-xs text-brand-main/60 dark:text-dark-text/60">
-              <EnCours label="Enregistrement…" />
-          </span>
-      );
-      if (saveStatus === 'saved') return (
-          <span className="flex items-center gap-1.5 text-xs text-succes">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Enregistré
-          </span>
-      );
-      if (saveStatus === 'error') return (
-          <span className="flex items-center gap-1.5 text-xs text-erreur font-semibold">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              Non enregistré
-              <button
-                  onClick={retrySave}
-                  disabled={isSaving}
-                  className="underline font-bold hover:text-erreur disabled:opacity-50"
-              >
-                  Réessayer
-              </button>
-          </span>
-      );
-      return null;
+  const ouvrirAtelier = async () => {
+      if (!(await mettreEnChantier())) return;
+      onStepChange('atelier');
+      await atelier.ouvrir();
   };
 
-  /** Situe la publication dans sa série, et permet d'enchaîner sans repasser par le plan. */
-  const SerieBanner = serieNav ? (
-      <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
-          <button
-              onClick={onOpenSerie}
-              className="flex items-center gap-1.5 font-bold hover:underline shrink-0"
-              title="Revenir au plan de la série"
-          >
-              <Layers className="w-3.5 h-3.5" />
-              {serieNav.titre}
-          </button>
-          {serieNav.position !== null && (
-              <span className="text-brand-main/80 dark:text-dark-text/70 shrink-0">
-                  publication {serieNav.position} sur {serieNav.total}
-              </span>
-          )}
-          <div className="ml-auto flex items-center gap-1 shrink-0">
-              <Bouton
-                  onClick={() => serieNav.precedent && onOpenSerieContent?.(serieNav.precedent)}
-                  disabled={!serieNav.precedent}
-                  title={serieNav.precedent ? `Précédente : ${serieNav.precedent.title}` : 'Première de la série'}
-                  taille="petit">
-                  <ChevronLeft className="w-3.5 h-3.5" /> Précédente
-              </Bouton>
-              <Bouton
-                  onClick={() => serieNav.suivant && onOpenSerieContent?.(serieNav.suivant)}
-                  disabled={!serieNav.suivant}
-                  title={serieNav.suivant ? `Suivante : ${serieNav.suivant.title}` : 'Dernière de la série'}
-                  taille="petit">
-                  Suivante <ChevronRight className="w-3.5 h-3.5" />
-              </Bouton>
-          </div>
-      </div>
-  ) : null;
+  const redigerSansAtelier = async () => {
+      const enChantier = await mettreEnChantier();
+      if (enChantier) await executeDrafting(enChantier);
+  };
 
-  /** Bandeau sous l'en-tête : échec de sauvegarde, annulation de génération. */
-  const EditorBanner = (SerieBanner || saveStatus === 'error' || lastGeneration) ? (
-      <div className="flex flex-col">
-          {SerieBanner}
-          {saveStatus === 'error' && (
-              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-erreur/10 border-b border-erreur/30 text-xs text-erreur">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span className="flex-1 min-w-0">
-                      <strong className="font-bold">Ce contenu n'est pas enregistré</strong>
-                      {saveError ? ` (${saveError})` : ''}. Il n'existe que sur cet appareil.
-                  </span>
-                  <button
-                      onClick={retrySave}
-                      disabled={isSaving}
-                      className="shrink-0 inline-flex items-center gap-1.5 underline font-bold hover:text-erreur dark:hover:text-white disabled:opacity-50"
-                  >
-                      {isSaving ? <EnCours label="Enregistrement…" taille="xs" /> : 'Réessayer'}
-                  </button>
-              </div>
-          )}
-          {lastGeneration && (
-              <div className="flex items-center gap-3 flex-wrap px-4 md:px-6 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
-                  <Undo2 className="w-4 h-4 shrink-0" />
-                  <span className="flex-1 min-w-0">{lastGeneration.label} — la version précédente est encore récupérable.</span>
-                  <button
-                      onClick={undoLastGeneration}
-                      disabled={isGenerating || isSaving}
-                      className="shrink-0 underline font-bold hover:text-brand-main dark:hover:text-white disabled:opacity-50"
-                  >
-                      Revenir à la version précédente
-                  </button>
-                  <button
-                      onClick={() => setLastGeneration(null)}
-                      className="shrink-0 text-brand-main/60 hover:text-brand-main dark:hover:text-dark-text"
-                      title="Masquer"
-                  >
-                      <X className="w-3.5 h-3.5" />
-                  </button>
-              </div>
-          )}
-      </div>
-  ) : null;
+  const envoyerAuCoach = async (texte: string) => {
+      // Une session validée se rouvre d'elle-même quand on lui reparle (SPEC §2.7).
+      if (coachSessionState?.status === 'validated') await handleCoachReopen();
+      await atelier.envoyer(texte);
+  };
 
-  // ── Onglets dynamiques — TOUJOURS visibles selon le format (pas de gating sur le contenu) ──
-  const _isVideoFmt = getEditorTab(editedItem.targetFormat as TargetFormat) === 'script';
-  const _isPostCourt = editedItem.targetFormat === TargetFormat.POST_TEXTE_COURT;
-  const _isCarrousel = editedItem.targetFormat === TargetFormat.CARROUSEL_SLIDE;
-  // Brouillon (trame textuelle) : pour tous les formats sauf vidéo (le Script affiche déjà la trame).
-  // Pour Carrousel : le Brouillon est l'étape narrative intermédiaire avant la génération des Slides.
-  const _showBrouillon = !!editedItem.targetFormat && !_isVideoFmt;
+  const versLeRedacteur = aUnBrouillon && !versLeCoach;
+  const toursCoach = messagesCoach.filter(m => m.role === 'assistant').length;
+  const zone: ZoneOuverture | ZoneComposeur | null =
+      messagesCoach.length === 0 && !aUnBrouillon && affichee === 'ouverture'
+          ? {
+              type: 'ouverture',
+              onOuvrirAtelier: () => void ouvrirAtelier(),
+              onRedigerSansAtelier: () => void redigerSansAtelier(),
+              onDemanderAnalyse: !editedItem.analyzedAt && onAnalyser ? onAnalyser : undefined,
+              occupe: occupe || !!analyseEnCours,
+          }
+          : versLeRedacteur
+              ? {
+                  type: 'composeur', destinataire: 'redacteur',
+                  onEnvoyer: (t) => void launchAdjustment(t),
+                  autre: { libelle: 'Parler au Coach', onChoisir: () => setVersLeCoach(true) },
+                  desactive: isGenerating,
+              }
+              : {
+                  type: 'composeur', destinataire: 'coach',
+                  onEnvoyer: (t) => void envoyerAuCoach(t),
+                  reponses: [
+                      ...(coachSessionState?.status === 'validated' && !aUnBrouillon
+                          ? [{ libelle: 'Relancer la rédaction', onChoisir: () => void executeDrafting() }]
+                          : atelier.pretPourLeRedacteur || toursCoach >= 2
+                              ? [{ libelle: 'Go, passe à l’Éditeur', onChoisir: () => void atelier.valider() }]
+                              : []),
+                      ...atelier.reponsesRapides.map(r => ({ libelle: r, onChoisir: () => void envoyerAuCoach(r) })),
+                  ].slice(0, 2),
+                  autre: aUnBrouillon ? { libelle: 'Revenir au Rédacteur', onChoisir: () => setVersLeCoach(false) } : undefined,
+                  desactive: atelier.enCours || isGenerating,
+                  erreur: atelier.erreur,
+              };
 
-  const steps: Array<{ id: EditorStep; label: string; icon: React.ComponentType<{ className?: string }> }> = editedItem.status === ContentStatus.DRAFTING
-      ? [
-          { id: 'idea',    label: 'Idée',    icon: Lightbulb },
-          { id: 'atelier', label: 'Atelier', icon: Pencil    },
-          ...(_showBrouillon
-              ? [{ id: 'brouillon' as EditorStep, label: 'Brouillon', icon: Pencil }]
-              : []),
-          ...(_isVideoFmt
-              ? [{ id: 'script' as EditorStep, label: 'Script', icon: Video }]
-              : []),
-          ...(_isPostCourt
-              ? [{ id: 'postcourt' as EditorStep, label: 'Copie', icon: Copy }]
-              : []),
-          ...(_isCarrousel
-              ? [{ id: 'slides' as EditorStep, label: 'Slides', icon: Images }]
-              : []),
-      ]
-      : [];
-
-  const showStepTabs = steps.length > 1;
-
-  const StepTabsDesktop = showStepTabs ? (
-      <div className="hidden md:inline-flex items-center gap-1 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-xl p-1">
-          {steps.map(step => {
-              const isActive = activeStep === step.id;
-              const Icon = step.icon;
-              return (
-                  <button
-                      key={step.id}
-                      onClick={() => onStepChange(step.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
-                          isActive
-                              ? 'bg-white dark:bg-dark-surface text-brand-main dark:text-white shadow-xs'
-                              : 'text-brand-main/50 dark:text-dark-text/50 hover:text-brand-main dark:hover:text-white'
-                      }`}
-                  >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{step.label}</span>
-                  </button>
-              );
-          })}
-      </div>
-  ) : null;
-
-  const StepTabsMobile = showStepTabs ? (
-      <div
-          className="md:hidden flex items-center gap-1 px-3 py-2 bg-white dark:bg-dark-surface border-b border-brand-border dark:border-dark-sec-border overflow-x-auto scrollbar-hide"
-          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
-      >
-          {steps.map(step => {
-              const isActive = activeStep === step.id;
-              const Icon = step.icon;
-              return (
-                  <button
-                      key={step.id}
-                      onClick={() => onStepChange(step.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
-                          isActive
-                              ? 'bg-brand-main text-white shadow-xs dark:bg-white dark:text-brand-main'
-                              : 'text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg'
-                      }`}
-                  >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{step.label}</span>
-                  </button>
-              );
-          })}
-      </div>
-  ) : null;
-
-  const Header = (
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex-1 min-w-0">
-              {editedItem.status === ContentStatus.DRAFTING ? (
-                  <input
-                      type="text"
-                      value={editedItem.title}
-                      onChange={(e) => setEditedItem({...editedItem, title: e.target.value})}
-                      className="font-semibold text-sm text-brand-main dark:text-white bg-transparent outline-hidden w-full truncate"
-                      placeholder="Titre..."
-                  />
-              ) : (
-                  <p className="font-semibold text-sm text-brand-main dark:text-white truncate">
-                      {editedItem.title}
-                  </p>
-              )}
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  {editedItem.platforms?.slice(0, 2).map(p => (
-                      <span
-                          key={p}
-                          className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border"
-                      >
-                          {p}
-                      </span>
-                  ))}
-                  {editedItem.targetFormat && (
-                      <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                          {editedItem.targetFormat}
-                      </span>
-                  )}
-              </div>
-          </div>
-
-          {StepTabsDesktop}
-
-          <div className="flex items-center gap-2 shrink-0">
-              <SaveIndicator />
-              <CoutIndicator />
-              {editedItem.verdict && (
-                  <div className={`hidden lg:block px-1.5 py-0.5 rounded-full text-micro font-semibold ${getVerdictColor(editedItem.verdict)}`}>
-                      {editedItem.verdict}
-                  </div>
-              )}
-              <div className={`hidden lg:block px-1.5 py-0.5 rounded-full text-micro font-semibold border ${STATUS_COLORS[editedItem.status]}`}>
-                  {editedItem.status}
-              </div>
-          </div>
-      </div>
+  const corrigerLeFormat = (points: string[]) => void launchAdjustment(
+      `Corrige UNIQUEMENT les points suivants, relevés par le contrôle automatique du format, sans perdre le sens ni la voix : ${points.join(' ; ')}. Ne modifie rien d'autre.`,
   );
 
-  const getFooterContent = () => {
-      const canSave = isDirty && !isSaving;
-      return (
-          <>
-              <Bouton onClick={() => setConfirmDelete(true)} intention="discrete" ton="erreur" className="mr-auto">
-                  <Trash2 /> Supprimer
-              </Bouton>
-              <Bouton
-                  onClick={handleManualSave}
-                  disabled={!canSave}
-                  title={!isDirty ? "Aucune modification à enregistrer" : undefined}
-                  intention="principale"
-              >
-                  {isSaving
-                      ? <EnCours label="Enregistrement…" taille="md" />
-                      : <><Save /> Enregistrer</>}
-              </Bouton>
-          </>
-      );
+  // --- LA MATIÈRE ---
+
+  const repasserEnEcriture = async () => {
+      if (await changeStatus(ContentStatus.DRAFTING)) onStepChange(etapeDEcriture(sorte));
   };
+
+  const regenerer: EntreeMenu = { id: 'regenerer', libelle: 'Régénérer', onChoisir: () => triggerDrafting(), desactive: occupe };
+  const relire: EntreeMenu[] = relisible && aUnBrouillon
+      ? [{ id: 'relire', libelle: 'Relire à froid', onChoisir: () => triggerColdRead(), desactive: occupe }] : [];
+  const enEcriture: EntreeMenu[] = pret ? [{ id: 'ecriture', libelle: 'Repasser en écriture', onChoisir: () => void repasserEnEcriture(), desactive: occupe }] : [];
+  // Le texte d'un écrit se retouche à la main ; un script se reprend par le Rédacteur.
+  const aLaMain: EntreeMenu[] = aUnBrouillon && !video
+      ? [{ id: 'main', libelle: 'Modifier à la main', onChoisir: () => setEditionManuelle(bodyJsonToText(editedItem.draft || '')) }] : [];
+
+  const enregistrerLaRetouche = () => {
+      if (editionManuelle === null) return;
+      const data = parseBodyJson(editedItem.draft || '');
+      const draft = data && data.format ? JSON.stringify({ ...data, edited_raw: editionManuelle }) : editionManuelle;
+      setEditedItem({ ...editedItem, draft });
+      setEditionManuelle(null);
+  };
+
+  const bonAPublier: ActionMatiere = {
+      libelle: 'Bon à publier',
+      onClick: () => void (async () => { if (await changeStatus(ContentStatus.READY)) onStepChange('publication'); })(),
+      desactive: pointsRelecture > 0 || occupe,
+      raison: pointsRelecture > 0 ? `${pluriel(pointsRelecture, 'point')} ${pointsRelecture > 1 ? 'sont' : 'est'} à corriger d’abord.` : undefined,
+  };
+
+  const vide = {
+      titre: sorte === 'video' ? 'Pas encore de script' : sorte === 'carrousel' ? 'Pas encore de brouillon ni de slides' : 'Pas encore de brouillon',
+      texte: sorte === 'video'
+          ? 'Le Coach vous interroge, puis le Rédacteur écrit le script, séquence par séquence.'
+          : 'Le Coach vous interroge pour trouver l’angle ; « Go » passe la main au Rédacteur, qui écrit ici.',
+  };
+
+  const brouillon = editedItem.draft || '';
+  const lectureDuBrouillon = () => sorte === 'carrousel'
+      ? <TrameCarrousel draft={brouillon} />
+      : <div className="max-w-[680px]"><BodyRenderer body={brouillon} datePublication={editedItem.scheduledDate} /></div>;
+
+  let entete: React.ReactNode;
+  let corps: React.ReactNode;
+
+  if (editionManuelle !== null) {
+      entete = <EnteteMatiere nom="Brouillon" sousTitre="retouche à la main"
+          principale={{ libelle: 'Enregistrer la retouche', onClick: enregistrerLaRetouche }}
+          autres={[{ id: 'annuler', libelle: 'Annuler la retouche', onChoisir: () => setEditionManuelle(null) }]} />;
+      corps = (
+          <textarea
+              value={editionManuelle}
+              onChange={(e) => setEditionManuelle(e.target.value)}
+              aria-label="Retouche du brouillon"
+              className="w-full h-full min-h-[480px] p-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-sm leading-relaxed text-brand-main dark:text-dark-text font-mono outline-hidden focus:border-brand-main dark:focus:border-white"
+          />
+      );
+  } else switch (affichee) {
+      case 'ouverture':
+          entete = <EnteteMatiere nom="Ouverture" sousTitre={ligneAffichee?.statut === 'préparée' ? 'préparée par l’Analyste' : 'notes et format'} />;
+          corps = (
+              <MatiereOuverture
+                  notes={editedItem.notes}
+                  onNotes={(notes) => setEditedItem({ ...editedItem, notes })}
+                  format={editedItem.targetFormat}
+                  onFormat={(f) => setEditedItem({ ...editedItem, targetFormat: (f || null) as any })}
+                  verrouille={messagesCoach.length > 0 || aUnBrouillon}
+                  vide={vide}
+              />
+          );
+          break;
+      case 'atelier':
+          entete = <EnteteMatiere nom="Atelier" sousTitre={ligneAffichee?.statut}
+              autres={messagesCoach.length > 0 ? [{ id: 'reinitialiser', libelle: 'Réinitialiser l’atelier', ton: 'erreur', onChoisir: () => setConfirmReset(true), desactive: occupe }] : []} />;
+          corps = aUnBrouillon
+              ? (video ? <LectureScript draft={brouillon} format={editedItem.targetFormat} /> : lectureDuBrouillon())
+              : <MatiereVide titre="L’atelier se tient dans le fil" texte="Répondez au Coach à gauche. Quand la direction tient, « Go » passe la main au Rédacteur, et le brouillon s’écrit ici." />;
+          break;
+      case 'brouillon':
+          entete = <EnteteMatiere nom="Brouillon" sousTitre={ligneAffichee?.statut}
+              principale={pret ? null : sorte === 'carrousel'
+                  ? { libelle: 'Produire les slides', onClick: () => triggerCarrouselSlides(), desactive: occupe, enCours: actionIA === 'Slides du carrousel', libelleEnCours: 'Production…' }
+                  : bonAPublier}
+              autres={[...relire, regenerer, ...aLaMain, ...enEcriture]} />;
+          corps = lectureDuBrouillon();
+          break;
+      case 'slides':
+          entete = <EnteteMatiere nom="Slides" sousTitre={slidesStale ? 'le brouillon a changé depuis' : ligneAffichee?.statut}
+              principale={pret ? null : bonAPublier}
+              autres={[{ id: 'reproduire', libelle: 'Reproduire les slides', onChoisir: () => triggerCarrouselSlides(), desactive: occupe }, ...enEcriture]} />;
+          corps = (
+              <div className="space-y-6">
+                  {slidesStale && (
+                      <p className="text-xs text-alerte">Le brouillon a changé depuis la production de ces slides : elles ne le reflètent plus. « Reproduire les slides » les refait.</p>
+                  )}
+                  <VignettesSlides slides={editedItem.slides || ''} />
+                  <SlidesRenderer slidesRaw={editedItem.slides || ''} onAdjustPrompts={launchPromptsAdjustment} isAdjusting={isGenerating} />
+              </div>
+          );
+          break;
+      case 'script':
+          entete = <EnteteMatiere nom="Script" sousTitre={ligneAffichee?.statut}
+              principale={pret || sorte === 'video-sans-script' ? null : {
+                  libelle: 'Marquer prête à tourner',
+                  onClick: () => void (async () => { if (await changeStatus(ContentStatus.READY)) onStepChange('tournage'); })(),
+                  desactive: controles.length > 0 || occupe,
+                  raison: controles.length > 0 ? `${pluriel(controles.length, 'point')} ${controles.length > 1 ? 'sont' : 'est'} à corriger d’abord.` : undefined,
+              }}
+              autres={[...relire, regenerer, ...enEcriture]} />;
+          corps = sorte === 'video-sans-script'
+              ? <MatiereVide titre="Vidéo directe, sans script" texte="Sa transcription servira de texte : déposez la prise à l’étape Montage." />
+              : <LectureScript draft={brouillon} format={editedItem.targetFormat} />;
+          break;
+      case 'tournage':
+          entete = <EnteteMatiere nom="Tournage" sousTitre="le script, pour se l’approprier avant de filmer"
+              principale={{ libelle: 'Déposer la prise', onClick: () => onStepChange('montage') }}
+              autres={enEcriture} />;
+          corps = <LectureTournage draft={brouillon} format={editedItem.targetFormat} />;
+          break;
+      case 'publication':
+          entete = <EnteteMatiere nom="Publication" sousTitre={ligneAffichee?.statut} />;
+          corps = (
+              <div className="flex flex-wrap gap-6 items-start">
+                  <div className="flex-1 min-w-[320px] space-y-3">
+                      <Etiquette>Ce qui sera publié</Etiquette>
+                      <CeQuiSeraPublie sorte={sorte} draft={editedItem.draft} slides={editedItem.slides} format={editedItem.targetFormat}
+                          copiable={getEditorTab(editedItem.targetFormat as TargetFormat) === 'postcourt'} datePublication={editedItem.scheduledDate} />
+                  </div>
+                  <BlocPublier
+                      plateformes={editedItem.platforms}
+                      publie={editedItem.status === ContentStatus.PUBLISHED}
+                      libellePublication={ligneAffichee?.statut ?? null}
+                      dateInitiale={editedItem.scheduledDate}
+                      onPublier={(date) => void changeStatus(ContentStatus.PUBLISHED, date)}
+                      onRepasserEnEcriture={() => void repasserEnEcriture()}
+                      onDecliner={onDecline ? () => onDecline(editedItem) : undefined}
+                      occupe={occupe}
+                  />
+              </div>
+          );
+          break;
+  }
+
+  // --- LE PIED ---
+
+  const coutAffiche = cout && cout.usd !== null ? (() => {
+      const montant = cout.usd < 0.01 && cout.usd > 0 ? '< 0,01 $' : `${cout.usd.toFixed(2).replace('.', ',')} $`;
+      const partiel = cout.appelsSansPrix > 0;
+      return {
+          libelle: partiel ? `≥ ${montant}` : montant,
+          detail: `${cout.appels} appel${cout.appels > 1 ? 's' : ''} IA${partiel ? ` — ${cout.appelsSansPrix} sans prix déclaré, le total est donc un minimum` : ''}`,
+      };
+  })() : null;
+
+  // Au montage, l'étape prend toute la largeur : le studio vient en F5.
+  const auMontage = affichee === 'montage' && editionManuelle === null;
 
   return (
       <>
-        <EditorLayout
-            onClose={onClose}
-            headerContent={Header}
-            subHeaderContent={StepTabsMobile}
-            bannerContent={EditorBanner}
-            footerContent={getFooterContent()}
+        <CadreContenu
+            retour={{ libelle: libelleRetour, onClick: onClose }}
+            titre={editedItem.title}
+            onTitre={(title) => setEditedItem({ ...editedItem, title })}
+            pastilles={[getFormatDef(editedItem.targetFormat)?.shortKey, editedItem.objectif, ...editedItem.platforms].filter(Boolean) as string[]}
+            selecteur={<SelecteurEtape lignes={lignes} affichee={affichee} onChoisir={(e) => { setEditionManuelle(null); onStepChange(e); }} />}
+            panneauSerie={panneauSerie}
+            pied={<PiedContenu etat={saveStatus} erreur={saveError} onReessayer={retrySave} cout={coutAffiche} onSupprimer={onDelete ? () => setConfirmDelete(true) : undefined} />}
         >
-            {editedItem.status === ContentStatus.DRAFTING && (
-                <DraftView
-                    item={editedItem}
-                    onChange={setEditedItem}
-                    onLaunchDrafting={triggerDrafting}
-                    onLaunchCarrouselSlides={triggerCarrouselSlides}
-                    onLaunchAdjustment={launchAdjustment}
-                    onLaunchPromptsAdjustment={launchPromptsAdjustment}
-                    slidesStale={slidesStale}
-                    coachSession={coachSessionState}
-                    serieContext={serieContext}
-                    onChangeStatus={changeStatus}
-                    onSave={onSave}
-                    isGenerating={isGenerating}
-                    aiModels={aiModels}
-                    activeModelId={modelFor('COACH_CHAT')}
-                    onCoachMessage={handleCoachMessage}
-                    onCoachValidate={handleCoachValidate}
-                    onCoachReopen={handleCoachReopen}
-                    onCoachReset={handleCoachReset}
-                    activeTab={activeStep}
-                    onTabChange={onStepChange}
-                    coldRead={coldRead}
-                    coldReadMeta={coldReadMeta}
-                    onDismissColdRead={() => { setColdRead(null); setColdReadMeta(null); }}
-                    onRunColdRead={triggerColdRead}
-                />
+            {auMontage ? (
+                <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-surface">
+                    {aUnBrouillon
+                        ? <ScriptVideoMontage draft={brouillon} contentId={editedItem.id} />
+                        : <div className="p-7"><MatiereVide titre="Pas encore de script" texte="Le montage suit le script : il s’écrit d’abord à l’atelier." /></div>}
+                </div>
+            ) : (
+                <div className={`flex-1 min-h-0 grid ${panneauSerie ? 'grid-cols-[380px_minmax(0,1fr)]' : 'grid-cols-[440px_minmax(0,1fr)]'}`}>
+                    <div className="min-h-0 border-r border-brand-border dark:border-dark-sec-border">
+                        <Fil
+                            elements={elements}
+                            attente={attente}
+                            zone={zone}
+                            occupe={occupe}
+                            onAppliquer={(corrections) => void launchAdjustment(buildColdReadApplyInstruction(corrections))}
+                            onCorrigerLeFormat={corrigerLeFormat}
+                            onRevenir={() => void revenirALaVersionPrecedente()}
+                        />
+                    </div>
+                    <div className="min-h-0 flex flex-col bg-white dark:bg-dark-surface">
+                        {entete}
+                        <div className="flex-1 overflow-y-auto p-7">{corps}</div>
+                    </div>
+                </div>
             )}
+        </CadreContenu>
 
-            {(editedItem.status === ContentStatus.READY || editedItem.status === ContentStatus.PUBLISHED) && (
-                <PreviewView 
-                    item={editedItem}
-                    onChangeStatus={changeStatus}
-                    onDecline={onDecline ? () => onDecline(editedItem) : undefined}
-                />
-            )}
-        </EditorLayout>
-
-        <AlertModal 
-            isOpen={alertInfo.isOpen} 
+        <AlertModal
+            isOpen={alertInfo.isOpen}
             onClose={() => setAlertInfo({ ...alertInfo, isOpen: false })}
             title={alertInfo.title}
             message={alertInfo.message}
             type={alertInfo.type}
         />
-        
-        <ConfirmModal 
+
+        <ConfirmModal
+            isOpen={confirmReset}
+            onClose={() => setConfirmReset(false)}
+            onConfirm={() => { setConfirmReset(false); void handleCoachReset(); }}
+            title="Réinitialiser l’atelier ?"
+            message="La conversation avec le Coach quitte l’écran et l’atelier repart de zéro. Le brouillon n’est pas touché, et la conversation reste en base."
+            isDestructive={true}
+            confirmLabel="Réinitialiser"
+        />
+
+        <ConfirmModal
             isOpen={confirmDelete}
             onClose={() => setConfirmDelete(false)}
             onConfirm={handleDelete}
@@ -1360,6 +1383,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
         />
       </>
   );
+};
+
+/** Le montage d'une vidéo, en attendant le studio (F5) : le panneau d'avant, en pleine largeur. */
+const ScriptVideoMontage: React.FC<{ draft: string; contentId: string }> = ({ draft, contentId }) => {
+    const data = parseBodyJson(draft);
+    if (data?.sequences) return <StoryboardRenderer data={data} contentId={contentId} />;
+    return <div className="p-6"><MontageDirect brouillon={data} contentId={contentId} /></div>;
 };
 
 export default ContentEditor;

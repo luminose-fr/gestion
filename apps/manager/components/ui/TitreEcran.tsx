@@ -13,6 +13,13 @@ const TAILLES = {
   contenu: 'text-[20px] leading-[26px]',
 } as const;
 
+/**
+ * Les classes du titre, pour un titre qu'on écrit en place (un `<input>`) : la
+ * taille ne s'écrit qu'ici.
+ */
+export const CLASSES_TITRE_ECRAN = (taille: keyof typeof TAILLES = 'ecran') =>
+  `font-display italic font-normal text-brand-hover dark:text-white ${TAILLES[taille]}`;
+
 export interface TitreEcranProps extends React.HTMLAttributes<HTMLHeadingElement> {
   taille?: keyof typeof TAILLES;
   as?: 'h1' | 'h2' | 'p';

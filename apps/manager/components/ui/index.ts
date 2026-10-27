@@ -32,5 +32,5 @@ export type { BarreProgressionProps, EtatSegment } from './BarreProgression';
 export { Menu } from './Menu';
 export type { MenuProps, EntreeMenu } from './Menu';
 
-export { TitreEcran } from './TitreEcran';
+export { TitreEcran, CLASSES_TITRE_ECRAN } from './TitreEcran';
 export type { TitreEcranProps } from './TitreEcran';

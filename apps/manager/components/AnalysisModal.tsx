@@ -165,7 +165,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
             // Plus de signature collée derrière le texte (SPEC §2.6).
             strategicAngle: angleWithTitle,
             platforms: mappedPlatforms.length > 0 ? mappedPlatforms : originalItem.platforms,
-            // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
+            // targetFormat non modifié : Florent le choisit, à l'Ouverture (SPEC §4.1 point 4)
             objectif: objectif || originalItem.objectif,
             justification: justification ?? originalItem.justification,
             suggestedMetaphor: suggestedMetaphor ?? originalItem.suggestedMetaphor,

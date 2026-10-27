@@ -5,8 +5,8 @@ import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import {
   AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection,
-  etapeCourante, dernierFait, resumerLeFait, momentDuFait,
-  type EtapeCourante, type PlanSeriesEntry, type SerieSibling,
+  etapeCourante, dernierFait, resumerLeFait, momentDuFait, estEtape,
+  type Etape, type EtapeCourante, type PlanSeriesEntry, type SerieSibling,
 } from '@luminose/editorial';
 import type { ResumeFils, ResumeMontages } from '@luminose/shared';
 import * as AiService from './services/aiService';
@@ -22,8 +22,7 @@ import {
   SettingsSection, isSettingsSection, settingsSectionLabel, settingsSectionSousTitre,
   grouperParAdaptateur,
 } from './components/Settings/sections';
-import ContentEditor, { EditorStep } from './components/ContentEditor';
-import { IdeaModal } from './components/IdeaModal'; 
+import ContentEditor from './components/ContentEditor';
 import AnalysisModal from './components/AnalysisModal';
 import { LoginPage } from './components/LoginPage';
 import { isAuthenticated, logout } from './auth';
@@ -47,21 +46,6 @@ type SpaceView = 'social' | 'clients' | 'psychedelics' | 'corpus' | 'settings';
 /** Les trois listes, et `series` : l'adresse d'un plan de série (SPEC §13). */
 type SocialTab = ListeContenus | 'series';
 
-/**
- * L'étape de l'éditeur où un contenu s'ouvre, d'après la règle d'arrivée
- * (SPEC §13.4). L'éditeur garde ses onglets jusqu'à la phase F3 : on traduit
- * l'étape calculée dans son vocabulaire.
- */
-const ongletDeLEditeur = (etape: EtapeCourante['etape']): EditorStep => {
-    switch (etape) {
-        case 'ouverture': return 'idea';
-        case 'atelier': return 'atelier';
-        case 'brouillon': return 'brouillon';
-        case 'slides': return 'slides';
-        case 'script': case 'tournage': case 'montage': case 'publication': return 'script';
-        default: return 'idea';
-    }
-};
 
 const getSpaceHash = (space: SpaceView) => {
     if (space === 'psychedelics') return 'psychedeliques';
@@ -123,18 +107,17 @@ const getHashState = () => {
     const itemId = surSeries ? segment(3) : segment(2);
     const etapeIndex = surSeries ? 4 : 3;
     
-    let step: EditorStep = 'idea';
-    const LEGACY_STEP_MAP: Record<string, EditorStep> = {
-        'interview': 'atelier', 'content': 'atelier',
+    /*
+     * L'étape écrite dans l'adresse est respectée (rechargement, retour) ;
+     * absente, le contenu s'ouvre sur son étape courante (SPEC §13.4). Les
+     * noms d'avant la v2.19 restent compris.
+     */
+    let step: Etape | null = null;
+    const ETAPES_D_AVANT: Record<string, Etape> = {
+        idea: 'ouverture', postcourt: 'brouillon', interview: 'atelier', content: 'atelier',
     };
     const brut = parts[etapeIndex];
-    if (brut) {
-        if (['idea', 'atelier', 'brouillon', 'slides', 'postcourt', 'script'].includes(brut)) {
-            step = brut as EditorStep;
-        } else if (LEGACY_STEP_MAP[brut]) {
-            step = LEGACY_STEP_MAP[brut];
-        }
-    }
+    if (brut) step = estEtape(brut) ? brut : ETAPES_D_AVANT[brut] ?? null;
 
     return { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, serieId, itemId, step, vuePublies };
 };
@@ -184,8 +167,8 @@ function App() {
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingSerieId, setEditingSerieId] = useState<string | null>(null);
-  const [currentEditorStep, setCurrentEditorStep] = useState<EditorStep>('idea');
-  const [pendingEditorAction, setPendingEditorAction] = useState<'interview' | null>(null);
+  /** L'étape demandée par l'adresse ; `null` : le contenu s'ouvre sur son étape courante. */
+  const [currentEditorStep, setCurrentEditorStep] = useState<Etape | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   /** Le geste que la liste Conversations isole ; la vue des Publiés vit dans l'adresse. */
@@ -337,9 +320,9 @@ function App() {
   }, []);
 
   /** Séries : `#social/series/<serie>[/<contenu>[/<etape>]]`. */
-  const updateSerieRoute = (serieId: string, contentId?: string | null, step: EditorStep = 'idea') => {
+  const updateSerieRoute = (serieId: string, contentId?: string | null, step: Etape | null = null) => {
       const hash = contentId
-          ? `social/series/${serieId}/${contentId}/${step}`
+          ? `social/series/${serieId}/${contentId}${step ? `/${step}` : ''}`
           : `social/series/${serieId}`;
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
   };
@@ -375,14 +358,14 @@ function App() {
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
   };
 
-  const updateRoute = (space: SpaceView, tab: SocialTab, itemId: string | null = null, step: EditorStep = 'idea') => {
+  const updateRoute = (space: SpaceView, tab: SocialTab, itemId: string | null = null, step: Etape | null = null) => {
       if (space === 'corpus') return updateCorpusRoute(currentCorpusSection, currentCorpusBloc);
       let hash = `${getSpaceHash(space)}`;
       if (space === 'social') {
           hash += `/${tab}`;
           if (itemId) {
               hash += `/${itemId}`;
-              hash += `/${step}`;
+              if (step) hash += `/${step}`;
           }
       }
       if (window.location.hash !== `#${hash}`) {
@@ -645,20 +628,20 @@ function App() {
    * la liste d'où l'on part ne décide que du retour.
    */
   const ouvrirContenu = (item: ContentItem, depuis?: ListeContenus) => {
-      const onglet = ongletDeLEditeur(etapeDe(item).etape);
-      if (depuis === undefined && item.serieId && currentSocialTab === 'series') updateSerieRoute(item.serieId, item.id, onglet);
-      else updateRoute('social', depuis ?? listeDuContenu(item), item.id, onglet);
+      const etape = etapeDe(item).etape;
+      if (depuis === undefined && item.serieId && currentSocialTab === 'series') updateSerieRoute(item.serieId, item.id, etape);
+      else updateRoute('social', depuis ?? listeDuContenu(item), item.id, etape);
   };
 
   /** Fermer un contenu ouvert depuis sa série ramène au plan, pas à la liste. */
   const handleCloseEditor = () => {
       if (editingSerieId) updateSerieRoute(editingSerieId);
-      else updateRoute(currentSpace, currentSocialTab, null, 'idea');
+      else updateRoute(currentSpace, currentSocialTab);
       // Ce qu'on vient de faire dans le contenu a pu changer son étape.
       void lireLesEtapes();
   };
 
-  const handleStepChange = (newStep: EditorStep) => {
+  const handleStepChange = (newStep: Etape) => {
       if (!editingItemId) return;
       if (editingSerieId) updateSerieRoute(editingSerieId, editingItemId, newStep);
       else updateRoute(currentSpace, currentSocialTab, editingItemId, newStep);
@@ -741,32 +724,11 @@ function App() {
     }
   };
 
-  const handleTransformToDraft = async (
-    updatedItem: ContentItem,
-    options?: { launchInterview?: boolean }
-  ): Promise<void> => {
-    // Sauvegarder l'item avec le nouveau statut DRAFTING.
-    // Si le serveur refuse, on reste sur place : le bandeau explique pourquoi.
-    try {
-        await handleUpdateItem(updatedItem);
-    } catch {
-        return;
-    }
-    // Indiquer à ContentEditor qu'il doit lancer l'interview dès l'ouverture
-    if (options?.launchInterview) {
-        setPendingEditorAction('interview');
-    }
-    // Naviguer vers l'éditeur — dans sa série quand le contenu en vient : on
-    // ne quitte pas une série pour travailler l'une de ses publications.
-    if (updatedItem.serieId) updateSerieRoute(updatedItem.serieId, updatedItem.id, 'idea');
-    else updateRoute('social', 'conversations', updatedItem.id, 'idea');
-  };
-
   const handleDeleteItem = async (itemToDelete: ContentItem): Promise<void> => {
       const newItems = items.filter(i => i.id !== itemToDelete.id);
       setItems(newItems);
       if (editingSerieId) updateSerieRoute(editingSerieId);
-      else updateRoute(currentSpace, currentSocialTab, null, 'idea');
+      else updateRoute(currentSpace, currentSocialTab);
       
       StorageService.setCachedContent(newItems).catch(console.error);
 
@@ -923,9 +885,9 @@ function App() {
 
   /** Ouvrir une publication depuis sa série y reste : c'est le même travail. */
   const handleOpenSerieContent = (item: ContentItem) => {
-      const onglet = ongletDeLEditeur(etapeDe(item).etape);
-      if (item.serieId) updateSerieRoute(item.serieId, item.id, onglet);
-      else updateRoute('social', listeDuContenu(item), item.id, onglet);
+      const etape = etapeDe(item).etape;
+      if (item.serieId) updateSerieRoute(item.serieId, item.id, etape);
+      else updateRoute('social', listeDuContenu(item), item.id, etape);
   };
 
   // --- AI ANALYSIS FLOW (sans modale — modèle actif global) ---
@@ -999,7 +961,7 @@ function App() {
                   // part au journal des productions (SPEC §2.6).
                   strategicAngle: angleWithTitle,
                   platforms: mappedPlatforms.length > 0 ? mappedPlatforms : itemToAnalyze.platforms,
-                  // targetFormat non modifié : contrôlé par l'utilisateur dans IdeaModal
+                  // targetFormat non modifié : Florent le choisit, à l'Ouverture (SPEC §4.1 point 4)
                   objectif: objectif || itemToAnalyze.objectif,
                   justification: justification ?? itemToAnalyze.justification,
                   suggestedMetaphor: suggestedMetaphor ?? itemToAnalyze.suggestedMetaphor,
@@ -1146,7 +1108,7 @@ function App() {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const isEditorTakeover = currentSpace === 'social' && !!editingItem && editingItem.status !== ContentStatus.IDEA;
+  const isEditorTakeover = currentSpace === 'social' && !!editingItem;
 
   return (
     <div className="flex h-screen bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans transition-colors duration-200 overflow-hidden border-t border-brand-border dark:border-dark-sec-border">
@@ -1165,6 +1127,7 @@ function App() {
           corpusCounts={corpusCounts}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
+          replie={isEditorTakeover}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
@@ -1182,8 +1145,9 @@ function App() {
             </div>
         )}
 
-        {/* 64 px, à la hauteur de l'en-tête du panneau : les deux bordures basses se prolongent. */}
-        <header className="relative h-16 px-4 md:px-8 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
+        {/* 64 px, à la hauteur de l'en-tête du panneau : les deux bordures basses se prolongent.
+            Un contenu ouvert a son propre bandeau (SPEC §13.9) : celui-ci s'efface. */}
+        {!isEditorTakeover && <header className="relative h-16 px-4 md:px-8 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
               <button
                   onClick={() => setIsMobileMenuOpen(true)}
@@ -1261,7 +1225,7 @@ function App() {
             {/* Le filet court sur la bordure basse de l'en-tête : toujours au même
                 endroit, quel que soit l'écran ouvert, et sans rien pousser. */}
             <FiletActivite />
-        </header>
+        </header>}
 
         {/* Le bandeau des appels en cours vit ici, dans la coque : un appel lancé
             depuis l'atelier reste visible quand on revient à la liste (SPEC §3.5.1). */}
@@ -1362,24 +1326,27 @@ function App() {
         {currentSpace === 'social' && (
             <main className="flex-1 overflow-hidden relative flex flex-col">
 
-                {editingItem && editingItem.status !== ContentStatus.IDEA ? (
+                {editingItem ? (
                     <ContentEditor
+                        // Un contenu, un éditeur : ni la conversation ni l'atelier d'une
+                        // publication ne doivent suivre sur la suivante (SPEC §2.7).
+                        key={editingItem.id}
                         item={editingItem}
                         aiModels={aiModels}
                         activeModelId={activeModelId}
                         onClose={handleCloseEditor}
+                        libelleRetour={editingSerieId ? 'Plan de la série' : currentSocialTab === 'series' ? 'Conversations' : libelleDeListe(currentSocialTab)}
                         onSave={handleUpdateItem}
                         onDelete={handleDeleteItem}
                         onDecline={handleDeclineContent}
                         modelFor={modelFor}
                         serieContext={editorSerieContext}
-                        serieNav={editorSerieNav}
-                        onOpenSerie={() => editingSerieId && updateSerieRoute(editingSerieId)}
-                        onOpenSerieContent={handleOpenSerieContent}
-                        activeStep={currentEditorStep}
+                        activeStep={currentEditorStep ?? etapeDe(editingItem).etape}
                         onStepChange={handleStepChange}
-                        initialAction={pendingEditorAction}
-                        onInitialActionConsumed={() => setPendingEditorAction(null)}
+                        resumeFil={fils?.contenus[editingItem.id] ?? null}
+                        resumeMontage={montages?.contenus[editingItem.id] ?? null}
+                        onAnalyser={() => triggerSingleAnalysis(editingItem)}
+                        analyseEnCours={isSingleAnalyzing}
                     />
                 ) : (
                     <div className="flex-1 overflow-y-auto">
@@ -1452,18 +1419,6 @@ function App() {
 
                         </div>
                     </div>
-                )}
-
-                {editingItem && editingItem.status === ContentStatus.IDEA && (
-                    <IdeaModal
-                        item={editingItem}
-                        onClose={handleCloseEditor}
-                        onChange={handleUpdateItem}
-                        onDelete={handleDeleteItem}
-                        onTransformToDraft={handleTransformToDraft}
-                        onAnalyze={() => triggerSingleAnalysis(editingItem)}
-                        isReanalyzing={isSingleAnalyzing}
-                    />
                 )}
 
                 <AnalysisModal

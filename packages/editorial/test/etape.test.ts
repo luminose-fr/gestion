@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-    etapeCourante, sorteDuContenu, etapesDuFil, visuelsAProduire, jourCourt,
+    etapeCourante, etapesDuSelecteur, sorteDuContenu, etapesDuFil, visuelsAProduire, jourCourt,
     type ContenuPourEtape, type EntreeEtape, type MontagePourEtape,
 } from '../src/etape';
 import { TargetFormat, VIDEO_DIRECTE, verifierReelExplique, type ReelExplique } from '../src/index';
@@ -289,5 +289,64 @@ describe('la barre de progression (§13.2)', () => {
 describe('les dates courtes', () => {
     it('se lisent en français, à l’heure de Paris', () => {
         expect(jourCourt(Date.parse('2026-10-12T22:30:00Z'))).toBe('13 oct.');
+    });
+});
+
+describe('le sélecteur d’étape (§13.9)', () => {
+    const lignes = (entree: Partial<EntreeEtape> & { contenu: ContenuPourEtape }) =>
+        Object.fromEntries(etapesDuSelecteur({ maintenant: MAINTENANT, ...entree }).map(l => [l.etape, l]));
+
+    it('un écrit relu : les étapes faites, l’étape actuelle, la publication verrouillée', () => {
+        const l = lignes({
+            contenu: contenu({ targetFormat: TargetFormat.POST_TEXTE_COURT, draft: BROUILLON, coachStatus: 'validated', analyzedAt: MAINTENANT }),
+            session: { messages: 8, tours: 4 },
+            relecture: { verdict: 'Publiable', points: 0, le: MAINTENANT },
+        });
+        expect(Object.keys(l)).toEqual(['ouverture', 'atelier', 'brouillon', 'publication']);
+        expect(l.ouverture).toMatchObject({ faite: true, statut: 'préparée' });
+        expect(l.atelier).toMatchObject({ faite: true, statut: 'validé' });
+        expect(l.brouillon).toMatchObject({ actuelle: true, faite: false, statut: 'relu : Publiable' });
+        expect(l.publication).toMatchObject({ verrouillee: true, statut: 'verrouillée', raison: expect.stringContaining('Bon à publier') });
+    });
+
+    it('un carrousel sans slides les verrouille ; bon à publier, la publication s’ouvre', () => {
+        const c = contenu({ targetFormat: TargetFormat.CARROUSEL_SLIDE, draft: BROUILLON });
+        expect(lignes({ contenu: c }).slides).toMatchObject({ verrouillee: true });
+        const pret = lignes({ contenu: { ...c, slides: '{}', status: 'Prêt' } });
+        expect(pret.slides).toMatchObject({ verrouillee: false, statut: 'produites', faite: true });
+        expect(pret.publication).toMatchObject({ verrouillee: false, actuelle: true, statut: 'à publier' });
+    });
+
+    it('une vidéo : le script, le tournage, le montage disent où ils en sont', () => {
+        const l = lignes({ contenu: video({ status: 'Prêt' }), montage: montage({ prises: [prise()] }) });
+        expect(l.script).toMatchObject({ faite: true, statut: 'écrit' });
+        expect(l.tournage).toMatchObject({ faite: true, statut: 'prête à tourner' });
+        expect(l.montage).toMatchObject({ actuelle: true, statut: 'prise calée' });
+        expect(l.publication).toMatchObject({ verrouillee: true, raison: 'Exportez la vidéo d’abord.' });
+    });
+
+    it('une vidéo exportée se publie, même jamais marquée prête à tourner', () => {
+        const l = lignes({ contenu: video(), montage: montage({ prises: [prise()], dernierExport: { format: '9:16', version: 'organique', le: MAINTENANT } }) });
+        expect(l.publication).toMatchObject({ verrouillee: false, actuelle: true, statut: 'à publier' });
+        expect(l.montage).toMatchObject({ faite: true, statut: 'exportée' });
+    });
+
+    it('sans brouillon, Script, Tournage et Montage attendent', () => {
+        const l = lignes({ contenu: contenu({ targetFormat: TargetFormat.REEL_EXPLIQUE }) });
+        expect(l.ouverture.actuelle).toBe(true);
+        for (const e of ['script', 'tournage', 'montage', 'publication']) expect(l[e].verrouillee).toBe(true);
+    });
+
+    it('une vidéo sans script n’a que Montage et Publication', () => {
+        const l = lignes({ contenu: contenu({ targetFormat: VIDEO_DIRECTE.format, draft: VIDEO_DIRECTE.brouillon() }) });
+        expect(Object.keys(l)).toEqual(['montage', 'publication']);
+        expect(l.montage).toMatchObject({ actuelle: true, statut: 'déposez la prise' });
+    });
+
+    it('un contenu publié : toutes les étapes faites, la date à la publication', () => {
+        const passee = new Date(MAINTENANT - 15 * JOUR).toISOString().slice(0, 10);
+        const l = lignes({ contenu: contenu({ draft: BROUILLON, status: 'Publié', scheduledDate: passee }) });
+        expect(l.brouillon.faite).toBe(true);
+        expect(l.publication).toMatchObject({ actuelle: true, faite: true, statut: 'Publié le 12 oct.' });
     });
 });
