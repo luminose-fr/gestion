@@ -252,11 +252,22 @@ const recouvre = (passage: Intervalle, coupe: Intervalle) => {
     return commun >= 0.9 * (coupe.fin - coupe.debut) && commun >= 0.5 * (passage.fin - passage.debut);
 };
 
+/** Un reste plus court n'est que de l'air autour des mots : il ne mérite pas sa clé. */
+const RESTE_MIN = 0.3;
+
+const cleManuelle = (debut: number, fin: number) => `m${debut.toFixed(2)}-${fin.toFixed(2)}`;
+
 /**
  * Le choix suivant, une fois un passage tranché à la main dans le montage par
  * le texte. S'il correspond à une coupe proposée, c'est elle qu'on tranche :
  * le choix reste lisible, et suit la coupe si une transcription la décale. Sinon
  * un passage manuel s'ajoute, et remplace ceux qu'il englobe.
+ *
+ * **Le dernier geste l'emporte** (corrigé le 27/10/2026). Un passage rétabli
+ * l'emporte sur toute coupe dans `coupesAppliquees` : recouper une partie de ce
+ * qu'on venait de rétablir n'avait donc aucun effet, et « se raviser d'un clic »
+ * ne marchait pas. Un passage manuel de sens contraire que le nouveau chevauche
+ * ne garde que ce qui en dépasse.
  */
 export function trancherUnPassage(
     choix: ChoixDesCoupes | undefined,
@@ -266,11 +277,21 @@ export function trancherUnPassage(
 ): ChoixDesCoupes {
     const proposee = proposees.find(c => recouvre(passage, c));
     if (proposee) return choisir(choix, proposee, coupe);
-    const suite = Object.fromEntries(Object.entries(choix ?? {}).filter(([cle]) => {
-        const m = passagesManuels({ [cle]: true })[0];
-        return !m || m.debut < passage.debut || m.fin > passage.fin;
-    }));
-    suite[`m${passage.debut.toFixed(2)}-${passage.fin.toFixed(2)}`] = coupe;
+    const suite: ChoixDesCoupes = {};
+    for (const [cle, valeur] of Object.entries(choix ?? {})) {
+        const m = passagesManuels({ [cle]: valeur })[0];
+        if (!m) { suite[cle] = valeur; continue; }
+        // Englobé par le nouveau passage : il disparaît.
+        if (m.debut >= passage.debut && m.fin <= passage.fin) continue;
+        const chevauche = m.fin > passage.debut && m.debut < passage.fin;
+        if (chevauche && m.coupe !== coupe) {
+            if (passage.debut - m.debut >= RESTE_MIN) suite[cleManuelle(m.debut, passage.debut)] = m.coupe;
+            if (m.fin - passage.fin >= RESTE_MIN) suite[cleManuelle(passage.fin, m.fin)] = m.coupe;
+            continue;
+        }
+        suite[cle] = valeur;
+    }
+    suite[cleManuelle(passage.debut, passage.fin)] = coupe;
     return suite;
 }
 
