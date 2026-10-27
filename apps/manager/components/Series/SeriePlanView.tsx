@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import {
-    ArrowLeft, Plus, Trash2, Layers, Link2, Rows3, Wand2, CheckCircle2, AlertCircle,
+    Plus, Trash2, Link2, Rows3, Wand2, CheckCircle2, AlertCircle,
     ChevronDown, ChevronRight,
 } from 'lucide-react';
 import {
     ContentItem, Serie, SerieStatus, TargetFormat, Objectif,
     TARGET_FORMAT_VALUES, OBJECTIF_VALUES, isTargetFormat, isObjectif,
 } from '../../types';
-import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable, isPlanEntryCreatable } from '@luminose/editorial';
+import { PlanSeriesEntry, SerieSibling, emptyPlanEntry, isPlanEntryUsable, isPlanEntryCreatable, getFormatDef, type EtapeCourante } from '@luminose/editorial';
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { ConfirmSuppressionSerie } from './ConfirmSuppressionSerie';
 import { EnCours } from '../Feedback';
-import { Bouton, CLASSES_CHAMP, Champ, Etiquette, CLASSES_SURTITRE, CLASSES_TITRE } from '../ui';
+import { BarreProgression, Bouton, CLASSES_CHAMP, Champ, Etiquette, CLASSES_SURTITRE, CLASSES_TITRE } from '../ui';
+import { EnteteMatiere } from '../Contenu/Matiere';
 
 interface SeriePlanViewProps {
     serie: Serie;
@@ -19,8 +20,12 @@ interface SeriePlanViewProps {
     contents: ContentItem[];
     /** Le contenu pilier, quand la série en a un (SPEC §2.9). */
     sourceContent: ContentItem | null;
-    onBack: () => void;
+    /** L'étape de chaque publication, comme les listes la calculent (SPEC §13.1). */
+    etapes: Record<string, EtapeCourante>;
     onUpdate: (patch: Partial<Serie>) => Promise<void>;
+    /** « Supprimer la série », au pied du cadre : la confirmation vit ici, avec ce qu'elle doit dire. */
+    suppressionDemandee: boolean;
+    onFermerSuppression: () => void;
     /** Le sort des publications est décidé au moment de supprimer (SPEC §3.3). */
     onDelete: (mode: ModeSuppressionSerie) => Promise<void>;
     /** Création en lot : six contenus ou zéro, jamais une série à moitié peuplée (SPEC §6.3). */
@@ -45,7 +50,7 @@ const STATUT_OPTIONS: Array<{ value: SerieStatus; label: string }> = [
 const inputCls = CLASSES_CHAMP;
 
 export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
-    serie, contents, sourceContent, onBack, onUpdate, onDelete, onCreateContents, onOpenContent,
+    serie, contents, sourceContent, etapes, onUpdate, suppressionDemandee, onFermerSuppression, onDelete, onCreateContents, onOpenContent,
     onGeneratePlan
 }) => {
     /**
@@ -57,7 +62,6 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     const [rows, setRows] = useState<PlanSeriesEntry[]>([]);
     const [isCreating, setIsCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
-    const [confirmDelete, setConfirmDelete] = useState(false);
     const [isPlanning, setIsPlanning] = useState(false);
     const [nombreSouhaite, setNombreSouhaite] = useState(6);
 
@@ -110,7 +114,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
      * une ligne écrite à la main ne doit pas disparaître parce qu'on a demandé
      * une rallonge à l'Éclateur.
      */
-    const handleGenerate = async () => {
+    const handleGenerate = async (nombre: number = nombreSouhaite) => {
         if (isPlanning) return;
         setIsPlanning(true);
         setCreateError(null);
@@ -119,7 +123,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 ...contents.map(item => ({ titre: item.title, angle: item.angle })),
                 ...usableRows.map(row => ({ titre: row.titre, angle: row.angle })),
             ];
-            const entries = await onGeneratePlan(nombreSouhaite, dejaPrevus);
+            const entries = await onGeneratePlan(nombre, dejaPrevus);
             setRows(prev => [...prev, ...entries]);
             setPlanForce(true);
         } catch (e: any) {
@@ -163,35 +167,36 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     };
 
     return (
-        <div className="space-y-5 animate-fade-in">
+        <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-dark-surface">
+            {/* Une seule action principale, comme toute matière (SPEC §13.12) : allonger la série d'une publication. */}
+            <EnteteMatiere
+                nom="Plan de la série"
+                sousTitre={`${contents.length} publication${contents.length > 1 ? 's' : ''}`}
+                principale={{
+                    libelle: 'Générer une publication de plus',
+                    onClick: () => void handleGenerate(1),
+                    enCours: isPlanning,
+                    libelleEnCours: 'L’Éclateur réfléchit…',
+                    icone: <Wand2 />,
+                }}
+            />
+        <div className="flex-1 min-h-0 overflow-y-auto p-7 space-y-5 animate-fade-in">
 
-            {/* ── En-tête de la série ────────────────────────────────────── */}
-            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 space-y-3">
+            {/* ── L'intention de la série ──────────────────────────────────── */}
+            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-5 space-y-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                        onClick={onBack}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-brand-main/60 dark:text-dark-text/60 hover:text-brand-main dark:hover:text-white transition-colors"
-                    >
-                        <ArrowLeft className="w-3.5 h-3.5" /> Séries
-                    </button>
-                    <Etiquette as="span" avecIcone>
-                        <Layers className="w-3 h-3" /> Série
-                    </Etiquette>
+                    <Etiquette forme="entete">Intention</Etiquette>
                     <div className="ml-auto flex items-center gap-2">
                         <select
                             value={serie.statut}
                             onChange={e => void onUpdate({ statut: e.target.value as SerieStatus })}
-                            className="px-3 py-1.5 rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden cursor-pointer"
+                            aria-label="Statut de la série"
+                            className={`${CLASSES_CHAMP} w-auto cursor-pointer`}
                         >
                             {STATUT_OPTIONS.map(o => (
                                 <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
                         </select>
-                        <Bouton
-                            onClick={() => setConfirmDelete(true)}
-                            taille="petit" intention="discrete" ton="erreur">
-                            <Trash2 className="w-3.5 h-3.5" /> Supprimer
-                        </Bouton>
                     </div>
                 </div>
 
@@ -266,7 +271,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             ))}
                         </select>
                         <Bouton
-                            onClick={handleGenerate}
+                            onClick={() => void handleGenerate()}
                             disabled={isPlanning}
                             title="L'Éclateur propose un plan à partir du sujet, de l'intention et du contenu pilier"
                             taille="petit">
@@ -428,9 +433,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
             {/* ── Les contenus déjà créés ────────────────────────────────── */}
             <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
                 <div className="px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
-                    <Etiquette forme="entete" avecIcone>
-                        <Layers className="w-3 h-3" /> Contenus de la série ({contents.length})
-                    </Etiquette>
+                    <Etiquette forme="entete">Publications, dans l’ordre</Etiquette>
                 </div>
                 {contents.length === 0 ? (
                     <p className="px-4 py-8 text-center text-sm text-brand-main/50 dark:text-dark-text/50">
@@ -445,31 +448,21 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             <li key={item.id}>
                                 <button
                                     onClick={() => onOpenContent(item)}
-                                    className="w-full text-left px-4 py-2 hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors group flex items-start gap-3"
+                                    className="w-full min-h-[60px] grid grid-cols-[26px_minmax(0,1fr)_auto_200px_16px] items-center gap-4 px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
                                 >
-                                    <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-micro font-bold text-brand-main/70 dark:text-dark-text/70">
+                                    <span className="w-[26px] h-[26px] rounded-full border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-xs font-bold text-brand-main/70 dark:text-dark-text/70">
                                         {item.seriePosition ?? index + 1}
                                     </span>
-                                    <span className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-semibold text-sm text-brand-main dark:text-white group-hover:text-brand-hover dark:group-hover:text-brand-light transition-colors">
-                                            {item.title || 'Sans titre'}
-                                        </span>
-                                        {item.targetFormat && (
-                                            <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                {item.targetFormat}
-                                            </span>
-                                        )}
-                                        <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main/70 border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                            {item.status}
-                                        </span>
-                                    </div>
-                                    {item.angle && (
-                                        <p className="mt-1 text-xs text-brand-main/60 dark:text-dark-text/60 line-clamp-2">
-                                            {item.angle}
-                                        </p>
-                                    )}
+                                    <span className="min-w-0">
+                                        <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
+                                        {item.angle && <span className="block text-xs text-brand-main/60 dark:text-dark-text/60 truncate">{item.angle}</span>}
                                     </span>
+                                    <span>{getFormatDef(item.targetFormat)?.shortKey && <Etiquette as="span" forme="pastille">{getFormatDef(item.targetFormat)!.shortKey}</Etiquette>}</span>
+                                    <span className="space-y-1">
+                                        {etapes[item.id] && <BarreProgression segments={etapes[item.id].progression.segments} complet={etapes[item.id].progression.complet} />}
+                                        <span className={`block text-xs font-semibold truncate ${etapes[item.id]?.progression.complet ? 'text-succes' : 'text-brand-main dark:text-dark-text'}`}>{etapes[item.id]?.libelle}</span>
+                                    </span>
+                                    <ChevronRight className="w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
                                 </button>
                             </li>
                         ))}
@@ -478,13 +471,14 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
             </div>
 
             <ConfirmSuppressionSerie
-                isOpen={confirmDelete}
+                isOpen={suppressionDemandee}
                 titre={serie.titre}
                 nbPublications={contents.length}
                 titrePilier={sourceContent ? (sourceContent.title || 'Sans titre') : null}
-                onClose={() => setConfirmDelete(false)}
+                onClose={onFermerSuppression}
                 onConfirm={onDelete}
             />
+        </div>
         </div>
     );
 };
