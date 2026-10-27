@@ -2315,6 +2315,43 @@ dans chaque onglet, la pastille de statut et l'étiquette de verdict
 **Côté données** : `GET /contents/:id` rend aussi les gestes du contenu (4 requêtes), et
 le journal se relit après chaque production (`?limit=50`).
 
+### 13.11 Le studio (F5)
+
+L'étape Montage d'une vidéo. **Le fil se replie** derrière le bouton « Le fil » du
+bandeau, qui ouvre un volet de 440 px par-dessus, à droite. Le reste se partage en deux
+niveaux (`PanneauMontage`, enveloppé par `Contenu/Studio.tsx`, qui lit le texte de
+référence : le script, ou la transcription pour une vidéo sans script, §12.7).
+
+**À gauche, la vidéo telle qu'elle sortira**, sur une scène sombre (`dark-bg`, dans les
+deux thèmes) : l'aperçu 9:16 de 306 × 544, puis les deux choix de sortie — 9:16 ou 4:5,
+organique ou publicité (indisponible sans seconde accroche, avec la raison) — et
+**« Exporter la vidéo »**, qui attend une prise calée, montre sa progression, et devient
+« Exporter à nouveau » après un export. Une ligne résume : « 1:26 gardées · 9:16 ·
+organique », ou la date du dernier export. Pour une vidéo avec animations,
+« Exporter les scènes seules » ouvre la liste des scènes.
+
+**À droite, quatre onglets**, chacun avec son état en pastille : **Texte** (le montage
+par le texte, §12.5.5), **Scènes** (les repères, et les visuels à déposer — vidéo avec
+animations seulement), **Rythme** (les moments figés, qui ramènent à Texte),
+**Prise** (le dépôt, la transcription et son moteur, la seconde accroche, les réglages
+de prise, le stockage). Le studio s'ouvre sur Texte si la prise est calée, sinon sur
+Prise ; « Déposer la prise », depuis le Tournage, l'ouvre sur Prise. **La transcription
+finie, Texte s'ouvre de lui-même** — le seul changement de vue automatique, et il reste
+dans le studio.
+
+**Aucun outil de montage ne disparaît** : ils sont rangés. Deux écarts à la passation,
+pour cette raison même :
+
+- **Scènes reste ouvert sans prise.** Les visuels se produisent et se déposent avant le
+  tournage ; griser l'onglet aurait fermé ce chemin.
+- **Sans prise, une vidéo avec animations garde son aperçu estimé**, au débit réglé dans
+  l'onglet Prise : c'est là qu'on voit ses scènes s'animer avant de tourner. Une vidéo
+  directe sans prise montre le cadre en pointillé, « L'aperçu apparaîtra avec la prise ».
+
+Disparaissent avec lui : le storyboard de l'ancien onglet Script (`StoryboardRenderer` :
+ses cartes de scène vivent dans `Video/CartesDeScene.tsx`), `MontageDirect`,
+`ScriptVideoRenderer`.
+
 ### Phasage de la refonte — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée.

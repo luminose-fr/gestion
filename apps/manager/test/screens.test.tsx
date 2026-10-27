@@ -41,15 +41,15 @@ import ContentEditor from '../components/ContentEditor';
 import { Fil } from '../components/Contenu/Fil';
 import { SelecteurEtape } from '../components/Contenu/CadreContenu';
 import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
-import { ScriptVideoRenderer } from '../components/ContentEditor/renderers/ScriptVideoRenderer';
 import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
-import { StoryboardRenderer } from '../components/ContentEditor/renderers/StoryboardRenderer';
+import { SequenceScene, SequenceCamera } from '../components/Video/CartesDeScene';
+import { LectureScript } from '../components/Contenu/Lecture';
+import { Studio } from '../components/Contenu/Studio';
 import { DepotPrise } from '../components/Video/DepotPrise';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
 import { ReglagesPrise } from '../components/Video/ReglagesPrise';
-import { MontageDirect } from '../components/Video/MontageDirect';
 import { RythmeReel } from '../components/Video/RythmeReel';
 import { CoupDePoingLuminose } from '../components/Video/SceneLuminose';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo } from '@luminose/editorial';
@@ -1826,37 +1826,35 @@ describe('Reel expliqué — storyboard', () => {
     return JSON.stringify(d);
   };
 
-  it('se monte en storyboard : la voix, l\u2019écran, ce qu\u2019il reste à produire', () => {
-    const { container } = render(<ScriptVideoRenderer raw={reel()} variant="table" />);
+  /** Des visuels sans dépôt : la carte se lit, rien n'est encore déposé. */
+  const VISUELS = { visuel: () => undefined, deLaScene: () => ({}), deposer: asyncNoop, retirer: asyncNoop, indisponible: false } as any;
+
+  it('la carte d\u2019une scène : la voix, ses repères numérotés, ce qu\u2019il reste à produire', () => {
+    const data = JSON.parse(reel());
+    const { container } = render(<SequenceScene sequence={data.sequences[2]} numero={3} visuels={VISUELS} deposable />);
     const texte = container.textContent ?? '';
-    expect(texte).toContain('1. Face caméra · Accroche');
     expect(texte).toContain('3. Scène · Mécanique · pédagogie');
-    expect(texte).toContain('4. Scène · Bascule · humour');
     expect(texte).toContain('À produire');
     expect(texte).toContain("Schéma — Une jauge d'alarme bloquée dans le rouge.");
-    expect(texte).toContain('Seconde accroche · publicité');
-    expect(texte).toContain('Durée estimée ≈ 50 s');
-    expect(texte).not.toContain('À corriger avant de tourner');
-    // Les trois repères de la scène 3 sont soulignés et numérotés.
-    const numeros = Array.from(container.querySelectorAll('sup')).map(s => s.textContent);
-    expect(numeros.slice(0, 3)).toEqual(['1', '2', '3']);
-    expect(container.querySelectorAll('[role="img"]')).toHaveLength(2);
+    // Les trois repères de la scène sont soulignés et numérotés.
+    expect(Array.from(container.querySelectorAll('sup')).map(s => s.textContent)).toEqual(['1', '2', '3']);
+    expect(container.querySelectorAll('[role="img"]')).toHaveLength(1);
   });
 
-  it('dit ce qui ne tiendra pas, plutôt que de laisser partir au tournage', () => {
-    const { container } = render(<ScriptVideoRenderer raw={reel(d => {
-      d.sequences[2].elements[1].apparait_sur = 'pour une faute';
-    })} variant="table" />);
-    expect(container.textContent).toContain('À corriger avant de tourner');
-    expect(container.textContent).toContain('repère « pour une faute » introuvable');
+  it('le script se lit séquence par séquence, minuté au débit estimé', () => {
+    const { container } = render(<LectureScript draft={reel()} format="Reel expliqué (scènes animées)" />);
+    expect(container.textContent).toContain('1 · Accroche');
+    expect(container.textContent).toContain('Face caméra · 0 à');
+    expect(container.textContent).toContain('3 · Mécanique');
+    expect(container.textContent).toContain('Seconde accroche · publicité');
   });
 
-  it('laisse le Script Reel classique à son rendu', () => {
-    const { container } = render(<ScriptVideoRenderer raw={JSON.stringify({
+  it('un Script Reel se lit aussi, section par section', () => {
+    const { container } = render(<LectureScript draft={JSON.stringify({
       format: 'Script Reel', sections: [{ timing: '[0-3s]', role: 'Accroche', texte: 'Bonjour.' }],
-    })} />);
-    expect(container.textContent).toContain('[0-3s] Accroche');
-    expect(container.querySelector('[role="img"]')).toBeNull();
+    })} format="Script Vidéo (Reel/Short)" />);
+    expect(container.textContent).toContain('1 · Accroche');
+    expect(container.textContent).toContain('Bonjour.');
   });
 
   it('monte une scène dont aucun élément n\u2019est encore apparu', () => {
@@ -1914,36 +1912,44 @@ describe('Reel expliqué — montage', () => {
   it('le panneau se monte, et nomme les navigateurs qu\u2019il faut quand WebCodecs manque', () => {
     // jsdom passe pour une page sécurisée : c'est l'absence de WebCodecs qu'on voit.
     vi.stubGlobal('isSecureContext', true);
-    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} />);
     expect(getByTestId('lecteur-remotion')).toBeTruthy();
     expect(container.textContent).toContain('150 mots par minute');
     expect(container.textContent).toContain("L'export demande WebCodecs");
     expect(container.textContent).toContain('Chrome 94, Firefox 130 ou Safari 26');
-    const exports = Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Exporter'));
+    // Les scènes seules se demandent : elles ne sont plus une étape, Final Cut n'en est plus une.
+    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Exporter les scènes seules')!);
+    const exports = Array.from(container.querySelectorAll('button')).filter(b => /^Exporter( la vidéo)?$/.test(b.textContent?.trim() ?? ''));
     // Deux scènes, et la vidéo entière — qui attend une prise.
     expect(exports).toHaveLength(3);
     expect(exports.every(b => b.disabled)).toBe(true);
+    expect(container.textContent).toContain('Il faut une prise calée pour exporter.');
   });
 
   it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
     vi.stubGlobal('isSecureContext', false);
     vi.stubGlobal('VideoEncoder', class {});
-    const { container } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
+    const { container } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} />);
     expect(container.textContent).toContain("L'export demande une page sécurisée (https)");
     expect(container.textContent).not.toContain("L'export demande WebCodecs");
   });
 
   it('le débit change la durée de l\u2019aperçu', () => {
-    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
+    const { container, getByTestId } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} />);
     const avant = Number(getByTestId('lecteur-remotion').dataset.images);
     fireEvent.change(container.querySelector('#debit-reel')!, { target: { value: '200' } });
     expect(Number(getByTestId('lecteur-remotion').dataset.images)).toBeLessThan(avant);
   });
 
-  it('un storyboard enregistré se monte sans R2, en le disant', async () => {
-    const { findByTestId, findByText, container } = render(<StoryboardRenderer data={reel()} contentId="c1" />);
+  it('le studio se monte sans R2, en le disant, et ne propose aucun dépôt', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(MONTAGE_SANS_R2.etat), { status: 200 }));
+    const { findByTestId, findByText, container, getByRole } = render(<Studio contentId="c1" draft={JSON.stringify(reel())} format="Reel expliqué (scènes animées)" />);
     expect(await findByTestId('lecteur-remotion')).toBeTruthy();
-    expect(await findByText('Le stockage Cloudflare (R2) n\u2019est pas configuré sur le Worker : prises et visuels ne peuvent pas être déposés.'.replace('\u2019', "'"))).toBeTruthy();
+    expect(await findByText("Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : aucune prise ne peut être déposée.")).toBeTruthy();
+    // Sans prise transcrite, Texte et Rythme attendent ; Scènes, non : les visuels se déposent avant le tournage.
+    expect((getByRole('tab', { name: 'Texte' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(getByRole('tab', { name: /Scènes/ }));
+    expect(container.textContent).toContain("les visuels ne peuvent pas être déposés");
     // Sans R2, on ne propose pas un dépôt qui serait refusé.
     expect(Array.from(container.querySelectorAll('button')).some(b => b.textContent?.includes('Déposer'))).toBe(false);
   });
@@ -1986,8 +1992,8 @@ describe('Reel expliqué — prise et rendu', () => {
 
   it('le panneau sans stockage le dit, et n\u2019offre ni dépôt ni export de la vidéo', () => {
     vi.stubGlobal('isSecureContext', true);
-    const { container } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} visuelsDeLaScene={() => ({})} />);
-    expect(container.textContent).toContain('Il faut une prise calée pour exporter la vidéo entière.');
+    const { container } = render(<PanneauMontage data={reel()} contentId="c1" montage={MONTAGE_SANS_R2} />);
+    expect(container.textContent).toContain('Il faut une prise calée pour exporter.');
     const pub = Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Publicité');
     expect(pub?.disabled).toBe(true);
   });
@@ -2031,39 +2037,20 @@ describe('Reel expliqué — prise et rendu', () => {
   it('une vidéo directe sans script dit que la transcription servira de texte, et n\u2019a ni scène ni repère (SPEC §12.7)', async () => {
     vi.stubGlobal('isSecureContext', true);
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ prises: [], visuels: [], stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
-    const { container, findByText } = render(<MontageDirect brouillon={{ format: 'Script Reel', sections: [] }} contentId="d1" />);
-    await findByText(/Montage — vidéo directe/);
-    expect(container.textContent).toContain('sa transcription servira de texte');
-    expect(container.textContent).not.toContain('Les scènes seules');
-    expect(container.textContent).not.toContain('Débit :');
+    const { container, findByText } = render(<Studio contentId="d1" draft={JSON.stringify({ format: 'Script Reel', sections: [] })} format="Script Vidéo (Reel/Short)" />);
+    await findByText(/sa transcription servira de texte/);
+    expect(container.textContent).toContain('L’aperçu apparaîtra avec la prise.');
+    expect(container.textContent).not.toContain('Exporter les scènes seules');
+    expect(container.textContent).not.toContain('Scènes');
   });
 
-  it('une vidéo directe avec script se lit au débit estimé, sans scène à exporter', async () => {
+  it('une vidéo directe avec script attend sa prise, sans scène à exporter ni débit', async () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ prises: [], visuels: [], stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
-    const { container, findByText } = render(<MontageDirect contentId="d2"
-      brouillon={{ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Suis-je le bon thérapeute pour vous ?' }, { role: 'Ouverture', texte: 'Ça dépend de vous.' }] }} />);
-    await findByText(/Montage — vidéo directe/);
-    expect(container.textContent).toContain('Débit :');
-    expect(container.textContent).not.toContain('Les scènes seules');
-    expect(container.textContent).not.toContain('Repères');
-  });
-
-  it('l\u2019onglet Script et l\u2019aperçu d\u2019un Script Reel portent le montage, avec ou sans script (SPEC §12.7)', async () => {
-    vi.stubGlobal('isSecureContext', true);
-    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ prises: [], visuels: [], stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
-    // Les deux écrans rendent le script en tableau : c'est cette variante qui doit porter le montage.
-    const avecScript = render(<ScriptVideoRenderer variant="table" contentId="d3"
-      raw={JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Suis-je le bon thérapeute pour vous ?' }] })} />);
-    await avecScript.findByText(/Montage — vidéo directe/);
-    expect(avecScript.container.textContent).toContain('Suis-je le bon thérapeute pour vous ?');
-    cleanup();
-    const sansScript = render(<ScriptVideoRenderer variant="table" contentId="d4" raw={JSON.stringify({ format: 'Script Reel', sections: [], legende: null })} />);
-    await sansScript.findByText(/Montage — vidéo directe/);
-    expect(sansScript.container.textContent).toContain('sa transcription servira de texte');
-    cleanup();
-    // Sans contenu enregistré — un aperçu, un test —, le script se lit mais ne se monte pas.
-    const nu = render(<ScriptVideoRenderer variant="table" raw={JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Bonjour.' }] })} />);
-    expect(nu.container.textContent).not.toContain('Montage');
+    const { container, findByText } = render(<Studio contentId="d2" format="Script Vidéo (Reel/Short)"
+      draft={JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Suis-je le bon thérapeute pour vous ?' }, { role: 'Ouverture', texte: 'Ça dépend de vous.' }] })} />);
+    await findByText(/ses silences et ses phrases reprises se coupent ici/);
+    expect(container.textContent).not.toContain('Exporter les scènes seules');
+    expect(container.textContent).not.toContain('mots par minute');
   });
 
   it('les réglages d\u2019une prise pivotent l\u2019image et recalent le son d\u2019une image à la fois (SPEC §12.5.7)', () => {
@@ -2180,7 +2167,7 @@ describe('Reel expliqué — prise et rendu', () => {
     cleanup();
     const data = reel();
     data.sequences.splice(2, 0, { plan: 'camera', role: 'Bascule', voix: 'Ce n\'est pas un défaut de caractère.', coup: { texte: 'Pas un [défaut]', apparait_sur: 'pas un défaut' } });
-    const story = render(<StoryboardRenderer data={data} />);
+    const story = render(<SequenceCamera sequence={data.sequences[2]} numero={3} />);
     expect(story.container.textContent).toContain('Coup de poing : l\'écran passe aux mots');
     expect(story.container.querySelector('[aria-label="Coup de poing : Pas un défaut"]')).not.toBeNull();
     expect(story.container.textContent).toContain('pas un défautcoup');

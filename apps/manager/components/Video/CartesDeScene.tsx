@@ -1,25 +1,20 @@
-import React, { Suspense, lazy, useRef, useState } from 'react';
-import { Camera, Clapperboard, Megaphone, TriangleAlert, ImageIcon, Upload, Trash2, Zap } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Camera, Clapperboard, ImageIcon, Upload, Trash2, Zap } from 'lucide-react';
 import {
-    verifierReelExplique, dureeEstimee, compterMots, positionsDesReperes, positionDuCoup, motsSitues, motsNormalises,
-    type ReelExplique, type SequenceReel, type ElementScene,
+    positionsDesReperes, positionDuCoup, motsSitues, motsNormalises,
+    type SequenceReel, type ElementScene,
 } from '@luminose/editorial';
-import { Bouton, Etiquette } from '../../ui';
-import { Patience } from '../../Feedback';
-import { CarrouselLegende, t } from './shared';
-import { SceneLuminose, CoupDePoingLuminose } from '../../Video/SceneLuminose';
-import { useVisuelsReel, type VisuelAffiche, type VisuelsReel } from '../../Video/useVisuelsReel';
-import { useMontage } from '../../Video/useMontage';
-
-// Remotion n'entre dans le navigateur qu'à l'ouverture d'un storyboard monté :
-// jamais dans le paquet principal de l'application.
-const PanneauMontage = lazy(() => import('../../Video/PanneauMontage'));
+import { Bouton, Etiquette } from '../ui';
+import { t } from '../ContentEditor/renderers/shared';
+import { SceneLuminose, CoupDePoingLuminose } from './SceneLuminose';
+import type { VisuelAffiche, VisuelsReel } from './useVisuelsReel';
 
 /**
- * Le storyboard d'un Reel expliqué (SPEC §12, étape V1) : ce qui se dit, et à
- * côté, ce que l'écran montre. C'est le document de tournage — la voix se lit
- * de haut en bas, et chaque repère y est souligné du numéro de l'élément qu'il
- * fait apparaître.
+ * Les cartes d'une scène (SPEC §12, §13.11) : ce qui se dit, chaque repère
+ * souligné du numéro de l'élément qu'il fait apparaître, les visuels à produire
+ * et l'endroit où les déposer, et la scène elle-même en miniature. Elles
+ * vivaient dans le storyboard de l'onglet Script ; elles sont désormais
+ * l'onglet Scènes du studio.
  */
 
 interface Marque { debut: number; fin: number; numeros: Array<number | string> }
@@ -85,7 +80,7 @@ const Intention: React.FC<{ texte?: string | null }> = ({ texte }) =>
  * Un passage face caméra. S'il porte un coup de poing (SPEC §12.5.3), ses mots
  * sont soulignés dans la voix et il se montre en miniature, comme une scène.
  */
-const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }> = ({ sequence, numero }) => (
+export const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }> = ({ sequence, numero }) => (
     <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="space-y-2 min-w-0">
             <Etiquette forme="entete" avecIcone>
@@ -176,7 +171,7 @@ const DepotVisuel: React.FC<{
     );
 };
 
-const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number; visuels: VisuelsReel; deposable: boolean }> = ({ sequence, numero, visuels, deposable }) => {
+export const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number; visuels: VisuelsReel; deposable: boolean }> = ({ sequence, numero, visuels, deposable }) => {
     const rang = numero - 1;
     const aProduire = (sequence.elements ?? [])
         .map((element, j) => ({ element, numero: j + 1 }))
@@ -214,73 +209,3 @@ const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number; visuels:
     );
 };
 
-export interface StoryboardRendererProps {
-    data: ReelExplique;
-    /**
-     * Le contenu enregistré dont c'est le storyboard. Sans lui — un aperçu, un
-     * test —, le storyboard se lit mais ne se monte pas : ni dépôt de visuel, ni
-     * aperçu animé, puisqu'un dépôt doit pouvoir se retrouver.
-     */
-    contentId?: string;
-}
-
-export const StoryboardRenderer: React.FC<StoryboardRendererProps> = ({ data, contentId }) => {
-    const montage = useMontage(contentId);
-    const visuels = useVisuelsReel(contentId, data, montage);
-    const problemes = verifierReelExplique(data);
-    const sequences = data.sequences ?? [];
-    const mots = sequences.reduce((total, s) => total + compterMots(s.voix), 0);
-    const nbScenes = sequences.filter(s => s.plan === 'scene').length;
-
-    return (
-        <div className="p-6 space-y-4">
-            <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
-                Durée estimée ≈ {dureeEstimee(data)} s · {mots} mots · {nbScenes} scène{nbScenes > 1 ? 's' : ''} — au débit de 150 mots par minute ; la prise donnera le vrai.
-            </p>
-
-            {problemes.length > 0 && (
-                <div className="rounded-xl border border-alerte/30 bg-alerte/10 p-4 space-y-2">
-                    <Etiquette ton="alerte" avecIcone><TriangleAlert /> À corriger avant de tourner</Etiquette>
-                    <ul className="space-y-1">
-                        {problemes.map((p, i) => (
-                            <li key={i} className="text-xs text-alerte"><span className="font-bold">{p.ou}</span> — {p.probleme}</li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-
-            {contentId && (
-                <Suspense fallback={<Patience titre="Chargement de l'aperçu animé" />}>
-                    <PanneauMontage data={data} contentId={contentId} montage={montage} visuelsDeLaScene={visuels.deLaScene} />
-                </Suspense>
-            )}
-
-            {contentId && montage.erreur && (
-                <p className="text-xs text-erreur">Le montage n'a pas pu être lu : {montage.erreur}</p>
-            )}
-            {contentId && montage.etat && visuels.indisponible && (
-                <p className="text-xs text-alerte">
-                    Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : prises et visuels ne peuvent pas être déposés.
-                </p>
-            )}
-
-            {sequences.map((sequence, i) => sequence.plan === 'scene'
-                ? <SequenceScene key={i} sequence={sequence} numero={i + 1} visuels={visuels} deposable={!!contentId && !visuels.indisponible} />
-                : <SequenceCamera key={i} sequence={sequence} numero={i + 1} />
-            )}
-
-            {data.accroche_pub?.voix && (
-                <div className="rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-4 space-y-2">
-                    <Etiquette forme="entete" avecIcone><Megaphone /> Seconde accroche · publicité</Etiquette>
-                    <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{t(data.accroche_pub.voix)}</p>
-                    <Intention texte={data.accroche_pub.intention} />
-                    <p className="text-xs text-brand-main/60 dark:text-dark-text/60">À tourner dans la foulée : elle remplace la séquence 1 dans la variante publicitaire.</p>
-                </div>
-            )}
-
-            <CarrouselLegende legende={data.legende as any} />
-        </div>
-    );
-};
-
-export default StoryboardRenderer;

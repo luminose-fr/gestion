@@ -28,9 +28,10 @@ import { CeQuiSeraPublie, LectureScript, LectureTournage, TrameCarrousel, Vignet
 import { useAtelier } from '../Contenu/useAtelier';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
-import { StoryboardRenderer } from './renderers/StoryboardRenderer';
-import { MontageDirect } from '../Video/MontageDirect';
-import { Etiquette, type EntreeMenu } from '../ui';
+import { Studio } from '../Contenu/Studio';
+import type { OngletStudio } from '../Video/PanneauMontage';
+import { MessageCircle, X } from 'lucide-react';
+import { Bouton, Etiquette, type EntreeMenu } from '../ui';
 
 /** Le rapport du Lecteur froid, tel que le journal le garde (SPEC §2.6). */
 export interface ColdReadReport {
@@ -251,6 +252,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [editionManuelle, setEditionManuelle] = useState<string | null>(null);
   /** Avec un brouillon, le composeur parle au Rédacteur ; « Parler au Coach » rouvre l'atelier. */
   const [versLeCoach, setVersLeCoach] = useState(false);
+  /** Au studio, le fil se replie derrière un bouton du bandeau (SPEC §13.11). */
+  const [filOuvert, setFilOuvert] = useState(false);
+  /** « Déposer la prise », depuis le Tournage, ouvre le studio sur l'onglet Prise. */
+  const [ongletDEntree, setOngletDEntree] = useState<OngletStudio | undefined>(undefined);
 
   /*
    * Le témoin d'appel IA ne vit plus ici.
@@ -1274,7 +1279,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           break;
       case 'tournage':
           entete = <EnteteMatiere nom="Tournage" sousTitre="le script, pour se l’approprier avant de filmer"
-              principale={{ libelle: 'Déposer la prise', onClick: () => onStepChange('montage') }}
+              principale={{ libelle: 'Déposer la prise', onClick: () => { setOngletDEntree('prise'); onStepChange('montage'); } }}
               autres={enEcriture} />;
           corps = <LectureTournage draft={brouillon} format={editedItem.targetFormat} />;
           break;
@@ -1313,8 +1318,21 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       };
   })() : null;
 
-  // Au montage, l'étape prend toute la largeur : le studio vient en F5.
+  // Au montage, le studio prend toute la largeur ; le fil se replie derrière un bouton.
   const auMontage = affichee === 'montage' && editionManuelle === null;
+
+  const leFil = (entete?: React.ReactNode) => (
+      <Fil
+          elements={elements}
+          attente={attente}
+          zone={zone}
+          occupe={occupe}
+          entete={entete}
+          onAppliquer={(corrections) => void launchAdjustment(buildColdReadApplyInstruction(corrections))}
+          onCorrigerLeFormat={corrigerLeFormat}
+          onRevenir={() => void revenirALaVersionPrecedente()}
+      />
+  );
 
   return (
       <>
@@ -1324,27 +1342,40 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             onTitre={(title) => setEditedItem({ ...editedItem, title })}
             pastilles={[getFormatDef(editedItem.targetFormat)?.shortKey, editedItem.objectif, ...editedItem.platforms].filter(Boolean) as string[]}
             selecteur={<SelecteurEtape lignes={lignes} affichee={affichee} onChoisir={(e) => { setEditionManuelle(null); onStepChange(e); }} />}
-            panneauSerie={panneauSerie}
+            panneauSerie={auMontage ? undefined : panneauSerie}
+            actionDroite={auMontage ? (
+                <Bouton taille="grand" onClick={() => setFilOuvert(o => !o)} aria-expanded={filOuvert}>
+                    <MessageCircle /> Le fil
+                    <span className="text-micro font-bold tabular-nums text-brand-main/60 dark:text-dark-text/60">{elements.length}</span>
+                </Bouton>
+            ) : undefined}
             pied={<PiedContenu etat={saveStatus} erreur={saveError} onReessayer={retrySave} cout={coutAffiche} onSupprimer={onDelete ? () => setConfirmDelete(true) : undefined} />}
         >
             {auMontage ? (
-                <div className="flex-1 overflow-y-auto bg-white dark:bg-dark-surface">
+                <div className="relative flex-1 min-h-0 flex flex-col">
                     {aUnBrouillon
-                        ? <ScriptVideoMontage draft={brouillon} contentId={editedItem.id} />
+                        ? <Studio contentId={editedItem.id} draft={brouillon} format={editedItem.targetFormat}
+                            dernierExport={resumeMontage?.dernierExport ?? null} ongletInitial={ongletDEntree} />
                         : <div className="p-7"><MatiereVide titre="Pas encore de script" texte="Le montage suit le script : il s’écrit d’abord à l’atelier." /></div>}
+                    {filOuvert && (
+                        <div className="absolute inset-y-0 right-0 z-30 w-[440px] max-w-full shadow-lg border-l border-brand-border dark:border-dark-sec-border">
+                            {leFil(
+                                <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-brand-border dark:border-dark-sec-border">
+                                    <MessageCircle className="w-4 h-4 text-brand-main dark:text-dark-text" />
+                                    <span className="text-sm font-bold text-brand-main dark:text-white">Le fil</span>
+                                    <span className="flex-1 text-xs text-brand-main/60 dark:text-dark-text/60">ce qui s’est dit et fait</span>
+                                    <Bouton taille="grand" intention="discrete" className="w-10 px-0 no-underline" aria-label="Fermer le fil" onClick={() => setFilOuvert(false)}>
+                                        <X />
+                                    </Bouton>
+                                </div>,
+                            )}
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className={`flex-1 min-h-0 grid ${panneauSerie ? 'grid-cols-[380px_minmax(0,1fr)]' : 'grid-cols-[440px_minmax(0,1fr)]'}`}>
                     <div className="min-h-0 border-r border-brand-border dark:border-dark-sec-border">
-                        <Fil
-                            elements={elements}
-                            attente={attente}
-                            zone={zone}
-                            occupe={occupe}
-                            onAppliquer={(corrections) => void launchAdjustment(buildColdReadApplyInstruction(corrections))}
-                            onCorrigerLeFormat={corrigerLeFormat}
-                            onRevenir={() => void revenirALaVersionPrecedente()}
-                        />
+                        {leFil()}
                     </div>
                     <div className="min-h-0 flex flex-col bg-white dark:bg-dark-surface">
                         {entete}
@@ -1383,13 +1414,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
         />
       </>
   );
-};
-
-/** Le montage d'une vidéo, en attendant le studio (F5) : le panneau d'avant, en pleine largeur. */
-const ScriptVideoMontage: React.FC<{ draft: string; contentId: string }> = ({ draft, contentId }) => {
-    const data = parseBodyJson(draft);
-    if (data?.sequences) return <StoryboardRenderer data={data} contentId={contentId} />;
-    return <div className="p-6"><MontageDirect brouillon={data} contentId={contentId} /></div>;
 };
 
 export default ContentEditor;
