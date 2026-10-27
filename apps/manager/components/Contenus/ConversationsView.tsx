@@ -133,7 +133,8 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => onOuvrir(item)}
-                className="w-full min-h-[68px] grid grid-cols-[minmax(0,1fr)_220px_72px_20px] items-center gap-4 px-5 py-3 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
+                // Sur téléphone, la ligne devient une carte : le titre et le moment, puis l'avancement dessous.
+                className="w-full min-h-[68px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_220px_72px_20px] items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
             >
                 <span className="min-w-0 space-y-1">
                     <span className="flex items-center gap-2 min-w-0">
@@ -151,14 +152,14 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                         </span>
                     )}
                 </span>
-                <span className="space-y-1.5">
+                <span className="space-y-1.5 col-span-2 md:col-span-1 order-3 md:order-none">
                     {etape && <BarreProgression segments={etape.progression.segments} complet={etape.progression.complet} className="w-[200px]" />}
                     <span className={`block text-xs font-semibold truncate ${etape?.progression.complet ? 'text-succes' : 'text-brand-main dark:text-dark-text'}`}>
                         {etape?.libelle ?? ''}
                     </span>
                 </span>
-                <span className="text-xs text-right text-brand-main/60 dark:text-dark-text/60 tabular-nums">{dernier?.moment ?? ''}</span>
-                <ChevronRight className="w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
+                <span className="text-xs text-right text-brand-main/60 dark:text-dark-text/60 tabular-nums self-start md:self-center">{dernier?.moment ?? ''}</span>
+                <ChevronRight className="hidden md:block w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
             </button>
         );
     };
@@ -167,9 +168,10 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
 
     return (
         <div className="space-y-4 animate-fade-in">
-            {/* Une seule ligne : la recherche rétrécit la première, les filtres et « Nouveau » gardent leur place. */}
-            <div className="flex items-center gap-3">
-                <div className="relative flex-1 min-w-[140px] max-w-[280px]">
+            {/* Une seule ligne : la recherche rétrécit la première, les filtres et « Nouveau » gardent leur place.
+                Sur téléphone, la recherche prend sa ligne et les filtres défilent. */}
+            <div className="flex flex-wrap md:flex-nowrap items-center gap-3">
+                <div className="relative w-full md:w-auto md:flex-1 md:min-w-[140px] md:max-w-[280px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main/50 dark:text-dark-text/50" />
                     <Champ
                         type="search"
@@ -180,13 +182,15 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                         aria-label="Rechercher dans les conversations"
                     />
                 </div>
-                <ControleSegmente<FiltreGeste>
-                    libelle="Filtrer par geste"
-                    valeur={filtre}
-                    onChange={onFiltre}
-                    options={FILTRES.map(f => ({ ...f, compte: comptes[f.valeur] }))}
-                />
-                <div className="flex-1" />
+                <div className="max-w-full overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                    <ControleSegmente<FiltreGeste>
+                        libelle="Filtrer par geste"
+                        valeur={filtre}
+                        onChange={onFiltre}
+                        options={FILTRES.map(f => ({ ...f, compte: comptes[f.valeur] }))}
+                    />
+                </div>
+                <div className="hidden md:block flex-1" />
                 <Menu
                     ouvert={menu}
                     onFermer={() => setMenu(false)}
@@ -241,12 +245,12 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                     <Carte key={serie.id} densite="tableau" posee>
                         <div className="min-h-[52px] flex items-center gap-3 px-5 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
                             <Layers className="w-4 h-4 shrink-0 text-brand-main/60 dark:text-dark-text/60" />
-                            <span className="text-sm font-semibold text-brand-main dark:text-white truncate">Série · {serie.titre}</span>
-                            <span className="text-xs text-brand-main/60 dark:text-dark-text/60 shrink-0">
+                            <span className="flex-1 md:flex-none min-w-0 text-sm font-semibold text-brand-main dark:text-white truncate">Série · {serie.titre}</span>
+                            <span className="hidden sm:inline text-xs text-brand-main/60 dark:text-dark-text/60 shrink-0">
                                 {toutes.length} publication{toutes.length > 1 ? 's' : ''} · {nbPubliees} publiée{nbPubliees > 1 ? 's' : ''}
                             </span>
-                            <span className="flex-1" />
-                            <Bouton intention="discrete" taille="petit" onClick={() => onOuvrirPlan(serie)}>Ouvrir le plan</Bouton>
+                            <span className="hidden md:block flex-1" />
+                            <Bouton intention="discrete" taille="petit" className="shrink-0" onClick={() => onOuvrirPlan(serie)}>Ouvrir le plan</Bouton>
                         </div>
                         <div className="divide-y divide-brand-border/60 dark:divide-dark-sec-border/60">
                             {lignes.length > 0

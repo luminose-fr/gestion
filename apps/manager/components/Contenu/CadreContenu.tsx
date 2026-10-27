@@ -32,13 +32,13 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
     const segments: EtatSegment[] = lignes.map((l, i) => (l.faite ? 'fait' : i === actuel ? 'encours' : 'avenir'));
 
     return (
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 w-full md:w-auto">
             <button
                 type="button"
                 onClick={() => setOuvert(o => !o)}
                 aria-expanded={ouvert}
                 aria-haspopup="menu"
-                className="w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-left hover:border-brand-main/40 transition-colors"
+                className="w-full md:w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-left hover:border-brand-main/40 transition-colors"
             >
                 <span className="flex-1 min-w-0 space-y-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -55,7 +55,7 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                 <>
                     {/* Un clic dehors referme : le voile ne se voit pas, il attrape. */}
                     <div className="fixed inset-0 z-20" onClick={() => setOuvert(false)} />
-                    <div role="menu" className="absolute right-0 z-30 mt-1 w-[320px] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1"
+                    <div role="menu" className="absolute right-0 z-30 mt-1 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1"
                         onKeyDown={(e) => { if (e.key === 'Escape') setOuvert(false); }}>
                         <Etiquette className="px-3 pt-2 pb-1">Aller à une étape</Etiquette>
                         {lignes.map((l, i) => (
@@ -110,7 +110,7 @@ export interface PiedContenuProps {
  */
 export const PiedContenu: React.FC<PiedContenuProps> = ({ etat, erreur, onReessayer, cout, libelleSupprimer = 'Supprimer ce contenu', onSupprimer }) => (
     <div className="h-12 shrink-0 flex items-center gap-4 px-4 md:px-8 border-t border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
-        <span className="min-w-[220px] flex items-center gap-4 text-xs">
+        <span className="min-w-0 md:min-w-[220px] flex items-center gap-4 text-xs whitespace-nowrap">
             {etat === 'saving' ? <EnCours label="Enregistrement…" taille="xs" />
                 : etat === 'error' ? (
                     <span className="flex items-center gap-1.5 font-semibold text-erreur" title={erreur ?? undefined}>
@@ -118,13 +118,13 @@ export const PiedContenu: React.FC<PiedContenuProps> = ({ etat, erreur, onReessa
                         {onReessayer && <button type="button" onClick={onReessayer} className="underline hover:no-underline">Réessayer</button>}
                     </span>
                 ) : (
-                    <span className="flex items-center gap-1.5 text-succes"><Check className="w-3.5 h-3.5" /> Enregistré automatiquement</span>
+                    <span className="flex items-center gap-1.5 text-succes"><Check className="w-3.5 h-3.5" /> Enregistré<span className="hidden md:inline"> automatiquement</span></span>
                 )}
-            {cout && <span className="text-brand-main/60 dark:text-dark-text/60 tabular-nums" title={cout.detail}>Coût IA {cout.libelle}</span>}
+            {cout && <span className="hidden sm:inline text-brand-main/60 dark:text-dark-text/60 tabular-nums" title={cout.detail}>Coût IA {cout.libelle}</span>}
         </span>
         <span className="flex-1" />
         {onSupprimer && (
-            <button type="button" onClick={onSupprimer} className="text-xs font-semibold text-erreur hover:underline">{libelleSupprimer}</button>
+            <button type="button" onClick={onSupprimer} className="text-xs font-semibold text-erreur hover:underline whitespace-nowrap">{libelleSupprimer}</button>
         )}
     </div>
 );
@@ -154,7 +154,8 @@ export const CadreContenu: React.FC<CadreContenuProps> = ({
     retour, titre, onTitre, pastilles, selecteur, actionDroite, panneauSerie, bandeau, pied, children,
 }) => (
     <div className="w-full h-full flex flex-col bg-brand-light dark:bg-dark-bg">
-        <div className="h-20 shrink-0 flex items-center gap-4 px-4 md:px-8 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+        {/* Sur téléphone, le bandeau passe sur deux lignes : le titre, puis le sélecteur en pleine largeur. */}
+        <div className="md:h-20 shrink-0 flex flex-wrap md:flex-nowrap items-center gap-x-4 gap-y-2 px-4 md:px-8 py-3 md:py-0 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
             <button type="button" onClick={retour.onClick}
                 className="h-10 shrink-0 inline-flex items-center gap-1.5 px-2 rounded-lg text-sm font-semibold text-brand-main/70 dark:text-dark-text/70 hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors">
                 <ChevronLeft className="w-4 h-4" /> {retour.libelle}

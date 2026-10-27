@@ -26,12 +26,13 @@ import { Fil, type ZoneComposeur, type ZoneOuverture } from '../Contenu/Fil';
 import { EnteteMatiere, MatiereOuverture, MatiereVide, BlocPublier, type ActionMatiere } from '../Contenu/Matiere';
 import { CeQuiSeraPublie, LectureScript, LectureTournage, TrameCarrousel, VignettesSlides } from '../Contenu/Lecture';
 import { useAtelier } from '../Contenu/useAtelier';
+import { useEstMobile } from '../Contenu/useEstMobile';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
 import { Studio } from '../Contenu/Studio';
 import type { OngletStudio } from '../Video/PanneauMontage';
 import { MessageCircle, X } from 'lucide-react';
-import { Bouton, Etiquette, type EntreeMenu } from '../ui';
+import { Bouton, ControleSegmente, Etiquette, type EntreeMenu } from '../ui';
 
 /** Le rapport du Lecteur froid, tel que le journal le garde (SPEC §2.6). */
 export interface ColdReadReport {
@@ -256,6 +257,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [filOuvert, setFilOuvert] = useState(false);
   /** « Déposer la prise », depuis le Tournage, ouvre le studio sur l'onglet Prise. */
   const [ongletDEntree, setOngletDEntree] = useState<OngletStudio | undefined>(undefined);
+  /**
+   * Sur téléphone, le contenu se lit en deux onglets (SPEC §13.13). `null` :
+   * celui de l'étape — le fil, sauf au Tournage, qui se lit en plein écran.
+   */
+  const [vueMobile, setVueMobile] = useState<'fil' | 'matiere' | null>(null);
+  const mobile = useEstMobile();
 
   /*
    * Le témoin d'appel IA ne vit plus ici.
@@ -1283,6 +1290,18 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               autres={enEcriture} />;
           corps = <LectureTournage draft={brouillon} format={editedItem.targetFormat} />;
           break;
+      case 'montage':
+          // Seulement sur téléphone : le studio demande un grand écran.
+          entete = <EnteteMatiere nom="Montage" sousTitre={ligneAffichee?.statut} />;
+          corps = (
+              <MatiereVide
+                  titre="Le montage se fait sur un ordinateur"
+                  texte={resumeMontage?.dernierExport
+                      ? `Dernière vidéo exportée le ${new Date(resumeMontage.dernierExport.le).toLocaleDateString('fr-FR')}, en ${resumeMontage.dernierExport.format}. L’aperçu, les coupes et l’export demandent un grand écran.`
+                      : 'L’aperçu, les coupes et l’export demandent un grand écran. Ici, l’étape se lit ; elle se travaille sur l’ordinateur.'}
+              />
+          );
+          break;
       case 'publication':
           entete = <EnteteMatiere nom="Publication" sousTitre={ligneAffichee?.statut} />;
           corps = (
@@ -1319,7 +1338,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   })() : null;
 
   // Au montage, le studio prend toute la largeur ; le fil se replie derrière un bouton.
-  const auMontage = affichee === 'montage' && editionManuelle === null;
+  const auMontage = affichee === 'montage' && editionManuelle === null && !mobile;
+  const vue = vueMobile ?? (affichee === 'tournage' || affichee === 'publication' ? 'matiere' : 'fil');
 
   const leFil = (entete?: React.ReactNode) => (
       <Fil
@@ -1341,7 +1361,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             titre={editedItem.title}
             onTitre={(title) => setEditedItem({ ...editedItem, title })}
             pastilles={[getFormatDef(editedItem.targetFormat)?.shortKey, editedItem.objectif, ...editedItem.platforms].filter(Boolean) as string[]}
-            selecteur={<SelecteurEtape lignes={lignes} affichee={affichee} onChoisir={(e) => { setEditionManuelle(null); onStepChange(e); }} />}
+            selecteur={<SelecteurEtape lignes={lignes} affichee={affichee} onChoisir={(e) => { setEditionManuelle(null); setVueMobile(null); onStepChange(e); }} />}
+            bandeau={auMontage ? undefined : (
+                <div className="md:hidden px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+                    <ControleSegmente<'fil' | 'matiere'> libelle="Afficher" valeur={vue} onChange={setVueMobile}
+                        options={[{ valeur: 'fil', libelle: 'Le fil' }, { valeur: 'matiere', libelle: NOMS_DES_ETAPES[affichee] }]} />
+                </div>
+            )}
             panneauSerie={auMontage ? undefined : panneauSerie}
             actionDroite={auMontage ? (
                 <Bouton taille="grand" onClick={() => setFilOuvert(o => !o)} aria-expanded={filOuvert}>
@@ -1373,13 +1399,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     )}
                 </div>
             ) : (
-                <div className={`flex-1 min-h-0 grid ${panneauSerie ? 'grid-cols-[380px_minmax(0,1fr)]' : 'grid-cols-[440px_minmax(0,1fr)]'}`}>
-                    <div className="min-h-0 border-r border-brand-border dark:border-dark-sec-border">
+                <div className={`flex-1 min-h-0 grid grid-cols-1 ${panneauSerie ? 'md:grid-cols-[380px_minmax(0,1fr)]' : 'md:grid-cols-[440px_minmax(0,1fr)]'}`}>
+                    <div className={`min-h-0 border-r border-brand-border dark:border-dark-sec-border ${vue === 'fil' ? 'block' : 'hidden'} md:block`}>
                         {leFil()}
                     </div>
-                    <div className="min-h-0 flex flex-col bg-white dark:bg-dark-surface">
+                    <div className={`min-h-0 flex-col bg-white dark:bg-dark-surface ${vue === 'matiere' ? 'flex' : 'hidden'} md:flex`}>
                         {entete}
-                        <div className="flex-1 overflow-y-auto p-7">{corps}</div>
+                        <div className="flex-1 overflow-y-auto p-4 md:p-7">{corps}</div>
                     </div>
                 </div>
             )}

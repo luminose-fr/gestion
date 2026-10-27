@@ -262,6 +262,15 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | `components/Video/SceneLuminose.tsx` et `ReelComposition.tsx` (le cadre du Reel expliqué) | pixels du cadre 1080 × 1920 en styles en ligne, palette de `voix/direction-artistique.md`, capitales, ombres portées | c'est l'image de la vidéo publiée, réduite à l'affichage : ses échelles sont celles du cadre vertical, pas celles de l'interface (SPEC §12, 02/10/2026). Le reste du dossier — le panneau de montage — est de l'interface, et suit les échelles |
 | `ContentEditor/renderers/` | sur-titres et pastilles en capitales écrits à la main **dans l'aperçu des slides** | l'aperçu reproduit le visuel publié, pas l'interface (arbitré le 23/09/2026). Les en-têtes d'interface, eux, passent par `Etiquette` — dans `SlidesRenderer`, « Ajuster… » et « Prompt Dzine » y sont passés le 23/09/2026 |
 
+### Les exceptions de la refonte « le fil » (27/10/2026, SPEC §13)
+
+| Où | Ce qui reste | Pourquoi |
+| :--- | :--- | :--- |
+| `components/Contenu/` (sélecteur d'étape, panneau Série) et `components/Layout/` | `rounded-[10px]` | le rayon que la passation donne au sélecteur et aux entrées de panneau, entre le bouton (8) et la carte (12) |
+| `components/Contenu/Fil.tsx` | `rounded-[4px_14px_14px_14px]` et son miroir | la bulle d'un message : le coin pointé dit qui parle, à gauche l'IA, à droite Florent |
+| `components/ui/TitreEcran.tsx` | `text-[22px]`, `text-[20px]` | le titre en Abril Display relève de l'identité, pas de l'échelle (voir plus haut) |
+| `components/ui/BarreProgression.tsx` | `gap-[3px]`, `h-[5px]` | des segments, pas un espacement : 4 px les séparerait en blocs, 2 les fondrait |
+
 ## Comment on saura que c'est fini
 
 Ces commandes, lancées à la racine, doivent rendre **zéro ligne**. Les exclusions

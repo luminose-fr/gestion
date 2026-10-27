@@ -2371,6 +2371,21 @@ leur avancement. « Supprimer la série » est au pied, et se confirme comme ava
 La liste des séries (`SeriesView`) a disparu en F2 : une série se trouve dans
 Conversations et se crée par « + Nouveau ».
 
+### 13.13 Le téléphone et le thème sombre (F7)
+
+**À 375 px**, les listes deviennent des cartes : le titre et le moment, le dernier fait,
+puis l'avancement dessous ; les filtres par geste défilent, la recherche prend sa ligne.
+Le sélecteur de modèle quitte le bandeau des listes : il céderait toute la place au
+titre, et chaque action garde son modèle réglé. **Un contenu ouvert se lit en deux
+onglets, Le fil et la matière** — la matière d'abord au Tournage et à la Publication,
+qui se lisent en plein écran ; le fil ailleurs. Le panneau Série s'efface. **Le montage
+n'est pas proposé sur téléphone** : l'étape dit où elle en est et quand la dernière
+vidéo a été exportée, et le studio — Remotion compris — ne se charge même pas.
+
+**Le thème sombre** décline les écrans avec les jetons `dark-*` existants ; le fil prend
+`dark-bg`, le survol `dark-sec-bg`, et la scène du studio reste `dark-bg` dans les deux
+thèmes.
+
 ### Phasage de la refonte — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée.
@@ -2384,6 +2399,9 @@ Une branche par étape ; aucune ne laisse l'application cassée.
 | **F5** | **Le studio** — aperçu, sortie, onglets Texte · Scènes · Rythme · Prise | Aucun outil de montage perdu, l'aperçu toujours visible |
 | **F6** | **La série** — panneau Série, plan dans le cadre du contenu | Une publication se travaille sans quitter sa série |
 | **F7** | **Mobile, thème sombre, contrôles de DESIGN.md** | Zéro ligne aux commandes de fin |
+
+Au 27/10/2026, les sept étapes sont écrites et vérifiées dans le navigateur, sur une API
+simulée ; leurs critères de sortie demandent maintenant l'usage réel.
 
 ---
 
