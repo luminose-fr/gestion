@@ -289,3 +289,104 @@ export function etapeCourante(entree: EntreeEtape): EtapeCourante {
 
     return { sorte, etape, libelle, geste, progression: segmentsDe(conditions, publie) };
 }
+
+// ── Le sélecteur d'étape (SPEC §13.9) ────────────────────────────────
+
+export const NOMS_DES_ETAPES: Record<Etape, string> = {
+    ouverture: 'Ouverture', atelier: 'Atelier', brouillon: 'Brouillon', slides: 'Slides',
+    script: 'Script', tournage: 'Tournage', montage: 'Montage', publication: 'Publication',
+};
+
+export interface EtapeDuSelecteur {
+    etape: Etape;
+    nom: string;
+    /** Ce que l'étape a produit, à droite de la ligne : « relu : Publiable », « prise calée ». */
+    statut: string | null;
+    /** Une étape avant l'étape courante : la coche. */
+    faite: boolean;
+    /** L'étape où le contenu s'ouvre — « étape actuelle ». */
+    actuelle: boolean;
+    /** Ses prérequis manquent : visible, mais pas cliquable. */
+    verrouillee: boolean;
+    /** Pourquoi elle l'est, en info-bulle. */
+    raison: string | null;
+}
+
+/**
+ * Les lignes du sélecteur d'étape : l'état SÉPARÉ de la navigation. Une étape
+ * n'est accessible que si ce qu'elle montre existe — un brouillon pour le
+ * Brouillon, des slides pour les Slides, un bon à publier ou un export pour la
+ * Publication ; ailleurs, elle dit pourquoi elle attend.
+ */
+export function etapesDuSelecteur(entree: EntreeEtape): EtapeDuSelecteur[] {
+    const { contenu, session, montage } = entree;
+    const maintenant = entree.maintenant ?? Date.now();
+    const courante = etapeCourante(entree);
+    const fil = etapesDuFil(courante.sorte);
+    const indexActuel = fil.indexOf(courante.etape);
+    const video = courante.sorte === 'video' || courante.sorte === 'video-sans-script';
+    const publie = contenu.status === 'Publié';
+    const pret = estPret(contenu.status);
+    const aUnBrouillon = !!contenu.draft?.trim();
+    const aDesSlides = !!contenu.slides?.trim();
+    const principale = montage?.prises.find(p => p.role === 'principale') ?? null;
+    const exportee = !!montage?.dernierExport;
+    const relecture = relectureCourante(entree.relecture, entree.brouillonLe);
+    const relisible = supportsColdRead(contenu.targetFormat as TargetFormat | null);
+    const corrections = aUnBrouillon && video ? (getFormatDef(contenu.targetFormat)?.controler?.(lireBrouillon(contenu.draft)) ?? []).length : 0;
+
+    const verrou = (etape: Etape): string | null => {
+        switch (etape) {
+            case 'brouillon': return aUnBrouillon ? null : 'Pas encore de brouillon : il s’écrit après l’atelier.';
+            case 'script': return aUnBrouillon ? null : 'Pas encore de script : il s’écrit après l’atelier.';
+            case 'slides': return aDesSlides ? null : 'Les slides se produisent depuis le brouillon.';
+            case 'tournage': return aUnBrouillon ? null : 'Il faut un script pour se préparer au tournage.';
+            case 'montage': return aUnBrouillon ? null : 'Il faut un script, ou une vidéo directe, pour monter.';
+            case 'publication':
+                if (publie || pret && !video || exportee) return null;
+                return video ? 'Exportez la vidéo d’abord.' : 'Marquez le contenu « Bon à publier » d’abord.';
+            default: return null;
+        }
+    };
+
+    const statut = (etape: Etape): string | null => {
+        switch (etape) {
+            case 'ouverture': return contenu.analyzedAt || (contenu.serieId && contenu.seriePosition !== null) ? 'préparée' : null;
+            case 'atelier':
+                if (contenu.coachStatus === 'validated') return 'validé';
+                return session && session.messages > 0 ? pluriel(Math.max(session.tours, 1), 'tour') : null;
+            case 'brouillon':
+                if (!aUnBrouillon) return null;
+                if (!relisible) return 'écrit';
+                if (!relecture) return 'pas encore relu';
+                return estPubliable(relecture) ? 'relu : Publiable' : `relu : ${pluriel(Math.max(relecture.points, 1), 'point')}`;
+            case 'slides': return aDesSlides ? 'produites' : null;
+            case 'script': return corrections > 0 ? `${pluriel(corrections, 'point')} à corriger` : aUnBrouillon ? 'écrit' : null;
+            case 'tournage': return pret || principale ? 'prête à tourner' : null;
+            case 'montage':
+                if (exportee) return 'exportée';
+                if (principale?.transcrite) return 'prise calée';
+                if (principale?.pret) return 'à transcrire';
+                if (principale) return 'envoi interrompu';
+                return courante.sorte === 'video-sans-script' ? 'déposez la prise' : null;
+            case 'publication':
+                if (publie) return libelleDePublication(contenu, maintenant);
+                if (exportee || pret && !video) return 'à publier';
+                return null;
+            default: return null;
+        }
+    };
+
+    return fil.map((etape, i) => {
+        const raison = verrou(etape);
+        return {
+            etape,
+            nom: NOMS_DES_ETAPES[etape],
+            statut: raison ? 'verrouillée' : statut(etape),
+            faite: !raison && (i < indexActuel || (courante.progression.complet && i <= indexActuel)),
+            actuelle: i === indexActuel,
+            verrouillee: !!raison,
+            raison,
+        };
+    });
+}

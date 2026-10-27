@@ -75,3 +75,93 @@ describe('le moment d’un fait', () => {
     expect(momentDuFait(Date.parse('2026-10-20T09:00:00Z'), MAINTENANT)).toBe('20 oct.');
   });
 });
+
+import { composerLeFil, type GenerationDuFil } from '../src/fil';
+
+describe('le fil entier (§13.10)', () => {
+  const gen = (id: string, kind: string, createdAt: number, over: Partial<GenerationDuFil> = {}): GenerationDuFil =>
+    ({ id, kind, target: null, instruction: null, payload: '{}', createdAt, ...over });
+  const CARROUSEL = JSON.stringify({ format: 'Carrousel', slides: [{ texte: 'Vous tenez bon.' }, { texte: 'C’est bien le problème.' }] });
+  const relecture = (verdict: string, problemes: any[] = []) => JSON.stringify({
+    verdict, lecture_naive: { sujet: 'vouloir tout contrôler épuise' }, problemes,
+  });
+
+  it('range le journal, la conversation et les gestes par date, et replie un atelier validé', () => {
+    const fil = composerLeFil({
+      sorte: 'carrousel', atelierValide: true,
+      generations: [gen('d1', 'draft', 30, { target: 'draft', payload: CARROUSEL }), gen('b1', 'brief', 20, { payload: '{"interdits":["a","b"],"questions_ouvertes":[]}' })],
+      coach: [{ role: 'user', content: 'TITRE : Contrôler', createdAt: 5 }, { role: 'assistant', content: 'Quel détail ?', createdAt: 6 }, { role: 'user', content: 'Le sac.', createdAt: 7 }],
+      gestes: [{ statut: 'Prêt', avant: 'Brouillon', le: 40 }],
+    });
+    expect(fil.map(e => e.type === 'atelier' ? `atelier:${e.messages}` : `${e.role}`)).toEqual(['atelier:2', 'Verrouilleur', 'Rédacteur', 'Vous']);
+    expect((fil[1] as any).texte).toBe('Brief verrouillé : 2 interdits, 0 question ouverte.');
+    expect((fil[2] as any).texte).toBe('Brouillon rédigé : 2 slides, 38 caractères.');
+    expect((fil[3] as any).texte).toBe('Bon à publier.');
+  });
+
+  it('un atelier en cours reste déplié, sans le brief d’ouverture', () => {
+    const fil = composerLeFil({
+      sorte: 'ecrit', atelierValide: false, generations: [],
+      coach: [{ role: 'user', content: 'TITRE : x', createdAt: 1 }, { role: 'assistant', content: 'Une question ?', createdAt: 2 }],
+    });
+    expect(fil).toHaveLength(1);
+    expect(fil[0]).toMatchObject({ role: 'Coach', de: 'ia', texte: 'Une question ?' });
+  });
+
+  it('la dernière relecture porte ses corrections ; appliquée, elle porte sa date', () => {
+    const aRetoucher = relecture('À retoucher', [
+      { localisation: 'Slide 3', probleme: '142 caractères', correction_proposee: 'raccourcir' },
+      { probleme: 'le sac arrive tard', correction_proposee: 'nommer le sac en slide 2' },
+    ]);
+    const avant = composerLeFil({ sorte: 'carrousel', atelierValide: false, coach: [], generations: [
+      gen('d1', 'draft', 10, { target: 'draft', payload: CARROUSEL }), gen('c1', 'cold_read', 20, { payload: aRetoucher }),
+    ] });
+    expect(avant[1]).toMatchObject({ role: 'Lecteur froid', ton: 'alerte', verdict: 'À retoucher, 2 points', points: ['Slide 3 : 142 caractères', 'le sac arrive tard'] });
+    expect((avant[1] as any).corrections).toBe('[Slide 3] raccourcir\nnommer le sac en slide 2');
+
+    const apres = composerLeFil({ sorte: 'carrousel', atelierValide: false, coach: [], generations: [
+      gen('d1', 'draft', 10, { target: 'draft', payload: CARROUSEL }), gen('c1', 'cold_read', 20, { payload: aRetoucher }),
+      gen('a1', 'adjustment', 30, { target: 'draft', payload: CARROUSEL, instruction: buildColdReadApplyInstruction('[Slide 3] raccourcir') }),
+      gen('c2', 'cold_read', 40, { payload: relecture('Publiable') }),
+    ] });
+    const ancienne = apres.find(e => e.id === 'c1') as any;
+    expect(ancienne.appliqueeLe).toBe(30);
+    expect(ancienne.corrections).toBeNull();
+    expect(apres.find(e => e.id === 'a1-demande')).toMatchObject({ role: 'Vous', texte: 'Applique les corrections de la relecture.' });
+    expect(apres.find(e => e.id === 'c2')).toMatchObject({ ton: 'succes', verdict: 'Publiable' });
+    // L'ajustement est la dernière écriture du brouillon, après une autre : il se défait.
+    expect(apres.find(e => e.id === 'a1')).toMatchObject({ revenirPossible: true });
+  });
+
+  it('une relecture d’un texte qui a changé depuis n’offre plus ses corrections', () => {
+    const fil = composerLeFil({ sorte: 'ecrit', atelierValide: false, coach: [], generations: [
+      gen('c1', 'cold_read', 10, { payload: relecture('À retoucher', [{ probleme: 'x', correction_proposee: 'y' }]) }),
+      gen('d1', 'draft', 20, { target: 'draft', payload: '{"format":"Post Texte","accroche":"a"}' }),
+    ] });
+    expect((fil[0] as any).corrections).toBeNull();
+  });
+
+  it('l’analyse ouvre le fil, et dit ce qui manque sans dire le verdict', () => {
+    const fil = composerLeFil({ sorte: 'ecrit', atelierValide: false, coach: [], generations: [], analyse: {
+      analyzedAt: 1, verdict: 'Trop lisse', objectif: 'Notoriété', platforms: ['Instagram'],
+      strategicAngle: '**Titre suggéré :** Le piège\n\nUn angle net.', suggestedMetaphor: 'Une poignée de porte', justification: 'Il manque un exemple vécu.',
+    } });
+    const texte = (fil[0] as any).texte as string;
+    expect(texte).toContain('Objectif : Notoriété · Plateformes : Instagram.');
+    expect(texte).toContain('Angle : Un angle net.');
+    expect(texte).toContain('Ce qui manque : Il manque un exemple vécu.');
+    expect(texte).not.toContain('Trop lisse');
+  });
+
+  it('le montage et le contrôle du format parlent aussi', () => {
+    const fil = composerLeFil({
+      sorte: 'video', atelierValide: false, coach: [], generations: [],
+      montage: { prises: [{ role: 'principale', deposeeLe: 10, transcriteLe: 20, duree: 108 }], dernierExport: { format: '9:16', version: 'organique', le: Date.parse('2026-10-20T10:00:00Z') } },
+      controles: ['séquence 3 trop longue'],
+    });
+    expect(fil.map(e => (e as any).texte || (e as any).verdict)).toEqual([
+      'Prise déposée (1:48).', 'Prise transcrite et calée.', 'Exportée le 20 oct. en 9:16, organique.',
+      '1 point à corriger avant de tourner',
+    ]);
+  });
+});

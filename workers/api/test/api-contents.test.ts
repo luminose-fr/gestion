@@ -422,6 +422,13 @@ describe('les gestes (SPEC §13.6)', () => {
     ]);
   });
 
+  it('le détail d’un contenu rend ses gestes, dans l’ordre', async () => {
+    const content = await createContent({ status: 'Brouillon' });
+    await patch(`/api/contents/${content.id}`, { status: 'Prêt' });
+    const { gestes: rendus } = await (await call(`/api/contents/${content.id}`)).json() as any;
+    expect(rendus).toEqual([{ statut: 'Prêt', avant: 'Brouillon', le: expect.any(Number) }]);
+  });
+
   it('ne note ni un statut renvoyé tel quel, ni une mise à jour sans statut', async () => {
     const content = await createContent({ status: 'Brouillon' });
     await patch(`/api/contents/${content.id}`, { status: 'Brouillon', title: 'Même statut' });

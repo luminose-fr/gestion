@@ -29,6 +29,12 @@ interface SidebarProps {
     counts: Record<ListeContenus, number>;
     isMobileOpen: boolean;
     onMobileClose: () => void;
+    /**
+     * Un contenu est ouvert : le panneau de deuxième niveau s'efface, le rail
+     * reste (SPEC §13.9). Le cadre du contenu a besoin de la largeur, et son
+     * bandeau porte déjà le retour à la liste.
+     */
+    replie?: boolean;
 }
 
 const SPACES: Array<{
@@ -110,14 +116,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     currentSpace, currentSocialTab, currentSettingsSection, currentSettingsPersona,
     currentCorpusSection, currentCorpusBloc,
     onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts,
-    isMobileOpen, onMobileClose
+    isMobileOpen, onMobileClose, replie = false,
 }) => {
     // Trois espaces partagent le même panneau de deuxième niveau : Contenus,
     // Réglages et Corpus. C'est le même geste, au même endroit — et c'est ce
     // qui fait qu'un nouvel espace ne demande pas d'apprendre une navigation.
     const estReglages = currentSpace === 'settings';
     const estCorpus = currentSpace === 'corpus';
-    const showSubPanel = currentSpace === 'social' || estReglages || estCorpus;
+    const showSubPanel = !replie && (currentSpace === 'social' || estReglages || estCorpus);
 
     const titrePanneau = estReglages ? 'Réglages' : estCorpus ? 'Corpus' : 'Contenus';
 

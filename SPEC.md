@@ -2231,6 +2231,90 @@ se crée par « + Nouveau »), les tableaux triables (`SocialGridView`, `TriTabl
 Tant que le cadre du contenu n'est pas refait (F3), un contenu s'ouvre dans l'éditeur
 d'avant, sur l'onglet qui correspond à son étape d'arrivée (§13.4).
 
+### 13.9 Le cadre d'un contenu ouvert (F3)
+
+Le même cadre à toutes les étapes. Le panneau Contenus et le bandeau de l'application
+s'effacent ; le rail reste. Un **bandeau de 80 px** porte le retour (libellé de la liste
+d'où l'on vient, ou « Plan de la série »), le titre en Abril Display — modifiable en
+place —, les pastilles format · objectif · plateformes, et le **sélecteur d'étape**.
+
+**Le sélecteur sépare l'état de la navigation** (`etapesDuSelecteur`, `etape.ts`). Une
+ligne par étape du fil : faite (coche), actuelle (« étape actuelle »), ou **verrouillée**
+quand ce qu'elle montrerait n'existe pas — Brouillon, Script, Tournage et Montage sans
+brouillon, Slides sans slides, Publication tant que le contenu n'est ni bon à publier ni
+exporté. Une étape verrouillée reste visible, à 40 %, avec sa raison en info-bulle. Son
+statut s'affiche à droite (« relu : Publiable », « prise calée », « Publié le 12 oct. »).
+Une adresse qui demande une étape absente ou verrouillée retombe sur l'étape courante.
+
+**Le pied (48 px)** dit « Enregistré automatiquement », le coût IA (« ≥ » quand une partie
+n'est pas chiffrée, §2.6) et « Supprimer ce contenu ». **Il n'y a plus de bouton
+« Enregistrer »** : ce qu'on tape — titre, notes, format — part une seconde après la
+dernière frappe ; un échec s'affiche en rouge, avec « Réessayer ».
+
+**La matière a une seule action principale**, toujours à la même place, et un « ⋯ » pour
+le reste ; une action indisponible reste visible avec sa raison :
+
+| Étape | Action principale | Dans « ⋯ » |
+| :--- | :--- | :--- |
+| Brouillon, écrit | Bon à publier — indisponible tant que la relecture du texte d'aujourd'hui relève des points | Relire à froid, Régénérer, Modifier à la main |
+| Brouillon, carrousel | Produire les slides | Relire à froid, Régénérer, Modifier à la main |
+| Slides | Bon à publier | Reproduire les slides |
+| Script | Marquer prête à tourner — indisponible tant que les contrôles du format échouent | Relire à froid, Régénérer |
+| Tournage | Déposer la prise (mène au Montage) | Repasser en écriture |
+| Contenu déjà prêt | — | Repasser en écriture |
+
+**« Modifier à la main » est un ajout à la passation**, qui ne le mentionnait pas : la
+retouche directe d'un écrit existait, et rien ne disparaît sans décision.
+
+Le corps de la matière : à l'Ouverture, les notes et le format (le format se fige à
+l'ouverture de l'atelier) ; au Brouillon, le texte (une carte par slide pour un carrousel,
+avec sa longueur sur 140) ; aux Slides, leurs vignettes puis les prompts d'illustration ;
+au Script, une carte par séquence et son minutage estimé ; au **Tournage, le script en
+grand avec ce qui sera à l'écran** — Florent ne lit pas en filmant, il s'approprie le
+texte avant ; à la Publication, ce qui sera publié et le bloc « Publier » (plateformes,
+date, « Marquer publié », « Repasser en écriture », « Décliner en série »).
+
+« Bon à publier » mène à la Publication, « Marquer prête à tourner » au Tournage.
+**Le sélecteur de modèle n'est pas dans le cadre** : il reste sur les listes, et chaque
+action garde son modèle réglé (Réglages → Modèles IA).
+
+### 13.10 Le fil (F4)
+
+À gauche de la matière, sur fond `fil`, **le fil** : le journal des productions rendu
+lisible (`composerLeFil`, `fil.ts`), avec la conversation Coach intercalée par date, les
+gestes et ce que le montage a fait. Des bulles de messagerie, les voix de l'IA à gauche,
+Florent à droite, ancrées en bas : le dernier message est celui qui dit où en est le
+contenu.
+
+- **L'analyse ouvre le fil** : objectif, plateformes, angle, métaphore, et « ce qui
+  manque » quand l'Analyste ne trouvait pas l'idée prête — sans son verdict (§13.8).
+- **Un atelier validé se replie** en une ligne pointillée, « Atelier · 6 messages ·
+  validé », qui se déplie.
+- **Une relecture** dit son verdict, ce qu'un inconnu a compris, et ses points. La
+  dernière, si elle juge le texte d'aujourd'hui, porte « Appliquer les corrections » et
+  « Ignorer » ; appliquée, elle porte sa date.
+- **Le contrôle du format** d'une vidéo parle en dernier, avec « Corriger ».
+- La dernière écriture du brouillon ou des slides porte **« Revenir à la version
+  précédente »** — par le journal, qui ajoute une ligne (§3.2.2).
+- Quand un rôle travaille, sa bulle dit « réfléchit… ».
+
+**En bas du fil**, selon l'étape. À l'Ouverture : « Ouvrir l'atelier avec le Coach »,
+« Rédiger sans atelier », et « Demander l'ouverture à l'Analyste » si l'idée n'est pas
+préparée. Ouvrir l'atelier ou rédiger sans lui **fait passer une idée en Brouillon** :
+elle quitte Idées pour Conversations. Ensuite, **le composeur, à deux destinataires** :
+« Au Coach · « Go » valide la direction » avant le brouillon, « Au Rédacteur · un message
+= un ajustement » après. « Go », seul, valide ; deux réponses rapides au plus (« Go, passe
+à l'Éditeur » après deux tours, ou ce que le Coach propose). « Parler au Coach » rouvre
+l'atelier (§2.7) ; « Réinitialiser l'atelier », dans le « ⋯ » de l'Atelier, se confirme.
+
+**Disparaissent** : la fenêtre Idée et « Travailler cette idée », le sas « Démarrer la
+session », l'aperçu comme écran à part, le bloc Format · Objectif · Plateformes répété
+dans chaque onglet, la pastille de statut et l'étiquette de verdict
+(`IdeaModal`, `CoachChat`, `DraftView`, `PreviewView`, `EditorLayout`).
+
+**Côté données** : `GET /contents/:id` rend aussi les gestes du contenu (4 requêtes), et
+le journal se relit après chaque production (`?limit=50`).
+
 ### Phasage de la refonte — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée.
