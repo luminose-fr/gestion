@@ -5,6 +5,9 @@ import { Audio, Video } from '@remotion/media';
 import type { MinutageReel, PlanDeMontage, ReelExplique, SequenceReel, SousTitre } from '@luminose/editorial';
 import { DEFAULT_STYLE } from '@luminose/subtitles';
 import { SceneLuminose, CoupDePoingLuminose, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
+// Importées et non écrites en chemin : voir `POLICES`.
+import futuraWoff2 from '../../fonts/5313918/7a337894-f253-4a5d-a63e-0d8275cedec5.woff2';
+import abrilWoff2 from '../../fonts/5197317/e95ab4d7-0b64-43c7-88ec-c70de2273848.woff2';
 
 /**
  * La composition Remotion d'un Reel expliqué (SPEC §12.4, étape V2).
@@ -24,15 +27,25 @@ const QUEUE_SECONDES = 0.5;
  * Les polices de la marque, les MÊMES fichiers que `index.css`. Le rendu dans
  * le navigateur dessine le texte lui-même : il faut qu'elles soient chargées
  * avant la première image, et `loadFont` retient le rendu jusque-là.
+ *
+ * Les fichiers passent par un `import` et non par un chemin « /fonts/… » écrit en
+ * dur (corrigé le 27/10/2026) : `fonts/` n'est pas dans `public/`, et le build ne
+ * les copie — sous un nom haché, dans `/assets/` — que parce que le CSS ou un
+ * import les cite. Le chemin brut marchait en développement et rendait, en
+ * ligne, la page d'accueil en HTML, et l'export échouait avant la première
+ * image (« Invalid font data in ArrayBuffer », et sous Safari « The string did
+ * not match the expected pattern »).
  */
 const POLICES = [
-    { family: 'Futura LT', url: '/fonts/5313918/7a337894-f253-4a5d-a63e-0d8275cedec5.woff2' },
-    { family: 'Abril Display', url: '/fonts/5197317/e95ab4d7-0b64-43c7-88ec-c70de2273848.woff2', style: 'italic' },
+    { family: 'Futura LT', url: futuraWoff2 },
+    { family: 'Abril Display', url: abrilWoff2, style: 'italic' },
 ];
 
 let polices: Promise<unknown> | null = null;
+/** Un échec n'est pas retenu : sans quoi l'export resterait en échec jusqu'au rechargement de la page. */
 export const chargerPolices = (): Promise<unknown> =>
-    polices ??= Promise.all(POLICES.map(p => loadFont({ ...p, format: 'woff2' })));
+    polices ??= Promise.all(POLICES.map(p => loadFont({ ...p, format: 'woff2' })))
+        .catch((e) => { polices = null; throw e; });
 
 export const enImages = (secondes: number): number => Math.round(secondes * FPS);
 
