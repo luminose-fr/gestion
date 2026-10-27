@@ -53,7 +53,7 @@ import { MontageTexte } from '../components/Video/MontageTexte';
 import { ReglagesPrise } from '../components/Video/ReglagesPrise';
 import { RythmeReel } from '../components/Video/RythmeReel';
 import { CoupDePoingLuminose } from '../components/Video/SceneLuminose';
-import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo } from '@luminose/editorial';
+import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo, compterMots } from '@luminose/editorial';
 
 /*
  * Le lecteur Remotion mesure son conteneur et le moteur de rendu exige
@@ -2130,15 +2130,18 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(container.textContent).toContain("ce fichier n'a pas de son.");
   });
 
+  /** Les séquences du fixture, comme le studio les passe au montage par le texte. */
+  const sequencesDe = (data: any) => data.sequences.map((s: any, i: number) => ({ repere: `${i + 1} · ${s.role}`, mots: compterMots(s.voix) }));
+
   it('le montage par le texte dit qu\u2019une transcription vide n\u2019a rien à monter', () => {
     const calage = calerSurLaPrise(voixEntiere(reel()), []);
-    const { container } = render(<MontageTexte titre="Montage de la prise" calage={calage} coupes={[]} appliquees={[]} gardes={null} choix={{}}
+    const { container } = render(<MontageTexte sequences={sequencesDe(reel())} calage={calage} coupes={[]} appliquees={[]} gardes={null} choix={{}}
       dureePrise={12} dureeGardee={0} situer={() => 0} onAller={noop} onTrancher={noop} onTrancherPassage={noop}
       onChoisirVersion={noop} onReinitialiser={noop} />);
     expect(container.textContent).toContain('La transcription est vide');
   });
 
-  it('le montage par le texte barre ce qui est coupé, et tout s\u2019y tranche (SPEC §12.5.5)', () => {
+  it('le montage par le texte se lit par séquence, barre ce qui est coupé, et tout s\u2019y tranche (SPEC §12.5.5)', () => {
     const data = reel();
     const texte = voixEntiere(data);
     // Deux versions de la phrase de la scène, un long silence, une improvisation.
@@ -2156,35 +2159,64 @@ describe('Reel expliqué — prise et rendu', () => {
     const plan = planDeMontage(data, { calage, duree: 30 }, { coupes: appliquees });
 
     const gestes: any[] = [];
-    const { container } = render(<MontageTexte titre="Montage de la prise" calage={calage} coupes={coupes} appliquees={appliquees}
-      gardes={plan.segments.map(x => ({ debut: x.depuis, fin: x.jusqua }))} choix={{}} dureePrise={30} dureeGardee={plan.duree} situer={(x) => instantDansLaVideo(plan, 'principale', x)}
-      onAller={(x) => gestes.push(['aller', x])} onTrancher={(d) => gestes.push(['trancher', d[0].coupe.motif, d[0].coupee])}
-      onTrancherPassage={(p, c) => gestes.push(['passage', p, c])} onChoisirVersion={(ph, d) => gestes.push(['version', ph, d])}
-      onReinitialiser={noop} />);
+    const proprietes = {
+      sequences: sequencesDe(data), calage, coupes, choix: {}, dureePrise: 30,
+      situer: (x: number) => instantDansLaVideo(plan, 'principale', x),
+      onAller: (x: number) => gestes.push(['aller', x]),
+      onTrancher: (d: any[]) => gestes.push(['trancher', d[0].coupe.motif, d[0].coupee]),
+      onTrancherPassage: (p: any, c: boolean) => gestes.push(['passage', p, c]),
+      onChoisirVersion: (ph: number, d: number) => gestes.push(['version', ph, d]),
+      onReinitialiser: noop,
+    };
+    const { container, rerender } = render(<MontageTexte {...proprietes} appliquees={appliquees}
+      gardes={plan.segments.map(x => ({ debut: x.depuis, fin: x.jusqua }))} dureeGardee={plan.duree} />);
     const mot = (i: number) => container.querySelector(`[data-mot="${i}"]`)!;
+    const bloc = (i: number) => mot(i).closest('.grid');
+    const bouton = (texte: string) => Array.from(container.querySelectorAll('button')).find(b => b.textContent?.trim() === texte)!;
 
-    // La première version de la phrase est barrée, la seconde retenue.
+    // Un bloc par séquence. La reprise écartée se lit avec sa phrase ; l'improvisation, avec celle qu'elle prolonge.
+    expect(container.textContent).toContain('2 · Mécanique');
+    expect(bloc(6)).toBe(bloc(11));
+    expect(bloc(6)).not.toBe(bloc(0));
+    expect(bloc(18)).toBe(bloc(11));
+    expect(bloc(22)).not.toBe(bloc(11));
+
+    // La première version est barrée, la seconde retenue ; la puce passe de l'une à l'autre.
+    // Le « ? » de Whisper n'est pas un mot affiché : « Une » est le 7ᵉ mot dit, le 8ᵉ de la liste.
     expect(mot(6).className).toContain('line-through');
     expect(mot(11).className).not.toContain('line-through');
-    expect(container.textContent).toContain('Version retenue');
-    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Garder cette version')!);
-    // Le « ? » de Whisper n'est pas un mot affiché : « Une » est le 7ᵉ mot dit, le 8ᵉ de la liste.
+    fireEvent.click(bouton('version 2 sur 2'));
     expect(gestes[0]).toEqual(['version', 1, dits[7].debut]);
+    // Cliquer la version barrée la prend, elle aussi.
+    fireEvent.click(mot(6));
+    expect(gestes[1]).toEqual(['version', 1, dits[7].debut]);
 
     // Le long silence est une pastille qui se rétablit.
     fireEvent.click(container.querySelector('button[title="Silence raccourci : le rétablir"]')!);
-    expect(gestes[1]).toEqual(['trancher', 'silence', false]);
+    expect(gestes[2]).toEqual(['trancher', 'silence', false]);
 
-    // Un clic mène l'aperçu au mot ; Maj + clic sélectionne un passage, qui se coupe.
+    // Un clic choisit le passage et y mène l'aperçu ; « Barrer » le coupe, en entier.
+    fireEvent.click(mot(19));
+    expect(gestes[3][0]).toBe('aller');
+    fireEvent.click(bouton('Barrer'));
+    expect(gestes[4][2]).toBe(true);
+    expect(gestes[4][1].debut).toBeLessThanOrEqual(dits[19].debut);
+    expect(gestes[4][1].fin).toBeGreaterThanOrEqual(dits[22].fin);
+
+    // Maj + clic en choisit le détail.
     fireEvent.click(mot(18));
-    expect(gestes[2][0]).toBe('aller');
     fireEvent.click(mot(20), { shiftKey: true });
-    expect(container.textContent).toContain('« comme je dis » — 3 mots');
-    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Couper')!);
-    const [, passage, coupe] = gestes[3];
-    expect(coupe).toBe(true);
-    expect(passage.debut).toBeLessThanOrEqual(dits[19].debut);
-    expect(passage.fin).toBeGreaterThanOrEqual(dits[21].fin);
+    fireEvent.click(bouton('Barrer'));
+    expect(gestes[6][1].fin).toBeGreaterThanOrEqual(dits[21].fin);
+    expect(gestes[6][1].fin).toBeLessThan(dits[22].debut);
+
+    // Un passage barré se rétablit d'un clic.
+    rerender(<MontageTexte {...proprietes} appliquees={[{ debut: dits[19].debut - 0.1, fin: dits[22].fin + 0.1 }]} gardes={null} dureeGardee={null} />);
+    expect(mot(19).className).toContain('line-through');
+    fireEvent.click(mot(19));
+    expect(gestes[7][2]).toBe(false);
+    expect(gestes[7][1].debut).toBeLessThanOrEqual(dits[19].debut);
+    expect(gestes[7][1].fin).toBeGreaterThanOrEqual(dits[22].fin);
   });
 
   it('le rythme dit quand l\u2019image reste figée, et y mène (SPEC §12.5.3)', () => {

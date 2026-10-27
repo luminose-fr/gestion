@@ -709,3 +709,59 @@ export function momentsFiges(
     }
     return figes;
 }
+
+// ── Le texte, séquence par séquence ──────────────────────────────────
+
+/** Au-delà, deux bouts hors script ne se tiennent plus : ce sont deux tentatives. */
+const PAUSE_ENTRE_TENTATIVES = 1.2;
+
+/**
+ * La séquence du script à laquelle appartient chaque mot dit, jeton par jeton
+ * (SPEC §12.5.5, v2.21) : le montage par le texte se lit séquence par séquence,
+ * comme le script, et non comme une prise au kilomètre.
+ *
+ * Un mot qui répond au script va à la séquence de son rang. Une version écartée
+ * d'une phrase va à la séquence de cette phrase : une reprise se lit à côté de
+ * celle qu'on a gardée. Le reste — hésitations, improvisations — va, par bouts
+ * d'un seul tenant, au mot du script dont il est le plus près dans le temps : une
+ * hésitation colle à la phrase qu'elle précède, une improvisation à celle
+ * qu'elle prolonge. Avant la première phrase, il va à la première séquence ;
+ * après la dernière, à la dernière.
+ */
+export function sequenceDeChaqueJeton(calage: Calage, motsParSequence: number[]): number[] {
+    const fins: number[] = [];
+    motsParSequence.reduce((n, m) => { fins.push(n + m); return n + m; }, 0);
+    const derniere = Math.max(0, motsParSequence.length - 1);
+    const sequenceDuRang = (rang: number) => {
+        const k = fins.findIndex(f => rang < f);
+        return k < 0 ? derniere : k;
+    };
+
+    const jetons = calage.prononces ?? [];
+    const sequences: Array<number | null> = jetons.map(p => (p.rang !== null && !p.autrePrise ? sequenceDuRang(p.rang) : null));
+    for (const choisie of calage.phrases ?? []) {
+        const k = sequenceDuRang(choisie.phrase.debut);
+        choisie.versions.forEach((v, i) => {
+            if (i === choisie.retenue) return;
+            for (let j = v.debut; j <= v.fin && j < jetons.length; j++) sequences[j] ??= k;
+        });
+    }
+
+    // De gauche à droite : le mot qui précède un passage hors script est déjà rangé.
+    for (let j = 0; j < jetons.length; j++) {
+        if (sequences[j] !== null) continue;
+        let fin = j;
+        while (fin + 1 < jetons.length && sequences[fin + 1] === null
+            && jetons[fin + 1].debut - jetons[fin].fin <= PAUSE_ENTRE_TENTATIVES) fin++;
+        let suivant = fin + 1;
+        while (suivant < jetons.length && sequences[suivant] === null) suivant++;
+        const avant = j > 0 ? sequences[j - 1] : null;
+        const apres = suivant < jetons.length ? sequences[suivant] : null;
+        const k = avant === null ? apres ?? 0
+            : apres === null ? avant
+                : jetons[j].debut - jetons[j - 1].fin < jetons[suivant].debut - jetons[fin].fin ? avant : apres;
+        for (let x = j; x <= fin; x++) sequences[x] = k;
+        j = fin;
+    }
+    return sequences as number[];
+}
