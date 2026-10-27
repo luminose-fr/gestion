@@ -1,42 +1,32 @@
 import React from 'react';
-import {
-    Lightbulb, Calendar as CalendarIcon, Archive, Users, Settings,
-    Briefcase, CheckCircle2, PenLine, X, Video, Sparkles, Layers, BookMarked
-} from 'lucide-react';
+import { Users, Settings, Briefcase, X, Sparkles, BookMarked } from 'lucide-react';
 
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
 import { PERSONAS_NAV } from '../Settings/apercus';
 import { CORPUS_SECTIONS, BLOCS, CorpusSection } from '../Corpus/sections';
-import { VIDEOS_SECTIONS, VideosSection } from '../Video/sections';
+import { LISTES, type ListeContenus } from '../Contenus/listes';
 
-type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'corpus' | 'settings';
-type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
+/*
+  L'espace Vidéos a disparu (SPEC §13) : Tournage et Montage sont des étapes
+  d'un contenu, et Sous-titres servait un Final Cut qu'on n'ouvre plus.
+*/
+type SpaceView = 'social' | 'clients' | 'psychedelics' | 'corpus' | 'settings';
 
 interface SidebarProps {
     currentSpace: SpaceView;
-    currentSocialTab: SocialTab;
+    currentSocialTab: ListeContenus;
     /** Section ouverte dans l'espace Réglages, et le rôle ouvert sous Personas. */
     currentSettingsSection: SettingsSection;
     currentSettingsPersona: string | null;
     /** Section et bloc ouverts dans l'espace Corpus. */
     currentCorpusSection: CorpusSection;
     currentCorpusBloc: string | null;
-    /** Section ouverte dans l'espace Vidéos. */
-    currentVideosSection: VideosSection;
-    onNavigate: (space: SpaceView, tab: SocialTab) => void;
+    onNavigate: (space: SpaceView, tab: ListeContenus) => void;
     onNavigateSettings: (section: SettingsSection, persona?: string | null) => void;
     onNavigateCorpus: (section: CorpusSection, bloc?: string | null) => void;
-    onNavigateVideos: (section: VideosSection) => void;
     /** Ce que le panneau Corpus affiche en pastille — captures en attente, documents par bloc. */
     corpusCounts?: { inbox?: number; parBloc?: Record<string, number> };
-    counts: {
-        ideas: number;
-        drafts: number;
-        ready: number;
-        series: number;
-        calendar: number;
-        archive: number;
-    };
+    counts: Record<ListeContenus, number>;
     isMobileOpen: boolean;
     onMobileClose: () => void;
 }
@@ -45,26 +35,12 @@ const SPACES: Array<{
     id: SpaceView;
     icon: React.ComponentType<{ className?: string }>;
     label: string;
-    defaultTab: SocialTab;
+    defaultTab: ListeContenus;
 }> = [
-    { id: 'social',       icon: Briefcase, label: 'Contenus',       defaultTab: 'ideas' },
-    { id: 'clients',      icon: Users,     label: 'Clients',        defaultTab: 'ideas' },
-    { id: 'videos',       icon: Video,     label: 'Vidéos',         defaultTab: 'ideas' },
-    { id: 'psychedelics', icon: Sparkles,  label: 'Psychédéliques', defaultTab: 'ideas' },
-    { id: 'corpus',       icon: BookMarked, label: 'Corpus',         defaultTab: 'ideas' },
-];
-
-const SOCIAL_TABS: Array<{
-    id: SocialTab;
-    icon: React.ComponentType<{ className?: string }>;
-    label: string;
-}> = [
-    { id: 'ideas',    icon: Lightbulb,    label: 'Boîte à idées'   },
-    { id: 'drafts',   icon: PenLine,      label: 'En cours'        },
-    { id: 'ready',    icon: CheckCircle2, label: 'Prêts'           },
-    { id: 'series',   icon: Layers,       label: 'Séries'          },
-    { id: 'calendar', icon: CalendarIcon, label: 'Calendrier'      },
-    { id: 'archive',  icon: Archive,      label: 'Archives'        },
+    { id: 'social',       icon: Briefcase, label: 'Contenus',       defaultTab: 'conversations' },
+    { id: 'clients',      icon: Users,     label: 'Clients',        defaultTab: 'conversations' },
+    { id: 'psychedelics', icon: Sparkles,  label: 'Psychédéliques', defaultTab: 'conversations' },
+    { id: 'corpus',       icon: BookMarked, label: 'Corpus',         defaultTab: 'conversations' },
 ];
 
 /**
@@ -74,10 +50,10 @@ const SOCIAL_TABS: Array<{
  * niveaux y passent par MobileSubTabs, en seconde rangée.
  */
 const PANNEAU_3 =
-    'hidden md:flex w-[210px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex-col';
+    'hidden md:flex w-[232px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex-col';
 
 const ENTETE_3 =
-    'px-4 h-[52px] flex items-center border-b border-brand-border dark:border-dark-sec-border shrink-0';
+    'px-4 h-16 flex items-center border-b border-brand-border dark:border-dark-sec-border shrink-0';
 
 const RailButton: React.FC<{
     active: boolean;
@@ -110,18 +86,18 @@ const PanelTab: React.FC<{
 }> = ({ active, onClick, icon: Icon, label, count }) => (
     <button
         onClick={onClick}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-medium transition-all group ${
+        className={`w-full h-11 flex items-center justify-between px-3 rounded-[10px] text-sm font-semibold transition-all group ${
             active
                 ? 'bg-brand-main text-white shadow-sm shadow-brand-main/25 dark:bg-white dark:text-brand-main'
                 : 'text-brand-main/70 hover:bg-white hover:text-brand-main dark:text-dark-text/70 dark:hover:bg-dark-sec-bg dark:hover:text-white'
         }`}
     >
         <span className="flex items-center gap-2.5">
-            <Icon className={`w-[14px] h-[14px] ${active ? '' : 'text-brand-main/40 group-hover:text-brand-main dark:text-dark-text/40 dark:group-hover:text-white'}`} />
+            <Icon className={`w-4 h-4 ${active ? '' : 'text-brand-main/40 group-hover:text-brand-main dark:text-dark-text/40 dark:group-hover:text-white'}`} />
             {label}
         </span>
         {count !== undefined && count > 0 && (
-            <span className={`text-[10px] font-bold min-w-[18px] text-center px-1.5 py-0.5 rounded-full leading-none ${
+            <span className={`text-[11px] font-bold min-w-[22px] text-center px-1.5 py-0.5 rounded-full leading-none tabular-nums ${
                 active ? 'bg-white/20 text-white dark:bg-brand-main/15 dark:text-brand-main' : 'bg-brand-light text-brand-main/50 dark:bg-dark-bg dark:text-dark-text/50'
             }`}>
                 {count}
@@ -132,30 +108,18 @@ const PanelTab: React.FC<{
 
 export const Sidebar: React.FC<SidebarProps> = ({
     currentSpace, currentSocialTab, currentSettingsSection, currentSettingsPersona,
-    currentCorpusSection, currentCorpusBloc, currentVideosSection,
-    onNavigate, onNavigateSettings, onNavigateCorpus, onNavigateVideos, counts, corpusCounts,
+    currentCorpusSection, currentCorpusBloc,
+    onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts,
     isMobileOpen, onMobileClose
 }) => {
-    // Quatre espaces partagent le même panneau de deuxième niveau : Contenus,
-    // Réglages, Corpus et Vidéos. C'est le même geste, au même endroit — et
-    // c'est ce qui fait qu'un nouvel espace ne demande pas d'apprendre une
-    // navigation.
+    // Trois espaces partagent le même panneau de deuxième niveau : Contenus,
+    // Réglages et Corpus. C'est le même geste, au même endroit — et c'est ce
+    // qui fait qu'un nouvel espace ne demande pas d'apprendre une navigation.
     const estReglages = currentSpace === 'settings';
     const estCorpus = currentSpace === 'corpus';
-    const estVideos = currentSpace === 'videos';
-    const showSubPanel = currentSpace === 'social' || estReglages || estCorpus || estVideos;
+    const showSubPanel = currentSpace === 'social' || estReglages || estCorpus;
 
-    const titrePanneau = estReglages ? 'Réglages' : estCorpus ? 'Corpus' : estVideos ? 'Vidéos' : 'Contenus';
-
-    const tabCount = (id: SocialTab): number | undefined => {
-        if (id === 'ideas')    return counts.ideas;
-        if (id === 'drafts')   return counts.drafts;
-        if (id === 'ready')    return counts.ready;
-        if (id === 'series')   return counts.series;
-        if (id === 'calendar') return counts.calendar;
-        if (id === 'archive')  return counts.archive;
-        return undefined;
-    };
+    const titrePanneau = estReglages ? 'Réglages' : estCorpus ? 'Corpus' : 'Contenus';
 
     return (
         <>
@@ -175,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="w-[64px] shrink-0 bg-white dark:bg-dark-surface border-r border-brand-border dark:border-dark-sec-border flex flex-col items-center py-3 gap-1">
                     <button
                         type="button"
-                        onClick={() => { onNavigate('social', 'ideas'); onMobileClose(); }}
+                        onClick={() => { onNavigate('social', 'conversations'); onMobileClose(); }}
                         className="w-9 h-9 rounded-xl bg-linear-to-tr from-brand-main to-brand-hover flex items-center justify-center shadow-md shadow-brand-main/30 mb-3 hover:opacity-90 transition-opacity"
                         title="Luminose"
                     >
@@ -204,8 +168,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Sub-panel — only when space has tabs */}
                 {showSubPanel && (
-                    <div className="w-[210px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex flex-col">
-                        <div className="px-4 h-[52px] flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border shrink-0">
+                    <div className="w-[232px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex flex-col">
+                        <div className="px-4 h-16 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border shrink-0">
                             <p className="font-bold text-sm text-brand-main dark:text-white truncate">
                                 {titrePanneau}
                             </p>
@@ -217,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+                        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
                             {estCorpus
                                 ? CORPUS_SECTIONS.map(s => (
                                     <PanelTab
@@ -227,16 +191,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         icon={s.icon}
                                         label={s.label}
                                         count={s.id === 'inbox' ? corpusCounts?.inbox : undefined}
-                                    />
-                                ))
-                                : estVideos
-                                ? VIDEOS_SECTIONS.map(s => (
-                                    <PanelTab
-                                        key={s.id}
-                                        active={currentVideosSection === s.id}
-                                        onClick={() => { onNavigateVideos(s.id); onMobileClose(); }}
-                                        icon={s.icon}
-                                        label={s.label}
                                     />
                                 ))
                                 : estReglages
@@ -249,14 +203,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         label={s.label}
                                     />
                                 ))
-                                : SOCIAL_TABS.map(t => (
+                                : LISTES.map(t => (
                                     <PanelTab
                                         key={t.id}
                                         active={currentSocialTab === t.id}
                                         onClick={() => { onNavigate('social', t.id); onMobileClose(); }}
                                         icon={t.icon}
                                         label={t.label}
-                                        count={tabCount(t.id)}
+                                        count={counts[t.id]}
                                     />
                                 ))}
                         </div>
@@ -267,12 +221,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     Troisième panneau — les blocs de documents.
                     
                     Une colonne plutôt qu'un arbre indenté dans le panneau
-                    précédent : à 210 px, une arborescence force à lire un
+                    précédent : à 232 px, une arborescence force à lire un
                     retrait pour comprendre une hiérarchie, là où deux colonnes
                     la montrent. Il n'apparaît que sous la section qui en a un,
                     et disparaît ailleurs plutôt que de rester vide.
 
-                    Même largeur que le deuxième — 210 px : deux colonnes de
+                    Même largeur que le deuxième — 232 px : deux colonnes de
                     navigation côte à côte qui ne font pas la même largeur se
                     lisent comme une hiérarchie qui n'existe pas.
                 */}

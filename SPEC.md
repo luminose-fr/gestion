@@ -772,6 +772,12 @@ Voir §12.4.2 et §12.4.3.
 
 ### 3.7 Ce qu'une liste retient — NORMATIF
 
+> **Depuis la v2.19 (§13.8), aucun écran ne s'en sert.** Les listes de Contenus ne sont
+> plus des tableaux triables : Conversations range par série puis par avancement, Idées
+> par date, Publiés par date de publication. Les routes `/api/settings/vues` restent, et
+> ce qui suit décrit leur contrat ; le jour où une liste retrouvera un tri, c'est ici
+> qu'il se retiendra.
+
 **Le tri et le filtre d'une liste vivent sur le compte, pas dans le navigateur.**
 `app_settings`, sous `vue:<liste>` — la même table que les clés et les modèles par
 action, une ligne par liste, sa valeur en JSON `{tri, sens, filtre}`.
@@ -1578,6 +1584,10 @@ téléchargent pas d'un clic.
 
 ### 12.4.3 Où se trouve le montage (v2.10) — NORMATIF
 
+> **Remplacé par §13 (v2.19).** L'espace Vidéos n'existe plus : une vidéo est un contenu
+> de la liste Conversations, son montage est l'étape Montage, et le résumé des montages
+> se lit avec les listes. Ce qui suit reste l'histoire de la décision.
+
 Question de Florent, le 04/10/2026 : « ça se trouve où dans mon interface ? ». Le
 montage vivait dans l'onglet Script d'un contenu en Brouillon, et nulle part ailleurs ;
 l'espace Vidéos, où on le cherchait, ne contenait que l'outil Sous-titres. Décision :
@@ -2047,7 +2057,8 @@ sans script fait 75 s, contre 73 s avec.
 **Les hésitations se coupent d'office**, dans toutes les vidéos : un passage hors script
 fait seulement d'hésitations est une coupe `hesitation` (clé `e…`), même d'un seul mot.
 
-**L'espace Vidéos → Montage** dit sur chaque ligne « Directe » ou « Avec animations », et
+**L'espace Vidéos → Montage** (jusqu'à la v2.19 ; depuis, « + Nouveau → Vidéo directe »
+dans Conversations, §13.8) dit sur chaque ligne « Directe » ou « Avec animations », et
 propose « Nouvelle vidéo directe » et « Nouveau Reel expliqué » (qui mène à la boîte à
 idées). Une vidéo directe ne s'y liste que **en chantier** — Brouillon ou Prêt, une prise
 déposée, ou pas de script — : les Script Reels publiés avant, jamais montés ici,
@@ -2180,7 +2191,47 @@ caractères, et le verdict lu par `json_extract` — gardé par `json_valid`, po
 relecture illisible n'emporte pas la liste. Le résumé des montages porte désormais les
 dates de la prise (déposée, envoyée, transcrite).
 
-### 13.8 Phasage — NORMATIF
+### 13.8 Les listes (F2)
+
+La barre latérale perd l'entrée **Vidéos** ; le panneau Contenus passe de six entrées à
+trois, chacune avec son compteur. Un contenu est dans **une** liste, et une seule :
+
+| Entrée | Contient | Adresse |
+| :--- | :--- | :--- |
+| Conversations | tout contenu ni idée ni publié | `#social/conversations` |
+| Idées | les idées | `#social/ideas` |
+| Publiés | publiés et programmés, en liste ou en calendrier | `#social/publies`, `?vue=calendrier` |
+
+Un plan de série s'ouvre à `#social/series/<série>`. **Les adresses d'avant restent
+valables** : `drafts` et `ready` mènent à Conversations, `calendar` au calendrier des
+Publiés, `archive` aux Publiés, `#videos/…` à Conversations — remplacées sans entrée
+d'historique, pour que « retour » n'y ramène pas.
+
+**Conversations** a une barre d'outils d'une ligne : la recherche, les filtres par geste
+(§13.5) avec leur compte, et **« + Nouveau »**, qui ouvre trois choix — une idée (la
+ligne s'écrit dans Idées), une série (un titre, puis le plan), une vidéo directe (un
+titre, puis son montage). Les séries viennent d'abord, une carte chacune, ses
+publications dans l'ordre du plan ; une série en cours sans publication garde sa carte,
+sans quoi un plan pas encore généré ne se retrouverait nulle part. Puis le hors série,
+**les plus avancés d'abord** : on finit ce qui est presque fini. Chaque ligne porte le
+rang dans la série, le titre, le format, le dernier fait du fil (§13.7) avec son moment,
+la barre d'avancement et l'étape.
+
+**Idées** n'a plus de verdict, ni en étiquette ni en filtre : l'Analyste et son prompt
+restent, mais « Valide », « Trop lisse », « À revoir » étaient une porte qui n'arrêtait
+rien. Une idée y est « Préparée » ou « À préparer ». L'ajout exige un format.
+**« Préparer 3 idées »** remplace « Analyser tout » : l'Analyste prépare les trois idées
+les plus récentes qui ne le sont pas — on prépare ce qu'on va ouvrir bientôt.
+
+**Disparaissent** : l'espace Vidéos (`MontageView`, `Video/sections.ts`), l'outil
+Sous-titres (`SubtitleConverter`, .srt → Final Cut : Final Cut n'est plus une étape,
+§12.5.2), la liste des Séries (`SeriesView` : une série se trouve dans Conversations et
+se crée par « + Nouveau »), les tableaux triables (`SocialGridView`, `TriTableau`).
+
+Tant que le cadre du contenu n'est pas refait (F3), un contenu s'ouvre dans l'éditeur
+d'avant, sur l'onglet qui correspond à son étape d'arrivée (§13.4).
+
+### Phasage de la refonte — NORMATIF
 
 Une branche par étape ; aucune ne laisse l'application cassée.
 

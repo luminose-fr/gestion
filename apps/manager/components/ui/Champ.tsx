@@ -24,6 +24,11 @@ export const CLASSES_CHAMP =
   'transition-colors disabled:opacity-40';
 
 interface ChampCommun {
+  /**
+   * `grand` : 44 px, le champ des listes et du composeur (SPEC §13). Sans effet
+   * sur une zone multiligne, dont la hauteur suit ses lignes.
+   */
+  taille?: 'normal' | 'grand';
   label?: React.ReactNode;
   /** Une aide sous le champ. `text-xs` : c'est du texte d'accompagnement. */
   aide?: React.ReactNode;
@@ -54,6 +59,7 @@ export const Champ = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, Ch
       className = '',
       multiligne,
       id,
+      taille = 'normal',
       ...attrs
     } = props as ChampCommun & {
       className?: string;
@@ -61,7 +67,7 @@ export const Champ = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, Ch
       id?: string;
     } & Record<string, unknown>;
 
-    const classes = [CLASSES_CHAMP, className].filter(Boolean).join(' ');
+    const classes = [CLASSES_CHAMP, taille === 'grand' && !multiligne ? 'h-11' : '', className].filter(Boolean).join(' ');
 
     const controle = multiligne ? (
       <textarea

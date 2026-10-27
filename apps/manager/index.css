@@ -27,6 +27,16 @@
   --color-dark-sec-bg: rgba(63, 34, 88, 0.5);
 
   /*
+    Deux surfaces de la refonte « le fil » (SPEC §13), validées le 27/10/2026 :
+    le fond du fil, entre brand-light et brand-border — la conversation se
+    distingue de la matière, blanche, posée à côté —, et le survol d'une ligne
+    de liste, à peine plus clair que brand-light. En sombre, l'un et l'autre
+    reprennent dark-bg et dark-sec-bg.
+  */
+  --color-fil: #f1ebf8;
+  --color-survol: #fcfaff;
+
+  /*
     Les trois sens que l'interface porte en couleur. Ils remplacent green-*,
     emerald-*, amber-* et red-*, écrits à la main dans une trentaine de fichiers.
     Un seul token par sens : sa valeur sombre est posée plus bas, si bien

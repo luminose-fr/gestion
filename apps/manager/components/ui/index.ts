@@ -22,3 +22,15 @@ export type { TitreSectionProps } from './TitreSection';
 
 export { GOUTTIERE, GABARITS, ecran } from './gabarits';
 export type { Gabarit } from './gabarits';
+
+export { ControleSegmente } from './ControleSegmente';
+export type { ControleSegmenteProps, OptionSegment } from './ControleSegmente';
+
+export { BarreProgression } from './BarreProgression';
+export type { BarreProgressionProps, EtatSegment } from './BarreProgression';
+
+export { Menu } from './Menu';
+export type { MenuProps, EntreeMenu } from './Menu';
+
+export { TitreEcran } from './TitreEcran';
+export type { TitreEcranProps } from './TitreEcran';

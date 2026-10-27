@@ -29,12 +29,12 @@ import { PERSONAS_NAV } from '../components/Settings/apercus';
 import { AI_ACTION_CATALOG } from '@luminose/editorial';
 import { LoginPage } from '../components/LoginPage';
 import CalendarView from '../components/CalendarView';
-import SubtitleConverter from '../components/SubtitleConverter';
 import PsychedelicsCalculator from '../components/PsychedelicsCalculator';
 import RdvView from '../components/Clients/RdvView';
-import { SocialIdeasView } from '../components/Views/SocialIdeasView';
-import { SocialGridView, TRI_CONTENUS_DEFAUT } from '../components/Views/SocialGridView';
-import { SeriesView, TRI_SERIES_DEFAUT } from '../components/Series/SeriesView';
+import { ConversationsView } from '../components/Contenus/ConversationsView';
+import { IdeesView } from '../components/Contenus/IdeesView';
+import { PubliesView } from '../components/Contenus/PubliesView';
+import { etapeCourante } from '@luminose/editorial';
 import { SeriePlanView } from '../components/Series/SeriePlanView';
 import { ConfirmSuppressionSerie } from '../components/Series/ConfirmSuppressionSerie';
 import { CoachChat } from '../components/CoachChat';
@@ -45,7 +45,6 @@ import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
 import { StoryboardRenderer } from '../components/ContentEditor/renderers/StoryboardRenderer';
 import { DepotPrise } from '../components/Video/DepotPrise';
-import { MontageView, etapeDuReel } from '../components/Video/MontageView';
 import { IdeaModal } from '../components/IdeaModal';
 import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
@@ -714,10 +713,6 @@ describe('écrans autonomes', () => {
     expect(() => render(<CalendarView items={[]} onItemClick={noop} />)).not.toThrow();
   });
 
-  it('SubtitleConverter se monte', () => {
-    expect(() => render(<SubtitleConverter aiModels={MODELS} />)).not.toThrow();
-  });
-
   it('PsychedelicsCalculator se monte', () => {
     expect(() => render(<PsychedelicsCalculator />)).not.toThrow();
   });
@@ -835,34 +830,84 @@ describe('prise de rendez-vous', () => {
   });
 });
 
-describe('vues de contenu', () => {
-  const shared = {
-    searchQuery: '',
-    isInitializing: false,
-    onEdit: noop,
-    onNavigateToIdeas: noop,
-    displayPrefs: DEFAULT_DISPLAY_PREFS,
-    tri: TRI_CONTENUS_DEFAUT,
-    onTri: noop,
-    filtre: 'ALL',
-    onFiltre: noop,
-  };
+describe('les listes de Contenus (SPEC §13)', () => {
+  const etapesDe = (items: ContentItem[]) =>
+    Object.fromEntries(items.map(i => [i.id, etapeCourante({ contenu: i })]));
+  const conversations = (items: ContentItem[], over: Record<string, unknown> = {}) => (
+    <ConversationsView items={items} tous={items} series={[]} etapes={etapesDe(items)} derniers={{}}
+      searchQuery="" onSearchChange={noop} filtre="tout" onFiltre={noop}
+      onOuvrir={noop} onOuvrirPlan={noop} onNouvelleIdee={noop}
+      onCreerSerie={asyncNoop} onCreerVideoDirecte={asyncNoop} {...over} />
+  );
 
-  it('SocialIdeasView se monte vide et peuplée', () => {
-    expect(() => render(
-      <SocialIdeasView {...(shared as any)} items={[]} onSearchChange={noop} onQuickAdd={asyncNoop} onGlobalAnalyze={noop} isSyncing={false} />
-    )).not.toThrow();
+  it('Conversations se monte vide et peuplée, avec l’étape de chaque contenu', () => {
+    const vide = render(conversations([]));
+    expect(vide.container.textContent).toContain('Aucune conversation en cours');
     cleanup();
-    expect(() => render(
-      <SocialIdeasView {...(shared as any)} items={[ITEM]} onSearchChange={noop} onQuickAdd={asyncNoop} onGlobalAnalyze={noop} isSyncing={false} />
-    )).not.toThrow();
+    const { container } = render(conversations([{ ...ITEM, coachStatus: 'in_progress' }]));
+    expect(container.textContent).toContain('Le piège chinois');
+    expect(container.textContent).toContain('Hors série');
+    expect(container.textContent).toContain('Atelier en cours');
   });
 
-  it('SocialGridView se monte pour chaque type de liste', () => {
-    for (const type of ['drafts', 'ready', 'archive'] as const) {
-      expect(() => render(<SocialGridView {...(shared as any)} items={[ITEM]} type={type} />)).not.toThrow();
-      cleanup();
-    }
+  it('range une publication de série dans la carte de sa série, avec son rang', () => {
+    const pub = { ...ITEM, id: 'p2', serieId: SERIE.id, seriePosition: 2, title: 'Deuxième publication' };
+    const { container } = render(conversations([pub], { series: [SERIE], tous: [pub, { ...pub, id: 'p1', seriePosition: 1, status: ContentStatus.PUBLISHED }] }));
+    expect(container.textContent).toContain(`Série · ${SERIE.titre}`);
+    expect(container.textContent).toContain('2 publications · 1 publiée');
+    expect(container.textContent).toContain('2/2');
+    expect(container.textContent).not.toContain('Hors série');
+  });
+
+  it('filtre par geste, avec un compte par filtre', () => {
+    const pret = { ...ITEM, id: 'pret', status: ContentStatus.READY, draft: '{"format":"Post Texte"}', targetFormat: 'Post Texte (Court)' as any, title: 'Un post prêt' };
+    const items = [ITEM, pret];
+    const choisis: string[] = [];
+    const { container } = render(conversations(items, { onFiltre: (f: string) => choisis.push(f) }));
+    const publier = Array.from(container.querySelectorAll('[role="radio"]')).find(b => b.textContent?.startsWith('Publier'))!;
+    expect(publier.textContent).toBe('Publier1');
+    fireEvent.click(publier);
+    expect(choisis).toEqual(['publier']);
+    cleanup();
+    const filtree = render(conversations(items, { filtre: 'publier' }));
+    expect(filtree.container.textContent).toContain('Un post prêt');
+    expect(filtree.container.textContent).not.toContain('Le piège chinois');
+  });
+
+  it('« Nouveau » propose idée, série et vidéo directe, et crée une vidéo directe', async () => {
+    const crees: string[] = [];
+    const { container, getByText } = render(conversations([], { onCreerVideoDirecte: async (t: string) => { crees.push(t); } }));
+    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Nouveau'))!);
+    expect(container.textContent).toContain('Une ligne dans Idées');
+    fireEvent.click(getByText('Vidéo directe'));
+    fireEvent.change(container.querySelector('#nouveau-titre')!, { target: { value: 'Pourquoi consulter ?' } });
+    fireEvent.submit(container.querySelector('form')!);
+    await waitFor(() => expect(crees).toEqual(['Pourquoi consulter ?']));
+  });
+
+  it('Idées se monte vide et peuplée, sans verdict, et exige un format', () => {
+    const vide = render(<IdeesView items={[]} searchQuery="" onSearchChange={noop} onOuvrir={noop} onAjouter={asyncNoop} onPreparer={noop} />);
+    expect(vide.container.textContent).toContain('Aucune idée en réserve');
+    cleanup();
+    const idee = { ...ITEM, status: ContentStatus.IDEA, verdict: 'Valide' as const, analyzedAt: now };
+    const { container } = render(<IdeesView items={[idee, { ...ITEM, id: 'i2', status: ContentStatus.IDEA }]} searchQuery="" onSearchChange={noop} onOuvrir={noop} onAjouter={asyncNoop} onPreparer={noop} />);
+    expect(container.textContent).toContain('Préparée');
+    expect(container.textContent).toContain('À préparer');
+    expect(container.textContent).not.toContain('Valide');
+    fireEvent.change(container.querySelector('input')!, { target: { value: 'Une idée' } });
+    const ajouter = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Ajouter'))!;
+    expect(ajouter.disabled).toBe(true);
+  });
+
+  it('Publiés se monte en liste et en calendrier', () => {
+    const publie = { ...ITEM, status: ContentStatus.PUBLISHED, scheduledDate: '2026-10-12' };
+    const props = { items: [publie], etapes: etapesDe([publie]), onVue: noop, searchQuery: '', onSearchChange: noop, onOuvrir: noop };
+    const liste = render(<PubliesView {...props} vue="liste" />);
+    expect(liste.container.textContent).toContain('Publié le 12 oct.');
+    cleanup();
+    expect(() => render(<PubliesView {...props} vue="calendrier" />)).not.toThrow();
+    cleanup();
+    expect(render(<PubliesView {...props} items={[]} vue="liste" />).container.textContent).toContain('Rien de publié');
   });
 });
 
@@ -906,59 +951,6 @@ describe('tiroir d’une idée', () => {
 });
 
 describe('séries', () => {
-  it('SeriesView se monte vide et peuplée', () => {
-    const { container } = render(
-      <SeriesView series={[]} contents={[]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} tri={TRI_SERIES_DEFAUT} onTri={noop} />
-    );
-    expect(container.textContent).toContain('Aucune série');
-    cleanup();
-
-    const populated = render(
-      <SeriesView series={[SERIE]} contents={[ITEM]} isInitializing={false} isSyncing={false} onOpen={noop} onCreate={asyncNoop} tri={TRI_SERIES_DEFAUT} onTri={noop} />
-    );
-    expect(populated.container.textContent).toContain('psychopraticien');
-  });
-
-  /**
-   * Le tri des Séries n'existait pas : le tableau rendait l'ordre reçu, point.
-   * Ces deux tests tiennent les deux moitiés — ce qui s'affiche, et ce qui est
-   * demandé au clic.
-   */
-  it('SeriesView rend les séries dans l’ordre du tri fourni', () => {
-    const serie = (id: string, titre: string, creeLe: number): Serie =>
-      ({ ...SERIE, id, titre, createdAt: creeLe });
-    const series = [serie('s1', 'Bêta', 200), serie('s2', 'Alpha', 100), serie('s3', 'Gamma', 300)];
-
-    const { container, rerender } = render(
-      <SeriesView series={series} contents={[]} isInitializing={false} isSyncing={false}
-        onOpen={noop} onCreate={asyncNoop} tri={{ colonne: 'titre', sens: 'asc' }} onTri={noop} />
-    );
-    const titres = () => Array.from(container.querySelectorAll('tbody tr')).map(tr => tr.textContent ?? '');
-    expect(titres()[0]).toContain('Alpha');
-    expect(titres()[2]).toContain('Gamma');
-
-    rerender(
-      <SeriesView series={series} contents={[]} isInitializing={false} isSyncing={false}
-        onOpen={noop} onCreate={asyncNoop} tri={{ colonne: 'creele', sens: 'desc' }} onTri={noop} />
-    );
-    expect(titres()[0]).toContain('Gamma');
-    expect(titres()[2]).toContain('Alpha');
-  });
-
-  it('un clic sur un en-tête de Séries demande le tri suivant', () => {
-    const demandes: Array<{ colonne: string; sens: string }> = [];
-    const { getByText } = render(
-      <SeriesView series={[SERIE]} contents={[]} isInitializing={false} isSyncing={false}
-        onOpen={noop} onCreate={asyncNoop}
-        tri={{ colonne: 'creele', sens: 'desc' }} onTri={t => demandes.push(t)} />
-    );
-    fireEvent.click(getByText('Statut'));
-    expect(demandes).toEqual([{ colonne: 'statut', sens: 'asc' }]);
-
-    fireEvent.click(getByText('Créée le'));
-    expect(demandes[1]).toEqual({ colonne: 'creele', sens: 'asc' });
-  });
-
   /**
    * La modale de suppression : retour anticipé, donc montée dans les DEUX
    * états. Et surtout, elle doit rendre au choix ce qu'il vaut — c'était toute
@@ -1814,14 +1806,12 @@ describe('Corpus — navigation à trois niveaux', () => {
 
   const props = {
     currentSpace: 'corpus' as const,
-    currentSocialTab: 'ideas' as const,
+    currentSocialTab: 'conversations' as const,
     currentSettingsSection: 'display' as const,
     currentSettingsPersona: null,
-    currentVideosSection: 'montage' as const,
     onNavigate: () => {},
     onNavigateSettings: () => {},
-    onNavigateVideos: () => {},
-    counts: { ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 },
+    counts: { conversations: 0, ideas: 0, publies: 0 },
     isMobileOpen: false,
     onMobileClose: () => {},
   };
@@ -1884,8 +1874,8 @@ describe('Corpus — navigation à trois niveaux', () => {
       <Sidebar {...props} currentCorpusSection="documents" currentCorpusBloc="socle" onNavigateCorpus={() => {}} />,
     );
     const [, deuxieme, troisieme] = [...container.querySelectorAll('aside > div')];
-    expect(deuxieme.className).toContain('w-[210px]');
-    expect(troisieme.className).toContain('w-[210px]');
+    expect(deuxieme.className).toContain('w-[232px]');
+    expect(troisieme.className).toContain('w-[232px]');
   });
 
   it('la coque route vers la vue demandée', () => {
@@ -1900,11 +1890,11 @@ describe('Corpus — navigation sur téléphone', () => {
   afterEach(cleanup);
 
   const props = {
-    currentTab: 'ideas' as const,
+    currentTab: 'conversations' as const,
     currentSettingsSection: 'display' as const,
     onNavigate: () => {},
     onNavigateSettings: () => {},
-    counts: { ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 },
+    counts: { conversations: 0, ideas: 0, publies: 0 },
   };
 
   it('une seule rangée hors Documents', () => {
@@ -2391,94 +2381,19 @@ describe('Reel expliqué — prise et rendu', () => {
  * expliqués. Il a un retour anticipé (aucun Reel), et se monte donc dans ses
  * deux états.
  */
-describe('Vidéos — Montage', () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  const SCRIPT = JSON.stringify({
-    format: 'Reel expliqué',
-    sequences: [
-      { plan: 'camera', role: 'Accroche', voix: 'Vous relisez trois fois un message ?' },
-      { plan: 'scene', role: 'Mécanique', voix: 'Une alarme qui sonne.', titre: 'Une [alarme]', elements: [
-        { type: 'carte', texte: 'Une [alarme]', visuel: { nature: 'schema', description: 'Une jauge.' }, apparait_sur: 'une alarme' },
-      ] },
-      { plan: 'camera', role: 'Appel', voix: 'Lien en bio.' },
-    ],
-  });
-  const reel = (over: Partial<ContentItem>): ContentItem =>
-    ({ ...ITEM, targetFormat: 'Reel expliqué (scènes animées)' as any, ...over });
-
-  it('sans vidéo en chantier, dit où commence chacune des deux sortes', () => {
-    const { container } = render(<MontageView items={[{ ...ITEM, targetFormat: 'Post Texte (Court)' as any }]} onOuvrir={noop} onAllerAuxIdees={noop} onCreerVideoDirecte={asyncNoop} />);
-    expect(container.textContent).toContain('Aucune vidéo en chantier');
-    expect(container.textContent).toContain('Nouvelle vidéo directe');
-    expect(container.textContent).toContain('Nouveau Reel expliqué');
-  });
-
-  it('liste les vidéos directes en chantier, et en crée une sans script (SPEC §12.7)', async () => {
-    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ contenus: {}, stockage: { octets: 0, plafond: 10e9, disponible: true } }), { status: 200 }));
-    const directe = (over: Partial<ContentItem>): ContentItem => ({ ...ITEM, targetFormat: 'Script Vidéo (Reel/Short)' as any, ...over });
-    const crees: string[] = [];
-    const { container, findByText } = render(<MontageView
-      items={[
-        directe({ id: 'd1', title: 'Suis-je le bon thérapeute ?', status: ContentStatus.DRAFTING, draft: JSON.stringify({ format: 'Script Reel', sections: [], legende: null }) }),
-        directe({ id: 'd2', title: 'Un ancien Reel publié', status: ContentStatus.PUBLISHED, draft: JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Bonjour.' }] }) }),
-      ]}
-      onOuvrir={noop} onAllerAuxIdees={noop} onCreerVideoDirecte={async (t) => { crees.push(t); }} />);
-    await findByText(/sa transcription servira de texte/);
-    expect(container.textContent).toContain('Directe');
-    expect(container.textContent).not.toContain('Un ancien Reel publié');
-    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Nouvelle vidéo directe'))!);
-    fireEvent.change(container.querySelector('input')!, { target: { value: 'Pourquoi consulter ?' } });
-    fireEvent.submit(container.querySelector('form')!);
-    await waitFor(() => expect(crees).toEqual(['Pourquoi consulter ?']));
-  });
-
-  it('liste les Reels, seulement eux, avec leur étape, et ouvre le bon', async () => {
-    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
-      contenus: { r2: { prises: [{ role: 'principale', pret: true, transcrite: true }], visuels: 1, dernierExport: null } },
-      stockage: { octets: 2_000_000_000, plafond: 10e9, disponible: true },
-    }), { status: 200 }));
-    const ouverts: string[] = [];
-    const { container, findByText } = render(<MontageView
-      items={[
-        reel({ id: 'r1', title: 'Sans script', status: ContentStatus.DRAFTING, draft: null }),
-        reel({ id: 'r2', title: 'Calé', status: ContentStatus.READY, draft: SCRIPT }),
-        { ...ITEM, id: 'p1', title: 'Un post', targetFormat: 'Post Texte (Court)' as any },
-      ]}
-      onOuvrir={(i) => ouverts.push(i.id)} onAllerAuxIdees={noop} />);
-    await findByText(/Prise calée/);
-    expect(container.textContent).toContain('Sans script');
-    expect(container.textContent).toContain("Pas encore de script");
-    expect(container.textContent).toContain('Visuels : 1 sur 1.');
-    expect(container.textContent).not.toContain('Un post');
-    expect(container.textContent).toContain('Stockage Cloudflare : 2 Go sur 10 Go gratuits');
-    fireEvent.click(Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.includes('Ouvrir'))[1]);
-    expect(ouverts).toEqual(['r2']);
-  });
-
-  it('dit l\u2019étape suivante, de la prise à l\u2019export', () => {
-    const item = reel({ draft: SCRIPT });
-    // Ce script de test est trop court, n'a qu'une scène et pas de seconde accroche : le contrôle le dit.
-    expect(etapeDuReel(item, undefined).texte).toBe('Script écrit — 3 points à corriger avant de tourner.');
-    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: false, transcrite: false, deposeeLe: 1, pretLe: null, transcriteLe: null, duree: 60 }], visuels: 0, dernierExport: null }).texte)
-      .toContain('Envoi de la prise interrompu');
-    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: true, transcrite: false, deposeeLe: 1, pretLe: null, transcriteLe: null, duree: 60 }], visuels: 0, dernierExport: null }).texte)
-      .toContain('transcription à faire');
-    expect(etapeDuReel(item, { prises: [], visuels: 0, dernierExport: { format: '4:5', version: 'publicite', duree: 40, le: Date.UTC(2026, 9, 4) } }).texte)
-      .toBe('Exportée le 04/10/2026, en 4:5 (publicité).');
-  });
-
-  it('a sa place dans la navigation, au même endroit que les autres espaces', () => {
+describe('la navigation de Contenus (SPEC §13)', () => {
+  it('trois entrées, chacune avec son compteur, et plus d’espace Vidéos', () => {
     const { container } = render(<Sidebar
-      currentSpace="videos" currentSocialTab="ideas" currentSettingsSection="display" currentSettingsPersona={null}
-      currentCorpusSection="etat" currentCorpusBloc={null} currentVideosSection="montage"
-      onNavigate={noop} onNavigateSettings={noop} onNavigateCorpus={noop} onNavigateVideos={noop}
-      counts={{ ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 }} isMobileOpen={false} onMobileClose={noop} />);
-    expect(container.textContent).toContain('Montage');
-    expect(container.textContent).toContain('Sous-titres');
-    const mobile = render(<MobileSubTabs space="videos" currentTab="ideas" currentSettingsSection="display"
-      onNavigate={noop} onNavigateSettings={noop} currentVideosSection="sous-titres" onNavigateVideos={noop}
-      counts={{ ideas: 0, drafts: 0, ready: 0, series: 0, calendar: 0, archive: 0 }} />);
-    expect(mobile.container.textContent).toContain('Montage');
+      currentSpace="social" currentSocialTab="conversations" currentSettingsSection="display" currentSettingsPersona={null}
+      currentCorpusSection="etat" currentCorpusBloc={null}
+      onNavigate={noop} onNavigateSettings={noop} onNavigateCorpus={noop}
+      counts={{ conversations: 25, ideas: 44, publies: 17 }} isMobileOpen={false} onMobileClose={noop} />);
+    expect(container.textContent).toContain('Conversations25');
+    expect(container.textContent).toContain('Idées44');
+    expect(container.textContent).toContain('Publiés17');
+    expect(container.querySelector('[title="Vidéos"]')).toBeNull();
+    const mobile = render(<MobileSubTabs space="social" currentTab="ideas" currentSettingsSection="display"
+      onNavigate={noop} onNavigateSettings={noop} counts={{ conversations: 25, ideas: 44, publies: 17 }} />);
+    expect(mobile.container.textContent).toContain('Publiés');
   });
 });

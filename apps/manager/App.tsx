@@ -5,8 +5,10 @@ import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import {
   AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection,
-  type PlanSeriesEntry, type SerieSibling,
+  etapeCourante, dernierFait, resumerLeFait, momentDuFait,
+  type EtapeCourante, type PlanSeriesEntry, type SerieSibling,
 } from '@luminose/editorial';
+import type { ResumeFils, ResumeMontages } from '@luminose/shared';
 import * as AiService from './services/aiService';
 import * as Activite from './services/activityService';
 import { generateSeriePlan } from './services/seriesService';
@@ -23,39 +25,42 @@ import {
 import ContentEditor, { EditorStep } from './components/ContentEditor';
 import { IdeaModal } from './components/IdeaModal'; 
 import AnalysisModal from './components/AnalysisModal';
-import CalendarView from './components/CalendarView';
 import { LoginPage } from './components/LoginPage';
 import { isAuthenticated, logout } from './auth';
 import { AlertModal } from './components/CommonModals';
 import { BandeauActivite, EnCours, FiletActivite, Patience } from './components/Feedback';
-import SubtitleConverter from './components/SubtitleConverter';
-import { MontageView } from './components/Video/MontageView';
-import { VideosSection, isVideosSection, videosSectionLabel, videosSectionSousTitre } from './components/Video/sections';
 import PsychedelicsCalculator from './components/PsychedelicsCalculator';
 import RdvView from './components/Clients/RdvView';
-import { ecran } from './components/ui';
+import { ecran, TitreEcran } from './components/ui';
 
 // Components refactorisés
 import { Sidebar } from './components/Layout/Sidebar';
 import { MobileSubTabs } from './components/Layout/MobileSubTabs';
-import { SocialIdeasView, FILTRES_IDEES, type FilterId } from './components/Views/SocialIdeasView';
-import { SocialGridView, COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT } from './components/Views/SocialGridView';
-import { SeriesView, COLONNES_SERIES, TRI_SERIES_DEFAUT } from './components/Series/SeriesView';
-import { triValide, type Tri } from './components/TriTableau';
-import type { EtatDeVue, VueId, ModeSuppressionSerie } from '@luminose/shared';
+import type { ModeSuppressionSerie } from '@luminose/shared';
 import { SeriePlanView } from './components/Series/SeriePlanView';
+import { ConversationsView, type FiltreGeste, type DernierMot } from './components/Contenus/ConversationsView';
+import { IdeesView } from './components/Contenus/IdeesView';
+import { PubliesView, type VuePublies } from './components/Contenus/PubliesView';
+import { REDIRECTIONS, estListe, libelleDeListe, listeDuContenu, type ListeContenus } from './components/Contenus/listes';
 
-type SpaceView = 'social' | 'clients' | 'videos' | 'psychedelics' | 'corpus' | 'settings';
-type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
+type SpaceView = 'social' | 'clients' | 'psychedelics' | 'corpus' | 'settings';
+/** Les trois listes, et `series` : l'adresse d'un plan de série (SPEC §13). */
+type SocialTab = ListeContenus | 'series';
 
-const SOCIAL_TABS: SocialTab[] = ['drafts', 'ready', 'ideas', 'series', 'calendar', 'archive'];
-
-/** L'onglet où un contenu se trouve naturellement, d'après son statut. */
-const tabForStatus = (status: ContentStatus): SocialTab => {
-    if (status === ContentStatus.IDEA) return 'ideas';
-    if (status === ContentStatus.READY) return 'ready';
-    if (status === ContentStatus.PUBLISHED) return 'archive';
-    return 'drafts';
+/**
+ * L'étape de l'éditeur où un contenu s'ouvre, d'après la règle d'arrivée
+ * (SPEC §13.4). L'éditeur garde ses onglets jusqu'à la phase F3 : on traduit
+ * l'étape calculée dans son vocabulaire.
+ */
+const ongletDeLEditeur = (etape: EtapeCourante['etape']): EditorStep => {
+    switch (etape) {
+        case 'ouverture': return 'idea';
+        case 'atelier': return 'atelier';
+        case 'brouillon': return 'brouillon';
+        case 'slides': return 'slides';
+        case 'script': case 'tournage': case 'montage': case 'publication': return 'script';
+        default: return 'idea';
+    }
 };
 
 const getSpaceHash = (space: SpaceView) => {
@@ -66,18 +71,18 @@ const getSpaceHash = (space: SpaceView) => {
 };
 
 const getHashState = () => {
-    const hash = window.location.hash.replace('#', '');
-    const parts = hash.split('/');
+    const [chemin, requete = ''] = window.location.hash.replace('#', '').split('?');
+    const parts = chemin.split('/');
+    const vuePublies: VuePublies = new URLSearchParams(requete).get('vue') === 'calendrier' ? 'calendrier' : 'liste';
     
     let space: SpaceView = 'social';
     if (parts[0] === 'clients') space = 'clients';
-    if (parts[0] === 'videos') space = 'videos';
     if (parts[0] === 'psychedelics' || parts[0] === 'psychedeliques') space = 'psychedelics';
     if (parts[0] === 'corpus') space = 'corpus';
     if (parts[0] === 'settings' || parts[0] === 'reglages') space = 'settings';
     
-    let tab: SocialTab = 'ideas'; 
-    if (parts[1] && SOCIAL_TABS.includes(parts[1] as SocialTab)) {
+    let tab: SocialTab = 'conversations';
+    if (parts[1] && (estListe(parts[1]) || parts[1] === 'series')) {
         tab = parts[1] as SocialTab;
     }
 
@@ -100,13 +105,6 @@ const getHashState = () => {
     const corpusSection: CorpusSection =
         space === 'corpus' && parts[1] && isCorpusSection(parts[1]) ? parts[1] : 'etat';
 
-    /**
-     * Sur Vidéos, la section : `#videos/montage` (par défaut) ou
-     * `#videos/sous-titres`. Le Montage passe devant : c'est là qu'on cherche
-     * les Reels expliqués, et `#videos` seul doit y mener.
-     */
-    const videosSection: VideosSection =
-        space === 'videos' && parts[1] && isVideosSection(parts[1]) ? parts[1] : 'montage';
     const corpusBloc: string | null =
         corpusSection === 'documents' && parts[2] && isBloc(parts[2]) ? parts[2] : null;
 
@@ -138,7 +136,24 @@ const getHashState = () => {
         }
     }
 
-    return { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, videosSection, serieId, itemId, step };
+    return { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, serieId, itemId, step, vuePublies };
+};
+
+/**
+ * L'adresse qui remplace une adresse d'avant la v2.19 (SPEC §13), ou `null`.
+ * Un favori, un onglet resté ouvert : aucun ne doit tomber sur un écran vide.
+ */
+const adresseRemplacee = (): string | null => {
+    const [chemin] = window.location.hash.replace('#', '').split('?');
+    const parts = chemin.split('/');
+    if (parts[0] === 'videos') return 'social/conversations';
+    if (parts[0] !== 'social') return null;
+    if (!parts[1]) return 'social/conversations';
+    if (parts[1] === 'series' && !parts[2]) return 'social/conversations';
+    const cible = REDIRECTIONS[parts[1]];
+    if (!cible) return null;
+    // Un contenu ouvert garde son identifiant et son étape : seule la liste change.
+    return parts[2] ? `social/${cible.split('?')[0]}/${parts.slice(2).join('/')}` : `social/${cible}`;
 };
 
 function App() {
@@ -157,9 +172,8 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   
   const [currentSpace, setCurrentSpace] = useState<SpaceView>('social');
-  const [currentSocialTab, setCurrentSocialTab] = useState<SocialTab>('ideas');
+  const [currentSocialTab, setCurrentSocialTab] = useState<SocialTab>('conversations');
   const [currentCorpusSection, setCurrentCorpusSection] = useState<CorpusSection>('etat');
-  const [currentVideosSection, setCurrentVideosSection] = useState<VideosSection>('montage');
   const [currentCorpusBloc, setCurrentCorpusBloc] = useState<string | null>(null);
   /** Pastilles du panneau Corpus. Chargées à la première ouverture de l'espace,
    *  pas au démarrage : personne ne paie deux requêtes pour un espace qu'il
@@ -174,50 +188,25 @@ function App() {
   const [pendingEditorAction, setPendingEditorAction] = useState<'interview' | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  /** Le geste que la liste Conversations isole ; la vue des Publiés vit dans l'adresse. */
+  const [filtreGeste, setFiltreGeste] = useState<FiltreGeste>('tout');
+  const [vuePublies, setVuePublies] = useState<VuePublies>('liste');
+  /** « + Nouveau → Idée » : Idées s'ouvre le champ d'ajout en main. */
+  const [ideeEnAvant, setIdeeEnAvant] = useState(false);
+
+  /**
+   * Ce que les listes savent du fil et du montage de chaque contenu, sans
+   * l'ouvrir (SPEC §13.7) : c'est de là que l'étape se calcule. Lus avec la
+   * synchronisation, et relus en quittant un contenu — c'est là qu'ils ont pu
+   * changer. `null` tant qu'ils ne sont pas arrivés : la liste s'affiche quand
+   * même, sans étape fine.
+   */
+  const [fils, setFils] = useState<ResumeFils | null>(null);
+  const [montages, setMontages] = useState<ResumeMontages | null>(null);
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Adaptateurs et état de leur clé — l'écriture seule fait que seule l'empreinte revient (SPEC §5.5). */
   const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
-
-  /**
-   * Ce que chaque liste retient de son tri et de son filtre (SPEC §3.7).
-   *
-   * Le réglage vit sur le compte, pas dans le navigateur : refaire son tri à
-   * chaque poste — et à chaque changement d'onglet — n'est pas un réglage.
-   */
-  const [vues, setVues] = useState<Partial<Record<VueId, EtatDeVue>>>({});
-
-  /**
-   * L'écran suit tout de suite, la base rattrape après. Un échec ne se montre
-   * pas : le tri reste appliqué pour cette session, seule sa mémoire est
-   * perdue — un bandeau d'erreur pour un clic sur un en-tête coûterait plus
-   * d'attention que le réglage n'en vaut.
-   */
-  const majVue = (vue: VueId, etat: EtatDeVue) => {
-      setVues(prev => ({ ...prev, [vue]: etat }));
-      Api.setVue(vue, etat).catch(e => console.warn(`Tri de « ${vue} » non retenu :`, e));
-  };
-
-  /** Le tri d'une liste, ramené à ses colonnes réelles. */
-  const triDe = (vue: VueId, colonnes: readonly string[], defaut: Tri): Tri =>
-      triValide(
-          vues[vue] ? { colonne: vues[vue]!.tri, sens: vues[vue]!.sens } : null,
-          colonnes,
-          defaut,
-      );
-
-  const poserTri = (vue: VueId) => (tri: Tri) =>
-      majVue(vue, { tri: tri.colonne, sens: tri.sens, filtre: vues[vue]?.filtre ?? null });
-
-  /** Le filtre de la boîte à idées — le seul écran qui en a un pour l'instant. */
-  const filtreIdees: FilterId = FILTRES_IDEES.includes(vues.ideas?.filtre as FilterId)
-      ? (vues.ideas!.filtre as FilterId)
-      : 'ALL';
-
-  const poserFiltreIdees = (filtre: FilterId) => {
-      const tri = triDe('ideas', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT);
-      majVue('ideas', { tri: tri.colonne, sens: tri.sens, filtre });
-  };
 
   const [displayPrefs, setDisplayPrefsState] = useState<DisplayPrefs>(() => StorageService.getDisplayPrefs());
 
@@ -235,7 +224,9 @@ function App() {
   const [batchAnalysisState, setBatchAnalysisState] = useState<{
       isOpen: boolean;
       modelId: string;
-  }>({ isOpen: false, modelId: '' });
+      /** Les idées à préparer : trois à la fois, les plus récentes (SPEC §13). */
+      ids: string[];
+  }>({ isOpen: false, modelId: '', ids: [] });
 
   const [alertInfo, setAlertInfo] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' }>({
       isOpen: false, title: '', message: '', type: 'info'
@@ -314,15 +305,21 @@ function App() {
 
   useEffect(() => {
       const handleHashChange = () => {
-          const { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, videosSection, serieId, itemId, step } = getHashState();
+          // Une adresse d'avant la v2.19 est remplacée sans entrée d'historique :
+          // « retour » ne doit pas y ramener.
+          const remplacee = adresseRemplacee();
+          if (remplacee) {
+              window.history.replaceState(null, '', `#${remplacee}`);
+          }
+          const { space, tab, settingsSection, settingsPersona, corpusSection, corpusBloc, serieId, itemId, step, vuePublies } = getHashState();
           setCurrentSpace(space);
-          if (space === 'videos') setCurrentVideosSection(videosSection);
           if (space === 'corpus') {
               setCurrentCorpusSection(corpusSection);
               setCurrentCorpusBloc(corpusBloc);
           }
           if (space === 'social') {
               setCurrentSocialTab(tab);
+              setVuePublies(vuePublies);
           }
           if (space === 'settings') {
               setCurrentSettingsSection(settingsSection);
@@ -362,19 +359,10 @@ function App() {
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
   };
 
-  /** `#videos/montage`, `#videos/sous-titres`. */
-  const updateVideosRoute = (section: VideosSection) => {
-      const hash = `videos/${section}`;
+  /** `#social/publies?vue=calendrier` : la vue des Publiés se partage et survit au rechargement. */
+  const poserVuePublies = (vue: VuePublies) => {
+      const hash = vue === 'calendrier' ? 'social/publies?vue=calendrier' : 'social/publies';
       if (window.location.hash !== `#${hash}`) window.location.hash = hash;
-  };
-
-  /**
-   * Ouvre le montage d'un Reel expliqué depuis l'espace Vidéos : le contenu,
-   * dans l'onglet de son statut ; tant qu'il est en cours, directement à son
-   * Script, où vit le montage. Prêt ou publié, l'aperçu le porte aussi.
-   */
-  const ouvrirMontage = (item: ContentItem) => {
-      updateRoute('social', tabForStatus(item.status), item.id, item.status === ContentStatus.DRAFTING ? 'script' : 'idea');
   };
 
   /**
@@ -450,6 +438,16 @@ function App() {
       }
   };
 
+  /** Le fil et le montage de chaque contenu, d'où se calcule son étape (SPEC §13.1). */
+  const lireLesEtapes = async () => {
+      const [f, m] = await Promise.all([
+          Api.fetchResumeFils().catch((e) => { console.warn('Fils non lus :', e); return null; }),
+          Api.fetchResumeMontages().catch((e) => { console.warn('Montages non lus :', e); return null; }),
+      ]);
+      if (f) setFils(f);
+      if (m) setMontages(m);
+  };
+
   const synchroniser = async (
       forceFullSync = false,
       baseCache?: { items?: ContentItem[]; models?: AIModel[]; series?: Serie[] }
@@ -476,14 +474,16 @@ function App() {
         const lastSerieSync = Number(StorageService.getLastSync("series")) || 0;
         const sinceSeries = forceFullSync || !lastSerieSync ? undefined : lastSerieSync;
 
-        const [contentRes, modelRes, serieRes, actionRes, providerRes, vueRes] = await Promise.all([
+        const [contentRes, modelRes, serieRes, actionRes, providerRes] = await Promise.all([
             Api.fetchContents(since),
             Api.fetchModels(),
             Api.fetchSeries(sinceSeries),
             Api.fetchActionModels(),
             Api.fetchProviders(),
-            Api.fetchVues(),
         ]);
+        // Le fil et le montage suivent, sans retenir les listes : sans eux,
+        // chaque ligne s'affiche quand même, avec une étape moins fine.
+        void lireLesEtapes();
 
         const baseItems = since ? (baseCache?.items ?? items) : [];
 
@@ -513,7 +513,6 @@ function App() {
         setSeries(nextSeries);
         setActionModels(actionRes.actions ?? {});
         setProviders(providerRes.providers ?? []);
-        setVues(vueRes.vues ?? {});
 
         await Promise.all([
             StorageService.setCachedContent(nextItems),
@@ -543,7 +542,9 @@ function App() {
 
   useEffect(() => {
       setSearchQuery("");
-      setIsMobileMenuOpen(false); 
+      setIsMobileMenuOpen(false);
+      // Le champ d'ajout ne prend la main que pour l'arrivée depuis « + Nouveau → Idée ».
+      if (currentSocialTab !== 'ideas') setIdeeEnAvant(false);
   }, [currentSocialTab]);
 
   const handleLoginSuccess = () => {
@@ -627,21 +628,34 @@ function App() {
         const suite = [content, ...items];
         setItems(suite);
         await StorageService.setCachedContent(suite);
-        ouvrirMontage(content);
+        // Une vidéo sans script n'a qu'à recevoir sa prise : elle s'ouvre sur son montage.
+        ouvrirContenu(content, 'conversations');
     } catch (e: any) {
         setAlertInfo({ isOpen: true, title: 'Création impossible', message: e?.message || 'La vidéo n’a pas pu être créée.', type: 'error' });
         throw e;
     }
   };
 
-  const handleEditItem = (item: ContentItem) => {
-    updateRoute(currentSpace, currentSocialTab, item.id, 'idea');
+  /** L'étape d'un contenu, calculée — ou, faute du fil et du montage, déduite du contenu seul. */
+  const etapeDe = (item: ContentItem): EtapeCourante =>
+      etapes[item.id] ?? etapeCourante({ contenu: item });
+
+  /**
+   * Un contenu s'ouvre sur son étape courante, d'où qu'on vienne (SPEC §13.4) :
+   * la liste d'où l'on part ne décide que du retour.
+   */
+  const ouvrirContenu = (item: ContentItem, depuis?: ListeContenus) => {
+      const onglet = ongletDeLEditeur(etapeDe(item).etape);
+      if (depuis === undefined && item.serieId && currentSocialTab === 'series') updateSerieRoute(item.serieId, item.id, onglet);
+      else updateRoute('social', depuis ?? listeDuContenu(item), item.id, onglet);
   };
 
-  /** Fermer un contenu ouvert depuis sa série ramène au plan, pas à la boîte à idées. */
+  /** Fermer un contenu ouvert depuis sa série ramène au plan, pas à la liste. */
   const handleCloseEditor = () => {
       if (editingSerieId) updateSerieRoute(editingSerieId);
       else updateRoute(currentSpace, currentSocialTab, null, 'idea');
+      // Ce qu'on vient de faire dans le contenu a pu changer son étape.
+      void lireLesEtapes();
   };
 
   const handleStepChange = (newStep: EditorStep) => {
@@ -650,20 +664,19 @@ function App() {
       else updateRoute(currentSpace, currentSocialTab, editingItemId, newStep);
   };
 
-  const handleGlobalAnalysis = () => {
-      const itemsToAnalyze = items.filter(i => i.status === ContentStatus.IDEA && !i.analyzedAt);
-      if (itemsToAnalyze.length === 0) {
-          setAlertInfo({
-              isOpen: true,
-              title: "Déjà à jour",
-              message: "Toutes vos idées ont déjà été analysées !",
-              type: 'success'
-          });
-          return;
-      }
-      // Plus de modale de config : on ouvre directement l'exécuteur batch avec le modèle actif.
-      // AnalysisModal a son propre écran de démarrage (confirmation + progression).
-      setBatchAnalysisState({ isOpen: true, modelId: modelFor('ANALYZE_BATCH') });
+  /**
+   * « Préparer 3 idées » remplace « Analyser tout » (SPEC §13) : l'Analyste
+   * prépare l'ouverture des trois idées les plus récentes qui ne le sont pas.
+   * Trois, parce qu'on prépare ce qu'on va ouvrir bientôt, pas une réserve.
+   */
+  const preparerIdees = () => {
+      const ids = items
+          .filter(i => i.status === ContentStatus.IDEA && !i.analyzedAt)
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 3)
+          .map(i => i.id);
+      if (ids.length === 0) return;
+      setBatchAnalysisState({ isOpen: true, modelId: modelFor('ANALYZE_BATCH'), ids });
   };
 
   const handleAnalysisComplete = () => {
@@ -746,7 +759,7 @@ function App() {
     // Naviguer vers l'éditeur — dans sa série quand le contenu en vient : on
     // ne quitte pas une série pour travailler l'une de ses publications.
     if (updatedItem.serieId) updateSerieRoute(updatedItem.serieId, updatedItem.id, 'idea');
-    else updateRoute('social', 'drafts', updatedItem.id, 'idea');
+    else updateRoute('social', 'conversations', updatedItem.id, 'idea');
   };
 
   const handleDeleteItem = async (itemToDelete: ContentItem): Promise<void> => {
@@ -790,7 +803,7 @@ function App() {
       try {
           const { serie } = await Api.createSerie(input);
           persistSeries([serie, ...series]);
-          updateRoute('social', 'series', serie.id);
+          updateSerieRoute(serie.id);
           return serie;
       } catch (e: any) {
           setAlertInfo({
@@ -834,7 +847,7 @@ function App() {
               : items.map(i => (i.serieId === serie.id ? { ...i, serieId: null, seriePosition: null } : i));
           setItems(suivants);
           StorageService.setCachedContent(suivants).catch(console.error);
-          updateRoute('social', 'series');
+          updateRoute('social', 'conversations');
       } catch (e: any) {
           setAlertInfo({
               isOpen: true,
@@ -910,8 +923,9 @@ function App() {
 
   /** Ouvrir une publication depuis sa série y reste : c'est le même travail. */
   const handleOpenSerieContent = (item: ContentItem) => {
-      if (item.serieId) updateSerieRoute(item.serieId, item.id, 'idea');
-      else updateRoute('social', tabForStatus(item.status), item.id, 'idea');
+      const onglet = ongletDeLEditeur(etapeDe(item).etape);
+      if (item.serieId) updateSerieRoute(item.serieId, item.id, onglet);
+      else updateRoute('social', listeDuContenu(item), item.id, onglet);
   };
 
   // --- AI ANALYSIS FLOW (sans modale — modèle actif global) ---
@@ -1071,32 +1085,52 @@ function App() {
       });
   }, [editingItem, series, items]);
 
-  const ideaItems    = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.IDEA),     [filteredItems]);
-  const draftingItems = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.DRAFTING), [filteredItems]);
-  const readyItems   = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.READY),    [filteredItems]);
+  /**
+   * L'étape de chaque contenu (SPEC §13.1) : un calcul, servi à toutes les
+   * listes, au plan de série et à l'ouverture — ils ne peuvent plus se
+   * contredire.
+   */
+  const etapes = useMemo(() => {
+      const parId: Record<string, EtapeCourante> = {};
+      for (const item of items) {
+          const fil = fils?.contenus[item.id];
+          parId[item.id] = etapeCourante({
+              contenu: item,
+              session: fil ? { messages: fil.messages, tours: fil.tours } : null,
+              relecture: fil?.relecture ?? null,
+              brouillonLe: fil?.brouillonLe ?? null,
+              montage: montages?.contenus[item.id] ?? null,
+          });
+      }
+      return parId;
+  }, [items, fils, montages]);
 
-  const archiveItems = useMemo(() => {
-    const today = new Date();
-    return filteredItems
-      .filter(i => i.status === ContentStatus.PUBLISHED && !!i.scheduledDate && new Date(i.scheduledDate) < today)
-      .sort((a, b) => {
-        const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
-        const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0;
-        return dateB - dateA;
-      });
-  }, [filteredItems]);
+  /** Ce qui s'est dit ou fait en dernier, par contenu : la seconde ligne de Conversations. */
+  const derniers = useMemo(() => {
+      const parId: Record<string, DernierMot | null> = {};
+      const maintenant = Date.now();
+      for (const item of items) {
+          if (item.status === ContentStatus.IDEA || item.status === ContentStatus.PUBLISHED) continue;
+          const fait = dernierFait(fils?.contenus[item.id]?.dernier ?? null, montages?.contenus[item.id] ?? null);
+          parId[item.id] = fait
+              ? { ...resumerLeFait(fait, etapes[item.id]?.sorte ?? 'ecrit'), moment: momentDuFait(fait.le, maintenant) }
+              : null;
+      }
+      return parId;
+  }, [items, fils, montages, etapes]);
 
-  const counts = useMemo(() => {
-    const today = new Date();
-    return {
-      ideas:    items.filter(i => i.status === ContentStatus.IDEA).length,
-      drafts:   items.filter(i => i.status === ContentStatus.DRAFTING).length,
-      ready:    items.filter(i => i.status === ContentStatus.READY).length,
-      series:   series.filter(s => s.statut === 'en_cours').length,
-      calendar: items.filter(i => !!i.scheduledDate && new Date(i.scheduledDate) > today).length,
-      archive:  items.filter(i => i.status === ContentStatus.PUBLISHED && !!i.scheduledDate && new Date(i.scheduledDate) < today).length,
-    };
-  }, [items, series]);
+  const ideaItems = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.IDEA), [filteredItems]);
+  const conversationItems = useMemo(
+      () => filteredItems.filter(i => i.status !== ContentStatus.IDEA && i.status !== ContentStatus.PUBLISHED),
+      [filteredItems],
+  );
+  const publishedItems = useMemo(() => filteredItems.filter(i => i.status === ContentStatus.PUBLISHED), [filteredItems]);
+
+  const counts = useMemo(() => ({
+      conversations: items.filter(i => i.status !== ContentStatus.IDEA && i.status !== ContentStatus.PUBLISHED).length,
+      ideas: items.filter(i => i.status === ContentStatus.IDEA).length,
+      publies: items.filter(i => i.status === ContentStatus.PUBLISHED).length,
+  }), [items]);
 
   // ── Returns conditionnels (après tous les hooks) ──────────────────────────
 
@@ -1112,8 +1146,6 @@ function App() {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  const today = new Date();
-
   const isEditorTakeover = currentSpace === 'social' && !!editingItem && editingItem.status !== ContentStatus.IDEA;
 
   return (
@@ -1121,16 +1153,14 @@ function App() {
 
       <Sidebar
           currentSpace={currentSpace}
-          currentSocialTab={currentSocialTab}
+          currentSocialTab={currentSocialTab === 'series' ? 'conversations' : currentSocialTab}
           currentSettingsSection={currentSettingsSection}
           currentSettingsPersona={currentSettingsPersona}
           currentCorpusSection={currentCorpusSection}
           currentCorpusBloc={currentCorpusBloc}
-          currentVideosSection={currentVideosSection}
           onNavigate={(space, tab) => updateRoute(space, tab)}
           onNavigateSettings={updateSettingsRoute}
           onNavigateCorpus={updateCorpusRoute}
-          onNavigateVideos={updateVideosRoute}
           counts={counts}
           corpusCounts={corpusCounts}
           isMobileOpen={isMobileMenuOpen}
@@ -1152,7 +1182,8 @@ function App() {
             </div>
         )}
 
-        <header className="relative h-[52px] px-4 md:px-6 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
+        {/* 64 px, à la hauteur de l'en-tête du panneau : les deux bordures basses se prolongent. */}
+        <header className="relative h-16 px-4 md:px-8 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
               <button
                   onClick={() => setIsMobileMenuOpen(true)}
@@ -1161,27 +1192,18 @@ function App() {
                   <Menu className="w-5 h-5" />
               </button>
 
-              <h1 className="font-bold text-sm text-brand-main dark:text-white truncate">
-                  {currentSpace === 'social' && currentSocialTab === 'ideas' && 'Boîte à idées'}
-                  {currentSpace === 'social' && currentSocialTab === 'drafts' && 'En cours'}
-                  {currentSpace === 'social' && currentSocialTab === 'ready' && 'Prêts à publier'}
-                  {currentSpace === 'social' && currentSocialTab === 'series' && (editingSerie ? editingSerie.titre : 'Séries')}
-                  {currentSpace === 'social' && currentSocialTab === 'calendar' && 'Calendrier'}
-                  {currentSpace === 'social' && currentSocialTab === 'archive' && 'Archives'}
+              <TitreEcran>
+                  {currentSpace === 'social' && (currentSocialTab === 'series'
+                      ? (editingSerie ? `Série · ${editingSerie.titre}` : 'Série')
+                      : libelleDeListe(currentSocialTab))}
                   {currentSpace === 'clients' && 'Clients'}
-                  {currentSpace === 'videos' && videosSectionLabel(currentVideosSection)}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
                   {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
-              </h1>
+              </TitreEcran>
               {currentSpace === 'corpus' && (
                   <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
                       {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
-                  </p>
-              )}
-              {currentSpace === 'videos' && (
-                  <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
-                      {videosSectionSousTitre(currentVideosSection)}
                   </p>
               )}
               {currentSpace === 'settings' && (
@@ -1245,10 +1267,10 @@ function App() {
             depuis l'atelier reste visible quand on revient à la liste (SPEC §3.5.1). */}
         <BandeauActivite />
 
-        {(currentSpace === 'settings' || currentSpace === 'corpus' || currentSpace === 'videos' || (currentSpace === 'social' && !isEditorTakeover)) && (
+        {(currentSpace === 'settings' || currentSpace === 'corpus' || (currentSpace === 'social' && !isEditorTakeover)) && (
           <MobileSubTabs
-              space={currentSpace === 'settings' ? 'settings' : currentSpace === 'corpus' ? 'corpus' : currentSpace === 'videos' ? 'videos' : 'social'}
-              currentTab={currentSocialTab}
+              space={currentSpace === 'settings' ? 'settings' : currentSpace === 'corpus' ? 'corpus' : 'social'}
+              currentTab={currentSocialTab === 'series' ? 'conversations' : currentSocialTab}
               currentSettingsSection={currentSettingsSection}
               currentSettingsPersona={currentSettingsPersona}
               currentCorpusSection={currentCorpusSection}
@@ -1256,8 +1278,6 @@ function App() {
               onNavigate={(tab) => updateRoute('social', tab)}
               onNavigateSettings={updateSettingsRoute}
               onNavigateCorpus={updateCorpusRoute}
-              currentVideosSection={currentVideosSection}
-              onNavigateVideos={updateVideosRoute}
               counts={counts}
           />
         )}
@@ -1300,25 +1320,6 @@ function App() {
         {currentSpace === 'clients' && (
             <main className="flex-1 overflow-y-auto">
                 <RdvView />
-            </main>
-        )}
-
-        {currentSpace === 'videos' && currentVideosSection === 'montage' && (
-            <main className="flex-1 overflow-y-auto">
-                <div className={ecran('liste')}>
-                    <MontageView items={items} onOuvrir={ouvrirMontage} onAllerAuxIdees={() => updateRoute('social', 'ideas')} onCreerVideoDirecte={creerVideoDirecte} />
-                </div>
-            </main>
-        )}
-
-        {currentSpace === 'videos' && currentVideosSection === 'sous-titres' && (
-            <main className="flex-1 overflow-y-auto">
-                <div className={ecran('travail')}>
-                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">
-                        Convertissez un fichier .srt en titres Final Cut Pro (.fcpxml)
-                    </p>
-                    <SubtitleConverter aiModels={aiModels} />
-                </div>
             </main>
         )}
 
@@ -1384,102 +1385,69 @@ function App() {
                     <div className="flex-1 overflow-y-auto">
                         <div className={ecran('liste')}>
 
+                            {currentSocialTab === 'conversations' && (
+                                <ConversationsView
+                                    items={conversationItems}
+                                    tous={items}
+                                    series={series}
+                                    etapes={etapes}
+                                    derniers={derniers}
+                                    searchQuery={searchQuery}
+                                    onSearchChange={setSearchQuery}
+                                    filtre={filtreGeste}
+                                    onFiltre={setFiltreGeste}
+                                    onOuvrir={(item) => ouvrirContenu(item, 'conversations')}
+                                    onOuvrirPlan={(serie) => updateSerieRoute(serie.id)}
+                                    onNouvelleIdee={() => { setIdeeEnAvant(true); updateRoute('social', 'ideas'); }}
+                                    onCreerSerie={async (titre) => { await handleCreateSerie({ titre, intention: null }); }}
+                                    onCreerVideoDirecte={creerVideoDirecte}
+                                    isInitializing={isInitializing}
+                                />
+                            )}
+
                             {currentSocialTab === 'ideas' && (
-                                <SocialIdeasView
+                                <IdeesView
                                     items={ideaItems}
                                     searchQuery={searchQuery}
                                     onSearchChange={setSearchQuery}
-                                    onEdit={handleEditItem}
-                                    onQuickAdd={handleQuickAddIdea}
-                                    onGlobalAnalyze={handleGlobalAnalysis}
+                                    onOuvrir={(item) => ouvrirContenu(item, 'ideas')}
+                                    onAjouter={async (titre, format) => { await handleQuickAddIdea(titre, '', format); }}
+                                    onPreparer={preparerIdees}
+                                    ajoutEnAvant={ideeEnAvant}
                                     isSyncing={isSyncing}
                                     isInitializing={isInitializing}
-                                    onNavigateToIdeas={() => {}}
-                                    displayPrefs={displayPrefs}
-                                    tri={triDe('ideas', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
-                                    onTri={poserTri('ideas')}
-                                    filtre={filtreIdees}
-                                    onFiltre={poserFiltreIdees}
                                 />
                             )}
 
-                            {currentSocialTab === 'drafts' && (
-                                <SocialGridView
-                                    items={draftingItems}
-                                    type="drafts"
+                            {currentSocialTab === 'publies' && (
+                                <PubliesView
+                                    items={publishedItems}
+                                    etapes={etapes}
+                                    vue={vuePublies}
+                                    onVue={poserVuePublies}
                                     searchQuery={searchQuery}
+                                    onSearchChange={setSearchQuery}
+                                    onOuvrir={(item) => ouvrirContenu(item, 'publies')}
                                     isInitializing={isInitializing}
-                                    onEdit={handleEditItem}
-                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')}
-                                    displayPrefs={displayPrefs}
-                                    tri={triDe('drafts', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
-                                    onTri={poserTri('drafts')}
                                 />
                             )}
 
-                            {currentSocialTab === 'ready' && (
-                                <SocialGridView
-                                    items={readyItems}
-                                    type="ready"
-                                    searchQuery={searchQuery}
-                                    isInitializing={isInitializing}
-                                    onEdit={handleEditItem}
-                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')}
-                                    displayPrefs={displayPrefs}
-                                    tri={triDe('ready', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
-                                    onTri={poserTri('ready')}
+                            {currentSocialTab === 'series' && editingSerie && (
+                                <SeriePlanView
+                                    serie={editingSerie}
+                                    contents={items.filter(i => i.serieId === editingSerie.id)}
+                                    sourceContent={
+                                        editingSerie.sourceContentId
+                                            ? items.find(i => i.id === editingSerie.sourceContentId) || null
+                                            : null
+                                    }
+                                    onBack={() => updateRoute('social', 'conversations')}
+                                    onUpdate={(patch) => handleUpdateSerie(editingSerie.id, patch)}
+                                    onDelete={(mode) => handleDeleteSerie(editingSerie, mode)}
+                                    onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
+                                    onOpenContent={handleOpenSerieContent}
+                                    onGeneratePlan={handleGenerateSeriePlan(editingSerie)}
                                 />
-                            )}
-
-                            {currentSocialTab === 'archive' && (
-                                <SocialGridView
-                                    items={archiveItems}
-                                    type="archive"
-                                    searchQuery={searchQuery}
-                                    isInitializing={isInitializing}
-                                    onEdit={handleEditItem}
-                                    onNavigateToIdeas={() => updateRoute('social', 'ideas')}
-                                    displayPrefs={displayPrefs}
-                                    tri={triDe('archive', COLONNES_CONTENUS, TRI_CONTENUS_DEFAUT)}
-                                    onTri={poserTri('archive')}
-                                />
-                            )}
-
-                            {currentSocialTab === 'series' && (
-                                editingSerie ? (
-                                    <SeriePlanView
-                                        serie={editingSerie}
-                                        contents={items.filter(i => i.serieId === editingSerie.id)}
-                                        sourceContent={
-                                            editingSerie.sourceContentId
-                                                ? items.find(i => i.id === editingSerie.sourceContentId) || null
-                                                : null
-                                        }
-                                        onBack={() => updateRoute('social', 'series')}
-                                        onUpdate={(patch) => handleUpdateSerie(editingSerie.id, patch)}
-                                        onDelete={(mode) => handleDeleteSerie(editingSerie, mode)}
-                                        onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
-                                        onOpenContent={handleOpenSerieContent}
-                                        onGeneratePlan={handleGenerateSeriePlan(editingSerie)}
-                                    />
-                                ) : (
-                                    <SeriesView
-                                        series={series}
-                                        contents={items}
-                                        isInitializing={isInitializing}
-                                        isSyncing={isSyncing}
-                                        onOpen={(serie) => updateRoute('social', 'series', serie.id)}
-                                        onCreate={async (input) => { await handleCreateSerie(input); }}
-                                        tri={triDe('series', COLONNES_SERIES, TRI_SERIES_DEFAUT)}
-                                        onTri={poserTri('series')}
-                                    />
-                                )
-                            )}
-
-                            {currentSocialTab === 'calendar' && (
-                                <div className="h-[calc(100vh-250px)] animate-fade-in">
-                                    <CalendarView items={items} onItemClick={handleEditItem} />
-                                </div>
                             )}
 
                         </div>
@@ -1501,7 +1469,7 @@ function App() {
                 <AnalysisModal
                     isOpen={batchAnalysisState.isOpen}
                     onClose={() => setBatchAnalysisState({ ...batchAnalysisState, isOpen: false })}
-                    itemsToAnalyze={items.filter(i => i.status === ContentStatus.IDEA && !i.analyzedAt)}
+                    itemsToAnalyze={items.filter(i => batchAnalysisState.ids.includes(i.id))}
                     aiModels={aiModels}
                     selectedModelId={batchAnalysisState.modelId}
                     onAnalysisComplete={handleAnalysisComplete}

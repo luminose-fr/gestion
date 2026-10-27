@@ -35,6 +35,8 @@ export * from './directe';
 
 // Où en est un contenu : l'étape, calculée, jamais stockée (SPEC §13)
 export * from './etape';
+// … et son fil, mis en phrases pour les listes (SPEC §13.7)
+export * from './fil';
 
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';

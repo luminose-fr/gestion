@@ -1,48 +1,23 @@
 import React from 'react';
-import { Lightbulb, PenLine, CheckCircle2, Calendar as CalendarIcon, Archive, Layers } from 'lucide-react';
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
 import { PERSONAS_NAV } from '../Settings/apercus';
 import { CORPUS_SECTIONS, BLOCS, CorpusSection } from '../Corpus/sections';
-import { VIDEOS_SECTIONS, VideosSection } from '../Video/sections';
-
-type SocialTab = 'drafts' | 'ready' | 'ideas' | 'series' | 'calendar' | 'archive';
+import { LISTES, type ListeContenus } from '../Contenus/listes';
 
 interface MobileSubTabsProps {
-    /** L'espace décide de ce que la barre montre : contenus, réglages, corpus ou vidéos. */
-    space: 'social' | 'settings' | 'corpus' | 'videos';
-    currentTab: SocialTab;
+    /** L'espace décide de ce que la barre montre : contenus, réglages ou corpus. */
+    space: 'social' | 'settings' | 'corpus';
+    currentTab: ListeContenus;
     currentSettingsSection: SettingsSection;
     /** Le rôle ouvert sous Personas — la seconde rangée de Réglages. */
     currentSettingsPersona?: string | null;
-    onNavigate: (tab: SocialTab) => void;
+    onNavigate: (tab: ListeContenus) => void;
     onNavigateSettings: (section: SettingsSection, persona?: string | null) => void;
     currentCorpusSection?: CorpusSection;
     currentCorpusBloc?: string | null;
     onNavigateCorpus?: (section: CorpusSection, bloc?: string | null) => void;
-    currentVideosSection?: VideosSection;
-    onNavigateVideos?: (section: VideosSection) => void;
-    counts: {
-        ideas: number;
-        drafts: number;
-        ready: number;
-        series: number;
-        calendar: number;
-        archive: number;
-    };
+    counts: Record<ListeContenus, number>;
 }
-
-const TABS: Array<{
-    id: SocialTab;
-    icon: React.ComponentType<{ className?: string }>;
-    label: string;
-}> = [
-    { id: 'ideas',    icon: Lightbulb,    label: 'Idées'      },
-    { id: 'drafts',   icon: PenLine,      label: 'En cours'   },
-    { id: 'ready',    icon: CheckCircle2, label: 'Prêts'      },
-    { id: 'series',   icon: Layers,       label: 'Séries'     },
-    { id: 'calendar', icon: CalendarIcon, label: 'Calendrier' },
-    { id: 'archive',  icon: Archive,      label: 'Archives'   },
-];
 
 const RANGEE =
     'md:hidden flex items-center gap-1 overflow-x-auto px-3 py-2 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 scrollbar-hide';
@@ -51,17 +26,7 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
     space, currentTab, currentSettingsSection, currentSettingsPersona = null,
     onNavigate, onNavigateSettings, counts,
     currentCorpusSection = 'etat', currentCorpusBloc = null, onNavigateCorpus,
-    currentVideosSection = 'montage', onNavigateVideos,
 }) => {
-    const tabCount = (id: SocialTab): number => {
-        if (id === 'ideas')    return counts.ideas;
-        if (id === 'drafts')   return counts.drafts;
-        if (id === 'ready')    return counts.ready;
-        if (id === 'series')   return counts.series;
-        if (id === 'calendar') return counts.calendar;
-        if (id === 'archive')  return counts.archive;
-        return 0;
-    };
 
     const CLASSE_ONGLET = (active: boolean) =>
         `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
@@ -115,26 +80,6 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
         );
     }
 
-    if (space === 'videos') {
-        return (
-            <div className={RANGEE} style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-                {VIDEOS_SECTIONS.map(s => {
-                    const Icon = s.icon;
-                    return (
-                        <button
-                            key={s.id}
-                            onClick={() => onNavigateVideos?.(s.id)}
-                            className={CLASSE_ONGLET(currentVideosSection === s.id)}
-                        >
-                            <Icon className="w-3 h-3" />
-                            {s.label}
-                        </button>
-                    );
-                })}
-            </div>
-        );
-    }
-
     /*
         Réglages a maintenant lui aussi un troisième niveau : les rôles, sous
         Personas. Même traitement que les blocs du Corpus — une seconde rangée
@@ -184,10 +129,10 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
             className="md:hidden flex items-center gap-1 overflow-x-auto px-3 py-2 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 scrollbar-hide"
             style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
         >
-            {TABS.map(t => {
+            {LISTES.map(t => {
                 const active = currentTab === t.id;
                 const Icon = t.icon;
-                const count = tabCount(t.id);
+                const count = counts[t.id];
                 return (
                     <button
                         key={t.id}
