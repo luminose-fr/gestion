@@ -1169,8 +1169,9 @@ function App() {
             </div>
 
             <div className="flex items-center gap-1.5">
-                 {/* Sélecteur global du modèle IA — utilisé par toutes les actions */}
-                 <div className="relative flex items-center">
+                 {/* Sélecteur global du modèle IA — utilisé par toutes les actions. Sur téléphone, il
+                     céderait toute la place au titre : chaque action garde son modèle réglé. */}
+                 <div className="relative hidden md:flex items-center">
                      <Cpu className="w-[13px] h-[13px] absolute left-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />
                      <select
                         value={activeModelId}

@@ -31,7 +31,7 @@ export const EnteteMatiere: React.FC<{
 }> = ({ nom, sousTitre, principale, autres = [] }) => {
     const [menu, setMenu] = useState(false);
     return (
-        <div className="h-[60px] shrink-0 flex items-center gap-3 px-7 border-b border-brand-border dark:border-dark-sec-border">
+        <div className="h-[60px] shrink-0 flex items-center gap-3 px-4 md:px-7 border-b border-brand-border dark:border-dark-sec-border">
             <div className="flex-1 min-w-0 flex items-baseline gap-2">
                 <span className="text-sm font-bold text-brand-main dark:text-white">{nom}</span>
                 {sousTitre && <span className="text-xs text-brand-main/60 dark:text-dark-text/60 truncate">{sousTitre}</span>}

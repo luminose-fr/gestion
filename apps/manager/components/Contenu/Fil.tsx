@@ -92,7 +92,8 @@ const Bulle: React.FC<{
                         <Bouton taille="petit" intention="discrete" onClick={onIgnorer}>Ignorer</Bouton>
                     </div>
                 )}
-                {b.appliqueeLe && <p className="text-xs text-brand-main/60 dark:text-dark-text/60">Appliquées le {jourCourt(b.appliqueeLe)}.</p>}
+                {/* « 16 oct. » porte déjà son point ; « 3 mai », non. */}
+                {b.appliqueeLe && <p className="text-xs text-brand-main/60 dark:text-dark-text/60">Appliquées le {jourCourt(b.appliqueeLe).replace(/\.?$/, '.')}</p>}
                 {b.revenirPossible && onRevenir && (
                     <button type="button" onClick={onRevenir} disabled={occupe} className="text-xs underline hover:no-underline text-brand-main/70 dark:text-dark-text/70 disabled:opacity-40">
                         Revenir à la version précédente

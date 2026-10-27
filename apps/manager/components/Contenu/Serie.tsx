@@ -22,7 +22,8 @@ export interface PanneauSerieProps {
 }
 
 export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications, etapes, active, onPlan, onOuvrir }) => (
-    <nav aria-label={`Série ${serie.titre}`} className="w-[272px] shrink-0 min-h-0 overflow-y-auto border-r border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg px-3 py-4 space-y-1">
+    // Sur téléphone, le panneau s'efface : la place manque, et le plan reste à un clic du retour.
+    <nav aria-label={`Série ${serie.titre}`} className="hidden md:block w-[272px] shrink-0 min-h-0 overflow-y-auto border-r border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg px-3 py-4 space-y-1">
         <div className="px-2 pb-3 space-y-1">
             <Etiquette>Série</Etiquette>
             <p className="text-sm font-bold text-brand-main dark:text-white leading-snug">{serie.titre}</p>
@@ -78,7 +79,7 @@ export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications,
 export const AvancementSerie: React.FC<{ publications: ContentItem[]; etapes: Record<string, EtapeCourante> }> = ({ publications, etapes }) => {
     const publiees = publications.filter(p => p.status === ContentStatus.PUBLISHED).length;
     return (
-        <div className="w-[320px] h-[52px] shrink-0 flex flex-col justify-center gap-1.5 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
+        <div className="w-full md:w-[320px] h-[52px] shrink-0 flex flex-col justify-center gap-1.5 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
             <span className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-bold text-brand-main dark:text-white">Avancement</span>
                 <span className={CLASSES_SURTITRE}>{publiees} sur {publications.length} publiée{publiees > 1 ? 's' : ''}</span>

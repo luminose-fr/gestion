@@ -450,6 +450,13 @@ describe('le contenu ouvert (SPEC §13.9, §13.10)', () => {
   const boutons = (c: HTMLElement) => Array.from(c.querySelectorAll('button')).map(b => b.textContent?.trim());
   const POST = JSON.stringify({ format: 'Post Texte', accroche: 'Une accroche.', corps: 'Un corps qui se lit.' });
 
+  it('se monte sans contenu, puis avec : ses hooks précèdent son retour anticipé', async () => {
+    const { container, rerender, findByText } = render(editeur(null as any, 'ouverture'));
+    expect(container.textContent).toBe('');
+    rerender(editeur({ ...ITEM, status: ContentStatus.IDEA }, 'ouverture'));
+    expect(await findByText('Ouvrir l’atelier avec le Coach')).toBeTruthy();
+  });
+
   it('une idée s’ouvre à l’Ouverture : notes, format, et l’atelier ne part jamais seul', async () => {
     const appels: string[] = [];
     vi.stubGlobal('fetch', async (url: string) => { appels.push(String(url)); return new Response('{}', { status: 200 }); });
