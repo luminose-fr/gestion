@@ -1,4 +1,4 @@
-# SPEC v2.20 — gestion.luminose.fr
+# SPEC v2.21 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -83,6 +83,11 @@
 > première phrase ou après la dernière revient dans la vidéo ; chaque passage barré porte
 > son bouton « Rétablir », la sélection se fait en glissant, et le dernier geste l'emporte
 > — recouper ce qu'on vient de rétablir le recoupe (§12.5.5).
+> **v2.21 (27/10/2026)** : le montage par le texte tel que la passation l'a dessiné. Il se
+> lit séquence par séquence, en passages : un clic choisit un passage, « Barrer » le
+> coupe, un clic sur un passage barré le rétablit (§12.5.5). Correction : l'export
+> chargeait ses polices par un chemin qui n'existait qu'en développement, et échouait
+> toujours en ligne.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1910,12 +1915,27 @@ phrase ou juste après la dernière : « s'il vous plaît | apprenez-moi » s'en
 pause.
 
 **Le montage par le texte** (`MontageTexte`) remplace la liste des coupes. La
-transcription se lit comme un texte, à la ligne à chaque pause de plus de 1,2 s — on y lit
-les tentatives successives. **Le barré est ce que la vidéo ne montre pas**, coupes, tête et
-queue comprises. Un clic sur un mot y mène l'aperçu ; Maj + clic étend la sélection, qui
-se coupe ou se rétablit. Les silences proposés sont des pastilles qui se tranchent d'un
-clic. Quand une phrase a plusieurs vraies versions, la retenue porte « Version retenue »
-et chacune des autres « Garder cette version ».
+transcription se lit comme un texte, **séquence par séquence** depuis la v2.21 : un bloc
+par séquence du script, son repère (« 2 · Constat ») et l'instant où elle commence dans la
+vidéo à gauche, ses mots à droite. **Le barré est ce que la vidéo ne montre pas**, coupes,
+tête et queue comprises. En tête, ce qui reste — « 0:29 gardées sur 0:46 · 2 coupes ·
+1 phrase en deux versions » — et « Réinitialiser ».
+
+Chaque mot dit va à une séquence (`sequenceDeChaqueJeton`) : celle de son rang s'il
+répond au script ; celle de sa phrase s'il appartient à une version écartée, pour qu'une
+reprise se lise à côté de celle qu'on a gardée ; sinon, par bouts d'un seul tenant, celle
+du mot du script le plus proche dans le temps — une hésitation colle à la phrase qu'elle
+précède, une improvisation à celle qu'elle prolonge.
+
+Le texte se tranche **par passages** : des mots qui se suivent dans le même état, coupés
+à chaque version et à chaque pause de plus de 1,2 s, et, s'ils sont gardés, à chaque fin
+de phrase. **Un clic sur un passage le choisit** et y mène l'aperçu ; **« Barrer »**
+apparaît juste après lui et le coupe. **Un clic sur un passage barré le rétablit** — s'il
+touche une version écartée, il prend cette version au lieu de garder la phrase deux fois.
+Glisser sur des mots, ou Maj + clic, choisit un détail, qui se barre ou se rétablit. Les
+silences proposés sont des pastilles qui se tranchent d'un clic. Quand une phrase a
+plusieurs vraies versions, la retenue porte la puce « version 2 sur 2 », numérotée dans
+l'ordre de la prise, qui passe à la suivante.
 
 **Les choix se rangent avec la prise**, dans le même objet que ceux du dérushage :
 
@@ -1934,14 +1954,13 @@ secondes aux coupes : recouper ce qu'on venait de rétablir ne coupait rien.
 **Rétablir vaut aussi hors du script** (v2.20). Un passage gardé à la main avant la
 première phrase ou après la dernière étend ce qui est monté (`planDeMontage`, options
 `retablis` et `retablisAccroche`) : sans cela, la fin improvisée d'une prise ne pouvait
-jamais revenir. Chaque passage barré porte son bouton — « Rétablir la fin · 2,4 s »,
-« Rétablir le début · 1,1 s », « Rétablir · 0,8 s » —, la sélection se fait aussi en glissant sur
-les mots, et une barre la suit en bas du texte pour la couper ou la rétablir.
+jamais revenir. (Les boutons « Rétablir la fin · 2,4 s » et la barre de sélection de la
+v2.20 ont cédé la place, en v2.21, au clic sur le passage barré.)
 
 Une version imposée **entraîne sa suite** : la phrase qui la suit dans la même tentative,
 sans pause notable, est préférée aux autres bonnes versions — choisir la première version de
-« Derrière la digue », c'est choisir cette tentative. « Tout réinitialiser » oublie tous
-les choix.
+« Derrière la digue », c'est choisir cette tentative. « Réinitialiser » oublie tous les
+choix.
 
 ### 12.5.6 Deux moteurs de transcription (V10) — NORMATIF
 

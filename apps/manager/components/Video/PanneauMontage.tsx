@@ -4,7 +4,7 @@ import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Download, X } from 'lucide-react';
 import {
     minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
-    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire, passagesManuels,
+    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire, passagesManuels, compterMots,
     type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, ControleSegmente, Etiquette } from '../ui';
@@ -491,7 +491,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                 <div className="flex-1 min-h-0 overflow-y-auto p-7 space-y-6">
                     {ouvert === 'texte' && principale?.calage && plan && (
                         <MontageTexte
-                            titre="Montage de la prise"
+                            sequences={sequences.map((s, i) => ({ repere: `${i + 1} · ${s.role}`, mots: compterMots(s.voix) }))}
                             calage={principale.calage}
                             coupes={principale.coupes}
                             appliquees={principale.appliquees}
@@ -509,7 +509,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                     )}
                     {ouvert === 'texte' && accroche?.calage && plan && (
                         <MontageTexte
-                            titre="Montage de la seconde accroche"
+                            titre="Seconde accroche"
+                            sequences={[{ repere: 'Accroche publicité', mots: compterMots(data.accroche_pub?.voix) }]}
                             calage={accroche.calage}
                             coupes={accroche.coupes}
                             appliquees={accroche.appliquees}
