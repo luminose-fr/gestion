@@ -272,9 +272,13 @@ describe('GET /api/montage — le résumé', () => {
 
         const resume = await json(await appeler('GET', '/api/montage'));
         expect(resume.contenus[contenu].prises).toEqual(expect.arrayContaining([
-            { role: 'principale', pret: true, transcrite: true },
-            { role: 'accroche', pret: false, transcrite: false },
+            expect.objectContaining({ role: 'principale', pret: true, transcrite: true }),
+            expect.objectContaining({ role: 'accroche', pret: false, transcrite: false, pretLe: null, transcriteLe: null }),
         ]));
+        // Les dates disent au fil quand la prise est arrivée (SPEC §13.7).
+        const principale = resume.contenus[contenu].prises.find((p: any) => p.role === 'principale');
+        expect(principale.deposeeLe).toBeGreaterThan(0);
+        expect(principale.transcriteLe).toBeGreaterThanOrEqual(principale.pretLe);
         expect(resume.contenus[contenu].visuels).toBe(1);
         expect(resume.contenus[contenu].dernierExport).toMatchObject({ format: '4:5', version: 'publicite', duree: 40.8 });
         expect(resume.stockage.octets).toBe(15);

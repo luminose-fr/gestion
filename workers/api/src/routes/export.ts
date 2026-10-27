@@ -7,7 +7,7 @@
  * d'être gardé : c'est justement une ligne effacée par erreur qu'on vient y
  * rechercher.
  *
- * 1 batch de 9 lectures : borné, indépendant du volume (SPEC §3.6).
+ * 1 batch de 10 lectures : borné, indépendant du volume (SPEC §3.6).
  *
  * Le montage (SPEC §12.4) y entre par ses DESCRIPTIONS — transcriptions,
  * repères corrigés, descriptions des visuels —, pas par ses fichiers : une
@@ -39,6 +39,7 @@ exportRoute.get('/', async (c) => {
     c.env.DB.prepare('SELECT * FROM montage_prises ORDER BY created_at ASC'),
     c.env.DB.prepare('SELECT * FROM montage_visuels ORDER BY created_at ASC'),
     c.env.DB.prepare('SELECT * FROM montage_exports ORDER BY created_at ASC'),
+    c.env.DB.prepare('SELECT * FROM gestes ORDER BY created_at ASC, rowid ASC'),
   ]);
 
   const rows = (index: number): any[] => (results[index]?.results ?? []) as any[];
@@ -59,6 +60,10 @@ exportRoute.get('/', async (c) => {
     montageVisuels: rows(7).map((r) => ({ ...rowToVisuel(r), deletedAt: r.deleted_at ?? null })),
     montageExports: rows(8).map((r) => ({
       id: r.id, contentId: r.content_id, format: r.format, version: r.version, duree: r.duree, createdAt: r.created_at,
+    })),
+    // Les gestes de Florent (SPEC §13.6) : le seul endroit où « Bon à publier » est daté.
+    gestes: rows(9).map((r) => ({
+      id: r.id, contentId: r.content_id, statut: r.statut, avant: r.avant, createdAt: r.created_at,
     })),
   };
 

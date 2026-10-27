@@ -407,3 +407,86 @@ describe('coût IA d’un contenu', () => {
     expect((await journaliser(content.id, { promptTokens: -5 })).status).toBe(400);
   });
 });
+
+describe('les gestes (SPEC §13.6)', () => {
+  const gestes = (id: string) => env.DB.prepare('SELECT statut, avant FROM gestes WHERE content_id = ? ORDER BY rowid').bind(id).all()
+    .then((r: any) => r.results);
+
+  it('note chaque changement de statut, avec le statut d’avant', async () => {
+    const content = await createContent({ status: 'Brouillon' });
+    await patch(`/api/contents/${content.id}`, { status: 'Prêt' });
+    await patch(`/api/contents/${content.id}`, { status: 'Brouillon' });
+    expect(await gestes(content.id)).toEqual([
+      { statut: 'Prêt', avant: 'Brouillon' },
+      { statut: 'Brouillon', avant: 'Prêt' },
+    ]);
+  });
+
+  it('ne note ni un statut renvoyé tel quel, ni une mise à jour sans statut', async () => {
+    const content = await createContent({ status: 'Brouillon' });
+    await patch(`/api/contents/${content.id}`, { status: 'Brouillon', title: 'Même statut' });
+    await patch(`/api/contents/${content.id}`, { notes: 'Rien sur le statut' });
+    expect(await gestes(content.id)).toEqual([]);
+  });
+
+  it('ne note rien sur un contenu supprimé, et répond 404', async () => {
+    const content = await createContent({ status: 'Brouillon' });
+    await call(`/api/contents/${content.id}`, { method: 'DELETE' });
+    expect((await patch(`/api/contents/${content.id}`, { status: 'Prêt' })).status).toBe(404);
+    expect(await gestes(content.id)).toEqual([]);
+  });
+});
+
+describe('le résumé des fils (SPEC §13.7)', () => {
+  const fils = async () => (await (await call('/api/contents/fils')).json() as any).contenus;
+  const journaliser = (id: string, champs: Record<string, unknown>) =>
+    post(`/api/contents/${id}/generations`, { modelLabel: 'Modèle', payload: '{}', ...champs });
+  /** Deux écritures de la même milliseconde se départageraient au hasard. */
+  const attendre = () => new Promise(r => setTimeout(r, 3));
+
+  it('compte la conversation et ses tours', async () => {
+    const content = await createContent();
+    await post(`/api/contents/${content.id}/coach/messages`, { role: 'user', content: 'TITRE : le piège' });
+    await post(`/api/contents/${content.id}/coach/messages`, { role: 'assistant', content: 'Quel détail rend ce basculement vrai ?' });
+    const fil = (await fils())[content.id];
+    expect(fil).toMatchObject({ messages: 2, tours: 1 });
+    expect(fil.dernier).toMatchObject({ source: 'coach', nature: 'assistant', texte: 'Quel détail rend ce basculement vrai ?' });
+  });
+
+  it('rend la dernière relecture, son verdict et ses points, et la date du brouillon', async () => {
+    const content = await createContent();
+    await journaliser(content.id, { kind: 'draft', target: 'draft', payload: '{"format":"Post Texte"}' });
+    await attendre();
+    await journaliser(content.id, { kind: 'cold_read', payload: JSON.stringify({
+      verdict: 'À retoucher', lecture_naive: { sujet: 'vouloir tout contrôler épuise' },
+      problemes: [{ probleme: 'a' }, { probleme: 'b' }],
+      controles: [{ regle: 'x', statut: 'KO' }, { regle: 'y', statut: 'OK' }],
+    }) });
+    const fil = (await fils())[content.id];
+    expect(fil.relecture).toMatchObject({ verdict: 'À retoucher', points: 3 });
+    expect(fil.brouillonLe).toBeGreaterThan(0);
+    expect(fil.relecture.le).toBeGreaterThan(fil.brouillonLe);
+    expect(fil.dernier).toMatchObject({ source: 'journal', nature: 'cold_read', verdict: 'À retoucher', texte: 'vouloir tout contrôler épuise' });
+  });
+
+  it('prend le plus récent du Coach, du journal et des gestes', async () => {
+    const content = await createContent({ status: 'Brouillon' });
+    await journaliser(content.id, { kind: 'adjustment', target: 'draft', instruction: 'Raccourcis la slide 3', payload: '{}' });
+    await attendre();
+    await patch(`/api/contents/${content.id}`, { status: 'Prêt' });
+    expect((await fils())[content.id].dernier).toMatchObject({ source: 'geste', nature: 'Prêt', avant: 'Brouillon' });
+  });
+
+  it('ne casse pas sur une relecture illisible', async () => {
+    const content = await createContent();
+    await journaliser(content.id, { kind: 'cold_read', payload: 'pas du JSON' });
+    expect((await fils())[content.id].relecture).toMatchObject({ verdict: null, points: 0 });
+  });
+
+  it('oublie les contenus supprimés', async () => {
+    const content = await createContent();
+    await post(`/api/contents/${content.id}/coach/messages`, { role: 'user', content: 'Bonjour' });
+    await call(`/api/contents/${content.id}`, { method: 'DELETE' });
+    expect((await fils())[content.id]).toBeUndefined();
+  });
+});

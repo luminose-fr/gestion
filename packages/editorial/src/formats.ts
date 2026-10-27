@@ -86,6 +86,15 @@ export interface FormatDefinition {
      */
     animee?: boolean;
     /**
+     * Ce que le format produit APRÈS le brouillon, comme une étape à part du
+     * fil (SPEC §13.2) : `'slides'` pour le carrousel, que l'Artiste met en
+     * images. Absent : le brouillon est ce qui se publie.
+     *
+     * Il remplace les tests de format que l'éditeur écrivait en dur pour savoir
+     * s'il fallait un onglet Slides (règle n°3 du CLAUDE.md).
+     */
+    rendu?: 'slides';
+    /**
      * Ce que le format sait livrer prêt à publier hors de l'application — le
      * fichier du site, les prompts d'illustration, les posts qui l'annoncent.
      * Absent : le format se copie depuis l'écran, rien de plus. `null` : le
@@ -429,6 +438,7 @@ const CARROUSEL: FormatDefinition = {
     shortKey: 'Carrousel',
     editorTab: 'brouillon',
     supportsColdRead: true,
+    rendu: 'slides',
     promptTemplate: `
 GRILLE DE PRODUCTION — Carrousel — Instagram, LinkedIn
 Format pédagogique. Ta production alimente directement la trame finale : zéro champ à réécrire après coup, tout est calibré pour le montage des slides dans Sketch (format 1:1 Instagram).

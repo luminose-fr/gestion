@@ -2460,9 +2460,9 @@ describe('Vidéos — Montage', () => {
     const item = reel({ draft: SCRIPT });
     // Ce script de test est trop court, n'a qu'une scène et pas de seconde accroche : le contrôle le dit.
     expect(etapeDuReel(item, undefined).texte).toBe('Script écrit — 3 points à corriger avant de tourner.');
-    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: false, transcrite: false }], visuels: 0, dernierExport: null }).texte)
+    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: false, transcrite: false, deposeeLe: 1, pretLe: null, transcriteLe: null, duree: 60 }], visuels: 0, dernierExport: null }).texte)
       .toContain('Envoi de la prise interrompu');
-    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: true, transcrite: false }], visuels: 0, dernierExport: null }).texte)
+    expect(etapeDuReel(item, { prises: [{ role: 'principale', pret: true, transcrite: false, deposeeLe: 1, pretLe: null, transcriteLe: null, duree: 60 }], visuels: 0, dernierExport: null }).texte)
       .toContain('transcription à faire');
     expect(etapeDuReel(item, { prises: [], visuels: 0, dernierExport: { format: '4:5', version: 'publicite', duree: 40, le: Date.UTC(2026, 9, 4) } }).texte)
       .toBe('Exportée le 04/10/2026, en 4:5 (publicité).');

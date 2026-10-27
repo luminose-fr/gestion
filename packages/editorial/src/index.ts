@@ -33,6 +33,9 @@ export * from './selection';
 // … et la vidéo directe sans script : la transcription pour texte (SPEC §12.7)
 export * from './directe';
 
+// Où en est un contenu : l'étape, calculée, jamais stockée (SPEC §13)
+export * from './etape';
+
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';
 

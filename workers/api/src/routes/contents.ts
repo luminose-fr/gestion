@@ -9,7 +9,7 @@ import { Hono } from 'hono';
 import {
   CreateContentSchema, UpdateContentSchema, BatchCreateContentSchema,
   AppendCoachMessageSchema, UpdateCoachSchema, CreateGenerationSchema,
-  SyncQuerySchema, type CoachSession,
+  SyncQuerySchema, type CoachSession, type ResumeFil, type ResumeFils, type DernierDuFil,
 } from '@luminose/shared';
 import type { Env } from '../env';
 import {
@@ -40,6 +40,100 @@ contents.get('/', async (c) => {
     : await c.env.DB.prepare(`SELECT ${C} FROM contents WHERE updated_at > ? ORDER BY updated_at DESC`).bind(since).all();
 
   return c.json({ items: results.map(rowToContent), syncedAt: now() });
+});
+
+// ── Le fil, résumé pour les listes (SPEC §13.7) ─────────────────────────
+
+/** Un extrait suffit à la liste : un brouillon entier ne voyage pas pour une ligne. */
+const EXTRAIT = 240;
+
+/** Le rang du plus récent, par contenu. `rowid` départage deux écritures de la même milliseconde. */
+const PLUS_RECENT = 'ROW_NUMBER() OVER (PARTITION BY content_id ORDER BY created_at DESC, rowid DESC)';
+
+/** Les contenus vivants : un contenu supprimé n'a plus de ligne dans aucune liste. */
+const VIVANTS = 'content_id IN (SELECT id FROM contents WHERE deleted_at IS NULL)';
+
+/**
+ * Ce que chaque liste doit savoir du fil d'un contenu sans l'ouvrir : où en
+ * est l'atelier, ce que dit la dernière relecture et si elle vise le brouillon
+ * d'aujourd'hui, et le dernier fait — message, production ou geste.
+ *
+ * 1 batch de 6 lectures, quel que soit le nombre de contenus (SPEC §3.6) : sans
+ * lui, la liste Conversations aurait coûté une requête par ligne.
+ *
+ * Une charge illisible ne doit pas emporter la liste entière : `json_valid`
+ * garde chaque `json_extract`, qui lèverait sur un JSON abîmé.
+ */
+contents.get('/fils', async (c) => {
+  const db = c.env.DB;
+  const [comptes, coach, dates, relectures, productions, gestes] = await db.batch([
+    db.prepare(
+      `SELECT content_id, COUNT(*) AS n, SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) AS tours
+         FROM coach_messages WHERE deleted_at IS NULL AND ${VIVANTS} GROUP BY content_id`),
+    db.prepare(
+      `SELECT content_id, role, substr(content, 1, ${EXTRAIT}) AS texte, created_at FROM (
+         SELECT content_id, role, content, created_at, ${PLUS_RECENT} AS rang
+           FROM coach_messages WHERE deleted_at IS NULL AND ${VIVANTS}
+       ) WHERE rang = 1`),
+    db.prepare(
+      `SELECT content_id,
+              MAX(CASE WHEN target = 'draft' THEN created_at END) AS brouillon_le,
+              MAX(CASE WHEN target = 'slides' THEN created_at END) AS slides_le
+         FROM generations WHERE ${VIVANTS} GROUP BY content_id`),
+    db.prepare(
+      `SELECT content_id, created_at,
+              CASE WHEN json_valid(payload) THEN json_extract(payload, '$.verdict') END AS verdict,
+              CASE WHEN json_valid(payload) THEN
+                COALESCE(json_array_length(payload, '$.problemes'), 0)
+                + (SELECT COUNT(*) FROM json_each(payload, '$.controles') WHERE json_extract(value, '$.statut') = 'KO')
+              ELSE 0 END AS points
+         FROM (SELECT content_id, payload, created_at, ${PLUS_RECENT} AS rang
+                 FROM generations WHERE kind = 'cold_read' AND ${VIVANTS})
+        WHERE rang = 1`),
+    db.prepare(
+      `SELECT content_id, kind, created_at, substr(instruction, 1, ${EXTRAIT}) AS instruction,
+              CASE WHEN kind = 'cold_read' AND json_valid(payload) THEN json_extract(payload, '$.verdict') END AS verdict,
+              CASE WHEN kind = 'cold_read' AND json_valid(payload)
+                   THEN substr(json_extract(payload, '$.lecture_naive.sujet'), 1, ${EXTRAIT}) END AS sujet
+         FROM (SELECT content_id, kind, instruction, payload, created_at, ${PLUS_RECENT} AS rang
+                 FROM generations WHERE ${VIVANTS})
+        WHERE rang = 1`),
+    db.prepare(
+      `SELECT content_id, statut, avant, created_at FROM (
+         SELECT content_id, statut, avant, created_at, ${PLUS_RECENT} AS rang FROM gestes WHERE ${VIVANTS}
+       ) WHERE rang = 1`),
+  ]);
+
+  const resume: ResumeFils = { contenus: {} };
+  const fil = (id: string): ResumeFil => resume.contenus[id] ??= {
+    messages: 0, tours: 0, relecture: null, brouillonLe: null, slidesLe: null, dernier: null,
+  };
+  const lignes = (r: D1Result) => (r.results ?? []) as any[];
+  /** Le plus récent des trois l'emporte ; à égalité, le premier arrivé reste. */
+  const proposer = (id: string, dernier: DernierDuFil) => {
+    const f = fil(id);
+    if (!f.dernier || dernier.le > f.dernier.le) f.dernier = dernier;
+  };
+
+  for (const r of lignes(comptes)) Object.assign(fil(r.content_id), { messages: Number(r.n), tours: Number(r.tours ?? 0) });
+  for (const r of lignes(dates)) Object.assign(fil(r.content_id), { brouillonLe: r.brouillon_le ?? null, slidesLe: r.slides_le ?? null });
+  for (const r of lignes(relectures)) {
+    fil(r.content_id).relecture = { verdict: r.verdict ?? null, points: Number(r.points ?? 0), le: r.created_at };
+  }
+  for (const r of lignes(coach)) {
+    proposer(r.content_id, { source: 'coach', nature: r.role, texte: r.texte ?? null, verdict: null, avant: null, le: r.created_at });
+  }
+  for (const r of lignes(productions)) {
+    proposer(r.content_id, {
+      source: 'journal', nature: r.kind, texte: r.instruction ?? r.sujet ?? null,
+      verdict: r.verdict ?? null, avant: null, le: r.created_at,
+    });
+  }
+  for (const r of lignes(gestes)) {
+    proposer(r.content_id, { source: 'geste', nature: r.statut, texte: null, verdict: null, avant: r.avant, le: r.created_at });
+  }
+
+  return c.json(resume);
 });
 
 // ── Détail ───────────────────────────────────────────────────────────────
@@ -163,7 +257,12 @@ contents.post('/batch', async (c) => {
   return c.json({ items: results.map(rowToContent) }, 201);
 });
 
-/** 2 requêtes : mise à jour puis relecture. */
+/**
+ * 2 requêtes : mise à jour puis relecture — 3 quand le statut change, parce
+ * que le geste s'écrit dans le même batch (SPEC §13.6). Il s'écrit ICI et non
+ * dans l'écran : aucun bouton, présent ou à venir, ne peut l'oublier. Un statut
+ * renvoyé tel quel n'est pas un geste : l'`INSERT` ne retient que ce qui change.
+ */
 contents.patch('/:id', async (c) => {
   const id = c.req.param('id');
   const input = UpdateContentSchema.parse(await c.req.json());
@@ -180,9 +279,20 @@ contents.patch('/:id', async (c) => {
   const sets = [update.sql, 'updated_at = ?'];
   const params = [...update.params, ts, id];
 
-  const res = await c.env.DB
+  const miseAJour = c.env.DB
     .prepare(`UPDATE contents SET ${sets.join(', ')} WHERE id = ? AND deleted_at IS NULL`)
-    .bind(...params).run();
+    .bind(...params);
+
+  // Le geste se lit AVANT la mise à jour : c'est elle qui effacerait le statut d'avant.
+  const res = input.status === undefined
+    ? await miseAJour.run()
+    : (await c.env.DB.batch([
+        c.env.DB.prepare(
+          `INSERT INTO gestes (id, content_id, statut, avant, created_at)
+           SELECT ?, id, ?, status, ? FROM contents WHERE id = ? AND deleted_at IS NULL AND status != ?`,
+        ).bind(newId(), input.status, ts, id, input.status),
+        miseAJour,
+      ]))[1];
 
   if (!res.meta.changes) return c.json({ error: 'Contenu introuvable' }, 404);
 
