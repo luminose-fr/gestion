@@ -14,7 +14,7 @@ import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
   RdvType, RdvCreneau, RdvConfirme, Transcription, MoteurTranscription,
-  EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise, ResumeMontages, ExportNote,
+  EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise, ResumeMontages, ExportNote, ResumeFils,
 } from '@luminose/shared';
 
 /**
@@ -591,6 +591,10 @@ export const fetchMontage = (contentId: string) =>
 /** Tous les montages d'un coup : l'espace Vidéos ne paie pas une requête par Reel. */
 export const fetchResumeMontages = () =>
   api<ResumeMontages>('/montage');
+
+/** Le fil de chaque contenu, résumé pour les listes (SPEC §13.7) : un batch, pas une requête par ligne. */
+export const fetchResumeFils = () =>
+  api<ResumeFils>('/contents/fils');
 
 /** Note un export réussi : c'est ce qui dira, dans l'espace Vidéos, qu'un Reel est sorti. */
 export const noterExport = (contentId: string, note: ExportNote) =>

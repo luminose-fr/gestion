@@ -18,7 +18,9 @@ et la largeur des zones de travail.
 
 - la **structure de navigation** : les espaces, la barre latérale, les sous-niveaux, les
   onglets, le routage par hash. Ils fonctionnent ; les toucher, c'est rouvrir un sujet
-  réglé ;
+  réglé. **Exception, le 27/10/2026** : la refonte « le fil » (SPEC §13) a rouvert la
+  navigation de Contenus et supprimé l'espace Vidéos ; le panneau de deuxième niveau
+  passe à 232 px et ses entrées à 44 px, pour tous les espaces ;
 - l'**identité** : polices (`Futura LT`, `Abril Display`), couleurs de marque, thème
   sombre. Les tokens de couleur existants de `apps/manager/index.css` restent tels quels ;
   seuls s'y ajoutent `--color-succes`, `--color-alerte` et `--color-erreur` (voir plus bas) ;
@@ -106,7 +108,13 @@ disparaît.
 | Petit | `px-2.5 py-1.5 text-xs font-semibold rounded-lg` | 30 px | 14 px (`size-3.5`) |
 | Normal | `px-3 py-2 text-sm font-semibold rounded-lg` | 38 px | 16 px (`size-4`) |
 
-L'ancien « grand » (`px-4 py-2.5`, `px-8 py-3`…) devient **normal**. La taille d'icône est
+| Grand | `h-10 px-4 text-sm font-semibold rounded-lg` | 40 px | 16 px (`size-4`) |
+
+L'ancien « grand » (`px-4 py-2.5`, `px-8 py-3`…) est devenu **normal** en septembre.
+Le **grand** d'aujourd'hui est arrivé avec la refonte « le fil » (SPEC §13, 27/10/2026) :
+40 px, la cible des listes et du cadre d'un contenu, à côté d'un champ de 44 px. Sa
+hauteur est posée (`h-10`) plutôt que déduite d'un padding : à 14 px de texte, il
+faudrait `py` de 9 px, hors de l'échelle. `taille="grand"` sur `Bouton`. La taille d'icône est
 imposée par le bouton : une icône ne porte plus sa propre taille quand elle est dans un
 bouton.
 
@@ -137,6 +145,20 @@ plus lisible.
 border-brand-border dark:border-dark-sec-border focus:border-brand-main
 dark:focus:border-white` — 38 px, la hauteur du bouton normal. `py-2.5` disparaît.
 
+`taille="grand"` sur `Champ` : 44 px (`h-11`), le champ des listes et du composeur, à
+côté du bouton grand (SPEC §13).
+
+### Les composants de la refonte « le fil » (SPEC §13)
+
+Dans `components/ui/`, comme le reste du socle :
+
+| Composant | Ce qu'il porte |
+| :--- | :--- |
+| `ControleSegmente` | quelques choix exclusifs dans un cadre de 40 px : filtres, Liste · Calendrier, 9:16 · 4:5 |
+| `Menu` | le menu flottant (« + Nouveau », « ⋯ », le sélecteur d'étape) : entrées de 44 px, `shadow-lg`, Échap et clic dehors |
+| `BarreProgression` | l'avancement d'un contenu, un segment par étape de son fil (6 px, ou 5 px en fin) |
+| `TitreEcran` | le titre d'écran (22/28) et celui d'un contenu ouvert (20/26), en Abril Display — de l'identité, hors de l'échelle typographique |
+
 ### Rayons, ombres, bordures
 
 - Rayons : `rounded-md` (élément dans un champ), `rounded-lg` (bouton, champ, ligne),
@@ -166,6 +188,12 @@ Déclarés dans `@theme`, leur valeur sombre posée dans un
 valeur passe 4.5:1 sur les fonds de son thème.
 
 `green-*`, `emerald-*`, `amber-*`, `red-*` et `rose-*` disparaissent.
+
+**Deux surfaces, validées par Florent le 27/10/2026** (SPEC §13) : `--color-fil`
+(`#f1ebf8`, entre `brand-light` et `brand-border`), le fond du fil d'un contenu, qui
+distingue la conversation de la matière posée à côté ; `--color-survol` (`#fcfaff`), le
+survol d'une ligne de liste. En sombre, `dark:bg-dark-bg` et `dark:bg-dark-sec-bg`. La
+scène sombre du studio reprend `dark-bg` dans les deux thèmes.
 
 Les pastilles (`Etiquette forme="pastille"`) sont en `text-micro font-semibold`, sans
 capitales : les capitales espacées sont réservées au sur-titre.

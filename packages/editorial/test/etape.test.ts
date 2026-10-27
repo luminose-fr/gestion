@@ -171,6 +171,8 @@ describe('les libellés d’avant le brouillon (§13.3)', () => {
     it('l’atelier en cours compte ses tours', () => {
         expect(calcul({ contenu: contenu({ coachStatus: 'in_progress' }), session: { messages: 9, tours: 4 } }).libelle).toBe('Atelier · 4 tours');
         expect(calcul({ contenu: contenu({ coachStatus: 'in_progress' }), session: { messages: 2, tours: 1 } }).libelle).toBe('Atelier · 1 tour');
+        // Le résumé du fil n'est pas encore arrivé : l'atelier est commencé, sans chiffre.
+        expect(calcul({ contenu: contenu({ coachStatus: 'in_progress' }) }).libelle).toBe('Atelier en cours');
     });
 
     it('un atelier validé sans brouillon : la rédaction est à relancer', () => {

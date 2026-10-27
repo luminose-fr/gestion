@@ -187,6 +187,8 @@ function libelleAvantBrouillon(contenu: ContenuPourEtape, session: SessionPourEt
     // Une session validée sans brouillon : la rédaction qui suit « Go » a échoué.
     if (contenu.coachStatus === 'validated') return 'Rédaction à relancer';
     if (session && session.messages > 0) return `Atelier · ${pluriel(Math.max(session.tours, 1), 'tour')}`;
+    // Commencé, mais le décompte n'est pas (encore) là : la liste le dit sans chiffre.
+    if (contenu.coachStatus === 'in_progress') return 'Atelier en cours';
     // Préparée par l'Analyste, ou posée par le plan de série — l'Éclateur est l'Analyste de sa série.
     if (contenu.analyzedAt || (contenu.serieId && contenu.seriePosition !== null)) return 'À ouvrir · préparée';
     return 'À ouvrir';

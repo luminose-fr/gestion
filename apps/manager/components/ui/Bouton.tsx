@@ -7,7 +7,7 @@
  */
 import React from 'react';
 
-export type TailleBouton = 'petit' | 'normal';
+export type TailleBouton = 'petit' | 'normal' | 'grand';
 export type IntentionBouton = 'principale' | 'secondaire' | 'discrete';
 /** Le sens d'un bouton vert, orange ou rouge. `neutre` est la marque. */
 export type TonBouton = 'neutre' | 'succes' | 'alerte' | 'erreur';
@@ -22,6 +22,13 @@ export type TonBouton = 'neutre' | 'succes' | 'alerte' | 'erreur';
 const TAILLES: Record<TailleBouton, string> = {
   petit: 'px-2.5 py-1.5 text-xs [&_svg]:size-3.5',
   normal: 'px-3 py-2 text-sm [&_svg]:size-4',
+  /*
+    40 px, la cible des listes et du cadre d'un contenu (SPEC §13, passation
+    « Contenus, le fil ») : le bouton qu'on vise de loin, à côté d'un champ de
+    44 px. La hauteur est posée, pas déduite d'un padding : à 14 px de texte, il
+    faudrait un `py` de 9 px, hors de l'échelle.
+  */
+  grand: 'h-10 px-4 text-sm [&_svg]:size-4',
 };
 
 /*

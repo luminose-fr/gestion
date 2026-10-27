@@ -207,7 +207,10 @@ PIÈGES À ÉVITER (anti-patterns) :
 
 **Action** : « Analyse des idées » (`ANALYZE_BATCH`)
 
-**Quand** : sur une idée, à la demande (« Analyser ») ou en lot (« Analyser tout »).
+**Quand** : sur une idée, à la demande (« Analyser »), ou par trois (« Préparer 3 idées »,
+qui a remplacé « Analyser tout » le 27/10/2026). Le verdict reste dans sa réponse mais ne
+s'affiche plus, ni en étiquette ni en filtre : ce que l'Analyste rend prépare
+l'ouverture de l'idée (SPEC §13.8).
 
 **Il reçoit** : une liste d'idées — identifiant, titre, notes, format cible déjà
 choisi par Florent.
