@@ -134,7 +134,7 @@ const servir = (objet: R2ObjectBody): Response => {
  */
 montage.get('/', async (c) => {
     const [prises, visuels, exports, total] = await c.env.DB.batch([
-        c.env.DB.prepare('SELECT content_id, role, pret_le, transcrite_le FROM montage_prises WHERE deleted_at IS NULL'),
+        c.env.DB.prepare('SELECT content_id, role, created_at, pret_le, transcrite_le, duree FROM montage_prises WHERE deleted_at IS NULL'),
         c.env.DB.prepare('SELECT content_id, COUNT(*) AS n FROM montage_visuels WHERE deleted_at IS NULL GROUP BY content_id'),
         c.env.DB.prepare(
             `SELECT e.content_id, e.format, e.version, e.duree, e.created_at FROM montage_exports e
@@ -148,7 +148,10 @@ montage.get('/', async (c) => {
     };
     const contenu = (id: string) => resume.contenus[id] ??= { prises: [], visuels: 0, dernierExport: null };
     for (const p of (prises.results ?? []) as any[]) {
-        contenu(p.content_id).prises.push({ role: p.role, pret: p.pret_le !== null, transcrite: p.transcrite_le !== null });
+        contenu(p.content_id).prises.push({
+            role: p.role, pret: p.pret_le !== null, transcrite: p.transcrite_le !== null,
+            deposeeLe: p.created_at, pretLe: p.pret_le ?? null, transcriteLe: p.transcrite_le ?? null, duree: Number(p.duree),
+        });
     }
     for (const v of (visuels.results ?? []) as any[]) contenu(v.content_id).visuels = Number(v.n);
     for (const e of (exports.results ?? []) as any[]) {

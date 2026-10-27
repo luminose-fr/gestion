@@ -362,7 +362,14 @@ export type ExportNote = z.infer<typeof NoterExportSchema>;
 
 /** Ce que l'espace Vidéos montre de chaque montage, sans ouvrir aucun contenu (SPEC §12.4.3). */
 export interface ResumeMontage {
-  prises: Array<{ role: RolePrise; pret: boolean; transcrite: boolean }>;
+  /**
+   * Les dates disent au fil QUAND la prise est arrivée (SPEC §13.7) : « Montage
+   * · Prise déposée », sans ouvrir le contenu.
+   */
+  prises: Array<{
+    role: RolePrise; pret: boolean; transcrite: boolean;
+    deposeeLe: number; pretLe: number | null; transcriteLe: number | null; duree: number;
+  }>;
   visuels: number;
   dernierExport: (ExportNote & { le: number }) | null;
 }
@@ -371,6 +378,45 @@ export interface ResumeMontages {
   /** Par identifiant de contenu ; un contenu absent n'a encore rien de monté. */
   contenus: Record<string, ResumeMontage>;
   stockage: EtatMontage['stockage'];
+}
+
+/**
+ * Le dernier fait du fil d'un contenu (SPEC §13.7) : ce que la liste
+ * Conversations affiche sous le titre. Il vient de la conversation Coach, du
+ * journal des productions, ou d'un geste de Florent — le plus récent des trois.
+ */
+export interface DernierDuFil {
+  source: 'coach' | 'journal' | 'geste';
+  /**
+   * `user` | `assistant` pour le Coach ; la nature de la production (`draft`,
+   * `cold_read`…) pour le journal ; le statut posé pour un geste.
+   */
+  nature: string;
+  /** Un extrait : le message, l'instruction d'un ajustement, le sujet perçu d'une relecture. */
+  texte: string | null;
+  /** Le verdict d'une relecture à froid. */
+  verdict: string | null;
+  /** Le statut d'avant, pour un geste : « Repasser en écriture » n'est pas « Bon à publier ». */
+  avant: string | null;
+  le: number;
+}
+
+/** Ce que la liste sait du fil d'un contenu, sans l'ouvrir (SPEC §13.7). */
+export interface ResumeFil {
+  /** Messages de la conversation Coach, et réponses du Coach (les tours). */
+  messages: number;
+  tours: number;
+  /** La dernière relecture à froid : son verdict, et ce qui reste à reprendre. */
+  relecture: { verdict: string | null; points: number; le: number } | null;
+  /** La dernière production qui a écrit le brouillon, ou les slides. */
+  brouillonLe: number | null;
+  slidesLe: number | null;
+  dernier: DernierDuFil | null;
+}
+
+export interface ResumeFils {
+  /** Par identifiant de contenu ; un contenu absent n'a encore rien dans son fil. */
+  contenus: Record<string, ResumeFil>;
 }
 
 export interface EtatMontage {

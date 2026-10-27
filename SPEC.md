@@ -1,4 +1,4 @@
-# SPEC v2.18 — gestion.luminose.fr
+# SPEC v2.19 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -74,6 +74,11 @@
 > bout, et une vidéo sans script se crée depuis Vidéos → Montage : sa transcription sert de
 > texte. Les hésitations se coupent d'office. L'espace Montage distingue « directe » et
 > « avec animations » (§12.7).
+> **v2.19 (27/10/2026)** : Contenus, « le fil ». Les espaces Contenus et Vidéos fusionnent
+> en un seul, à trois entrées ; un contenu ouvert est une conversation avec ses rôles IA
+> à côté de ce qu'elle produit. Les statuts restent en base mais ne s'affichent plus :
+> l'écran montre une **étape calculée**, la même partout (§13). Les gestes de Florent
+> sont datés (`gestes`, migration 0012).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -2049,6 +2054,145 @@ déposée, ou pas de script — : les Script Reels publiés avant, jamais monté
 encombreraient la liste. **Le panneau de montage** d'une vidéo directe n'a ni repère ni
 export de scènes seules ; sans script et sans prise, il dit que la transcription servira de
 texte.
+
+## 13. Contenus : le fil (v2.19) — NORMATIF
+
+Demande de Florent, le 26/10/2026 : « je suis perdu dans l'interface ». L'onglet Script
+d'un Reel expliqué mêlait le script et tout le montage ; Vidéos → Montage listait des
+idées et des vidéos publiées ; un contenu s'ouvrait tantôt sur un onglet, tantôt sur un
+autre. Une refonte dessinée avec Claude Design (passation « Contenus, le fil »,
+27/10/2026) en est sortie. Cette section en fixe le modèle ; l'écran la suit.
+
+### 13.1 Une étape calculée, jamais stockée
+
+Les quatre statuts — Idée, Brouillon, Prêt, Publié — restent en base mais **ne
+s'affichent plus**. « Brouillon » couvrait sept situations, d'un atelier à peine ouvert à
+un script prêt à tourner. L'écran montre l'**étape**, calculée par une seule fonction
+pure, `etapeCourante` (`packages/editorial/src/etape.ts`), à partir de :
+
+- `contents` : statut, brouillon, slides, analyse, série et rang, date de publication,
+  état de la session Coach ;
+- la conversation Coach, comptée (messages, tours) ;
+- la **dernière relecture à froid** du journal, comparée à la dernière production qui a
+  écrit le brouillon — plus ancienne, elle jugeait un autre texte ;
+- le résumé des montages (`GET /api/montage`) : prise, transcription, export ;
+- ce que l'onglet fait en ce moment : un envoi, une transcription, un export.
+
+Elle rend `{ sorte, etape, libelle, geste, progression }`. Les listes, le sélecteur
+d'étape et la règle d'arrivée la lisent tous : **ils ne peuvent plus se contredire.**
+
+### 13.2 Les fils d'étapes, par sorte
+
+Le registre compose le fil, sans qu'aucun format soit nommé : `rendu: 'slides'` (nouveau,
+le carrousel) ajoute l'étape Slides, `versMontage` ajoute Tournage et Montage. Une vidéo
+dont le brouillon n'a aucune séquence est une vidéo directe sans script (§12.7).
+
+| Sorte | Étapes | Segments de la barre de progression |
+| :--- | :--- | :--- |
+| Écrit | Ouverture · Atelier · Brouillon · Publication | ouvert · atelier validé · brouillon · relu Publiable · bon à publier |
+| Carrousel | Ouverture · Atelier · Brouillon · Slides · Publication | ouvert · atelier validé · brouillon · relu Publiable · slides · bon à publier |
+| Vidéo | Ouverture · Atelier · Script · Tournage · Montage · Publication | ouvert · atelier validé · prête à tourner · prise déposée · exportée |
+| Vidéo directe sans script | Montage · Publication | prise calée · exportée |
+
+Un segment est fait dès qu'un segment plus avancé l'est : une vidéo exportée a forcément
+été tournée. Un contenu publié est complet, même une vidéo publiée avant le montage
+intégré.
+
+**Écart avec la passation :** un format qui ne se relit pas à froid (article, newsletter,
+script YouTube — décision du 26/08/2026, §4 de `formats.ts`) n'a pas de segment « relu »,
+et son brouillon se dit « Brouillon écrit » plutôt que « pas encore relu » : l'écran ne
+promet pas une relecture qui ne viendra pas.
+
+### 13.3 Les libellés
+
+La première ligne qui s'applique l'emporte. Ils sont repris tels quels de la passation.
+
+**Une vidéo** : `Publié le 12 oct.` ou `Programmé le 3 nov.` · `Export en cours · 40 %` ·
+`Exportée le 20 oct. · 9:16` · `Envoi de la prise · 62 %` · `Transcription en cours` ·
+`Envoi interrompu · à redéposer` · `Prise déposée · à transcrire` · `Montage · 2 visuels à
+déposer` · `Montage · prête à exporter` · `Montage · déposez la prise` (sans script) ·
+`Prête à tourner` · `Script · 2 points à corriger` (les contrôles du format) · `Script écrit`.
+
+**Un écrit ou un carrousel** : la date de publication · `Bon à publier` · `Slides prêtes` ·
+`Relu : Publiable · slides à produire` · `Brouillon · relu : Publiable` · `Brouillon · relu :
+2 points` · `Brouillon · pas encore relu` (ou `Brouillon écrit`, §13.2).
+
+**Avant le brouillon** : `Préparée` / `À préparer` (une idée) · `Rédaction à relancer` (atelier
+validé sans brouillon : la rédaction a échoué) · `Atelier · 4 tours` · `À ouvrir · préparée`
+(analysée, ou posée par le plan de série) · `À ouvrir`.
+
+Une vidéo **exportée puis retouchée** reste « Exportée » (décision de Florent, 27/10/2026) :
+l'étape suit le dernier export, le bouton devient « Exporter à nouveau ».
+
+### 13.4 La règle d'arrivée
+
+Un contenu **s'ouvre sur son étape courante**, d'où qu'on vienne — liste, série,
+calendrier, recherche, lien. La provenance ne décide que du libellé du retour. La
+première ligne qui s'applique :
+
+1. publié : Publication ;
+2. vidéo exportée : Publication ;
+3. vidéo avec une prise, même interrompue, ou vidéo sans script : Montage ;
+4. vidéo prête à tourner : Tournage ;
+5. écrit ou carrousel bon à publier : Publication ;
+6. un brouillon : l'étape d'écriture — Brouillon, Script, ou Slides si elles existent ;
+7. aucune session Coach : Ouverture ;
+8. sinon : Atelier.
+
+Une étape écrite dans l'adresse est respectée (rechargement, retour du navigateur).
+
+### 13.5 Le geste qui attend
+
+C'est le filtre de la liste Conversations : vidéo exportée → **Publier** ; vidéo avec une
+prise, ou sans script → **Monter** ; vidéo prête à tourner → **Tourner** ; écrit ou
+carrousel prêt → **Publier** ; sinon **Écrire**. Un contenu publié n'attend rien.
+
+### 13.6 Les gestes de Florent
+
+Trois gestes seulement changent un statut : **« Bon à publier »** (remplace « Marquer
+comme Prêt », écrit `Prêt`), **« Marquer prête à tourner »** sur une vidéo (écrit aussi
+`Prêt`), **« Marquer publié »** avec une date (écrit `Publié`). « Repasser en écriture »
+revient à `Brouillon`. Un dépôt, une transcription ou un export **ne déplacent jamais
+l'écran** : on exporte souvent deux versions d'affilée.
+
+Une vidéo exportée se publie **directement**, même jamais marquée « prête à tourner »
+(décision de Florent, 27/10/2026) : `Brouillon` → `Publié` est un passage permis.
+
+**Chaque changement de statut est daté** dans la table `gestes` (migration 0012) : le
+statut posé, celui d'avant, l'instant. C'est le Worker qui l'écrit, dans le même batch que
+le `PATCH` qui change le statut : aucun bouton ne peut l'oublier, et un statut renvoyé tel
+quel n'est pas un geste. Pas dans `generations` : le journal est réservé à ce que l'IA
+produit (§2.6). L'export de la base (§9.4) emporte les gestes.
+
+### 13.7 Le fil
+
+Le fil d'un contenu est le journal des productions rendu lisible — analyse, brief,
+rédaction, ajustement, relecture, slides, plan —, avec les messages de la conversation
+Coach intercalés par date, les gestes de Florent et les événements du montage.
+
+**La liste a besoin du dernier fait de chaque contenu** sans l'ouvrir.
+`GET /api/contents/fils` le rend pour tous en **un batch de six lectures**, quel que soit
+le nombre de contenus (§3.6) : les messages Coach comptés, le dernier message, les dates
+de la dernière production qui a écrit le brouillon et les slides, la dernière relecture
+(verdict, et nombre de points : problèmes relevés et contrôles en échec), la dernière
+production, le dernier geste. Les charges ne voyagent pas : des extraits de 240
+caractères, et le verdict lu par `json_extract` — gardé par `json_valid`, pour qu'une
+relecture illisible n'emporte pas la liste. Le résumé des montages porte désormais les
+dates de la prise (déposée, envoyée, transcrite).
+
+### 13.8 Phasage — NORMATIF
+
+Une branche par étape ; aucune ne laisse l'application cassée.
+
+| # | Étape | Critère de sortie |
+| :--- | :--- | :--- |
+| **F1** | **L'étape** — `etapeCourante`, `rendu`, `gestes`, `GET /api/contents/fils` | Un test par ligne des tableaux §13.3 et §13.4 |
+| **F2** | **Les listes** — Conversations, Idées, Publiés ; Vidéos et Sous-titres disparaissent | Chaque contenu est à un seul endroit, avec son étape |
+| **F3** | **Le cadre du contenu** — bandeau, sélecteur d'étape, pied, règle d'arrivée, une action principale | Un contenu s'ouvre au même endroit d'où qu'on vienne |
+| **F4** | **Le fil** — bulles, composeur à deux destinataires, ouverture | L'atelier, la rédaction et les ajustements se font dans le fil |
+| **F5** | **Le studio** — aperçu, sortie, onglets Texte · Scènes · Rythme · Prise | Aucun outil de montage perdu, l'aperçu toujours visible |
+| **F6** | **La série** — panneau Série, plan dans le cadre du contenu | Une publication se travaille sans quitter sa série |
+| **F7** | **Mobile, thème sombre, contrôles de DESIGN.md** | Zéro ligne aux commandes de fin |
 
 ---
 
