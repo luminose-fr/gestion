@@ -29,7 +29,19 @@ export interface MotAffiche {
     texte: string;
     debut: number;
     fin: number;
+    /**
+     * La ponctuation qui le suit dans le script — ou chez Whisper, hors du script.
+     * Elle ne s'affiche pas (un sous-titre n'a ni point ni virgule), mais elle dit
+     * où un bloc se coupe le mieux.
+     */
+    coupure?: 'phrase' | 'virgule';
 }
+
+/** Ce qui suit un mot : une fin de phrase, une virgule, ou rien qui coupe. */
+const coupureApres = (suite: string): MotAffiche['coupure'] => {
+    const signe = suite.match(/^[\s\u00A0»"”)]*([.?!…,;:])/)?.[1];
+    return !signe ? undefined : /[.?!…]/.test(signe) ? 'phrase' : 'virgule';
+};
 
 /** Un mot moyen, quand il faut en supposer un : 150 mots par minute. */
 const DUREE_DU_MOT = 0.4;
@@ -273,6 +285,31 @@ export function calerSurLaPrise(
     const scriptDuJeton = new Map<number, number>();
     alignement.forEach((a, i) => { if (a && a.accord !== 'substitution') scriptDuJeton.set(a.j, i); });
     const motsAffiches: MotAffiche[] = [];
+    // Le dernier mot du script de chaque mot affiché, pour savoir si le suivant s'y soude.
+    const dernierRang: Array<number | null> = [];
+    /**
+     * Whisper rend une élision en deux mots — « c », puis « 'est » — et détache
+     * le trait d'union (« voulez », « -vous »). Le sous-titre écrivait « c est »,
+     * et coupait parfois le bloc entre les deux : « Le jour où c / est trop
+     * lourd c / est là que je », qui se lit comme un sous-titre en retard. Un mot
+     * se soude au précédent quand le script les écrit sans blanc entre eux, ou,
+     * hors du script, quand Whisper le fait commencer par l'apostrophe.
+     */
+    const souder = (affiche: string, brut: string, rang: number | null, fin: number, coupure: MotAffiche['coupure']): boolean => {
+        const precedent = motsAffiches[motsAffiches.length - 1];
+        if (!precedent) return false;
+        const avant = dernierRang[dernierRang.length - 1];
+        const entre = rang !== null && avant !== null && avant === rang - 1
+            ? texte.slice(script[avant].fin, script[rang].debut)
+            : null;
+        const detache = /^['’‘-]/.test(brut);
+        if (entre !== null ? (entre === '' || /\s/.test(entre)) : !detache) return false;
+        precedent.texte += (entre ?? (/^['’‘-]/.test(affiche) ? '' : brut[0])) + affiche;
+        precedent.fin = fin;
+        precedent.coupure = coupure;
+        dernierRang[dernierRang.length - 1] = rang;
+        return true;
+    };
     mots.forEach((m, source) => {
         const indices = jetons.flatMap((j, k) => j.source === source ? [k] : []);
         // Un « ? » que Whisper rend seul rejoint le mot qu'il ponctue : seul à
@@ -288,18 +325,25 @@ export function calerSurLaPrise(
         }
         const rangs = indices.map(k => scriptDuJeton.get(k));
         const suivis = rangs.every((r, x) => r !== undefined && (x === 0 || r === rangs[x - 1]! + 1));
+        const brut = m.mot.trim();
         if (!suivis) {
-            motsAffiches.push({ texte: m.mot.trim(), debut: m.debut, fin: m.fin });
+            const coupure = coupureApres(brut.match(/[.?!…,;:]*$/)?.[0] ?? '');
+            if (souder(brut, brut, null, m.fin, coupure)) return;
+            motsAffiches.push({ texte: brut, debut: m.debut, fin: m.fin, ...(coupure ? { coupure } : {}) });
+            dernierRang.push(null);
             return;
         }
         const premier = script[rangs[0]!];
         const ultime = script[rangs[rangs.length - 1]!];
         const ponctuation = texte.slice(ultime.fin).match(PONCTUATION_LUE)?.[1] ?? '';
-        motsAffiches.push({
-            texte: texte.slice(premier.debut, ultime.fin) + (ponctuation ? `\u00A0${ponctuation}` : ''),
-            debut: m.debut,
-            fin: m.fin,
-        });
+        const affiche = texte.slice(premier.debut, ultime.fin) + (ponctuation ? `\u00A0${ponctuation}` : '');
+        const coupure = coupureApres(texte.slice(ultime.fin));
+        if (souder(affiche, brut, rangs[0]!, m.fin, coupure)) {
+            dernierRang[dernierRang.length - 1] = rangs[rangs.length - 1]!;
+            return;
+        }
+        motsAffiches.push({ texte: affiche, debut: m.debut, fin: m.fin, ...(coupure ? { coupure } : {}) });
+        dernierRang.push(rangs[rangs.length - 1]!);
     });
 
     const rangDuJeton = new Map<number, number>();
@@ -348,6 +392,11 @@ export interface SousTitre {
  * Les mots en blocs de sous-titres, comme l'outil Sous-titres : quatre mots au
  * plus, coupés plus tôt à une fin de phrase ou à un silence — un bloc ne doit
  * pas enjamber une respiration.
+ *
+ * Depuis le 28/10/2026, la ponctuation du script guide aussi la coupe : un bloc
+ * de deux mots ou plus se ferme sur une virgule, et un groupe de cinq mots se
+ * coupe en trois et deux plutôt qu'en quatre et un — « C'est savoir ouvrir la /
+ * vanne » laissait l'article d'un côté et le mot qui compte seul de l'autre.
  */
 export function enBlocs(mots: MotAffiche[], motsParBloc = 4): SousTitre[] {
     const blocs: SousTitre[] = [];
@@ -357,11 +406,14 @@ export function enBlocs(mots: MotAffiche[], motsParBloc = 4): SousTitre[] {
         blocs.push({ texte: courant.map(m => m.texte).join(' '), debut: courant[0].debut, fin: courant[courant.length - 1].fin, mots: courant });
         courant = [];
     };
+    const finDePhrase = (m: MotAffiche | undefined) => !!m && (m.coupure === 'phrase' || /[.?!…]$/.test(m.texte));
+    const pause = (m: MotAffiche | undefined) => finDePhrase(m) || m?.coupure === 'virgule';
     mots.forEach((m, i) => {
         const precedent = mots[i - 1];
         if (precedent && m.debut - precedent.fin > 0.6) fermer();
         courant.push(m);
-        if (courant.length >= motsParBloc || /[.?!…]$/.test(m.texte)) fermer();
+        const orphelin = courant.length === motsParBloc - 1 && !pause(mots[i + 1]) && pause(mots[i + 2]);
+        if (courant.length >= motsParBloc || finDePhrase(m) || (m.coupure === 'virgule' && courant.length >= 2) || orphelin) fermer();
     });
     fermer();
     // Un bloc reste à l'écran jusqu'au suivant quand l'écart est court : un

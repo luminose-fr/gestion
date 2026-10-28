@@ -109,8 +109,11 @@ export function scriptDepuisLaTranscription(motsDeWhisper: MotPrononce[], envelo
             break;
         }
     });
+    // Une élision que Whisper détache (« c », « 'est ») se recolle : le texte de
+    // référence se lit, et « c 'est » ne s'écrit pas.
+    const joindre = (textes: string[]) => textes.reduce((s, t, k) => k === 0 ? t : /^['’‘-]/.test(t) ? s + t : `${s} ${t}`, '');
     const voix = phrases
-        .map((p, i) => p.mots.slice(0, gardes[i]).map(m => m.texte).join(' '))
+        .map((p, i) => joindre(p.mots.slice(0, gardes[i]).map(m => m.texte)))
         .filter(Boolean)
         .map(texte => /[.?!…]$/.test(texte) ? texte : `${texte}.`)
         .join(' ');

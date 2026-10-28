@@ -204,10 +204,10 @@ montage.get('/:contentId', async (c) => {
  * Déclare une prise et ouvre son envoi. Remplace la précédente du même rôle,
  * dont elle reprend les repères corrigés — on remplace souvent une prise par sa
  * version mieux nettoyée. Elle reprend aussi la rotation et la synchronisation
- * du son de la prise la plus récente, de n'importe quel contenu (§12.5.7) : la
- * même caméra et le même micro donnent les mêmes réglages.
+ * du son de la prise la plus récente AU MÊME FORMAT, de n'importe quel contenu
+ * (§12.5.7) : la même caméra et le même micro donnent les mêmes réglages.
  *
- * 5 requêtes (dont un batch).
+ * 5 requêtes au plus (dont un batch).
  */
 montage.post('/:contentId/prises/:role', async (c) => {
     const r2 = bucket(c.env);
@@ -217,9 +217,13 @@ montage.post('/:contentId/prises/:role', async (c) => {
     await contenuExiste(c.env, id);
     const precedente = await priseVivante(c.env, id, role);
     resterDansLeGratuit(await occupe(c.env), precedente?.taille ?? 0, declaree.taille);
-    const reglages = precedente ?? await c.env.DB.prepare(
-        'SELECT decalage_son, rotation FROM montage_prises ORDER BY created_at DESC LIMIT 1',
-    ).first<any>();
+    // Les réglages ne se reprennent que d'une prise au même format, c'est-à-dire
+    // filmée avec la même caméra : le 28/10/2026, une prise 1920 × 1080 a reçu
+    // le décalage du son d'une prise 4K tournée avec un autre micro.
+    const memeFormat = (p: any) => Number(p?.largeur) === declaree.largeur && Number(p?.hauteur) === declaree.hauteur;
+    const reglages = memeFormat(precedente) ? precedente : await c.env.DB.prepare(
+        'SELECT decalage_son, rotation FROM montage_prises WHERE largeur = ? AND hauteur = ? ORDER BY created_at DESC LIMIT 1',
+    ).bind(declaree.largeur, declaree.hauteur).first<any>();
 
     const cle = `prises/${id}/${role}-${newId()}`;
     const envoi = await r2.createMultipartUpload(cle, {

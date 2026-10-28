@@ -453,6 +453,11 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         </button>
                     )}
                     {!finale && <p className="text-xs text-center text-white/70">Il faut une prise calée pour exporter.</p>}
+                    {aProduire > deposes && (
+                        <p className="text-xs text-center text-white/80">
+                            {aProduire - deposes === 1 ? '1 visuel n’a pas d’image : il ne sortira pas' : `${aProduire - deposes} visuels n’ont pas d’image : ils ne sortiront pas`} dans la vidéo, la carte gardera son texte.
+                        </p>
+                    )}
                     {indisponible && <p className="text-xs text-center text-white/80">{indisponible}</p>}
                     {resume && <p className="text-xs text-center text-white/70">{resume}</p>}
                     {erreur && <p className="text-xs text-center text-erreur">{erreur}</p>}
@@ -589,6 +594,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                                     <ReglagesPrise
                                         decalageSon={prises.principale.prise.decalageSon ?? 0}
                                         rotation={(prises.principale.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
+                                        largeur={prises.principale.prise.largeur}
+                                        hauteur={prises.principale.prise.hauteur}
                                         onRegler={(r) => void prises.regler('principale', r)}
                                         desactive={!!prises.enCours.principale}
                                     />
@@ -610,6 +617,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                                             <ReglagesPrise
                                                 decalageSon={prises.accroche.prise.decalageSon ?? 0}
                                                 rotation={(prises.accroche.prise.rotation ?? 0) as 0 | 90 | 180 | 270}
+                                                largeur={prises.accroche.prise.largeur}
+                                                hauteur={prises.accroche.prise.hauteur}
                                                 onRegler={(r) => void prises.regler('accroche', r)}
                                                 desactive={!!prises.enCours.accroche}
                                             />

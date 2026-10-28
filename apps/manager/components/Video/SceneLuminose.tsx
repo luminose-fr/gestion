@@ -119,9 +119,9 @@ const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: s
     </>
 );
 
-const Visuel: React.FC<{ element: ElementScene; hauteur: number; couleur: string; image?: string; Image: ComposantImage }> = ({ element, hauteur, couleur, image, Image }) => {
+const Visuel: React.FC<{ element: ElementScene; hauteur: number; couleur: string; image?: string; Image: ComposantImage; gabarit: boolean }> = ({ element, hauteur, couleur, image, Image, gabarit }) => {
     const visuel = element.visuel;
-    if (!visuel) return null;
+    if (!visuel || (!image && !gabarit)) return null;
     if (image) {
         return (
             <Image
@@ -153,9 +153,11 @@ const Visuel: React.FC<{ element: ElementScene; hauteur: number; couleur: string
     );
 };
 
-const Carte: React.FC<{ element: ElementScene; demi: boolean; image?: string; Image: ComposantImage }> = ({ element, demi, image, Image }) => {
+const Carte: React.FC<{ element: ElementScene; demi: boolean; image?: string; Image: ComposantImage; gabarit: boolean }> = ({ element, demi, image, Image, gabarit }) => {
     const ton = TONS[tonDe(element.ton)];
     const grande = element.taille === 'grande';
+    // Une carte d'image seule, sans son image et sans gabarit, n'a rien à montrer : pas même son cadre.
+    if (!image && !gabarit && !element.texte && !element.detail) return null;
     return (
         <div style={{
             background: ton.fond,
@@ -169,7 +171,7 @@ const Carte: React.FC<{ element: ElementScene; demi: boolean; image?: string; Im
             gap: 22,
             textAlign: 'center',
         }}>
-            <Visuel element={element} hauteur={grande ? 520 : 300} couleur={ton.texte} image={image} Image={Image} />
+            <Visuel element={element} hauteur={grande ? 520 : 300} couleur={ton.texte} image={image} Image={Image} gabarit={gabarit} />
             {element.texte && (
                 <div style={{ fontSize: demi ? 54 : 64, lineHeight: 1.15 }}>
                     <TexteSurligne texte={element.texte} accent={ton.accent} marque={ton.marque} />
@@ -244,10 +246,18 @@ export interface SceneLuminoseProps {
     /** Les coins arrondis de la miniature ; 0 dans la vidéo elle-même. */
     arrondi?: number;
     format?: FormatVideo;
+    /**
+     * Un visuel sans image montre sa description dans un cadre pointillé : c'est
+     * la commande passée à Florent, à sa place dans le storyboard. La vidéo, elle,
+     * ne la montre jamais — le 28/10/2026, trois descriptions de 45 mots sont
+     * sorties telles quelles dans un export. Sans gabarit, la carte garde son
+     * texte et perd l'image qui lui manque.
+     */
+    gabarits?: boolean;
 }
 
 export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
-    sequence, largeur, visibles, entrees, visuels, Image = ImageSimple, arrondi = 8, format = '9:16',
+    sequence, largeur, visibles, entrees, visuels, Image = ImageSimple, arrondi = 8, format = '9:16', gabarits = true,
 }) => {
     const CADRE = CADRES[format];
     const ZONE = ZONES[format];
@@ -327,7 +337,7 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
                                                 ...entree(avancee(index), sequence.registre),
                                             }}
                                         >
-                                            {carte && <Carte element={element} demi={petite} image={visuels?.[index]} Image={Image} />}
+                                            {carte && <Carte element={element} demi={petite} image={visuels?.[index]} Image={Image} gabarit={gabarits} />}
                                             {element.type === 'pastille' && <Pastille element={element} />}
                                             {element.type === 'liaison' && <Liaison element={element} />}
                                         </div>

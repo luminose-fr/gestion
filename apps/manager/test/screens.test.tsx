@@ -2013,6 +2013,15 @@ describe('Reel expliqué — montage', () => {
     expect(enAttente?.style.opacity).toBe('0');
   });
 
+  it('la vidéo ne montre jamais la description d’un visuel absent : la carte garde son texte (28/10/2026)', () => {
+    const storyboard = render(<SceneLuminose sequence={reel().sequences[1]} largeur={216} />);
+    expect(storyboard.container.textContent).toContain('Une jauge bloquée dans le rouge.');
+    cleanup();
+    const video = render(<SceneLuminose sequence={reel().sequences[1]} largeur={216} gabarits={false} />);
+    expect(video.container.textContent).not.toContain('Une jauge bloquée dans le rouge.');
+    expect(video.container.textContent).toContain('fatigue');
+  });
+
   it('le panneau se monte, et nomme les navigateurs qu\u2019il faut quand WebCodecs manque', () => {
     // jsdom passe pour une page sécurisée : c'est l'absence de WebCodecs qu'on voit.
     vi.stubGlobal('isSecureContext', true);
@@ -2028,6 +2037,8 @@ describe('Reel expliqué — montage', () => {
     expect(exports).toHaveLength(3);
     expect(exports.every(b => b.disabled)).toBe(true);
     expect(container.textContent).toContain('Il faut une prise calée pour exporter.');
+    // Le schéma de la jauge n'a pas d'image : l'export le dit avant de partir.
+    expect(container.textContent).toContain('1 visuel n’a pas d’image : il ne sortira pas dans la vidéo, la carte gardera son texte.');
   });
 
   it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
@@ -2178,6 +2189,14 @@ describe('Reel expliqué — prise et rendu', () => {
     // On compte en images : à 200 ms (six images), un clic de plus fait 233 ms, pas 233,3 ni 231.
     fireEvent.click(Array.from(recale.container.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Son en retard')!);
     expect(reglages[reglages.length - 1]).toEqual({ decalageSon: 0.233 });
+    cleanup();
+
+    // Une prise horizontale le dit (28/10/2026) ; une prise couchée qu'on a pivotée, non.
+    const webcam = render(<ReglagesPrise decalageSon={0} rotation={0} largeur={1920} hauteur={1080} onRegler={noop} />);
+    expect(webcam.container.textContent).toContain('Prise horizontale : en 9:16, la vidéo n\'en garde que le tiers central, agrandi 1,8 fois.');
+    cleanup();
+    const couchee = render(<ReglagesPrise decalageSon={0} rotation={90} largeur={3840} hauteur={2160} onRegler={noop} />);
+    expect(couchee.container.textContent).not.toContain('Prise horizontale');
   });
 
   it('un envoi interrompu, sur ce poste ou un autre, se dit, et ne propose pas de transcrire', () => {

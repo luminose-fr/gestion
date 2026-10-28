@@ -134,3 +134,44 @@ describe('la même prise, montée sans script (§12.7)', () => {
         expect(planDirect.duree).toBeLessThan(plan.duree + 12);
     });
 });
+
+/**
+ * Une seconde prise réelle (28/10/2026, « Un meilleur sparadrap ») : dite
+ * presque mot pour mot, mais Whisper y rend chaque élision en deux mots —
+ * « c », puis « 'est ». Les sous-titres de la vidéo exportée écrivaient
+ * « c est », et coupaient un bloc sur trois entre les deux.
+ */
+describe('les élisions d’une vraie prise', () => {
+    const sparadrap = JSON.parse(readFileSync(join(import.meta.dirname, 'prises', 'sparadrap.json'), 'utf8'));
+    const calageS = calerSurLaPrise(voixEntiere(sparadrap.script), sparadrap.mots);
+    const planS = planDeMontage(sparadrap.script, { calage: calageS, duree: sparadrap.duree },
+        { coupes: coupesAppliquees(coupesProposees(calageS), {}) });
+    const affiches = calageS.motsAffiches.map(m => m.texte);
+
+    it('se recollent, dans l’orthographe du script comme hors de lui', () => {
+        for (const mot of ['c\'est', 'n\'est', 'd\'une', 'l\'autre', 'qu\'on', 'l\'eau', 's\'accumule', 'n\'importe', 'voulez-vous']) {
+            expect(affiches).toContain(mot);
+        }
+        // « là que je travaille au cabinet » n'est pas dans le script : Whisper seul y écrit « c », « 'est ».
+        expect(affiches.filter(t => t.toLowerCase() === 'c\'est').length).toBe(5);
+    });
+
+    it('aucun sous-titre ne commence ni ne finit au milieu d’une élision', () => {
+        for (const st of planS.sousTitres) {
+            expect(st.texte).not.toMatch(/(^|\s)(c|n|d|l|s|qu)$/i);
+            expect(st.texte).not.toMatch(/^['’-]|(^|\s)(c|n|d|l|s|qu)\s/i);
+        }
+    });
+
+    it('un mot recollé s’éclaire d’un bloc, du début de « c » à la fin de « ’est »', () => {
+        const cest = calageS.motsAffiches.find(m => m.texte === 'c\'est' && m.debut > 25)!;
+        expect([cest.debut, cest.fin]).toEqual([25.28, 25.66]);
+    });
+
+    it('sans script aussi, le texte de référence ne garde pas d’élision détachée', () => {
+        const voix = scriptDepuisLaTranscription(sparadrap.mots).sequences[0].voix;
+        expect(voix).toContain('ce qu\'on me demande, c\'est un meilleur');
+        expect(voix).not.toMatch(/\s['’]/);
+        expect(voix).toContain('voulez-vous');
+    });
+});

@@ -113,6 +113,15 @@ describe('enBlocs', () => {
         expect(blocs.map(b => b.texte)).toEqual(['Vous relisez trois fois', 'un message ?', 'Après']);
     });
 
+    it('suit la ponctuation du script : une virgule ferme un bloc, et une phrase ne laisse pas un mot seul (28/10/2026)', () => {
+        const blocs = enBlocs([
+            m('Mieux', 0), { ...m('émotions', 0.4), coupure: 'virgule' as const }, m('ce', 0.8), m('n\'est', 1.2), m('pas', 1.6),
+            m('C\'est', 3), m('savoir', 3.4), m('ouvrir', 3.8), m('la', 4.2), { ...m('vanne', 4.6), coupure: 'phrase' as const },
+            m('Après', 5),
+        ]);
+        expect(blocs.map(b => b.texte)).toEqual(['Mieux émotions', 'ce n\'est pas', 'C\'est savoir ouvrir', 'la vanne', 'Après']);
+    });
+
     it('tient un bloc jusqu’au suivant quand l’écart est court', () => {
         const [a, b] = enBlocs([m('a', 0), m('b', 0.3), m('c', 0.6), m('d', 0.9), m('e', 1.3)]);
         expect(a.fin).toBe(b.debut);
