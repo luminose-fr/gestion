@@ -2,9 +2,9 @@ import React from 'react';
 import { AbsoluteFill, Img, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { loadFont } from '@remotion/fonts';
 import { Audio, Video } from '@remotion/media';
-import { debutsDesEcrans, type MinutageReel, type PlanDeMontage, type ReelExplique, type SequenceReel, type SousTitre } from '@luminose/editorial';
+import { debutsDesEcrans, bandeauDeSignature, CARTON_FINAL, type MinutageReel, type PlanDeMontage, type ReelExplique, type SequenceReel, type SousTitre } from '@luminose/editorial';
 import { DEFAULT_STYLE } from '@luminose/subtitles';
-import { SceneLuminose, CoupDePoingLuminose, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
+import { SceneLuminose, CoupDePoingLuminose, BandeauSignature, CartonFinal, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
 // Importées et non écrites en chemin : voir `POLICES`.
 import futuraWoff2 from '../../fonts/5313918/7a337894-f253-4a5d-a63e-0d8275cedec5.woff2';
 import abrilWoff2 from '../../fonts/5197317/e95ab4d7-0b64-43c7-88ec-c70de2273848.woff2';
@@ -267,9 +267,56 @@ export type ProprietesFinale = {
     visuels: Record<number, Record<number, string>>;
     illustrations?: Record<string, string>;
     format: FormatVideo;
+    /** Le bandeau sur l'accroche et le carton final (v2.27) ; par défaut, oui. */
+    signature?: boolean;
 };
 
-export const dureeDuPlan = (plan: PlanDeMontage): number => Math.max(1, enImages(plan.duree));
+/** La vidéo dure le plan, et le carton final quand il y a une signature. */
+export const dureeDuPlan = (plan: PlanDeMontage, signature = false): number =>
+    Math.max(1, enImages(plan.duree + (signature ? CARTON_FINAL : 0)));
+
+/** Entre et sort en trois dixièmes de seconde : `presence` de 0 à 1, et retour. */
+const presence = (image: number, images: number, fps: number) =>
+    Math.min(1, image / (fps * 0.3), (images - image) / (fps * 0.3));
+
+const BandeauAnime: React.FC<{ format: FormatVideo }> = ({ format }) => {
+    const image = useCurrentFrame();
+    const { fps, durationInFrames } = useVideoConfig();
+    return (
+        <AbsoluteFill>
+            <BandeauSignature largeur={CADRES[format].largeur} presence={presence(image, durationInFrames, fps)} format={format} arrondi={0} />
+        </AbsoluteFill>
+    );
+};
+
+/** Le carton final entre, et reste : la vidéo s'arrête dessus. */
+const CartonAnime: React.FC<{ format: FormatVideo }> = ({ format }) => {
+    const image = useCurrentFrame();
+    const { fps } = useVideoConfig();
+    return (
+        <AbsoluteFill>
+            <CartonFinal largeur={CADRES[format].largeur} presence={Math.min(1, image / (fps * 0.3))} format={format} arrondi={0} Image={ImageRemotion} />
+        </AbsoluteFill>
+    );
+};
+
+/** La signature (v2.27) : le bandeau sur l'accroche, le carton après le dernier mot. Posée par le code. */
+const Signature: React.FC<{ plan: PlanDeMontage; format: FormatVideo }> = ({ plan, format }) => {
+    const bandeau = bandeauDeSignature(plan.minutage);
+    const fin = enImages(plan.duree);
+    return (
+        <>
+            {bandeau && (
+                <Sequence from={enImages(bandeau.debut)} durationInFrames={Math.max(1, enImages(bandeau.fin) - enImages(bandeau.debut))}>
+                    <BandeauAnime format={format} />
+                </Sequence>
+            )}
+            <Sequence from={fin} durationInFrames={Math.max(1, enImages(plan.duree + CARTON_FINAL) - fin)}>
+                <CartonAnime format={format} />
+            </Sequence>
+        </>
+    );
+};
 
 /**
  * Le plan serré : assez pour qu'un raccord se lise comme un changement de plan
@@ -335,7 +382,7 @@ const PriseCadree: React.FC<{ cadrages: PlanDeMontage['cadrages']; children: Rea
  * vient de la prise et ne s'interrompt jamais — une scène couvre l'image, pas
  * le son.
  */
-export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sources, reglages, visuels, illustrations, format }) => (
+export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sources, reglages, visuels, illustrations, format, signature = true }) => (
     <AbsoluteFill style={{ backgroundColor: GAMME.violetNuit }}>
         <PriseCadree cadrages={plan.cadrages}>
             {plan.segments.map((segment, i) => {
@@ -387,5 +434,6 @@ export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sour
             </Sequence>
         ))}
         <Coups data={data} minutage={plan.minutage} format={format} />
+        {signature && <Signature plan={plan} format={format} />}
     </AbsoluteFill>
 );

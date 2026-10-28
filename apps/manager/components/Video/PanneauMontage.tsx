@@ -3,7 +3,7 @@ import { Player, type PlayerRef } from '@remotion/player';
 import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Download, X } from 'lucide-react';
 import {
-    minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE,
+    minuterReel, horlogeEstimee, planDeMontage, CARTON_FINAL, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE,
     cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire, passagesManuels, compterMots,
     type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
@@ -150,6 +150,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
     const [debit, setDebit] = useState(MOTS_PAR_MINUTE);
     const [format, setFormat] = useState<FormatVideo>('9:16');
     const [version, setVersion] = useState<Version>('organique');
+    // La signature est là par défaut (v2.27) ; on la retire pour une vidéo qui en a déjà une.
+    const [signature, setSignature] = useState(true);
     const [export_, setExport] = useState<{ cible: string; part: number } | null>(null);
     const [erreur, setErreur] = useState<string | null>(null);
     const annulation = useRef<AbortController | null>(null);
@@ -198,7 +200,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
     const reglageDe = (p?: { prise: { decalageSon?: number; rotation?: number } }) =>
         p ? { decalageSon: p.prise.decalageSon ?? 0, rotation: p.prise.rotation ?? 0 } : undefined;
     const finale: ProprietesFinale | null = plan && principale ? {
-        data, plan, visuels, illustrations, format,
+        data, plan, visuels, illustrations, format, signature,
         sources: { principale: principale.url, accroche: accroche?.url },
         reglages: { principale: reglageDe(principale), accroche: reglageDe(accroche) },
     } : null;
@@ -289,7 +291,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                 composition: {
                     id: 'reel',
                     component: CompositionFinale,
-                    durationInFrames: dureeDuPlan(plan),
+                    durationInFrames: dureeDuPlan(plan, signature),
                     fps: FPS,
                     width: cadre.largeur,
                     height: cadre.hauteur,
@@ -304,7 +306,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
             return getBlob();
         // Noter l'export ne doit jamais en gâcher un réussi : une note perdue est perdue.
         }, () => {
-            void Api.noterExport(contentId, { format, version: versionEffective, duree: plan.duree })
+            void Api.noterExport(contentId, { format, version: versionEffective, duree: plan.duree + (signature ? CARTON_FINAL : 0) })
                 // Noté, il change l'étape : « Exportée », et la Publication s'ouvre.
                 .then(() => montage.recharger())
                 .catch(() => undefined);
@@ -397,7 +399,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                         ref={lecteur}
                         component={CompositionFinale}
                         inputProps={finale}
-                        durationInFrames={dureeDuPlan(plan)}
+                        durationInFrames={dureeDuPlan(plan, signature)}
                         fps={FPS}
                         compositionWidth={cadre.largeur}
                         compositionHeight={cadre.hauteur}
@@ -434,6 +436,13 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                             { valeur: 'organique', libelle: 'Organique' },
                             { valeur: 'publicite', libelle: 'Publicité', desactive: !(principale && accroche), titre: principale && accroche ? undefined : 'Déposez la seconde accroche, onglet Prise' },
                         ]} />
+                    {finale && (
+                        <ControleSegmente<'avec' | 'sans'> libelle="Signature" valeur={signature ? 'avec' : 'sans'} onChange={(v) => setSignature(v === 'avec')}
+                            options={[
+                                { valeur: 'avec', libelle: 'Signée', titre: 'Votre nom sur l’accroche, et luminose.fr à la fin' },
+                                { valeur: 'sans', libelle: 'Sans' },
+                            ]} />
+                    )}
                 </div>
 
                 <div className="w-[306px] space-y-2">

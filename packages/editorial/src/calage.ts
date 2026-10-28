@@ -668,6 +668,30 @@ export function planDeMontage(
     return { duree, segments, minutage, sousTitres, cadrages };
 }
 
+// ── La signature (v2.27) ─────────────────────────────────────────────
+
+/**
+ * Le carton final, ajouté après le dernier mot : le nom, le titre, l'adresse.
+ * Décision de Florent, le 28/10/2026 : la vidéo finissait sur « je travaille au
+ * cabinet », sans dire où — luminose.fr n'avait pas été dit, et rien ne le
+ * rattrapait. Comme la slide de signature d'un carrousel, c'est le code qui la
+ * pose, jamais le modèle : rien ne peut y dériver.
+ */
+export const CARTON_FINAL = 2.2;
+
+/**
+ * Le bandeau qui nomme Florent sur l'accroche : il entre un peu après le premier
+ * mot et s'en va avant la première scène, trois secondes au plus. Sur une
+ * accroche trop courte pour qu'on le lise, il ne vient pas.
+ */
+export function bandeauDeSignature(minutage: MinutageReel): { debut: number; fin: number } | null {
+    const premiere = minutage.sequences[0];
+    if (!premiere) return null;
+    const debut = premiere.debut + 0.3;
+    const fin = Math.min(debut + 3, premiere.fin - 0.15);
+    return fin - debut >= 1.2 ? { debut, fin } : null;
+}
+
 // ── Le rythme (V7) ───────────────────────────────────────────────────
 
 /**

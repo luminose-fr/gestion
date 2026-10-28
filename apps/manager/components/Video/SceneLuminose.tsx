@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
+    NOM, TITRE, SITE_URL,
     segmentsSurlignes, texteAffiche, schemaDe, illustrationDe, visuelDecrit, arriveesDeLaListe,
     type CadrageIllustration, type ElementScene, type SchemaEcran, type SequenceReel,
 } from '@luminose/editorial';
@@ -467,6 +468,67 @@ export const CoupDePoingLuminose: React.FC<{
                     transform: `scale(${1.12 - 0.12 * p})`,
                 } as React.CSSProperties}>
                     <span><TexteSurligne texte={texte} accent={GAMME.roseBrumeux} marque="transparent" /></span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/** L'adresse telle qu'on la lit et qu'on la tape : « luminose.fr ». */
+const ADRESSE = SITE_URL.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+const TITRE_AFFICHE = `${TITRE.charAt(0).toUpperCase()}${TITRE.slice(1)}`;
+
+/**
+ * Le bandeau de signature (v2.27) : le nom et le titre, en haut de l'accroche —
+ * le bas du cadre appartient aux sous-titres et à l'interface des Reels. Il
+ * glisse en entrant et en sortant (`presence`, de 0 à 1).
+ */
+export const BandeauSignature: React.FC<{ largeur: number; presence?: number; format?: FormatVideo; arrondi?: number }> = ({ largeur, presence = 1, format = '9:16', arrondi = 8 }) => {
+    const CADRE = CADRES[format];
+    const ZONE = ZONES[format];
+    const p = Math.min(1, Math.max(0, presence));
+    return (
+        <div style={{ width: largeur, height: Math.round(largeur * CADRE.hauteur / CADRE.largeur), overflow: 'hidden', borderRadius: arrondi, flexShrink: 0, position: 'relative' }}>
+            <div style={{ width: CADRE.largeur, height: CADRE.hauteur, transform: `scale(${largeur / CADRE.largeur})`, transformOrigin: 'top left', position: 'relative', fontFamily: FUTURA }}>
+                <div style={{
+                    position: 'absolute', top: ZONE.haut + 20, left: ZONE.gauche, display: 'flex', alignItems: 'stretch',
+                    opacity: p, transform: `translateX(${(1 - p) * -60}px)`,
+                }}>
+                    <div style={{ width: 14, background: GAMME.prune, borderRadius: 7 }} />
+                    <div style={{ background: GAMME.ivoire, borderRadius: 24, padding: '24px 40px', marginLeft: 14, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span style={{ fontSize: 56, fontWeight: 700, lineHeight: 1.1, color: GAMME.violetNuit }}>{NOM}</span>
+                        <span style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: 44, lineHeight: 1.2, color: GAMME.prune }}>{TITRE_AFFICHE}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/** Le carton final (v2.27) : qui parlait, et où le retrouver — après le dernier mot, sur l'ivoire de la marque. */
+export const CartonFinal: React.FC<{ largeur: number; presence?: number; format?: FormatVideo; arrondi?: number; Image?: ComposantImage }> = ({ largeur, presence = 1, format = '9:16', arrondi = 8, Image = ImageSimple }) => {
+    const CADRE = CADRES[format];
+    const ZONE = ZONES[format];
+    const p = Math.min(1, Math.max(0, presence));
+    return (
+        <div
+            role="img"
+            aria-label={`${NOM}, ${TITRE} — ${ADRESSE}`}
+            style={{ width: largeur, height: Math.round(largeur * CADRE.hauteur / CADRE.largeur), overflow: 'hidden', borderRadius: arrondi, flexShrink: 0 }}
+        >
+            <div style={{ width: CADRE.largeur, height: CADRE.hauteur, transform: `scale(${largeur / CADRE.largeur})`, transformOrigin: 'top left', position: 'relative', fontFamily: FUTURA, backgroundColor: GAMME.ivoire, color: GAMME.violetNuit }}>
+                <Image src={pointilles(format)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
+                <div style={{
+                    position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: ZONE.bas - ZONE.haut,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, textAlign: 'center',
+                    opacity: p, transform: `translateY(${(1 - p) * 40}px)`,
+                }}>
+                    <span style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.1 }}>{NOM}</span>
+                    <span style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: 58, lineHeight: 1.2, color: GAMME.prune }}>{TITRE_AFFICHE}</span>
+                    <span style={{
+                        marginTop: 80, fontSize: 120, fontWeight: 700, lineHeight: 1.1, color: GAMME.prune, padding: '0 12px',
+                        backgroundImage: `linear-gradient(transparent 62%, ${GAMME.roseBrumeux} 62%, ${GAMME.roseBrumeux} 92%, transparent 92%)`,
+                    }}>{ADRESSE}</span>
                 </div>
             </div>
         </div>
