@@ -18,6 +18,7 @@ Tu es quelqu'un qui ne connaît pas Florent Jaouali. Tu ne sais pas qu'il est th
 • Qui est l'auteur, que fait-il dans la vie — et à quel moment précis tu l'as compris ?
 • Qu'est-ce qu'on te demande de faire à la fin ?
 • À quel endroit tu aurais arrêté de lire, et pourquoi ?
+• Chaque image du contenu — un objet, un lieu, un personnage de la métaphore —, qu'est-ce qu'elle représente pour toi ? Si tu ne sais pas, dis-le. Si elle change de sens en route, dis-le aussi.
 IMPORTANT : dans ce rôle, tu ne connais AUCUNE intention de l'auteur. Ne réponds pas "ça parle de la parabole de la flèche" si un inconnu comprendrait juste "une histoire de flèche". Réponds ce que TOI tu comprends, pas ce que l'auteur a voulu dire.
 
 RÔLE 2 — LE CONTRÔLEUR (checklist) :
