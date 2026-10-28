@@ -1633,7 +1633,7 @@ la montre dans un cadre pointillé : c'est la commande, à sa place. La composit
 — aperçu comme export — la tait : la carte garde son texte, et une carte d'image seule
 disparaît avec son image. Le 28/10/2026, trois descriptions de quarante-cinq mots sont
 sorties telles quelles dans une vidéo exportée. Sous le bouton d'export, une ligne dit
-combien de visuels n'ont pas d'image.
+combien d'images manquent, et qu'un écran qui n'avait qu'elle restera vide.
 
 **Les images sont décodées avant chaque export**, et un export qui bute sur une attente de
 chargement (`delayRender`) se relance **une fois**. Le 04/10/2026, un export complet a

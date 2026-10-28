@@ -2086,7 +2086,7 @@ describe('Reel expliqué — montage', () => {
     expect(exports.every(b => b.disabled)).toBe(true);
     expect(container.textContent).toContain('Il faut une prise calée pour exporter.');
     // Le schéma de la jauge n'a pas d'image : l'export le dit avant de partir.
-    expect(container.textContent).toContain('1 visuel n’a pas d’image : il ne sortira pas dans la vidéo, la carte gardera son texte.');
+    expect(container.textContent).toContain('1 image manque (onglet Scènes) : sans elle, l’écran garde son texte, ou reste vide s’il n’avait qu’elle.');
   });
 
   it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
