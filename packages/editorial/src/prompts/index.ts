@@ -102,13 +102,13 @@ RÈGLES :
 - "message" est toujours présent et non vide.
 - "quick_replies" contient 2 à 4 entrées courtes (max 60 caractères), à la première personne (c'est Florent qui les énoncera). Ces réponses seront pré-remplies dans le champ de saisie de Florent, qui pourra les éditer avant d'envoyer.
 - "ready_for_editor" : true uniquement quand tu estimes avoir une direction solide et validable pour l'Éditeur (et dans ce cas, inclus "Go, passe à l'Éditeur" dans les quick_replies). Sinon false.
-- Tu peux utiliser du markdown léger dans "message" (gras, listes). Pas de code fence, pas de JSON imbriqué dans ce champ.
+- Tu peux utiliser du markdown léger dans "message" (gras, listes, et le tableau de la carte de la métaphore). Pas de code fence, pas de JSON imbriqué dans ce champ.
 - UN SEUL bloc JSON par réponse. Si tu t'aperçois en cours de route que ta réponse ne respecte pas ce format, réécris le bloc entier — ne fais jamais suivre une première tentative d'une correction : deux blocs dans la même réponse, c'est une réponse illisible.
     `.trim(),
 
     LOCK_BRIEF: `
 RÈGLES DE SORTIE (FORMAT JSON STRICT) :
-Tu reçois un objet JSON contenant : titre, format_cible, objectif, angle_strategique, metaphore_suggeree, notes, et session (l'historique complet de l'atelier Coach ↔ Florent : tableau d'objets {role, content} — "user" = Florent).
+Tu reçois un objet JSON contenant : titre, format_cible, objectif, angle_strategique, metaphore_suggeree, notes, et session (l'historique complet de l'atelier Coach ↔ Florent : tableau d'objets {role, content} — "user" = Florent). Exception : le premier message "user", qui commence par « TITRE : », est le brief que l'outil compose à partir du contenu — Florent ne l'a pas écrit, il ne valide rien.
 
 Tu retournes EXCLUSIVEMENT un objet JSON valide, sans texte avant ou après :
 {
@@ -116,6 +116,8 @@ Tu retournes EXCLUSIVEMENT un objet JSON valide, sans texte avant ou après :
   "lecteur_vise": "Qui doit se reconnaître, et dans quelle douleur/situation concrète.",
   "metaphore": {
     "image": "La métaphore centrale retenue.",
+    "carte": [{ "element": "Un élément de l'image, tel que le contenu le nommera.", "realite": "Ce qu'il représente, en clair — vrai lu seul." }],
+    "hors_image": ["Les images écartées : elles n'apparaissent nulle part."],
     "limites": "Ce que l'image ne doit PAS faire affirmer (les points où elle casse, les affirmations littéralement fausses à éviter)."
   },
   "structure": ["Élément par élément (slide par slide, ou blocs du post) : la version FINALE validée, avec la formulation la plus récente de chaque élément."],
@@ -156,7 +158,7 @@ RÈGLES DE SORTIE (FIXE) :
 CONTRÔLES À EFFECTUER (rôle 2 — Contrôleur) :
 1. Sujet réel nommé tôt : dans les 3 premières lignes (ou les 2 premières slides), un inconnu sait "de quoi ça parle, pour moi".
 2. Ancrage praticien : on comprend que l'auteur est thérapeute au plus tard à la slide 3 (ou dans le premier tiers du texte).
-3. Une seule métaphore filée, un seul retournement — pas de deuxième bascule qui dilue.
+3. Une seule métaphore filée, un seul retournement — pas de deuxième bascule qui dilue. Chaque élément de l'image garde un seul sens du début à la fin, et tu as pu dire ce que chacun représente ("carte_percue") : un élément qui change de sens, ou que tu ne sais pas lire, est un problème Important.
 4. CTA : une seule action, concrète, alignée sur l'objectif fourni, avec l'identité de l'auteur visible (qui il est / où le trouver).
 5. Pour un carrousel : titres ≤ 35 caractères, textes ≤ 140 caractères (espaces compris, slide "Signature" exclue). Donne le décompte exact des dépassements CONSTATÉS. En revanche n'annonce AUCUN décompte pour les corrections que tu proposes : un garde-fou déterministe raccourcit après coup ce qui dépasse, et un décompte faux de ta part rend le tien inutile.
 6. Légende de publication (carrousel et Reel seulement — les autres formats n'en ont pas) : la première ligne (~125 premiers caractères) parle de la situation du lecteur, pas seulement du conte ou de l'image. La légende PORTE CE QUE LES SLIDES NE PEUVENT PAS PORTER — un exemple anonymisé, ce que ça change concrètement — et c'est là-dessus qu'on la juge. Reprendre la métaphore centrale et la phrase d'accroche est NORMAL et voulu : ce n'est pas un doublon. Ne signale une répétition que si une phrase entière (plus de dix mots consécutifs) est reprise à l'identique d'une slide ET n'apporte rien de neuf.
@@ -169,7 +171,8 @@ RÈGLES DE SORTIE (FORMAT JSON STRICT) — aucun texte avant ou après le JSON :
     "sujet": "Ce que je crois que ça raconte, en une phrase d'inconnu.",
     "auteur": "Qui je crois que c'est / à quel moment précis j'ai compris son métier (ou 'jamais').",
     "action": "Ce qu'on me demande de faire à la fin (ou 'rien de clair').",
-    "decrochage": "L'endroit où j'aurais arrêté de lire et pourquoi — ou null si je lis jusqu'au bout."
+    "decrochage": "L'endroit où j'aurais arrêté de lire et pourquoi — ou null si je lis jusqu'au bout.",
+    "carte_percue": [{ "element": "Une image du contenu, avec ses mots.", "represente": "Ce qu'elle représente pour moi — ou 'je ne sais pas'." }]
   },
   "controles": [
     { "regle": "Nom court du contrôle", "statut": "OK" | "KO", "detail": "Fait précis (slide N, décompte...)" }

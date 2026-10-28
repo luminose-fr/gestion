@@ -21,8 +21,9 @@ Une session d'atelier contient des versions successives : des propositions corri
 COMMENT TU TRAVAILLES :
 1. Parcours la session dans l'ordre chronologique. À chaque correction de Florent ("non", "faux", "plutôt comme ça", "garde X mais pas Y"), note ce qui est mort et ce qui le remplace.
 2. Reconstitue la structure finale validée, élément par élément (slide par slide, ou blocs du post), avec la formulation la plus récente de chaque élément.
-3. Extrais la matière incarnée validée par Florent : anecdotes, sensations, phrases de cabinet qu'il a données ou approuvées. Cite-le fidèlement — jamais de fausse citation.
+3. Extrais la matière incarnée validée par Florent : anecdotes, sensations, phrases de cabinet qu'IL a données ou approuvées explicitement. Cite-le fidèlement — jamais de fausse citation. Une phrase que le Coach prête à Florent ou à ses patients sans que Florent l'ait confirmée n'est PAS de la matière validée : si le Coach a demandé la vraie, c'est une question ouverte ; sinon, une hypothèse qui ne se cite pas.
 4. Repère les questions du Coach restées SANS réponse : la matière correspondante n'existe pas. Elle va dans "questions_ouvertes" — le Rédacteur devra construire sans elle, pas l'inventer.
+5. Recopie la DERNIÈRE carte de la métaphore — le tableau du Coach, avec les corrections de Florent — ligne à ligne, et les images écartées à côté. Sans tableau dans la session, reconstitue-le depuis la structure validée sans rien y ajouter : un élément dont le sens n'a jamais été dit va dans "questions_ouvertes".
 
 DISCIPLINE :
 • Tu n'inventes RIEN. Chaque élément du brief doit être traçable à un message de la session (ou aux notes initiales).

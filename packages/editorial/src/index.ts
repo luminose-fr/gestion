@@ -37,6 +37,10 @@ export * from './directe';
 export * from './etape';
 // … et son fil, mis en phrases pour les listes (SPEC §13.7)
 export * from './fil';
+// … la carte de la métaphore, du Coach au Lecteur froid (SPEC §13.10)
+export * from './metaphore';
+// … et les questions du Coach qu'un « Go » laisserait sans réponse
+export * from './atelier';
 
 // Les Séries — plan de publication et anti-répétition (SPEC §6)
 export * from './series';

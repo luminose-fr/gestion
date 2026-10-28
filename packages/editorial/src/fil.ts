@@ -10,6 +10,7 @@ import { isColdReadApplyInstruction } from './coldRead';
 import { bodyJsonToText, montageDuBrouillon, parseBodyJson } from './formats';
 import { dureeEstimee } from './reelExplique';
 import { jourCourt, type Sorte } from './etape';
+import { carteDuBrief, carteLue, confronterLesCartes, horsImageDuBrief, type LigneConfrontee, type LigneDeCarte } from './metaphore';
 
 /** Les voix du fil : les rôles de l'IA, Florent, et ce que fait le montage. */
 export type RoleDuFil =
@@ -171,6 +172,18 @@ export interface AnalyseDuContenu {
 
 export type TonDuFil = 'neutre' | 'succes' | 'alerte';
 
+/**
+ * Ce que le brief verrouillé a retenu, lisible dans le fil. Le 28/10/2026, la
+ * bulle disait « 4 interdits, 2 questions ouvertes » sans dire lesquels : rien
+ * ne montrait que le Rédacteur allait écrire sans les deux réponses attendues.
+ */
+export interface BriefDuFil {
+    carte: LigneDeCarte[];
+    horsImage: string[];
+    interdits: string[];
+    questions: string[];
+}
+
 export interface BulleDuFil {
     type: 'bulle';
     id: string;
@@ -196,6 +209,10 @@ export interface BulleDuFil {
     revenirPossible?: boolean;
     /** Le contrôle du format, qu'on corrige d'un clic. */
     controle?: boolean;
+    /** Le brief verrouillé, qui se déplie. */
+    brief?: BriefDuFil;
+    /** Une relecture : chaque image, ce que l'auteur voulait dire et ce qu'un inconnu a compris. */
+    carte?: LigneConfrontee[];
 }
 
 /** Un atelier validé se replie en une ligne : on l'a fini, on ne le relit plus. */
@@ -263,8 +280,24 @@ function ceQueDitLAnalyste(a: {
     return lignes.join('\n') || 'Idée préparée.';
 }
 
-/** Une relecture en bulle : verdict, ce qu'un inconnu a compris, et ce qui reste à reprendre. */
-function bulleDeRelecture(g: GenerationDuFil): BulleDuFil {
+const chaines = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : []);
+
+/** Le brief, tel que la bulle le déplie — rien à déplier, rien de rendu. */
+function briefDuFil(brief: any): BriefDuFil | undefined {
+    const lisible: BriefDuFil = {
+        carte: carteDuBrief(brief),
+        horsImage: horsImageDuBrief(brief),
+        interdits: chaines(brief?.interdits),
+        questions: chaines(brief?.questions_ouvertes),
+    };
+    return Object.values(lisible).some(l => l.length > 0) ? lisible : undefined;
+}
+
+/**
+ * Une relecture en bulle : verdict, ce qu'un inconnu a compris, et ce qui reste à reprendre.
+ * `voulue` est la carte du brief sur lequel le texte relu a été écrit.
+ */
+function bulleDeRelecture(g: GenerationDuFil, voulue: LigneDeCarte[] = []): BulleDuFil {
     const r = lireJson(g.payload) ?? {};
     const verdict: string = typeof r.verdict === 'string' ? r.verdict : 'Relu';
     const problemes: any[] = Array.isArray(r.problemes) ? r.problemes : [];
@@ -284,8 +317,11 @@ function bulleDeRelecture(g: GenerationDuFil): BulleDuFil {
         .map(p => `${p.localisation ? `[${p.localisation}] ` : ''}${p.correction_proposee}`)
         .join('\n');
     const publiable = verdict === 'Publiable';
+    // Une relecture d'avant la carte n'a rien lu image par image : pas de tableau.
+    const lue = carteLue(r);
     return {
         type: 'bulle', id: g.id, role: 'Lecteur froid', de: 'ia', le: g.createdAt, texte,
+        ...(lue.length > 0 ? { carte: confronterLesCartes(voulue, lue) } : {}),
         ton: publiable ? 'succes' : 'alerte',
         verdict: publiable ? 'Publiable' : `${verdict}${points.length ? `, ${points.length} point${points.length > 1 ? 's' : ''}` : ''}`,
         points: publiable ? [] : points,
@@ -342,7 +378,13 @@ export function composerLeFil(entree: EntreeDuFil): ElementDuFil[] {
                 const detail = interdits !== null
                     ? ` : ${interdits} interdit${interdits > 1 ? 's' : ''}${questions !== null ? `, ${questions} question${questions > 1 ? 's' : ''} ouverte${questions > 1 ? 's' : ''}` : ''}`
                     : '';
-                bulles.push({ type: 'bulle', id: g.id, role: 'Verrouilleur', de: 'ia', le: g.createdAt, ton: 'neutre', texte: `Brief verrouillé${detail}.` });
+                const lisible = briefDuFil(brief);
+                bulles.push({
+                    // Des questions ouvertes : le Rédacteur écrira sans leurs réponses, la bulle le signale.
+                    type: 'bulle', id: g.id, role: 'Verrouilleur', de: 'ia', le: g.createdAt,
+                    ton: lisible?.questions.length ? 'alerte' : 'neutre', texte: `Brief verrouillé${detail}.`,
+                    ...(lisible ? { brief: lisible } : {}),
+                });
                 break;
             }
             case 'draft': {
@@ -363,7 +405,11 @@ export function composerLeFil(entree: EntreeDuFil): ElementDuFil[] {
                 break;
             }
             case 'cold_read': {
-                const bulle = bulleDeRelecture(g);
+                // Le brief d'avant la relecture : celui sur lequel le texte relu a été écrit.
+                const brief = generations
+                    .filter(b => b.kind === 'brief' && b.createdAt <= g.createdAt)
+                    .reduce<GenerationDuFil | null>((a, b) => (!a || b.createdAt > a.createdAt ? b : a), null);
+                const bulle = bulleDeRelecture(g, brief ? carteDuBrief(lireJson(brief.payload)) : []);
                 const appliquee = generations.find(a => a.kind === 'adjustment' && isColdReadApplyInstruction(a.instruction) && a.createdAt > g.createdAt);
                 bulle.appliqueeLe = appliquee?.createdAt ?? null;
                 // Les actions ne vivent que sur la dernière relecture, si elle juge le texte d'aujourd'hui.

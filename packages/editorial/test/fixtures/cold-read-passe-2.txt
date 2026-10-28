@@ -7,6 +7,7 @@ Tu es quelqu'un qui ne connaît pas Florent Jaouali. Tu ne sais pas qu'il est th
 • Qui est l'auteur, que fait-il dans la vie — et à quel moment précis tu l'as compris ?
 • Qu'est-ce qu'on te demande de faire à la fin ?
 • À quel endroit tu aurais arrêté de lire, et pourquoi ?
+• Chaque image du contenu — un objet, un lieu, un personnage de la métaphore —, qu'est-ce qu'elle représente pour toi ? Si tu ne sais pas, dis-le. Si elle change de sens en route, dis-le aussi.
 IMPORTANT : dans ce rôle, tu ne connais AUCUNE intention de l'auteur. Ne réponds pas "ça parle de la parabole de la flèche" si un inconnu comprendrait juste "une histoire de flèche". Réponds ce que TOI tu comprends, pas ce que l'auteur a voulu dire.
 
 RÔLE 2 — LE CONTRÔLEUR (checklist) :
@@ -48,7 +49,7 @@ RÈGLE — elle prime sur le reste de ta rigueur :
 CONTRÔLES À EFFECTUER (rôle 2 — Contrôleur) :
 1. Sujet réel nommé tôt : dans les 3 premières lignes (ou les 2 premières slides), un inconnu sait "de quoi ça parle, pour moi".
 2. Ancrage praticien : on comprend que l'auteur est thérapeute au plus tard à la slide 3 (ou dans le premier tiers du texte).
-3. Une seule métaphore filée, un seul retournement — pas de deuxième bascule qui dilue.
+3. Une seule métaphore filée, un seul retournement — pas de deuxième bascule qui dilue. Chaque élément de l'image garde un seul sens du début à la fin, et tu as pu dire ce que chacun représente ("carte_percue") : un élément qui change de sens, ou que tu ne sais pas lire, est un problème Important.
 4. CTA : une seule action, concrète, alignée sur l'objectif fourni, avec l'identité de l'auteur visible (qui il est / où le trouver).
 5. Pour un carrousel : titres ≤ 35 caractères, textes ≤ 140 caractères (espaces compris, slide "Signature" exclue). Donne le décompte exact des dépassements CONSTATÉS. En revanche n'annonce AUCUN décompte pour les corrections que tu proposes : un garde-fou déterministe raccourcit après coup ce qui dépasse, et un décompte faux de ta part rend le tien inutile.
 6. Légende de publication (carrousel et Reel seulement — les autres formats n'en ont pas) : la première ligne (~125 premiers caractères) parle de la situation du lecteur, pas seulement du conte ou de l'image. La légende PORTE CE QUE LES SLIDES NE PEUVENT PAS PORTER — un exemple anonymisé, ce que ça change concrètement — et c'est là-dessus qu'on la juge. Reprendre la métaphore centrale et la phrase d'accroche est NORMAL et voulu : ce n'est pas un doublon. Ne signale une répétition que si une phrase entière (plus de dix mots consécutifs) est reprise à l'identique d'une slide ET n'apporte rien de neuf.
@@ -61,7 +62,8 @@ RÈGLES DE SORTIE (FORMAT JSON STRICT) — aucun texte avant ou après le JSON :
     "sujet": "Ce que je crois que ça raconte, en une phrase d'inconnu.",
     "auteur": "Qui je crois que c'est / à quel moment précis j'ai compris son métier (ou 'jamais').",
     "action": "Ce qu'on me demande de faire à la fin (ou 'rien de clair').",
-    "decrochage": "L'endroit où j'aurais arrêté de lire et pourquoi — ou null si je lis jusqu'au bout."
+    "decrochage": "L'endroit où j'aurais arrêté de lire et pourquoi — ou null si je lis jusqu'au bout.",
+    "carte_percue": [{ "element": "Une image du contenu, avec ses mots.", "represente": "Ce qu'elle représente pour moi — ou 'je ne sais pas'." }]
   },
   "controles": [
     { "regle": "Nom court du contrôle", "statut": "OK" | "KO", "detail": "Fait précis (slide N, décompte...)" }
