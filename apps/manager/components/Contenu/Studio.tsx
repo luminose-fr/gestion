@@ -20,10 +20,14 @@ export interface StudioProps {
     format: string | null;
     dernierExport?: { format: string; version: string; le: number } | null;
     ongletInitial?: OngletStudio;
+    /** Le titre du contenu : il nomme les fichiers exportés. */
+    titre?: string;
+    /** Le montage a changé : l'étape du contenu est à relire. */
+    onMontageChange?: () => void;
 }
 
-export const Studio: React.FC<StudioProps> = ({ contentId, draft, format, dernierExport, ongletInitial }) => {
-    const montage = useMontage(contentId);
+export const Studio: React.FC<StudioProps> = ({ contentId, draft, format, dernierExport, ongletInitial, titre, onMontageChange }) => {
+    const montage = useMontage(contentId, onMontageChange);
     const script = useMemo(() => montageDuBrouillon(parseBodyJson(draft), format), [draft, format]);
     const sansScript = !script?.sequences.length;
     const transcription = montage.etat?.prises.find(p => p.role === 'principale' && p.transcription)?.transcription;
@@ -39,7 +43,7 @@ export const Studio: React.FC<StudioProps> = ({ contentId, draft, format, dernie
             {montage.erreur && <p className="px-7 py-2 text-xs text-erreur">Le montage n'a pas pu être lu : {montage.erreur}</p>}
             <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Patience titre="Chargement du studio" /></div>}>
                 <PanneauMontage data={data} contentId={contentId} montage={montage} visuels={visuels}
-                    sansScript={sansScript} dernierExport={dernierExport} ongletInitial={ongletInitial} />
+                    sansScript={sansScript} dernierExport={dernierExport} ongletInitial={ongletInitial} titre={titre} />
             </Suspense>
         </div>
     );

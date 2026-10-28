@@ -1,4 +1,4 @@
-# SPEC v2.22 — gestion.luminose.fr
+# SPEC v2.23 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -92,6 +92,9 @@
 > dans le mode que Remotion impose, et l'export restait à 0 % ; une sonde le repère au
 > premier export, et l'encodage passe alors en temps réel (§12.4.1). « Annuler » rend la
 > main même à un rendu figé, et un rendu sans image depuis une minute s'arrête en le disant.
+> **v2.23 (28/10/2026)** : l'étape d'une vidéo se met à jour dès qu'un export, un dépôt ou une
+> transcription aboutit, et non plus au rechargement de la page (§13.6). Les fichiers
+> exportés portent le titre du contenu (§12.4.1).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1526,7 +1529,11 @@ marque sont chargées par `@remotion/fonts`, depuis les mêmes fichiers que `ind
 avant la première image.
 
 **L'export est par scène**, en MP4 1080 × 1920 H.264, **sans son** : une scène se pose sur
-la voix de la prise. Un bouton par scène plutôt qu'un lot : un navigateur demande une
+la voix de la prise. **Les fichiers portent le titre du contenu** (v2.23, demande de
+Florent) : `vingt-minutes-pour-verifier-que-je-vaux-le-coup-9x16.mp4`, `-pub` pour la
+version publicitaire, `…-scene-2-mecanique.mp4` pour une scène — le titre sans accent ni
+ponctuation, coupé entre deux mots au-delà de soixante caractères (`noms.ts`). Sans titre,
+`reel-9x16.mp4` et `scene-2-mecanique.mp4`, comme avant. Un bouton par scène plutôt qu'un lot : un navigateur demande une
 autorisation pour plusieurs téléchargements d'un coup, et une scène se refait seule.
 L'export s'annonce dans le bandeau d'activité, avec sa progression réelle, et s'annule.
 
@@ -2225,7 +2232,11 @@ Trois gestes seulement changent un statut : **« Bon à publier »** (remplace �
 comme Prêt », écrit `Prêt`), **« Marquer prête à tourner »** sur une vidéo (écrit aussi
 `Prêt`), **« Marquer publié »** avec une date (écrit `Publié`). « Repasser en écriture »
 revient à `Brouillon`. Un dépôt, une transcription ou un export **ne déplacent jamais
-l'écran** : on exporte souvent deux versions d'affilée.
+l'écran** : on exporte souvent deux versions d'affilée. **Mais l'étape se relit aussitôt**
+(v2.23) : chaque relecture du montage après un changement prévient l'application, qui
+relit le résumé des montages (`useMontage`, `onChange`). Le sélecteur ouvre la
+Publication, le libellé devient « Exportée le 28 oct. · 9:16 » et la série le dit — le
+28/10/2026, il fallait recharger la page pour le voir.
 
 Une vidéo exportée se publie **directement**, même jamais marquée « prête à tourner »
 (décision de Florent, 27/10/2026) : `Brouillon` → `Publié` est un passage permis.

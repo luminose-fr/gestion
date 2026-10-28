@@ -72,6 +72,8 @@ interface ContentEditorProps {
   /** Ce que les listes savent du fil et du montage de ce contenu. */
   resumeFil?: ResumeFil | null;
   resumeMontage?: ResumeMontage | null;
+  /** Le montage a changé dans le studio : le résumé, et donc l'étape, sont à relire. */
+  onMontageChange?: () => void;
   /** « Demander l'ouverture à l'Analyste » : l'analyse d'une idée, à la demande. */
   onAnalyser?: () => void;
   analyseEnCours?: boolean;
@@ -87,7 +89,7 @@ export { bodyJsonToText } from '@luminose/editorial';
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
     item, aiModels = [], activeModelId, modelFor, onClose, libelleRetour, onSave, onDelete, onDecline, serieContext,
-    panneauSerie, activeStep, onStepChange, resumeFil, resumeMontage, onAnalyser, analyseEnCours,
+    panneauSerie, activeStep, onStepChange, resumeFil, resumeMontage, onMontageChange, onAnalyser, analyseEnCours,
 }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
 
@@ -1380,7 +1382,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             {auMontage ? (
                 <div className="relative flex-1 min-h-0 flex flex-col">
                     {aUnBrouillon
-                        ? <Studio contentId={editedItem.id} draft={brouillon} format={editedItem.targetFormat}
+                        ? <Studio contentId={editedItem.id} draft={brouillon} format={editedItem.targetFormat} titre={editedItem.title} onMontageChange={onMontageChange}
                             dernierExport={resumeMontage?.dernierExport ?? null} ongletInitial={ongletDEntree} />
                         : <div className="p-7"><MatiereVide titre="Pas encore de script" texte="Le montage suit le script : il s’écrit d’abord à l’atelier." /></div>}
                     {filOuvert && (
