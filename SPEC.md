@@ -1,4 +1,4 @@
-# SPEC v2.24 — gestion.luminose.fr
+# SPEC v2.25 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -101,6 +101,12 @@
 > (§13.14). Le brief se déplie dans le fil, un « Go » rappelle les questions du Coach
 > restées sans réponse, et un atelier replié se relit par « Lire la trame » (§13.10). Les
 > règles de voix précisent qu'un terme clinique se dit en clair, hors de l'image.
+> **v2.25 (28/10/2026)** : ce qu'a montré la première vidéo exportée. Une élision que
+> Whisper rend en deux mots se recolle dans les sous-titres, qui suivent aussi la
+> ponctuation du script (§12.5) ; deux sous-titres ne se superposent plus d'une image
+> (§12.5.1) ; la vidéo ne montre jamais la description d'un visuel absent (§12.4.1) ;
+> les réglages d'une prise ne se reprennent que d'une prise au même format, et une prise
+> horizontale le dit (§12.5.7).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1579,6 +1585,13 @@ séquence, élément), avec la description à laquelle l'image répondait. Le st
 signale une image déposée pour une carte dont la description a changé depuis, et se tait
 — sans proposer de dépôt — quand R2 n'est pas lié au Worker.
 
+**La vidéo ne montre jamais la description d'un visuel absent** (v2.25). Le storyboard
+la montre dans un cadre pointillé : c'est la commande, à sa place. La composition animée
+— aperçu comme export — la tait : la carte garde son texte, et une carte d'image seule
+disparaît avec son image. Le 28/10/2026, trois descriptions de quarante-cinq mots sont
+sorties telles quelles dans une vidéo exportée. Sous le bouton d'export, une ligne dit
+combien de visuels n'ont pas d'image.
+
 **Les images sont décodées avant chaque export**, et un export qui bute sur une attente de
 chargement (`delayRender`) se relance **une fois**. Le 04/10/2026, un export complet a
 échoué une fois sur une image restée « en chargement » 28 secondes, puis a réussi à
@@ -1735,6 +1748,19 @@ répond au script s'écrit **comme dans le script** (« luminose.fr », pas « l
 un mot improvisé, comme Whisper l'a entendu. Un « ? » rendu seul rejoint son mot. Rien
 sur les scènes : leurs cartes portent déjà le texte.
 
+**Une élision se recolle** (v2.25). Whisper rend « c'est » en deux mots, « c » puis
+« 'est », et détache le trait d'union (« voulez », « -vous ») : le sous-titre écrivait
+« c est », et coupait parfois le bloc entre les deux — « Le jour où c / est trop lourd
+c / est là que je », qui se lit comme un sous-titre en retard. Un mot se soude au
+précédent quand le script les écrit sans blanc entre eux, ou, hors du script, quand
+Whisper le fait commencer par l'apostrophe ou le trait d'union. Le texte de référence
+d'une vidéo directe (§12.7) se recolle de même.
+
+**La ponctuation du script guide la coupe** (v2.25), sans s'afficher : un bloc de deux
+mots ou plus se ferme sur une virgule, et un groupe de cinq mots se coupe en trois et
+deux plutôt qu'en quatre et un (« C'est savoir ouvrir la / vanne »). Hors du script,
+c'est la ponctuation de Whisper qui compte.
+
 **Le mot qui se dit s'éclaire** (v2.12, décision du 24/10/2026) : chaque bloc garde ses
 mots à leur instant, et le mot en cours passe en rose brumeux (`#E9B9BB`) jusqu'au
 suivant. La plupart des vidéos courtes se regardent sans le son ; suivre la voix mot à
@@ -1763,6 +1789,11 @@ Les sous-titres reprennent l'outil Sous-titres — Futura gras, blanc, ombre `#6
 315°, 430 points sous le centre du cadre vertical —, en 64 pixels du cadre. L'ombre est
 une seconde couche de texte peinte avant le blanc : le moteur de rendu ne dessine pas
 `text-shadow` et peint dans l'ordre du document.
+
+**Une durée se compte entre deux bornes arrondies** (v2.25) : `enImages(fin) −
+enImages(début)`, jamais `enImages(fin − début)`. Arrondie elle-même, la durée d'un
+sous-titre empiétait d'une image sur le suivant, et deux blocs s'affichaient l'un sur
+l'autre.
 
 **Deux formats, deux versions**, au choix, et l'aperçu suit le choix : 9:16
 (1080 × 1920) et 4:5 (1080 × 1350, fil Meta), organique et publicité. En 4:5, la prise
@@ -2056,8 +2087,19 @@ par p, b ou m, les lèvres doivent s'ouvrir avec le son. Une mesure automatique 
 tentée sur la prise du 26/10 (mouvement et ouverture de la bouche contre le niveau du
 son) : trop bruitée pour décider. Un clap en début de prise rend le réglage évident.
 
-**Une prise neuve reprend les réglages de la plus récente**, de n'importe quel contenu :
-même caméra, même micro, même décalage. C'est la cinquième requête de la déclaration.
+**Une prise neuve reprend les réglages de la plus récente au même format** (largeur et
+hauteur du fichier), de n'importe quel contenu : même caméra, même micro, même décalage.
+Remplacer une prise ne garde ses réglages que si la nouvelle a son format. Sans prise au
+même format, elle part de zéro. Révisé le 28/10/2026 (v2.25) : une prise 1920 × 1080
+avait reçu le décalage de −0,13 s d'une prise tournée avec une autre caméra. La
+recherche est la cinquième requête de la déclaration, épargnée quand la prise remplacée a
+le même format.
+
+**Une prise horizontale le dit** (v2.25, `cadrageVertical`). En 9:16, la vidéo la remplit
+(`cover`) : elle n'en garde que le centre, et l'agrandit d'autant. Constaté sur une prise
+1920 × 1080 : un tiers de l'image, agrandi 1,8 fois — une image adoucie, un visage qui
+remplit le cadre, des sous-titres posés sur la bouche. Rien ne l'empêche ; les réglages de
+la prise le disent, une fois la rotation appliquée.
 
 Vérifié à l'export sur la prise du 26/10 convertie en H.264 : rotation d'un quart de
 tour, son recalé de 200 ms — chaque image de la vidéo produite est celle de la prise

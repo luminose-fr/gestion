@@ -1,0 +1,1281 @@
+{
+ "note": "Prise réelle de Florent, 28/10/2026, « Un meilleur sparadrap » : 1920 × 1080, Whisper sur Workers AI. Sans enveloppe.",
+ "script": {
+  "format": "Reel expliqué",
+  "sequences": [
+   {
+    "plan": "camera",
+    "role": "Accroche",
+    "voix": "« Je veux mieux contrôler mes émotions. » En première séance, je l'entends souvent.",
+    "intention": "Dire la phrase doucement, comme on la reçoit vraiment, sans caricature. Une demi-seconde de silence, puis la seconde phrase plus posée, regard droit caméra."
+   },
+   {
+    "plan": "scene",
+    "role": "Constat",
+    "registre": "humour",
+    "voix": "Imaginez une digue. Derrière, tout ce que vous ressentez. Et elle fuit : la colère qui part pour un détail, les larmes devant une pub, la boule au ventre du dimanche soir. Vous courez d'une fuite à l'autre, sparadrap en main, en serrant les dents.",
+    "intention": "Rythme qui s'accélère sur les trois fuites, comme quelqu'un qui court. Ralentir sur « en serrant les dents », presque las.",
+    "titre": "Opération [sparadrap]",
+    "elements": [
+     {
+      "type": "carte",
+      "taille": "grande",
+      "texte": "Vos [émotions], retenues",
+      "detail": null,
+      "ton": "ombre",
+      "visuel": {
+       "nature": "illustration",
+       "description": "Un petit personnage au pied d'une haute digue fissurée ; derrière, un lac dont l'eau affleure le haut du mur. Trois jets d'eau percent la paroi et il court de l'un à l'autre, les bras chargés de rouleaux de sparadrap. Ton burlesque, sans texte dans l'image."
+      },
+      "apparait_sur": "tout ce que vous ressentez"
+     },
+     {
+      "type": "carte",
+      "taille": "petite",
+      "texte": "Colère pour un [détail]",
+      "detail": null,
+      "ton": "ombre",
+      "visuel": null,
+      "apparait_sur": "la colère qui part"
+     },
+     {
+      "type": "carte",
+      "taille": "petite",
+      "texte": "Larmes devant une [pub]",
+      "detail": null,
+      "ton": "ombre",
+      "visuel": null,
+      "apparait_sur": "les larmes devant une pub"
+     },
+     {
+      "type": "pastille",
+      "texte": "Sparadrap = [serrer les dents]",
+      "ton": "ombre",
+      "apparait_sur": "en serrant les dents"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Recadrage",
+    "voix": "Je comprends. Mais bon, entre nous… ce qu'on me demande, c'est un meilleur sparadrap.",
+    "intention": "« Je comprends » sincère, avec un hochement de tête. Sourire complice sur « entre nous ». Petite pause avant « sparadrap », dit avec une tendresse amusée, sans ironie."
+   },
+   {
+    "plan": "scene",
+    "role": "Mécanique",
+    "registre": "pedagogie",
+    "voix": "Sauf que l'eau retenue ne disparaît pas. Elle s'accumule. Elle pousse. Tenir, ça se paie : des nuits courtes, des nerfs à vif, une fatigue qui ne passe pas.",
+    "intention": "Ton explicatif et calme. Laisser « Elle s'accumule. Elle pousse. » faire son effet, puis énumérer le prix sobrement.",
+    "titre": "L'eau ne [disparaît] pas",
+    "elements": [
+     {
+      "type": "carte",
+      "taille": "grande",
+      "texte": "Retenir, c'est [stocker]",
+      "detail": null,
+      "ton": "neutre",
+      "visuel": {
+       "nature": "schema",
+       "description": "La digue vue en coupe, en trois vignettes côte à côte : d'une vignette à l'autre, le niveau d'eau monte, les flèches de pression sur la paroi grossissent et les sparadraps se multiplient côté sec."
+      },
+      "apparait_sur": "l'eau retenue ne disparaît pas"
+     },
+     {
+      "type": "carte",
+      "taille": "petite",
+      "texte": "Nuits [courtes]",
+      "detail": null,
+      "ton": "ombre",
+      "visuel": null,
+      "apparait_sur": "des nuits courtes"
+     },
+     {
+      "type": "carte",
+      "taille": "petite",
+      "texte": "Nerfs à [vif]",
+      "detail": null,
+      "ton": "ombre",
+      "visuel": null,
+      "apparait_sur": "des nerfs à vif"
+     },
+     {
+      "type": "pastille",
+      "texte": "Une fatigue qui [reste]",
+      "ton": "ombre",
+      "apparait_sur": "une fatigue qui ne passe"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Bascule",
+    "voix": "Je vais vous décevoir : le cabinet n'est pas une boutique de sparadrap. Ici, on ouvre une vanne.",
+    "intention": "Faux air désolé, sourcils levés, un sourire qui trahit la plaisanterie. Un temps, puis « Ici, on ouvre une vanne », simple et posé."
+   },
+   {
+    "plan": "scene",
+    "role": "Ouverture",
+    "registre": "pedagogie",
+    "voix": "Un peu, à votre rythme. Au lieu de fuir n'importe où, l'eau passe dans un bassin prévu pour elle. Ce n'est plus vous qui tenez : c'est le cadre. Et en fin de séance, la vanne reste entrouverte, pour que le niveau ne remonte pas.",
+    "intention": "La voix ralentit et s'adoucit. Appuyer légèrement sur « à votre rythme ». Sur « la vanne reste entrouverte », presque un sourire : on ne referme pas ce qu'on vient d'ouvrir.",
+    "titre": "La [vanne] et le bassin",
+    "elements": [
+     {
+      "type": "carte",
+      "taille": "petite",
+      "texte": "À votre [rythme]",
+      "detail": null,
+      "ton": "lumiere",
+      "visuel": null,
+      "apparait_sur": "à votre rythme"
+     },
+     {
+      "type": "carte",
+      "taille": "grande",
+      "texte": "Un bassin, pas des [fuites]",
+      "detail": null,
+      "ton": "lumiere",
+      "visuel": {
+       "nature": "illustration",
+       "description": "Au pied de la digue, un bassin de pierre aux bords épais. Une vanne entrouverte laisse passer un filet d'eau que le bassin recueille. Les jets ont cessé ; le petit personnage a posé ses rouleaux et regarde l'eau couler. Lumière douce, sans texte dans l'image."
+      },
+      "apparait_sur": "un bassin prévu pour elle"
+     },
+     {
+      "type": "carte",
+      "taille": "petite",
+      "texte": "Le cadre [tient]",
+      "detail": null,
+      "ton": "lumiere",
+      "visuel": null,
+      "apparait_sur": "c'est le cadre"
+     },
+     {
+      "type": "pastille",
+      "texte": "Vanne [entrouverte]",
+      "ton": "lumiere",
+      "apparait_sur": "la vanne reste entrouverte"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Chute",
+    "voix": "Mieux contrôler ses émotions, ce n'est pas tenir la digue plus fort. C'est savoir ouvrir la vanne.",
+    "intention": "Regard droit, débit lent. Un temps après « plus fort ». La seconde phrase, simple, comme une évidence.",
+    "coup": {
+     "texte": "Pas la digue : la [vanne]",
+     "apparait_sur": "savoir ouvrir la vanne"
+    }
+   },
+   {
+    "plan": "camera",
+    "role": "Appel à l'action",
+    "voix": "Combien de temps encore voulez-vous tenir cette digue à bout de bras ? Le jour où c'est trop lourd, c'est là-dessus que je travaille en cabinet : luminose.fr.",
+    "intention": "Poser la question doucement, sans appuyer. Un vrai silence après « à bout de bras ? », regard tenu. Puis changer de ton, chaleureux et simple, pour la porte, sans insister."
+   }
+  ],
+  "accroche_pub": {
+   "voix": "Mieux contrôler ses émotions : en séance, c'est une demande que j'entends souvent.",
+   "intention": "Même ton que l'accroche : posé, sans dramatiser. S'enchaîne directement avec « Imaginez une digue »."
+  },
+  "legende": {
+   "texte": "« Je veux mieux contrôler mes émotions. »\nC'est souvent la première phrase en séance, et je la comprends. Quand on colmate toute la journée, on rêve d'un sparadrap plus solide. Mais une émotion retenue ne s'en va pas : elle attend, et elle pousse. Le travail, c'est d'ouvrir une vanne, un peu, à votre rythme, dans un cadre qui tient. Et de ne pas la refermer complètement en sortant.",
+   "cta": "Le jour où la digue devient trop lourde, la première étape est une rencontre de 20 minutes, offerte. Lien en bio → https://www.luminose.fr",
+   "hashtags": [
+    "#therapie",
+    "#psychopraticien",
+    "#emotions",
+    "#gestiondesemotions",
+    "#regulationemotionnelle",
+    "#therapietranspersonnelle",
+    "#villefranchedelauragais",
+    "#toulouse"
+   ]
+  }
+ },
+ "duree": 71.27333333333333,
+ "mots": [
+  {
+   "mot": "Hop",
+   "debut": 0.58,
+   "fin": 1.06
+  },
+  {
+   "mot": "là",
+   "debut": 1.06,
+   "fin": 1.26
+  },
+  {
+   "mot": "!",
+   "debut": 1.26,
+   "fin": 2.48
+  },
+  {
+   "mot": "Je",
+   "debut": 3.8,
+   "fin": 4.28
+  },
+  {
+   "mot": "veux",
+   "debut": 4.28,
+   "fin": 4.46
+  },
+  {
+   "mot": "mieux",
+   "debut": 4.46,
+   "fin": 4.7
+  },
+  {
+   "mot": "contrôler",
+   "debut": 4.7,
+   "fin": 5.18
+  },
+  {
+   "mot": "mes",
+   "debut": 5.18,
+   "fin": 5.36
+  },
+  {
+   "mot": "émotions.",
+   "debut": 5.36,
+   "fin": 5.74
+  },
+  {
+   "mot": "Imaginez",
+   "debut": 7.82,
+   "fin": 8.3
+  },
+  {
+   "mot": "une",
+   "debut": 8.3,
+   "fin": 8.46
+  },
+  {
+   "mot": "digue",
+   "debut": 8.46,
+   "fin": 8.92
+  },
+  {
+   "mot": "derrière",
+   "debut": 8.92,
+   "fin": 9.38
+  },
+  {
+   "mot": "tout",
+   "debut": 9.38,
+   "fin": 9.92
+  },
+  {
+   "mot": "ce",
+   "debut": 9.92,
+   "fin": 10.02
+  },
+  {
+   "mot": "que",
+   "debut": 10.02,
+   "fin": 10.14
+  },
+  {
+   "mot": "vous",
+   "debut": 10.14,
+   "fin": 10.26
+  },
+  {
+   "mot": "ressentez.",
+   "debut": 10.26,
+   "fin": 10.84
+  },
+  {
+   "mot": "Et",
+   "debut": 11.44,
+   "fin": 11.92
+  },
+  {
+   "mot": "elle",
+   "debut": 11.92,
+   "fin": 12.1
+  },
+  {
+   "mot": "fuit",
+   "debut": 12.1,
+   "fin": 12.44
+  },
+  {
+   "mot": "la",
+   "debut": 12.44,
+   "fin": 12.98
+  },
+  {
+   "mot": "colère",
+   "debut": 12.98,
+   "fin": 13.28
+  },
+  {
+   "mot": "qui",
+   "debut": 13.28,
+   "fin": 13.44
+  },
+  {
+   "mot": "part",
+   "debut": 13.44,
+   "fin": 13.92
+  },
+  {
+   "mot": "pour",
+   "debut": 13.92,
+   "fin": 14.2
+  },
+  {
+   "mot": "un",
+   "debut": 14.2,
+   "fin": 14.38
+  },
+  {
+   "mot": "détail,",
+   "debut": 14.38,
+   "fin": 14.8
+  },
+  {
+   "mot": "les",
+   "debut": 14.92,
+   "fin": 15.02
+  },
+  {
+   "mot": "larmes",
+   "debut": 15.02,
+   "fin": 15.38
+  },
+  {
+   "mot": "devant",
+   "debut": 15.38,
+   "fin": 15.66
+  },
+  {
+   "mot": "une",
+   "debut": 15.66,
+   "fin": 15.86
+  },
+  {
+   "mot": "pub,",
+   "debut": 15.86,
+   "fin": 16.18
+  },
+  {
+   "mot": "la",
+   "debut": 16.72,
+   "fin": 16.96
+  },
+  {
+   "mot": "boule",
+   "debut": 16.96,
+   "fin": 17.16
+  },
+  {
+   "mot": "au",
+   "debut": 17.16,
+   "fin": 17.28
+  },
+  {
+   "mot": "ventre",
+   "debut": 17.28,
+   "fin": 17.4
+  },
+  {
+   "mot": "le",
+   "debut": 17.4,
+   "fin": 17.52
+  },
+  {
+   "mot": "dimanche",
+   "debut": 17.52,
+   "fin": 17.8
+  },
+  {
+   "mot": "soir.",
+   "debut": 17.8,
+   "fin": 18.02
+  },
+  {
+   "mot": "Vous",
+   "debut": 18.58,
+   "fin": 19.06
+  },
+  {
+   "mot": "courez",
+   "debut": 19.06,
+   "fin": 19.42
+  },
+  {
+   "mot": "d",
+   "debut": 19.42,
+   "fin": 19.56
+  },
+  {
+   "mot": "'une",
+   "debut": 19.56,
+   "fin": 19.62
+  },
+  {
+   "mot": "fuite",
+   "debut": 19.62,
+   "fin": 19.88
+  },
+  {
+   "mot": "à",
+   "debut": 19.88,
+   "fin": 19.96
+  },
+  {
+   "mot": "l",
+   "debut": 19.96,
+   "fin": 20.06
+  },
+  {
+   "mot": "'autre,",
+   "debut": 20.06,
+   "fin": 20.26
+  },
+  {
+   "mot": "sparadra",
+   "debut": 20.52,
+   "fin": 20.9
+  },
+  {
+   "mot": "en",
+   "debut": 20.9,
+   "fin": 21.06
+  },
+  {
+   "mot": "main",
+   "debut": 21.06,
+   "fin": 21.24
+  },
+  {
+   "mot": "en",
+   "debut": 21.24,
+   "fin": 21.5
+  },
+  {
+   "mot": "serrant",
+   "debut": 21.5,
+   "fin": 21.84
+  },
+  {
+   "mot": "les",
+   "debut": 21.84,
+   "fin": 21.98
+  },
+  {
+   "mot": "dents.",
+   "debut": 21.98,
+   "fin": 22.18
+  },
+  {
+   "mot": "Je",
+   "debut": 22.66,
+   "fin": 23.02
+  },
+  {
+   "mot": "comprends,",
+   "debut": 23.02,
+   "fin": 23.4
+  },
+  {
+   "mot": "mais",
+   "debut": 23.42,
+   "fin": 23.5
+  },
+  {
+   "mot": "bon,",
+   "debut": 23.5,
+   "fin": 23.64
+  },
+  {
+   "mot": "entre",
+   "debut": 23.68,
+   "fin": 23.86
+  },
+  {
+   "mot": "nous,",
+   "debut": 23.86,
+   "fin": 24.06
+  },
+  {
+   "mot": "ce",
+   "debut": 24.18,
+   "fin": 24.38
+  },
+  {
+   "mot": "qu",
+   "debut": 24.38,
+   "fin": 24.5
+  },
+  {
+   "mot": "'on",
+   "debut": 24.5,
+   "fin": 24.56
+  },
+  {
+   "mot": "me",
+   "debut": 24.56,
+   "fin": 24.7
+  },
+  {
+   "mot": "demande,",
+   "debut": 24.7,
+   "fin": 25.1
+  },
+  {
+   "mot": "c",
+   "debut": 25.28,
+   "fin": 25.58
+  },
+  {
+   "mot": "'est",
+   "debut": 25.58,
+   "fin": 25.66
+  },
+  {
+   "mot": "un",
+   "debut": 25.66,
+   "fin": 25.86
+  },
+  {
+   "mot": "meilleur",
+   "debut": 25.86,
+   "fin": 26.14
+  },
+  {
+   "mot": "sparadra.",
+   "debut": 26.14,
+   "fin": 26.72
+  },
+  {
+   "mot": "Sauf",
+   "debut": 27.6,
+   "fin": 27.96
+  },
+  {
+   "mot": "que",
+   "debut": 27.96,
+   "fin": 28.12
+  },
+  {
+   "mot": "l",
+   "debut": 28.12,
+   "fin": 28.28
+  },
+  {
+   "mot": "'eau",
+   "debut": 28.28,
+   "fin": 28.38
+  },
+  {
+   "mot": "retenue",
+   "debut": 28.38,
+   "fin": 28.98
+  },
+  {
+   "mot": "ne",
+   "debut": 28.98,
+   "fin": 29.14
+  },
+  {
+   "mot": "disparaît",
+   "debut": 29.14,
+   "fin": 29.52
+  },
+  {
+   "mot": "pas,",
+   "debut": 29.52,
+   "fin": 29.64
+  },
+  {
+   "mot": "elle",
+   "debut": 29.78,
+   "fin": 29.8
+  },
+  {
+   "mot": "s",
+   "debut": 29.8,
+   "fin": 29.94
+  },
+  {
+   "mot": "'accumule,",
+   "debut": 29.94,
+   "fin": 30.32
+  },
+  {
+   "mot": "elle",
+   "debut": 30.5,
+   "fin": 30.56
+  },
+  {
+   "mot": "pousse.",
+   "debut": 30.56,
+   "fin": 30.92
+  },
+  {
+   "mot": "Tenir,",
+   "debut": 31.18,
+   "fin": 31.48
+  },
+  {
+   "mot": "ça",
+   "debut": 31.6,
+   "fin": 31.66
+  },
+  {
+   "mot": "se",
+   "debut": 31.66,
+   "fin": 31.86
+  },
+  {
+   "mot": "paye",
+   "debut": 31.86,
+   "fin": 32.38
+  },
+  {
+   "mot": "des",
+   "debut": 32.38,
+   "fin": 32.68
+  },
+  {
+   "mot": "nuits",
+   "debut": 32.68,
+   "fin": 32.86
+  },
+  {
+   "mot": "courtes,",
+   "debut": 32.86,
+   "fin": 33.22
+  },
+  {
+   "mot": "des",
+   "debut": 33.28,
+   "fin": 33.36
+  },
+  {
+   "mot": "nerfs",
+   "debut": 33.36,
+   "fin": 33.48
+  },
+  {
+   "mot": "à",
+   "debut": 33.48,
+   "fin": 33.62
+  },
+  {
+   "mot": "vif,",
+   "debut": 33.62,
+   "fin": 33.78
+  },
+  {
+   "mot": "une",
+   "debut": 33.88,
+   "fin": 34.04
+  },
+  {
+   "mot": "fatigue",
+   "debut": 34.04,
+   "fin": 34.32
+  },
+  {
+   "mot": "qui",
+   "debut": 34.32,
+   "fin": 34.46
+  },
+  {
+   "mot": "ne",
+   "debut": 34.46,
+   "fin": 34.54
+  },
+  {
+   "mot": "passe",
+   "debut": 34.54,
+   "fin": 34.72
+  },
+  {
+   "mot": "pas.",
+   "debut": 34.72,
+   "fin": 34.92
+  },
+  {
+   "mot": "Je",
+   "debut": 35.88,
+   "fin": 36.24
+  },
+  {
+   "mot": "vais",
+   "debut": 36.24,
+   "fin": 36.34
+  },
+  {
+   "mot": "vous",
+   "debut": 36.34,
+   "fin": 36.44
+  },
+  {
+   "mot": "décevoir,",
+   "debut": 36.44,
+   "fin": 36.94
+  },
+  {
+   "mot": "le",
+   "debut": 37.14,
+   "fin": 37.2
+  },
+  {
+   "mot": "cabinet,",
+   "debut": 37.2,
+   "fin": 37.54
+  },
+  {
+   "mot": "ce",
+   "debut": 37.62,
+   "fin": 37.86
+  },
+  {
+   "mot": "n",
+   "debut": 37.86,
+   "fin": 37.92
+  },
+  {
+   "mot": "'est",
+   "debut": 37.92,
+   "fin": 37.92
+  },
+  {
+   "mot": "pas",
+   "debut": 37.92,
+   "fin": 38.02
+  },
+  {
+   "mot": "une",
+   "debut": 38.02,
+   "fin": 38.14
+  },
+  {
+   "mot": "boutique",
+   "debut": 38.14,
+   "fin": 38.42
+  },
+  {
+   "mot": "de",
+   "debut": 38.42,
+   "fin": 38.52
+  },
+  {
+   "mot": "sparadra.",
+   "debut": 38.52,
+   "fin": 38.98
+  },
+  {
+   "mot": "Ici,",
+   "debut": 39.26,
+   "fin": 39.62
+  },
+  {
+   "mot": "on",
+   "debut": 39.82,
+   "fin": 40.12
+  },
+  {
+   "mot": "ouvre",
+   "debut": 40.12,
+   "fin": 40.38
+  },
+  {
+   "mot": "une",
+   "debut": 40.38,
+   "fin": 40.48
+  },
+  {
+   "mot": "vanne,",
+   "debut": 40.48,
+   "fin": 40.8
+  },
+  {
+   "mot": "un",
+   "debut": 40.9,
+   "fin": 41.68
+  },
+  {
+   "mot": "peu",
+   "debut": 41.68,
+   "fin": 41.84
+  },
+  {
+   "mot": "à",
+   "debut": 41.84,
+   "fin": 42.04
+  },
+  {
+   "mot": "votre",
+   "debut": 42.04,
+   "fin": 42.24
+  },
+  {
+   "mot": "rythme.",
+   "debut": 42.24,
+   "fin": 42.6
+  },
+  {
+   "mot": "Au",
+   "debut": 42.9,
+   "fin": 43.26
+  },
+  {
+   "mot": "lieu",
+   "debut": 43.26,
+   "fin": 43.38
+  },
+  {
+   "mot": "de",
+   "debut": 43.38,
+   "fin": 43.52
+  },
+  {
+   "mot": "fuir",
+   "debut": 43.52,
+   "fin": 43.86
+  },
+  {
+   "mot": "n",
+   "debut": 43.86,
+   "fin": 44
+  },
+  {
+   "mot": "'importe",
+   "debut": 44,
+   "fin": 44.26
+  },
+  {
+   "mot": "où,",
+   "debut": 44.26,
+   "fin": 44.46
+  },
+  {
+   "mot": "l",
+   "debut": 44.8,
+   "fin": 45.18
+  },
+  {
+   "mot": "'eau",
+   "debut": 45.18,
+   "fin": 45.28
+  },
+  {
+   "mot": "passe",
+   "debut": 45.28,
+   "fin": 45.62
+  },
+  {
+   "mot": "dans",
+   "debut": 45.62,
+   "fin": 45.76
+  },
+  {
+   "mot": "un",
+   "debut": 45.76,
+   "fin": 45.92
+  },
+  {
+   "mot": "bassin",
+   "debut": 45.92,
+   "fin": 46.22
+  },
+  {
+   "mot": "prévu",
+   "debut": 46.22,
+   "fin": 46.58
+  },
+  {
+   "mot": "pour",
+   "debut": 46.58,
+   "fin": 46.8
+  },
+  {
+   "mot": "elle.",
+   "debut": 46.8,
+   "fin": 46.96
+  },
+  {
+   "mot": "Ce",
+   "debut": 47.32,
+   "fin": 47.6
+  },
+  {
+   "mot": "n",
+   "debut": 47.6,
+   "fin": 47.74
+  },
+  {
+   "mot": "'est",
+   "debut": 47.74,
+   "fin": 47.82
+  },
+  {
+   "mot": "pas",
+   "debut": 47.82,
+   "fin": 47.94
+  },
+  {
+   "mot": "vous",
+   "debut": 47.94,
+   "fin": 48.14
+  },
+  {
+   "mot": "qui",
+   "debut": 48.14,
+   "fin": 48.5
+  },
+  {
+   "mot": "tenez,",
+   "debut": 48.5,
+   "fin": 48.74
+  },
+  {
+   "mot": "c",
+   "debut": 48.88,
+   "fin": 49.02
+  },
+  {
+   "mot": "'est",
+   "debut": 49.02,
+   "fin": 49.06
+  },
+  {
+   "mot": "le",
+   "debut": 49.06,
+   "fin": 49.16
+  },
+  {
+   "mot": "cadre.",
+   "debut": 49.16,
+   "fin": 49.46
+  },
+  {
+   "mot": "Et",
+   "debut": 49.84,
+   "fin": 49.9
+  },
+  {
+   "mot": "en",
+   "debut": 49.9,
+   "fin": 50.02
+  },
+  {
+   "mot": "fin",
+   "debut": 50.02,
+   "fin": 50.1
+  },
+  {
+   "mot": "de",
+   "debut": 50.1,
+   "fin": 50.2
+  },
+  {
+   "mot": "séance,",
+   "debut": 50.2,
+   "fin": 50.44
+  },
+  {
+   "mot": "la",
+   "debut": 50.54,
+   "fin": 50.6
+  },
+  {
+   "mot": "vanne",
+   "debut": 50.6,
+   "fin": 50.8
+  },
+  {
+   "mot": "reste",
+   "debut": 50.8,
+   "fin": 51.1
+  },
+  {
+   "mot": "entreouverte",
+   "debut": 51.1,
+   "fin": 51.96
+  },
+  {
+   "mot": "pour",
+   "debut": 51.96,
+   "fin": 52.14
+  },
+  {
+   "mot": "que",
+   "debut": 52.14,
+   "fin": 52.26
+  },
+  {
+   "mot": "le",
+   "debut": 52.26,
+   "fin": 52.4
+  },
+  {
+   "mot": "niveau",
+   "debut": 52.4,
+   "fin": 52.66
+  },
+  {
+   "mot": "ne",
+   "debut": 52.66,
+   "fin": 53.08
+  },
+  {
+   "mot": "remonte",
+   "debut": 53.08,
+   "fin": 53.54
+  },
+  {
+   "mot": "pas.",
+   "debut": 53.54,
+   "fin": 53.78
+  },
+  {
+   "mot": "Mieux",
+   "debut": 54.5,
+   "fin": 54.9
+  },
+  {
+   "mot": "contrôler",
+   "debut": 54.9,
+   "fin": 55.3
+  },
+  {
+   "mot": "ses",
+   "debut": 55.3,
+   "fin": 55.44
+  },
+  {
+   "mot": "émotions,",
+   "debut": 55.44,
+   "fin": 55.86
+  },
+  {
+   "mot": "ce",
+   "debut": 55.9,
+   "fin": 56.02
+  },
+  {
+   "mot": "n",
+   "debut": 56.02,
+   "fin": 56.04
+  },
+  {
+   "mot": "'est",
+   "debut": 56.04,
+   "fin": 56.1
+  },
+  {
+   "mot": "pas",
+   "debut": 56.1,
+   "fin": 56.2
+  },
+  {
+   "mot": "tenir",
+   "debut": 56.2,
+   "fin": 56.44
+  },
+  {
+   "mot": "la",
+   "debut": 56.44,
+   "fin": 56.58
+  },
+  {
+   "mot": "digue",
+   "debut": 56.58,
+   "fin": 56.78
+  },
+  {
+   "mot": "plus",
+   "debut": 56.78,
+   "fin": 56.92
+  },
+  {
+   "mot": "fort,",
+   "debut": 56.92,
+   "fin": 57.18
+  },
+  {
+   "mot": "c",
+   "debut": 57.44,
+   "fin": 57.82
+  },
+  {
+   "mot": "'est",
+   "debut": 57.82,
+   "fin": 57.9
+  },
+  {
+   "mot": "savoir",
+   "debut": 57.9,
+   "fin": 58.18
+  },
+  {
+   "mot": "ouvrir",
+   "debut": 58.18,
+   "fin": 58.54
+  },
+  {
+   "mot": "la",
+   "debut": 58.54,
+   "fin": 58.66
+  },
+  {
+   "mot": "vanne.",
+   "debut": 58.66,
+   "fin": 58.86
+  },
+  {
+   "mot": "Combien",
+   "debut": 60.24,
+   "fin": 60.64
+  },
+  {
+   "mot": "de",
+   "debut": 60.64,
+   "fin": 60.8
+  },
+  {
+   "mot": "temps",
+   "debut": 60.8,
+   "fin": 61.02
+  },
+  {
+   "mot": "encore",
+   "debut": 61.02,
+   "fin": 61.5
+  },
+  {
+   "mot": "voulez",
+   "debut": 61.5,
+   "fin": 61.96
+  },
+  {
+   "mot": "-vous",
+   "debut": 61.96,
+   "fin": 62.12
+  },
+  {
+   "mot": "tenir",
+   "debut": 62.12,
+   "fin": 62.42
+  },
+  {
+   "mot": "cette",
+   "debut": 62.42,
+   "fin": 62.78
+  },
+  {
+   "mot": "digue",
+   "debut": 62.78,
+   "fin": 63.14
+  },
+  {
+   "mot": "à",
+   "debut": 63.14,
+   "fin": 63.2
+  },
+  {
+   "mot": "bout",
+   "debut": 63.2,
+   "fin": 63.32
+  },
+  {
+   "mot": "de",
+   "debut": 63.32,
+   "fin": 63.4
+  },
+  {
+   "mot": "bras",
+   "debut": 63.4,
+   "fin": 63.6
+  },
+  {
+   "mot": "?",
+   "debut": 63.6,
+   "fin": 63.8
+  },
+  {
+   "mot": "Le",
+   "debut": 63.8,
+   "fin": 64.08
+  },
+  {
+   "mot": "jour",
+   "debut": 64.08,
+   "fin": 64.3
+  },
+  {
+   "mot": "où",
+   "debut": 64.3,
+   "fin": 64.46
+  },
+  {
+   "mot": "c",
+   "debut": 64.46,
+   "fin": 64.58
+  },
+  {
+   "mot": "'est",
+   "debut": 64.58,
+   "fin": 64.64
+  },
+  {
+   "mot": "trop",
+   "debut": 64.64,
+   "fin": 64.8
+  },
+  {
+   "mot": "lourd,",
+   "debut": 64.8,
+   "fin": 65.08
+  },
+  {
+   "mot": "c",
+   "debut": 65.4,
+   "fin": 65.48
+  },
+  {
+   "mot": "'est",
+   "debut": 65.48,
+   "fin": 65.6
+  },
+  {
+   "mot": "là",
+   "debut": 65.6,
+   "fin": 65.74
+  },
+  {
+   "mot": "que",
+   "debut": 65.74,
+   "fin": 66.08
+  },
+  {
+   "mot": "je",
+   "debut": 66.08,
+   "fin": 66.2
+  },
+  {
+   "mot": "travaille",
+   "debut": 66.2,
+   "fin": 66.54
+  },
+  {
+   "mot": "au",
+   "debut": 66.54,
+   "fin": 66.64
+  },
+  {
+   "mot": "cabinet.",
+   "debut": 66.64,
+   "fin": 66.94
+  }
+ ]
+}

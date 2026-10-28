@@ -94,6 +94,7 @@ export const SceneAnimee: React.FC<ProprietesScene> = ({ sequence, apparitions, 
                 Image={ImageRemotion}
                 arrondi={0}
                 format={format}
+                gabarits={false}
             />
         </AbsoluteFill>
     );
@@ -366,8 +367,11 @@ export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sour
                 </Sequence>
             );
         })}
+        {/* La durée se compte entre deux bornes arrondies, pas arrondie elle-même :
+            sans quoi un bloc empiétait d'une image sur le suivant, et deux
+            sous-titres s'affichaient l'un sur l'autre (constaté le 28/10/2026). */}
         {plan.sousTitres.map((st, i) => (
-            <Sequence key={`st-${i}`} from={enImages(st.debut)} durationInFrames={Math.max(1, enImages(st.fin - st.debut))}>
+            <Sequence key={`st-${i}`} from={enImages(st.debut)} durationInFrames={Math.max(1, enImages(st.fin) - enImages(st.debut))}>
                 <SousTitreCamera sousTitre={st} format={format} />
             </Sequence>
         ))}

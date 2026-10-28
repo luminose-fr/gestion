@@ -155,6 +155,16 @@ describe('les prises', () => {
         // La seconde accroche, déposée ensuite, part des mêmes réglages : même caméra, même micro.
         const accroche = await deposer('accroche');
         expect(accroche).toMatchObject({ decalageSon: 0.2, rotation: 90 });
+
+        // Une prise d'un autre format vient d'une autre caméra : elle part de zéro,
+        // même quand elle remplace une prise réglée (constaté le 28/10/2026).
+        const webcam = { ...DECLAREE, largeur: 1920, hauteur: 1080 };
+        const autre = await json(await appeler('POST', `/api/montage/${contenu}/prises/principale`, webcam));
+        expect(autre.prise).toMatchObject({ decalageSon: 0, rotation: 0 });
+        await appeler('PATCH', `/api/montage/${contenu}/prises/principale`, { decalageSon: -0.1 });
+        // Et la suivante au même format reprend ses réglages à elle.
+        const suivante = await json(await appeler('POST', `/api/montage/${contenu}/prises/accroche`, webcam));
+        expect(suivante.prise).toMatchObject({ decalageSon: -0.1, rotation: 0 });
     });
 
     it('un envoi abandonné ne laisse rien', async () => {
