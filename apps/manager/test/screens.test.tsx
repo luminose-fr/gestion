@@ -52,7 +52,7 @@ import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
 import { ReglagesPrise } from '../components/Video/ReglagesPrise';
 import { RythmeReel } from '../components/Video/RythmeReel';
-import { CoupDePoingLuminose } from '../components/Video/SceneLuminose';
+import { CoupDePoingLuminose, BandeauSignature, CartonFinal } from '../components/Video/SceneLuminose';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo, compterMots } from '@luminose/editorial';
 
 /*
@@ -2059,6 +2059,15 @@ describe('Reel expliqué — montage', () => {
     const video = render(<SceneLuminose sequence={reel().sequences[1]} ecran={1} largeur={216} gabarits={false} />);
     expect(video.container.textContent).not.toContain('Une jauge bloquée dans le rouge.');
     expect(video.container.textContent).toContain('fatigue');
+  });
+
+  it('la signature : le nom et le titre sur l\u2019accroche, l\u2019adresse à la fin — posés par le code (v2.27)', () => {
+    const bandeau = render(<BandeauSignature largeur={216} />);
+    expect(bandeau.container.textContent).toBe('Florent JaoualiPsychopraticien transpersonnel');
+    cleanup();
+    const carton = render(<CartonFinal largeur={216} />);
+    expect(carton.container.textContent).toContain('luminose.fr');
+    expect(carton.container.textContent).not.toContain('www');
   });
 
   it('le panneau se monte, et nomme les navigateurs qu\u2019il faut quand WebCodecs manque', () => {

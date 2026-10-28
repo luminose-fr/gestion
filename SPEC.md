@@ -1,4 +1,4 @@
-# SPEC v2.26 — gestion.luminose.fr
+# SPEC v2.27 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -113,6 +113,9 @@
 > §12.4.1). Les visuels ne se produisent plus carte par carte : l'outil dessine et anime
 > cinq schémas, et la métaphore a son illustration, décrite une fois pour tout le Reel,
 > que chaque écran montre au cadrage voulu (§12.2, §12.3).
+> **v2.27 (28/10/2026)** : la signature. La vidéo nomme Florent sur l'accroche et finit sur
+> un carton — nom, titre, luminose.fr —, posés par le code comme la slide de signature
+> d'un carrousel (§12.5.1).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1830,6 +1833,22 @@ Les sous-titres reprennent l'outil Sous-titres — Futura gras, blanc, ombre `#6
 une seconde couche de texte peinte avant le blanc : le moteur de rendu ne dessine pas
 `text-shadow` et peint dans l'ordre du document.
 
+**La signature** (v2.27, décision de Florent du 28/10/2026). La première vidéo exportée
+ne disait ni qui parlait ni où le retrouver : elle finissait sur « je travaille au
+cabinet », sans luminose.fr, que Florent n'avait pas dit et que rien ne rattrapait.
+Comme la slide de signature d'un carrousel (§3.5.2), la signature est **posée par le
+code, jamais par le modèle**, depuis `NOM`, `TITRE` et `SITE_URL` (`config.ts`) :
+
+- **le bandeau**, en haut de l'accroche — le bas du cadre appartient aux sous-titres et à
+  l'interface des Reels : le nom, le titre. Il entre 0,3 s après le début et s'en va
+  avant la séquence suivante, trois secondes au plus ; sur une accroche où il tiendrait
+  moins de 1,2 s, il ne vient pas (`bandeauDeSignature`) ;
+- **le carton final**, ajouté après le dernier mot pour 2,2 s (`CARTON_FINAL`) : le nom, le
+  titre, et « luminose.fr » en grand. La vidéo s'arrête dessus ; il n'a pas de son.
+
+Elle est là par défaut ; « Signature : Sans », à côté du format et de la version, la
+retire pour une vidéo qui en porte déjà une.
+
 **Une durée se compte entre deux bornes arrondies** (v2.25) : `enImages(fin) −
 enImages(début)`, jamais `enImages(fin − début)`. Arrondie elle-même, la durée d'un
 sous-titre empiétait d'une image sur le suivant, et deux blocs s'affichaient l'un sur
@@ -2170,6 +2189,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V12** | **La vidéo directe** — Script Reel monté, vidéo sans script, hésitations (§12.7) | Une vidéo face caméra, filmée d'un jet, sort publiable sans Final Cut |
 | **V13** | **Ce qu'a montré la première vidéo** — élisions recollées, coupe des sous-titres à la ponctuation, export sans gabarit, réglages au même format (v2.25) | La prise du 28/10 sort sans « c est », sans sous-titres superposés, sans description à l'écran |
 | **V14** | **Un écran à la fois** — schémas dessinés et animés, illustration de la métaphore (v2.26) | La même prise, redécoupée écran par écran : aucune scène de plus de six secondes, aucune image figée |
+| **V15** | **La signature** — bandeau sur l'accroche, carton final (v2.27) | Une vidéo qui dit qui parle et où le retrouver, même quand l'adresse n'a pas été dite |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-    aligner, calerSurLaPrise, enBlocs, planDeMontage, voixEntiere, type MotPrononce,
+    aligner, calerSurLaPrise, enBlocs, planDeMontage, voixEntiere, bandeauDeSignature, type MotPrononce,
 } from '../src/calage';
 import { minuterReel, type ReelExplique } from '../src/reelExplique';
 
@@ -170,5 +170,24 @@ describe('planDeMontage', () => {
             .toBeCloseTo(motScene(organique, -organique.segments[0].depuis));
         // L'accroche publicitaire est sous-titrée, elle aussi.
         expect(pub.sousTitres[0].texte.startsWith('Relire')).toBe(true);
+    });
+});
+
+/**
+ * La signature (v2.27) : posée par le code, comme la slide de signature d'un
+ * carrousel. Le bandeau nomme Florent sur l'accroche ; le carton final dit
+ * où le retrouver, après le dernier mot.
+ */
+describe('bandeauDeSignature', () => {
+    const minutage = (finAccroche: number) => ({ duree: 60, sequences: [{ debut: 0, fin: finAccroche, apparitions: [] }, { debut: finAccroche, fin: 60, apparitions: [] }] });
+
+    it('entre après le premier mot, trois secondes au plus, et s’en va avant la séquence suivante', () => {
+        expect(bandeauDeSignature(minutage(8))).toEqual({ debut: 0.3, fin: 3.3 });
+        expect(bandeauDeSignature(minutage(2.3))).toEqual({ debut: 0.3, fin: expect.closeTo(2.15, 5) });
+    });
+
+    it('ne vient pas sur une accroche trop courte pour qu’on le lise', () => {
+        expect(bandeauDeSignature(minutage(1.5))).toBeNull();
+        expect(bandeauDeSignature({ duree: 0, sequences: [] })).toBeNull();
     });
 });
