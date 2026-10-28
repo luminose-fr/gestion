@@ -34,3 +34,6 @@ export type { MenuProps, EntreeMenu } from './Menu';
 
 export { TitreEcran, CLASSES_TITRE_ECRAN } from './TitreEcran';
 export type { TitreEcranProps } from './TitreEcran';
+
+export { Markdown, Tableau } from './Markdown';
+export type { VarianteMarkdown } from './Markdown';

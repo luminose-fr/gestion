@@ -1168,6 +1168,9 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   autre: aUnBrouillon ? { libelle: 'Revenir au Rédacteur', onChoisir: () => setVersLeCoach(false) } : undefined,
                   desactive: atelier.enCours || isGenerating,
                   erreur: atelier.erreur,
+                  rappel: atelier.rappel
+                      ? { questions: atelier.rappel, onRepondre: atelier.repondre, onPasser: () => void atelier.passerSansRepondre() }
+                      : undefined,
               };
 
   const corrigerLeFormat = (points: string[]) => void launchAdjustment(

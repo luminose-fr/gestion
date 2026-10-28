@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { questionsEnSuspens } from '@luminose/editorial';
 import type { AIModel, CoachMessage, CoachSession, ContentItem } from '../../types';
 import {
     sendCoachMessage, buildUserMessage, buildAssistantMessage, withMessage, validateSession, buildCoachBrief,
@@ -15,8 +16,18 @@ export interface Atelier {
     /** Le premier tour : le brief que l'outil compose à partir de l'idée. */
     ouvrir: () => Promise<void>;
     envoyer: (texte: string) => Promise<void>;
-    /** « Go » : la direction est validée, le Verrouilleur puis le Rédacteur prennent la main. */
+    /**
+     * « Go » : la direction est validée, le Verrouilleur puis le Rédacteur
+     * prennent la main — sauf si le dernier message du Coach attend des
+     * réponses : elles sont d'abord rappelées (`rappel`).
+     */
     valider: () => Promise<void>;
+    /** Les questions du Coach qu'un « Go » vient de laisser sans réponse, ou `null`. */
+    rappel: string[] | null;
+    /** Florent répond d'abord : le rappel s'efface, le composeur reste au Coach. */
+    repondre: () => void;
+    /** Florent passe la main quand même : le brief les gardera en questions ouvertes. */
+    passerSansRepondre: () => Promise<void>;
     /** Ce que le Coach propose de répondre, au plus deux (SPEC §13.10). */
     reponsesRapides: string[];
     /** Le Coach dit que la direction tient : « Go » est mis en avant. */
@@ -40,6 +51,7 @@ export function useAtelier({
 }): Atelier {
     const [enCours, setEnCours] = useState(false);
     const [erreur, setErreur] = useState<string | null>(null);
+    const [rappel, setRappel] = useState<string[] | null>(null);
 
     const dernier = useMemo(
         () => [...session.messages].reverse().find(m => m.role === 'assistant') ?? null,
@@ -49,6 +61,7 @@ export function useAtelier({
     const tour = async (texte: string) => {
         if (!item || !texte.trim() || enCours) return;
         setErreur(null);
+        setRappel(null);
         setEnCours(true);
         // Le message de Florent part AVANT l'appel au Coach : s'il échoue, ce
         // qui a été tapé est déjà en sécurité (SPEC §2.7).
@@ -68,12 +81,29 @@ export function useAtelier({
         }
     };
 
+    const passerLaMain = async () => {
+        setRappel(null);
+        await onValider(validateSession(session));
+    };
+
+    // Le 25/10/2026, un « Go » a laissé sans réponse les deux questions du
+    // Coach, et le Rédacteur a écrit l'accroche sur une phrase qu'il n'avait
+    // proposée qu'en hypothèse (SPEC §13.10).
+    const valider = async () => {
+        const enSuspens = questionsEnSuspens(session.messages.filter(m => m.role === 'user' || m.role === 'assistant'));
+        if (enSuspens.length > 0) { setRappel(enSuspens); return; }
+        await passerLaMain();
+    };
+
     return {
         enCours,
         erreur,
         ouvrir: () => (item ? tour(buildCoachBrief(item, contexteSerie)) : Promise.resolve()),
-        envoyer: (texte) => (estUnGo(texte) ? Promise.resolve(onValider(validateSession(session))).then(() => {}) : tour(texte)),
-        valider: async () => { await onValider(validateSession(session)); },
+        envoyer: (texte) => (estUnGo(texte) ? valider() : tour(texte)),
+        valider,
+        rappel,
+        repondre: () => setRappel(null),
+        passerSansRepondre: passerLaMain,
         reponsesRapides: (dernier?.quickReplies ?? []).slice(0, 2),
         pretPourLeRedacteur: !!dernier?.readyForEditor,
     };

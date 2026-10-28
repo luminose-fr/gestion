@@ -22,7 +22,7 @@ import { Sidebar } from '../components/Layout/Sidebar';
 import { MobileSubTabs } from '../components/Layout/MobileSubTabs';
 import DocumentsView from '../components/Corpus/DocumentsView';
 import InboxView from '../components/Corpus/InboxView';
-import Markdown from '../components/Corpus/Markdown';
+import { Markdown } from '../components/ui';
 import * as Api from '../services/apiService';
 import { SETTINGS_SECTIONS } from '../components/Settings/sections';
 import { PERSONAS_NAV } from '../components/Settings/apercus';
@@ -577,6 +577,60 @@ describe('le fil (SPEC §13.10)', () => {
     fireEvent.click(getByText('Go, passe à l’Éditeur'));
     expect(envoyes).toEqual(['Le sac, en slide 2.']);
     expect(go).toBe(1);
+  });
+
+  /**
+   * La carte de la métaphore (28/10/2026) : le Coach la pose en tableau, le
+   * brief la garde, le Lecteur froid en dresse une à l'aveugle. Sans rendu,
+   * le tableau du Coach s'affichait en barres verticales.
+   */
+  const BRIEF = JSON.stringify({
+    metaphore: { carte: [{ element: 'La digue', realite: 'La retenue' }, { element: 'La vanne', realite: 'Laisser venir, à son rythme' }], hors_image: ['L’armure'] },
+    interdits: ['« La digue cède »'], questions_ouvertes: ['La phrase exacte entendue en séance.'],
+  });
+
+  it('le tableau du Coach s’affiche en tableau, et un atelier validé se relit par « Lire la trame »', () => {
+    const elements = composerLeFil({ sorte: 'video', atelierValide: true, generations: [], coach: [
+      { role: 'assistant', createdAt: now, content: '**Une seule image : la digue.**\n\n| Dans l’image | Ce que c’est, en vrai |\n| --- | --- |\n| La digue | La retenue |\n\n1. Humour.\n2. Pédagogie.' },
+    ] });
+    const { container, getByText } = render(<Fil elements={elements} zone={null} />);
+    fireEvent.click(getByText('Lire la trame'));
+    expect(container.querySelector('table')?.textContent).toContain('La retenue');
+    expect(container.textContent).not.toContain('| La digue |');
+    expect(container.textContent).toContain('2.Pédagogie.');
+  });
+
+  it('le brief se déplie sur sa carte et ses questions ouvertes ; la relecture compare la sienne', () => {
+    const elements = fil([
+      { id: 'b1', kind: 'brief', target: null, instruction: null, createdAt: now - 10, payload: BRIEF },
+      { id: 'c1', kind: 'cold_read', target: null, instruction: null, createdAt: now, payload: JSON.stringify({
+        verdict: 'Publiable', lecture_naive: { sujet: 'retenir', carte_percue: [{ element: 'la digue', represente: 'tout retenir' }] }, problemes: [],
+      }) },
+    ]);
+    const { container, getByText } = render(<Fil elements={elements} zone={null} />);
+    expect(container.textContent).toContain('Brief verrouillé : 1 interdit, 1 question ouverte.');
+    fireEvent.click(getByText('Lire le brief'));
+    expect(container.textContent).toContain('Hors de l’image : L’armure');
+    expect(container.textContent).toContain('La phrase exacte entendue en séance.');
+    fireEvent.click(getByText('Comparer la carte'));
+    const lignes = [...container.querySelectorAll('table')].pop()!.querySelectorAll('tbody tr');
+    expect(lignes[0].textContent).toBe('La digueLa retenuetout retenir');
+    expect(lignes[1].textContent).toContain('non relevé');
+  });
+
+  it('« Go » laissé sans réponse : les questions du Coach sont rappelées avant de passer la main', () => {
+    let passe = 0;
+    let repondu = 0;
+    const { container, getByText } = render(<Fil elements={[]} zone={{
+      type: 'composeur', destinataire: 'coach', onEnvoyer: noop,
+      reponses: [{ libelle: 'Go, passe à l’Éditeur', onChoisir: noop }],
+      rappel: { questions: ['Quelle phrase entendez-vous en séance ?'], onRepondre: () => { repondu += 1; }, onPasser: () => { passe += 1; } },
+    }} />);
+    expect(container.textContent).toContain('Le Coach attend encore votre réponse');
+    expect(container.textContent).not.toContain('Go, passe à l’Éditeur');
+    fireEvent.click(getByText('Passer au Rédacteur sans répondre'));
+    fireEvent.click(getByText('Répondre d’abord'));
+    expect([passe, repondu]).toEqual([1, 1]);
   });
 });
 
@@ -1647,6 +1701,17 @@ describe('Corpus — inbox', () => {
 });
 
 describe('Markdown', () => {
+  it('un message garde ses retours à la ligne et ses numéros ; un document rejoint ses lignes', () => {
+    const texte = 'Accroche face caméra\n« Je veux mieux contrôler mes émotions. »\n\n1. Humour.\n2. Pédagogie.';
+    const message = render(<Markdown texte={texte} variante="message" />);
+    expect(message.container.querySelectorAll('br')).toHaveLength(1);
+    expect(message.container.textContent).toContain('1.Humour.');
+    cleanup();
+    const document = render(<Markdown texte={texte} />);
+    expect(document.container.querySelectorAll('br')).toHaveLength(0);
+    expect(document.container.textContent).toContain('·Humour.');
+  });
+
   it('rend titres, gras, code, listes et tableaux', () => {
     const { container } = render(
       <Markdown texte={'# Titre\n\nUn **gras** et du `code`.\n\n- un\n- deux\n\n| A | B |\n| --- | --- |\n| 1 | 2 |'} />,

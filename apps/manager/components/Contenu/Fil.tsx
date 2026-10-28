@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { MessageCircle, Send } from 'lucide-react';
-import { jourCourt, type BulleDuFil, type ElementDuFil, type RoleDuFil } from '@luminose/editorial';
-import { Bouton, Champ } from '../ui';
+import { jourCourt, type BriefDuFil, type BulleDuFil, type ElementDuFil, type LigneConfrontee, type RoleDuFil } from '@luminose/editorial';
+import { Bouton, Champ, Etiquette, Markdown, Tableau } from '../ui';
 import { EnCours } from '../Feedback';
-import { renderMdText } from '../ContentEditor/renderers/shared';
 
 /**
  * Le fil d'un contenu (SPEC §13.10) : une conversation avec ses rôles, à côté
@@ -31,6 +30,8 @@ export interface ZoneComposeur {
     autre?: { libelle: string; onChoisir: () => void };
     desactive?: boolean;
     erreur?: string | null;
+    /** « Go » alors que le Coach attend des réponses : elles sont rappelées avant de passer la main. */
+    rappel?: { questions: string[]; onRepondre: () => void; onPasser: () => void };
 }
 
 export interface FilProps {
@@ -48,6 +49,55 @@ export interface FilProps {
 
 const RAYON_IA = 'rounded-[4px_14px_14px_14px]';
 const RAYON_VOUS = 'rounded-[14px_4px_14px_14px]';
+
+const LIEN = 'text-xs underline hover:no-underline text-brand-main/70 dark:text-dark-text/70 disabled:opacity-40';
+
+/** Ce qui se déplie dans une bulle : on le lit quand on le cherche, il ne masque pas le fil. */
+const Repli: React.FC<{ libelle: string; children: React.ReactNode }> = ({ libelle, children }) => {
+    const [ouvert, setOuvert] = useState(false);
+    return (
+        <>
+            <button type="button" onClick={() => setOuvert(o => !o)} className={LIEN}>{ouvert ? 'Replier' : libelle}</button>
+            {ouvert && <div className="space-y-3 pt-1">{children}</div>}
+        </>
+    );
+};
+
+const Liste: React.FC<{ items: string[] }> = ({ items }) => (
+    <ul className="list-disc pl-4 space-y-1">{items.map((t, i) => <li key={i}>{t}</li>)}</ul>
+);
+
+/**
+ * Le brief verrouillé, déplié : ce que le Rédacteur a reçu. Les questions
+ * ouvertes y sont en alerte — le Rédacteur a écrit sans leurs réponses.
+ */
+const DetailDuBrief: React.FC<{ brief: BriefDuFil }> = ({ brief }) => (
+    <Repli libelle="Lire le brief">
+        {brief.carte.length > 0 && (
+            <div className="space-y-1">
+                <Etiquette>La carte de la métaphore</Etiquette>
+                <Tableau entete={['Dans l’image', 'Ce que c’est, en vrai']} lignes={brief.carte.map(l => [l.element, l.realite])} />
+                {brief.horsImage.length > 0 && <p className="text-xs">Hors de l’image : {brief.horsImage.join(' ; ')}</p>}
+            </div>
+        )}
+        {brief.interdits.length > 0 && (
+            <div className="space-y-1"><Etiquette>Interdits</Etiquette><Liste items={brief.interdits} /></div>
+        )}
+        {brief.questions.length > 0 && (
+            <div className="space-y-1"><Etiquette ton="alerte">Questions ouvertes</Etiquette><Liste items={brief.questions} /></div>
+        )}
+    </Repli>
+);
+
+/** Une relecture, image par image : ce que l'auteur voulait dire, ce qu'un inconnu a compris. */
+const CarteLue: React.FC<{ lignes: LigneConfrontee[] }> = ({ lignes }) => (
+    <Repli libelle="Comparer la carte">
+        <Tableau
+            entete={['Dans l’image', 'Voulu', 'Compris']}
+            lignes={lignes.map(l => [l.element, l.voulu ?? '—', l.compris ?? 'non relevé'])}
+        />
+    </Repli>
+);
 
 const Bulle: React.FC<{
     b: BulleDuFil;
@@ -77,12 +127,12 @@ const Bulle: React.FC<{
             <span className="text-xs font-bold text-brand-main/70 dark:text-dark-text/70">{b.role} · {jourCourt(b.le)}</span>
             <div className={`max-w-[88%] ${RAYON_IA} border ${bordure} bg-white dark:bg-dark-surface px-4 py-2 text-sm leading-[22px] text-brand-main dark:text-dark-text space-y-2`}>
                 {b.verdict && <p className={`font-bold ${sens}`}>{b.verdict}.</p>}
-                {b.texte && <div className="whitespace-pre-wrap">{b.role === 'Coach' ? renderMdText(b.texte) : b.texte}</div>}
-                {b.points && b.points.length > 0 && (
-                    <ul className="list-disc pl-4 space-y-1">
-                        {b.points.map((p, i) => <li key={i}>{p}</li>)}
-                    </ul>
-                )}
+                {b.texte && (b.role === 'Coach'
+                    ? <Markdown texte={b.texte} variante="message" />
+                    : <div className="whitespace-pre-wrap">{b.texte}</div>)}
+                {b.points && b.points.length > 0 && <Liste items={b.points} />}
+                {b.brief && <DetailDuBrief brief={b.brief} />}
+                {b.carte && b.carte.length > 0 && <CarteLue lignes={b.carte} />}
                 {(peutAppliquer || peutCorriger) && (
                     <div className="flex items-center gap-3 pt-1">
                         <Bouton taille="petit" intention="principale" disabled={occupe}
@@ -95,7 +145,7 @@ const Bulle: React.FC<{
                 {/* « 16 oct. » porte déjà son point ; « 3 mai », non. */}
                 {b.appliqueeLe && <p className="text-xs text-brand-main/60 dark:text-dark-text/60">Appliquées le {jourCourt(b.appliqueeLe).replace(/\.?$/, '.')}</p>}
                 {b.revenirPossible && onRevenir && (
-                    <button type="button" onClick={onRevenir} disabled={occupe} className="text-xs underline hover:no-underline text-brand-main/70 dark:text-dark-text/70 disabled:opacity-40">
+                    <button type="button" onClick={onRevenir} disabled={occupe} className={`block ${LIEN}`}>
                         Revenir à la version précédente
                     </button>
                 )}
@@ -130,7 +180,20 @@ const Composeur: React.FC<{ zone: ZoneComposeur }> = ({ zone }) => {
                     <> · <button type="button" onClick={zone.autre.onChoisir} className="underline hover:no-underline">{zone.autre.libelle}</button></>
                 )}
             </p>
-            {zone.reponses && zone.reponses.length > 0 && (
+            {zone.rappel && (
+                <div role="alert" className="rounded-lg border border-alerte/30 bg-alerte/10 p-3 space-y-2 text-xs text-brand-main dark:text-dark-text">
+                    <p className="font-bold text-alerte">
+                        Le Coach attend encore {zone.rappel.questions.length > 1 ? 'vos réponses' : 'votre réponse'} :
+                    </p>
+                    <Liste items={zone.rappel.questions} />
+                    <p>Sans elles, le Rédacteur écrira sans cette matière.</p>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                        <Bouton taille="petit" intention="secondaire" onClick={zone.rappel.onRepondre}>Répondre d’abord</Bouton>
+                        <Bouton taille="petit" intention="discrete" disabled={zone.desactive} onClick={zone.rappel.onPasser}>Passer au Rédacteur sans répondre</Bouton>
+                    </div>
+                </div>
+            )}
+            {zone.reponses && zone.reponses.length > 0 && !zone.rappel && (
                 <div className="flex flex-wrap gap-2">
                     {zone.reponses.map(r => (
                         <button key={r.libelle} type="button" onClick={r.onChoisir} disabled={zone.desactive}
@@ -187,7 +250,7 @@ export const Fil: React.FC<FilProps> = ({ elements, attente, zone, onAppliquer, 
                         <div key={e.id} className="space-y-4">
                             <div className="h-10 flex items-center gap-3 px-4 rounded-lg border border-dashed border-brand-border dark:border-dark-sec-border text-xs text-brand-main/70 dark:text-dark-text/70">
                                 <span className="flex-1">Atelier · {e.messages} message{e.messages > 1 ? 's' : ''} · validé</span>
-                                <button type="button" onClick={() => setDeplie(d => !d)} className="underline hover:no-underline">{deplie ? 'Replier' : 'Déplier'}</button>
+                                <button type="button" onClick={() => setDeplie(d => !d)} className="underline hover:no-underline">{deplie ? 'Replier' : 'Lire la trame'}</button>
                             </div>
                             {deplie && e.bulles.map(bulle)}
                         </div>

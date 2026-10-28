@@ -1,4 +1,4 @@
-# SPEC v2.23 — gestion.luminose.fr
+# SPEC v2.24 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -95,6 +95,12 @@
 > **v2.23 (28/10/2026)** : l'étape d'une vidéo se met à jour dès qu'un export, un dépôt ou une
 > transcription aboutit, et non plus au rechargement de la page (§13.6). Les fichiers
 > exportés portent le titre du contenu (§12.4.1).
+> **v2.24 (28/10/2026)** : la carte de la métaphore. Le Coach pose la métaphore en tableau
+> — dans l'image, ce que c'est en vrai —, le brief la recopie, elle fait loi pour le
+> Rédacteur, et le Lecteur froid en dresse une à l'aveugle que le fil met en face
+> (§13.14). Le brief se déplie dans le fil, un « Go » rappelle les questions du Coach
+> restées sans réponse, et un atelier replié se relit par « Lire la trame » (§13.10). Les
+> règles de voix précisent qu'un terme clinique se dit en clair, hors de l'image.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -2361,10 +2367,17 @@ contenu.
 - **L'analyse ouvre le fil** : objectif, plateformes, angle, métaphore, et « ce qui
   manque » quand l'Analyste ne trouvait pas l'idée prête — sans son verdict (§13.8).
 - **Un atelier validé se replie** en une ligne pointillée, « Atelier · 6 messages ·
-  validé », qui se déplie.
+  validé », qui se relit par « Lire la trame » (v2.24 : « Déplier » ne disait pas que la
+  trame du Coach était là). Un message du Coach se lit en markdown — gras, listes
+  numérotées, et le tableau de la carte de la métaphore (§13.14).
+- **Le brief verrouillé** dit ce qu'il retient — « 4 interdits, 2 questions ouvertes » —
+  et se déplie, « Lire le brief », sur la carte de la métaphore, les images écartées, les
+  interdits et les questions ouvertes. Des questions ouvertes mettent la bulle en
+  alerte : le Rédacteur écrit sans leurs réponses.
 - **Une relecture** dit son verdict, ce qu'un inconnu a compris, et ses points. La
   dernière, si elle juge le texte d'aujourd'hui, porte « Appliquer les corrections » et
-  « Ignorer » ; appliquée, elle porte sa date.
+  « Ignorer » ; appliquée, elle porte sa date. Quand le Lecteur froid a lu les images,
+  « Comparer la carte » met sa lecture en face de la carte du brief (§13.14).
 - **Le contrôle du format** d'une vidéo parle en dernier, avec « Corriger ».
 - La dernière écriture du brouillon ou des slides porte **« Revenir à la version
   précédente »** — par le journal, qui ajoute une ligne (§3.2.2).
@@ -2375,7 +2388,9 @@ contenu.
 préparée. Ouvrir l'atelier ou rédiger sans lui **fait passer une idée en Brouillon** :
 elle quitte Idées pour Conversations. Ensuite, **le composeur, à deux destinataires** :
 « Au Coach · « Go » valide la direction » avant le brouillon, « Au Rédacteur · un message
-= un ajustement » après. « Go », seul, valide ; deux réponses rapides au plus (« Go, passe
+= un ajustement » après. « Go », seul, valide — sauf si le dernier message du Coach pose des questions : « Go » les
+rappelle d'abord, avec « Répondre d'abord » et « Passer au Rédacteur sans répondre »
+(`questionsEnSuspens`, `atelier.ts` ; v2.24) ; deux réponses rapides au plus (« Go, passe
 à l'Éditeur » après deux tours, ou ce que le Coach propose). « Parler au Coach » rouvre
 l'atelier (§2.7) ; « Réinitialiser l'atelier », dans le « ⋯ » de l'Atelier, se confirme.
 
@@ -2457,6 +2472,35 @@ vidéo a été exportée, et le studio — Remotion compris — ne se charge mê
 **Le thème sombre** décline les écrans avec les jetons `dark-*` existants ; le fil prend
 `dark-bg`, le survol `dark-sec-bg`, et la scène du studio reste `dark-bg` dans les deux
 thèmes.
+
+### 13.14 La carte de la métaphore (v2.24) — NORMATIF
+
+**Pourquoi.** Le 28/10/2026, un Reel sur la retenue des émotions était confus de bout en
+bout : on ne savait pas ce que représentaient la digue, l'eau, les fuites ni le
+sparadrap. Le Coach avait glissé une amygdale « derrière la digue » et rangé parmi les
+fuites ce qui était un pansement ; le Verrouilleur avait pris pour « matière validée »
+une phrase de patient que le Coach n'avait proposée qu'en hypothèse ; le Rédacteur a
+suivi ; le Lecteur froid a dit « Publiable », parce qu'il comptait les métaphores sans
+vérifier qu'elles se lisaient. Aucun rôle ne tenait la correspondance entre l'image et
+la réalité. La carte la tient.
+
+**Où elle passe.**
+
+| Rôle | Ce qu'il fait de la carte |
+| :--- | :--- |
+| Coach | la pose dès le premier tour, en tableau markdown, 4 à 8 lignes — *dans l'image* / *ce que c'est, en vrai* —, avec « Hors de l'image : … » ; la repose entière à chaque correction |
+| Verrouilleur | recopie la dernière dans le brief : `metaphore.carte` (`{ element, realite }[]`) et `metaphore.hors_image` ; sans tableau, la reconstitue de la structure validée, et ce dont le sens n'a jamais été dit va en question ouverte |
+| Rédacteur | la suit : aucun élément hors carte, un élément garde son sens du premier mot au CTA, rien de `hors_image` |
+| Lecteur froid | ne la voit pas ; il rend `lecture_naive.carte_percue` (`{ element, represente }[]`) — ce que chaque image représente pour lui — et signale une image illisible ou qui change de sens |
+| Le fil | met les deux face à face (`confronterLesCartes`, `metaphore.ts`), dans l'ordre de la carte : un élément non relevé reste visible, une image que la carte ignore vient en fin |
+
+L'appariement se fait sur les mots, pas sur le sens : c'est Florent qui lit l'écart. Un
+brief ou une relecture d'avant la v2.24 n'a pas de carte, et le fil n'en montre pas.
+
+**Les phrases prêtées.** Le Coach ne prête plus à Florent ni à ses patients une phrase
+qu'il n'a pas reçue : il la propose « (à confirmer) » et demande la vraie. Le Verrouilleur
+ne range une telle phrase en matière validée que si Florent l'a confirmée, et sait que le
+premier message « user » — « TITRE : … » — est composé par l'outil.
 
 ### Phasage de la refonte — NORMATIF
 

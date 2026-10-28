@@ -16,8 +16,7 @@ import {
   fetchDeploiement, lancerDeploiement,
   type DocumentCorpus, type DocumentListe, type EtatDeploiement,
 } from '../../services/apiService';
-import Markdown from './Markdown';
-import { Bouton, Champ } from '../ui';
+import { Bouton, Champ, Markdown } from '../ui';
 
 /**
  * Le fichier, ouvert dans l'éditeur web de GitHub.
