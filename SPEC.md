@@ -90,7 +90,8 @@
 > toujours en ligne.
 > **v2.22 (27/10/2026)** : l'export dans Safari. Son encodeur H.264 ne rend aucune image
 > dans le mode que Remotion impose, et l'export restait à 0 % ; une sonde le repère au
-> premier export, et l'encodage passe alors en temps réel (§12.4.1).
+> premier export, et l'encodage passe alors en temps réel (§12.4.1). « Annuler » rend la
+> main même à un rendu figé, et un rendu sans image depuis une minute s'arrête en le disant.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1550,6 +1551,15 @@ main et encode en temps réel. La sonde vise le défaut et non le navigateur : C
 rend ses cinq images en une centaine de millisecondes, garde le chemin de Mediabunny, et
 un Safari corrigé le retrouvera de lui-même. Le réglage par quantificateur, que Safari ne
 connaît pas, passe son tour.
+
+**Un rendu figé rend la main** (`veille.ts`). Remotion ne regarde le signal d'annulation
+qu'entre deux étapes : figé DANS l'encodeur, il ne le voyait jamais, et « Annuler » restait
+sans effet. L'annulation rend désormais la main tout de suite, et un rendu qui n'a pas
+avancé d'une image depuis **une minute** s'arrête sur « il ne progresse plus depuis une
+minute. Rechargez la page pour le relancer » — Remotion abandonne de lui-même, au bout de
+trente secondes, une image qui tarde à se charger. Rien n'interrompt de l'extérieur un
+rendu figé, et Remotion n'en mène qu'un à la fois : le suivant attendrait derrière lui,
+d'où le rechargement.
 
 **Les visuels déposés sont rangés chez Cloudflare** (§12.4.2), une ligne par (contenu,
 séquence, élément), avec la description à laquelle l'image répondait. Le storyboard
