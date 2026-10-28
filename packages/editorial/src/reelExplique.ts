@@ -11,27 +11,78 @@
 // ── La forme ─────────────────────────────────────────────────────────
 
 export type PlanReel = 'camera' | 'scene';
-export type TypeElement = 'carte' | 'pastille' | 'liaison';
 export type TonElement = 'ombre' | 'lumiere' | 'neutre';
-export type TailleCarte = 'petite' | 'moyenne' | 'grande';
 export type RegistreScene = 'pedagogie' | 'humour';
+/** Avant le 28/10/2026 (v2.26), les cartes d'une scène s'empilaient. Lus encore, plus écrits. */
+export type TypeElement = 'carte' | 'pastille' | 'liaison';
+export type TailleCarte = 'petite' | 'moyenne' | 'grande';
 export type NatureVisuel = 'illustration' | 'schema';
 
-export interface VisuelCarte {
+/**
+ * L'illustration de la métaphore (SPEC §12.3, v2.26) : une scène figurative,
+ * décrite par le Rédacteur, une seule par Reel — deux au plus quand la métaphore
+ * se transforme (la digue qui fuit, puis la vanne et le bassin). Chaque écran la
+ * montre au cadrage qu'il lui faut. Elle se produit une fois, pas carte par carte.
+ */
+export interface IllustrationReel {
+    id: string;
+    /** Ce que l'image montre, et OÙ — l'écran zoomera sur la partie dite. */
+    description: string;
+    /** L'autre illustration dont celle-ci est la suite : la même scène, transformée. */
+    depuis?: string | null;
+}
+
+export type CadrageIllustration = 'ensemble' | 'haut' | 'bas' | 'gauche' | 'droite' | 'centre';
+export const CADRAGES: readonly CadrageIllustration[] = ['ensemble', 'haut', 'bas', 'gauche', 'droite', 'centre'];
+
+/** Un schéma que l'outil dessine et anime lui-même : rien à produire, rien à déposer. */
+export type SchemaEcran =
+    | { schema: 'niveau'; de: number; a: number }
+    | { schema: 'compteur'; valeur: number; unite?: string | null }
+    | { schema: 'opposition'; gauche: string; droite: string }
+    | { schema: 'liste'; items: string[]; barres?: boolean }
+    | { schema: 'enchainement'; de: string; vers: string };
+export type MotifSchema = SchemaEcran['schema'];
+export const MOTIFS: readonly MotifSchema[] = ['niveau', 'compteur', 'opposition', 'liste', 'enchainement'];
+
+/** Un visuel décrit carte par carte, que Florent produisait et déposait — la forme d'avant la v2.26. */
+export interface VisuelDecrit {
     nature: NatureVisuel;
     /** Ce que l'image montre, en français. Florent la produit : ce n'est pas un prompt. */
     description: string;
 }
+export interface VisuelIllustre { illustration: string; cadrage?: CadrageIllustration | null }
+export type VisuelCarte = VisuelDecrit | VisuelIllustre | SchemaEcran;
 
+const objet = (v: unknown): Record<string, any> | null => (v && typeof v === 'object' ? v as Record<string, any> : null);
+export const schemaDe = (v: unknown): SchemaEcran | null => {
+    const o = objet(v);
+    return o && typeof o.schema === 'string' ? o as SchemaEcran : null;
+};
+export const illustrationDe = (v: unknown): VisuelIllustre | null => {
+    const o = objet(v);
+    return o && typeof o.illustration === 'string' ? o as VisuelIllustre : null;
+};
+export const visuelDecrit = (v: unknown): VisuelDecrit | null => {
+    const o = objet(v);
+    return o && !schemaDe(o) && !illustrationDe(o) && typeof o.description === 'string' ? o as VisuelDecrit : null;
+};
+
+/**
+ * Un écran de scène (v2.26) : une chose à la fois, qui remplace la précédente —
+ * un visuel en grand, de un à quatre mots, sur le fond de son ton. Décision de
+ * Florent, le 28/10/2026, après la première vidéo exportée : « beaucoup trop
+ * d'infos, donc pas percutant ».
+ */
 export interface ElementScene {
-    type: TypeElement;
     texte?: string | null;
-    detail?: string | null;
     ton?: TonElement;
-    taille?: TailleCarte;
     visuel?: VisuelCarte | null;
-    /** Les mots de la voix sur lesquels l'élément apparaît, recopiés à l'identique. */
+    /** Les mots de la voix sur lesquels l'écran apparaît, recopiés à l'identique. */
     apparait_sur: string;
+    type?: TypeElement;
+    detail?: string | null;
+    taille?: TailleCarte;
 }
 
 /**
@@ -51,8 +102,10 @@ export interface SequenceReel {
     /** Tout ce qui se dit pendant la séquence, scène comprise. */
     voix: string;
     intention?: string | null;
+    /** Avant la v2.26, une scène avait un titre. Il ne s'affiche plus. */
     titre?: string | null;
     registre?: RegistreScene;
+    /** Les écrans d'une scène, dans l'ordre où ils se succèdent. */
     elements?: ElementScene[];
     /** Sur un passage face caméra seulement, ni le premier ni le dernier. */
     coup?: CoupDePoing | null;
@@ -60,6 +113,7 @@ export interface SequenceReel {
 
 export interface ReelExplique {
     format: string;
+    illustrations?: IllustrationReel[] | null;
     sequences: SequenceReel[];
     accroche_pub?: { voix: string; intention?: string | null } | null;
     legende?: { texte?: string; cta?: string; hashtags?: string[] } | null;
@@ -73,17 +127,37 @@ export interface ReelExplique {
 export const estReelExplique = (data: unknown): data is ReelExplique =>
     !!data && typeof data === 'object' && Array.isArray((data as any).sequences);
 
+/**
+ * Où se rangent les images des illustrations parmi les visuels du montage
+ * (`montage_visuels`, une ligne par séquence et élément) : une séquence qui
+ * n'existe pas, et leur rang dans `illustrations` pour élément.
+ */
+export const SEQUENCE_DES_ILLUSTRATIONS = -1;
+
+/** Les illustrations d'un Reel, sans celles qui n'ont ni nom ni description. */
+export const illustrationsDuReel = (data: ReelExplique | null | undefined): IllustrationReel[] =>
+    (Array.isArray(data?.illustrations) ? data!.illustrations! : [])
+        .filter(i => typeof i?.id === 'string' && i.id.trim() && typeof i?.description === 'string' && i.description.trim());
+
 // ── Les limites — NORMATIF (SPEC §12.3) ─────────────────────────────
 
 export const LIMITES_REEL = {
-    titre: 32,
-    carte: 30,
-    detail: 45,
-    pastille: 30,
-    liaison: 10,
-    elementsParScene: 4,
-    scenesMin: 2,
-    scenesMax: 4,
+    /** Un écran se lit d'un coup d'œil : quatre mots. */
+    ecranMots: 4,
+    ecranCaracteres: 28,
+    /** Un libellé de schéma — un côté d'une opposition, une ligne de liste. */
+    schemaMots: 3,
+    listeItems: 3,
+    elementsParScene: 3,
+    /** Une scène dure six secondes au plus : seize mots à 150 mots par minute. */
+    sceneMots: 16,
+    /** Entre deux écrans, de quoi lire le premier : quatre mots, un peu plus d'une seconde et demie. */
+    ecartMots: 4,
+    /** Le premier écran arrive avec la scène : son repère est dans ses premiers mots. */
+    premierEcran: 2,
+    illustrations: 2,
+    scenesMin: 3,
+    scenesMax: 7,
     accrocheMots: 15,
     dureeMinSecondes: 45,
     dureeMaxSecondes: 90,
@@ -288,6 +362,38 @@ export function minuterReel(data: ReelExplique, horloge: Horloge): MinutageReel 
     return { duree: horloge(total), sequences: minutees };
 }
 
+/**
+ * Quand arrivent les lignes d'une liste, en secondes depuis l'arrivée de son
+ * écran : au fil de l'écran, comme une énumération se dit — réparties sur ses
+ * trois premiers quarts, entre 0,4 et 1,5 s d'écart. Le rendu les pose là, et
+ * le contrôle du rythme les compte comme autant de changements.
+ */
+export function arriveesDeLaListe(lignes: number, duree: number): number[] {
+    const pas = Math.min(1.5, Math.max(0.4, (duree * 0.75) / Math.max(1, lignes)));
+    return Array.from({ length: Math.max(0, lignes) }, (_, k) => k * pas);
+}
+
+/**
+ * Quand chaque écran d'une scène prend la place du précédent, en secondes depuis
+ * le début de la scène (v2.26). Le premier arrive avec la scène ; un repère
+ * introuvable prend sa place à égale distance de ses voisins ; un écran ne
+ * revient jamais en arrière.
+ */
+export function debutsDesEcrans(apparitions: Array<number | null>, duree: number): number[] {
+    const debuts = apparitions.map((a, i) => (i === 0 ? 0 : a));
+    for (let i = 1; i < debuts.length; i++) {
+        if (debuts[i] !== null) continue;
+        let k = i;
+        while (k < debuts.length && debuts[k] === null) k++;
+        const avant = debuts[i - 1]!;
+        const apres = k < debuts.length ? debuts[k]! : duree;
+        for (let x = i; x < k; x++) debuts[x] = avant + ((apres - avant) * (x - i + 1)) / (k - i + 1);
+    }
+    const resultat = debuts as number[];
+    for (let i = 1; i < resultat.length; i++) resultat[i] = Math.max(resultat[i], resultat[i - 1]);
+    return resultat;
+}
+
 // ── Les contrôles — NORMATIF (SPEC §12.3) ───────────────────────────
 
 export interface ProblemeReel {
@@ -296,14 +402,40 @@ export interface ProblemeReel {
     probleme: string;
 }
 
-const LIMITE_PAR_TYPE: Record<TypeElement, number> = {
-    carte: LIMITES_REEL.carte,
-    pastille: LIMITES_REEL.pastille,
-    liaison: LIMITES_REEL.liaison,
-};
-
 const trop = (texte: string, max: number) =>
     `${texte.length} caractères (max ${max}) : « ${texte} »`;
+
+/** Ce qu'un schéma a de travers — ses libellés comptent comme du texte d'écran. */
+function problemesDuSchema(schema: SchemaEcran): string[] {
+    const libelle = (texte: unknown, nom: string): string[] => {
+        const vu = texteAffiche(typeof texte === 'string' ? texte : '');
+        if (!vu) return [`${nom} vide`];
+        const mots = compterMots(vu);
+        return mots > LIMITES_REEL.schemaMots ? [`${nom} : ${mots} mots (max ${LIMITES_REEL.schemaMots}) : « ${vu} »`] : [];
+    };
+    const pourcent = (n: unknown) => typeof n === 'number' && n >= 0 && n <= 100;
+    switch (schema.schema) {
+        case 'niveau':
+            return pourcent(schema.de) && pourcent(schema.a) && schema.de !== schema.a ? []
+                : ['niveau : "de" et "a" sont deux nombres différents, de 0 à 100'];
+        case 'compteur':
+            return [
+                ...(typeof schema.valeur === 'number' && Number.isFinite(schema.valeur) ? [] : ['compteur : "valeur" est un nombre']),
+                ...(schema.unite ? libelle(schema.unite, 'unité') : []),
+            ];
+        case 'opposition':
+            return [...libelle(schema.gauche, 'opposition, côté gauche'), ...libelle(schema.droite, 'opposition, côté droit')];
+        case 'enchainement':
+            return [...libelle(schema.de, 'enchaînement, départ'), ...libelle(schema.vers, 'enchaînement, arrivée')];
+        case 'liste': {
+            const items = Array.isArray(schema.items) ? schema.items : [];
+            if (items.length < 2 || items.length > LIMITES_REEL.listeItems) return [`liste : ${items.length} ligne(s) (attendu : 2 à ${LIMITES_REEL.listeItems})`];
+            return items.flatMap((item, k) => libelle(item, `liste, ligne ${k + 1}`));
+        }
+        default:
+            return [`schéma inconnu « ${String((schema as any).schema)} » (attendu : ${MOTIFS.join(', ')})`];
+    }
+}
 
 /**
  * Ce qui se compte dans un Reel expliqué, sans appel réseau. Une liste vide
@@ -317,6 +449,7 @@ export function verifierReelExplique(data: unknown): ProblemeReel[] {
 
     const problemes: ProblemeReel[] = [];
     const sequences = data.sequences;
+    const ids = new Set(illustrationsDuReel(data).map(i => i.id));
 
     if (sequences[0]?.plan !== 'camera') {
         problemes.push({ ou: 'séquence 1', probleme: 'la vidéo doit s\'ouvrir face caméra (plan "camera")' });
@@ -341,40 +474,56 @@ export function verifierReelExplique(data: unknown): ProblemeReel[] {
         if (!sequence.voix?.trim()) problemes.push({ ou, probleme: 'voix vide : chaque séquence se dit' });
         if (sequence.plan !== 'scene') return;
 
-        const titre = texteAffiche(sequence.titre);
-        if (!titre) problemes.push({ ou, probleme: 'scène sans titre' });
-        else if (titre.length > LIMITES_REEL.titre) problemes.push({ ou: `${ou}, titre`, probleme: trop(titre, LIMITES_REEL.titre) });
-
         const elements = sequence.elements ?? [];
         if (elements.length === 0 || elements.length > LIMITES_REEL.elementsParScene) {
-            problemes.push({ ou, probleme: `${elements.length} élément(s) (attendu : 1 à ${LIMITES_REEL.elementsParScene})` });
+            problemes.push({ ou, probleme: `${elements.length} écran(s) (attendu : 1 à ${LIMITES_REEL.elementsParScene})` });
         }
-        if (elements.filter(e => e.taille === 'grande').length > 1) {
-            problemes.push({ ou, probleme: 'plus d\'une grande carte : le cadre vertical n\'en tient qu\'une' });
+        const motsDeLaScene = compterMots(sequence.voix);
+        if (motsDeLaScene > LIMITES_REEL.sceneMots) {
+            problemes.push({ ou, probleme: `${motsDeLaScene} mots de voix (max ${LIMITES_REEL.sceneMots}) : une scène dure six secondes au plus, le visage revient entre deux` });
         }
 
         const positions = positionsDesReperes(sequence);
         elements.forEach((element, j) => {
-            const ouElement = `${ou}, élément ${j + 1}`;
-            const max = LIMITE_PAR_TYPE[element.type];
-            if (max === undefined) {
-                problemes.push({ ou: ouElement, probleme: `type inconnu « ${String(element.type)} » (attendu : carte, pastille ou liaison)` });
-                return;
-            }
+            const ouElement = `${ou}, écran ${j + 1}`;
             const texte = texteAffiche(element.texte);
-            const visuel = element.type === 'carte' && element.visuel ? element.visuel : null;
-            if (!texte && !visuel) problemes.push({ ou: ouElement, probleme: 'élément vide : ni texte ni visuel' });
-            if (texte.length > max) problemes.push({ ou: ouElement, probleme: trop(texte, max) });
-            const detail = texteAffiche(element.detail);
-            if (detail.length > LIMITES_REEL.detail) problemes.push({ ou: `${ouElement}, détail`, probleme: trop(detail, LIMITES_REEL.detail) });
-            if (visuel && !visuel.description?.trim()) problemes.push({ ou: ouElement, probleme: 'visuel sans description : Florent ne saura pas quoi produire' });
+            if (!texte && !element.visuel) problemes.push({ ou: ouElement, probleme: 'écran vide : ni texte ni visuel' });
+            if (compterMots(texte) > LIMITES_REEL.ecranMots) problemes.push({ ou: ouElement, probleme: `${compterMots(texte)} mots (max ${LIMITES_REEL.ecranMots}) : « ${texte} »` });
+            else if (texte.length > LIMITES_REEL.ecranCaracteres) problemes.push({ ou: ouElement, probleme: trop(texte, LIMITES_REEL.ecranCaracteres) });
+
+            const schema = schemaDe(element.visuel);
+            const illustre = illustrationDe(element.visuel);
+            const decrit = visuelDecrit(element.visuel);
+            if (schema) problemesDuSchema(schema).forEach(probleme => problemes.push({ ou: ouElement, probleme }));
+            else if (illustre) {
+                if (!ids.has(illustre.illustration)) problemes.push({ ou: ouElement, probleme: `illustration « ${illustre.illustration} » inconnue (attendu : ${[...ids].map(x => `« ${x} »`).join(' ou ') || 'aucune n\'est décrite dans "illustrations"'})` });
+                if (illustre.cadrage && !CADRAGES.includes(illustre.cadrage)) problemes.push({ ou: ouElement, probleme: `cadrage « ${illustre.cadrage} » inconnu (attendu : ${CADRAGES.join(', ')})` });
+            } else if (element.visuel && !decrit?.description?.trim()) {
+                problemes.push({ ou: ouElement, probleme: 'visuel illisible : ni "illustration", ni "schema"' });
+            }
 
             if (!element.apparait_sur?.trim()) {
-                problemes.push({ ou: ouElement, probleme: 'repère "apparait_sur" absent : l\'élément n\'a pas de moment où apparaître' });
+                problemes.push({ ou: ouElement, probleme: 'repère "apparait_sur" absent : l\'écran n\'a pas de moment où apparaître' });
             } else if (positions[j] === null) {
                 problemes.push({ ou: ouElement, probleme: `repère « ${element.apparait_sur} » introuvable dans la voix de la séquence (ou placé avant le repère précédent) — il doit en être recopié à l'identique` });
+            } else if (j === 0 && positions[j]! > LIMITES_REEL.premierEcran) {
+                problemes.push({ ou: ouElement, probleme: `le premier écran arrive avec la scène : son repère doit être dans les ${LIMITES_REEL.premierEcran + 1} premiers mots de la voix` });
+            } else if (j > 0 && positions[j - 1] !== null && positions[j]! - positions[j - 1]! < LIMITES_REEL.ecartMots) {
+                problemes.push({ ou: ouElement, probleme: `${positions[j]! - positions[j - 1]!} mot(s) après l'écran précédent (min ${LIMITES_REEL.ecartMots}) : le précédent n'aurait pas le temps d'être lu` });
             }
         });
+    });
+
+    // Les illustrations du Reel : deux au plus, chacune montrée au moins une fois.
+    const illustrations = illustrationsDuReel(data);
+    if (illustrations.length > LIMITES_REEL.illustrations) {
+        problemes.push({ ou: 'illustrations', probleme: `${illustrations.length} illustrations (max ${LIMITES_REEL.illustrations}) : une scène de la métaphore, et au plus son autre état` });
+    }
+    const montrees = new Set(sequences.flatMap(s => (s.plan === 'scene' ? s.elements ?? [] : []).map(e => illustrationDe(e.visuel)?.illustration)));
+    illustrations.forEach(ill => {
+        const ou = `illustration « ${ill.id} »`;
+        if (!montrees.has(ill.id)) problemes.push({ ou, probleme: 'aucun écran ne la montre : elle serait produite pour rien' });
+        if (ill.depuis && (ill.depuis === ill.id || !ids.has(ill.depuis))) problemes.push({ ou, probleme: `"depuis" désigne « ${ill.depuis} », qui n'est pas l'autre illustration` });
     });
 
     const coups = sequences.flatMap((s, i) => s.coup ? [i] : []);
@@ -425,13 +574,37 @@ export function reelToPlainText(data: ReelExplique): string {
     return out.filter(Boolean).join(' ');
 }
 
-const decrireElement = (e: ElementScene): string => {
-    const nature = e.type === 'carte' ? 'Carte' : e.type === 'pastille' ? 'Pastille' : 'Liaison';
-    const qualites = [e.taille, e.ton].filter(Boolean).join(', ');
-    const parties = [t(e.texte), t(e.detail)].filter(Boolean).join(' — ');
-    const visuel = e.visuel?.description ? ` [${e.visuel.nature === 'schema' ? 'schéma' : 'illustration'} : ${t(e.visuel.description)}]` : '';
+/** Ce que montre un visuel, en clair : ce qu'on lit au tournage et ce que reçoit le Lecteur froid. */
+export function visuelEnClair(visuel: unknown): string | null {
+    const schema = schemaDe(visuel);
+    if (schema) {
+        switch (schema.schema) {
+            case 'niveau': return `schéma : un niveau qui ${schema.a > schema.de ? 'monte' : 'descend'} de ${schema.de} à ${schema.a} %`;
+            case 'compteur': return `schéma : un compteur jusqu'à ${schema.valeur}${schema.unite ? ` ${texteAffiche(schema.unite)}` : ''}`;
+            case 'opposition': return `schéma : « ${texteAffiche(schema.gauche)} » contre « ${texteAffiche(schema.droite)} »`;
+            case 'enchainement': return `schéma : « ${texteAffiche(schema.de)} » mène à « ${texteAffiche(schema.vers)} »`;
+            case 'liste': return `schéma : ${(schema.items ?? []).map(x => `« ${texteAffiche(x)} »`).join(', ')}${schema.barres ? ', barrés un à un' : ''}`;
+            default: return 'schéma inconnu';
+        }
+    }
+    const illustre = illustrationDe(visuel);
+    if (illustre) {
+        const cadrage = illustre.cadrage && illustre.cadrage !== 'ensemble' ? `, cadrée ${illustre.cadrage === 'centre' ? 'au centre' : `en ${illustre.cadrage}`}` : '';
+        return `illustration « ${illustre.illustration} »${cadrage}`;
+    }
+    const decrit = visuelDecrit(visuel);
+    return decrit ? `${decrit.nature === 'schema' ? 'schéma' : 'illustration'} : ${t(decrit.description)}` : null;
+}
+
+/** Un écran, en une ligne : ses mots, puis ce qu'il montre. */
+export const ecranEnClair = (e: ElementScene): string =>
+    [texteAffiche(e.texte) ? `« ${texteAffiche(e.texte)} »` : null, visuelEnClair(e.visuel)].filter(Boolean).join(' — ') || '(écran vide)';
+
+const decrireElement = (e: ElementScene, j: number): string => {
+    const parties = [t(e.texte) ? `« ${t(e.texte)} »` : null, t(e.detail) || null, visuelEnClair(e.visuel), e.ton ? `fond ${e.ton === 'lumiere' ? 'lumière' : e.ton}` : null]
+        .filter(Boolean).join(' — ');
     const repere = t(e.apparait_sur) ? ` — apparaît sur « ${t(e.apparait_sur)} »` : '';
-    return `- ${nature}${qualites ? ` (${qualites})` : ''} : ${parties || '(sans texte)'}${visuel}${repere}`;
+    return `- Écran ${j + 1} : ${parties || '(vide)'}${repere}`;
 };
 
 /**
@@ -440,14 +613,16 @@ const decrireElement = (e: ElementScene): string => {
  */
 export function reelToMarkdown(data: ReelExplique): string {
     const out: string[] = [];
+    const illustrations = illustrationsDuReel(data);
+    if (illustrations.length) {
+        out.push(`**Illustrations de la métaphore**\n${illustrations.map(i =>
+            `- « ${i.id} »${i.depuis ? ` (la même scène que « ${i.depuis} », transformée)` : ''} : ${t(i.description)}`).join('\n')}`);
+    }
     (data.sequences ?? []).forEach((s, i) => {
         const plan = s.plan === 'scene' ? 'Scène' : 'Face caméra';
         const registre = s.plan === 'scene' && s.registre ? ` (${s.registre === 'humour' ? 'humour' : 'pédagogie'})` : '';
         out.push(`**Séquence ${i + 1} — ${plan} — ${t(s.role)}${registre}**\n${t(s.voix)}`);
-        if (s.plan === 'scene') {
-            const ecran = [`Écran — titre : ${t(s.titre)}`, ...(s.elements ?? []).map(decrireElement)];
-            out.push(ecran.join('\n'));
-        }
+        if (s.plan === 'scene') out.push((s.elements ?? []).map(decrireElement).join('\n'));
         if (s.plan === 'camera' && s.coup) {
             const repere = t(s.coup.apparait_sur) ? ` — frappe sur « ${t(s.coup.apparait_sur)} »` : '';
             out.push(`Écran — coup de poing : ${t(s.coup.texte)}${repere}`);

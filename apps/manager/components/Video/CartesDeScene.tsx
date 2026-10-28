@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Clapperboard, ImageIcon, Upload, Trash2, Zap } from 'lucide-react';
 import {
-    positionsDesReperes, positionDuCoup, motsSitues, motsNormalises,
-    type SequenceReel, type ElementScene,
+    positionsDesReperes, positionDuCoup, motsSitues, motsNormalises, visuelDecrit, illustrationsDuReel, SEQUENCE_DES_ILLUSTRATIONS,
+    type ReelExplique, type SequenceReel,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
 import { t } from '../ContentEditor/renderers/shared';
@@ -107,16 +107,17 @@ export const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }
  * est rangé chez Cloudflare (SPEC §12.4) : il se retrouve sur tout poste.
  */
 const DepotVisuel: React.FC<{
-    numero: number;
-    element: ElementScene;
+    /** Le numéro de l'écran qui l'attend ; aucun pour une illustration du Reel, que son nom désigne. */
+    numero?: number;
+    nature: string;
+    description: string;
     visuel?: VisuelAffiche;
     deposable: boolean;
     onDeposer: (fichier: File) => Promise<void>;
     onRetirer: () => Promise<void>;
-}> = ({ numero, element, visuel, deposable, onDeposer, onRetirer }) => {
+}> = ({ numero, nature, description, visuel, deposable, onDeposer, onRetirer }) => {
     const choix = useRef<HTMLInputElement>(null);
     const [erreur, setErreur] = useState<string | null>(null);
-    const nature = element.visuel?.nature === 'schema' ? 'Schéma' : 'Illustration';
 
     const deposer = async (fichier: File | undefined) => {
         if (!fichier) return;
@@ -147,10 +148,10 @@ const DepotVisuel: React.FC<{
             )}
             <div className="min-w-0 flex-1 space-y-1">
                 <p className="text-xs text-brand-main dark:text-dark-text">
-                    <span className="font-bold">{numero}.</span> {nature} — {t(element.visuel?.description)}
+                    {numero !== undefined && <span className="font-bold">{numero}. </span>}{nature} — {t(description)}
                 </p>
                 {visuel?.perime && (
-                    <p className="text-xs text-alerte">La carte a changé depuis le dépôt : cette image répondait à une autre description.</p>
+                    <p className="text-xs text-alerte">La description a changé depuis le dépôt : cette image répondait à une autre demande.</p>
                 )}
                 {erreur && <p className="text-xs text-erreur">{erreur}</p>}
                 {deposable && (
@@ -171,14 +172,51 @@ const DepotVisuel: React.FC<{
     );
 };
 
-export const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number; visuels: VisuelsReel; deposable: boolean }> = ({ sequence, numero, visuels, deposable }) => {
-    const rang = numero - 1;
-    const aProduire = (sequence.elements ?? [])
-        .map((element, j) => ({ element, numero: j + 1 }))
-        .filter(({ element }) => element.visuel?.description);
-    const registre = sequence.registre === 'humour' ? 'humour' : sequence.registre === 'pedagogie' ? 'pédagogie' : null;
+/** Les illustrations sous la forme qu'attend la scène : l'image si elle est là, la description pour le gabarit. */
+export const illustrationsAffichees = (reel: ReelExplique, visuels: VisuelsReel) => {
+    const urls = visuels.desIllustrations();
+    return Object.fromEntries(illustrationsDuReel(reel).map(ill => [ill.id, { url: urls[ill.id], description: ill.description }]));
+};
+
+/**
+ * Les illustrations de la métaphore (v2.26) : décrites une fois pour tout le
+ * Reel, déposées une fois, montrées par plusieurs écrans.
+ */
+export const IllustrationsDuReel: React.FC<{ reel: ReelExplique; visuels: VisuelsReel; deposable: boolean }> = ({ reel, visuels, deposable }) => {
+    const illustrations = illustrationsDuReel(reel);
+    if (illustrations.length === 0) return null;
     return (
-        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 space-y-3">
+            <Etiquette forme="entete" avecIcone><ImageIcon /> Illustrations de la métaphore</Etiquette>
+            <p className="text-xs text-brand-main/70 dark:text-dark-text/70">
+                Une image pour tout le Reel : chaque écran la montre au cadrage qu'il lui faut.
+            </p>
+            {illustrations.map((ill, k) => (
+                <DepotVisuel
+                    key={ill.id}
+                    nature={ill.depuis ? `Illustration « ${ill.id} », suite de « ${ill.depuis} »` : `Illustration « ${ill.id} »`}
+                    description={ill.description}
+                    visuel={visuels.visuel(SEQUENCE_DES_ILLUSTRATIONS, k)}
+                    deposable={deposable}
+                    onDeposer={(fichier) => visuels.deposer(SEQUENCE_DES_ILLUSTRATIONS, k, fichier)}
+                    onRetirer={() => visuels.retirer(SEQUENCE_DES_ILLUSTRATIONS, k)}
+                />
+            ))}
+        </div>
+    );
+};
+
+export const SequenceScene: React.FC<{ reel: ReelExplique; sequence: SequenceReel; numero: number; visuels: VisuelsReel; deposable: boolean }> = ({ reel, sequence, numero, visuels, deposable }) => {
+    const rang = numero - 1;
+    const elements = sequence.elements ?? [];
+    // Les images décrites écran par écran, d'avant la v2.26 : elles se déposent encore ici.
+    const aProduire = elements
+        .map((element, j) => ({ decrit: visuelDecrit(element.visuel), numero: j + 1 }))
+        .filter(({ decrit }) => decrit?.description);
+    const registre = sequence.registre === 'humour' ? 'humour' : sequence.registre === 'pedagogie' ? 'pédagogie' : null;
+    const illustrations = illustrationsAffichees(reel, visuels);
+    return (
+        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-4 space-y-4">
             <div className="space-y-2 min-w-0">
                 <Etiquette forme="entete" avecIcone>
                     <Clapperboard /> {numero}. Scène{t(sequence.role) ? ` · ${t(sequence.role)}` : ''}{registre ? ` · ${registre}` : ''}
@@ -188,11 +226,12 @@ export const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number; v
                 {aProduire.length > 0 && (
                     <div className="space-y-2 pt-1">
                         <Etiquette avecIcone><ImageIcon /> À produire</Etiquette>
-                        {aProduire.map(({ element, numero: n }) => (
+                        {aProduire.map(({ decrit, numero: n }) => (
                             <DepotVisuel
                                 key={n}
                                 numero={n}
-                                element={element}
+                                nature={decrit!.nature === 'schema' ? 'Schéma' : 'Illustration'}
+                                description={decrit!.description}
                                 visuel={visuels.visuel(rang, n - 1)}
                                 deposable={deposable}
                                 onDeposer={(fichier) => visuels.deposer(rang, n - 1, fichier)}
@@ -202,10 +241,15 @@ export const SequenceScene: React.FC<{ sequence: SequenceReel; numero: number; v
                     </div>
                 )}
             </div>
-            <div className="justify-self-center">
-                <SceneLuminose sequence={sequence} largeur={216} visuels={visuels.deLaScene(rang)} />
-            </div>
+            {/* Les écrans de la scène, dans l'ordre où ils se remplacent ; le numéro est celui des repères soulignés. */}
+            <ol className="flex flex-wrap gap-3">
+                {elements.map((_, j) => (
+                    <li key={j} className="space-y-1">
+                        <SceneLuminose sequence={sequence} ecran={j} largeur={120} visuels={visuels.deLaScene(rang)} illustrations={illustrations} />
+                        <p className="text-xs text-center font-bold text-brand-main/70 dark:text-dark-text/70">{j + 1}</p>
+                    </li>
+                ))}
+            </ol>
         </div>
     );
 };
-

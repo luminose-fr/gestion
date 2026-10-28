@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReelExplique } from '@luminose/editorial';
+import { illustrationsDuReel, visuelDecrit, SEQUENCE_DES_ILLUSTRATIONS, type ReelExplique } from '@luminose/editorial';
 import * as Api from '../../services/apiService';
 import type { Montage } from './useMontage';
 
@@ -14,6 +14,12 @@ export interface VisuelsReel {
     visuel: (sequence: number, element: number) => VisuelAffiche | undefined;
     /** Les visuels d'une scène, par rang d'élément — la forme qu'attend `SceneLuminose`. */
     deLaScene: (sequence: number) => Record<number, string>;
+    /**
+     * Les illustrations du Reel (v2.26), par id. Rangées comme des visuels, à la
+     * place `SEQUENCE_DES_ILLUSTRATIONS` : l'élément est leur rang dans
+     * `illustrations`, et `visuel(SEQUENCE_DES_ILLUSTRATIONS, k)` les lit aussi.
+     */
+    desIllustrations: () => Record<string, string>;
     deposer: (sequence: number, element: number, fichier: File) => Promise<void>;
     retirer: (sequence: number, element: number) => Promise<void>;
     /** R2 n'est pas lié au Worker : rien ne se dépose, et on le dit au lieu d'échouer au clic. */
@@ -59,7 +65,9 @@ export function useVisuelsReel(contentId: string | undefined, data: ReelExplique
     }, [visuels, urls]);
 
     const descriptionActuelle = useCallback((sequence: number, element: number) =>
-        data.sequences?.[sequence]?.elements?.[element]?.visuel?.description ?? '', [data]);
+        sequence === SEQUENCE_DES_ILLUSTRATIONS
+            ? illustrationsDuReel(data)[element]?.description ?? ''
+            : visuelDecrit(data.sequences?.[sequence]?.elements?.[element]?.visuel)?.description ?? '', [data]);
 
     const visuel = useCallback((sequence: number, element: number): VisuelAffiche | undefined => {
         const v = visuels.find(x => x.sequence === sequence && x.element === element);
@@ -76,6 +84,15 @@ export function useVisuelsReel(contentId: string | undefined, data: ReelExplique
         return parElement;
     }, [data, visuel]);
 
+    const desIllustrations = useCallback((): Record<string, string> => {
+        const parId: Record<string, string> = {};
+        illustrationsDuReel(data).forEach((ill, k) => {
+            const v = visuel(SEQUENCE_DES_ILLUSTRATIONS, k);
+            if (v) parId[ill.id] = v.url;
+        });
+        return parId;
+    }, [data, visuel]);
+
     const deposer = useCallback(async (sequence: number, element: number, fichier: File) => {
         if (!contentId) return;
         await Api.deposerVisuelDistant(contentId, sequence, element, fichier, descriptionActuelle(sequence, element));
@@ -88,5 +105,5 @@ export function useVisuelsReel(contentId: string | undefined, data: ReelExplique
         await montage.recharger();
     }, [contentId, montage]);
 
-    return { visuel, deLaScene, deposer, retirer, indisponible: !montage.etat?.stockage.disponible };
+    return { visuel, deLaScene, desIllustrations, deposer, retirer, indisponible: !montage.etat?.stockage.disponible };
 }

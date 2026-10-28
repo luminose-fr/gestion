@@ -13,7 +13,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { calerSurLaPrise, planDeMontage, voixEntiere } from '../src/calage';
+import { calerSurLaPrise, planDeMontage, voixEntiere, momentsFiges } from '../src/calage';
+import { verifierReelExplique } from '../src/reelExplique';
 import { coupesProposees, coupesAppliquees } from '../src/derushage';
 import { regionsDeParole } from '../src/enveloppe';
 import { scriptDepuisLaTranscription } from '../src/directe';
@@ -173,5 +174,31 @@ describe('les élisions d’une vraie prise', () => {
         expect(voix).toContain('ce qu\'on me demande, c\'est un meilleur');
         expect(voix).not.toMatch(/\s['’]/);
         expect(voix).toContain('voulez-vous');
+    });
+});
+
+/**
+ * La même prise, montée écran par écran (v2.26) : le texte n'a pas changé d'un
+ * mot, seules les séquences sont redécoupées — la prise déjà tournée se recale
+ * telle quelle. Ce que Florent reprochait à la première vidéo : « beaucoup trop
+ * d'infos, donc pas percutant ».
+ */
+describe('une vraie prise, un écran à la fois', () => {
+    const sparadrap = JSON.parse(readFileSync(join(import.meta.dirname, 'prises', 'sparadrap.json'), 'utf8'));
+    const ecrans = sparadrap.scriptEcrans;
+    const calageE = calerSurLaPrise(voixEntiere(ecrans), sparadrap.mots);
+    const planE = planDeMontage(ecrans, { calage: calageE, duree: sparadrap.duree }, { coupes: coupesAppliquees(coupesProposees(calageE), {}) });
+
+    it('le script tient, et dit mot pour mot ce que disait le premier', () => {
+        expect(verifierReelExplique(ecrans)).toEqual([]);
+        const dit = (d: any) => d.sequences.map((s: any) => s.voix).join(' ').replace(/\s+/g, ' ');
+        expect(dit(ecrans)).toBe(dit(sparadrap.script));
+    });
+
+    it('aucune scène ne dure plus de six secondes, et l’image ne fige jamais', () => {
+        planE.minutage.sequences.forEach((m, i) => {
+            if (ecrans.sequences[i].plan === 'scene') expect(m.fin - m.debut).toBeLessThan(6);
+        });
+        expect(momentsFiges(ecrans, planE.minutage, planE.cadrages)).toEqual([]);
     });
 });

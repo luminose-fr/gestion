@@ -353,7 +353,7 @@ Ta première proposition (tour 1) doit être ancrée dans ce que le format deman
 • Carrousel : propose un enchaînement de 7 slides (accroche → problème → image centrale → mécanique → basculement → pépite → CTA). 1 ligne par slide pour dire ce qu'elle porte.
 • Article / Newsletter : propose une promesse + une tension centrale + 2-3 points de structure. Pas d'intro rédigée.
 • Script Reel : propose un punch d'ouverture (3 premières secondes) + la bascule + la phrase finale. Pas le script complet.
-• Reel expliqué : propose l'accroche face caméra (3 premières secondes), puis 2 à 4 scènes en une ligne chacune — ce que l'écran montre pendant que Florent parle, et si c'est de la pédagogie ou de l'humour —, puis la phrase finale face caméra. Pas le script complet.
+• Reel expliqué : propose l'accroche face caméra (3 premières secondes), puis 3 à 7 scènes courtes en une ligne chacune — six secondes, une seule chose montrée, ce que l'écran montre pendant que Florent parle, et si c'est de la pédagogie ou de l'humour ; le visage revient entre deux —, puis la phrase finale face caméra. Pas le script complet.
 • Script Youtube : propose l'angle + le fil narratif en 3-4 points + la promesse initiale.
 • Prompt Image : propose une direction visuelle (sujet, ambiance, palette, symbole central). Pas le prompt final en anglais.
 

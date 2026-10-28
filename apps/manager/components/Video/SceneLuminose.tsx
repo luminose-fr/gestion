@@ -1,5 +1,8 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { segmentsSurlignes, texteAffiche, type ElementScene, type SequenceReel } from '@luminose/editorial';
+import {
+    segmentsSurlignes, texteAffiche, schemaDe, illustrationDe, visuelDecrit, arriveesDeLaListe,
+    type CadrageIllustration, type ElementScene, type SchemaEcran, type SequenceReel,
+} from '@luminose/editorial';
 
 /**
  * Une scène de Reel expliqué, à l'habillage Luminose (SPEC §12.2).
@@ -9,9 +12,15 @@ import { segmentsSurlignes, texteAffiche, type ElementScene, type SequenceReel }
  * l'interface : les échelles de DESIGN.md ne s'y appliquent pas, la palette de
  * `voix/direction-artistique.md` §1-2, si.
  *
- * Le composant ne connaît pas Remotion. Le storyboard l'affiche à l'arrêt ; la
- * composition animée (`ReelComposition`) le pilote par `entrees` et lui prête
- * son composant d'image. C'est ce qui garde Remotion hors du paquet principal.
+ * Une scène montre UN écran à la fois (v2.26) : un visuel en grand, de un à
+ * quatre mots, sur le fond de son ton — l'écran suivant le remplace, rien ne
+ * s'empile. Décision de Florent, le 28/10/2026, devant la première vidéo
+ * exportée : « beaucoup trop d'infos, et donc pas percutant ».
+ *
+ * Le composant ne connaît pas Remotion. Le storyboard montre un écran à l'arrêt,
+ * dans son état final ; la composition animée (`ReelComposition`) lui dit quel
+ * écran est en cours, où en est son entrée, et lui prête son composant d'image.
+ * C'est ce qui garde Remotion hors du paquet principal.
  *
  * **Ce que le rendu dans le navigateur sait dessiner** (`@remotion/web-renderer`)
  * borne ce qu'on écrit ici : ni `radial-gradient`, ni `visibility`, ni
@@ -65,14 +74,22 @@ const pointilles = (format: FormatVideo) => `data:image/svg+xml;utf8,${encodeURI
 type Ton = 'ombre' | 'lumiere' | 'neutre';
 
 /**
- * L'ombre est littéralement sombre, la lumière claire : la référence code le
- * coût en rose et la solution en vert ; ici, ce sont deux symboles que la
- * direction artistique porte déjà.
+ * Le ton fait le fond de tout l'écran : passer de l'ombre à la lumière se voit
+ * d'un coup — c'est la bascule, et c'est la rupture de fond de la seconde
+ * référence. L'ombre est littéralement sombre, la lumière claire : deux symboles
+ * que la direction artistique porte déjà.
  */
-const TONS: Record<Ton, { fond: string; bord: string; portee: string; texte: string; accent: string; marque: string }> = {
-    ombre:   { fond: GAMME.violetNuit, bord: GAMME.violetNuit, portee: GAMME.mauve,       texte: GAMME.ivoire,     accent: GAMME.roseBrumeux, marque: 'transparent' },
-    lumiere: { fond: GAMME.ivoireRose, bord: GAMME.mauveRose,  portee: GAMME.mauveRose,   texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux },
-    neutre:  { fond: '#FFF8F1',        bord: GAMME.mauve,      portee: GAMME.roseBrumeux, texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.ivoireRose },
+const ECRANS: Record<Ton, { fond: string; texte: string; accent: string; marque: string; trait: string; remplissage: string; pointilles: boolean }> = {
+    ombre:   { fond: GAMME.violetNuit, texte: GAMME.ivoire,     accent: GAMME.roseBrumeux, marque: 'transparent',   trait: GAMME.mauve,     remplissage: GAMME.roseBrumeux, pointilles: false },
+    lumiere: { fond: GAMME.ivoireRose, texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux, trait: GAMME.mauveRose, remplissage: GAMME.mauveRose,   pointilles: true },
+    neutre:  { fond: GAMME.ivoire,     texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux, trait: GAMME.mauve,     remplissage: GAMME.mauve,       pointilles: true },
+};
+type Palette = (typeof ECRANS)[Ton];
+
+/** Une carte d'un schéma — un terme d'une opposition, le départ d'un enchaînement. */
+const CARTES: Record<'ombre' | 'lumiere', { fond: string; texte: string; bord: string; portee: string }> = {
+    ombre:   { fond: GAMME.violetNuit, texte: GAMME.ivoire,     bord: GAMME.mauve,     portee: GAMME.prune },
+    lumiere: { fond: GAMME.ivoireRose, texte: GAMME.violetNuit, bord: GAMME.mauveRose, portee: GAMME.mauveRose },
 };
 
 /** Le modèle écrit parfois « lumière » : un accent ne doit pas faire perdre le ton. */
@@ -82,7 +99,7 @@ const tonDe = (valeur: unknown): Ton => {
 };
 
 /**
- * Comment un élément entre, selon le registre de la scène. `p` va de 0 à 1 et
+ * Comment un écran entre, selon le registre de la scène. `p` va de 0 à 1 et
  * peut dépasser 1 : un ressort qui rebondit, c'est l'humour. La pédagogie se
  * pose sans rebond ; l'humour arrive de travers et se redresse.
  */
@@ -94,7 +111,7 @@ function entree(p: number, registre: SequenceReel['registre']): React.CSSPropert
             transform: `scale(${0.7 + 0.3 * p}) rotate(${(1 - p) * -6}deg)`,
         };
     }
-    return { opacity: Math.max(0, p), transform: `translateY(${(1 - p) * 48}px)` };
+    return { opacity: Math.max(0, p), transform: `translateY(${(1 - p) * 60}px)` };
 }
 
 /** Un composant d'image : `img` à l'arrêt, celui de Remotion dans la composition. */
@@ -119,182 +136,241 @@ const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: s
     </>
 );
 
-const Visuel: React.FC<{ element: ElementScene; hauteur: number; couleur: string; image?: string; Image: ComposantImage; gabarit: boolean }> = ({ element, hauteur, couleur, image, Image, gabarit }) => {
-    const visuel = element.visuel;
-    if (!visuel || (!image && !gabarit)) return null;
-    if (image) {
-        return (
+/** Une progression qui ralentit en arrivant : ce qui monte se pose, ne cogne pas. */
+const pose = (ecoule: number, depart: number, duree: number) => {
+    const x = Math.min(1, Math.max(0, (ecoule - depart) / duree));
+    return 1 - (1 - x) ** 3;
+};
+
+/**
+ * Où regarder dans l'illustration : l'écran zoome sur la zone que la description
+ * a nommée. Le zoom s'ancre au BORD de la zone — en haut, le bord haut reste en
+ * place —, sans quoi un point ancré au dixième laissait filer le détail visé.
+ */
+const CADRAGE: Record<CadrageIllustration, { origine: string; zoom: number }> = {
+    ensemble: { origine: '50% 50%', zoom: 1 },
+    haut:     { origine: '50% 0%', zoom: 1.5 },
+    bas:      { origine: '50% 100%', zoom: 1.5 },
+    gauche:   { origine: '0% 50%', zoom: 1.5 },
+    droite:   { origine: '100% 50%', zoom: 1.5 },
+    centre:   { origine: '50% 50%', zoom: 1.5 },
+};
+
+/** Ce qu'un visuel attend et n'a pas encore : le storyboard le dit, la vidéo jamais. */
+const Gabarit: React.FC<{ hauteur: number; couleur: string; nature: string; description?: string }> = ({ hauteur, couleur, nature, description }) => (
+    <div style={{
+        width: '100%', height: hauteur, borderRadius: 40, border: `5px dashed ${couleur}`, color: couleur,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 22,
+        padding: '0 64px', textAlign: 'center', opacity: 0.85,
+    }}>
+        <span style={{ fontSize: 34, letterSpacing: 4, textTransform: 'uppercase' }}>{nature}</span>
+        {description && <span style={{ fontSize: 38, lineHeight: 1.3 }}>{description}</span>}
+    </div>
+);
+
+/** Une image de l'écran : déposée, ou l'illustration du Reel au cadrage voulu — qui s'avance lentement. */
+const ImageCadree: React.FC<{ url: string; hauteur: number; palette: Palette; cadrage?: CadrageIllustration | null; avance: number; Image: ComposantImage }> = ({ url, hauteur, palette, cadrage, avance, Image }) => {
+    const { origine, zoom } = CADRAGE[cadrage && CADRAGE[cadrage] ? cadrage : 'ensemble'];
+    return (
+        <div style={{ width: '100%', height: hauteur, borderRadius: 40, overflow: 'hidden', border: `6px solid ${palette.trait}` }}>
             <Image
-                src={image}
-                alt={visuel.description}
-                style={{ width: '100%', height: hauteur, objectFit: 'cover', borderRadius: 28, display: 'block' }}
+                src={url}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: `scale(${zoom * (1 + 0.06 * avance)})`, transformOrigin: origine }}
             />
-        );
-    }
-    return (
-        <div style={{
-            height: hauteur,
-            borderRadius: 28,
-            border: `4px dashed ${couleur}`,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 18,
-            padding: '0 48px',
-            textAlign: 'center',
-            opacity: 0.85,
-        }}>
-            <span style={{ fontSize: 30, letterSpacing: 4, textTransform: 'uppercase' }}>
-                {visuel.nature === 'schema' ? 'Schéma' : 'Illustration'}
-            </span>
-            <span style={{ fontSize: 36, lineHeight: 1.3 }}>{visuel.description}</span>
         </div>
     );
 };
 
-const Carte: React.FC<{ element: ElementScene; demi: boolean; image?: string; Image: ComposantImage; gabarit: boolean }> = ({ element, demi, image, Image, gabarit }) => {
-    const ton = TONS[tonDe(element.ton)];
-    const grande = element.taille === 'grande';
-    // Une carte d'image seule, sans son image et sans gabarit, n'a rien à montrer : pas même son cadre.
-    if (!image && !gabarit && !element.texte && !element.detail) return null;
+const CarteDeSchema: React.FC<{ texte: string; ton: 'ombre' | 'lumiere'; style?: React.CSSProperties }> = ({ texte, ton, style }) => {
+    const c = CARTES[ton];
     return (
         <div style={{
-            background: ton.fond,
-            color: ton.texte,
-            border: `5px solid ${ton.bord}`,
-            borderRadius: 40,
-            boxShadow: `10px 10px 0 ${ton.portee}`,
-            padding: demi ? '34px 30px' : '40px 48px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 22,
-            textAlign: 'center',
+            background: c.fond, color: c.texte, border: `6px solid ${c.bord}`, borderRadius: 40, boxShadow: `12px 12px 0 ${c.portee}`,
+            padding: '40px 56px', fontSize: 86, lineHeight: 1.12, textAlign: 'center', minWidth: 520, maxWidth: '100%', ...style,
         }}>
-            <Visuel element={element} hauteur={grande ? 520 : 300} couleur={ton.texte} image={image} Image={Image} gabarit={gabarit} />
-            {element.texte && (
-                <div style={{ fontSize: demi ? 54 : 64, lineHeight: 1.15 }}>
-                    <TexteSurligne texte={element.texte} accent={ton.accent} marque={ton.marque} />
-                </div>
-            )}
-            {element.detail && (
-                <div style={{ fontSize: demi ? 36 : 42, lineHeight: 1.25, opacity: 0.8 }}>
-                    <TexteSurligne texte={element.detail} accent={ton.accent} marque={ton.marque} />
-                </div>
-            )}
+            <TexteSurligne texte={texte} accent={ton === 'ombre' ? GAMME.roseBrumeux : GAMME.prune} marque={ton === 'ombre' ? 'transparent' : GAMME.roseBrumeux} />
         </div>
     );
 };
 
-const Pastille: React.FC<{ element: ElementScene }> = ({ element }) => {
-    const ton = TONS[tonDe(element.ton)];
-    return (
-        <div style={{
-            background: ton.fond,
-            color: ton.texte,
-            border: `4px solid ${ton.bord}`,
-            borderRadius: 999,
-            padding: '18px 48px',
-            fontSize: 46,
-            lineHeight: 1.2,
-            textAlign: 'center',
-        }}>
-            <TexteSurligne texte={element.texte} accent={ton.accent} marque={ton.marque} />
-        </div>
-    );
-};
-
-const Liaison: React.FC<{ element: ElementScene }> = ({ element }) => (
-    <div style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: 76, lineHeight: 1, color: GAMME.mauve }}>
-        {element.texte}
+/** Une flèche vers le bas, en traits : le moteur de rendu ne dessine ni triangle en bordures ni glyphe garanti. */
+const Fleche: React.FC<{ couleur: string; part: number }> = ({ couleur, part }) => (
+    <div style={{ position: 'relative', width: 120, height: 170, opacity: part }}>
+        <div style={{ position: 'absolute', left: 54, top: 0, width: 12, height: 160 * part, background: couleur, borderRadius: 6 }} />
+        <div style={{ position: 'absolute', left: 30, top: 108, width: 12, height: 72, background: couleur, borderRadius: 6, transform: 'rotate(-40deg)', transformOrigin: '50% 100%' }} />
+        <div style={{ position: 'absolute', left: 78, top: 108, width: 12, height: 72, background: couleur, borderRadius: 6, transform: 'rotate(40deg)', transformOrigin: '50% 100%' }} />
     </div>
 );
 
 /**
- * Deux petites cartes voisines partagent une ligne ; tout le reste prend la
- * largeur. Une petite carte seule garde sa demi-largeur, centrée : c'est ce que
- * le Rédacteur a demandé en la disant petite.
+ * Les schémas que l'outil dessine et anime (v2.26) : rien à produire, rien à
+ * déposer. En traits et en blocs plutôt qu'en SVG : c'est ce que le rendu dans
+ * le navigateur sait peindre. `ecoule` vaut l'infini à l'arrêt — l'état final.
  */
-function enLignes(elements: ElementScene[]): Array<Array<{ element: ElementScene; index: number }>> {
-    const lignes: Array<Array<{ element: ElementScene; index: number }>> = [];
-    elements.forEach((element, index) => {
-        const derniere = lignes[lignes.length - 1];
-        const petite = element.type === 'carte' && element.taille === 'petite';
-        const accolable = derniere?.length === 1 && derniere[0].element.type === 'carte' && derniere[0].element.taille === 'petite';
-        if (petite && accolable) derniere.push({ element, index });
-        else lignes.push([{ element, index }]);
-    });
-    return lignes;
-}
+const Schema: React.FC<{ schema: SchemaEcran; hauteur: number; palette: Palette; ecoule: number; duree: number }> = ({ schema, hauteur, palette, ecoule, duree }) => {
+    switch (schema.schema) {
+        case 'niveau': {
+            const niveau = schema.de + (schema.a - schema.de) * pose(ecoule, 0.2, 1.6);
+            return (
+                <div style={{ width: 400, height: hauteur, border: `12px solid ${palette.trait}`, borderRadius: 56, position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${Math.max(0, Math.min(100, niveau))}%`, background: palette.remplissage }} />
+                    {[25, 50, 75].map(g => (
+                        <div key={g} style={{ position: 'absolute', left: 0, width: 70, bottom: `${g}%`, height: 8, background: palette.trait }} />
+                    ))}
+                </div>
+            );
+        }
+        case 'compteur': {
+            const valeur = schema.valeur * pose(ecoule, 0.1, 1.2);
+            const entier = Number.isInteger(schema.valeur);
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    <div style={{ fontSize: 360, fontWeight: 700, lineHeight: 1, color: palette.texte }}>
+                        {(entier ? Math.round(valeur) : valeur).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
+                    </div>
+                    {schema.unite && (
+                        <div style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: 120, lineHeight: 1.1, color: palette.accent }}>{texteAffiche(schema.unite)}</div>
+                    )}
+                </div>
+            );
+        }
+        case 'opposition':
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36 }}>
+                    <CarteDeSchema texte={schema.gauche} ton="ombre" />
+                    <div style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: 130, lineHeight: 1, color: palette.accent, opacity: pose(ecoule, 0.4, 0.25) }}>vs</div>
+                    <CarteDeSchema texte={schema.droite} ton="lumiere" style={{ opacity: pose(ecoule, 0.7, 0.3) }} />
+                </div>
+            );
+        case 'enchainement':
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+                    <CarteDeSchema texte={schema.de} ton="ombre" />
+                    <Fleche couleur={palette.accent} part={pose(ecoule, 0.35, 0.4)} />
+                    <CarteDeSchema texte={schema.vers} ton="lumiere" style={{ opacity: pose(ecoule, 0.8, 0.3) }} />
+                </div>
+            );
+        case 'liste': {
+            const arrivees = arriveesDeLaListe((schema.items ?? []).length, duree);
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 48, width: '100%' }}>
+                    {(schema.items ?? []).map((item, k) => {
+                        const arrivee = arrivees[k];
+                        return (
+                            <div key={k} style={{
+                                position: 'relative', border: `8px solid ${palette.trait}`, borderRadius: 999, padding: '40px 64px',
+                                fontSize: 100, lineHeight: 1.15, textAlign: 'center', color: palette.texte, opacity: pose(ecoule, arrivee, 0.25),
+                            }}>
+                                <TexteSurligne texte={item} accent={palette.accent} marque={palette.marque} />
+                                {schema.barres && (
+                                    <div style={{ position: 'absolute', left: 40, top: '50%', height: 10, marginTop: -5, borderRadius: 5, background: palette.accent, width: `calc(${pose(ecoule, arrivee + 0.35, 0.3) * 100}% - 80px)` }} />
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        }
+        default:
+            return null;
+    }
+};
 
 const ImageSimple: ComposantImage = (props) => <img {...props} />;
 
+/** Ce que la composition animée dit de l'écran en cours. */
+export interface EcranAnime {
+    ecran: number;
+    /** L'avancée de son entrée, de 0 à 1 (au-delà : un rebond). */
+    entree: number;
+    /** Depuis combien de secondes il est là, et pour combien en tout. */
+    ecoule: number;
+    duree: number;
+}
+
 export interface SceneLuminoseProps {
     sequence: SequenceReel;
-    /** Largeur d'affichage, en pixels ; la hauteur suit le 9:16. */
+    /** Largeur d'affichage, en pixels ; la hauteur suit le cadre. */
     largeur: number;
-    /**
-     * Combien d'éléments sont apparus, à l'arrêt. Par défaut tous : c'est l'état
-     * final de la scène. Ignoré quand `entrees` est fourni.
-     */
-    visibles?: number;
-    /** L'avancée de chaque entrée, de 0 à 1 (au-delà : un rebond). Fourni par la composition animée. */
-    entrees?: { titre?: number; elements?: number[] };
-    /** Les visuels déposés par Florent, par rang d'élément dans la scène. */
+    /** L'écran montré à l'arrêt, dans son état final — le premier par défaut. Ignoré quand `anime` est fourni. */
+    ecran?: number;
+    anime?: EcranAnime;
+    /** Les images déposées carte par carte, avant la v2.26, par rang d'écran. */
     visuels?: Record<number, string | undefined>;
+    /** Les illustrations du Reel, par id : leur image si elle est là, leur description pour le storyboard. */
+    illustrations?: Record<string, { url?: string; description?: string } | undefined>;
     Image?: ComposantImage;
     /** Les coins arrondis de la miniature ; 0 dans la vidéo elle-même. */
     arrondi?: number;
     format?: FormatVideo;
     /**
      * Un visuel sans image montre sa description dans un cadre pointillé : c'est
-     * la commande passée à Florent, à sa place dans le storyboard. La vidéo, elle,
-     * ne la montre jamais — le 28/10/2026, trois descriptions de 45 mots sont
-     * sorties telles quelles dans un export. Sans gabarit, la carte garde son
-     * texte et perd l'image qui lui manque.
+     * la commande, à sa place dans le storyboard. La vidéo, elle, ne la montre
+     * jamais — le 28/10/2026, trois descriptions de 45 mots sont sorties telles
+     * quelles dans un export. Sans gabarit, l'écran garde son texte et perd
+     * l'image qui lui manque.
      */
     gabarits?: boolean;
 }
 
 export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
-    sequence, largeur, visibles, entrees, visuels, Image = ImageSimple, arrondi = 8, format = '9:16', gabarits = true,
+    sequence, largeur, ecran: ecranFixe = 0, anime, visuels, illustrations, Image = ImageSimple, arrondi = 8, format = '9:16', gabarits = true,
 }) => {
     const CADRE = CADRES[format];
     const ZONE = ZONES[format];
     const contenuRef = useRef<HTMLDivElement>(null);
     const [reduction, setReduction] = useState(1);
     const elements = sequence.elements ?? [];
-    const nbVisibles = visibles ?? elements.length;
-    const avancee = (index: number) => entrees
-        ? entrees.elements?.[index] ?? 0
-        : index < nbVisibles ? 1 : 0;
+    const rang = Math.min(Math.max(0, anime?.ecran ?? ecranFixe), Math.max(0, elements.length - 1));
+    const element: ElementScene | undefined = elements[rang];
+    const palette = ECRANS[tonDe(element?.ton)];
+    const ecoule = anime ? anime.ecoule : Infinity;
+    const avance = anime ? Math.min(1, anime.ecoule / Math.max(anime.duree, 0.5)) : 0;
+
+    const hauteurZone = ZONE.bas - ZONE.haut;
+    const texte = texteAffiche(element?.texte);
+    const liaison = element?.type === 'liaison';
+
+    // Le visuel de l'écran : un schéma, l'illustration du Reel, ou l'image déposée d'avant la v2.26.
+    const schema = schemaDe(element?.visuel);
+    const illustre = illustrationDe(element?.visuel);
+    const decrit = visuelDecrit(element?.visuel);
+    const hauteurVisuel = Math.round(Math.min(1000, hauteurZone * (texte ? 0.62 : 0.85)));
+    let visuel: React.ReactNode = null;
+    if (schema) visuel = <Schema schema={schema} hauteur={Math.round(hauteurVisuel * 0.9)} palette={palette} ecoule={ecoule} duree={anime?.duree ?? 3} />;
+    else if (illustre) {
+        const ill = illustrations?.[illustre.illustration];
+        if (ill?.url) visuel = <ImageCadree url={ill.url} hauteur={hauteurVisuel} palette={palette} cadrage={illustre.cadrage} avance={avance} Image={Image} />;
+        else if (gabarits) visuel = <Gabarit hauteur={hauteurVisuel} couleur={palette.texte} nature={`Illustration « ${illustre.illustration} »${illustre.cadrage && illustre.cadrage !== 'ensemble' ? ` · ${illustre.cadrage}` : ''}`} description={ill?.description} />;
+    } else if (decrit) {
+        const url = visuels?.[rang];
+        if (url) visuel = <ImageCadree url={url} hauteur={hauteurVisuel} palette={palette} avance={avance} Image={Image} />;
+        else if (gabarits) visuel = <Gabarit hauteur={hauteurVisuel} couleur={palette.texte} nature={decrit.nature === 'schema' ? 'Schéma' : 'Illustration'} description={decrit.description} />;
+    }
 
     /*
-     * Une scène chargée peut dépasser la zone sûre — une grande carte et trois
-     * autres, par exemple. Plutôt que de couper, on la réduit d'un bloc : les
-     * proportions entre les cartes, voulues par le Rédacteur, restent les mêmes.
-     * La mise en page ne dépend pas de ce qui est apparu : une carte qui arrive
-     * ne fait pas bouger les autres.
+     * Un écran chargé peut dépasser la zone sûre — en 4:5 surtout. Plutôt que de
+     * couper, on le réduit d'un bloc : les proportions voulues restent les mêmes.
      */
     useLayoutEffect(() => {
         const contenu = contenuRef.current;
         if (!contenu) return;
         const mesurer = () => {
             const hauteur = contenu.scrollHeight;
-            const disponible = ZONE.bas - ZONE.haut;
-            setReduction(hauteur > disponible ? disponible / hauteur : 1);
+            setReduction(hauteur > hauteurZone ? hauteurZone / hauteur : 1);
         };
         mesurer();
         // Les polices de la marque arrivent après le premier rendu, et changent les hauteurs.
         document.fonts?.ready.then(mesurer).catch(() => undefined);
-    }, [sequence, visuels, format]);
+    }, [sequence, rang, visuels, illustrations, format, hauteurZone]);
 
     const echelle = largeur / CADRE.largeur;
 
     return (
         <div
             role="img"
-            aria-label={`Scène : ${sequence.titre ?? ''}`}
+            aria-label={`Scène, écran ${rang + 1} : ${texte || 'visuel'}`}
             style={{ width: largeur, height: Math.round(largeur * CADRE.hauteur / CADRE.largeur), overflow: 'hidden', borderRadius: arrondi, flexShrink: 0 }}
         >
             <div style={{
@@ -304,47 +380,33 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
                 transformOrigin: 'top left',
                 position: 'relative',
                 fontFamily: FUTURA,
-                color: GAMME.violetNuit,
-                backgroundColor: GAMME.ivoire,
+                color: palette.texte,
+                backgroundColor: palette.fond,
             }}>
-                <Image src={pointilles(format)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
-                <div style={{ position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: ZONE.bas - ZONE.haut }}>
+                {palette.pointilles && <Image src={pointilles(format)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />}
+                <div style={{ position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: hauteurZone, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div
                         ref={contenuRef}
-                        style={{ display: 'flex', flexDirection: 'column', gap: 48, transform: `scale(${reduction})`, transformOrigin: 'top center' }}
+                        style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 64, width: '100%',
+                            transform: `scale(${reduction})`, transformOrigin: 'center center',
+                        }}
                     >
-                        <div style={{
-                            fontSize: 86, lineHeight: 1.12, textAlign: 'center', textWrap: 'balance',
-                            ...(entrees ? entree(entrees.titre ?? 0, 'pedagogie') : {}),
-                        } as React.CSSProperties}>
-                            <TexteSurligne texte={sequence.titre} accent={GAMME.prune} marque={GAMME.roseBrumeux} />
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 64, width: '100%', ...(anime ? entree(anime.entree, sequence.registre) : {}) }}>
+                            {visuel}
+                            {texte && (
+                                <div style={liaison
+                                    ? { fontFamily: ABRIL, fontStyle: 'italic', fontSize: 220, lineHeight: 1, color: palette.accent }
+                                    : { fontSize: visuel ? 100 : 140, lineHeight: 1.1, textAlign: 'center', textWrap: 'balance' } as React.CSSProperties}>
+                                    {liaison ? texte : <TexteSurligne texte={element?.texte} accent={palette.accent} marque={palette.marque} />}
+                                </div>
+                            )}
+                            {element?.detail && (
+                                <div style={{ fontSize: 56, lineHeight: 1.25, opacity: 0.8, textAlign: 'center' }}>
+                                    <TexteSurligne texte={element.detail} accent={palette.accent} marque={palette.marque} />
+                                </div>
+                            )}
                         </div>
-                        {enLignes(elements).map((ligne, i) => (
-                            <div key={i} style={{ display: 'flex', gap: 36, justifyContent: 'center' }}>
-                                {ligne.map(({ element, index }) => {
-                                    const seule = ligne.length === 1;
-                                    const carte = element.type === 'carte';
-                                    const petite = carte && element.taille === 'petite';
-                                    return (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                flex: !seule || (carte && !petite) ? '1 1 0' : undefined,
-                                                width: seule && petite ? '50%' : undefined,
-                                                minWidth: 0,
-                                                ...entree(avancee(index), sequence.registre),
-                                            }}
-                                        >
-                                            {carte && <Carte element={element} demi={petite} image={visuels?.[index]} Image={Image} gabarit={gabarits} />}
-                                            {element.type === 'pastille' && <Pastille element={element} />}
-                                            {element.type === 'liaison' && <Liaison element={element} />}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ))}
                     </div>
                 </div>
             </div>

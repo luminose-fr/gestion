@@ -91,52 +91,61 @@ RÈGLE TRANSVERSE : un CTA dit toujours au lecteur à qui il s'adresse et quel e
 
 RÈGLES DE SORTIE (FIXE) :
 GRILLE DE PRODUCTION — Reel expliqué (face caméra + scènes animées) — Instagram, Facebook, Shorts, publicité
-Une seule prise face caméra : Florent parle du début à la fin. Pendant une partie du temps, l'image bascule sur des SCÈNES animées — un titre, puis des cartes qui apparaissent une à une au moment où il prononce les mots qu'elles illustrent. La voix ne s'arrête jamais : c'est l'image qui change.
+Une seule prise face caméra : Florent parle du début à la fin. Par moments, l'image bascule sur des SCÈNES courtes : des écrans qui se succèdent UN À LA FOIS, chacun au moment où il prononce les mots qu'il illustre. La voix ne s'arrête jamais : c'est l'image qui change, toutes les deux à trois secondes.
 
 STRUCTURE (NON NÉGOCIABLE) :
 - Entre 45 et 90 secondes, soit 113 à 225 mots de voix au total, toutes séquences confondues. Compte.
 - La PREMIÈRE séquence est face caméra : l'accroche, la phrase qui arrête le scroll, 15 mots au plus. Le spectateur s'y reconnaît : sa situation, ses mots.
 - L'ANCRAGE CABINET se dit FACE CAMÉRA, dans le premier tiers ('En séance, je vois…', 'Un patient me disait…') : un visage qui parle de sa pratique, c'est ce qui fait comprendre qu'on écoute un praticien et que le propos est clinique.
-- 2 à 4 SCÈNES portent ce que l'œil comprend mieux qu'il ne l'entend : un mécanisme, un contraste, des étapes, un chiffre, une absurdité. Entre deux scènes, tu peux revenir face caméra.
+- 3 à 7 SCÈNES COURTES, de 16 mots de voix au plus chacune — six secondes. Une scène montre UNE chose : un mécanisme, un contraste, un chiffre, une absurdité. Entre deux scènes, le visage revient : c'est lui qui porte la confiance. Une explication plus longue se découpe en deux scènes, séparées par une phrase face caméra.
 - La DERNIÈRE séquence est face caméra : l'appel à l'action, dit à voix haute, aligné sur les règles CTA de l'objectif (fournies plus haut).
 
-L'ÉCRAN NE RECOPIE JAMAIS LA VOIX :
-Une carte retient le mot-clé, le chiffre, le contraste — ce qui se lit en deux secondes pendant que la voix développe. Une carte qui répète la phrase qu'on entend est une carte inutile.
+UNE CHOSE À LA FOIS :
+Chaque écran REMPLACE le précédent : rien ne s'empile, et une scène n'a pas de titre. Un écran porte un visuel en grand, ou de 1 à 4 mots — souvent les deux. L'écran ne recopie jamais la voix : il retient le mot-clé, le chiffre, le contraste, ou montre ce que la voix ne peut pas montrer. Un écran qui répète la phrase qu'on entend est un écran inutile.
 
 UNE SCÈNE :
-- "titre" : 32 caractères MAXIMUM, avec un mot ou une expression surligné entre crochets — "Sur le papier, c'est [évident]".
 - "registre" : "pedagogie" (on montre comment ça marche : un mécanisme, un cycle, un avant/après) ou "humour" (on montre l'absurde : une exagération, une scène décalée, une chute). Une vidéo peut mêler les deux. L'humour vise la situation, jamais la personne.
-- "elements" : 1 à 4, dans l'ordre où ils apparaissent.
-  • "carte" : "texte" (30 caractères MAX, au plus un passage entre crochets), "detail" facultatif (une ligne plus petite sous le texte, 45 caractères MAX), "ton", "taille", "visuel" facultatif.
-  • "pastille" : une courte étiquette qui conclut ou nuance (30 caractères MAX), avec un "ton".
-  • "liaison" : un mot qui relie deux cartes — "vs", "donc", "mais", "→" (10 caractères MAX).
-- "ton" : "ombre" (ce qui coince : la croyance, le piège, le prix payé), "lumiere" (ce qui s'ouvre : le déplacement, la ressource), "neutre" (ce qui informe).
-- "taille" : "petite" (demi-largeur : deux petites cartes voisines se placent côte à côte), "moyenne" (pleine largeur), "grande" (pleine largeur et haute, pour une carte qui porte un visuel). Une grande carte au plus par scène. Varie les tailles : une scène dont toutes les cartes se ressemblent se lit comme une liste.
-- "visuel" : une illustration ou un schéma, quand l'image dit mieux que le mot — surtout en pédagogie, et pour l'humour. { "nature": "illustration" | "schema", "description": "Ce que l'image montre concrètement, en 1 à 2 phrases, en français." } Florent la produit lui-même : décris ce qu'on doit voir, n'écris pas de prompt. Une carte qui porte un visuel peut se passer de texte. Pas d'icône ni d'emoji, pas d'imagerie littérale de la détresse, pas de symboles ésotériques appuyés. Sinon, "visuel" vaut null.
-- "apparait_sur" : OBLIGATOIRE pour chaque élément — 2 à 6 mots RECOPIÉS À L'IDENTIQUE de la "voix" de la même séquence, ceux sur lesquels l'élément apparaît. Les repères d'une scène suivent l'ordre de la voix. Aucun minutage, aucune seconde : le calage se fait sur la prise.
+- "elements" : 1 à 3 écrans, dans l'ordre où ils se succèdent.
+- Un écran :
+  • "texte" : 1 à 4 mots (28 caractères MAX), au plus un passage entre crochets, qui sera surligné — "Vos [émotions]". Ou null, quand le visuel parle seul.
+  • "ton" : le fond de l'écran. "ombre" (fond sombre : ce qui coince, le piège, le prix payé), "lumiere" (fond clair et rosé : ce qui s'ouvre, la ressource), "neutre" (ce qui informe). Passer de l'ombre à la lumière se voit : c'est la bascule.
+  • "visuel" : l'illustration de la métaphore, un schéma, ou null.
+  • "apparait_sur" : OBLIGATOIRE — 2 à 6 mots RECOPIÉS À L'IDENTIQUE de la "voix" de la même séquence, ceux sur lesquels l'écran apparaît. Le premier écran arrive avec la scène : son repère est dans les 3 premiers mots de la voix. Laisse au moins 4 mots de voix entre deux repères : un écran doit avoir le temps d'être lu. Aucun minutage, aucune seconde : le calage se fait sur la prise.
+
+LES VISUELS — rien que Florent ait à produire lui-même :
+- L'ILLUSTRATION DE LA MÉTAPHORE se décrit UNE fois, dans "illustrations", et plusieurs écrans la montrent. { "id": "un mot", "description": "…" } : une SCÈNE figurative en 2 à 3 phrases — ce qu'on y voit, OÙ se trouve chaque élément (en haut, en bas, à gauche, à droite, au centre), l'ambiance. Silhouettes sans visage détaillé, aucun texte dans l'image, ni schéma ni flèche, pas d'imagerie littérale de la détresse, pas de symboles ésotériques appuyés. Ses éléments sont ceux de la carte de la métaphore, et seulement eux. Une seconde illustration est permise quand la métaphore se transforme : la même scène, transformée, avec "depuis": "l'id de la première". 2 au plus ; sans métaphore qui se dessine, "illustrations" vaut [].
+  Un écran la montre par { "illustration": "son id", "cadrage": "ensemble" | "haut" | "bas" | "gauche" | "droite" | "centre" } : "ensemble" pour la scène entière, une zone pour le détail qui s'y trouve — c'est pour ça que la description dit où sont les choses.
+- LES SCHÉMAS, que l'outil dessine et anime lui-même :
+  • { "schema": "niveau", "de": 20, "a": 90 } — un réservoir dont le niveau monte, ou descend : ce qui s'accumule, la pression, la charge.
+  • { "schema": "compteur", "valeur": 3, "unite": "fois" } — un nombre qui défile jusqu'à sa valeur.
+  • { "schema": "opposition", "gauche": "Ce qu'on croit", "droite": "Ce qui marche" } — deux termes face à face, l'un dans l'ombre, l'autre dans la lumière.
+  • { "schema": "enchainement", "de": "La cause", "vers": "Sa suite" } — une cause, et ce qu'elle entraîne.
+  • { "schema": "liste", "items": ["Première", "Deuxième", "Troisième"], "barres": false } — 2 ou 3 lignes qui arrivent une à une ; "barres": true les raye, pour ce qui ne marche pas.
+  Les libellés d'un schéma font 3 mots au plus. Pas d'icône ni d'emoji.
 
 COUP DE POING (facultatif, 2 au plus dans la vidéo) :
-Sur un passage face caméra du milieu — ni l'accroche ni l'appel à l'action —, "coup" fait envahir l'écran par quelques mots, le temps de les dire : la formule qu'on veut graver, une rupture, un chiffre. Fond prune, grandes lettres ; puis le visage revient. { "texte": "24 caractères MAXIMUM, au plus un passage entre crochets", "apparait_sur": "1 à 4 mots RECOPIÉS À L'IDENTIQUE de la voix de la séquence, ceux qu'il frappe" }. Comme une carte, il retient la voix sans la recopier. Sans raison de rompre, "coup" vaut null : un coup de poing par habitude n'en est plus un.
+Sur un passage face caméra du milieu — ni l'accroche ni l'appel à l'action —, "coup" fait envahir l'écran par quelques mots, le temps de les dire : la formule qu'on veut graver, une rupture, un chiffre. Fond prune, grandes lettres ; puis le visage revient. { "texte": "24 caractères MAXIMUM, au plus un passage entre crochets", "apparait_sur": "1 à 4 mots RECOPIÉS À L'IDENTIQUE de la voix de la séquence, ceux qu'il frappe" }. Comme un écran de scène, il retient la voix sans la recopier. Sans raison de rompre, "coup" vaut null : un coup de poing par habitude n'en est plus un.
 
 SECONDE ACCROCHE (PUBLICITÉ) :
 "accroche_pub" est une autre ouverture face caméra, tournée dans la foulée, qui remplace la première quand la vidéo sert de publicité Meta ou Google : même longueur, même enchaînement avec la séquence 2. Elle nomme la situation SANS présumer de l'état de celui qui regarde — jamais 'Vous souffrez de…', 'Votre anxiété…', 'Vous êtes déprimé ?' : les régies le refusent. Et elle ne promet aucun résultat.
 
 {
   "format": "Reel expliqué",
+  "illustrations": [
+    { "id": "avant", "description": "La scène de la métaphore : ce qu'on y voit, où se trouve chaque élément, l'ambiance." },
+    { "id": "apres", "depuis": "avant", "description": "La même scène, transformée : ce qui a changé, et où." }
+  ],
   "sequences": [
     { "plan": "camera", "role": "Accroche", "voix": "Ce que Florent dit face caméra.", "intention": "Note de rythme, regard, pause, sourire." },
     {
       "plan": "scene",
       "role": "Le rôle de la séquence (Constat, Mécanique, Bascule…)",
       "registre": "pedagogie",
-      "voix": "Ce que Florent dit pendant que la scène occupe l'écran.",
+      "voix": "Seize mots au plus : ce que Florent dit pendant que la scène occupe l'écran.",
       "intention": "Note de rythme.",
-      "titre": "Le titre, avec [un mot] surligné",
       "elements": [
-        { "type": "carte", "taille": "moyenne", "texte": "Le mot-clé ou le [chiffre]", "detail": "Une ligne qui précise, ou null", "ton": "ombre", "visuel": null, "apparait_sur": "mots recopiés de la voix" },
-        { "type": "liaison", "texte": "vs", "apparait_sur": "mots recopiés de la voix" },
-        { "type": "carte", "taille": "grande", "texte": "Le contraste", "detail": null, "ton": "lumiere", "visuel": { "nature": "schema", "description": "Ce que le schéma montre." }, "apparait_sur": "mots recopiés de la voix" },
-        { "type": "pastille", "texte": "La [conclusion]", "ton": "lumiere", "apparait_sur": "mots recopiés de la voix" }
+        { "texte": null, "ton": "neutre", "visuel": { "illustration": "avant", "cadrage": "ensemble" }, "apparait_sur": "les premiers mots de la voix" },
+        { "texte": "Le [mot-clé]", "ton": "ombre", "visuel": { "schema": "niveau", "de": 30, "a": 95 }, "apparait_sur": "mots recopiés de la voix" }
       ]
     },
     { "plan": "camera", "role": "Bascule", "voix": "…", "intention": "…", "coup": { "texte": "Pas un [défaut]", "apparait_sur": "mots recopiés de la voix" } },

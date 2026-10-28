@@ -26,7 +26,7 @@ import { ReperesPrise } from './ReperesPrise';
 import { MontageTexte } from './MontageTexte';
 import { ReglagesPrise } from './ReglagesPrise';
 import { RythmeReel } from './RythmeReel';
-import { SequenceCamera, SequenceScene } from './CartesDeScene';
+import { IllustrationsDuReel, SequenceCamera, SequenceScene } from './CartesDeScene';
 import type { VisuelsReel } from './useVisuelsReel';
 
 /**
@@ -55,6 +55,7 @@ const PLAYER_LARGEUR = 306;
 
 /** Une vidéo sans scène n'a pas de visuel : la même fonction à chaque rendu, pour ne rien recalculer. */
 const AUCUN_VISUEL = () => ({});
+const AUCUNE_ILLUSTRATION = (): Record<string, string> => ({});
 
 export type OngletStudio = 'texte' | 'scenes' | 'rythme' | 'prise';
 
@@ -99,8 +100,8 @@ const morceaux = (plan: PlanDeMontage, source: 'principale' | 'accroche') =>
  * chaque image jusqu'à son décodage, et une image déjà décodée ne le fait pas
  * attendre.
  */
-const decoderLesVisuels = async (visuels: Record<number, Record<number, string>>) => {
-    const urls = Object.values(visuels).flatMap(parScene => Object.values(parScene));
+const decoderLesVisuels = async (visuels: Record<number, Record<number, string>>, illustrations: Record<string, string>) => {
+    const urls = [...Object.values(visuels).flatMap(parScene => Object.values(parScene)), ...Object.values(illustrations)];
     await Promise.all(urls.map(async url => {
         const image = new Image();
         image.src = url;
@@ -159,6 +160,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         () => Object.fromEntries(sequences.map((_, i) => [i, visuelsDeLaScene(i)])) as ProprietesReel['visuels'],
         [sequences, visuelsDeLaScene],
     );
+    const desIllustrations = visuelsDuReel?.desIllustrations ?? AUCUNE_ILLUSTRATION;
+    const illustrations = useMemo(() => desIllustrations(), [desIllustrations]);
 
     // Une prise ne sert qu'une fois calée ET relue : sans son fichier, rien à montrer.
     const principale = prises.principale?.calage && prises.principale.url ? prises.principale : undefined;
@@ -195,11 +198,11 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
     const reglageDe = (p?: { prise: { decalageSon?: number; rotation?: number } }) =>
         p ? { decalageSon: p.prise.decalageSon ?? 0, rotation: p.prise.rotation ?? 0 } : undefined;
     const finale: ProprietesFinale | null = plan && principale ? {
-        data, plan, visuels, format,
+        data, plan, visuels, illustrations, format,
         sources: { principale: principale.url, accroche: accroche?.url },
         reglages: { principale: reglageDe(principale), accroche: reglageDe(accroche) },
     } : null;
-    const reel: ProprietesReel = { data, minutage: estime, visuels, format };
+    const reel: ProprietesReel = { data, minutage: estime, visuels, illustrations, format };
     // Les scènes exportées seules suivent la prise quand il y en a une : elles
     // tomberont sur les mots dans Final Cut aussi.
     const minutageDesScenes: MinutageReel = plan?.minutage ?? estime;
@@ -228,7 +231,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                 };
                 await chargerPolices();
                 await preparerEncodage(cadre.largeur, cadre.hauteur);
-                await decoderLesVisuels(visuels);
+                await decoderLesVisuels(visuels, illustrations);
                 try {
                     return await lancer(controle.signal, avancer);
                 } catch (e) {
@@ -254,7 +257,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         const sequence = sequences[rang];
         const m = minutageDesScenes.sequences[rang];
         if (!sequence || !m) return;
-        const entree: ProprietesScene = { sequence, apparitions: m.apparitions, visuels: visuels[rang], format };
+        const entree: ProprietesScene = { sequence, apparitions: m.apparitions, visuels: visuels[rang], illustrations, format };
         void rendre(`scene-${rang}`, `Export de la scène ${rang + 1}`, nomDeScene(titre, rang + 1, sequence.role), async (signal, avancer) => {
             const { getBlob } = await renderMediaOnWeb({
                 composition: {
@@ -335,7 +338,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
 
     const calee = !!principale;
     const aProduire = animations ? visuelsAProduire(data) : 0;
-    const deposes = animations ? sequences.reduce((n, _, i) => n + Object.keys(visuelsDeLaScene(i)).length, 0) : 0;
+    const deposes = animations ? sequences.reduce((n, _, i) => n + Object.keys(visuelsDeLaScene(i)).length, 0) + Object.keys(illustrations).length : 0;
     const [onglet, setOnglet] = useState<OngletStudio>(ongletInitial ?? 'prise');
     /*
      * Le seul changement de vue automatique, et il reste dans le studio : la
@@ -562,8 +565,9 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                                 <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : les visuels ne peuvent pas être déposés.</p>
                             )}
                             <div className="space-y-4">
+                                {visuelsDuReel && <IllustrationsDuReel reel={data} visuels={visuelsDuReel} deposable={!visuelsDuReel.indisponible} />}
                                 {sequences.map((sequence, i) => sequence.plan === 'scene' && visuelsDuReel
-                                    ? <SequenceScene key={i} sequence={sequence} numero={i + 1} visuels={visuelsDuReel} deposable={!visuelsDuReel.indisponible} />
+                                    ? <SequenceScene key={i} reel={data} sequence={sequence} numero={i + 1} visuels={visuelsDuReel} deposable={!visuelsDuReel.indisponible} />
                                     : sequence.coup ? <SequenceCamera key={i} sequence={sequence} numero={i + 1} /> : null)}
                             </div>
                         </>

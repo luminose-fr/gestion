@@ -9,6 +9,7 @@ import {
     type ContenuPourEtape, type EntreeEtape, type MontagePourEtape,
 } from '../src/etape';
 import { TargetFormat, VIDEO_DIRECTE, verifierReelExplique, type ReelExplique } from '../src/index';
+import { reelValide } from './reel-valide';
 
 const MAINTENANT = Date.parse('2026-10-27T10:00:00Z');
 const JOUR = 86_400_000;
@@ -25,36 +26,8 @@ const calcul = (entree: Partial<EntreeEtape> & { contenu: ContenuPourEtape }) =>
 const BROUILLON = JSON.stringify({ format: 'Post Texte', accroche: 'Une accroche.', corps: 'Un corps.' });
 const SCRIPT_REEL = JSON.stringify({ format: 'Script Reel', sections: [{ role: 'Accroche', texte: 'Vous ne savez pas si je suis le bon praticien.' }] });
 
-/** Un Reel expliqué qui tient : deux visuels à produire. */
-const reel = (): ReelExplique => ({
-    format: 'Reel expliqué',
-    sequences: [
-        { plan: 'camera', role: 'Accroche', voix: "Vous relisez trois fois un message avant de l'envoyer ?" },
-        { plan: 'camera', role: 'Ancrage', voix: "En séance, je l'entends presque chaque semaine. Et ce n'est pas de la politesse : c'est un système d'alarme qui s'est réglé trop fort." },
-        {
-            plan: 'scene', role: 'Mécanique', registre: 'pedagogie',
-            voix: "Le perfectionnisme fonctionne comme une alarme incendie. Elle était utile quand vous étiez enfant et qu'une erreur coûtait cher. Aujourd'hui, elle sonne pour une virgule. Et chaque fois qu'elle sonne, vous payez en fatigue.",
-            titre: 'Une alarme [trop sensible]',
-            elements: [
-                { type: 'carte', taille: 'petite', ton: 'ombre', texte: 'Enfant : erreur = danger', apparait_sur: 'quand vous étiez enfant' },
-                { type: 'carte', taille: 'petite', ton: 'ombre', texte: 'Adulte : une [virgule]', apparait_sur: 'elle sonne pour une virgule' },
-                { type: 'carte', taille: 'grande', ton: 'ombre', texte: 'Le prix : la [fatigue]', visuel: { nature: 'schema', description: "Une jauge d'alarme bloquée dans le rouge." }, apparait_sur: 'vous payez en fatigue' },
-            ],
-        },
-        {
-            plan: 'scene', role: 'Bascule', registre: 'humour',
-            voix: "Imaginez un détecteur de fumée qui se déclenche dès que vous allumez une bougie. Vous ne le jetez pas : vous le réglez.",
-            titre: 'On ne le jette [pas]',
-            elements: [
-                { type: 'carte', taille: 'grande', ton: 'neutre', texte: null, visuel: { nature: 'illustration', description: "Un détecteur de fumée paniqué au plafond." }, apparait_sur: 'dès que vous allumez une bougie' },
-                { type: 'pastille', ton: 'lumiere', texte: 'On le [règle]', apparait_sur: 'vous le réglez' },
-            ],
-        },
-        { plan: 'camera', role: "Appel à l'action", voix: "C'est ce travail-là qu'on fait en séance : baisser le volume, sans couper le son. Si ça vous parle, tout est sur luminose.fr, lien en bio." },
-    ],
-    accroche_pub: { voix: "Relire trois fois un message avant de l'envoyer : on croit que c'est de la politesse." },
-    legende: { texte: 'Trois relectures pour un message de deux lignes.', cta: 'Lien en bio → luminose.fr', hashtags: ['#perfectionnisme'] },
-} as ReelExplique);
+/** Un Reel expliqué qui tient : deux illustrations à produire, les schémas se dessinent seuls. */
+const reel = reelValide;
 
 const video = (champs: Partial<ContenuPourEtape> = {}) =>
     contenu({ targetFormat: TargetFormat.REEL_EXPLIQUE, draft: JSON.stringify(reel()), ...champs });
@@ -127,7 +100,7 @@ describe('les libellés d’une vidéo (§13.3)', () => {
 
     it('un script qui ne tient pas, puis un script écrit', () => {
         const casse = reel();
-        casse.sequences[2].elements![0] = { type: 'carte', taille: 'petite', ton: 'ombre', texte: null, apparait_sur: 'quand vous étiez enfant' } as any;
+        casse.sequences[2].elements![0] = { ton: 'ombre', texte: null, apparait_sur: 'Le perfectionnisme' };
         const n = verifierReelExplique(casse).length;
         expect(n).toBeGreaterThan(0);
         expect(calcul({ contenu: video({ draft: JSON.stringify(casse) }) }).libelle).toBe(`Script · ${n} point${n > 1 ? 's' : ''} à corriger`);
