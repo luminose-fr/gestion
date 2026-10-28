@@ -17,6 +17,7 @@ import {
 } from './ReelComposition';
 import { CADRES, type FormatVideo } from './SceneLuminose';
 import { preparerEncodage } from './encodage';
+import { sousVeille } from './veille';
 import { usePrisesReel } from './usePrisesReel';
 import { DepotPrise, poids } from './DepotPrise';
 import type { Montage } from './useMontage';
@@ -123,6 +124,12 @@ const decoderLesVisuels = async (visuels: Record<number, Record<number, string>>
  */
 const estUnHoquetDeChargement = (e: unknown) => /delayRender\(\)/.test(String((e as any)?.message ?? e));
 
+/**
+ * Une minute sans une image de plus, c'est un rendu figé : Remotion abandonne
+ * lui-même, au bout de trente secondes, une image qui tarde à se charger.
+ */
+const SANS_IMAGE_DEPUIS = 60_000;
+
 export interface PanneauMontageProps {
     data: ReelExplique;
     /** Le contenu enregistré : les prises s'y rattachent. */
@@ -215,28 +222,33 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         const controle = new AbortController();
         annulation.current = controle;
         const temoin = Activite.ouvrir({ label: libelle, part: 0 });
-        const avancer = (part: number) => {
-            setExport({ cible, part });
-            temoin.avancer({ part });
-        };
+        // Remotion ne mène qu'un rendu à la fois : un rendu figé retient tous ceux qui suivent dans la page.
+        const fige = new Error("il ne progresse plus depuis une minute. Rechargez la page pour le relancer : un nouvel export attendrait derrière celui-ci.");
         try {
-            await chargerPolices();
-            await preparerEncodage(cadre.largeur, cadre.hauteur);
-            await decoderLesVisuels(visuels);
-            let blob: Blob;
-            try {
-                blob = await lancer(controle.signal, avancer);
-            } catch (e) {
-                if (controle.signal.aborted || !estUnHoquetDeChargement(e)) throw e;
-                temoin.avancer({ part: 0, etape: 'Nouvelle tentative' });
-                blob = await lancer(controle.signal, avancer);
-            }
+            const blob = await sousVeille(async (signeDeVie) => {
+                const avancer = (part: number) => {
+                    signeDeVie();
+                    setExport({ cible, part });
+                    temoin.avancer({ part });
+                };
+                await chargerPolices();
+                await preparerEncodage(cadre.largeur, cadre.hauteur);
+                await decoderLesVisuels(visuels);
+                try {
+                    return await lancer(controle.signal, avancer);
+                } catch (e) {
+                    if (controle.signal.aborted || !estUnHoquetDeChargement(e)) throw e;
+                    temoin.avancer({ part: 0, etape: 'Nouvelle tentative' });
+                    return await lancer(controle.signal, avancer);
+                }
+            }, controle, SANS_IMAGE_DEPUIS, fige);
             telecharger(blob, nom);
             temoin.fermer(true);
             apres?.();
         } catch (e: any) {
             temoin.fermer(false);
-            if (!controle.signal.aborted) setErreur(`${libelle} : échec — ${e?.message ?? String(e)}`);
+            // Annulé, il n'y a rien à dire ; figé, le dire est tout ce qui reste à faire.
+            if (!controle.signal.aborted || controle.signal.reason === fige) setErreur(`${libelle} : échec — ${e?.message ?? String(e)}`);
         } finally {
             annulation.current = null;
             setExport(null);
