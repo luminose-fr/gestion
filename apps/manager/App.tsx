@@ -435,6 +435,13 @@ function App() {
       if (m) setMontages(m);
   };
 
+  /** Le studio a déposé, transcrit ou exporté : l'étape du contenu ouvert se relit sans attendre sa fermeture. */
+  const lireLesMontages = () => {
+      void Api.fetchResumeMontages()
+          .then(setMontages)
+          .catch((e) => { console.warn('Montages non lus :', e); });
+  };
+
   const synchroniser = async (
       forceFullSync = false,
       baseCache?: { items?: ContentItem[]; models?: AIModel[]; series?: Serie[] }
@@ -1338,6 +1345,7 @@ function App() {
                         panneauSerie={serieDuContenu ? panneauDeLaSerie(serieDuContenu, editingItem.id) : undefined}
                         resumeFil={fils?.contenus[editingItem.id] ?? null}
                         resumeMontage={montages?.contenus[editingItem.id] ?? null}
+                        onMontageChange={lireLesMontages}
                         onAnalyser={() => triggerSingleAnalysis(editingItem)}
                         analyseEnCours={isSingleAnalyzing}
                     />

@@ -3,7 +3,7 @@ import { Player, type PlayerRef } from '@remotion/player';
 import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Download, X } from 'lucide-react';
 import {
-    minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE, motsNormalises,
+    minuterReel, horlogeEstimee, planDeMontage, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE,
     cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire, passagesManuels, compterMots,
     type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
@@ -18,6 +18,7 @@ import {
 import { CADRES, type FormatVideo } from './SceneLuminose';
 import { preparerEncodage } from './encodage';
 import { sousVeille } from './veille';
+import { nomDeScene, nomDeVideo } from './noms';
 import { usePrisesReel } from './usePrisesReel';
 import { DepotPrise, poids } from './DepotPrise';
 import type { Montage } from './useMontage';
@@ -74,14 +75,6 @@ const exportImpossible = (): string | null => {
     }
     return null;
 };
-
-const nomDeScene = (rang: number, role: string): string => {
-    const mots = motsNormalises(role).join('-');
-    return `scene-${rang}${mots ? `-${mots}` : ''}.mp4`;
-};
-
-const nomDeVideo = (format: FormatVideo, version: Version): string =>
-    `reel-${format === '9:16' ? '9x16' : '4x5'}${version === 'publicite' ? '-pub' : ''}.mp4`;
 
 const telecharger = (blob: Blob, nom: string) => {
     const url = URL.createObjectURL(blob);
@@ -144,9 +137,11 @@ export interface PanneauMontageProps {
     dernierExport?: { format: string; version: string; le: number } | null;
     /** L'onglet d'entrée ; à défaut, Prise, puis Texte dès que la prise est calée. */
     ongletInitial?: OngletStudio;
+    /** Le titre du contenu : il nomme les fichiers exportés. */
+    titre?: string;
 }
 
-const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuels: visuelsDuReel = null, sansScript = false, dernierExport = null, ongletInitial }) => {
+const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuels: visuelsDuReel = null, sansScript = false, dernierExport = null, ongletInitial, titre }) => {
     const visuelsDeLaScene = visuelsDuReel?.deLaScene ?? AUCUN_VISUEL;
     // Une vidéo directe (§12.7) n'a ni scène, ni repère, ni export de scènes seules.
     const animations = avecAnimations(data);
@@ -260,7 +255,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         const m = minutageDesScenes.sequences[rang];
         if (!sequence || !m) return;
         const entree: ProprietesScene = { sequence, apparitions: m.apparitions, visuels: visuels[rang], format };
-        void rendre(`scene-${rang}`, `Export de la scène ${rang + 1}`, nomDeScene(rang + 1, sequence.role), async (signal, avancer) => {
+        void rendre(`scene-${rang}`, `Export de la scène ${rang + 1}`, nomDeScene(titre, rang + 1, sequence.role), async (signal, avancer) => {
             const { getBlob } = await renderMediaOnWeb({
                 composition: {
                     id: `scene-${rang + 1}`,
@@ -285,7 +280,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
 
     const exporterVideo = () => {
         if (!finale || !plan) return;
-        const nom = nomDeVideo(format, versionEffective);
+        const nom = nomDeVideo(titre, format, versionEffective === 'publicite');
         void rendre('video', `Export de la vidéo ${format}${versionEffective === 'publicite' ? ' (publicité)' : ''}`, nom, async (signal, avancer) => {
             const { getBlob } = await renderMediaOnWeb({
                 composition: {
@@ -305,7 +300,12 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
             });
             return getBlob();
         // Noter l'export ne doit jamais en gâcher un réussi : une note perdue est perdue.
-        }, () => { void Api.noterExport(contentId, { format, version: versionEffective, duree: plan.duree }).catch(() => undefined); });
+        }, () => {
+            void Api.noterExport(contentId, { format, version: versionEffective, duree: plan.duree })
+                // Noté, il change l'étape : « Exportée », et la Publication s'ouvre.
+                .then(() => montage.recharger())
+                .catch(() => undefined);
+        });
     };
 
     const progression = (cible: string) => export_?.cible === cible && (
