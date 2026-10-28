@@ -44,7 +44,7 @@ import { SelecteurEtape } from '../components/Contenu/CadreContenu';
 import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
 import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
-import { SequenceScene, SequenceCamera } from '../components/Video/CartesDeScene';
+import { SequenceScene, SequenceCamera, IllustrationsDuReel } from '../components/Video/CartesDeScene';
 import { LectureScript } from '../components/Contenu/Lecture';
 import { Studio } from '../components/Contenu/Studio';
 import { DepotPrise } from '../components/Video/DepotPrise';
@@ -1931,18 +1931,55 @@ describe('Reel expliqué — storyboard', () => {
   };
 
   /** Des visuels sans dépôt : la carte se lit, rien n'est encore déposé. */
-  const VISUELS = { visuel: () => undefined, deLaScene: () => ({}), deposer: asyncNoop, retirer: asyncNoop, indisponible: false } as any;
+  const VISUELS = { visuel: () => undefined, deLaScene: () => ({}), desIllustrations: () => ({}), deposer: asyncNoop, retirer: asyncNoop, indisponible: false } as any;
 
   it('la carte d\u2019une scène : la voix, ses repères numérotés, ce qu\u2019il reste à produire', () => {
     const data = JSON.parse(reel());
-    const { container } = render(<SequenceScene sequence={data.sequences[2]} numero={3} visuels={VISUELS} deposable />);
+    const { container } = render(<SequenceScene reel={data} sequence={data.sequences[2]} numero={3} visuels={VISUELS} deposable />);
     const texte = container.textContent ?? '';
     expect(texte).toContain('3. Scène · Mécanique · pédagogie');
     expect(texte).toContain('À produire');
     expect(texte).toContain("Schéma — Une jauge d'alarme bloquée dans le rouge.");
     // Les trois repères de la scène sont soulignés et numérotés.
     expect(Array.from(container.querySelectorAll('sup')).map(s => s.textContent)).toEqual(['1', '2', '3']);
-    expect(container.querySelectorAll('[role="img"]')).toHaveLength(1);
+    // Un écran à la fois (v2.26) : la scène se montre en trois miniatures, une par écran.
+    expect(container.querySelectorAll('[role="img"]')).toHaveLength(3);
+  });
+
+  it('un écran à la fois (v2.26) : schémas dessinés par l\u2019outil, illustration du Reel décrite une fois', () => {
+    const data: any = {
+      format: 'Reel expliqué',
+      illustrations: [{ id: 'digue', description: 'En haut, une digue fissurée ; en bas, un petit personnage qui court.' }],
+      sequences: [
+        { plan: 'camera', role: 'Accroche', voix: 'Je veux mieux contrôler mes émotions.' },
+        {
+          plan: 'scene', role: 'Constat', registre: 'humour',
+          voix: 'Imaginez une digue. Derrière, tout ce que vous ressentez, qui monte et qui pousse.',
+          elements: [
+            { texte: null, ton: 'neutre', visuel: { illustration: 'digue', cadrage: 'haut' }, apparait_sur: 'Imaginez une digue' },
+            { texte: 'Ça [monte]', ton: 'ombre', visuel: { schema: 'niveau', de: 30, a: 95 }, apparait_sur: 'tout ce que vous ressentez' },
+            { texte: null, ton: 'ombre', visuel: { schema: 'liste', items: ['Colère', 'Larmes'], barres: true }, apparait_sur: 'qui monte et qui pousse' },
+          ],
+        },
+        { plan: 'camera', role: 'Appel', voix: 'Tout est sur luminose.fr.' },
+      ],
+    };
+    const deposes: any[] = [];
+    const visuels = { ...VISUELS, deposer: async (...a: any[]) => { deposes.push(a); } };
+    const bloc = render(<IllustrationsDuReel reel={data} visuels={visuels} deposable />);
+    expect(bloc.container.textContent).toContain('Illustrations de la métaphore');
+    expect(bloc.container.textContent).toContain('Illustration « digue » — En haut, une digue fissurée');
+    cleanup();
+    const { container } = render(<SequenceScene reel={data} sequence={data.sequences[1]} numero={2} visuels={visuels} deposable />);
+    const ecrans = Array.from(container.querySelectorAll('[role="img"]'));
+    expect(ecrans).toHaveLength(3);
+    // Sans image, le storyboard montre la commande ; les schémas, l'outil les dessine.
+    expect(ecrans[0].textContent).toContain('Illustration « digue » · haut');
+    expect(ecrans[1].textContent).toContain('Ça monte');
+    expect(ecrans[2].textContent).toContain('Colère');
+    expect(ecrans[2].textContent).toContain('Larmes');
+    // Rien à produire écran par écran : l'illustration se dépose une fois, pour tout le Reel.
+    expect(container.textContent).not.toContain('À produire');
   });
 
   it('le script se lit séquence par séquence, minuté au débit estimé', () => {
@@ -1963,7 +2000,7 @@ describe('Reel expliqué — storyboard', () => {
 
   it('monte une scène dont aucun élément n\u2019est encore apparu', () => {
     const sequence = JSON.parse(reel()).sequences[2];
-    expect(() => render(<SceneLuminose sequence={sequence} largeur={216} visibles={0} />)).not.toThrow();
+    expect(() => render(<SceneLuminose sequence={sequence} largeur={216} anime={{ ecran: 0, entree: 0, ecoule: 0, duree: 3 }} />)).not.toThrow();
   });
 });
 
@@ -2000,24 +2037,26 @@ describe('Reel expliqué — montage', () => {
     ],
   }) as any;
 
-  it('une scène pilotée montre ses entrées en cours, et le visuel déposé à la place du gabarit', () => {
+  it('une scène pilotée montre l\u2019écran en cours, qui entre, et le visuel déposé à la place du gabarit', () => {
     const { container } = render(
-      <SceneLuminose sequence={reel().sequences[1]} largeur={216} entrees={{ titre: 1, elements: [1, 0] }} visuels={{ 1: 'blob:visuel-depose' }} />
+      <SceneLuminose sequence={reel().sequences[1]} largeur={216} anime={{ ecran: 1, entree: 0, ecoule: 0, duree: 3 }} visuels={{ 1: 'blob:visuel-depose' }} />
     );
     const image = container.querySelector('img[src="blob:visuel-depose"]');
     expect(image).not.toBeNull();
     // Le gabarit pointillé disparaît quand l'image est là.
     expect(container.textContent).not.toContain('Une jauge bloquée dans le rouge.');
-    // L'élément pas encore entré est transparent, pas retiré : la mise en page ne bouge pas.
+    // Un écran à la fois : le premier a laissé la place.
+    expect(container.textContent).not.toContain('virgule');
+    // L'écran qui entre part de la transparence.
     const enAttente = image!.closest('div[style*="opacity"]') as HTMLElement | null;
     expect(enAttente?.style.opacity).toBe('0');
   });
 
   it('la vidéo ne montre jamais la description d’un visuel absent : la carte garde son texte (28/10/2026)', () => {
-    const storyboard = render(<SceneLuminose sequence={reel().sequences[1]} largeur={216} />);
+    const storyboard = render(<SceneLuminose sequence={reel().sequences[1]} ecran={1} largeur={216} />);
     expect(storyboard.container.textContent).toContain('Une jauge bloquée dans le rouge.');
     cleanup();
-    const video = render(<SceneLuminose sequence={reel().sequences[1]} largeur={216} gabarits={false} />);
+    const video = render(<SceneLuminose sequence={reel().sequences[1]} ecran={1} largeur={216} gabarits={false} />);
     expect(video.container.textContent).not.toContain('Une jauge bloquée dans le rouge.');
     expect(video.container.textContent).toContain('fatigue');
   });

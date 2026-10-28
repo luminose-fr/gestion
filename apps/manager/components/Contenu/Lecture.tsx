@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import {
-    horlogeEstimee, minuterReel, montageDuBrouillon, parseBodyJson, texteAffiche,
+    horlogeEstimee, minuterReel, montageDuBrouillon, parseBodyJson, texteAffiche, ecranEnClair,
     SIGNATURE_SLIDE, SLIDE_TEXT_MAX, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
@@ -80,7 +80,7 @@ export const LectureTournage: React.FC<{ draft: string | null; format: string | 
             {reel.sequences.map((s, i) => {
                 const m = minutage.sequences[i];
                 const aLEcran = s.plan === 'scene'
-                    ? [s.titre ? texteAffiche(s.titre) : null, ...(s.elements ?? []).map(e => (e.texte ? texteAffiche(e.texte) : e.visuel?.description ?? null))].filter(Boolean) as string[]
+                    ? (s.elements ?? []).map(ecranEnClair)
                     : [s.coup ? `Coup de poing : ${texteAffiche(s.coup.texte)}` : 'Votre visage, face caméra.'];
                 return (
                     <div key={i} className="flex flex-wrap gap-5 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">

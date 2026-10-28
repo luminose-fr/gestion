@@ -256,6 +256,15 @@ describe('les visuels', () => {
         expect(r2.objets.size).toBe(0);
     });
 
+    it('rangent les illustrations du Reel à la séquence −1, et rien en deçà (v2.26)', async () => {
+        const illustration = await appeler('PUT', `/api/montage/${contenu}/visuels/-1/0`, octets('png'), {
+            'Content-Type': 'image/png', 'Content-Length': '3', 'X-Visuel-Description': encodeURIComponent('La digue.'),
+        });
+        expect((await json(illustration)).visuel).toMatchObject({ sequence: -1, element: 0, description: 'La digue.' });
+        expect(await (await appeler('GET', `/api/montage/${contenu}/visuels/-1/0`)).text()).toBe('png');
+        expect((await appeler('GET', `/api/montage/${contenu}/visuels/-2/0`)).status).toBe(400);
+    });
+
     it('n’acceptent qu’une image', async () => {
         const res = await appeler('PUT', `/api/montage/${contenu}/visuels/2/1`, octets('mp4'), { 'Content-Type': 'video/mp4', 'Content-Length': '3' });
         expect(res.status).toBe(400);

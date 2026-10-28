@@ -1,6 +1,6 @@
 import React from 'react';
 import { Crosshair, Minus, Plus, RotateCcw } from 'lucide-react';
-import { texteAffiche, type MinutageReel, type PlanDeMontage, type ReelExplique } from '@luminose/editorial';
+import { texteAffiche, visuelEnClair, type MinutageReel, type PlanDeMontage, type ReelExplique } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
 
 /**
@@ -28,7 +28,7 @@ export interface ReperesPriseProps {
 
 export const ReperesPrise: React.FC<ReperesPriseProps> = ({ data, calage, plan, reperes, onCorriger, onAller }) => (
     <div className="space-y-2">
-        <Etiquette>Repères — l'instant où chaque élément apparaît dans la prise</Etiquette>
+        <Etiquette>Repères — l'instant où chaque écran apparaît dans la prise</Etiquette>
         {(data.sequences ?? []).map((sequence, i) => sequence.plan !== 'scene' ? null : (sequence.elements ?? []).map((element, j) => {
             const m = calage.sequences[i];
             const cle = `${i}:${j}`;
@@ -36,8 +36,7 @@ export const ReperesPrise: React.FC<ReperesPriseProps> = ({ data, calage, plan, 
             const calcule = m ? m.debut + (m.apparitions[j] ?? m.fin - m.debut) : 0;
             const actuel = corrige ?? calcule;
             const sortie = plan.minutage.sequences[i];
-            const libelle = texteAffiche(element.texte)
-                || (element.visuel ? (element.visuel.nature === 'schema' ? 'Schéma' : 'Illustration') : element.type);
+            const libelle = texteAffiche(element.texte) || visuelEnClair(element.visuel) || `Écran ${j + 1}`;
             return (
                 <div key={cle} className="flex items-center gap-2">
                     <Bouton

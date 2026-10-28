@@ -1,5 +1,5 @@
 {
- "note": "Prise réelle de Florent, 28/10/2026, « Un meilleur sparadrap » : 1920 × 1080, Whisper sur Workers AI. Sans enveloppe.",
+ "note": "Prise réelle de Florent, 28/10/2026, « Un meilleur sparadrap » : 1920 × 1080, Whisper sur Workers AI. Sans enveloppe. « scriptEcrans » : le même texte, réécrit écran par écran (v2.26).",
  "script": {
   "format": "Reel expliqué",
   "sequences": [
@@ -156,6 +156,272 @@
       "texte": "Vanne [entrouverte]",
       "ton": "lumiere",
       "apparait_sur": "la vanne reste entrouverte"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Chute",
+    "voix": "Mieux contrôler ses émotions, ce n'est pas tenir la digue plus fort. C'est savoir ouvrir la vanne.",
+    "intention": "Regard droit, débit lent. Un temps après « plus fort ». La seconde phrase, simple, comme une évidence.",
+    "coup": {
+     "texte": "Pas la digue : la [vanne]",
+     "apparait_sur": "savoir ouvrir la vanne"
+    }
+   },
+   {
+    "plan": "camera",
+    "role": "Appel à l'action",
+    "voix": "Combien de temps encore voulez-vous tenir cette digue à bout de bras ? Le jour où c'est trop lourd, c'est là-dessus que je travaille en cabinet : luminose.fr.",
+    "intention": "Poser la question doucement, sans appuyer. Un vrai silence après « à bout de bras ? », regard tenu. Puis changer de ton, chaleureux et simple, pour la porte, sans insister."
+   }
+  ],
+  "accroche_pub": {
+   "voix": "Mieux contrôler ses émotions : en séance, c'est une demande que j'entends souvent.",
+   "intention": "Même ton que l'accroche : posé, sans dramatiser. S'enchaîne directement avec « Imaginez une digue »."
+  },
+  "legende": {
+   "texte": "« Je veux mieux contrôler mes émotions. »\nC'est souvent la première phrase en séance, et je la comprends. Quand on colmate toute la journée, on rêve d'un sparadrap plus solide. Mais une émotion retenue ne s'en va pas : elle attend, et elle pousse. Le travail, c'est d'ouvrir une vanne, un peu, à votre rythme, dans un cadre qui tient. Et de ne pas la refermer complètement en sortant.",
+   "cta": "Le jour où la digue devient trop lourde, la première étape est une rencontre de 20 minutes, offerte. Lien en bio → https://www.luminose.fr",
+   "hashtags": [
+    "#therapie",
+    "#psychopraticien",
+    "#emotions",
+    "#gestiondesemotions",
+    "#regulationemotionnelle",
+    "#therapietranspersonnelle",
+    "#villefranchedelauragais",
+    "#toulouse"
+   ]
+  }
+ },
+ "scriptEcrans": {
+  "format": "Reel expliqué",
+  "illustrations": [
+   {
+    "id": "digue",
+    "description": "Au centre, une haute digue de pierre fissurée. En haut, derrière elle, un lac dont l'eau affleure le sommet du mur ; trois jets d'eau percent la paroi. En bas, un petit personnage court d'un jet à l'autre, les bras chargés de rouleaux de sparadrap. Ton burlesque, lumière de fin de journée, aucun texte."
+   },
+   {
+    "id": "vanne",
+    "depuis": "digue",
+    "description": "La même digue, apaisée. Au centre, une vanne entrouverte laisse passer un filet d'eau régulier ; en bas, un bassin de pierre aux bords épais le recueille. Les jets ont cessé ; le petit personnage a posé ses rouleaux et regarde l'eau couler. Lumière douce, aucun texte."
+   }
+  ],
+  "sequences": [
+   {
+    "plan": "camera",
+    "role": "Accroche",
+    "voix": "« Je veux mieux contrôler mes émotions. » En première séance, je l'entends souvent.",
+    "intention": "Dire la phrase doucement, comme on la reçoit vraiment, sans caricature. Une demi-seconde de silence, puis la seconde phrase plus posée, regard droit caméra."
+   },
+   {
+    "plan": "scene",
+    "role": "Constat",
+    "registre": "humour",
+    "voix": "Imaginez une digue. Derrière, tout ce que vous ressentez.",
+    "intention": "Poser l'image calmement, comme une évidence.",
+    "elements": [
+     {
+      "texte": null,
+      "ton": "neutre",
+      "visuel": {
+       "illustration": "digue",
+       "cadrage": "ensemble"
+      },
+      "apparait_sur": "Imaginez une digue"
+     },
+     {
+      "texte": "Vos [émotions]",
+      "ton": "neutre",
+      "visuel": {
+       "illustration": "digue",
+       "cadrage": "haut"
+      },
+      "apparait_sur": "tout ce que vous ressentez"
+     }
+    ]
+   },
+   {
+    "plan": "scene",
+    "role": "Fuites",
+    "registre": "humour",
+    "voix": "Et elle fuit : la colère qui part pour un détail, les larmes devant une pub,",
+    "intention": "Le rythme s'accélère, comme quelqu'un qui court.",
+    "elements": [
+     {
+      "texte": null,
+      "ton": "ombre",
+      "visuel": {
+       "schema": "liste",
+       "items": [
+        "Colère : un [détail]",
+        "Larmes : une [pub]"
+       ]
+      },
+      "apparait_sur": "Et elle fuit"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Fuites",
+    "voix": "la boule au ventre du dimanche soir.",
+    "intention": "Le visage revient sur la troisième fuite."
+   },
+   {
+    "plan": "scene",
+    "role": "Sparadrap",
+    "registre": "humour",
+    "voix": "Vous courez d'une fuite à l'autre, sparadrap en main, en serrant les dents.",
+    "intention": "Ralentir sur « en serrant les dents », presque las.",
+    "elements": [
+     {
+      "texte": null,
+      "ton": "neutre",
+      "visuel": {
+       "illustration": "digue",
+       "cadrage": "bas"
+      },
+      "apparait_sur": "Vous courez d'une fuite"
+     },
+     {
+      "texte": "Opération [sparadrap]",
+      "ton": "ombre",
+      "visuel": null,
+      "apparait_sur": "sparadrap en main"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Recadrage",
+    "voix": "Je comprends. Mais bon, entre nous… ce qu'on me demande, c'est un meilleur sparadrap.",
+    "intention": "« Je comprends » sincère, avec un hochement de tête. Sourire complice sur « entre nous ». Petite pause avant « sparadrap », dit avec une tendresse amusée, sans ironie.",
+    "coup": {
+     "texte": "Un meilleur [sparadrap]",
+     "apparait_sur": "un meilleur sparadrap"
+    }
+   },
+   {
+    "plan": "scene",
+    "role": "Mécanique",
+    "registre": "pedagogie",
+    "voix": "Sauf que l'eau retenue ne disparaît pas. Elle s'accumule. Elle pousse.",
+    "intention": "Ton explicatif et calme.",
+    "elements": [
+     {
+      "texte": "L'eau [s'accumule]",
+      "ton": "ombre",
+      "visuel": {
+       "schema": "niveau",
+       "de": 35,
+       "a": 80
+      },
+      "apparait_sur": "Sauf que l'eau retenue"
+     },
+     {
+      "texte": "Elle [pousse]",
+      "ton": "ombre",
+      "visuel": {
+       "schema": "niveau",
+       "de": 80,
+       "a": 100
+      },
+      "apparait_sur": "Elle pousse"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Prix",
+    "voix": "Tenir, ça se paie :"
+   },
+   {
+    "plan": "scene",
+    "role": "Prix",
+    "registre": "pedagogie",
+    "voix": "des nuits courtes, des nerfs à vif, une fatigue qui ne passe pas.",
+    "intention": "Énumérer sobrement.",
+    "elements": [
+     {
+      "texte": null,
+      "ton": "ombre",
+      "visuel": {
+       "schema": "liste",
+       "items": [
+        "Nuits courtes",
+        "Nerfs à vif",
+        "Fatigue"
+       ]
+      },
+      "apparait_sur": "des nuits courtes"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Bascule",
+    "voix": "Je vais vous décevoir : le cabinet n'est pas une boutique de sparadrap. Ici, on ouvre une vanne. Un peu, à votre rythme.",
+    "intention": "Faux air désolé, sourcils levés, un sourire qui trahit la plaisanterie. Un temps, puis « Ici, on ouvre une vanne », simple et posé."
+   },
+   {
+    "plan": "scene",
+    "role": "Ouverture",
+    "registre": "pedagogie",
+    "voix": "Au lieu de fuir n'importe où, l'eau passe dans un bassin prévu pour elle.",
+    "intention": "La voix ralentit et s'adoucit.",
+    "elements": [
+     {
+      "texte": null,
+      "ton": "lumiere",
+      "visuel": {
+       "illustration": "vanne",
+       "cadrage": "ensemble"
+      },
+      "apparait_sur": "Au lieu de fuir"
+     },
+     {
+      "texte": "Pas des [fuites]",
+      "ton": "lumiere",
+      "visuel": {
+       "illustration": "vanne",
+       "cadrage": "bas"
+      },
+      "apparait_sur": "l'eau passe dans un bassin"
+     }
+    ]
+   },
+   {
+    "plan": "camera",
+    "role": "Le cadre",
+    "voix": "Ce n'est plus vous qui tenez : c'est le cadre."
+   },
+   {
+    "plan": "scene",
+    "role": "Vanne entrouverte",
+    "registre": "pedagogie",
+    "voix": "Et en fin de séance, la vanne reste entrouverte, pour que le niveau ne remonte pas.",
+    "intention": "Presque un sourire : on ne referme pas ce qu'on vient d'ouvrir.",
+    "elements": [
+     {
+      "texte": "Vanne [entrouverte]",
+      "ton": "lumiere",
+      "visuel": {
+       "illustration": "vanne",
+       "cadrage": "centre"
+      },
+      "apparait_sur": "Et en fin de séance"
+     },
+     {
+      "texte": "Le niveau [baisse]",
+      "ton": "lumiere",
+      "visuel": {
+       "schema": "niveau",
+       "de": 70,
+       "a": 35
+      },
+      "apparait_sur": "pour que le niveau"
      }
     ]
    },

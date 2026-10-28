@@ -12,7 +12,7 @@
  * découpe en mots est CELLE du contrôle (`motsSitues`) — un repère que le
  * storyboard trouve, le calage le trouve aussi.
  */
-import { motsSitues, minuterReel, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
+import { motsSitues, minuterReel, debutsDesEcrans, arriveesDeLaListe, schemaDe, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
 import type { Intervalle } from './derushage';
 import { regionsDeParole, recalerSurLeSon, type Enveloppe } from './enveloppe';
 import { phrasesDuScript, choisirLesPrises, estUneVraieVersion, type PhraseChoisie } from './selection';
@@ -746,10 +746,19 @@ export function momentsFiges(
     seuil = FIGE_MAX,
 ): MomentFige[] {
     const instants = [0, minutage.duree];
-    minutage.sequences.forEach(m => {
+    minutage.sequences.forEach((m, i) => {
         instants.push(m.debut);
         m.apparitions.forEach(a => { if (a !== null) instants.push(m.debut + a); });
         if (m.coup) instants.push(m.debut + m.coup.debut, m.debut + m.coup.fin);
+        // Les lignes d'une liste arrivent une à une : chacune change l'écran (v2.26).
+        const elements = data.sequences[i]?.elements ?? [];
+        const debuts = debutsDesEcrans(m.apparitions, m.fin - m.debut);
+        elements.forEach((e, j) => {
+            const schema = schemaDe(e.visuel);
+            if (schema?.schema !== 'liste') return;
+            const fin = (debuts[j + 1] ?? m.fin - m.debut) - debuts[j];
+            arriveesDeLaListe(schema.items?.length ?? 0, fin).forEach(a => instants.push(m.debut + debuts[j] + a));
+        });
     });
     cadrages.forEach(c => { if (dansUnPassageCamera(data, minutage, c.a)) instants.push(c.a); });
     const tries = [...new Set(instants)].sort((x, y) => x - y);

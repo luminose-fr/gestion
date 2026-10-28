@@ -355,9 +355,10 @@ montage.delete('/:contentId/prises/:role', async (c) => {
 
 // ── Les visuels des cartes ───────────────────────────────────────────
 
+// La séquence −1 range les illustrations du Reel (v2.26, `SEQUENCE_DES_ILLUSTRATIONS`).
 const placeDe = (c: { req: { param: (k: string) => string } }) => ({
     id: c.req.param('contentId'),
-    sequence: entier(c.req.param('sequence'), 'Séquence', 0, 500),
+    sequence: entier(c.req.param('sequence'), 'Séquence', -1, 500),
     element: entier(c.req.param('element'), 'Élément', 0, 50),
 });
 

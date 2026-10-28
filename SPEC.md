@@ -1,4 +1,4 @@
-# SPEC v2.25 — gestion.luminose.fr
+# SPEC v2.26 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -107,6 +107,12 @@
 > (§12.5.1) ; la vidéo ne montre jamais la description d'un visuel absent (§12.4.1) ;
 > les réglages d'une prise ne se reprennent que d'une prise au même format, et une prise
 > horizontale le dit (§12.5.7).
+> **v2.26 (28/10/2026)** : un écran à la fois. Une scène ne s'empile plus : chaque écran
+> remplace le précédent, un visuel en grand et un à quatre mots, sur le fond de son ton ;
+> plus de titre ; des scènes de six secondes, le visage revenant entre deux (§12.3,
+> §12.4.1). Les visuels ne se produisent plus carte par carte : l'outil dessine et anime
+> cinq schémas, et la métaphore a son illustration, décrite une fois pour tout le Reel,
+> que chaque écran montre au cadrage voulu (§12.2, §12.3).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1398,6 +1404,8 @@ suffit).
 | Que retenir de la seconde référence (24/10/2026) ? | **Le dérushage, les sous-titres mot à mot, le rythme.** Le mode « voix seule » et une bibliothèque de visuels réutilisables, proposés aussi, restent en réserve. | §12.5.2, §12.5, §12.5.3. |
 | Quelle identité pour les scènes ? | **L'habillage Luminose** : la mécanique de la référence, habillée de la gamme de `voix/direction-artistique.md` (ivoire, prune, violet nuit), en Futura. | Un gabarit, pas deux. |
 | Que porte une carte ? | **Du texte, et quand l'image dit mieux que le mot, une illustration ou un schéma** — surtout en pédagogie, et aussi pour l'humour. Les cartes n'ont pas toutes la même taille. Révisé le jour même : « Faut de la souplesse. » | Le Rédacteur **décrit** le visuel ; Florent le produit (ChatGPT Images, Sketch) et le dépose sur la carte. |
+| Que montre une scène ? (28/10/2026, devant la première vidéo exportée : « beaucoup trop d'infos et donc pas percutant ») | **Une chose à la fois.** Chaque écran remplace le précédent : un visuel en grand et un à quatre mots ; plus de titre ; des scènes de six secondes au plus, le visage revenant entre deux. | §12.3, §12.4.1. Les cartes empilées, leurs tailles et leurs liaisons ne s'écrivent plus. |
+| Qui produit les visuels ? (28/10/2026 : « éviter au max d'avoir besoin d'ajouter des photos ») | **L'outil, autant que possible.** Cinq schémas dessinés et animés par le code ; pour la métaphore, **une** illustration par Reel — deux au plus quand elle se transforme —, réutilisée d'un écran à l'autre au cadrage voulu. Elle sera générée par l'outil (v2.27) ; d'ici là, elle se dépose. | Plus aucun visuel à produire écran par écran. |
 | Où vivent prises et visuels ? | **Chez Cloudflare** (04/10/2026) : prises et visuels dans R2, transcription et repères dans D1. La première version les gardait dans le navigateur. | Un montage survit à des données de site vidées et se reprend depuis un autre poste ; une prise met une à deux minutes à partir, et l'espace gratuit (10 Go) se surveille. |
 
 La première réponse à la troisième question était « la typographie seule », par crainte
@@ -1415,25 +1423,25 @@ appuyé).
 écrit d'un jet, comme le Reel et le carrousel. Le **Script Reel** existant reste, pour une
 vidéo face caméra de bout en bout.
 
-Le brouillon reste dans `contents.draft` (§2.5). Sa forme :
+Le brouillon reste dans `contents.draft` (§2.5). Sa forme, depuis la v2.26 :
 
 ```json
 {
   "format": "Reel expliqué",
+  "illustrations": [
+    { "id": "digue", "description": "La scène de la métaphore : ce qu'on y voit, et OÙ." },
+    { "id": "vanne", "depuis": "digue", "description": "La même scène, transformée." }
+  ],
   "sequences": [
     { "plan": "camera", "role": "Accroche", "voix": "…", "intention": "…" },
     { "plan": "camera", "role": "Bascule", "voix": "…", "intention": "…",
       "coup": { "texte": "Pas un [défaut]", "apparait_sur": "mots exacts de la voix" } },
-    { "plan": "scene", "role": "Mécanique", "registre": "pedagogie", "voix": "…", "intention": "…",
-      "titre": "Le titre, avec [un mot] surligné",
+    { "plan": "scene", "role": "Mécanique", "registre": "pedagogie", "voix": "seize mots au plus", "intention": "…",
       "elements": [
-        { "type": "carte", "taille": "moyenne", "texte": "…", "detail": "…", "ton": "ombre",
-          "visuel": null, "apparait_sur": "mots exacts de la voix" },
-        { "type": "liaison", "texte": "vs", "apparait_sur": "…" },
-        { "type": "carte", "taille": "grande", "texte": "…", "ton": "lumiere",
-          "visuel": { "nature": "schema", "description": "ce que le schéma montre" },
-          "apparait_sur": "…" },
-        { "type": "pastille", "texte": "…", "ton": "lumiere", "apparait_sur": "…" }
+        { "texte": null, "ton": "neutre", "visuel": { "illustration": "digue", "cadrage": "ensemble" },
+          "apparait_sur": "premiers mots de la voix" },
+        { "texte": "L'eau [s'accumule]", "ton": "ombre", "visuel": { "schema": "niveau", "de": 35, "a": 80 },
+          "apparait_sur": "mots exacts de la voix" }
       ] }
   ],
   "accroche_pub": { "voix": "…", "intention": "…" },
@@ -1444,20 +1452,29 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme :
 - **`voix` porte TOUT ce qui se dit**, scène comprise. Concaténées dans l'ordre, les voix
   sont le texte à lire au tournage, et rien d'autre.
 - **`apparait_sur` est un repère, pas une durée.** Ce sont des mots recopiés de la voix de
-  la même séquence ; l'élément apparaît quand ils sont prononcés. Aucun minutage n'est
+  la même séquence ; l'écran apparaît quand ils sont prononcés. Aucun minutage n'est
   écrit par le modèle : il ne sait pas à quel débit Florent parle, la prise le saura
   (§12.5).
+- **Une scène montre un écran à la fois** (v2.26). Chaque écran remplace le précédent :
+  rien ne s'empile, et une scène n'a plus de titre. Un écran porte un visuel en grand, ou
+  de un à quatre mots — souvent les deux. Le premier arrive avec la scène ; les suivants,
+  au mot de leur repère.
 - **Une scène a un registre** : `pedagogie` (on montre comment ça marche) ou `humour`
-  (on montre l'absurde). Une vidéo peut mêler les deux ; l'animation suivra le registre.
-- **Une carte a une taille** : `petite` (demi-largeur, deux petites voisines se placent
-  côte à côte), `moyenne` (pleine largeur), `grande` (pleine largeur et haute, pour un
-  visuel). Une grande au plus par scène.
-- **Un visuel est décrit, jamais généré ici** : `{ nature: illustration | schema,
-  description }`. Une carte qui en porte un peut se passer de texte. Le storyboard
-  affiche la description ; l'emplacement de l'image arrive avec les scènes animées (V2).
-- **Les tons sont `ombre`, `lumiere`, `neutre`** — ce qui coince, ce qui s'ouvre, ce qui
-  informe. La référence code le coût en rose et la solution en vert ; la lumière et
-  l'ombre sont déjà des symboles de la direction artistique.
+  (on montre l'absurde). L'entrée de chaque écran suit le registre.
+- **Le ton fait le fond de l'écran** : `ombre` (violet nuit — ce qui coince), `lumiere`
+  (ivoire rosé — ce qui s'ouvre), `neutre` (ivoire — ce qui informe). Passer de l'ombre à
+  la lumière se voit d'un coup : c'est la bascule.
+- **Les schémas, l'outil les dessine et les anime** (`visuel.schema`) : `niveau` (un
+  réservoir qui monte ou descend, `de` → `a` en %), `compteur` (un nombre qui défile,
+  `valeur`, `unite`), `opposition` (`gauche` dans l'ombre, `droite` dans la lumière),
+  `enchainement` (`de` → `vers`), `liste` (deux ou trois `items` qui arrivent au fil de
+  l'écran ; `barres` les raye). Libellés de trois mots au plus. Rien à produire, rien à
+  déposer.
+- **L'illustration de la métaphore se décrit une fois** (`illustrations`, deux au plus) :
+  une scène figurative, qui dit OÙ se trouve chaque élément — en haut, en bas, à gauche, à
+  droite, au centre. Une seconde, `depuis` la première, est la même scène transformée. Un
+  écran la montre par `{ "illustration": id, "cadrage": … }` : `ensemble`, ou une zone, sur
+  laquelle l'image zoome (1,5 fois, ancrée au bord de la zone) en s'avançant lentement.
 - **`coup` est un coup de poing** (v2.13) : sur un passage face caméra du milieu, quelques
   mots qui envahissent l'écran le temps de les dire (§12.5.3). Facultatif, deux au plus,
   ni sur l'accroche ni sur l'appel à l'action ; sans raison de rompre, il vaut `null`.
@@ -1468,6 +1485,12 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme :
   nomme la situation sans le désigner. Les variantes publicitaires testent l'accroche,
   et c'est exactement ce qu'un second plan permet.
 
+**Les brouillons d'avant la v2.26 se lisent encore.** Leurs scènes avaient un titre et des
+cartes empilées — `type` (carte, pastille, liaison), `taille`, `detail`, et un visuel
+décrit carte par carte (`{ nature, description }`) que Florent déposait. Ils s'affichent
+désormais un écran à la fois, sans titre ; un visuel décrit se dépose comme avant. Rien de
+tout cela ne s'écrit plus.
+
 **Ce qui se compte se compte dans le code — NORMATIF** (même règle que §3.5.2, point 4).
 `verifierReelExplique` (`packages/editorial/src/reelExplique.ts`) contrôle, sans appel
 réseau :
@@ -1475,10 +1498,12 @@ réseau :
 | Contrôle | Pourquoi |
 | :--- | :--- |
 | ouvre et ferme face caméra | la confiance et l'appel à l'action passent par un visage |
-| 2 à 4 scènes, 1 à 4 éléments par scène, une grande carte au plus | au-delà, le cadre vertical ne se lit plus |
-| un élément porte un texte ou un visuel décrit | une carte vide n'a rien à montrer |
-| longueurs d'écran (titre ≤ 32, carte ≤ 30, détail ≤ 45, pastille ≤ 30, liaison ≤ 10 caractères) | l'œil a deux secondes ; le cadre a 1 080 pixels de large |
-| chaque `apparait_sur` se retrouve dans la voix de sa séquence, dans l'ordre | sans ça, l'élément n'a pas de moment où apparaître |
+| 3 à 7 scènes, de 16 mots de voix au plus ; 1 à 3 écrans par scène | une scène de six secondes montre une chose ; le visage revient entre deux |
+| un écran porte un texte ou un visuel ; texte de 4 mots et 28 caractères au plus | l'œil a deux secondes ; le cadre a 1 080 pixels de large |
+| le premier repère dans les 3 premiers mots de la scène ; 4 mots au moins entre deux repères | le premier écran arrive avec la scène ; un écran doit avoir le temps d'être lu |
+| chaque `apparait_sur` se retrouve dans la voix de sa séquence, dans l'ordre | sans ça, l'écran n'a pas de moment où apparaître |
+| un schéma connu, aux nombres et libellés valides (3 mots au plus, 2 ou 3 lignes de liste) | l'outil le dessine : il doit savoir quoi |
+| deux illustrations au plus, chacune montrée par un écran au moins ; une illustration ou un cadrage cités existent ; `depuis` désigne l'autre | une image se produit pour être vue |
 | durée estimée entre 45 et 90 s, à 150 mots par minute | le débit réel corrigera ; l'ordre de grandeur, lui, se vérifie avant de tourner |
 | deux coups de poing au plus, face caméra, ni en ouverture ni en clôture, ≤ 24 caractères, repère retrouvé dans la voix | au-delà de deux, la rupture devient le rythme ; la vidéo s'ouvre et se ferme sur le visage |
 
@@ -1513,7 +1538,7 @@ Les scènes restent dans la **zone sûre** : l'interface des Reels et des Shorts
 bas et le bord droit de l'image. La référence garde ses cartes dans les deux tiers du
 haut.
 
-### 12.4.1 Les scènes animées (V2) — NORMATIF
+### 12.4.1 Les scènes animées (V2 ; un écran à la fois depuis la v2.26) — NORMATIF
 
 **Une horloge, un calcul.** `minuterReel(data, horloge)` (`reelExplique.ts`) place
 chaque séquence et chaque élément à partir du RANG des mots dans la voix entière.
@@ -1531,9 +1556,24 @@ storyboard l'affiche à l'arrêt, la composition (`ReelComposition`) la pilote i
 image et lui prête son composant d'image. Remotion n'est chargé qu'à l'ouverture d'un
 storyboard (`React.lazy`), jamais dans le paquet principal.
 
-L'entrée suit le registre : la pédagogie se pose (ressort amorti), l'humour arrive de
-travers et rebondit. Un élément pas encore apparu est **transparent**, pas retiré : la
-mise en page ne bouge pas quand une carte arrive.
+**Un écran à la fois** (v2.26). `debutsDesEcrans` dit quand chaque écran prend la place du
+précédent : le premier avec la scène, les suivants au mot de leur repère ; un repère
+introuvable se place à égale distance de ses voisins. L'entrée suit le registre : la
+pédagogie se pose (ressort amorti, un tiers de seconde), l'humour arrive de travers et
+rebondit. Le fond, lui, change sec : c'est une rupture, pas une transition. Un écran trop
+haut pour la zone sûre — en 4:5 surtout — se réduit d'un bloc.
+
+**Les schémas sont des blocs et des traits**, pas du SVG : c'est ce que le rendu dans le
+navigateur sait peindre. Ils s'animent sur le temps de l'écran — un niveau monte en
+1,6 s, un compteur défile en 1,2 s, les lignes d'une liste arrivent au fil de l'écran
+(`arriveesDeLaListe` : réparties sur ses trois premiers quarts, de 0,4 à 1,5 s d'écart),
+et chacune compte comme un changement pour le rythme (§12.5.3). Le storyboard montre
+chaque écran dans son état final.
+
+**L'onglet Scènes** montre chaque scène en autant de miniatures que d'écrans, numérotées
+comme les repères soulignés dans la voix, et, en tête, les illustrations du Reel à
+déposer. Elles se rangent parmi les visuels du montage à la séquence −1
+(`SEQUENCE_DES_ILLUSTRATIONS`), leur rang pour élément.
 
 **Ce que le moteur de rendu sait dessiner borne la scène.** Ni `radial-gradient`, ni
 `visibility`, ni `z-index` : le fond pointillé est une image SVG. Les polices de la
@@ -1885,8 +1925,8 @@ au premier mot de son repère et tient le temps de le dire plus 0,4 s, jamais mo
 lui laisse ses 0,9 s. Le storyboard le montre en miniature et souligne ses mots dans la voix.
 
 **L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **5 s** sans
-changement à l'écran — début de séquence, apparition d'un élément, coup de poing qui frappe
-ou s'en va, recadrage face caméra. Un recadrage sous une scène ne compte pas : il ne se
+changement à l'écran — début de séquence, apparition d'un écran, ligne de liste qui arrive
+(v2.26), coup de poing qui frappe ou s'en va, recadrage face caméra. Un recadrage sous une scène ne compte pas : il ne se
 voit pas ; les sous-titres non plus : c'est l'image qu'on regarde. Avant le tournage,
 l'alerte se calcule au débit estimé, recadrages aux phrases compris — c'est alors une
 affaire d'écriture : une carte de plus, un coup de poing, une phrase coupée en deux. Sur la
@@ -2128,6 +2168,8 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V10** | **Deux moteurs de transcription** — Whisper et Nova-3 (§12.5.6) | La même prise, transcrite par les deux, départage le défaut |
 | **V11** | **Les réglages d'une prise** — rotation, synchronisation du son (§12.5.7) | Une prise couchée et décalée sort droite et synchrone |
 | **V12** | **La vidéo directe** — Script Reel monté, vidéo sans script, hésitations (§12.7) | Une vidéo face caméra, filmée d'un jet, sort publiable sans Final Cut |
+| **V13** | **Ce qu'a montré la première vidéo** — élisions recollées, coupe des sous-titres à la ponctuation, export sans gabarit, réglages au même format (v2.25) | La prise du 28/10 sort sans « c est », sans sous-titres superposés, sans description à l'écran |
+| **V14** | **Un écran à la fois** — schémas dessinés et animés, illustration de la métaphore (v2.26) | La même prise, redécoupée écran par écran : aucune scène de plus de six secondes, aucune image figée |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

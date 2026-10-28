@@ -13,7 +13,7 @@
  */
 import { getFormatDef, montageDuBrouillon, parseBodyJson, supportsColdRead } from './formats';
 import type { TargetFormat } from './domain';
-import type { ReelExplique } from './reelExplique';
+import { illustrationsDuReel, visuelDecrit, type ReelExplique } from './reelExplique';
 
 export type StatutContenu = 'Idée' | 'Brouillon' | 'Prêt' | 'Publié';
 
@@ -170,9 +170,13 @@ const relectureCourante = (relecture: RelecturePourEtape | null | undefined, bro
 
 const estPubliable = (relecture: RelecturePourEtape | null) => relecture?.verdict === 'Publiable';
 
-/** Les visuels que les scènes réclament, qu'il faut produire et déposer. */
+/**
+ * Les images que le Reel réclame : ses illustrations (v2.26), et les visuels
+ * décrits carte par carte d'avant. Les schémas, l'outil les dessine.
+ */
 export const visuelsAProduire = (reel: ReelExplique | null | undefined): number =>
-    (reel?.sequences ?? []).reduce((n, s) => n + (s.elements ?? []).filter(e => e.visuel?.description).length, 0);
+    illustrationsDuReel(reel).length
+    + (reel?.sequences ?? []).reduce((n, s) => n + (s.elements ?? []).filter(e => visuelDecrit(e.visuel)?.description).length, 0);
 
 /** Les segments de la barre : tout ce qui précède la dernière condition remplie est fait. */
 function segmentsDe(conditions: boolean[], publie: boolean): { segments: SegmentDeProgression[]; complet: boolean } {

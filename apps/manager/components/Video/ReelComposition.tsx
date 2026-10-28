@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { loadFont } from '@remotion/fonts';
 import { Audio, Video } from '@remotion/media';
-import type { MinutageReel, PlanDeMontage, ReelExplique, SequenceReel, SousTitre } from '@luminose/editorial';
+import { debutsDesEcrans, type MinutageReel, type PlanDeMontage, type ReelExplique, type SequenceReel, type SousTitre } from '@luminose/editorial';
 import { DEFAULT_STYLE } from '@luminose/subtitles';
 import { SceneLuminose, CoupDePoingLuminose, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
 // Importées et non écrites en chemin : voir `POLICES`.
@@ -50,9 +50,10 @@ export const chargerPolices = (): Promise<unknown> =>
 export const enImages = (secondes: number): number => Math.round(secondes * FPS);
 
 /**
- * Une scène animée. La pédagogie se pose — un ressort amorti, sans rebond ;
- * l'humour rebondit. Un élément dont le repère est introuvable entre une
- * seconde avant la fin : le storyboard a déjà dit qu'il fallait le corriger.
+ * Une scène animée : ses écrans se succèdent, chacun prenant la place du
+ * précédent au mot qui le fait apparaître (v2.26). La pédagogie se pose — un
+ * ressort amorti, sans rebond ; l'humour rebondit. Le fond change sec : c'est
+ * une rupture, pas une transition.
  */
 // Des alias et non des interfaces : Remotion exige des props assignables à
 // `Record<string, unknown>`, ce qu'une interface n'est pas (pas de signature d'index).
@@ -61,36 +62,43 @@ export type ProprietesScene = {
     /** Secondes depuis le début de la scène, ou `null` (voir `minuterReel`). */
     apparitions: Array<number | null>;
     visuels?: Record<number, string>;
+    /** Les illustrations du Reel, par id. */
+    illustrations?: Record<string, string>;
     format?: FormatVideo;
 };
 
 /** L'`Img` de Remotion retient le rendu jusqu'au chargement ; il ne s'écrit pas comme un `img`. */
 const ImageRemotion: ComposantImage = ({ src, alt, style }) => <Img src={src ?? ''} alt={alt} style={style} />;
 
-export const SceneAnimee: React.FC<ProprietesScene> = ({ sequence, apparitions, visuels, format = '9:16' }) => {
+/** Les illustrations sous la forme qu'attend la scène : une URL par id. */
+const parId = (illustrations: Record<string, string> | undefined) =>
+    Object.fromEntries(Object.entries(illustrations ?? {}).map(([id, url]) => [id, { url }]));
+
+export const SceneAnimee: React.FC<ProprietesScene> = ({ sequence, apparitions, visuels, illustrations, format = '9:16' }) => {
     const image = useCurrentFrame();
     const { fps, durationInFrames } = useVideoConfig();
     const humour = sequence.registre === 'humour';
-
-    const ressort = (depart: number) => image < depart ? 0 : spring({
+    const duree = durationInFrames / fps;
+    const debuts = debutsDesEcrans(apparitions.length ? apparitions : [0], duree);
+    let ecran = 0;
+    debuts.forEach((d, i) => { if (enImages(d) <= image) ecran = i; });
+    const depart = enImages(debuts[ecran]);
+    const entree = spring({
         frame: image - depart,
         fps,
         config: humour ? { damping: 9, stiffness: 140, mass: 0.7 } : { damping: 200 },
-        durationInFrames: humour ? undefined : Math.round(fps * 0.45),
+        durationInFrames: humour ? undefined : Math.round(fps * 0.35),
     });
-
-    const elements = (sequence.elements ?? []).map((_, i) => {
-        const a = apparitions[i];
-        return ressort(a === null || a === undefined ? Math.max(0, durationInFrames - fps) : Math.round(a * fps));
-    });
+    const fin = debuts[ecran + 1] ?? duree;
 
     return (
         <AbsoluteFill>
             <SceneLuminose
                 sequence={sequence}
                 largeur={CADRES[format].largeur}
-                entrees={{ titre: ressort(0), elements }}
+                anime={{ ecran, entree, ecoule: (image - depart) / fps, duree: fin - debuts[ecran] }}
                 visuels={visuels}
+                illustrations={parId(illustrations)}
                 Image={ImageRemotion}
                 arrondi={0}
                 format={format}
@@ -158,6 +166,8 @@ export type ProprietesReel = {
     minutage: MinutageReel;
     /** Les visuels de chaque scène, par rang de séquence puis d'élément. */
     visuels: Record<number, Record<number, string>>;
+    /** Les illustrations du Reel, par id (v2.26). */
+    illustrations?: Record<string, string>;
     format?: FormatVideo;
 };
 
@@ -170,7 +180,7 @@ export const dureeDeLaScene = (minutage: MinutageReel, sequence: number): number
 };
 
 /** La vidéo entière, telle qu'elle se dira : chaque séquence à sa place, sans trou. */
-export const CompositionReel: React.FC<ProprietesReel> = ({ data, minutage, visuels, format = '9:16' }) => (
+export const CompositionReel: React.FC<ProprietesReel> = ({ data, minutage, visuels, illustrations, format = '9:16' }) => (
     <AbsoluteFill style={{ backgroundColor: GAMME.ivoire }}>
         {(data.sequences ?? []).map((sequence, i) => {
             const m = minutage.sequences[i];
@@ -181,7 +191,7 @@ export const CompositionReel: React.FC<ProprietesReel> = ({ data, minutage, visu
             return (
                 <Sequence key={i} from={debut} durationInFrames={Math.max(1, fin - debut)}>
                     {sequence.plan === 'scene'
-                        ? <SceneAnimee sequence={sequence} apparitions={m.apparitions} visuels={visuels[i]} format={format} />
+                        ? <SceneAnimee sequence={sequence} apparitions={m.apparitions} visuels={visuels[i]} illustrations={illustrations} format={format} />
                         : <PlanCamera sequence={sequence} />}
                 </Sequence>
             );
@@ -255,6 +265,7 @@ export type ProprietesFinale = {
     sources: { principale?: string; accroche?: string };
     reglages?: { principale?: ReglageDePrise; accroche?: ReglageDePrise };
     visuels: Record<number, Record<number, string>>;
+    illustrations?: Record<string, string>;
     format: FormatVideo;
 };
 
@@ -324,7 +335,7 @@ const PriseCadree: React.FC<{ cadrages: PlanDeMontage['cadrages']; children: Rea
  * vient de la prise et ne s'interrompt jamais — une scène couvre l'image, pas
  * le son.
  */
-export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sources, reglages, visuels, format }) => (
+export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sources, reglages, visuels, illustrations, format }) => (
     <AbsoluteFill style={{ backgroundColor: GAMME.violetNuit }}>
         <PriseCadree cadrages={plan.cadrages}>
             {plan.segments.map((segment, i) => {
@@ -363,7 +374,7 @@ export const CompositionFinale: React.FC<ProprietesFinale> = ({ data, plan, sour
             const debut = enImages(m.debut);
             return (
                 <Sequence key={`scene-${i}`} from={debut} durationInFrames={Math.max(1, enImages(m.fin) - debut)}>
-                    <SceneAnimee sequence={sequence} apparitions={m.apparitions} visuels={visuels[i]} format={format} />
+                    <SceneAnimee sequence={sequence} apparitions={m.apparitions} visuels={visuels[i]} illustrations={illustrations} format={format} />
                 </Sequence>
             );
         })}
