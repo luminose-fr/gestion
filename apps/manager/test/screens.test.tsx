@@ -2312,6 +2312,17 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(container.textContent).toContain('La transcription est vide');
   });
 
+  it('le montage par le texte recolle les élisions que Whisper détache (29/10/2026)', () => {
+    const data: any = { format: 'Reel expliqué', sequences: [{ plan: 'camera', role: 'Accroche', voix: "Ce n'est pas vous, c'est le cadre." }] };
+    const dits = ['Ce', 'n', "'est", 'pas', 'vous,', 'c', "'est", 'le', 'cadre.'].map((mot, i) => ({ mot, debut: 1 + i * 0.3, fin: 1.25 + i * 0.3 }));
+    const calage = calerSurLaPrise(voixEntiere(data), dits);
+    const { container } = render(<MontageTexte sequences={sequencesDe(data)} calage={calage} coupes={[]} appliquees={[]} gardes={null} choix={{}}
+      dureePrise={5} dureeGardee={5} situer={(x: number) => x} onAller={noop} onTrancher={noop} onTrancherPassage={noop}
+      onChoisirVersion={noop} onReinitialiser={noop} />);
+    expect(container.textContent).toContain("Ce n'est pas vous, c'est le cadre.");
+    expect(container.textContent).not.toContain(" 'est");
+  });
+
   it('le montage par le texte se lit par séquence, barre ce qui est coupé, et tout s\u2019y tranche (SPEC §12.5.5)', () => {
     const data = reel();
     const texte = voixEntiere(data);
