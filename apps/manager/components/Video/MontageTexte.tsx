@@ -289,7 +289,9 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
         const puce = puceVersion.get(i);
         const barre = coupe[i];
         // L'espace entre deux mots prend leur état commun : surlignage et barre restent d'un seul tenant.
-        const espace = j === 0 ? null : silence ? ' ' : (
+        // Une élision que Whisper détache (« c », « 'est ») se recolle : pas d'espace devant elle.
+        const elision = /^['’‘-]/.test(m.texte);
+        const espace = j === 0 || (elision && !silence) ? null : silence ? ' ' : (
             <span className={[
                 (estChoisi(i) && estChoisi(i - 1)) || (survole(i) && survole(i - 1)) ? surligne(i) : '',
                 barre && coupe[i - 1] ? 'line-through text-brand-main/40 dark:text-dark-text/40' : '',

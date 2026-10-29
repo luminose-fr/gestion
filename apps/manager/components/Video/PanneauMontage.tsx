@@ -467,7 +467,9 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                     {!finale && <p className="text-xs text-center text-white/70">Il faut une prise calée pour exporter.</p>}
                     {aProduire > deposes && (
                         <p className="text-xs text-center text-white/80">
-                            {aProduire - deposes === 1 ? '1 image manque' : `${aProduire - deposes} images manquent`} (onglet Scènes) : sans elle, l’écran garde son texte, ou reste vide s’il n’avait qu’elle.
+                            {aProduire - deposes === 1
+                                ? '1 image manque (onglet Scènes) : sans elle, l’écran garde son texte, ou reste vide s’il n’avait qu’elle.'
+                                : `${aProduire - deposes} images manquent (onglet Scènes) : sans elles, un écran garde son texte, ou reste vide s’il n’avait que son image.`}
                         </p>
                     )}
                     {indisponible && <p className="text-xs text-center text-white/80">{indisponible}</p>}
