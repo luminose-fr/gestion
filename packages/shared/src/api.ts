@@ -172,6 +172,23 @@ export const ChatRequestSchema = z.object({
 export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
 
 /**
+ * Une illustration à générer (SPEC §12.3, v2.28). Le prompt arrive composé —
+ * `promptIllustration`, comme le front compose déjà ceux du texte —, avec ses
+ * images de référence : l'étalon du site, et pour l'autre état d'une scène, sa
+ * première illustration. Le modèle est vérifié contre la liste du Worker.
+ */
+export const IllustrationRequestSchema = z.object({
+  modele: z.string().min(1).max(100),
+  prompt: z.string().trim().min(20).max(6000),
+  references: z.array(
+    z.string()
+      .max(15_000_000, 'Image de référence de plus de 11 Mo.')
+      .regex(/^data:image\/(png|jpeg|webp);base64,/, 'Une image de référence est une URL de données PNG, JPEG ou WebP.'),
+  ).min(1).max(3),
+});
+export type IllustrationRequest = z.infer<typeof IllustrationRequestSchema>;
+
+/**
  * Sonde un code d'API AVANT enregistrement : c'est tout l'intérêt du testeur.
  * On ne passe donc pas par un modèle du catalogue, qui n'existe pas encore.
  */

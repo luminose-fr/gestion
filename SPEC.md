@@ -1,4 +1,4 @@
-# SPEC v2.27 — gestion.luminose.fr
+# SPEC v2.28 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -116,6 +116,9 @@
 > **v2.27 (28/10/2026)** : la signature. La vidéo nomme Florent sur l'accroche et finit sur
 > un carton — nom, titre, luminose.fr —, posés par le code comme la slide de signature
 > d'un carrousel (§12.5.1).
+> **v2.28 (29/10/2026)** : l'illustration de la métaphore se génère, dans le style des pages
+> du site — l'étalon joint —, par OpenRouter : Nano Banana Pro par défaut, Nano Banana 2
+> ou GPT Image 2 au choix. Florent la voit avant de la garder (§12.3).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1408,7 +1411,8 @@ suffit).
 | Quelle identité pour les scènes ? | **L'habillage Luminose** : la mécanique de la référence, habillée de la gamme de `voix/direction-artistique.md` (ivoire, prune, violet nuit), en Futura. | Un gabarit, pas deux. |
 | Que porte une carte ? | **Du texte, et quand l'image dit mieux que le mot, une illustration ou un schéma** — surtout en pédagogie, et aussi pour l'humour. Les cartes n'ont pas toutes la même taille. Révisé le jour même : « Faut de la souplesse. » | Le Rédacteur **décrit** le visuel ; Florent le produit (ChatGPT Images, Sketch) et le dépose sur la carte. |
 | Que montre une scène ? (28/10/2026, devant la première vidéo exportée : « beaucoup trop d'infos et donc pas percutant ») | **Une chose à la fois.** Chaque écran remplace le précédent : un visuel en grand et un à quatre mots ; plus de titre ; des scènes de six secondes au plus, le visage revenant entre deux. | §12.3, §12.4.1. Les cartes empilées, leurs tailles et leurs liaisons ne s'écrivent plus. |
-| Qui produit les visuels ? (28/10/2026 : « éviter au max d'avoir besoin d'ajouter des photos ») | **L'outil, autant que possible.** Cinq schémas dessinés et animés par le code ; pour la métaphore, **une** illustration par Reel — deux au plus quand elle se transforme —, réutilisée d'un écran à l'autre au cadrage voulu. Elle sera générée par l'outil (v2.27) ; d'ici là, elle se dépose. | Plus aucun visuel à produire écran par écran. |
+| Qui produit les visuels ? (28/10/2026 : « éviter au max d'avoir besoin d'ajouter des photos ») | **L'outil, autant que possible.** Cinq schémas dessinés et animés par le code ; pour la métaphore, **une** illustration par Reel — deux au plus quand elle se transforme —, réutilisée d'un écran à l'autre au cadrage voulu, générée par l'outil (v2.28) ou déposée. | Plus aucun visuel à produire écran par écran. |
+| Dans quel style ? (29/10/2026 : « essayons de rester dans le style du site ; si c'est trop contraignant et trop monotone, on fera évoluer ça ») | **Celui des illustrations des pages**, l'étalon joint — alors que `direction-artistique.md` §4 laisse les réseaux sans charte : c'est un choix pour le Reel, révisable, pas une charte des réseaux. | §12.3, « L'illustration générée ». |
 | Où vivent prises et visuels ? | **Chez Cloudflare** (04/10/2026) : prises et visuels dans R2, transcription et repères dans D1. La première version les gardait dans le navigateur. | Un montage survit à des données de site vidées et se reprend depuis un autre poste ; une prise met une à deux minutes à partir, et l'espace gratuit (10 Go) se surveille. |
 
 La première réponse à la troisième question était « la typographie seule », par crainte
@@ -1487,6 +1491,32 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme, depuis la v2.26 :
   résultat. L'accroche organique a le droit de dire au lecteur ce qu'il vit ; celle-ci
   nomme la situation sans le désigner. Les variantes publicitaires testent l'accroche,
   et c'est exactement ce qu'un second plan permet.
+
+**L'illustration générée** (v2.28). Dans l'onglet Scènes, chaque illustration se
+**génère** : le navigateur compose le prompt (`promptIllustration`,
+`packages/editorial/src/illustration.ts`, photographié dans les fixtures golden) sur la
+formule des illustrations des pages (`_ai_helpers/prompts-images-luminose.md` §7, dépôt du
+site) et joint l'étalon — `apps/manager/images/etalon-illustrations.jpg`, réduit à
+1 200 pixels depuis `_ai_helpers/etalon.jpg`. L'autre état d'une scène (`depuis`) joint en
+plus la première illustration, déjà gardée : sans elle, le lieu et le personnage ne
+seraient plus les mêmes, et le bouton attend. `POST /api/ai/image`
+(`IllustrationRequestSchema`) vérifie le modèle contre `MODELES_ILLUSTRATION`, prend la clé
+OpenRouter — absente, un refus dit où la poser —, demande une image au format vertical
+3:4 (`image_config.aspect_ratio`), et rend l'image en URL de données avec son coût ; une
+mesure part dans `mesures_ia` (action `ILLUSTRATION`), comme pour le texte. L'image se
+montre avec le modèle et le coût : **Garder** la range comme une image déposée (séquence
+−1), **Refaire** en demande une autre, **Laisser** l'écarte — rien n'est rangé d'un essai
+écarté. Les modèles, tous joints par OpenRouter (une seule clé) :
+
+| Modèle | Code | |
+| :--- | :--- | :--- |
+| Nano Banana Pro | `google/gemini-3-pro-image` | par défaut, à la demande de Florent |
+| Nano Banana 2 | `google/gemini-3.1-flash-image` | moitié moins cher |
+| GPT Image 2 | `openai/gpt-image-2` | pour comparer |
+
+Le prix est au jeton : 120 $ le million de jetons d'image produits pour Nano Banana Pro,
+60 $ pour Nano Banana 2, 30 $ pour GPT Image 2 (catalogue OpenRouter, 29/10/2026), soit de
+l'ordre de 0,05 à 0,25 $ l'image. Le coût exact de chaque appel s'affiche à côté de l'image.
 
 **Les brouillons d'avant la v2.26 se lisent encore.** Leurs scènes avaient un titre et des
 cartes empilées — `type` (carte, pastille, liaison), `taille`, `detail`, et un visuel
@@ -2190,6 +2220,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V13** | **Ce qu'a montré la première vidéo** — élisions recollées, coupe des sous-titres à la ponctuation, export sans gabarit, réglages au même format (v2.25) | La prise du 28/10 sort sans « c est », sans sous-titres superposés, sans description à l'écran |
 | **V14** | **Un écran à la fois** — schémas dessinés et animés, illustration de la métaphore (v2.26) | La même prise, redécoupée écran par écran : aucune scène de plus de six secondes, aucune image figée |
 | **V15** | **La signature** — bandeau sur l'accroche, carton final (v2.27) | Une vidéo qui dit qui parle et où le retrouver, même quand l'adresse n'a pas été dite |
+| **V16** | **L'illustration générée** — style des pages du site, par OpenRouter (v2.28) | Un Reel dont l'illustration n'a été ni dessinée ni cherchée par Florent |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.

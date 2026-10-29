@@ -32,6 +32,8 @@ export * from './enveloppe';
 export * from './selection';
 // … et la vidéo directe sans script : la transcription pour texte (SPEC §12.7)
 export * from './directe';
+// … et l'illustration de la métaphore, générée dans le style du site (SPEC §12.3)
+export * from './illustration';
 
 // Où en est un contenu : l'étape, calculée, jamais stockée (SPEC §13)
 export * from './etape';

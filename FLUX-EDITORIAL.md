@@ -899,34 +899,58 @@ propre grille de production, injectée dans le prompt du Rédacteur.
 ### Le Reel expliqué, la voix et l'écran écrits ensemble
 
 Depuis le 02/10/2026 (SPEC §12). Une seule prise face caméra : Florent parle du début à
-la fin, et pendant une partie du temps l'image bascule sur des **scènes** — un titre
-dont un mot est surligné, puis des cartes qui apparaissent une à une, au mot prononcé.
-Le modèle de départ est un Short de NerdyKings ; l'habillage est celui de Luminose.
+la fin, et par moments l'image bascule sur des **scènes** courtes. Le modèle de départ
+est un Short de NerdyKings ; l'habillage est celui de Luminose.
 
 Le Rédacteur écrit les deux à la fois, parce que choisir ce qui s'affiche pendant qu'on
 parle, c'est de la méthode et non du montage. Chaque séquence porte sa **voix** — mises
 bout à bout, elles sont le texte à dire au tournage — et chaque scène son **registre**
-(pédagogie ou humour) et ses **éléments** : des cartes de trois tailles, qui peuvent
-porter une illustration ou un schéma **décrit**, que Florent produit lui-même ; des
-pastilles ; des liaisons (« vs », « donc »). Un élément ne porte pas de minutage : il
-porte les mots de la voix sur lesquels il apparaît (`apparait_sur`), et c'est la prise
-qui donnera les secondes.
+(pédagogie ou humour) et ses **écrans**. Un écran ne porte pas de minutage : il porte
+les mots de la voix sur lesquels il apparaît (`apparait_sur`), et c'est la prise qui
+donnera les secondes.
+
+**Un écran à la fois** (depuis le 28/10/2026, devant la première vidéo exportée : « beaucoup
+trop d'infos et donc pas percutant »). Chaque écran remplace le précédent : un visuel en
+grand et un à quatre mots, sur le fond de son ton — l'ombre sombre, la lumière claire et
+rosée. Plus de titre ni de cartes empilées ; des scènes de seize mots de voix au plus,
+le visage revenant entre deux. Les visuels, Florent n'a plus à les produire : l'outil
+dessine et anime cinq **schémas** (un niveau qui monte, un compteur, une opposition, un
+enchaînement, une liste), et la métaphore a son **illustration**, décrite une fois pour
+tout le Reel — deux au plus quand elle se transforme —, que chaque écran montre en
+entier ou zoomée sur une zone. D'où la consigne au Rédacteur : dire, dans la
+description, OÙ se trouve chaque élément de l'image.
+
+**L'illustration se génère dans le style des pages du site** (depuis le 28/10/2026 :
+« essayons de rester dans le style du site ; si c'est trop contraignant et trop
+monotone, on fera évoluer ça »). Elle part chez un modèle d'image par OpenRouter — Nano
+Banana Pro par défaut, Nano Banana 2 ou GPT Image 2 au choix — avec l'étalon des pages
+joint, et un prompt composé par `promptIllustration` (`packages/editorial/src/illustration.ts`)
+sur la formule de `_ai_helpers/prompts-images-luminose.md` : « Nouvelle image
+indépendante — l'image jointe sert uniquement de référence de style, de palette et de
+grain », la description du Rédacteur, la consigne de laisser de l'espace pour le
+recadrage, les interdits (silhouettes sans visage détaillé, aucune imagerie littérale de
+la détresse, ni schéma ni flèche, aucun texte), et le format vertical 3:4. L'autre état
+d'une scène joint en plus la première illustration, « la scène à reprendre ». Le texte
+exact est photographié dans `test/fixtures/illustration.txt` et `illustration-depuis.txt`.
+Florent voit l'image avant de la garder ; une image écartée ne se range nulle part.
 
 Depuis le 25/10/2026 (SPEC §12.5.3), un passage face caméra du milieu peut porter un
 **coup de poing** : quelques mots — 24 caractères au plus — qui envahissent l'écran le
 temps de les dire, fond prune, puis le visage revient. Deux au plus dans la vidéo, jamais
 sur l'accroche ni sur l'appel à l'action, et seulement s'il y a une raison de rompre : la
-grille le dit au Rédacteur, « un coup de poing par habitude n'en est plus un ». Comme une
-carte, il porte ses mots de repère (`apparait_sur`) et non une durée.
+grille le dit au Rédacteur, « un coup de poing par habitude n'en est plus un ». Comme un
+écran, il porte ses mots de repère (`apparait_sur`) et non une durée.
 
 Le format livre aussi une **seconde accroche**, à tourner dans la foulée pour la
 publicité : elle nomme la situation sans présumer de l'état de celui qui regarde, ce que
 Meta et Google exigent pour tout ce qui touche à la santé.
 
 Ce qui se compte se compte dans le code (`packages/editorial/src/reelExplique.ts`) :
-ouverture et fermeture face caméra, deux à quatre scènes, longueurs d'écran, repères
-retrouvés dans la voix et dans l'ordre, durée estimée entre 45 et 90 secondes, coups de
-poing à leur place et au plus deux. Un écart
+ouverture et fermeture face caméra, trois à sept scènes de seize mots au plus, un à
+trois écrans de quatre mots au plus, repères retrouvés dans la voix et dans l'ordre —
+le premier avec la scène, quatre mots au moins entre deux —, schémas et illustrations
+valides, durée estimée entre 45 et 90 secondes, coups de poing à leur place et au plus
+deux. Un écart
 déclenche une passe d'ajustement, comme les longueurs du carrousel ; ce qui subsiste
 s'affiche au-dessus du storyboard. Le Lecteur froid lit la voix ET l'écran, et vérifie
 que l'un ne recopie pas l'autre.

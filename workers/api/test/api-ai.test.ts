@@ -381,3 +381,71 @@ describe('mesure des appels', () => {
     expect(m.ok).toBe(1);
   });
 });
+
+/**
+ * L'illustration générée (SPEC §12.3, v2.28) : par OpenRouter, le modèle pris
+ * dans la liste du Worker, l'étalon joint, l'image rendue au navigateur.
+ */
+describe('POST /api/ai/image', () => {
+  const ETALON = 'data:image/jpeg;base64,/9j/AAAA';
+  const demande = (modele = 'google/gemini-3-pro-image') => ({
+    modele, prompt: 'Nouvelle image indépendante — une digue, en haut un lac.', references: [ETALON],
+  });
+  const repondre = (payload: unknown, status = 200) => {
+    outbound = [];
+    vi.stubGlobal('fetch', async (url: string, init: any) => {
+      outbound.push({ url: String(url), body: JSON.parse(init.body), headers: init.headers });
+      return new Response(JSON.stringify(payload), { status });
+    });
+  };
+
+  it('dit où poser la clé OpenRouter quand elle manque', async () => {
+    const res = await call('/api/ai/image', demande());
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toContain('Réglages → Fournisseurs');
+  });
+
+  it('refuse un modèle que la liste ne propose pas', async () => {
+    (env as any).OPENROUTER_API_KEY = 'cle-openrouter';
+    const res = await call('/api/ai/image', demande('quelquun/autre-chose'));
+    expect(res.status).toBe(400);
+    expect((await json(res)).error).toContain('Nano Banana Pro');
+  });
+
+  it('envoie le prompt et l’étalon, demande une image verticale, rend l’image et son coût', async () => {
+    (env as any).OPENROUTER_API_KEY = 'cle-openrouter';
+    repondre({
+      choices: [{ message: { content: '', images: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,iVBOR' } }] } }],
+      usage: { prompt_tokens: 1200, completion_tokens: 1120, cost: 0.134 },
+    });
+    const res = await call('/api/ai/image', demande());
+    expect(res.status).toBe(200);
+    expect(await json(res)).toEqual({ image: 'data:image/png;base64,iVBOR', modelLabel: 'Nano Banana Pro', usage: { entree: 1200, sortie: 1120, coutUsd: 0.134 } });
+    const envoi = outbound[0];
+    expect(envoi.url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(envoi.headers.Authorization).toBe('Bearer cle-openrouter');
+    expect(envoi.body).toMatchObject({ model: 'google/gemini-3-pro-image', modalities: ['image', 'text'], image_config: { aspect_ratio: '3:4' } });
+    expect(envoi.body.messages[0].content).toEqual([
+      { type: 'text', text: 'Nouvelle image indépendante — une digue, en haut un lac.' },
+      { type: 'image_url', image_url: { url: ETALON } },
+    ]);
+  });
+
+  it('dit, en 502, ce que le modèle a répondu au lieu d’une image', async () => {
+    (env as any).OPENROUTER_API_KEY = 'cle-openrouter';
+    repondre({ choices: [{ message: { content: 'Je ne peux pas dessiner cela.' } }] });
+    const res = await call('/api/ai/image', demande());
+    expect(res.status).toBe(502);
+    expect((await json(res)).error).toBe('Nano Banana Pro n’a pas rendu d’image. Il a répondu : « Je ne peux pas dessiner cela. »');
+    repondre({ error: { message: 'Insufficient credits' } }, 402);
+    const sansCredit = await call('/api/ai/image', demande());
+    expect(sansCredit.status).toBe(502);
+    expect((await json(sansCredit)).error).toBe('Nano Banana Pro (OpenRouter) : Insufficient credits');
+  });
+
+  it('refuse à la frontière une référence qui n’est pas une image', async () => {
+    (env as any).OPENROUTER_API_KEY = 'cle-openrouter';
+    const res = await call('/api/ai/image', { ...demande(), references: ['https://ailleurs.example/image.jpg'] });
+    expect(res.status).toBe(400);
+  });
+});

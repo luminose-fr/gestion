@@ -1982,6 +1982,45 @@ describe('Reel expliqué — storyboard', () => {
     expect(container.textContent).not.toContain('À produire');
   });
 
+  it('une illustration se génère dans le style du site, se montre, puis se garde (v2.28)', async () => {
+    const appels: Array<{ url: string; corps: any }> = [];
+    vi.stubGlobal('fetch', async (url: string, init?: any) => {
+      appels.push({ url: String(url), corps: init?.body ? JSON.parse(init.body) : null });
+      if (String(url).endsWith('/api/ai/image')) {
+        return new Response(JSON.stringify({ image: 'data:image/png;base64,iVBORw0KGgo=', modelLabel: 'Nano Banana Pro', usage: { entree: 1, sortie: 1, coutUsd: 0.134 } }), { status: 200 });
+      }
+      // L'étalon, puis l'image proposée qu'on range : des octets, quelle que soit l'URL.
+      return new Response(new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' }));
+    });
+    const deposes: any[] = [];
+    const data: any = {
+      format: 'Reel expliqué',
+      illustrations: [
+        { id: 'digue', description: 'En haut, une digue fissurée ; en bas, un petit personnage qui court.' },
+        { id: 'vanne', depuis: 'digue', description: 'La même digue ; au centre, une vanne entrouverte.' },
+      ],
+      sequences: [],
+    };
+    const visuels = { ...VISUELS, deposer: async (...a: any[]) => { deposes.push(a); } };
+    const { container, findByText } = render(<IllustrationsDuReel reel={data} visuels={visuels} deposable />);
+    const boutons = () => Array.from(container.querySelectorAll('button'));
+    // La suite attend la première : elle se génère à partir d'elle.
+    expect(container.textContent).toContain('Après « digue », dont elle est la suite.');
+    expect(boutons().filter(b => b.textContent?.trim() === 'Générer').map(b => b.disabled)).toEqual([false, true]);
+    fireEvent.click(boutons().find(b => b.textContent?.trim() === 'Générer')!);
+    await findByText(/Nano Banana Pro · \$0[.,]134|Nano Banana Pro · 0,134/);
+    const demande = appels.find(a => a.url.endsWith('/api/ai/image'))!.corps;
+    expect(demande.modele).toBe('google/gemini-3-pro-image');
+    expect(demande.prompt).toContain("Nouvelle image indépendante — l'image jointe sert uniquement de référence de style, de palette et de grain : En haut, une digue fissurée");
+    expect(demande.references).toHaveLength(1);
+    expect(demande.references[0]).toMatch(/^data:image\//);
+    fireEvent.click(boutons().find(b => b.textContent?.trim() === 'Garder')!);
+    await waitFor(() => expect(deposes).toHaveLength(1));
+    expect(deposes[0].slice(0, 2)).toEqual([-1, 0]);
+    expect(deposes[0][2]).toBeInstanceOf(File);
+    vi.unstubAllGlobals();
+  });
+
   it('le script se lit séquence par séquence, minuté au débit estimé', () => {
     const { container } = render(<LectureScript draft={reel()} format="Reel expliqué (scènes animées)" />);
     expect(container.textContent).toContain('1 · Accroche');

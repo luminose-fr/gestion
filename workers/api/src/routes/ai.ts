@@ -9,10 +9,10 @@
  * changeant une valeur en base, sans toucher au code ni redéployer le front.
  */
 import { Hono, type Context } from 'hono';
-import { getProvider, PROVIDER_IDS, type AIProvider, type UsageIA } from '@luminose/ai';
-import { ChatRequestSchema, TestModelSchema, type ChatRequestInput } from '@luminose/shared';
+import { getProvider, nombreOuNull, OPENROUTER_BASE_URL, PROVIDER_IDS, type AIProvider, type UsageIA } from '@luminose/ai';
+import { ChatRequestSchema, IllustrationRequestSchema, TestModelSchema, type ChatRequestInput } from '@luminose/shared';
 import { composerFeuille } from '@luminose/corpus';
-import { feuillePour } from '@luminose/editorial';
+import { feuillePour, MODELES_ILLUSTRATION, FORMAT_ILLUSTRATION } from '@luminose/editorial';
 import { DOCUMENTS } from '../genere/corpus';
 import type { Env } from '../env';
 import { Refus } from '../refus';
@@ -106,7 +106,7 @@ const prefixerFeuille = (
 const consigner = (
   c: Context<{ Bindings: Env }>,
   m: {
-    input: ChatRequestInput;
+    input: Pick<ChatRequestInput, 'action' | 'format'>;
     model: { id: string; name: string; provider: string };
     feuilleCar: number;
     dureeMs: number;
@@ -201,4 +201,80 @@ ai.post('/test', async (c) => {
   const { apiCode, provider } = TestModelSchema.parse(await c.req.json());
   const adaptateur = await resolve(provider, c.env);
   return c.json(await adaptateur.test(apiCode));
+});
+
+/**
+ * Génère l'illustration d'un Reel (SPEC §12.3, v2.28), par OpenRouter : un seul
+ * compte pour Nano Banana, GPT Image et les autres, et la clé ne quitte pas le
+ * Worker. L'image revient au navigateur, qui la montre ; elle ne se range dans
+ * R2 que si Florent la garde — un essai écarté ne coûte pas de place.
+ *
+ * 1 requête D1 (la clé), plus la mesure, écrite sans qu'on l'attende.
+ */
+ai.post('/image', async (c) => {
+  const input = IllustrationRequestSchema.parse(await c.req.json());
+  const modele = MODELES_ILLUSTRATION.find(m => m.id === input.modele);
+  if (!modele) {
+    throw new Refus(
+      `Modèle d'image inconnu : « ${input.modele} ». Proposés : ${MODELES_ILLUSTRATION.map(m => m.libelle).join(', ')}.`,
+      400,
+    );
+  }
+  const apiKey = await resolveApiKey(c.env, 'openrouter');
+  if (!apiKey) {
+    throw new Refus(
+      'Les illustrations passent par OpenRouter, et aucune clé n’est configurée pour lui. '
+      + 'Renseignez-la dans Réglages → Fournisseurs.',
+      409,
+    );
+  }
+
+  const mesure = { action: 'ILLUSTRATION', format: 'Reel expliqué' };
+  const model = { id: modele.id, name: modele.libelle, provider: 'openrouter' };
+  const depart = Date.now();
+  const echec = (message: string) => {
+    consigner(c, { input: mesure, model, feuilleCar: 0, dureeMs: Date.now() - depart, usage: null, ok: false, erreur: message });
+    // Comme pour /chat : une panne du fournisseur n'est pas une panne du Worker, et son message passe EN CLAIR.
+    return c.json({ error: message }, 502);
+  };
+
+  let reponse: any;
+  try {
+    const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: modele.id,
+        modalities: ['image', 'text'],
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: input.prompt },
+            ...input.references.map(url => ({ type: 'image_url', image_url: { url } })),
+          ],
+        }],
+        image_config: { aspect_ratio: FORMAT_ILLUSTRATION },
+        usage: { include: true },
+      }),
+    });
+    const texte = await res.text();
+    try { reponse = JSON.parse(texte); } catch { reponse = null; }
+    if (!res.ok) return echec(`${modele.libelle} (OpenRouter) : ${reponse?.error?.message ?? `erreur ${res.status}`}`);
+  } catch (e: any) {
+    return echec(`${modele.libelle} (OpenRouter) n’a pas répondu : ${e?.message ?? String(e)}`);
+  }
+
+  const message = reponse?.choices?.[0]?.message;
+  const image = message?.images?.[0]?.image_url?.url;
+  if (typeof image !== 'string' || !image.startsWith('data:image/')) {
+    const dit = typeof message?.content === 'string' && message.content.trim() ? ` Il a répondu : « ${message.content.trim().slice(0, 200)} »` : '';
+    return echec(`${modele.libelle} n’a pas rendu d’image.${dit}`);
+  }
+  const usage: UsageIA = {
+    entree: nombreOuNull(reponse?.usage?.prompt_tokens),
+    sortie: nombreOuNull(reponse?.usage?.completion_tokens),
+    coutUsd: nombreOuNull(reponse?.usage?.cost),
+  };
+  consigner(c, { input: mesure, model, feuilleCar: 0, dureeMs: Date.now() - depart, usage, ok: true, erreur: null });
+  return c.json({ image, modelLabel: modele.libelle, usage });
 });

@@ -14,6 +14,7 @@
  * modifie sans regarder le prompt composé, c'est un changement qu'on n'a pas lu.
  */
 import { describe, it, expect } from 'vitest';
+import { promptIllustration } from '../src/illustration';
 import { AI_ACTIONS } from '../src/actions';
 import { TargetFormat, Objectif } from '../src/domain';
 import { buildSerieContextSection } from '../src/series';
@@ -152,5 +153,13 @@ describe('prompts composés', () => {
     await expect(
       AI_ACTIONS.ADJUST_DZINE_PROMPTS.getSystemInstruction('{"slides":[]}', 'Plus sombre', 3)
     ).toMatchFileSnapshot(fixture('adjust-dzine-prompts'));
+  });
+
+  // L'illustration de la métaphore (v2.28) : ce que reçoit le modèle d'image, l'étalon du site joint.
+  it('ILLUSTRATION — la scène, puis son autre état', async () => {
+    const digue = { id: 'digue', description: "Au centre, une haute digue de pierre fissurée. En haut, derrière elle, un lac dont l'eau affleure le sommet du mur. En bas, un petit personnage court d'un jet d'eau à l'autre." };
+    const vanne = { id: 'vanne', depuis: 'digue', description: "La même digue, apaisée. Au centre, une vanne entrouverte ; en bas, un bassin de pierre recueille l'eau." };
+    await expect(promptIllustration(digue)).toMatchFileSnapshot(fixture('illustration'));
+    await expect(promptIllustration(vanne, digue)).toMatchFileSnapshot(fixture('illustration-depuis'));
   });
 });
