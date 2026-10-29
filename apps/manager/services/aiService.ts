@@ -172,6 +172,25 @@ export const generateContent = async (request: GenerateRequest): Promise<Reponse
   }
 };
 
+/**
+ * Génère l'illustration d'un Reel (SPEC §12.3, v2.28). Le prompt arrive composé
+ * (`promptIllustration`), avec ses images de référence ; l'image revient en URL
+ * de données, à montrer avant de la garder.
+ */
+export const genererIllustration = async (demande: { modele: string; libelle: string; prompt: string; references: string[] }) => {
+  const suivi = Activite.ouvrir({ nature: 'ia', label: 'Illustration', modele: demande.libelle, cle: `ia:Illustration:${demande.modele}` });
+  try {
+    const reponse = await post<{ image: string; modelLabel: string; usage?: UsageIA }>('/ai/image', {
+      modele: demande.modele, prompt: demande.prompt, references: demande.references,
+    });
+    suivi.fermer(true);
+    return { image: reponse.image, modelLabel: reponse.modelLabel, usage: reponse.usage ?? USAGE_INCONNU };
+  } catch (e) {
+    suivi.fermer(false);
+    throw e;
+  }
+};
+
 export interface ModelTestResult {
   available: boolean;
   error?: string;

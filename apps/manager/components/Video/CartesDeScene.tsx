@@ -1,10 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { Camera, Clapperboard, ImageIcon, Upload, Trash2, Zap } from 'lucide-react';
+import { Camera, Check, Clapperboard, ImageIcon, RotateCcw, Sparkles, Upload, Trash2, Zap } from 'lucide-react';
 import {
     positionsDesReperes, positionDuCoup, motsSitues, motsNormalises, visuelDecrit, illustrationsDuReel, SEQUENCE_DES_ILLUSTRATIONS,
-    type ReelExplique, type SequenceReel,
+    MODELES_ILLUSTRATION,
+    type IllustrationReel, type ReelExplique, type SequenceReel,
 } from '@luminose/editorial';
-import { Bouton, Etiquette } from '../ui';
+import { Bouton, ControleSegmente, Etiquette } from '../ui';
+import { EnCours } from '../Feedback';
+import { enFichier, genererIllustration, type IllustrationProposee } from './illustrations';
 import { t } from '../ContentEditor/renderers/shared';
 import { SceneLuminose, CoupDePoingLuminose } from './SceneLuminose';
 import type { VisuelAffiche, VisuelsReel } from './useVisuelsReel';
@@ -115,7 +118,9 @@ const DepotVisuel: React.FC<{
     deposable: boolean;
     onDeposer: (fichier: File) => Promise<void>;
     onRetirer: () => Promise<void>;
-}> = ({ numero, nature, description, visuel, deposable, onDeposer, onRetirer }) => {
+    /** Ce qui s'ajoute sous le dépôt — la génération d'une illustration. */
+    children?: React.ReactNode;
+}> = ({ numero, nature, description, visuel, deposable, onDeposer, onRetirer, children }) => {
     const choix = useRef<HTMLInputElement>(null);
     const [erreur, setErreur] = useState<string | null>(null);
 
@@ -167,6 +172,7 @@ const DepotVisuel: React.FC<{
                         )}
                     </div>
                 )}
+                {children}
             </div>
         </div>
     );
@@ -178,19 +184,106 @@ export const illustrationsAffichees = (reel: ReelExplique, visuels: VisuelsReel)
     return Object.fromEntries(illustrationsDuReel(reel).map(ill => [ill.id, { url: urls[ill.id], description: ill.description }]));
 };
 
+/** Ce qu'une génération a coûté, quand OpenRouter l'a dit. */
+const cout = (usd: number | null) => usd === null ? '' : ` · ${usd.toLocaleString('fr-FR', { style: 'currency', currency: 'USD', maximumFractionDigits: 3 })}`;
+
+/**
+ * Générer une illustration (v2.28) : dans le style du site, avec le modèle
+ * choisi. L'image se montre d'abord ; elle ne se range que si Florent la garde.
+ */
+const GenerationIllustration: React.FC<{
+    reel: ReelExplique;
+    rang: number;
+    illustration: IllustrationReel;
+    modele: string;
+    visuels: VisuelsReel;
+    deposable: boolean;
+}> = ({ reel, rang, illustration, modele, visuels, deposable }) => {
+    const [enCours, setEnCours] = useState(false);
+    const [proposee, setProposee] = useState<IllustrationProposee | null>(null);
+    const [erreur, setErreur] = useState<string | null>(null);
+    const urls = visuels.desIllustrations();
+    const deja = !!urls[illustration.id];
+    // La suite d'une scène se génère à partir de sa première illustration : sans elle, le lieu ne serait plus le même.
+    const enAttente = illustration.depuis && !urls[illustration.depuis] ? illustration.depuis : null;
+
+    const generer = async () => {
+        setEnCours(true);
+        setErreur(null);
+        try {
+            setProposee(await genererIllustration(reel, rang, modele, id => urls[id]));
+        } catch (e: any) {
+            setErreur(e?.message ?? String(e));
+        } finally {
+            setEnCours(false);
+        }
+    };
+    const garder = async () => {
+        if (!proposee) return;
+        setEnCours(true);
+        try {
+            await visuels.deposer(SEQUENCE_DES_ILLUSTRATIONS, rang, await enFichier(proposee.image, illustration.id));
+            setProposee(null);
+        } catch (e: any) {
+            setErreur(`L’image n’a pas pu être gardée : ${e?.message ?? String(e)}`);
+        } finally {
+            setEnCours(false);
+        }
+    };
+
+    if (!deposable) return null;
+    return (
+        <div className="space-y-2 pt-1">
+            {proposee ? (
+                <div className="flex items-start gap-3">
+                    <img src={proposee.image} alt={`Proposition pour « ${illustration.id} »`} className="w-32 shrink-0 rounded-lg border border-brand-border dark:border-dark-sec-border" />
+                    <div className="space-y-2">
+                        <p className="text-xs text-brand-main/70 dark:text-dark-text/70">{proposee.modelLabel}{cout(proposee.coutUsd)}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Bouton taille="petit" intention="principale" disabled={enCours} onClick={() => void garder()}><Check /> Garder</Bouton>
+                            <Bouton taille="petit" intention="secondaire" disabled={enCours} onClick={() => void generer()}><RotateCcw /> Refaire</Bouton>
+                            <Bouton taille="petit" intention="discrete" disabled={enCours} onClick={() => setProposee(null)}>Laisser</Bouton>
+                        </div>
+                    </div>
+                </div>
+            ) : enCours ? (
+                <p className="flex items-center gap-1.5 text-xs text-brand-main dark:text-dark-text">
+                    <EnCours label="Génération… une demi-minute environ" taille="xs" />
+                </p>
+            ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                    <Bouton taille="petit" intention="secondaire" disabled={!!enAttente} onClick={() => void generer()}
+                        title={enAttente ? `Gardez d’abord « ${enAttente} » : celle-ci en est la suite` : undefined}>
+                        <Sparkles /> {deja ? 'En générer une autre' : 'Générer'}
+                    </Bouton>
+                    {enAttente && <span className="text-xs text-brand-main/60 dark:text-dark-text/60">Après « {enAttente} », dont elle est la suite.</span>}
+                </div>
+            )}
+            {erreur && <p className="text-xs text-erreur">{erreur}</p>}
+        </div>
+    );
+};
+
 /**
  * Les illustrations de la métaphore (v2.26) : décrites une fois pour tout le
- * Reel, déposées une fois, montrées par plusieurs écrans.
+ * Reel, montrées par plusieurs écrans. Elles se génèrent dans le style des
+ * pages du site (v2.28), ou se déposent.
  */
 export const IllustrationsDuReel: React.FC<{ reel: ReelExplique; visuels: VisuelsReel; deposable: boolean }> = ({ reel, visuels, deposable }) => {
     const illustrations = illustrationsDuReel(reel);
+    const [modele, setModele] = useState(MODELES_ILLUSTRATION[0].id);
     if (illustrations.length === 0) return null;
     return (
         <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 space-y-3">
             <Etiquette forme="entete" avecIcone><ImageIcon /> Illustrations de la métaphore</Etiquette>
             <p className="text-xs text-brand-main/70 dark:text-dark-text/70">
-                Une image pour tout le Reel : chaque écran la montre au cadrage qu'il lui faut.
+                Une image pour tout le Reel : chaque écran la montre au cadrage qu'il lui faut. Elle se génère dans le style des
+                illustrations des pages du site, ou se dépose.
             </p>
+            {deposable && (
+                <ControleSegmente<string> libelle="Modèle" valeur={modele} onChange={setModele}
+                    options={MODELES_ILLUSTRATION.map(m => ({ valeur: m.id, libelle: m.libelle }))} />
+            )}
             {illustrations.map((ill, k) => (
                 <DepotVisuel
                     key={ill.id}
@@ -200,7 +293,9 @@ export const IllustrationsDuReel: React.FC<{ reel: ReelExplique; visuels: Visuel
                     deposable={deposable}
                     onDeposer={(fichier) => visuels.deposer(SEQUENCE_DES_ILLUSTRATIONS, k, fichier)}
                     onRetirer={() => visuels.retirer(SEQUENCE_DES_ILLUSTRATIONS, k)}
-                />
+                >
+                    <GenerationIllustration reel={reel} rang={k} illustration={ill} modele={modele} visuels={visuels} deposable={deposable} />
+                </DepotVisuel>
             ))}
         </div>
     );
