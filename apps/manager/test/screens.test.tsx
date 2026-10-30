@@ -44,14 +44,13 @@ import { SelecteurEtape } from '../components/Contenu/CadreContenu';
 import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
 import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
-import { SequenceScene, SequenceCamera, IllustrationsDuReel } from '../components/Video/CartesDeScene';
+import { VisuelsAFournir } from '../components/Video/VisuelsAFournir';
+import { AvantDExporter } from '../components/Video/AvantDExporter';
 import { LectureScript } from '../components/Contenu/Lecture';
 import { Studio } from '../components/Contenu/Studio';
 import { DepotPrise } from '../components/Video/DepotPrise';
-import { ReperesPrise } from '../components/Video/ReperesPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
 import { ReglagesPrise } from '../components/Video/ReglagesPrise';
-import { RythmeReel } from '../components/Video/RythmeReel';
 import { CoupDePoingLuminose, BandeauSignature, CartonFinal } from '../components/Video/SceneLuminose';
 import { calerSurLaPrise, voixEntiere, minuterReel, planDeMontage, coupesProposees, coupesAppliquees, instantDansLaVideo, compterMots } from '@luminose/editorial';
 
@@ -1933,17 +1932,15 @@ describe('Reel expliqué — storyboard', () => {
   /** Des visuels sans dépôt : la carte se lit, rien n'est encore déposé. */
   const VISUELS = { visuel: () => undefined, deLaScene: () => ({}), desIllustrations: () => ({}), deposer: asyncNoop, retirer: asyncNoop, indisponible: false } as any;
 
-  it('la carte d\u2019une scène : la voix, ses repères numérotés, ce qu\u2019il reste à produire', () => {
+  it('les visuels à fournir : une image décrite écran par écran se nomme par son écran (v2.32)', () => {
     const data = JSON.parse(reel());
-    const { container } = render(<SequenceScene reel={data} sequence={data.sequences[2]} numero={3} visuels={VISUELS} deposable />);
-    const texte = container.textContent ?? '';
-    expect(texte).toContain('3. Scène · Mécanique · pédagogie');
-    expect(texte).toContain('À produire');
-    expect(texte).toContain("Schéma — Une jauge d'alarme bloquée dans le rouge.");
-    // Les trois repères de la scène sont soulignés et numérotés.
-    expect(Array.from(container.querySelectorAll('sup')).map(s => s.textContent)).toEqual(['1', '2', '3']);
-    // Un écran à la fois (v2.26) : la scène se montre en trois miniatures, une par écran.
-    expect(container.querySelectorAll('[role="img"]')).toHaveLength(3);
+    const { container } = render(<VisuelsAFournir reel={data} visuels={VISUELS} deposable />);
+    expect(container.textContent).toMatch(/Écran 3\.\d · Schéma — Une jauge d'alarme bloquée dans le rouge\./);
+    expect(Array.from(container.querySelectorAll('button')).filter(b => b.textContent?.trim() === 'Déposer').length).toBeGreaterThan(0);
+    cleanup();
+    // Sans rien à fournir, rien ne s'affiche : le composant a un retour anticipé.
+    const vide = render(<VisuelsAFournir reel={{ format: 'Reel expliqué', sequences: [] } as any} visuels={VISUELS} deposable />);
+    expect(vide.container.innerHTML).toBe('');
   });
 
   it('un écran à la fois (v2.26) : schémas dessinés par l\u2019outil, illustration du Reel décrite une fois', () => {
@@ -1966,20 +1963,23 @@ describe('Reel expliqué — storyboard', () => {
     };
     const deposes: any[] = [];
     const visuels = { ...VISUELS, deposer: async (...a: any[]) => { deposes.push(a); } };
-    const bloc = render(<IllustrationsDuReel reel={data} visuels={visuels} deposable />);
-    expect(bloc.container.textContent).toContain('Illustrations de la métaphore');
-    expect(bloc.container.textContent).toContain('Illustration « digue » — En haut, une digue fissurée');
-    cleanup();
-    const { container } = render(<SequenceScene reel={data} sequence={data.sequences[1]} numero={2} visuels={visuels} deposable />);
-    const ecrans = Array.from(container.querySelectorAll('[role="img"]'));
-    expect(ecrans).toHaveLength(3);
-    // Sans image, le storyboard montre la commande ; les schémas, l'outil les dessine.
-    expect(ecrans[0].textContent).toContain('Illustration « digue » · haut');
-    expect(ecrans[1].textContent).toContain('Ça monte');
-    expect(ecrans[2].textContent).toContain('Colère');
-    expect(ecrans[2].textContent).toContain('Larmes');
+    const bloc = render(<VisuelsAFournir reel={data} visuels={visuels} deposable />);
+    expect(bloc.container.textContent).toContain('Illustration « digue », écran 2 — En haut, une digue fissurée');
     // Rien à produire écran par écran : l'illustration se dépose une fois, pour tout le Reel.
-    expect(container.textContent).not.toContain('À produire');
+    expect(bloc.container.textContent).not.toContain('Écran 2.');
+    cleanup();
+    // Sans image, l'écran montre la commande ; les schémas, l'outil les dessine.
+    const illustrations = { digue: { url: undefined, description: data.illustrations[0].description } };
+    const ecran = (j: number) => {
+      const { container } = render(<SceneLuminose sequence={data.sequences[1]} ecran={j} largeur={120} illustrations={illustrations as any} />);
+      const texte = container.textContent ?? '';
+      cleanup();
+      return texte;
+    };
+    expect(ecran(0)).toContain('Illustration « digue » · haut');
+    expect(ecran(1)).toContain('Ça monte');
+    expect(ecran(2)).toContain('Colère');
+    expect(ecran(2)).toContain('Larmes');
   });
 
   it('une illustration se génère dans le style du site, se montre, puis se garde (v2.28)', async () => {
@@ -2002,7 +2002,7 @@ describe('Reel expliqué — storyboard', () => {
       sequences: [],
     };
     const visuels = { ...VISUELS, deposer: async (...a: any[]) => { deposes.push(a); } };
-    const { container, findByText } = render(<IllustrationsDuReel reel={data} visuels={visuels} deposable />);
+    const { container, findByText } = render(<VisuelsAFournir reel={data} visuels={visuels} deposable />);
     const boutons = () => Array.from(container.querySelectorAll('button'));
     // La suite attend la première : elle se génère à partir d'elle.
     expect(container.textContent).toContain('Après « digue », dont elle est la suite.');
@@ -2125,7 +2125,7 @@ describe('Reel expliqué — montage', () => {
     expect(exports.every(b => b.disabled)).toBe(true);
     expect(container.textContent).toContain('Il faut une prise calée pour exporter.');
     // Le schéma de la jauge n'a pas d'image : l'export le dit avant de partir.
-    expect(container.textContent).toContain('1 image manque (onglet Scènes) : sans elle, l’écran garde son texte, ou reste vide s’il n’avait qu’elle.');
+    expect(container.textContent).toContain('1 image manque : sans elle, l’écran garde son texte, ou reste vide s’il n’avait qu’elle.');
   });
 
   it('dit la vraie raison quand la page n\u2019est pas sécurisée, même dans Chrome', () => {
@@ -2145,12 +2145,12 @@ describe('Reel expliqué — montage', () => {
 
   it('le studio se monte sans R2, en le disant, et ne propose aucun dépôt', async () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify(MONTAGE_SANS_R2.etat), { status: 200 }));
-    const { findByTestId, findByText, container, getByRole } = render(<Studio contentId="c1" draft={JSON.stringify(reel())} format="Reel expliqué (scènes animées)" />);
+    const { findByTestId, findByText, container } = render(<Studio contentId="c1" draft={JSON.stringify(reel())} format="Reel expliqué (scènes animées)" />);
     expect(await findByTestId('lecteur-remotion')).toBeTruthy();
     expect(await findByText("Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : aucune prise ne peut être déposée.")).toBeTruthy();
-    // Sans prise transcrite, Texte et Rythme attendent ; Scènes, non : les visuels se déposent avant le tournage.
-    expect((getByRole('tab', { name: 'Texte' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(getByRole('tab', { name: /Scènes/ }));
+    // Plus d'onglets (v2.32) : avant la prise, le studio la fait déposer, et les visuels se fournissent déjà.
+    expect(container.querySelector('[role="tab"]')).toBeNull();
+    expect(container.textContent).toContain('Avant le tournage');
     expect(container.textContent).toContain("les visuels ne peuvent pas être déposés");
     // Sans R2, on ne propose pas un dépôt qui serait refusé.
     expect(Array.from(container.querySelectorAll('button')).some(b => b.textContent?.includes('Déposer'))).toBe(false);
@@ -2313,11 +2313,10 @@ describe('Reel expliqué — prise et rendu', () => {
   /** Les séquences du fixture, comme le studio les passe au montage par le texte. */
   const sequencesDe = (data: any) => data.sequences.map((s: any, i: number) => ({ repere: `${i + 1} · ${s.role}`, mots: compterMots(s.voix) }));
 
-  it('le montage par le texte dit qu\u2019une transcription vide n\u2019a rien à monter', () => {
+  it('le montage par le texte dit qu’une transcription vide n’a rien à monter', () => {
     const calage = calerSurLaPrise(voixEntiere(reel()), []);
     const { container } = render(<MontageTexte sequences={sequencesDe(reel())} calage={calage} coupes={[]} appliquees={[]} gardes={null} choix={{}}
-      dureePrise={12} dureeGardee={0} situer={() => 0} onAller={noop} onTrancher={noop} onTrancherPassage={noop}
-      onChoisirVersion={noop} onReinitialiser={noop} />);
+      situer={() => 0} onAller={noop} onTrancher={noop} onTrancherPassage={noop} onChoisirVersion={noop} />);
     expect(container.textContent).toContain('La transcription est vide');
   });
 
@@ -2326,16 +2325,15 @@ describe('Reel expliqué — prise et rendu', () => {
     const dits = ['Ce', 'n', "'est", 'pas', 'vous,', 'c', "'est", 'le', 'cadre.'].map((mot, i) => ({ mot, debut: 1 + i * 0.3, fin: 1.25 + i * 0.3 }));
     const calage = calerSurLaPrise(voixEntiere(data), dits);
     const { container } = render(<MontageTexte sequences={sequencesDe(data)} calage={calage} coupes={[]} appliquees={[]} gardes={null} choix={{}}
-      dureePrise={5} dureeGardee={5} situer={(x: number) => x} onAller={noop} onTrancher={noop} onTrancherPassage={noop}
-      onChoisirVersion={noop} onReinitialiser={noop} />);
+      situer={(x: number) => x} onAller={noop} onTrancher={noop} onTrancherPassage={noop} onChoisirVersion={noop} />);
     expect(container.textContent).toContain("Ce n'est pas vous, c'est le cadre.");
     expect(container.textContent).not.toContain(" 'est");
   });
 
-  it('le montage par le texte se lit par séquence, barre ce qui est coupé, et tout s\u2019y tranche (SPEC §12.5.5)', () => {
+  it('le montage par le texte : ce qui est coupé se replie sous un ✂, une phrase se clique, sa version se choisit (SPEC §12.5.5, v2.32)', () => {
     const data = reel();
     const texte = voixEntiere(data);
-    // Deux versions de la phrase de la scène, un long silence, une improvisation.
+    // Deux versions de la phrase de la scène, une improvisation, un long silence.
     const dits: Array<{ mot: string; debut: number; fin: number }> = [];
     let t = 1;
     const dire = (bout: string) => bout.split(' ').forEach(mot => { dits.push({ mot, debut: t, fin: t + 0.3 }); t += 0.4; });
@@ -2351,76 +2349,129 @@ describe('Reel expliqué — prise et rendu', () => {
 
     const gestes: any[] = [];
     const proprietes = {
-      sequences: sequencesDe(data), calage, coupes, choix: {}, dureePrise: 30,
+      sequences: sequencesDe(data), calage, coupes, choix: {},
       situer: (x: number) => instantDansLaVideo(plan, 'principale', x),
+      sequenceDansLaVideo: (x: number) => {
+        const i = plan.minutage.sequences.findIndex(s => s.fin > s.debut && x < s.fin);
+        return i < 0 ? null : i;
+      },
       onAller: (x: number) => gestes.push(['aller', x]),
       onTrancher: (d: any[]) => gestes.push(['trancher', d[0].coupe.motif, d[0].coupee]),
       onTrancherPassage: (p: any, c: boolean) => gestes.push(['passage', p, c]),
       onChoisirVersion: (ph: number, d: number) => gestes.push(['version', ph, d]),
-      onReinitialiser: noop,
     };
     const { container, rerender } = render(<MontageTexte {...proprietes} appliquees={appliquees}
-      gardes={plan.segments.map(x => ({ debut: x.depuis, fin: x.jusqua }))} dureeGardee={plan.duree} />);
+      gardes={plan.segments.map(x => ({ debut: x.depuis, fin: x.jusqua }))} />);
     const mot = (i: number) => container.querySelector(`[data-mot="${i}"]`)!;
-    const bloc = (i: number) => mot(i).closest('.grid');
+    const bloc = (e: Element) => e.closest('.grid');
     const bouton = (texte: string) => Array.from(container.querySelectorAll('button')).find(b => b.textContent?.trim() === texte)!;
+    const dernier = () => gestes[gestes.length - 1];
 
-    // Un bloc par séquence. La reprise écartée se lit avec sa phrase ; l'improvisation, avec celle qu'elle prolonge.
+    // Un bloc par séquence. Le « ? » de Whisper n'est pas un mot affiché : « Une » est le 7ᵉ mot dit, le 8ᵉ de la liste.
     expect(container.textContent).toContain('2 · Mécanique');
-    expect(bloc(6)).toBe(bloc(11));
-    expect(bloc(6)).not.toBe(bloc(0));
-    expect(bloc(18)).toBe(bloc(11));
-    expect(bloc(22)).not.toBe(bloc(11));
+    // La première version est coupée : elle ne se lit plus, un ✂ en marque la place, avec sa phrase.
+    expect(container.querySelector('[data-mot="6"]')).toBeNull();
+    const ciseau = container.querySelector('[data-coupe="6"]')!;
+    expect(ciseau.getAttribute('aria-label')).toBe('5 mots coupés');
+    expect(bloc(ciseau)).toBe(bloc(mot(11)));
+    expect(bloc(mot(11))).not.toBe(bloc(mot(0)));
+    // L'improvisation se lit avec la phrase qu'elle prolonge, là où la vidéo la montre.
+    expect(bloc(mot(18))).toBe(bloc(mot(11)));
+    expect(bloc(mot(22))).not.toBe(bloc(mot(11)));
 
-    // La première version est barrée, la seconde retenue ; la puce passe de l'une à l'autre.
-    // Le « ? » de Whisper n'est pas un mot affiché : « Une » est le 7ᵉ mot dit, le 8ᵉ de la liste.
-    expect(mot(6).className).toContain('line-through');
-    expect(mot(11).className).not.toContain('line-through');
-    fireEvent.click(bouton('version 2 sur 2'));
-    expect(gestes[0]).toEqual(['version', 1, dits[7].debut]);
-    // Cliquer la version barrée la prend, elle aussi.
-    fireEvent.click(mot(6));
-    expect(gestes[1]).toEqual(['version', 1, dits[7].debut]);
+    // La phrase dite deux fois porte sa pastille ; les versions se choisissent, dans l'ordre où elles ont été dites.
+    fireEvent.click(bouton('dite 2 fois'));
+    expect(container.textContent).toContain('Dite deux fois — choisissez la version');
+    fireEvent.click(container.querySelectorAll('input[type="radio"]')[0]);
+    expect(dernier()).toEqual(['version', 1, dits[7].debut]);
+    // Le ✂ montre ce qui est coupé ; une version écartée s'y reprend.
+    fireEvent.click(ciseau);
+    expect(container.textContent).toContain('Une alarme qui sonne pour');
+    fireEvent.click(bouton('Prendre cette version'));
+    expect(dernier()).toEqual(['version', 1, dits[7].debut]);
 
-    // Le long silence est une pastille qui se rétablit.
-    fireEvent.click(container.querySelector('button[title="Silence raccourci : le rétablir"]')!);
-    expect(gestes[2]).toEqual(['trancher', 'silence', false]);
-
-    // Un clic choisit le passage et y mène l'aperçu ; « Barrer » le coupe, en entier.
+    // Un clic choisit le passage et y mène l'aperçu ; « Couper » le coupe, en entier.
     fireEvent.click(mot(19));
-    expect(gestes[3][0]).toBe('aller');
-    fireEvent.click(bouton('Barrer'));
-    expect(gestes[4][2]).toBe(true);
-    expect(gestes[4][1].debut).toBeLessThanOrEqual(dits[19].debut);
-    expect(gestes[4][1].fin).toBeGreaterThanOrEqual(dits[22].fin);
+    expect(dernier()[0]).toBe('aller');
+    fireEvent.click(bouton('Couper'));
+    expect(dernier()[2]).toBe(true);
+    expect(dernier()[1].debut).toBeLessThanOrEqual(dits[19].debut);
+    expect(dernier()[1].fin).toBeGreaterThanOrEqual(dits[22].fin);
 
     // Maj + clic en choisit le détail.
     fireEvent.click(mot(18));
     fireEvent.click(mot(20), { shiftKey: true });
-    fireEvent.click(bouton('Barrer'));
-    expect(gestes[6][1].fin).toBeGreaterThanOrEqual(dits[21].fin);
-    expect(gestes[6][1].fin).toBeLessThan(dits[22].debut);
+    fireEvent.click(bouton('Couper'));
+    expect(dernier()[1].fin).toBeGreaterThanOrEqual(dits[21].fin);
+    expect(dernier()[1].fin).toBeLessThan(dits[22].debut);
 
-    // Un passage barré se rétablit d'un clic.
-    rerender(<MontageTexte {...proprietes} appliquees={[{ debut: dits[19].debut - 0.1, fin: dits[22].fin + 0.1 }]} gardes={null} dureeGardee={null} />);
-    expect(mot(19).className).toContain('line-through');
-    fireEvent.click(mot(19));
-    expect(gestes[7][2]).toBe(false);
-    expect(gestes[7][1].debut).toBeLessThanOrEqual(dits[19].debut);
-    expect(gestes[7][1].fin).toBeGreaterThanOrEqual(dits[22].fin);
+    // Le long silence se règle depuis la phrase qui le suit.
+    fireEvent.click(mot(22));
+    expect(container.textContent).toContain('La pause avant est raccourcie');
+    fireEvent.click(bouton('La garder entière'));
+    expect(dernier()).toEqual(['trancher', 'silence', false]);
+
+    // Un passage coupé se rétablit depuis son ✂.
+    rerender(<MontageTexte {...proprietes} appliquees={[{ debut: dits[19].debut - 0.1, fin: dits[22].fin + 0.1 }]} gardes={null} />);
+    expect(container.querySelector('[data-mot="19"]')).toBeNull();
+    fireEvent.click(container.querySelector('[data-coupe="18"]')!);
+    fireEvent.click(bouton('Rétablir'));
+    expect(dernier()[2]).toBe(false);
+    expect(dernier()[1].debut).toBeLessThanOrEqual(dits[19].debut);
+    expect(dernier()[1].fin).toBeGreaterThanOrEqual(dits[22].fin);
   });
 
-  it('le rythme dit quand l\u2019image reste figée, et y mène (SPEC §12.5.3)', () => {
+  it('un écran se déplace : son étiquette, puis le mot où il doit apparaître (v2.32)', () => {
     const data = reel();
-    const calme = render(<RythmeReel data={data} figes={[]} surLaPrise={false} onAller={noop} />);
-    // Huit secondes depuis la v2.30 : la vidéo du 30/10 était trop rapide.
-    expect(calme.container.textContent).toContain('L\'image change au moins toutes les 8 secondes, au débit estimé.');
+    const dits = lire(voixEntiere(data));
+    const calage = calerSurLaPrise(voixEntiere(data), dits);
+    const instant = (mot: string) => dits.find(d => d.mot === mot)!.debut;
+    const placements: Array<[number, number, number | null]> = [];
+    const { container } = render(<MontageTexte sequences={sequencesDe(data)} calage={calage} coupes={[]} appliquees={[]} gardes={null} choix={{}}
+      situer={(x: number) => x} onAller={noop} onTrancher={noop} onTrancherPassage={noop} onChoisirVersion={noop}
+      onPlacerEcran={(i, j, s) => placements.push([i, j, s])}
+      ecrans={[
+        { sequence: 1, element: 0, libelle: 'Une alarme', instant: instant('Une'), sombre: true, corrige: true },
+        { sequence: 1, element: 1, libelle: 'Une virgule', instant: instant('virgule.'), sombre: true, manque: true },
+        { sequence: 0, element: -1, libelle: 'Trois fois', instant: instant('trois'), sombre: true, coup: true },
+      ]} />);
+    const motDit = (texte: string) => Array.from(container.querySelectorAll('[data-mot]')).find(e => e.textContent === texte)!;
+    const etiquette = (libelle: string) => Array.from(container.querySelectorAll('button')).find(b => b.textContent === libelle);
+    const avant = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    // Chaque écran se lit devant le mot où il apparaît.
+    expect(avant(motDit('une'), etiquette('Une virgule')!)).toBe(true);
+    expect(avant(etiquette('Une virgule')!, motDit('virgule.'))).toBe(true);
+    expect(etiquette('Une virgule')!.title).toContain('image à fournir');
+    // Le coup de poing se voit, mais suit ses mots : il ne se déplace pas.
+    expect(container.textContent).toContain('Trois fois');
+    expect(etiquette('Trois fois')).toBeUndefined();
+
+    fireEvent.click(etiquette('Une virgule')!);
+    expect(container.textContent).toContain('Cliquez le mot où « Une virgule » doit apparaître.');
+    fireEvent.click(motDit('sonne'));
+    expect(placements).toEqual([[1, 1, instant('sonne')]]);
+    expect(container.textContent).not.toContain('Cliquez le mot où');
+
+    // Un écran déplacé à la main revient au calage.
+    fireEvent.click(etiquette('Une alarme')!);
+    fireEvent.click(Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Revenir au calage'))!);
+    expect(placements[1]).toEqual([1, 0, null]);
+  });
+
+  it('avant d’exporter : ce qui manque, ce qui reste figé, et y mène (SPEC §12.5.3, v2.32)', () => {
+    const data = reel();
+    // Rien à signaler, aucun visuel : rien ne s'affiche — le composant a un retour anticipé.
+    const rien = render(<AvantDExporter data={data} animations visuels={null} manquent={0} figes={[]} estimes={0} onAller={noop} />);
+    expect(rien.container.innerHTML).toBe('');
     cleanup();
     const vus: number[] = [];
-    const { container } = render(<RythmeReel data={data} figes={[{ debut: 3.2, fin: 12.4, sequence: 1 }]} surLaPrise onAller={(s) => vus.push(s)} />);
-    expect(container.textContent).toContain('Un moment où rien ne bouge plus de 8 secondes.');
-    expect(container.textContent).toContain('9,2 s sans changement — séquence 2, scène · Mécanique');
-    fireEvent.click(container.querySelector('button[title="Voir ce moment dans l\'aperçu"]')!);
+    const { container } = render(<AvantDExporter data={data} animations visuels={null} manquent={0}
+      figes={[{ debut: 3.2, fin: 12.4, sequence: 1 }]} estimes={2} onAller={(s) => vus.push(s)} />);
+    expect(container.textContent).toContain('Avant d’exporter');
+    expect(container.textContent).toContain('Rien ne bouge pendant 9,2 s, à 0:03 — séquence 2 · Mécanique.');
+    expect(container.textContent).toContain('2 écrans à vérifier');
+    fireEvent.click(container.querySelector('button[title="Voir ce moment dans l’aperçu"]')!);
     expect(vus).toEqual([3.2]);
   });
 
@@ -2449,34 +2500,9 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(fond(true)).toBe('rgb(253, 238, 225)');
   });
 
-  it('le coup de poing se dessine, et le storyboard le montre sur son passage face caméra', () => {
+  it('le coup de poing se dessine', () => {
     const { container } = render(<CoupDePoingLuminose texte="Pas un [défaut]" largeur={108} />);
     expect(container.querySelector('[aria-label="Coup de poing : Pas un défaut"]')).not.toBeNull();
-    cleanup();
-    const data = reel();
-    data.sequences.splice(2, 0, { plan: 'camera', role: 'Bascule', voix: 'Ce n\'est pas un défaut de caractère.', coup: { texte: 'Pas un [défaut]', apparait_sur: 'pas un défaut' } });
-    const story = render(<SequenceCamera sequence={data.sequences[2]} numero={3} />);
-    expect(story.container.textContent).toContain('Coup de poing : l\'écran passe aux mots');
-    expect(story.container.querySelector('[aria-label="Coup de poing : Pas un défaut"]')).not.toBeNull();
-    expect(story.container.textContent).toContain('pas un défautcoup');
-  });
-
-  it('les repères se corrigent au dixième, et se rendent au calage', () => {
-    const data = reel();
-    const { calage } = priseCalee();
-    const brut = minuterReel(data, calage.horloge);
-    const plan = planDeMontage(data, { calage, duree: 12.5 }, { reperes: { '1:1': 6 } });
-    const corrections: Array<[number, number, number | null]> = [];
-    const { container } = render(<ReperesPrise data={data} calage={brut} plan={plan} reperes={{ '1:1': 6 }}
-      onCorriger={(i, j, t) => corrections.push([i, j, t])} onAller={noop} />);
-    expect(container.textContent).toContain('2.1');
-    expect(container.textContent).toContain('6,0 s');
-    const plus = container.querySelectorAll('button[title="Un dixième plus tard"]');
-    fireEvent.click(plus[0]);
-    fireEvent.click(container.querySelector('button[title="Rendre le repère au calage"]')!);
-    expect(corrections[0][0]).toBe(1);
-    expect(corrections[0][2]).toBeCloseTo(brut.sequences[1].debut + brut.sequences[1].apparitions[0]! + 0.1);
-    expect(corrections[1]).toEqual([1, 1, null]);
   });
 });
 

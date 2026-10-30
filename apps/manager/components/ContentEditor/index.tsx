@@ -30,7 +30,6 @@ import { useEstMobile } from '../Contenu/useEstMobile';
 import { BodyRenderer } from './renderers/BodyRenderer';
 import { SlidesRenderer } from './renderers/SlidesRenderer';
 import { Studio } from '../Contenu/Studio';
-import type { OngletStudio } from '../Video/PanneauMontage';
 import { MessageCircle, X } from 'lucide-react';
 import { Bouton, ControleSegmente, Etiquette, type EntreeMenu } from '../ui';
 
@@ -257,8 +256,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [versLeCoach, setVersLeCoach] = useState(false);
   /** Au studio, le fil se replie derrière un bouton du bandeau (SPEC §13.11). */
   const [filOuvert, setFilOuvert] = useState(false);
-  /** « Déposer la prise », depuis le Tournage, ouvre le studio sur l'onglet Prise. */
-  const [ongletDEntree, setOngletDEntree] = useState<OngletStudio | undefined>(undefined);
+  /** « Déposer la prise », depuis le Tournage, ouvre le tiroir de la prise quand une prise est déjà calée. */
+  const [priseAOuvrir, setPriseAOuvrir] = useState(false);
   /**
    * Sur téléphone, le contenu se lit en deux onglets (SPEC §13.13). `null` :
    * celui de l'étape — le fil, sauf au Tournage, qui se lit en plein écran.
@@ -1291,7 +1290,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           break;
       case 'tournage':
           entete = <EnteteMatiere nom="Tournage" sousTitre="le script, pour se l’approprier avant de filmer"
-              principale={{ libelle: 'Déposer la prise', onClick: () => { setOngletDEntree('prise'); onStepChange('montage'); } }}
+              principale={{ libelle: 'Déposer la prise', onClick: () => { setPriseAOuvrir(true); onStepChange('montage'); } }}
               autres={enEcriture} />;
           corps = <LectureTournage draft={brouillon} format={editedItem.targetFormat} />;
           break;
@@ -1386,7 +1385,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                 <div className="relative flex-1 min-h-0 flex flex-col">
                     {aUnBrouillon
                         ? <Studio contentId={editedItem.id} draft={brouillon} format={editedItem.targetFormat} titre={editedItem.title} onMontageChange={onMontageChange}
-                            dernierExport={resumeMontage?.dernierExport ?? null} ongletInitial={ongletDEntree} />
+                            dernierExport={resumeMontage?.dernierExport ?? null} priseOuverte={priseAOuvrir} />
                         : <div className="p-7"><MatiereVide titre="Pas encore de script" texte="Le montage suit le script : il s’écrit d’abord à l’atelier." /></div>}
                     {filOuvert && (
                         <div className="absolute inset-y-0 right-0 z-30 w-[440px] max-w-full shadow-lg border-l border-brand-border dark:border-dark-sec-border">

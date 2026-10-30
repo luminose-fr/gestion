@@ -1,4 +1,4 @@
-# SPEC v2.31 — gestion.luminose.fr
+# SPEC v2.32 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -139,6 +139,16 @@
 > final prennent l'atmosphère des illustrations du site : ciel en dégradé, halo, collines,
 > grain. L'eau du niveau monte dans le paysage, la liste perd ses pastilles, le mot-clé
 > grandit en Abril (§12.3, §12.4.1, §12.5.3).
+> **v2.32 (30/10/2026)** : le studio sans onglets. Florent : « toute l'interface de montage
+> (Texte, Scènes, Rythme, Prise) n'est vraiment pas au niveau pro. C'est hyper confus à
+> utiliser. Les "+ -" sur les Repères… je ne comprends même pas à quoi ça sert. » Une
+> première maquette — chronologie, étiquettes qu'on glisse, inspecteur — lui a paru
+> « démesurément complexe » : une prise comme celle du 30/10 n'appelle que quelques
+> retouches. Il reste un écran : l'aperçu et l'export à gauche, comme avant ; à droite, ce
+> qui reste à faire avant d'exporter, puis le texte tel qu'il sera entendu. Le texte coupé
+> se replie sous un ✂ ; une phrase se clique pour l'écouter, la couper ou choisir sa
+> version ; un écran se déplace en cliquant son étiquette, puis un mot. La prise passe dans
+> un tiroir. Une improvisation se range là où la vidéo la montre (§12.5, §12.5.5, §13.11).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1523,7 +1533,7 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme, depuis la v2.26 :
   nomme la situation sans le désigner. Les variantes publicitaires testent l'accroche,
   et c'est exactement ce qu'un second plan permet.
 
-**L'illustration générée** (v2.28). Dans l'onglet Scènes, chaque illustration se
+**L'illustration générée** (v2.28). En tête du studio, chaque illustration se
 **génère** : le navigateur compose le prompt (`promptIllustration`,
 `packages/editorial/src/illustration.ts`, photographié dans les fixtures golden) sur la
 formule des illustrations des pages (`_ai_helpers/prompts-images-luminose.md` §7, dépôt du
@@ -1644,10 +1654,14 @@ leur écran (`arriveesDeLaListe`, v2.30) : elles arrivaient une à une, de 0,4 �
 d'écart, et chacune comptait comme un changement. Le storyboard montre chaque écran dans
 son état final.
 
-**L'onglet Scènes** montre chaque scène en autant de miniatures que d'écrans, numérotées
-comme les repères soulignés dans la voix, et, en tête, les illustrations du Reel à
-déposer. Elles se rangent parmi les visuels du montage à la séquence −1
-(`SEQUENCE_DES_ILLUSTRATIONS`), leur rang pour élément.
+**Les visuels à fournir** se listent en tête du studio, dans l'encadré « Avant
+d'exporter » (`AvantDExporter`, `VisuelsAFournir`, v2.32) : les illustrations du Reel,
+chacune avec les écrans qui la montrent, puis les images décrites écran par écran. Elles
+se rangent parmi les visuels du montage à la séquence −1 (`SEQUENCE_DES_ILLUSTRATIONS`),
+leur rang pour élément. Jusqu'à la v2.31, l'onglet Scènes les montrait dans des cartes de
+scène, chaque scène en autant de miniatures que d'écrans : l'aperçu montre déjà chaque
+écran à sa place, et il ne restait de ces cartes qu'une chose à faire, fournir les
+images.
 
 **Ce que le moteur de rendu sait dessiner borne la scène.** Ni `radial-gradient`, ni
 `visibility`, ni `z-index`, ni filtre CSS : le fond Brume est une image SVG, qui porte
@@ -1854,10 +1868,15 @@ trouve, le calage le trouve aussi :
 **Le calage ne se stocke pas, il se déduit** de la transcription et du script : une
 nouvelle rédaction recale la même prise sans rien retranscrire.
 
-**Les repères se corrigent à la main**, au dixième de seconde, élément par élément ;
-un clic sur un repère amène l'aperçu à cet instant. La correction l'emporte sur le
-calage, se garde avec la prise, et survit à une nouvelle transcription comme au
-remplacement de la prise par une version mieux nettoyée.
+**Les repères se corrigent à la main**, élément par élément. Depuis la v2.32, chaque
+écran est une étiquette posée dans le montage par le texte (§12.5.5), devant le mot où
+il apparaît ; on la clique, puis le mot où l'écran doit apparaître, et le repère prend
+l'instant où ce mot commence dans la prise. « Revenir au calage » rend un repère déplacé.
+Jusque-là, une liste les corrigeait au dixième de seconde, par « + » et « − », en temps
+de la prise : Florent ne voyait ni ce que valait 42,6 s, ni ce que changeait un clic. La
+correction l'emporte sur le calage, se garde avec la prise, et survit à une nouvelle
+transcription comme au remplacement de la prise par une version mieux nettoyée. Un coup
+de poing suit ses mots : son étiquette se voit, elle ne se déplace pas.
 
 **Les prises sont rangées chez Cloudflare** (§12.4.2) : le fichier dans R2, sa
 description, sa transcription et ses repères dans D1 — corriger un repère ne réécrit pas
@@ -2075,7 +2094,7 @@ au premier mot de son repère et tient le temps de le dire plus 0,4 s, jamais mo
 1,5 s — 0,9 s jusqu'à la v2.29 : tenu une seconde, il passait comme un éclair — ni plus de
 2,5 s. Il couvre tout, sous-titres compris ; une coupe qui en mange la fin lui laisse ses
 1,5 s. Son fond suit les deux temps (§12.3) : le soir avant la bascule, le matin après — il
-était prune. Le storyboard le montre en miniature et souligne ses mots dans la voix.
+était prune. Le montage par le texte le montre par une étiquette devant ses mots (v2.32).
 
 **L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **8 s** (5 s
 jusqu'à la v2.29 : l'alerte poussait à rajouter du mouvement à un montage qui en avait
@@ -2085,7 +2104,9 @@ changement à l'écran — début de séquence, apparition d'un écran, ligne de
 voit pas ; les sous-titres non plus : c'est l'image qu'on regarde. Avant le tournage,
 l'alerte se calcule au débit estimé — c'est alors une
 affaire d'écriture : une carte de plus, un coup de poing, une phrase coupée en deux. Sur la
-prise calée, elle porte sur la vidéo qui sortira. Chaque moment mène l'aperçu à son début.
+prise calée, elle porte sur la vidéo qui sortira. Chaque moment s'annonce dans l'encadré
+« Avant d'exporter » du studio (§13.11, v2.32 ; l'onglet Rythme jusque-là), et « Voir » mène
+l'aperçu à son début.
 
 ### 12.5.4 Le son corrige Whisper (V8) — NORMATIF
 
@@ -2182,25 +2203,43 @@ pause.
 **Le montage par le texte** (`MontageTexte`) remplace la liste des coupes. La
 transcription se lit comme un texte, **séquence par séquence** depuis la v2.21 : un bloc
 par séquence du script, son repère (« 2 · Constat ») et l'instant où elle commence dans la
-vidéo à gauche, ses mots à droite. **Le barré est ce que la vidéo ne montre pas**, coupes,
-tête et queue comprises. En tête, ce qui reste — « 0:29 gardées sur 0:46 · 2 coupes ·
-1 phrase en deux versions » — et « Réinitialiser ».
+vidéo à gauche, ses mots à droite. En tête du studio, ce qui reste — « 1:23 gardées sur
+5:53 de prise » — et « Revenir au montage proposé », qui oublie tous les choix.
+
+**Le texte coupé se replie** (v2.32) : ce que la vidéo ne montre pas — coupes, tête et
+queue comprises — ne se lit plus barré, il noyait la lecture (deux lignes barrées sur trois
+dans l'accroche du 30/10). Un ✂ en marque la place ; un clic ouvre, sous la séquence, ce
+qui a été coupé, tentative par tentative, chacune avec « Écouter » et « Rétablir » — ou
+« Prendre cette version » quand elle est une version écartée, pour ne pas garder la phrase
+deux fois.
 
 Chaque mot dit va à une séquence (`sequenceDeChaqueJeton`) : celle de son rang s'il
 répond au script ; celle de sa phrase s'il appartient à une version écartée, pour qu'une
 reprise se lise à côté de celle qu'on a gardée ; sinon, par bouts d'un seul tenant, celle
 du mot du script le plus proche dans le temps — une hésitation colle à la phrase qu'elle
-précède, une improvisation à celle qu'elle prolonge.
+précède, une improvisation à celle qu'elle prolonge. **Une improvisation gardée se range
+là où la vidéo la montre** (v2.32) quand cette proximité l'en éloigne de plus d'une
+séquence : le 30/10, l'appel à l'action redit en fin de prise se lisait sous « 10 ·
+Bascule », cinq séquences avant l'endroit où il passe. À une séquence près, la proximité
+l'emporte : un « Et donc » improvisé juste avant une phrase du script reste avec elle.
 
 Le texte se tranche **par passages** : des mots qui se suivent dans le même état, coupés
 à chaque version et à chaque pause de plus de 1,2 s, et, s'ils sont gardés, à chaque fin
-de phrase. **Un clic sur un passage le choisit** et y mène l'aperçu ; **« Barrer »**
-apparaît juste après lui et le coupe. **Un clic sur un passage barré le rétablit** — s'il
-touche une version écartée, il prend cette version au lieu de garder la phrase deux fois.
-Glisser sur des mots, ou Maj + clic, choisit un détail, qui se barre ou se rétablit. Les
-silences proposés sont des pastilles qui se tranchent d'un clic. Quand une phrase a
-plusieurs vraies versions, la retenue porte la puce « version 2 sur 2 », numérotée dans
-l'ordre de la prise, qui passe à la suivante.
+de phrase. **Un clic sur un passage le choisit**, y mène l'aperçu, et ouvre sous la
+séquence « Écouter » (l'aperçu joue à partir de là) et « Couper ». Glisser sur des mots,
+ou Maj + clic, choisit un détail, qui se coupe ou se rétablit. Le silence proposé devant
+un passage s'y règle : « La garder entière », ou « La raccourcir ». Quand une phrase a
+plusieurs vraies versions, la retenue porte la pastille « dite 2 fois » ; elle ouvre les
+versions, dans l'ordre de la prise, chacune à **écouter dans la prise brute** — une
+version écartée n'est pas dans la vidéo, un lecteur hors de la page la joue du début à la
+fin — puis à choisir. Elle remplace la puce « version 2 sur 2 », qui passait à la
+suivante sans les montrer.
+
+**Les écrans sont des étiquettes dans le texte** (v2.32), devant le mot où ils
+apparaissent, d'un point sombre ou clair selon leur temps (§12.3) ; en orange, pointillée
+quand leur image manque, pleine quand leurs mots n'ont pas été dits. Une étiquette se
+clique, puis un mot : l'écran y apparaîtra (§12.5). Un coup de poing a la sienne, éclair
+en tête, qui ne se déplace pas.
 
 **Les choix se rangent avec la prise**, dans le même objet que ceux du dérushage :
 
@@ -2251,8 +2290,8 @@ plaît | apprenez-moi » reste dehors, comme ci-dessus.
 
 Une version imposée **entraîne sa suite** : la phrase qui la suit dans la même tentative,
 sans pause notable, est préférée aux autres bonnes versions — choisir la première version de
-« Derrière la digue », c'est choisir cette tentative. « Réinitialiser » oublie tous les
-choix.
+« Derrière la digue », c'est choisir cette tentative. « Revenir au montage proposé »
+oublie tous les choix.
 
 ### 12.5.6 Deux moteurs de transcription (V10) — NORMATIF
 
@@ -2363,6 +2402,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V17** | **Ce qu'a montré la prise du 30/10** — fin improvisée, reformulation qui commence avec sa phrase, rien en sous-titre hors de la vidéo ni à cheval sur deux phrases ou sur une scène, zones montées une à une (v2.29) | La prise du 30/10 sort avec son appel à l'action improvisé, sur une accroche entière, sans un mot affiché qu'on n'entend pas |
 | **V18** | **Le calme, et la prise fait foi** — plus d'air, pas de visage éclair, moins de mouvements, fonds en deux temps ; redites, flexions, alerte sur les écrans estimés (v2.30) | La prise du 30/10, réexportée, se suit sans effort, et aucune alerte ne tient à l'écart entre le script et la parole |
 | **V19** | **Les écrans en Brume** — fond d'atmosphère par temps, eau dans le paysage, liste sans pastilles, mot-clé en Abril, coup de poing et carton final (v2.31) | Un Reel dont les écrans tiennent dans la série des illustrations du site |
+| **V20** | **Le studio sans onglets** — « Avant d'exporter », texte coupé replié, une phrase se clique, un écran se place d'un clic sur un mot, la prise en tiroir, les improvisations là où la vidéo les montre (v2.32) | La prise du 30/10 se monte sans changer d'onglet ni compter en dixièmes de seconde |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.
@@ -2694,27 +2734,39 @@ organique ou publicité (indisponible sans seconde accroche, avec la raison) —
 organique », ou la date du dernier export. Pour une vidéo avec animations,
 « Exporter les scènes seules » ouvre la liste des scènes.
 
-**À droite, quatre onglets**, chacun avec son état en pastille : **Texte** (le montage
-par le texte, §12.5.5), **Scènes** (les repères, et les visuels à déposer — vidéo avec
-animations seulement), **Rythme** (les moments figés, qui ramènent à Texte),
-**Prise** (le dépôt, la transcription et son moteur, la seconde accroche, les réglages
-de prise, le stockage). Le studio s'ouvre sur Texte si la prise est calée, sinon sur
-Prise ; « Déposer la prise », depuis le Tournage, l'ouvre sur Prise. **La transcription
-finie, Texte s'ouvre de lui-même** — le seul changement de vue automatique, et il reste
-dans le studio.
+**À droite, plus d'onglets** (v2.32). Ils étaient quatre — Texte, Scènes, Rythme,
+Prise —, chacun avec sa pastille, et ils séparaient ce qui va ensemble : Rythme
+conseillait « un repère avancé, ou une coupe », mais les repères étaient dans Scènes et
+les coupes dans Texte. Florent les a trouvés « hyper confus », et une refonte en
+chronologie « démesurément complexe » pour le peu de retouches qu'une prise demande. Il
+reste, de haut en bas :
 
-**Aucun outil de montage ne disparaît** : ils sont rangés. Deux écarts à la passation,
-pour cette raison même :
+- **un en-tête** : « 1:23 gardées sur 5:53 de prise », « Revenir au montage proposé »,
+  et le bouton **« La prise »**, pastille « calée » ;
+- **l'encadré « Avant d'exporter »** (`AvantDExporter`), quand il y a quelque chose à y
+  faire : les visuels à fournir (§12.4.1), chaque moment où rien ne bouge (§12.5.3), avec
+  « Voir », et les écrans à vérifier ; tout étant fait, il ne garde que les visuels, sous
+  le titre « Visuels », pour qu'on puisse en remplacer un ;
+- **le montage par le texte** (§12.5.5), avec ses deux gestes — cliquer une phrase,
+  cliquer l'étiquette d'un écran —, puis celui de la seconde accroche quand elle existe.
 
-- **Scènes reste ouvert sans prise.** Les visuels se produisent et se déposent avant le
-  tournage ; griser l'onglet aurait fermé ce chemin.
-- **Sans prise, une vidéo avec animations garde son aperçu estimé**, au débit réglé dans
-  l'onglet Prise : c'est là qu'on voit ses scènes s'animer avant de tourner. Une vidéo
-  directe sans prise montre le cadre en pointillé, « L'aperçu apparaîtra avec la prise ».
+**La prise passe dans un tiroir** de 440 px, à droite, comme le fil : le dépôt, la
+transcription et son moteur, l'image et le son (§12.5.7), la seconde accroche, le
+stockage. Tant qu'aucune prise n'est calée, ce contenu tient la place du texte, sous
+l'en-tête « Avant le tournage » : déposer la prise est alors la seule chose à faire, et
+les visuels se fournissent déjà. « Déposer la prise », depuis le Tournage, ouvre le
+tiroir quand une prise est déjà calée (`priseOuverte`). Échap le ferme.
 
-Disparaissent avec lui : le storyboard de l'ancien onglet Script (`StoryboardRenderer` :
-ses cartes de scène vivent dans `Video/CartesDeScene.tsx`), `MontageDirect`,
-`ScriptVideoRenderer`.
+**Aucun outil de montage ne disparaît**, sauf les miniatures des scènes : l'aperçu les
+montre à leur place. **Sans prise, une vidéo avec animations garde son aperçu estimé**,
+au débit réglé sous la prise : c'est là qu'on voit ses scènes s'animer avant de tourner.
+Une vidéo directe sans prise montre le cadre en pointillé, « L'aperçu apparaîtra avec la
+prise ».
+
+Disparaissent avec lui : le storyboard de l'ancien onglet Script (`StoryboardRenderer`),
+`MontageDirect`, `ScriptVideoRenderer` ; avec la v2.32, les cartes de scène
+(`CartesDeScene`, devenu `VisuelsAFournir`), la liste des repères (`ReperesPrise`) et
+l'onglet Rythme (`RythmeReel`).
 
 ### 13.12 La série (F6)
 
@@ -2789,7 +2841,7 @@ Une branche par étape ; aucune ne laisse l'application cassée.
 | **F2** | **Les listes** — Conversations, Idées, Publiés ; Vidéos et Sous-titres disparaissent | Chaque contenu est à un seul endroit, avec son étape |
 | **F3** | **Le cadre du contenu** — bandeau, sélecteur d'étape, pied, règle d'arrivée, une action principale | Un contenu s'ouvre au même endroit d'où qu'on vienne |
 | **F4** | **Le fil** — bulles, composeur à deux destinataires, ouverture | L'atelier, la rédaction et les ajustements se font dans le fil |
-| **F5** | **Le studio** — aperçu, sortie, onglets Texte · Scènes · Rythme · Prise | Aucun outil de montage perdu, l'aperçu toujours visible |
+| **F5** | **Le studio** — aperçu, sortie, onglets Texte · Scènes · Rythme · Prise ; sans onglets depuis la v2.32 | Aucun outil de montage perdu, l'aperçu toujours visible |
 | **F6** | **La série** — panneau Série, plan dans le cadre du contenu | Une publication se travaille sans quitter sa série |
 | **F7** | **Mobile, thème sombre, contrôles de DESIGN.md** | Zéro ligne aux commandes de fin |
 
