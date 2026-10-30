@@ -83,7 +83,7 @@ const Intention: React.FC<{ texte?: string | null }> = ({ texte }) =>
  * Un passage face caméra. S'il porte un coup de poing (SPEC §12.5.3), ses mots
  * sont soulignés dans la voix et il se montre en miniature, comme une scène.
  */
-export const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }> = ({ sequence, numero }) => (
+export const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number; clair?: boolean }> = ({ sequence, numero, clair }) => (
     <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="space-y-2 min-w-0">
             <Etiquette forme="entete" avecIcone>
@@ -99,7 +99,7 @@ export const SequenceCamera: React.FC<{ sequence: SequenceReel; numero: number }
         </div>
         {sequence.coup && (
             <div className="justify-self-center">
-                <CoupDePoingLuminose texte={sequence.coup.texte} largeur={108} />
+                <CoupDePoingLuminose texte={sequence.coup.texte} largeur={108} clair={clair} />
             </div>
         )}
     </div>

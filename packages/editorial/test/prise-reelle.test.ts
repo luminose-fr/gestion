@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { calerSurLaPrise, planDeMontage, voixEntiere, momentsFiges } from '../src/calage';
-import { verifierReelExplique } from '../src/reelExplique';
+import { verifierReelExplique, VISAGE_MIN } from '../src/reelExplique';
 import { coupesProposees, coupesAppliquees } from '../src/derushage';
 import { regionsDeParole } from '../src/enveloppe';
 import { scriptDepuisLaTranscription } from '../src/directe';
@@ -197,7 +197,10 @@ describe('une vraie prise, un écran à la fois', () => {
 
     it('aucune scène ne dure plus de six secondes, et l’image ne fige jamais', () => {
         planE.minutage.sequences.forEach((m, i) => {
-            if (ecrans.sequences[i].plan === 'scene') expect(m.fin - m.debut).toBeLessThan(6);
+            // Une scène qui recouvre un visage éclair (v2.30) le porte en plus de son temps.
+            const eclair = planE.minutage.sequences[i + 1];
+            const recouvre = eclair && ecrans.sequences[i + 1]?.plan === 'camera' && eclair.fin === eclair.debut ? VISAGE_MIN : 0;
+            if (ecrans.sequences[i].plan === 'scene') expect(m.fin - m.debut).toBeLessThan(6 + recouvre);
         });
         expect(momentsFiges(ecrans, planE.minutage, planE.cadrages)).toEqual([]);
     });

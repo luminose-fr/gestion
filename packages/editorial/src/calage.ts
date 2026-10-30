@@ -12,10 +12,11 @@
  * découpe en mots est CELLE du contrôle (`motsSitues`) — un repère que le
  * storyboard trouve, le calage le trouve aussi.
  */
-import { motsSitues, minuterReel, debutsDesEcrans, arriveesDeLaListe, schemaDe, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
-import type { Intervalle } from './derushage';
+import { motsSitues, minuterReel, debutsDesEcrans, arriveesDeLaListe, schemaDe, sansVisageEclair, positionsDesReperes, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
+import { fusionnerIntervalles, type Intervalle } from './derushage';
 import { regionsDeParole, recalerSurLeSon, type Enveloppe } from './enveloppe';
 import { phrasesDuScript, choisirLesPrises, estUneVraieVersion, type PhraseChoisie } from './selection';
+import { HESITATIONS } from './directe';
 
 /** Un mot prononcé, en secondes depuis le début du fichier (la forme que rend la transcription). */
 export interface MotPrononce {
@@ -35,6 +36,13 @@ export interface MotAffiche {
      * où un bloc se coupe le mieux.
      */
     coupure?: 'phrase' | 'virgule';
+    /**
+     * Il répond au premier mot d'une phrase — ou d'une séquence — du script. Le
+     * mot d'avant en ferme donc une, même quand rien ne le ponctue : « s'il vous
+     * plaît », improvisé, ne portait pas de point, et le sous-titre écrivait
+     * « s'il vous plaît En » (export du 30/10/2026).
+     */
+    ouvre?: boolean;
 }
 
 /** Ce qui suit un mot : une fin de phrase, une virgule, ou rien qui coupe. */
@@ -85,6 +93,16 @@ export function accord(script: string, prise: string): Accord {
     const tolerance = longueur >= 7 ? 2 : 1;
     return distance(script, prise, tolerance) <= tolerance ? 'proche' : 'substitution';
 }
+
+/**
+ * Deux formes du même mot qui ne diffèrent que par la marque du pluriel ou du
+ * féminin : c'est ce qui a été dit, pas une faute d'oreille de Whisper — qui,
+ * elle, garde le mot du script (« luminoz », « sparadra »).
+ */
+const flexion = (a: string, b: string): boolean => {
+    const [court, long] = a.length <= b.length ? [a, b] : [b, a];
+    return long !== court && long.startsWith(court) && ['s', 'x', 'e', 'es'].includes(long.slice(court.length));
+};
 
 const SCORE: Record<Accord, number> = { exact: 3, proche: 2, substitution: -1 };
 const TROU = -1;
@@ -170,6 +188,17 @@ export interface Prononce {
     ecrit: string;
     /** Il appartient à une version d'une phrase du script qui n'a pas été retenue (§12.5.5). */
     autrePrise?: boolean;
+    /**
+     * Il ouvre, dans le même souffle, la version retenue d'une phrase REFORMULÉE :
+     * « Bonjour, moi ce que | je voudrais, c'est mieux gérer mes émotions ».
+     * Il part avec elle, jamais avec la reprise qui la précède (§12.5.5, v2.29).
+     */
+    amorce?: boolean;
+    /**
+     * Il finit une phrase — du script, ou ponctuée par la transcription hors du
+     * script. Le dérushage y garde plus d'air (v2.30).
+     */
+    finDePhrase?: boolean;
 }
 
 export interface Calage {
@@ -191,7 +220,25 @@ export interface Calage {
     enveloppe?: Enveloppe;
     /** Chaque phrase du script, ses versions dans la prise, et celle qui a été retenue (§12.5.5). */
     phrases: PhraseChoisie[];
+    /**
+     * La fin improvisée (v2.29) : quand la dernière phrase du script n'a jamais
+     * été dite, la dernière tentative dite après le dernier mot du script — en
+     * secondes de la prise, et ses jetons, premier et dernier inclus.
+     */
+    finImprovisee?: Intervalle & { premier: number; dernier: number };
 }
+
+/**
+ * En deçà, une version retenue n'est plus la phrase du script dite presque mot
+ * pour mot : c'est une reformulation, et elle commence avec sa phrase.
+ */
+const REFORMULATION = 0.8;
+/** Une amorce est un début de phrase, pas une tirade : au-delà, on ne remonte plus. */
+const AMORCE_MAX = 6;
+/** Plus long, l'écart entre deux mots est une respiration : ce qui précède n'est plus la même phrase. */
+const SOUFFLE = 0.5;
+/** Une fin improvisée dit quelque chose : « bon, ok » n'en est pas une. */
+const FIN_IMPROVISEE_MIN = 5;
 
 /** La ponctuation qui se lit dans un sous-titre : une question, une exclamation, des points de suspension. */
 const PONCTUATION_LUE = /^[\s ]*([?!…])/;
@@ -279,11 +326,71 @@ export function calerSurLaPrise(
         : instants.length ? instants[instants.length - 1] + DUREE_DU_MOT : 0;
 
     const retrouves = alignement.filter(a => a && a.accord !== 'substitution').length;
+    const alignes = new Set(alignement.flatMap(a => a ? [a.j] : []));
+
+    /*
+     * Une reformulation commence avec sa phrase (v2.29). Le 30/10/2026, l'accroche
+     * a été dite deux fois, autrement : « Je veux mieux gérer mes émotions, s'il
+     * vous plaît », puis « Bonjour, moi ce que je voudrais, c'est mieux gérer mes
+     * émotions ». Retenue, la seconde commençait à « je », premier mot qui répond
+     * au script, et la vidéo s'ouvrait sur « je voudrais, c'est mieux gérer… ».
+     * Ce qui précède une reformulation, depuis la dernière respiration, en fait
+     * partie. Rien sans respiration : « …plus forte en rebouchant tous les
+     * trous, c'est apprendre » enchaîne deux phrases, et la fin de la première
+     * n'amorce pas la seconde. Rien non plus devant une version dite presque mot
+     * pour mot : « s'il vous plaît | apprenez-moi » reste dehors, comme la
+     * §12.5.5 le veut.
+     */
+    const amorces = new Set<number>();
+    for (const c of phrases) {
+        const v = c.retenue === null ? null : c.versions[c.retenue];
+        if (!v || v.couverture >= REFORMULATION) continue;
+        const candidats: number[] = [];
+        let respire = false;
+        for (let j = v.debut - 1; j >= -1 && candidats.length <= AMORCE_MAX; j--) {
+            if (j < 0 || jetons[j + 1].debut - jetons[j].fin > SOUFFLE) { respire = true; break; }
+            if (alignes.has(j) || autres.has(j) || HESITATIONS.has(jetons[j].mot)) break;
+            candidats.push(j);
+        }
+        if (respire && candidats.length <= AMORCE_MAX) candidats.forEach(j => amorces.add(j));
+    }
+
+    /*
+     * La fin improvisée (v2.29). Le 30/10/2026, l'appel à l'action n'a jamais été
+     * dit tel qu'écrit : Florent l'a improvisé cinq fois, la dernière étant la
+     * bonne. Rien n'y répondait au script, et la vidéo s'arrêtait net sur la
+     * phrase d'avant. Quand la dernière phrase du script n'a pas été dite, la
+     * dernière tentative qui suit le dernier mot du script la remplace — les
+     * précédentes restent dehors : quand on refait, c'est que l'essai d'avant
+     * ne convenait pas.
+     */
+    let finImprovisee: Calage['finImprovisee'];
+    const dernierAligne = Math.max(-1, ...alignes);
+    if (phrases.length > 0 && phrases[phrases.length - 1].retenue === null && dernierAligne >= 0) {
+        let premier = -1;
+        for (let k = dernierAligne + 1; k < jetons.length; k++) {
+            const nouvelle = k === dernierAligne + 1 || jetons[k].debut - jetons[k - 1].fin > PAUSE_ENTRE_TENTATIVES;
+            if (nouvelle) premier = k;
+            const fin = k + 1 === jetons.length || jetons[k + 1].debut - jetons[k].fin > PAUSE_ENTRE_TENTATIVES;
+            if (fin && k - premier + 1 >= FIN_IMPROVISEE_MIN) {
+                finImprovisee = { debut: jetons[premier].debut, fin: jetons[k].fin, premier, dernier: k };
+            }
+        }
+    }
+
+    // Les premiers mots des phrases et des séquences du script : un sous-titre ne les enjambe pas.
+    const ouvrants = new Set(script.flatMap((m, i) => {
+        const entre = i > 0 ? texte.slice(script[i - 1].fin, m.debut) : '\n';
+        return entre.includes('\n') || (/[.?!…]/.test(entre) && /\s/.test(entre)) ? [i] : [];
+    }));
 
     // Les sous-titres : chaque mot dit, dans l'orthographe du script quand tous
     // ses morceaux y répondent, d'un seul tenant ; tel que Whisper l'a écrit sinon.
+    // Sauf une flexion : « les vannes » s'écrit comme dit, pas « vanne » comme écrit (v2.30).
     const scriptDuJeton = new Map<number, number>();
-    alignement.forEach((a, i) => { if (a && a.accord !== 'substitution') scriptDuJeton.set(a.j, i); });
+    alignement.forEach((a, i) => {
+        if (a && a.accord !== 'substitution' && !(a.accord === 'proche' && flexion(script[i].mot, jetons[a.j].mot))) scriptDuJeton.set(a.j, i);
+    });
     const motsAffiches: MotAffiche[] = [];
     // Le dernier mot du script de chaque mot affiché, pour savoir si le suivant s'y soude.
     const dernierRang: Array<number | null> = [];
@@ -342,12 +449,18 @@ export function calerSurLaPrise(
             dernierRang[dernierRang.length - 1] = rangs[rangs.length - 1]!;
             return;
         }
-        motsAffiches.push({ texte: affiche, debut: m.debut, fin: m.fin, ...(coupure ? { coupure } : {}) });
+        motsAffiches.push({ texte: affiche, debut: m.debut, fin: m.fin, ...(coupure ? { coupure } : {}), ...(ouvrants.has(rangs[0]!) ? { ouvre: true } : {}) });
         dernierRang.push(rangs[rangs.length - 1]!);
     });
 
     const rangDuJeton = new Map<number, number>();
     alignement.forEach((a, i) => { if (a) rangDuJeton.set(a.j, i); });
+    const finitUnePhrase = (k: number): boolean => {
+        const rang = rangDuJeton.get(k);
+        if (rang !== undefined && (ouvrants.has(rang + 1) || rang + 1 === script.length)) return true;
+        const dernierDuMot = k + 1 === jetons.length || jetons[k + 1].source !== jetons[k].source;
+        return dernierDuMot && /[.?!…][»"”)\s]*$/.test(mots[jetons[k].source].mot.trim());
+    };
     const prononces: Prononce[] = jetons.map((j, k) => ({
         mot: j.mot,
         debut: j.debut,
@@ -355,6 +468,8 @@ export function calerSurLaPrise(
         rang: rangDuJeton.get(k) ?? null,
         ecrit: k > 0 && jetons[k - 1].source === j.source ? '' : mots[j.source].mot.trim(),
         ...(autres.has(k) && !rangDuJeton.has(k) ? { autrePrise: true } : {}),
+        ...(amorces.has(k) ? { amorce: true } : {}),
+        ...(finitUnePhrase(k) ? { finDePhrase: true } : {}),
     }));
 
     return {
@@ -366,8 +481,30 @@ export function calerSurLaPrise(
         motsAffiches,
         prononces,
         phrases,
+        ...(finImprovisee ? { finImprovisee } : {}),
         ...(parole ? { parole, enveloppe: enveloppe! } : {}),
     };
+}
+
+/**
+ * Les écrans dont aucun mot du repère n'a été entendu dans la prise : ils
+ * tombent à une place estimée (v2.30). C'est eux qu'il faut aller vérifier, pas
+ * l'écart au script : Florent adapte le texte à sa façon de parler, et la part
+ * des mots retrouvés baisse sans que rien ne tombe à côté.
+ */
+export function ecransEstimes(data: ReelExplique, calage: Calage): Array<{ sequence: number; element: number }> {
+    const estimes: Array<{ sequence: number; element: number }> = [];
+    let premier = 0;
+    (data.sequences ?? []).forEach((s, i) => {
+        positionsDesReperes(s).forEach((position, j) => {
+            if (j === 0 && s.plan === 'scene') return;
+            const longueur = motsSitues(s.elements?.[j]?.apparait_sur).length;
+            const entendu = position !== null && calage.mesures.slice(premier + position, premier + position + longueur).some(Boolean);
+            if (!entendu) estimes.push({ sequence: i, element: j });
+        });
+        premier += motsSitues(s.voix).length;
+    });
+    return estimes;
 }
 
 /** La voix entière d'un Reel expliqué, dans l'ordre : ce sur quoi se cale la prise principale. */
@@ -407,12 +544,19 @@ export function enBlocs(mots: MotAffiche[], motsParBloc = 4): SousTitre[] {
         courant = [];
     };
     const finDePhrase = (m: MotAffiche | undefined) => !!m && (m.coupure === 'phrase' || /[.?!…]$/.test(m.texte));
-    const pause = (m: MotAffiche | undefined) => finDePhrase(m) || m?.coupure === 'virgule';
+    // Un mot suivi d'un début de phrase du script en ferme une, ponctué ou non (v2.29).
+    const pause = (k: number) => !!mots[k] && (finDePhrase(mots[k]) || mots[k].coupure === 'virgule' || !!mots[k + 1]?.ouvre);
     mots.forEach((m, i) => {
         const precedent = mots[i - 1];
         if (precedent && m.debut - precedent.fin > 0.6) fermer();
+        /*
+         * Une phrase du script s'ouvre : le bloc en cours ne l'enjambe pas (v2.29).
+         * Sauf un mot seul, dit d'un souffle avec elle, qui l'amorce : « et | Ce
+         * n'est plus vous » se lit d'un bloc, pas « et » seul à l'écran.
+         */
+        if (m.ouvre && precedent && courant.length > 0 && (courant.length >= 2 || m.debut - precedent.fin >= 0.2)) fermer();
         courant.push(m);
-        const orphelin = courant.length === motsParBloc - 1 && !pause(mots[i + 1]) && pause(mots[i + 2]);
+        const orphelin = courant.length === motsParBloc - 1 && !pause(i + 1) && pause(i + 2);
         if (courant.length >= motsParBloc || finDePhrase(m) || (m.coupure === 'virgule' && courant.length >= 2) || orphelin) fermer();
     });
     fermer();
@@ -476,13 +620,26 @@ const ECLAT_GARDE = 0.4;
 /** Un repère corrigé à la main, en secondes dans la prise principale, par `séquence:élément`. */
 export type ReperesCorriges = Record<string, number>;
 
-/** Les sous-titres d'un intervalle de la prise, rognés aux passages face caméra. */
+/**
+ * Les sous-titres d'un intervalle de la prise, rognés aux passages face caméra.
+ * Rognés en MOTS aussi (v2.29) : un bloc à cheval sur l'arrivée d'une scène
+ * écrivait déjà ses premiers mots — « et donc Au lieu » sur le visage, avant
+ * que la scène ne les montre.
+ */
 function sousTitresCamera(blocs: SousTitre[], minutage: MinutageReel, data: ReelExplique): SousTitre[] {
     const cameras = minutage.sequences.filter((_, i) => data.sequences[i]?.plan === 'camera');
     return blocs.flatMap(b => {
         const milieu = (b.debut + b.fin) / 2;
         const plan = cameras.find(c => milieu >= c.debut && milieu < c.fin);
-        return plan ? [{ ...b, debut: Math.max(b.debut, plan.debut), fin: Math.min(b.fin, plan.fin) }] : [];
+        if (!plan) return [];
+        // Un mot appartient au passage où il commence d'être dit — son début, avancé pour l'œil, rendu à la voix.
+        const mots = b.mots.filter(m => {
+            const dit = m.debut + AVANCE_SOUS_TITRE;
+            return dit >= plan.debut - 0.02 && dit < plan.fin;
+        });
+        if (mots.length === 0) return [];
+        const texte = mots.length === b.mots.length ? b.texte : mots.map(m => m.texte).join(' ');
+        return [{ ...b, texte, mots, debut: Math.max(b.debut, plan.debut), fin: Math.min(b.fin, plan.fin) }];
     });
 }
 
@@ -502,6 +659,21 @@ function garder(depuis: number, jusqua: number, coupes: Intervalle[]): Intervall
 const longueurDe = (gardes: Intervalle[]) => gardes.reduce((s, g) => s + g.fin - g.debut, 0);
 
 /**
+ * Ce qui se monte d'une prise : chaque zone pour elle-même — le script, de sa
+ * tête à sa queue, un passage rétabli, la fin improvisée —, débarrassée de ses
+ * coupes, à partir de `depuis`. Jamais l'enveloppe des zones (v2.29) : rétablir
+ * une phrase dite deux minutes après la fin du script ramenait tout ce qui les
+ * séparait, et ce n'est que pour une phrase collée à la fin que l'essai du
+ * 27/10 l'avait vérifié.
+ */
+function monter(zones: Intervalle[], coupes: Intervalle[], depuis: number, duree: number): Intervalle[] {
+    const bornees = zones
+        .map(z => ({ debut: Math.max(0, depuis, z.debut), fin: Math.min(duree, z.fin) }))
+        .filter(z => z.fin > z.debut);
+    return fusionnerIntervalles(bornees).flatMap(z => garder(z.debut, z.fin, coupes));
+}
+
+/**
  * Le temps de la prise → le temps de la vidéo, pour des morceaux posés bout à
  * bout à partir de `a`. Un instant coupé tombe au raccord : un repère pris dans
  * une coupe apparaît quand la voix reprend.
@@ -519,11 +691,18 @@ function versLaVideo(gardes: Intervalle[], a: number): (t: number) => number {
     };
 }
 
-/** Les mots que les coupes laissent, en blocs, reportés dans le temps de la vidéo. */
-function sousTitresDe(mots: MotAffiche[], coupes: Intervalle[], vers: (t: number) => number): SousTitre[] {
+/**
+ * Les mots que la vidéo montre, en blocs, reportés dans son temps. Un mot se
+ * garde s'il tombe dans un morceau monté — pas seulement hors des coupes
+ * (v2.29) : ce qui précède la tête ou suit la queue n'est dans aucune coupe, et
+ * tombait au raccord. Le 30/10/2026, « revenir merci » et « travaillant au
+ * cabinet. », dits deux minutes après la fin de la vidéo, s'affichaient sur ses
+ * trois dernières images.
+ */
+function sousTitresDe(mots: MotAffiche[], gardes: Intervalle[], vers: (t: number) => number): SousTitre[] {
     const restants = mots.filter(m => {
         const milieu = (m.debut + m.fin) / 2;
-        return !coupes.some(c => milieu > c.debut && milieu < c.fin);
+        return gardes.some(g => milieu > g.debut && milieu < g.fin);
     });
     const blocs = enBlocs(restants).map(b => ({
         ...b,
@@ -538,9 +717,13 @@ function sousTitresDe(mots: MotAffiche[], coupes: Intervalle[], vers: (t: number
 
 /** Les morceaux gardés, sans les restes : ce qui est court et ne porte aucun mot du script part avec les coupes voisines. */
 function sansEclats(gardes: Intervalle[], calage: Calage): Intervalle[] {
-    if (gardes.length < 2) return gardes;
-    return gardes.filter(g => g.fin - g.debut >= ECLAT_GARDE || (calage.prononces ?? []).some(p =>
-        p.rang !== null && (p.debut + p.fin) / 2 > g.debut && (p.debut + p.fin) / 2 < g.fin));
+    const dits = calage.prononces ?? [];
+    if (gardes.length < 2 || dits.length === 0) return gardes;
+    return gardes.filter(g =>
+        // De l'air seul, laissé entre une coupe et le bord d'une zone, ne montre rien, quelle que soit sa longueur (v2.29).
+        dits.some(p => p.fin > g.debut && p.debut < g.fin)
+        && (g.fin - g.debut >= ECLAT_GARDE || dits.some(p =>
+            p.rang !== null && (p.debut + p.fin) / 2 > g.debut && (p.debut + p.fin) / 2 < g.fin)));
 }
 
 /** Où une seconde de la prise tombe dans la vidéo — au raccord si elle a été coupée, `null` si la vidéo ne la montre pas. */
@@ -591,16 +774,22 @@ export function planDeMontage(
     // après qui n'est pas du script : « …vous plaît | apprenez-moi » s'enchaînent
     // sans pause, et 0,3 s d'air faisait entendre la fin de « plaît ».
     const dits = principale.calage.prononces ?? [];
-    const premierMot = brut.sequences[0]?.debut ?? 0;
+    // Une reformulation retenue en ouverture commence avec sa phrase : son amorce est montée (v2.29).
+    const premierRetenu = dits.findIndex(m => m.rang !== null);
+    let ouverture = premierRetenu;
+    while (ouverture > 0 && dits[ouverture - 1].amorce) ouverture--;
+    const premierMot = Math.min(brut.sequences[0]?.debut ?? 0, ouverture >= 0 && ouverture < premierRetenu ? dits[ouverture].debut : Infinity);
     const avant = [...dits].reverse().find(m => m.fin <= premierMot + 1e-6);
     const tete = Math.max(0, premierMot - AIR_AVANT, avant ? Math.min(premierMot, avant.fin + 0.02) : 0);
     const apres = dits.find(m => m.debut >= principale.calage.fin - 1e-6);
     const queue = Math.min(principale.duree, principale.calage.fin + AIR_APRES,
         apres ? Math.max(principale.calage.fin, apres.debut - 0.02) : Infinity);
-    // Rétablir l'emporte sur les bornes du script : la main a le dernier mot (§12.5.5).
-    const retablis = options.retablis ?? [];
-    const debutMonte = Math.max(0, Math.min(tete, ...retablis.map(r => r.debut)));
-    const finMontee = Math.min(principale.duree, Math.max(queue, ...retablis.map(r => r.fin)));
+    // La fin improvisée, avec son air, sans mordre sur un mot voisin (v2.29).
+    const improvisee = principale.calage.finImprovisee;
+    const finImprovisee: Intervalle[] = improvisee ? [{
+        debut: Math.max(improvisee.debut - AIR_AVANT, Math.min(improvisee.debut, (dits[improvisee.premier - 1]?.fin ?? 0) + 0.02)),
+        fin: Math.min(improvisee.fin + AIR_APRES, Math.max(improvisee.fin, (dits[improvisee.dernier + 1]?.debut ?? Infinity) - 0.02)),
+    }] : [];
     const coupes = options.coupes ?? [];
     const accroche = options.accroche && brut.sequences.length >= 2 ? options.accroche : null;
 
@@ -615,24 +804,24 @@ export function planDeMontage(
 
     // La seconde accroche, calée sur son propre texte, dans son propre fichier.
     let longueur = 0;
-    let depart = debutMonte;
+    let depart = 0;
     const sousTitres: SousTitre[] = [];
     if (accroche) {
         const coupesAccroche = options.coupesAccroche ?? [];
-        const gardes = garder(
-            Math.max(0, Math.min(accroche.calage.horloge(0) - AIR_AVANT, ...(options.retablisAccroche ?? []).map(r => r.debut))),
-            Math.min(accroche.duree, Math.max(accroche.calage.fin + AIR_APRES / 2, ...(options.retablisAccroche ?? []).map(r => r.fin))),
-            coupesAccroche,
-        );
+        const gardes = monter([
+            { debut: accroche.calage.horloge(0) - AIR_AVANT, fin: accroche.calage.fin + AIR_APRES / 2 },
+            ...(options.retablisAccroche ?? []),
+        ], coupesAccroche, 0, accroche.duree);
         poser('accroche', gardes, 0);
         longueur = longueurDe(gardes);
-        sousTitres.push(...sousTitresDe(accroche.calage.motsAffiches, coupesAccroche, versLaVideo(gardes, 0))
+        sousTitres.push(...sousTitresDe(accroche.calage.motsAffiches, gardes, versLaVideo(gardes, 0))
             .map(b => ({ ...b, fin: Math.min(longueur, b.fin) })));
         // On reprend la prise principale juste avant le premier mot de la séquence 2.
         depart = Math.max(0, brut.sequences[1].debut - 0.12);
     }
 
-    const gardes = sansEclats(garder(depart, finMontee, coupes), principale.calage);
+    // Rétablir l'emporte sur les bornes du script : la main a le dernier mot (§12.5.5).
+    const gardes = sansEclats(monter([{ debut: tete, fin: queue }, ...(options.retablis ?? []), ...finImprovisee], coupes, depart, principale.duree), principale.calage);
     poser('principale', gardes, longueur);
     const vers = versLaVideo(gardes, longueur);
     const duree = longueur + longueurDe(gardes);
@@ -643,7 +832,7 @@ export function planDeMontage(
     const derniere = brut.sequences.length - 1;
     const sequences = brut.sequences.map((s, i) => {
         const absolues = s.apparitions.map(a => a === null ? null : vers(s.debut + a));
-        let debut = vers(s.debut);
+        let debut = i === 0 ? vers(Math.min(s.debut, premierMot)) : vers(s.debut);
         const fin = i === derniere ? duree : vers(s.fin);
         if (accroche && i === 1) debut = longueur;
         // Un coup de poing dont une coupe a mangé la fin se lit quand même.
@@ -654,16 +843,18 @@ export function planDeMontage(
         return { debut, fin, apparitions: absolues.map(a => a === null ? null : a - debut), coup };
     });
     if (accroche) sequences[0] = { debut: 0, fin: longueur, apparitions: [], coup: null };
-    const minutage: MinutageReel = { duree, sequences };
+    const minutage = sansVisageEclair(data, { duree, sequences });
 
-    sousTitres.push(...sousTitresCamera(sousTitresDe(principale.calage.motsAffiches, coupes, vers), minutage, data)
+    sousTitres.push(...sousTitresCamera(sousTitresDe(principale.calage.motsAffiches, gardes, vers), minutage, data)
         .filter(b => b.debut >= longueur));
 
-    // Le cadre alterne à chaque raccord, et aux phrases d'un long passage face caméra.
-    const phrases = debutsDePhrases(voixEntiere(data))
-        .map(rang => vers(principale.calage.horloge(rang)))
-        .filter(a => a > longueur);
-    const cadrages = cadrer(data, minutage, phrases, segments.slice(1).map(s => s.a));
+    /*
+     * Le cadre alterne aux raccords seulement (v2.30). Il changeait aussi aux
+     * phrases d'un long passage face caméra (§12.5.3) ; le 30/10/2026, Florent a
+     * trouvé la vidéo trop rapide, « beaucoup de trucs qui s'animent » : un zoom
+     * par phrase en était un de plus.
+     */
+    const cadrages = cadrer(data, minutage, [], segments.slice(1).map(s => s.a));
 
     return { duree, segments, minutage, sousTitres, cadrages };
 }
@@ -746,8 +937,12 @@ export function cadrer(
     return points.map((a, i) => ({ a, serre: i % 2 === 1 }));
 }
 
-/** Au-delà, l'image est figée : en vidéo courte, cinq secondes sans que rien ne bouge, c'est long. */
-export const FIGE_MAX = 5;
+/**
+ * Au-delà, l'image est figée. Cinq secondes jusqu'au 30/10/2026 ; huit depuis
+ * (v2.30) : Florent trouvait la vidéo trop rapide, et une alerte à cinq
+ * secondes poussait à rajouter du mouvement à un montage qui en avait trop.
+ */
+export const FIGE_MAX = 8;
 
 export interface MomentFige {
     debut: number;

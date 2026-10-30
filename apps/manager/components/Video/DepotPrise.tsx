@@ -10,12 +10,14 @@ import type { EtapePrise, PriseAffichee } from './usePrisesReel';
  *
  * L'écran dit à chaque étape ce qui se passe — lecture, envoi vers
  * Cloudflare, téléchargement, extraction du son, transcription — et, une fois
- * la prise calée, quelle part du script y a été retrouvée. C'est ce chiffre qui
- * dit s'il faut aller vérifier les repères.
+ * la prise calée, quelle part du script y a été retrouvée, et combien d'écrans
+ * tombent à une place estimée. Ce sont eux qui disent s'il faut aller vérifier
+ * les repères (v2.30) : Florent adapte le script à sa façon de parler, et la
+ * part retrouvée baisse sans que rien ne tombe à côté.
  */
 
-/** Au-dessous, la prise s'écarte assez du script pour que des cartes tombent à côté. */
-const COUVERTURE_SURE = 0.8;
+/** Au-dessous, ce n'est plus une prise adaptée du script : c'est peut-être une autre prise. */
+const COUVERTURE_DOUTEUSE = 0.5;
 
 const LIBELLES: Record<EtapePrise, string> = {
     lecture: 'Lecture de la prise…',
@@ -43,12 +45,14 @@ export interface DepotPriseProps {
     /** Retranscrire la prise, avec le moteur voulu (SPEC §12.5.6). */
     onTranscrire: (moteur: MoteurTranscription) => void;
     onRetirer: () => void;
+    /** Les écrans dont les mots du repère n'ont pas été dits (`ecransEstimes`). */
+    ecransEstimes?: number;
 }
 
 const MOTEUR: Record<MoteurTranscription, string> = { whisper: 'Whisper', 'nova-3': 'Nova-3' };
 
 export const DepotPrise: React.FC<DepotPriseProps> = ({
-    titre, consigne, prise, enCours, erreur, deposable, onDeposer, onTranscrire, onRetirer,
+    titre, consigne, prise, enCours, erreur, deposable, onDeposer, onTranscrire, onRetirer, ecransEstimes = 0,
 }) => {
     const choix = useRef<HTMLInputElement>(null);
     const occupe = !!enCours;
@@ -91,10 +95,15 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
             )}
 
             {!enCours && calage && (
-                <p className={`text-xs ${calage.couverture < COUVERTURE_SURE ? 'text-alerte' : 'text-brand-main/70 dark:text-dark-text/70'}`}>
+                <p className={`text-xs ${calage.couverture < COUVERTURE_DOUTEUSE ? 'text-alerte' : 'text-brand-main/70 dark:text-dark-text/70'}`}>
                     Calée : {Math.round(calage.couverture * 100)} % des mots du script retrouvés dans la prise
                     {` (transcrite par ${MOTEUR[prise?.prise.transcription?.moteur ?? 'whisper']})`}
-                    {calage.couverture < COUVERTURE_SURE ? ' — elle s’en écarte : vérifiez les repères avant d’exporter.' : '.'}
+                    {calage.couverture < COUVERTURE_DOUTEUSE ? ' — moins de la moitié : est-ce bien la prise de ce script ?' : '.'}
+                </p>
+            )}
+            {!enCours && calage && ecransEstimes > 0 && (
+                <p className="text-xs text-alerte">
+                    {ecransEstimes === 1 ? 'Un écran tombe' : `${ecransEstimes} écrans tombent`} à une place estimée : les mots qui {ecransEstimes === 1 ? 'l’appellent' : 'les appellent'} n’ont pas été dits. Vérifiez les repères avant d’exporter.
                 </p>
             )}
             {!enCours && prise && !prise.prise.pretLe && !erreur && (

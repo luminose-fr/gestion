@@ -1,4 +1,4 @@
-# SPEC v2.28 — gestion.luminose.fr
+# SPEC v2.30 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -119,6 +119,21 @@
 > **v2.28 (29/10/2026)** : l'illustration de la métaphore se génère, dans le style des pages
 > du site — l'étalon joint —, par OpenRouter : Nano Banana Pro par défaut, Nano Banana 2
 > ou GPT Image 2 au choix. Florent la voit avant de la garder (§12.3).
+> **v2.29 (30/10/2026)** : ce qu'a montré la prise du 30/10, exportée deux fois. Quand la fin
+> du script n'a pas été dite, la dernière tentative improvisée la remplace ; une version
+> reformulée commence avec sa phrase ; un passage rétabli loin du script ne ramène plus ce
+> qui l'en sépare (§12.5.5). Ne se sous-titre que ce que la vidéo fait entendre (§12.5.1),
+> et un sous-titre n'enjambe plus un début de phrase du script ni l'arrivée d'une scène
+> (§12.5).
+> **v2.30 (30/10/2026)** : le calme, et la prise fait foi. Devant la vidéo, Florent : « Le
+> rythme est un peu trop rapide. Ça fait beaucoup de trucs qui s'animent à l'écran et c'est
+> confus à suivre. » Plus d'air aux fins de phrase (§12.5.2) ; pas de visage éclair entre
+> deux scènes, plus de recadrage aux phrases, coup de poing tenu 1,5 s, alerte à 8 s
+> (§12.5.3) ; entrées sans rebond, lignes de liste posées ensemble (§12.4.1) ; fonds en
+> deux temps, sombre puis clair (§12.3). Et : « il y aura forcément des différences » entre
+> le script et la parole — la prise fait foi : une improvisation redite se coupe (§12.5.2),
+> un mot s'écrit comme dit, et l'alerte porte sur les écrans dont les mots n'ont pas été
+> dits, plus sur l'écart au texte (§12.5).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1413,6 +1428,8 @@ suffit).
 | Que montre une scène ? (28/10/2026, devant la première vidéo exportée : « beaucoup trop d'infos et donc pas percutant ») | **Une chose à la fois.** Chaque écran remplace le précédent : un visuel en grand et un à quatre mots ; plus de titre ; des scènes de six secondes au plus, le visage revenant entre deux. | §12.3, §12.4.1. Les cartes empilées, leurs tailles et leurs liaisons ne s'écrivent plus. |
 | Qui produit les visuels ? (28/10/2026 : « éviter au max d'avoir besoin d'ajouter des photos ») | **L'outil, autant que possible.** Cinq schémas dessinés et animés par le code ; pour la métaphore, **une** illustration par Reel — deux au plus quand elle se transforme —, réutilisée d'un écran à l'autre au cadrage voulu, générée par l'outil (v2.28) ou déposée. | Plus aucun visuel à produire écran par écran. |
 | Dans quel style ? (29/10/2026 : « essayons de rester dans le style du site ; si c'est trop contraignant et trop monotone, on fera évoluer ça ») | **Celui des illustrations des pages**, l'étalon joint — alors que `direction-artistique.md` §4 laisse les réseaux sans charte : c'est un choix pour le Reel, révisable, pas une charte des réseaux. | §12.3, « L'illustration générée ». |
+| Le script et la parole (30/10/2026 : « il y aura forcément des différences, car j'ajuste pour que ça colle à moi et mon style parlé ») | **La prise fait foi** ; le script donne la structure — séquences, écrans, repères. | Rien ne doit supposer un texte lu mot pour mot : fin improvisée, reformulations, redites (§12.5.2, §12.5.5), alerte sur les écrans plutôt que sur l'écart (§12.5). |
+| Quel rythme ? (30/10/2026 : « Le rythme est un peu trop rapide. Ça fait beaucoup de trucs qui s'animent à l'écran et c'est confus à suivre ») | **Plus calme** : plus d'air dans la voix, pas de visage éclair, moins de mouvements, deux fonds au lieu de quatre. Les scripts ne changent pas. | §12.3, §12.4.1, §12.5.2, §12.5.3. Révise en partie la décision du 24/10 (§12.5.3). |
 | Où vivent prises et visuels ? | **Chez Cloudflare** (04/10/2026) : prises et visuels dans R2, transcription et repères dans D1. La première version les gardait dans le navigateur. | Un montage survit à des données de site vidées et se reprend depuis un autre poste ; une prise met une à deux minutes à partir, et l'espace gratuit (10 Go) se surveille. |
 
 La première réponse à la troisième question était « la typographie seule », par crainte
@@ -1467,10 +1484,15 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme, depuis la v2.26 :
   de un à quatre mots — souvent les deux. Le premier arrive avec la scène ; les suivants,
   au mot de leur repère.
 - **Une scène a un registre** : `pedagogie` (on montre comment ça marche) ou `humour`
-  (on montre l'absurde). L'entrée de chaque écran suit le registre.
-- **Le ton fait le fond de l'écran** : `ombre` (violet nuit — ce qui coince), `lumiere`
-  (ivoire rosé — ce qui s'ouvre), `neutre` (ivoire — ce qui informe). Passer de l'ombre à
-  la lumière se voit d'un coup : c'est la bascule.
+  (on montre l'absurde). Jusqu'à la v2.29, l'entrée de chaque écran suivait le registre ;
+  depuis, tous se posent de même (§12.4.1).
+- **Le ton dit où tombe la bascule** : `ombre` (ce qui coince), `lumiere` (ce qui s'ouvre),
+  `neutre` (ce qui informe). Il faisait le fond de chaque écran ; depuis la v2.30, les fonds
+  vont **en deux temps** (`enDeuxTemps`, décision de Florent du 30/10/2026) : violet nuit
+  jusqu'au premier écran de lumière, ivoire ensuite — une seule inversion dans la vidéo, là
+  où les scènes alternaient quatre couleurs (ivoire, violet nuit, ivoire rosé, et le prune
+  des coups de poing). Sans écran de lumière, ivoire de bout en bout. Les coups de poing
+  suivent (`tempsDeLaSequence`).
 - **Les schémas, l'outil les dessine et les anime** (`visuel.schema`) : `niveau` (un
   réservoir qui monte ou descend, `de` → `a` en %), `compteur` (un nombre qui défile,
   `valeur`, `unite`), `opposition` (`gauche` dans l'ombre, `droite` dans la lumière),
@@ -1591,17 +1613,18 @@ storyboard (`React.lazy`), jamais dans le paquet principal.
 
 **Un écran à la fois** (v2.26). `debutsDesEcrans` dit quand chaque écran prend la place du
 précédent : le premier avec la scène, les suivants au mot de leur repère ; un repère
-introuvable se place à égale distance de ses voisins. L'entrée suit le registre : la
-pédagogie se pose (ressort amorti, un tiers de seconde), l'humour arrive de travers et
-rebondit. Le fond, lui, change sec : c'est une rupture, pas une transition. Un écran trop
-haut pour la zone sûre — en 4:5 surtout — se réduit d'un bloc.
+introuvable se place à égale distance de ses voisins. Chaque écran se pose — ressort
+amorti, un tiers de seconde —, quel que soit le registre depuis la v2.30 : l'humour
+arrivait de travers et rebondissait, un mouvement de plus dans une vidéo que Florent
+trouvait confuse. Le fond, lui, change sec : c'est une rupture, pas une transition. Un
+écran trop haut pour la zone sûre — en 4:5 surtout — se réduit d'un bloc.
 
 **Les schémas sont des blocs et des traits**, pas du SVG : c'est ce que le rendu dans le
 navigateur sait peindre. Ils s'animent sur le temps de l'écran — un niveau monte en
-1,6 s, un compteur défile en 1,2 s, les lignes d'une liste arrivent au fil de l'écran
-(`arriveesDeLaListe` : réparties sur ses trois premiers quarts, de 0,4 à 1,5 s d'écart),
-et chacune compte comme un changement pour le rythme (§12.5.3). Le storyboard montre
-chaque écran dans son état final.
+1,6 s, un compteur défile en 1,2 s. Les lignes d'une liste arrivent **ensemble**, avec
+leur écran (`arriveesDeLaListe`, v2.30) : elles arrivaient une à une, de 0,4 à 1,5 s
+d'écart, et chacune comptait comme un changement. Le storyboard montre chaque écran dans
+son état final.
 
 **L'onglet Scènes** montre chaque scène en autant de miniatures que d'écrans, numérotées
 comme les repères soulignés dans la voix, et, en tête, les illustrations du Reel à
@@ -1800,8 +1823,13 @@ trouve, le calage le trouve aussi :
 3. Chaque mot du script reçoit l'instant où il est dit ; un mot omis prend sa place
    entre ses voisins, au prorata des rangs. L'horloge qui en sort remplace l'horloge
    estimée dans `minuterReel` (§12.4.1) — rien d'autre ne change.
-4. La **couverture** — part des mots du script retrouvés — s'affiche. Sous 80 %, l'écran
-   demande de vérifier les repères avant d'exporter.
+4. La **couverture** — part des mots du script retrouvés — s'affiche. Elle n'alerte plus
+   qu'au-dessous de 50 % : est-ce bien la prise de ce script ? (v2.30). Jusque-là, sous
+   80 %, l'écran demandait de vérifier les repères ; Florent adaptant le script à sa façon
+   de parler, la prise du 30/10 n'en retrouvait que 78 %, sans qu'aucune carte tombe à
+   côté. L'alerte porte désormais sur les **écrans dont aucun mot du repère n'a été dit**
+   (`ecransEstimes`) : ceux-là tombent à une place estimée, et c'est eux qu'il faut
+   vérifier.
 
 **Le calage ne se stocke pas, il se déduit** de la transcription et du script : une
 nouvelle rédaction recale la même prise sans rien retranscrire.
@@ -1818,7 +1846,9 @@ des centaines de mégaoctets.
 **Les sous-titres** des passages caméra sortent des mots dits, groupés par quatre au
 plus, coupés à une fin de phrase ou à un silence de plus de 0,6 s. Un mot dit qui
 répond au script s'écrit **comme dans le script** (« luminose.fr », pas « luminoz ») ;
-un mot improvisé, comme Whisper l'a entendu. Un « ? » rendu seul rejoint son mot. Rien
+un mot improvisé, comme Whisper l'a entendu. Sauf une flexion (v2.30) : dit « les
+vannes » là où le script écrit « la vanne », le mot s'écrit « vannes » — c'est ce qui a
+été dit, pas une faute d'oreille. Un « ? » rendu seul rejoint son mot. Rien
 sur les scènes : leurs cartes portent déjà le texte.
 
 **Une élision se recolle** (v2.25). Whisper rend « c'est » en deux mots, « c » puis
@@ -1833,6 +1863,18 @@ d'une vidéo directe (§12.7) se recolle de même.
 mots ou plus se ferme sur une virgule, et un groupe de cinq mots se coupe en trois et
 deux plutôt qu'en quatre et un (« C'est savoir ouvrir la / vanne »). Hors du script,
 c'est la ponctuation de Whisper qui compte.
+
+**Un début de phrase du script ferme le bloc d'avant** (v2.29), ponctué ou non. Le
+30/10/2026, « s'il vous plaît », improvisé et rendu sans point, s'affichait « s'il vous
+plaît En », et « …tous les trous » laissait « trous » seul avant « C'est apprendre à ». Le
+mot qui répond au premier mot d'une phrase — ou d'une séquence — du script ouvre un
+nouveau bloc, et celui qui le précède compte comme une fin de phrase pour la coupe en
+trois et deux. Un mot seul dit d'un souffle avec lui l'amorce, et reste dans son bloc :
+« et Ce n'est plus », pas « et » seul à l'écran.
+
+**Un sous-titre s'arrête où la scène commence** (v2.29) : rogné aux passages caméra, il
+l'est aussi en mots, chacun au passage où il commence d'être dit. « Et donc Au lieu »
+s'affichait sur le visage, avant que la scène qui commence à « Au lieu » ne le montre.
 
 **Le mot qui se dit s'éclaire** (v2.12, décision du 24/10/2026) : chaque bloc garde ses
 mots à leur instant, et le mot en cours passe en rose brumeux (`#E9B9BB`) jusqu'au
@@ -1857,6 +1899,20 @@ La composition (`CompositionFinale`) pose la prise en fond (`<Video>` de
 `@remotion/media`, `objectFit: cover`), chaque scène par-dessus à son heure, et les
 sous-titres sur les seuls passages caméra. **La voix vient de la prise et ne
 s'interrompt jamais** : une scène couvre l'image, pas le son.
+
+**Ne se sous-titre que ce que la vidéo fait entendre** (v2.29) : un mot dont le milieu ne
+tombe dans aucun morceau monté ne s'affiche pas. Jusque-là, seuls les mots pris dans une
+coupe étaient retirés ; ceux d'avant la tête ou d'après la queue, dans aucune coupe,
+tombaient au premier ou au dernier raccord. Les deux vidéos du 30/10/2026 montraient
+ainsi sur leurs trois dernières images, avant le carton, « revenir merci » et
+« travaillant au cabinet. », dits deux minutes après leur fin.
+
+**Les morceaux montés se comptent zone par zone** (v2.29) : le script de sa tête à sa
+queue, chaque passage rétabli hors du script, la fin improvisée (§12.5.5) — chacun
+débarrassé de ses coupes. Jamais l'étendue qui va du premier au dernier : rétablir une
+phrase dite deux minutes après la fin du script ramenait tout ce qui les sépare. Un
+morceau sans aucun mot dit — l'air laissé entre une coupe et le bord d'une zone — part,
+quelle que soit sa longueur.
 
 Les sous-titres reprennent l'outil Sous-titres — Futura gras, blanc, ombre `#60407F` à
 315°, 430 points sous le centre du cadre vertical —, en 64 pixels du cadre. L'ombre est
@@ -1922,9 +1978,10 @@ Florent qui s'écartent du défaut (`montage_prises.coupes`, migration 0010).
 
 | Motif | Ce que c'est | Par défaut |
 | :--- | :--- | :--- |
-| **Silence** | plus de 0,7 s entre deux mots | **coupé** : il en reste 0,35 s |
+| **Silence** | plus de 0,7 s entre deux mots | **coupé** : il en reste 0,35 s, et 0,6 s entre deux phrases (v2.30) |
 | **Reprise** | des mots dits hors du script qui reprennent ceux qui les entourent — on recommence une phrase ratée, ou on la répète | **coupée** : l'alignement retient la dernière version, la bonne |
 | **Hors script** | trois mots ou plus dits hors du script, qui ne reprennent rien | **gardé**, et proposé : une improvisation peut être ce que la prise a de meilleur |
+| **Redite** (v2.30) | un essai d'improvisation que la suite redit, autrement : 60 % de ses mots pleins (trois lettres et plus) retrouvés, dans l'ordre, dans les 25 s qui suivent | **coupée**, comme une reprise : c'est un premier jet |
 
 Un ou deux mots improvisés (« vraiment », « et donc ») restent, sans même être proposés :
 les couper ferait sauter l'image au milieu d'une phrase. On ne regarde qu'entre le premier
@@ -1935,6 +1992,19 @@ plan de montage retire déjà.
 suivant. Whisper place les bords d'un mot à quelques centièmes près ; couper au ras
 amputerait une syllabe. Une coupe de moins de 0,25 s ne vaut pas le saut d'image qu'elle
 crée, et n'est pas proposée.
+
+**Plus d'air entre deux phrases** (v2.30, décision de Florent du 30/10/2026) : après un mot
+qui finit une phrase — du script, ou ponctuée par la transcription hors de lui
+(`Prononce.finDePhrase`) —, 0,35 s gardées après lui et 0,25 s avant le suivant, soit
+0,6 s en tout. La vidéo du 30/10 ne gardait aucun blanc de plus de 0,6 s, et Florent la
+trouvait trop rapide ; un silence plus long se coupe toujours.
+
+**La redite** (v2.30). Florent adapte le script à sa façon de parler : refaite autrement,
+une phrase ne ressemble plus assez au script pour être reconnue comme une de ses versions
+(§12.5.5), et ses deux formulations restaient. Une improvisation se lit donc par **essais**,
+séparés par un blanc de 0,6 s ou une fin de phrase ; un essai que la suite redit — même
+règle qu'une vidéo sans script (§12.7), sur les mots pleins — se coupe d'office, le reste
+se propose comme avant.
 
 **Chaque coupe se rétablit**, et une improvisation se coupe d'un clic. Un choix porte le
 motif et le début de sa coupe au dixième (`s12.4`, `r33.0`, `h41.7`) ; une nouvelle
@@ -1957,27 +2027,41 @@ Décision du 24/10/2026, après la seconde référence, où quelque chose change
 toutes les deux à trois secondes. Nos passages face caméra pouvaient rester fixes dix à
 quinze secondes : c'est le moment où le pouce reprend le défilement.
 
-**Le cadre change aux phrases.** Au-delà des raccords (§12.5.2), où il change toujours, le
-cadre de la prise alterne au début d'une phrase dite face caméra (`cadrer`,
-`packages/editorial/src/calage.ts`) — si le plan en cours a duré au moins 2,5 s et
-qu'aucun raccord n'arrive dans la seconde : plus court, le recadrage se remarque comme un
-tic, et deux changements de plan coup sur coup se lisent comme une erreur. Une phrase finit
-sur `.`, `?`, `!` ou `…` suivi d'un blanc : le point de « luminose.fr » ne ferme rien. Rien
-ne change au premier mot d'un passage : le visage qui revient d'une scène est déjà un
-changement.
+**Révisé le 30/10/2026 (v2.30)** : devant la vidéo de la prise du 30/10, Florent : « Le
+rythme est un peu trop rapide. Ça fait beaucoup de trucs qui s'animent à l'écran et c'est
+confus à suivre. » On y comptait un changement d'image franc toutes les trois secondes,
+sans les lignes de liste, la jauge, le mot surligné ni le bandeau. Ses choix : plus d'air
+dans la voix (§12.5.2), pas de visage éclair, moins de mouvements, des fonds en deux temps
+(§12.3). Ce qui suit en tient compte.
 
-**Le coup de poing** (`coup`, §12.3) : quelques mots, en capitales ivoire sur le prune de la
-marque, plein cadre — le passage entre crochets en Abril italique rose brumeux. Il se pose
+**Le cadre ne change plus aux phrases** (v2.30), seulement aux raccords (§12.5.2). Il
+alternait aussi au début d'une phrase dite face caméra, si le plan en cours avait duré au
+moins 2,5 s et qu'aucun raccord n'arrivait dans la seconde ; `cadrer` sait encore le faire
+(`phrases`), le plan de montage ne le lui demande plus.
+
+**Pas de visage éclair** (`sansVisageEclair`, v2.30) : un passage face caméra de moins de
+2,5 s (`VISAGE_MIN`) entre deux scènes, sans coup de poing, laisse la scène d'avant à
+l'écran — elle le recouvre comme elle recouvre sa propre voix, et ses mots ne se
+sous-titrent pas. La vidéo du 30/10 revenait 1,5 s sur le visage pour « la boule au ventre
+le dimanche soir », entre deux scènes. Vaut pour la vidéo comme pour l'aperçu au débit
+estimé.
+
+**Le coup de poing** (`coup`, §12.3) : quelques mots, en capitales, plein cadre — le
+passage entre crochets en Abril italique. Il se pose
 en un cinquième de seconde et repart sec : c'est une rupture, pas une transition. Il frappe
 au premier mot de son repère et tient le temps de le dire plus 0,4 s, jamais moins de
-0,9 s ni plus de 2,5 s. Il couvre tout, sous-titres compris ; une coupe qui en mange la fin
-lui laisse ses 0,9 s. Le storyboard le montre en miniature et souligne ses mots dans la voix.
+1,5 s — 0,9 s jusqu'à la v2.29 : tenu une seconde, il passait comme un éclair — ni plus de
+2,5 s. Il couvre tout, sous-titres compris ; une coupe qui en mange la fin lui laisse ses
+1,5 s. Son fond suit les deux temps (§12.3) : violet nuit avant la bascule, ivoire après —
+il était prune. Le storyboard le montre en miniature et souligne ses mots dans la voix.
 
-**L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **5 s** sans
+**L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **8 s** (5 s
+jusqu'à la v2.29 : l'alerte poussait à rajouter du mouvement à un montage qui en avait
+trop) sans
 changement à l'écran — début de séquence, apparition d'un écran, ligne de liste qui arrive
 (v2.26), coup de poing qui frappe ou s'en va, recadrage face caméra. Un recadrage sous une scène ne compte pas : il ne se
 voit pas ; les sous-titres non plus : c'est l'image qu'on regarde. Avant le tournage,
-l'alerte se calcule au débit estimé, recadrages aux phrases compris — c'est alors une
+l'alerte se calcule au débit estimé — c'est alors une
 affaire d'écriture : une carte de plus, un coup de poing, une phrase coupée en deux. Sur la
 prise calée, elle porte sur la vidéo qui sortira. Chaque moment mène l'aperçu à son début.
 
@@ -2114,7 +2198,34 @@ secondes aux coupes : recouper ce qu'on venait de rétablir ne coupait rien.
 première phrase ou après la dernière étend ce qui est monté (`planDeMontage`, options
 `retablis` et `retablisAccroche`) : sans cela, la fin improvisée d'une prise ne pouvait
 jamais revenir. (Les boutons « Rétablir la fin · 2,4 s » et la barre de sélection de la
-v2.20 ont cédé la place, en v2.21, au clic sur le passage barré.)
+v2.20 ont cédé la place, en v2.21, au clic sur le passage barré.) Depuis la v2.29, il
+étend ce qui est monté de lui-même seulement, pas de tout ce qui le sépare du script
+(§12.5.1).
+
+**La fin improvisée** (v2.29). Le 30/10/2026, l'appel à l'action n'a jamais été dit tel
+qu'écrit : Florent l'a improvisé cinq fois, de 214 à 345 s d'une prise de 5 min 53, et rien
+n'y répondait au script. Les deux vidéos exportées s'arrêtaient net sur la phrase d'avant,
+« c'est apprendre à ouvrir les vannes ». Désormais, **quand la dernière phrase du script
+n'a pas été dite**, la dernière tentative dite après le dernier mot du script la remplace
+(`Calage.finImprovisee`) : la dernière suite d'au moins cinq jetons que ne sépare aucune
+pause de plus de 1,2 s. Les essais d'avant restent barrés — quand on refait, c'est que
+l'essai d'avant ne convenait pas — et chacun se rétablit d'un clic ; la fin improvisée se
+barre comme tout passage. Elle se dérushe comme le reste (silences), appartient à la
+dernière séquence, et son cadre change à ses phrases et à ses respirations (0,25 s), faute
+de phrases du script. Quand la fin du script a été dite, rien ne s'ajoute : une
+improvisation d'après reste barrée, comme avant.
+
+**Une reformulation commence avec sa phrase** (v2.29). La même prise ouvrait sur deux
+accroches formulées autrement : « Je veux mieux gérer mes émotions, s'il vous plaît », puis
+« Bonjour, moi ce que je voudrais, c'est mieux gérer mes émotions ». La seconde retenue, sa
+version commençait à « je », premier mot qui répond au script, et la vidéo s'ouvrait sur
+« je voudrais, c'est mieux gérer… ». Une version retenue qui retrouve moins de 80 % de sa
+phrase est une **reformulation** : les mots dits juste avant elle, depuis la dernière
+respiration (0,5 s) et sur six jetons au plus, en font partie (`Prononce.amorce`). Ils
+ouvrent la vidéo quand elle l'ouvre, et ne partent pas avec la reprise qui la précède.
+Rien sans respiration — « …plus forte en rebouchant tous les trous, c'est apprendre »
+enchaîne deux phrases —, ni devant une version dite presque mot pour mot : « s'il vous
+plaît | apprenez-moi » reste dehors, comme ci-dessus.
 
 Une version imposée **entraîne sa suite** : la phrase qui la suit dans la même tentative,
 sans pause notable, est préférée aux autres bonnes versions — choisir la première version de
@@ -2147,6 +2258,12 @@ moteur qui a échoué.
 **L'écran** : « Transcrire à nouveau : Whisper | Nova-3 » sous la prise, et la ligne du
 calage dit qui a fait la transcription affichée. Le dépôt transcrit toujours avec
 Whisper ; si Nova-3 l'emporte sur pièces, il deviendra le défaut par décision de Florent.
+
+**Première comparaison, le 30/10/2026**, sur la même prise exportée deux fois : la vidéo
+transcrite par Whisper ne garde aucun blanc de plus de 0,6 s ; celle de Nova-3 en garde
+quatre, de 1 à 1,8 s, et s'ouvre sur une accroche coupée au milieu de sa phrase (§12.5.5,
+« Une reformulation commence avec sa phrase »). La cause des blancs n'est pas établie : la
+transcription de Nova-3 n'a pas été relue, seule la vidéo l'a été. Le défaut reste Whisper.
 
 ### 12.5.7 Les réglages d'une prise (V11) — NORMATIF
 
@@ -2221,6 +2338,8 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V14** | **Un écran à la fois** — schémas dessinés et animés, illustration de la métaphore (v2.26) | La même prise, redécoupée écran par écran : aucune scène de plus de six secondes, aucune image figée |
 | **V15** | **La signature** — bandeau sur l'accroche, carton final (v2.27) | Une vidéo qui dit qui parle et où le retrouver, même quand l'adresse n'a pas été dite |
 | **V16** | **L'illustration générée** — style des pages du site, par OpenRouter (v2.28) | Un Reel dont l'illustration n'a été ni dessinée ni cherchée par Florent |
+| **V17** | **Ce qu'a montré la prise du 30/10** — fin improvisée, reformulation qui commence avec sa phrase, rien en sous-titre hors de la vidéo ni à cheval sur deux phrases ou sur une scène, zones montées une à une (v2.29) | La prise du 30/10 sort avec son appel à l'action improvisé, sur une accroche entière, sans un mot affiché qu'on n'entend pas |
+| **V18** | **Le calme, et la prise fait foi** — plus d'air, pas de visage éclair, moins de mouvements, fonds en deux temps ; redites, flexions, alerte sur les écrans estimés (v2.30) | La prise du 30/10, réexportée, se suit sans effort, et aucune alerte ne tient à l'écart entre le script et la parole |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.
