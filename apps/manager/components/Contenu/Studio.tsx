@@ -3,7 +3,6 @@ import { montageDuBrouillon, parseBodyJson, scriptDepuisLaTranscription, type Re
 import { Patience } from '../Feedback';
 import { useMontage } from '../Video/useMontage';
 import { useVisuelsReel } from '../Video/useVisuelsReel';
-import type { OngletStudio } from '../Video/PanneauMontage';
 
 // Remotion n'entre dans le navigateur qu'à l'ouverture d'un studio : jamais dans le paquet principal.
 const PanneauMontage = lazy(() => import('../Video/PanneauMontage'));
@@ -19,14 +18,15 @@ export interface StudioProps {
     draft: string;
     format: string | null;
     dernierExport?: { format: string; version: string; le: number } | null;
-    ongletInitial?: OngletStudio;
+    /** Ouvrir le tiroir de la prise à l'entrée : on vient la déposer, ou la remplacer. */
+    priseOuverte?: boolean;
     /** Le titre du contenu : il nomme les fichiers exportés. */
     titre?: string;
     /** Le montage a changé : l'étape du contenu est à relire. */
     onMontageChange?: () => void;
 }
 
-export const Studio: React.FC<StudioProps> = ({ contentId, draft, format, dernierExport, ongletInitial, titre, onMontageChange }) => {
+export const Studio: React.FC<StudioProps> = ({ contentId, draft, format, dernierExport, priseOuverte, titre, onMontageChange }) => {
     const montage = useMontage(contentId, onMontageChange);
     const script = useMemo(() => montageDuBrouillon(parseBodyJson(draft), format), [draft, format]);
     const sansScript = !script?.sequences.length;
@@ -43,7 +43,7 @@ export const Studio: React.FC<StudioProps> = ({ contentId, draft, format, dernie
             {montage.erreur && <p className="px-7 py-2 text-xs text-erreur">Le montage n'a pas pu être lu : {montage.erreur}</p>}
             <Suspense fallback={<div className="flex-1 flex items-center justify-center"><Patience titre="Chargement du studio" /></div>}>
                 <PanneauMontage data={data} contentId={contentId} montage={montage} visuels={visuels}
-                    sansScript={sansScript} dernierExport={dernierExport} ongletInitial={ongletInitial} titre={titre} />
+                    sansScript={sansScript} dernierExport={dernierExport} priseOuverte={priseOuverte} titre={titre} />
             </Suspense>
         </div>
     );
