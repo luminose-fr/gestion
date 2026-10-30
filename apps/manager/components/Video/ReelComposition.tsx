@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Img, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { loadFont } from '@remotion/fonts';
 import { Audio, Video } from '@remotion/media';
-import { debutsDesEcrans, bandeauDeSignature, CARTON_FINAL, type MinutageReel, type PlanDeMontage, type ReelExplique, type SequenceReel, type SousTitre } from '@luminose/editorial';
+import { debutsDesEcrans, bandeauDeSignature, tempsDeLaSequence, CARTON_FINAL, type MinutageReel, type PlanDeMontage, type ReelExplique, type SequenceReel, type SousTitre } from '@luminose/editorial';
 import { DEFAULT_STYLE } from '@luminose/subtitles';
 import { SceneLuminose, CoupDePoingLuminose, BandeauSignature, CartonFinal, GAMME, FUTURA, CADRES, type ComposantImage, type FormatVideo } from './SceneLuminose';
 // Importées et non écrites en chemin : voir `POLICES`.
@@ -51,9 +51,9 @@ export const enImages = (secondes: number): number => Math.round(secondes * FPS)
 
 /**
  * Une scène animée : ses écrans se succèdent, chacun prenant la place du
- * précédent au mot qui le fait apparaître (v2.26). La pédagogie se pose — un
- * ressort amorti, sans rebond ; l'humour rebondit. Le fond change sec : c'est
- * une rupture, pas une transition.
+ * précédent au mot qui le fait apparaître (v2.26). Chacun se pose — un ressort
+ * amorti, sans rebond, quel que soit le registre (v2.30). Le fond change sec :
+ * c'est une rupture, pas une transition.
  */
 // Des alias et non des interfaces : Remotion exige des props assignables à
 // `Record<string, unknown>`, ce qu'une interface n'est pas (pas de signature d'index).
@@ -77,7 +77,6 @@ const parId = (illustrations: Record<string, string> | undefined) =>
 export const SceneAnimee: React.FC<ProprietesScene> = ({ sequence, apparitions, visuels, illustrations, format = '9:16' }) => {
     const image = useCurrentFrame();
     const { fps, durationInFrames } = useVideoConfig();
-    const humour = sequence.registre === 'humour';
     const duree = durationInFrames / fps;
     const debuts = debutsDesEcrans(apparitions.length ? apparitions : [0], duree);
     let ecran = 0;
@@ -86,8 +85,8 @@ export const SceneAnimee: React.FC<ProprietesScene> = ({ sequence, apparitions, 
     const entree = spring({
         frame: image - depart,
         fps,
-        config: humour ? { damping: 9, stiffness: 140, mass: 0.7 } : { damping: 200 },
-        durationInFrames: humour ? undefined : Math.round(fps * 0.35),
+        config: { damping: 200 },
+        durationInFrames: Math.round(fps * 0.35),
     });
     const fin = debuts[ecran + 1] ?? duree;
 
@@ -109,13 +108,13 @@ export const SceneAnimee: React.FC<ProprietesScene> = ({ sequence, apparitions, 
 };
 
 /** Le coup de poing se pose en un cinquième de seconde : assez pour se voir arriver, trop peu pour être une transition. */
-const CoupAnime: React.FC<{ texte: string; format: FormatVideo }> = ({ texte, format }) => {
+const CoupAnime: React.FC<{ texte: string; format: FormatVideo; clair: boolean }> = ({ texte, format, clair }) => {
     const image = useCurrentFrame();
     const { fps } = useVideoConfig();
     const avancee = spring({ frame: image, fps, config: { damping: 200 }, durationInFrames: Math.round(fps * 0.2) });
     return (
         <AbsoluteFill>
-            <CoupDePoingLuminose texte={texte} largeur={CADRES[format].largeur} avancee={avancee} format={format} arrondi={0} />
+            <CoupDePoingLuminose texte={texte} largeur={CADRES[format].largeur} avancee={avancee} format={format} arrondi={0} clair={clair} />
         </AbsoluteFill>
     );
 };
@@ -129,7 +128,7 @@ const Coups: React.FC<{ data: ReelExplique; minutage: MinutageReel; format: Form
             const debut = enImages(m.debut + m.coup.debut);
             return (
                 <Sequence key={`coup-${i}`} from={debut} durationInFrames={Math.max(1, enImages(m.debut + m.coup.fin) - debut)}>
-                    <CoupAnime texte={sequence.coup.texte} format={format} />
+                    <CoupAnime texte={sequence.coup.texte} format={format} clair={tempsDeLaSequence(data, i) === 'clair'} />
                 </Sequence>
             );
         })}

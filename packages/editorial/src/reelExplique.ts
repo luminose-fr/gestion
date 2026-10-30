@@ -322,7 +322,11 @@ export interface MinutageReel {
  * jamais assez pour que le visage se fasse oublier.
  */
 export const COUP_SOUFFLE = 0.4;
-export const COUP_MIN = 0.9;
+/**
+ * 1,5 s depuis le 30/10/2026 (0,9 s avant) : tenu une seconde, le coup de poing
+ * passait comme un éclair dans une vidéo que Florent trouvait déjà trop rapide.
+ */
+export const COUP_MIN = 1.5;
 export const COUP_MAX = 2.5;
 
 /** Où frappe le coup de poing d'une séquence, en rang de mot dans sa voix — ou `null`. */
@@ -364,13 +368,13 @@ export function minuterReel(data: ReelExplique, horloge: Horloge): MinutageReel 
 
 /**
  * Quand arrivent les lignes d'une liste, en secondes depuis l'arrivée de son
- * écran : au fil de l'écran, comme une énumération se dit — réparties sur ses
- * trois premiers quarts, entre 0,4 et 1,5 s d'écart. Le rendu les pose là, et
- * le contrôle du rythme les compte comme autant de changements.
+ * écran : ensemble, avec l'écran (v2.30). Elles arrivaient une à une, de 0,4 à
+ * 1,5 s d'écart ; le 30/10/2026, Florent a trouvé la vidéo confuse — « beaucoup
+ * de trucs qui s'animent à l'écran ». La signature reste : le rendu et le
+ * contrôle du rythme la lisent encore.
  */
-export function arriveesDeLaListe(lignes: number, duree: number): number[] {
-    const pas = Math.min(1.5, Math.max(0.4, (duree * 0.75) / Math.max(1, lignes)));
-    return Array.from({ length: Math.max(0, lignes) }, (_, k) => k * pas);
+export function arriveesDeLaListe(lignes: number, _duree: number): number[] {
+    return Array.from({ length: Math.max(0, lignes) }, () => 0);
 }
 
 /**
@@ -392,6 +396,79 @@ export function debutsDesEcrans(apparitions: Array<number | null>, duree: number
     const resultat = debuts as number[];
     for (let i = 1; i < resultat.length; i++) resultat[i] = Math.max(resultat[i], resultat[i - 1]);
     return resultat;
+}
+
+// ── Le calme (v2.30) ─────────────────────────────────────────────────
+
+/** Le modèle écrit parfois « lumière » : un accent ne doit pas faire perdre le ton. */
+export const tonDeLEcran = (valeur: unknown): TonElement => {
+    const cle = String(valeur ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    return cle === 'ombre' || cle === 'lumiere' ? cle : 'neutre';
+};
+
+/** Le rang de la séquence où la vidéo bascule — la première scène qui a un écran de lumière —, ou `null`. */
+export function sequenceDeLaBascule(data: ReelExplique): number | null {
+    const i = (data.sequences ?? []).findIndex(s => s.plan === 'scene' && (s.elements ?? []).some(e => tonDeLEcran(e.ton) === 'lumiere'));
+    return i < 0 ? null : i;
+}
+
+/**
+ * Le fond d'une séquence, en deux temps : sombre jusqu'à la bascule, clair
+ * ensuite. Sans écran de lumière, pas de bascule : clair de bout en bout.
+ */
+export function tempsDeLaSequence(data: ReelExplique, rang: number): 'sombre' | 'clair' {
+    const bascule = sequenceDeLaBascule(data);
+    return bascule === null || rang > bascule ? 'clair' : 'sombre';
+}
+
+/**
+ * Les fonds en deux temps (v2.30, décision de Florent du 30/10/2026) : violet
+ * nuit jusqu'au premier écran de lumière, ivoire ensuite — une seule inversion
+ * dans toute la vidéo. Chaque écran prenait le fond de son ton, et les scènes
+ * alternaient quatre couleurs. Le ton écrit par le Rédacteur ne sert plus qu'à
+ * dire où tombe la bascule ; c'est cette copie du brouillon que le storyboard et
+ * la vidéo dessinent, et le fond de la lumière y est l'ivoire.
+ */
+export function enDeuxTemps(data: ReelExplique): ReelExplique {
+    let clair = sequenceDeLaBascule(data) === null;
+    return {
+        ...data,
+        sequences: (data.sequences ?? []).map(s => s.plan !== 'scene' ? s : {
+            ...s,
+            elements: (s.elements ?? []).map(e => {
+                if (tonDeLEcran(e.ton) === 'lumiere') clair = true;
+                // « lumiere » et non « neutre » : la copie dit encore où tombe la bascule.
+                return { ...e, ton: clair ? 'lumiere' as const : 'ombre' as const };
+            }),
+        }),
+    };
+}
+
+/**
+ * En deçà, un passage face caméra entre deux scènes est un éclair : le visage
+ * apparaît et repart avant qu'on l'ait regardé.
+ */
+export const VISAGE_MIN = 2.5;
+
+/**
+ * Pas de visage éclair (v2.30, décision de Florent du 30/10/2026) : un passage
+ * face caméra de moins de 2,5 s entre deux scènes, sans coup de poing, laisse la
+ * scène d'avant à l'écran — elle le recouvre, comme elle recouvre sa propre voix.
+ * La vidéo du 30/10 revenait 1,5 s sur le visage pour « la boule au ventre le
+ * dimanche soir », entre deux scènes : un aller-retour de plus à suivre.
+ */
+export function sansVisageEclair(data: ReelExplique, minutage: MinutageReel): MinutageReel {
+    const plans = data.sequences ?? [];
+    const sequences = minutage.sequences.map(m => ({ ...m }));
+    for (let i = 1; i + 1 < sequences.length; i++) {
+        const m = sequences[i];
+        if (plans[i]?.plan !== 'camera' || plans[i]?.coup && m.coup) continue;
+        if (plans[i - 1]?.plan !== 'scene' || plans[i + 1]?.plan !== 'scene') continue;
+        if (m.fin - m.debut >= VISAGE_MIN) continue;
+        sequences[i - 1].fin = m.fin;
+        sequences[i] = { ...m, debut: m.fin, apparitions: m.apparitions.map(() => null), coup: null };
+    }
+    return { ...minutage, sequences };
 }
 
 // ── Les contrôles — NORMATIF (SPEC §12.3) ───────────────────────────

@@ -4,7 +4,8 @@ import { renderMediaOnWeb } from '@remotion/web-renderer';
 import { Download, X } from 'lucide-react';
 import {
     minuterReel, horlogeEstimee, planDeMontage, CARTON_FINAL, instantDansLaVideo, DEBIT_MIN, DEBIT_MAX, MOTS_PAR_MINUTE,
-    cadrer, debutsDePhrases, momentsFiges, voixEntiere, avecAnimations, jourCourt, visuelsAProduire, passagesManuels, compterMots,
+    cadrer, momentsFiges, avecAnimations, jourCourt, visuelsAProduire, passagesManuels, compterMots,
+    enDeuxTemps, sansVisageEclair, tempsDeLaSequence, ecransEstimes,
     type MinutageReel, type PlanDeMontage, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, ControleSegmente, Etiquette } from '../ui';
@@ -142,7 +143,9 @@ export interface PanneauMontageProps {
     titre?: string;
 }
 
-const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montage, visuels: visuelsDuReel = null, sansScript = false, dernierExport = null, ongletInitial, titre }) => {
+const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, contentId, montage, visuels: visuelsDuReel = null, sansScript = false, dernierExport = null, ongletInitial, titre }) => {
+    // Les fonds en deux temps (v2.30) : le storyboard, l'aperçu et l'export dessinent la même copie.
+    const data = useMemo(() => enDeuxTemps(brouillon), [brouillon]);
     const visuelsDeLaScene = visuelsDuReel?.deLaScene ?? AUCUN_VISUEL;
     // Une vidéo directe (§12.7) n'a ni scène, ni repère, ni export de scènes seules.
     const animations = avecAnimations(data);
@@ -170,7 +173,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
     const accroche = prises.accroche?.calage && prises.accroche.url ? prises.accroche : undefined;
     const versionEffective: Version = version === 'publicite' && principale && accroche ? 'publicite' : 'organique';
 
-    const estime = useMemo(() => minuterReel(data, horlogeEstimee(debit)), [data, debit]);
+    const estime = useMemo(() => sansVisageEclair(data, minuterReel(data, horlogeEstimee(debit))), [data, debit]);
     const calageBrut = useMemo<MinutageReel | null>(
         () => principale ? minuterReel(data, principale.calage!.horloge) : null,
         [data, principale],
@@ -188,13 +191,18 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
         },
     ) : null, [data, principale, accroche, versionEffective]);
 
+    // Les écrans dont les mots n'ont pas été dits : c'est eux qu'il faut vérifier (v2.30).
+    const estimes = useMemo(
+        () => prises.principale?.calage ? ecransEstimes(data, prises.principale.calage).length : 0,
+        [data, prises.principale],
+    );
+
     // Le rythme se juge sur ce qui sortira : la prise calée, ou à défaut le débit
-    // estimé, avec les recadrages que la prise recevra aux phrases.
+    // estimé. Le cadre ne change plus aux phrases (v2.30) : rien à ajouter.
     const figes = useMemo(() => {
         if (plan) return momentsFiges(data, plan.minutage, plan.cadrages);
-        const phrases = debutsDePhrases(voixEntiere(data)).map(horlogeEstimee(debit));
-        return momentsFiges(data, estime, cadrer(data, estime, phrases, []));
-    }, [data, plan, estime, debit]);
+        return momentsFiges(data, estime, cadrer(data, estime, [], []));
+    }, [data, plan, estime]);
 
     const cadre = CADRES[format];
     const reglageDe = (p?: { prise: { decalageSon?: number; rotation?: number } }) =>
@@ -579,7 +587,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                                 {visuelsDuReel && <IllustrationsDuReel reel={data} visuels={visuelsDuReel} deposable={!visuelsDuReel.indisponible} />}
                                 {sequences.map((sequence, i) => sequence.plan === 'scene' && visuelsDuReel
                                     ? <SequenceScene key={i} reel={data} sequence={sequence} numero={i + 1} visuels={visuelsDuReel} deposable={!visuelsDuReel.indisponible} />
-                                    : sequence.coup ? <SequenceCamera key={i} sequence={sequence} numero={i + 1} /> : null)}
+                                    : sequence.coup ? <SequenceCamera key={i} sequence={sequence} numero={i + 1} clair={tempsDeLaSequence(data, i) === 'clair'} /> : null)}
                             </div>
                         </>
                     )}
@@ -599,6 +607,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data, contentId, montag
                                 prise={prises.principale}
                                 enCours={prises.enCours.principale}
                                 erreur={prises.erreurs.principale}
+                                ecransEstimes={estimes}
                                 deposable={!prises.indisponible}
                                 onDeposer={(f) => void prises.deposer('principale', f)}
                                 onTranscrire={(moteur) => void prises.transcrire('principale', moteur)}

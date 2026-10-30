@@ -5,8 +5,9 @@ import { Bouton, Etiquette } from '../ui';
 
 /**
  * Le rythme d'un Reel expliqué (SPEC §12.5.3) : les moments où rien ne change
- * à l'écran plus de cinq secondes. Avant le tournage, au débit estimé, c'est
- * une affaire d'écriture ; après, sur la prise, c'est ce qui sortira.
+ * à l'écran plus de `FIGE_MAX` secondes — huit depuis la v2.30. Avant le
+ * tournage, au débit estimé, c'est une affaire d'écriture ; après, sur la prise,
+ * c'est ce qui sortira.
  */
 
 const secondes = (s: number) => `${s.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;

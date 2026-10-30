@@ -98,9 +98,9 @@ describe('planDeMontage, rythme', () => {
         });
     });
 
-    it('le cadre change aux phrases de la prise, pas seulement aux raccords', () => {
+    it('le cadre ne change plus qu’aux raccords : une prise d’un seul tenant garde son plan (v2.30)', () => {
         const plan = planDeMontage(data, { calage, duree: 40 });
         expect(plan.segments).toHaveLength(1);
-        expect(plan.cadrages.length).toBeGreaterThan(1);
+        expect(plan.cadrages).toEqual([{ a: 0, serre: false }]);
     });
 });

@@ -2212,13 +2212,22 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('40');
   });
 
-  it('une prise calée dit la part du script retrouvée, et alerte quand elle s\u2019en écarte', () => {
+  it('une prise calée dit la part du script retrouvée, et n\u2019alerte que sur les écrans dont les mots n\u2019ont pas été dits (v2.30)', () => {
     const sure = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee()} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
     expect(sure.container.textContent).toContain('Calée : 100 % des mots du script retrouvés');
     expect(sure.container.textContent).toContain('prise.mov — 12,5 s, 1080 × 1920, 312 Mo');
     cleanup();
-    const ecart = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee(0.6)} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
-    expect(ecart.container.textContent).toContain('vérifiez les repères avant d\u2019exporter');
+    // Un script adapté à la parole : 60 % retrouvés, rien à vérifier pour autant.
+    const adaptee = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee(0.6)} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(adaptee.container.textContent).not.toContain('Vérifiez');
+    expect(adaptee.container.querySelector('.text-alerte')).toBeNull();
+    cleanup();
+    const estimes = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee(0.6)} ecransEstimes={2} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(estimes.container.textContent).toContain('2 écrans tombent à une place estimée');
+    expect(estimes.container.textContent).toContain('Vérifiez les repères avant d\u2019exporter.');
+    cleanup();
+    const autre = render(<DepotPrise titre="La prise" consigne="" prise={priseCalee(0.3)} deposable onDeposer={noop} onTranscrire={noop} onRetirer={noop} />);
+    expect(autre.container.textContent).toContain('est-ce bien la prise de ce script ?');
   });
 
   it('une prise se retranscrit avec le moteur voulu, et dit lequel l\u2019a transcrite (SPEC §12.5.6)', () => {
@@ -2404,14 +2413,26 @@ describe('Reel expliqué — prise et rendu', () => {
   it('le rythme dit quand l\u2019image reste figée, et y mène (SPEC §12.5.3)', () => {
     const data = reel();
     const calme = render(<RythmeReel data={data} figes={[]} surLaPrise={false} onAller={noop} />);
-    expect(calme.container.textContent).toContain('L\'image change au moins toutes les 5 secondes, au débit estimé.');
+    // Huit secondes depuis la v2.30 : la vidéo du 30/10 était trop rapide.
+    expect(calme.container.textContent).toContain('L\'image change au moins toutes les 8 secondes, au débit estimé.');
     cleanup();
     const vus: number[] = [];
-    const { container } = render(<RythmeReel data={data} figes={[{ debut: 3.2, fin: 9.8, sequence: 1 }]} surLaPrise onAller={(s) => vus.push(s)} />);
-    expect(container.textContent).toContain('Un moment où rien ne bouge plus de 5 secondes.');
-    expect(container.textContent).toContain('6,6 s sans changement — séquence 2, scène · Mécanique');
+    const { container } = render(<RythmeReel data={data} figes={[{ debut: 3.2, fin: 12.4, sequence: 1 }]} surLaPrise onAller={(s) => vus.push(s)} />);
+    expect(container.textContent).toContain('Un moment où rien ne bouge plus de 8 secondes.');
+    expect(container.textContent).toContain('9,2 s sans changement — séquence 2, scène · Mécanique');
     fireEvent.click(container.querySelector('button[title="Voir ce moment dans l\'aperçu"]')!);
     expect(vus).toEqual([3.2]);
+  });
+
+  it('le coup de poing suit les deux temps : violet nuit avant la bascule, ivoire après (v2.30)', () => {
+    const fond = (clair: boolean) => {
+      const { container } = render(<CoupDePoingLuminose texte="Pas un [défaut]" largeur={108} clair={clair} />);
+      const couleur = (container.querySelector('[aria-label^="Coup de poing"] > div') as HTMLElement).style.backgroundColor;
+      cleanup();
+      return couleur;
+    };
+    expect(fond(false)).toBe('rgb(60, 48, 97)');
+    expect(fond(true)).toBe('rgb(253, 238, 225)');
   });
 
   it('le coup de poing se dessine, et le storyboard le montre sur son passage face caméra', () => {

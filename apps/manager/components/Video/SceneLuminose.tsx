@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
     NOM, TITRE, SITE_URL,
-    segmentsSurlignes, texteAffiche, schemaDe, illustrationDe, visuelDecrit, arriveesDeLaListe,
+    segmentsSurlignes, texteAffiche, schemaDe, illustrationDe, visuelDecrit, arriveesDeLaListe, tonDeLEcran,
     type CadrageIllustration, type ElementScene, type SchemaEcran, type SequenceReel,
 } from '@luminose/editorial';
 
@@ -78,11 +78,13 @@ type Ton = 'ombre' | 'lumiere' | 'neutre';
  * Le ton fait le fond de tout l'écran : passer de l'ombre à la lumière se voit
  * d'un coup — c'est la bascule, et c'est la rupture de fond de la seconde
  * référence. L'ombre est littéralement sombre, la lumière claire : deux symboles
- * que la direction artistique porte déjà.
+ * que la direction artistique porte déjà. Depuis la v2.30, les fonds vont en deux
+ * temps (`enDeuxTemps`) : l'écran ne reçoit plus que l'ombre ou la lumière, et la
+ * lumière est sur l'ivoire — l'ivoire rosé faisait une quatrième couleur.
  */
 const ECRANS: Record<Ton, { fond: string; texte: string; accent: string; marque: string; trait: string; remplissage: string; pointilles: boolean }> = {
     ombre:   { fond: GAMME.violetNuit, texte: GAMME.ivoire,     accent: GAMME.roseBrumeux, marque: 'transparent',   trait: GAMME.mauve,     remplissage: GAMME.roseBrumeux, pointilles: false },
-    lumiere: { fond: GAMME.ivoireRose, texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux, trait: GAMME.mauveRose, remplissage: GAMME.mauveRose,   pointilles: true },
+    lumiere: { fond: GAMME.ivoire,     texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux, trait: GAMME.mauveRose, remplissage: GAMME.mauveRose,   pointilles: true },
     neutre:  { fond: GAMME.ivoire,     texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux, trait: GAMME.mauve,     remplissage: GAMME.mauve,       pointilles: true },
 };
 type Palette = (typeof ECRANS)[Ton];
@@ -90,28 +92,17 @@ type Palette = (typeof ECRANS)[Ton];
 /** Une carte d'un schéma — un terme d'une opposition, le départ d'un enchaînement. */
 const CARTES: Record<'ombre' | 'lumiere', { fond: string; texte: string; bord: string; portee: string }> = {
     ombre:   { fond: GAMME.violetNuit, texte: GAMME.ivoire,     bord: GAMME.mauve,     portee: GAMME.prune },
-    lumiere: { fond: GAMME.ivoireRose, texte: GAMME.violetNuit, bord: GAMME.mauveRose, portee: GAMME.mauveRose },
-};
-
-/** Le modèle écrit parfois « lumière » : un accent ne doit pas faire perdre le ton. */
-const tonDe = (valeur: unknown): Ton => {
-    const cle = String(valeur ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-    return cle === 'ombre' || cle === 'lumiere' ? cle : 'neutre';
+    lumiere: { fond: GAMME.ivoire,     texte: GAMME.violetNuit, bord: GAMME.mauveRose, portee: GAMME.mauveRose },
 };
 
 /**
- * Comment un écran entre, selon le registre de la scène. `p` va de 0 à 1 et
- * peut dépasser 1 : un ressort qui rebondit, c'est l'humour. La pédagogie se
- * pose sans rebond ; l'humour arrive de travers et se redresse.
+ * Comment un écran entre : il se pose, sans rebond, quel que soit le registre
+ * (v2.30). L'humour arrivait de travers et rebondissait ; le 30/10/2026, Florent
+ * a trouvé la vidéo confuse, « beaucoup de trucs qui s'animent à l'écran ». Le
+ * registre reste dans le script ; il ne change plus l'entrée.
  */
-function entree(p: number, registre: SequenceReel['registre']): React.CSSProperties {
-    if (p >= 1 && registre !== 'humour') return {};
-    if (registre === 'humour') {
-        return {
-            opacity: Math.min(1, Math.max(0, p * 1.6)),
-            transform: `scale(${0.7 + 0.3 * p}) rotate(${(1 - p) * -6}deg)`,
-        };
-    }
+function entree(p: number): React.CSSProperties {
+    if (p >= 1) return {};
     return { opacity: Math.max(0, p), transform: `translateY(${(1 - p) * 60}px)` };
 }
 
@@ -325,7 +316,7 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
     const elements = sequence.elements ?? [];
     const rang = Math.min(Math.max(0, anime?.ecran ?? ecranFixe), Math.max(0, elements.length - 1));
     const element: ElementScene | undefined = elements[rang];
-    const palette = ECRANS[tonDe(element?.ton)];
+    const palette = ECRANS[tonDeLEcran(element?.ton)];
     const ecoule = anime ? anime.ecoule : Infinity;
     const avance = anime ? Math.min(1, anime.ecoule / Math.max(anime.duree, 0.5)) : 0;
 
@@ -393,7 +384,7 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
                             transform: `scale(${reduction})`, transformOrigin: 'center center',
                         }}
                     >
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 64, width: '100%', ...(anime ? entree(anime.entree, sequence.registre) : {}) }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 64, width: '100%', ...(anime ? entree(anime.entree) : {}) }}>
                             {visuel}
                             {texte && (
                                 <div style={liaison
@@ -416,11 +407,12 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
 };
 
 /**
- * Le coup de poing (SPEC §12.5.3) : quelques mots plein écran, sur le prune de
- * la marque, le temps de les dire — puis le visage revient. Dessiné comme une
- * scène, dans le cadre puis réduit, pour que le storyboard et la vidéo le
- * montrent pareil. Il arrive en se posant (`avancee`, de 0 à 1) et repart sec :
- * c'est une rupture, pas une transition.
+ * Le coup de poing (SPEC §12.5.3) : quelques mots plein écran, le temps de les
+ * dire — puis le visage revient. Dessiné comme une scène, dans le cadre puis
+ * réduit, pour que le storyboard et la vidéo le montrent pareil. Il arrive en se
+ * posant (`avancee`, de 0 à 1) et repart sec : c'est une rupture, pas une
+ * transition. Son fond suit les deux temps de la vidéo (v2.30) : violet nuit
+ * avant la bascule, ivoire après — il était prune, une quatrième couleur.
  */
 export const CoupDePoingLuminose: React.FC<{
     texte: string;
@@ -428,7 +420,9 @@ export const CoupDePoingLuminose: React.FC<{
     avancee?: number;
     format?: FormatVideo;
     arrondi?: number;
-}> = ({ texte, largeur, avancee = 1, format = '9:16', arrondi = 8 }) => {
+    /** Après la bascule : le temps clair. */
+    clair?: boolean;
+}> = ({ texte, largeur, avancee = 1, format = '9:16', arrondi = 8, clair = false }) => {
     const CADRE = CADRES[format];
     const ZONE = ZONES[format];
     const p = Math.min(1, Math.max(0, avancee));
@@ -444,8 +438,8 @@ export const CoupDePoingLuminose: React.FC<{
                 transform: `scale(${largeur / CADRE.largeur})`,
                 transformOrigin: 'top left',
                 position: 'relative',
-                backgroundColor: GAMME.prune,
-                color: GAMME.ivoire,
+                backgroundColor: clair ? GAMME.ivoire : GAMME.violetNuit,
+                color: clair ? GAMME.violetNuit : GAMME.ivoire,
                 fontFamily: FUTURA,
             }}>
                 <div style={{
@@ -467,7 +461,7 @@ export const CoupDePoingLuminose: React.FC<{
                     opacity: p,
                     transform: `scale(${1.12 - 0.12 * p})`,
                 } as React.CSSProperties}>
-                    <span><TexteSurligne texte={texte} accent={GAMME.roseBrumeux} marque="transparent" /></span>
+                    <span><TexteSurligne texte={texte} accent={clair ? GAMME.prune : GAMME.roseBrumeux} marque={clair ? GAMME.roseBrumeux : 'transparent'} /></span>
                 </div>
             </div>
         </div>

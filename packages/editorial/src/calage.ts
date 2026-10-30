@@ -12,7 +12,7 @@
  * découpe en mots est CELLE du contrôle (`motsSitues`) — un repère que le
  * storyboard trouve, le calage le trouve aussi.
  */
-import { motsSitues, minuterReel, debutsDesEcrans, arriveesDeLaListe, schemaDe, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
+import { motsSitues, minuterReel, debutsDesEcrans, arriveesDeLaListe, schemaDe, sansVisageEclair, positionsDesReperes, COUP_MIN, type Horloge, type MinutageReel, type ReelExplique } from './reelExplique';
 import { fusionnerIntervalles, type Intervalle } from './derushage';
 import { regionsDeParole, recalerSurLeSon, type Enveloppe } from './enveloppe';
 import { phrasesDuScript, choisirLesPrises, estUneVraieVersion, type PhraseChoisie } from './selection';
@@ -93,6 +93,16 @@ export function accord(script: string, prise: string): Accord {
     const tolerance = longueur >= 7 ? 2 : 1;
     return distance(script, prise, tolerance) <= tolerance ? 'proche' : 'substitution';
 }
+
+/**
+ * Deux formes du même mot qui ne diffèrent que par la marque du pluriel ou du
+ * féminin : c'est ce qui a été dit, pas une faute d'oreille de Whisper — qui,
+ * elle, garde le mot du script (« luminoz », « sparadra »).
+ */
+const flexion = (a: string, b: string): boolean => {
+    const [court, long] = a.length <= b.length ? [a, b] : [b, a];
+    return long !== court && long.startsWith(court) && ['s', 'x', 'e', 'es'].includes(long.slice(court.length));
+};
 
 const SCORE: Record<Accord, number> = { exact: 3, proche: 2, substitution: -1 };
 const TROU = -1;
@@ -184,6 +194,11 @@ export interface Prononce {
      * Il part avec elle, jamais avec la reprise qui la précède (§12.5.5, v2.29).
      */
     amorce?: boolean;
+    /**
+     * Il finit une phrase — du script, ou ponctuée par la transcription hors du
+     * script. Le dérushage y garde plus d'air (v2.30).
+     */
+    finDePhrase?: boolean;
 }
 
 export interface Calage {
@@ -224,8 +239,6 @@ const AMORCE_MAX = 6;
 const SOUFFLE = 0.5;
 /** Une fin improvisée dit quelque chose : « bon, ok » n'en est pas une. */
 const FIN_IMPROVISEE_MIN = 5;
-/** Un blanc assez long pour qu'un changement de plan y tombe sans couper un mot. */
-const RESPIRATION = 0.25;
 
 /** La ponctuation qui se lit dans un sous-titre : une question, une exclamation, des points de suspension. */
 const PONCTUATION_LUE = /^[\s ]*([?!…])/;
@@ -373,8 +386,11 @@ export function calerSurLaPrise(
 
     // Les sous-titres : chaque mot dit, dans l'orthographe du script quand tous
     // ses morceaux y répondent, d'un seul tenant ; tel que Whisper l'a écrit sinon.
+    // Sauf une flexion : « les vannes » s'écrit comme dit, pas « vanne » comme écrit (v2.30).
     const scriptDuJeton = new Map<number, number>();
-    alignement.forEach((a, i) => { if (a && a.accord !== 'substitution') scriptDuJeton.set(a.j, i); });
+    alignement.forEach((a, i) => {
+        if (a && a.accord !== 'substitution' && !(a.accord === 'proche' && flexion(script[i].mot, jetons[a.j].mot))) scriptDuJeton.set(a.j, i);
+    });
     const motsAffiches: MotAffiche[] = [];
     // Le dernier mot du script de chaque mot affiché, pour savoir si le suivant s'y soude.
     const dernierRang: Array<number | null> = [];
@@ -439,6 +455,12 @@ export function calerSurLaPrise(
 
     const rangDuJeton = new Map<number, number>();
     alignement.forEach((a, i) => { if (a) rangDuJeton.set(a.j, i); });
+    const finitUnePhrase = (k: number): boolean => {
+        const rang = rangDuJeton.get(k);
+        if (rang !== undefined && (ouvrants.has(rang + 1) || rang + 1 === script.length)) return true;
+        const dernierDuMot = k + 1 === jetons.length || jetons[k + 1].source !== jetons[k].source;
+        return dernierDuMot && /[.?!…][»"”)\s]*$/.test(mots[jetons[k].source].mot.trim());
+    };
     const prononces: Prononce[] = jetons.map((j, k) => ({
         mot: j.mot,
         debut: j.debut,
@@ -447,6 +469,7 @@ export function calerSurLaPrise(
         ecrit: k > 0 && jetons[k - 1].source === j.source ? '' : mots[j.source].mot.trim(),
         ...(autres.has(k) && !rangDuJeton.has(k) ? { autrePrise: true } : {}),
         ...(amorces.has(k) ? { amorce: true } : {}),
+        ...(finitUnePhrase(k) ? { finDePhrase: true } : {}),
     }));
 
     return {
@@ -461,6 +484,27 @@ export function calerSurLaPrise(
         ...(finImprovisee ? { finImprovisee } : {}),
         ...(parole ? { parole, enveloppe: enveloppe! } : {}),
     };
+}
+
+/**
+ * Les écrans dont aucun mot du repère n'a été entendu dans la prise : ils
+ * tombent à une place estimée (v2.30). C'est eux qu'il faut aller vérifier, pas
+ * l'écart au script : Florent adapte le texte à sa façon de parler, et la part
+ * des mots retrouvés baisse sans que rien ne tombe à côté.
+ */
+export function ecransEstimes(data: ReelExplique, calage: Calage): Array<{ sequence: number; element: number }> {
+    const estimes: Array<{ sequence: number; element: number }> = [];
+    let premier = 0;
+    (data.sequences ?? []).forEach((s, i) => {
+        positionsDesReperes(s).forEach((position, j) => {
+            if (j === 0 && s.plan === 'scene') return;
+            const longueur = motsSitues(s.elements?.[j]?.apparait_sur).length;
+            const entendu = position !== null && calage.mesures.slice(premier + position, premier + position + longueur).some(Boolean);
+            if (!entendu) estimes.push({ sequence: i, element: j });
+        });
+        premier += motsSitues(s.voix).length;
+    });
+    return estimes;
 }
 
 /** La voix entière d'un Reel expliqué, dans l'ordre : ce sur quoi se cale la prise principale. */
@@ -799,27 +843,18 @@ export function planDeMontage(
         return { debut, fin, apparitions: absolues.map(a => a === null ? null : a - debut), coup };
     });
     if (accroche) sequences[0] = { debut: 0, fin: longueur, apparitions: [], coup: null };
-    const minutage: MinutageReel = { duree, sequences };
+    const minutage = sansVisageEclair(data, { duree, sequences });
 
     sousTitres.push(...sousTitresCamera(sousTitresDe(principale.calage.motsAffiches, gardes, vers), minutage, data)
         .filter(b => b.debut >= longueur));
 
-    // Le cadre alterne à chaque raccord, et aux phrases d'un long passage face caméra.
-    const phrases = debutsDePhrases(voixEntiere(data))
-        .map(rang => vers(principale.calage.horloge(rang)))
-        .filter(a => a > longueur);
-    // La fin improvisée n'a pas de phrase dans le script : on prend celles que la
-    // transcription ponctue, et les respirations (v2.29) — sans quoi le visage
-    // resterait fixe toute la tirade. `cadrer` n'en retient qu'une par plan.
-    if (improvisee) {
-        let ecritAvant = '';
-        for (let k = improvisee.premier; k <= improvisee.dernier; k++) {
-            if (!dits[k].ecrit) continue;
-            if (k > improvisee.premier && (/[.?!…,;:]$/.test(ecritAvant) || dits[k].debut - dits[k - 1].fin >= RESPIRATION)) phrases.push(vers(dits[k].debut));
-            ecritAvant = dits[k].ecrit;
-        }
-    }
-    const cadrages = cadrer(data, minutage, phrases, segments.slice(1).map(s => s.a));
+    /*
+     * Le cadre alterne aux raccords seulement (v2.30). Il changeait aussi aux
+     * phrases d'un long passage face caméra (§12.5.3) ; le 30/10/2026, Florent a
+     * trouvé la vidéo trop rapide, « beaucoup de trucs qui s'animent » : un zoom
+     * par phrase en était un de plus.
+     */
+    const cadrages = cadrer(data, minutage, [], segments.slice(1).map(s => s.a));
 
     return { duree, segments, minutage, sousTitres, cadrages };
 }
@@ -902,8 +937,12 @@ export function cadrer(
     return points.map((a, i) => ({ a, serre: i % 2 === 1 }));
 }
 
-/** Au-delà, l'image est figée : en vidéo courte, cinq secondes sans que rien ne bouge, c'est long. */
-export const FIGE_MAX = 5;
+/**
+ * Au-delà, l'image est figée. Cinq secondes jusqu'au 30/10/2026 ; huit depuis
+ * (v2.30) : Florent trouvait la vidéo trop rapide, et une alerte à cinq
+ * secondes poussait à rajouter du mouvement à un montage qui en avait trop.
+ */
+export const FIGE_MAX = 8;
 
 export interface MomentFige {
     debut: number;

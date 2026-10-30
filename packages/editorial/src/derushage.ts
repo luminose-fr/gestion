@@ -18,7 +18,7 @@
  */
 import type { Calage, Prononce } from './calage';
 import { creuxLePlusProche } from './enveloppe';
-import { HESITATIONS } from './directe';
+import { HESITATIONS, sousSuiteCommune } from './directe';
 
 export interface Intervalle {
     debut: number;
@@ -46,12 +46,42 @@ export const SILENCE_MAX = 0.7;
  */
 const GARDE_APRES = 0.2;
 const GARDE_AVANT = 0.15;
+/**
+ * À une fin de phrase, plus d'air : 0,6 s en tout plutôt que 0,35 s (v2.30,
+ * décision de Florent du 30/10/2026). La vidéo du 30/10 ne gardait aucun blanc
+ * de plus de 0,6 s, et Florent la trouvait trop rapide. Un silence plus long
+ * se coupe toujours ; on ne coupe plus jusqu'à l'os entre deux idées.
+ */
+const GARDE_APRES_PHRASE = 0.35;
+const GARDE_AVANT_PHRASE = 0.25;
+const airApres = (m: Prononce) => m.finDePhrase ? GARDE_APRES_PHRASE : GARDE_APRES;
+const airAvant = (avant: Prononce) => avant.finDePhrase ? GARDE_AVANT_PHRASE : GARDE_AVANT;
 /** En deçà, la coupe ne vaut pas le saut d'image qu'elle crée. */
 const COUPE_MIN = 0.25;
 /** Une improvisation de un ou deux mots (« vraiment », « et donc ») reste : la couper ferait sauter l'image au milieu d'une phrase. */
 const HORS_SCRIPT_MIN = 3;
 /** Jusqu'où l'on déplace un bord de coupe pour le faire tomber dans un silence. */
 const VERS_LE_SILENCE = 0.25;
+
+/**
+ * Une improvisation redite peu après, avec à peu près les mêmes mots, est un
+ * premier jet (v2.30). Florent adapte le script à sa façon de parler : une
+ * phrase refaite autrement ne ressemble plus assez au script pour être reconnue
+ * comme une de ses versions, et ses deux formulations restaient. On compare
+ * donc l'essai à ce qui le suit, comme pour une vidéo sans script (§12.7) — sur
+ * les mots pleins seulement : « de », « la », « en » se retrouvent partout.
+ */
+const REDITE = { seuil: 0.6, secondes: 25, motsMin: 3 };
+/** Plus long, un blanc sépare deux essais d'une improvisation. */
+const ESSAI_PAUSE = 0.6;
+const motsPleins = (dits: Prononce[]) => dits.map(d => d.mot).filter(m => m.length >= 3 && !HESITATIONS.has(m));
+function estRedite(passage: Prononce[], suite: Prononce[]): boolean {
+    const pleins = motsPleins(passage);
+    if (pleins.length < REDITE.motsMin) return false;
+    const fin = passage[passage.length - 1].fin;
+    const proches = motsPleins(suite.filter(d => d.debut - fin <= REDITE.secondes));
+    return sousSuiteCommune(pleins, proches) / pleins.length >= REDITE.seuil;
+}
 
 const MOTIFS: Record<MotifCoupe, string> = { silence: 's', reprise: 'r', 'hors-script': 'h', hesitation: 'e' };
 
@@ -128,17 +158,44 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
         const texte = passage.map(x => x.ecrit).filter(Boolean).join(' ');
         // « Euh », « hum » : une hésitation se coupe d'office, même seule (§12.7).
         if (passage.every(x => HESITATIONS.has(x.mot))) {
-            proposer('hesitation', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, true, p[k], p[k2]);
+            proposer('hesitation', p[k].fin + airApres(p[k]), p[k2].debut - airAvant(p[k]), texte, true, p[k], p[k2]);
             for (let g = k; g < k2; g++) couverts.add(g);
             continue;
         }
         // Une autre version d'une phrase du script, écartée par le choix des prises (§12.5.5),
         // est une reprise, quels que soient ses mots : elle redirait ce qui est dit.
         if (passage.some(x => x.autrePrise) || estUneReprise(passage, avant, apres)) {
-            proposer('reprise', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, true, p[k], p[k2]);
+            proposer('reprise', p[k].fin + airApres(p[k]), p[k2].debut - airAvant(p[k]), texte, true, p[k], p[k2]);
             for (let g = k; g < k2; g++) couverts.add(g);
-        } else if (passage.length >= HORS_SCRIPT_MIN) {
-            proposer('hors-script', p[k].fin + GARDE_APRES, p[k2].debut - GARDE_AVANT, texte, false, p[k], p[k2]);
+            continue;
+        }
+        /*
+         * Une improvisation se lit par essais, séparés par une respiration ou une
+         * fin de phrase (v2.30) : un essai redit plus loin est un premier jet, et
+         * se coupe ; le reste se propose, comme avant. Deux formulations d'une
+         * même idée, dites l'une après l'autre entre deux phrases du script,
+         * formaient un seul passage, gardé en entier.
+         */
+        const essais: Array<[number, number]> = [];
+        for (let g = k + 1; g < k2; g++) {
+            const nouveau = g === k + 1 || p[g].debut - p[g - 1].fin >= ESSAI_PAUSE || p[g - 1].finDePhrase;
+            if (nouveau) essais.push([g, g]);
+            else essais[essais.length - 1][1] = g;
+        }
+        const redits = essais.map(([de, a]) => estRedite(p.slice(de, a + 1), p.slice(a + 1)));
+        for (let e = 0; e < essais.length;) {
+            let f = e;
+            while (f + 1 < essais.length && redits[f + 1] === redits[e]) f++;
+            const de = essais[e][0];
+            const a = essais[f][1];
+            const morceau = p.slice(de, a + 1).map(x => x.ecrit).filter(Boolean).join(' ');
+            if (redits[e]) {
+                proposer('reprise', p[de - 1].fin + airApres(p[de - 1]), p[a + 1].debut - airAvant(p[de - 1]), morceau, true, p[de - 1], p[a + 1]);
+                for (let g = de - 1; g <= a; g++) couverts.add(g);
+            } else if (a - de + 1 >= HORS_SCRIPT_MIN) {
+                proposer('hors-script', p[de - 1].fin + airApres(p[de - 1]), p[a + 1].debut - airAvant(p[de - 1]), morceau, false, p[de - 1], p[a + 1]);
+            }
+            e = f + 1;
         }
     }
 
@@ -151,7 +208,7 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
         for (let g = premier; g < dernier; g++) {
             if (couverts.has(g)) continue;
             if (p[g + 1].debut - p[g].fin > SILENCE_MAX) {
-                proposer('silence', p[g].fin + GARDE_APRES, p[g + 1].debut - GARDE_AVANT, '', true, p[g], p[g + 1]);
+                proposer('silence', p[g].fin + airApres(p[g]), p[g + 1].debut - airAvant(p[g]), '', true, p[g], p[g + 1]);
             }
         }
     }

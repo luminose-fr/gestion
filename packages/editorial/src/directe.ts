@@ -30,7 +30,7 @@ interface PhraseDite { mots: MotDit[]; debut: number; fin: number }
 const normalisesDe = (mots: MotDit[]) => mots.flatMap(m => m.normalises);
 
 /** La plus longue sous-suite commune : les mots d'une version retrouvés dans l'autre, dans l'ordre. */
-function sousSuiteCommune(a: string[], b: string[]): number {
+export function sousSuiteCommune(a: string[], b: string[]): number {
     const precedente = new Array(b.length + 1).fill(0);
     for (let i = 1; i <= a.length; i++) {
         let diagonale = 0;
