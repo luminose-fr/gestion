@@ -77,7 +77,8 @@ function estUneReprise(passage: Prononce[], avant: Prononce[], apres: Prononce[]
 /**
  * Les coupes que la prise appelle, dans l'ordre de la prise. On ne regarde
  * qu'entre le premier et le dernier mot du script : la tête et la queue, le
- * plan de montage les retire déjà.
+ * plan de montage les retire déjà — et dans la fin improvisée, quand il en
+ * monte une (v2.29).
  */
 export function coupesProposees(calage: Calage): CoupeProposee[] {
     const p = calage.prononces ?? [];
@@ -117,7 +118,9 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
     // Les passages hors du script, entre deux mots qui y répondent.
     for (let r = 0; r + 1 < retenus.length; r++) {
         const k = retenus[r];
-        const k2 = retenus[r + 1];
+        // L'amorce d'une reformulation retenue part avec elle, jamais avec la reprise qui la précède (v2.29).
+        let k2 = retenus[r + 1];
+        while (k2 - 1 > k && p[k2 - 1].amorce) k2--;
         if (k2 === k + 1) continue;
         const passage = p.slice(k + 1, k2);
         const avant = retenus.slice(0, r + 1).map(i => p[i]);
@@ -140,13 +143,16 @@ export function coupesProposees(calage: Calage): CoupeProposee[] {
     }
 
     // Les silences, partout ailleurs — y compris autour d'une improvisation
-    // qu'on garde : la garder ne veut pas dire garder le vide qui l'entoure.
-    const premier = retenus[0];
-    const dernier = retenus[retenus.length - 1];
-    for (let g = premier; g < dernier; g++) {
-        if (couverts.has(g)) continue;
-        if (p[g + 1].debut - p[g].fin > SILENCE_MAX) {
-            proposer('silence', p[g].fin + GARDE_APRES, p[g + 1].debut - GARDE_AVANT, '', true, p[g], p[g + 1]);
+    // qu'on garde : la garder ne veut pas dire garder le vide qui l'entoure. La
+    // fin improvisée (v2.29) se dérushe comme le reste.
+    const etendues: Array<[number, number]> = [[retenus[0], retenus[retenus.length - 1]]];
+    if (calage.finImprovisee) etendues.push([calage.finImprovisee.premier, calage.finImprovisee.dernier]);
+    for (const [premier, dernier] of etendues) {
+        for (let g = premier; g < dernier; g++) {
+            if (couverts.has(g)) continue;
+            if (p[g + 1].debut - p[g].fin > SILENCE_MAX) {
+                proposer('silence', p[g].fin + GARDE_APRES, p[g + 1].debut - GARDE_AVANT, '', true, p[g], p[g + 1]);
+            }
         }
     }
 
@@ -196,7 +202,8 @@ export function choisir(choix: ChoixDesCoupes | undefined, coupe: CoupeProposee,
     return suite;
 }
 
-const fusionner = (intervalles: Intervalle[]): Intervalle[] => {
+/** Des intervalles triés, ceux qui se touchent ou se chevauchent réunis. */
+export const fusionnerIntervalles = (intervalles: Intervalle[]): Intervalle[] => {
     const fusion: Intervalle[] = [];
     for (const c of [...intervalles].sort((a, b) => a.debut - b.debut)) {
         const derniere = fusion[fusion.length - 1];
@@ -242,8 +249,8 @@ export function versionsImposees(choix: ChoixDesCoupes | undefined): Record<numb
 export function coupesAppliquees(proposees: CoupeProposee[], choix: ChoixDesCoupes | undefined): Intervalle[] {
     const manuels = passagesManuels(choix);
     const auto = proposees.filter(c => estCoupee(c, choix)).map(c => ({ debut: c.debut, fin: c.fin }));
-    const coupes = fusionner([...auto, ...manuels.filter(m => m.coupe)]);
-    return fusionner(retirer(coupes, manuels.filter(m => !m.coupe)));
+    const coupes = fusionnerIntervalles([...auto, ...manuels.filter(m => m.coupe)]);
+    return fusionnerIntervalles(retirer(coupes, manuels.filter(m => !m.coupe)));
 }
 
 /** Un passage tranché à la main, et la coupe proposée qu'il recouvre presque entièrement, s'il y en a une. */

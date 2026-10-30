@@ -1,4 +1,4 @@
-# SPEC v2.28 — gestion.luminose.fr
+# SPEC v2.29 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -119,6 +119,12 @@
 > **v2.28 (29/10/2026)** : l'illustration de la métaphore se génère, dans le style des pages
 > du site — l'étalon joint —, par OpenRouter : Nano Banana Pro par défaut, Nano Banana 2
 > ou GPT Image 2 au choix. Florent la voit avant de la garder (§12.3).
+> **v2.29 (30/10/2026)** : ce qu'a montré la prise du 30/10, exportée deux fois. Quand la fin
+> du script n'a pas été dite, la dernière tentative improvisée la remplace ; une version
+> reformulée commence avec sa phrase ; un passage rétabli loin du script ne ramène plus ce
+> qui l'en sépare (§12.5.5). Ne se sous-titre que ce que la vidéo fait entendre (§12.5.1),
+> et un sous-titre n'enjambe plus un début de phrase du script ni l'arrivée d'une scène
+> (§12.5).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1834,6 +1840,18 @@ mots ou plus se ferme sur une virgule, et un groupe de cinq mots se coupe en tro
 deux plutôt qu'en quatre et un (« C'est savoir ouvrir la / vanne »). Hors du script,
 c'est la ponctuation de Whisper qui compte.
 
+**Un début de phrase du script ferme le bloc d'avant** (v2.29), ponctué ou non. Le
+30/10/2026, « s'il vous plaît », improvisé et rendu sans point, s'affichait « s'il vous
+plaît En », et « …tous les trous » laissait « trous » seul avant « C'est apprendre à ». Le
+mot qui répond au premier mot d'une phrase — ou d'une séquence — du script ouvre un
+nouveau bloc, et celui qui le précède compte comme une fin de phrase pour la coupe en
+trois et deux. Un mot seul dit d'un souffle avec lui l'amorce, et reste dans son bloc :
+« et Ce n'est plus », pas « et » seul à l'écran.
+
+**Un sous-titre s'arrête où la scène commence** (v2.29) : rogné aux passages caméra, il
+l'est aussi en mots, chacun au passage où il commence d'être dit. « Et donc Au lieu »
+s'affichait sur le visage, avant que la scène qui commence à « Au lieu » ne le montre.
+
 **Le mot qui se dit s'éclaire** (v2.12, décision du 24/10/2026) : chaque bloc garde ses
 mots à leur instant, et le mot en cours passe en rose brumeux (`#E9B9BB`) jusqu'au
 suivant. La plupart des vidéos courtes se regardent sans le son ; suivre la voix mot à
@@ -1857,6 +1875,20 @@ La composition (`CompositionFinale`) pose la prise en fond (`<Video>` de
 `@remotion/media`, `objectFit: cover`), chaque scène par-dessus à son heure, et les
 sous-titres sur les seuls passages caméra. **La voix vient de la prise et ne
 s'interrompt jamais** : une scène couvre l'image, pas le son.
+
+**Ne se sous-titre que ce que la vidéo fait entendre** (v2.29) : un mot dont le milieu ne
+tombe dans aucun morceau monté ne s'affiche pas. Jusque-là, seuls les mots pris dans une
+coupe étaient retirés ; ceux d'avant la tête ou d'après la queue, dans aucune coupe,
+tombaient au premier ou au dernier raccord. Les deux vidéos du 30/10/2026 montraient
+ainsi sur leurs trois dernières images, avant le carton, « revenir merci » et
+« travaillant au cabinet. », dits deux minutes après leur fin.
+
+**Les morceaux montés se comptent zone par zone** (v2.29) : le script de sa tête à sa
+queue, chaque passage rétabli hors du script, la fin improvisée (§12.5.5) — chacun
+débarrassé de ses coupes. Jamais l'étendue qui va du premier au dernier : rétablir une
+phrase dite deux minutes après la fin du script ramenait tout ce qui les sépare. Un
+morceau sans aucun mot dit — l'air laissé entre une coupe et le bord d'une zone — part,
+quelle que soit sa longueur.
 
 Les sous-titres reprennent l'outil Sous-titres — Futura gras, blanc, ombre `#60407F` à
 315°, 430 points sous le centre du cadre vertical —, en 64 pixels du cadre. L'ombre est
@@ -2114,7 +2146,34 @@ secondes aux coupes : recouper ce qu'on venait de rétablir ne coupait rien.
 première phrase ou après la dernière étend ce qui est monté (`planDeMontage`, options
 `retablis` et `retablisAccroche`) : sans cela, la fin improvisée d'une prise ne pouvait
 jamais revenir. (Les boutons « Rétablir la fin · 2,4 s » et la barre de sélection de la
-v2.20 ont cédé la place, en v2.21, au clic sur le passage barré.)
+v2.20 ont cédé la place, en v2.21, au clic sur le passage barré.) Depuis la v2.29, il
+étend ce qui est monté de lui-même seulement, pas de tout ce qui le sépare du script
+(§12.5.1).
+
+**La fin improvisée** (v2.29). Le 30/10/2026, l'appel à l'action n'a jamais été dit tel
+qu'écrit : Florent l'a improvisé cinq fois, de 214 à 345 s d'une prise de 5 min 53, et rien
+n'y répondait au script. Les deux vidéos exportées s'arrêtaient net sur la phrase d'avant,
+« c'est apprendre à ouvrir les vannes ». Désormais, **quand la dernière phrase du script
+n'a pas été dite**, la dernière tentative dite après le dernier mot du script la remplace
+(`Calage.finImprovisee`) : la dernière suite d'au moins cinq jetons que ne sépare aucune
+pause de plus de 1,2 s. Les essais d'avant restent barrés — quand on refait, c'est que
+l'essai d'avant ne convenait pas — et chacun se rétablit d'un clic ; la fin improvisée se
+barre comme tout passage. Elle se dérushe comme le reste (silences), appartient à la
+dernière séquence, et son cadre change à ses phrases et à ses respirations (0,25 s), faute
+de phrases du script. Quand la fin du script a été dite, rien ne s'ajoute : une
+improvisation d'après reste barrée, comme avant.
+
+**Une reformulation commence avec sa phrase** (v2.29). La même prise ouvrait sur deux
+accroches formulées autrement : « Je veux mieux gérer mes émotions, s'il vous plaît », puis
+« Bonjour, moi ce que je voudrais, c'est mieux gérer mes émotions ». La seconde retenue, sa
+version commençait à « je », premier mot qui répond au script, et la vidéo s'ouvrait sur
+« je voudrais, c'est mieux gérer… ». Une version retenue qui retrouve moins de 80 % de sa
+phrase est une **reformulation** : les mots dits juste avant elle, depuis la dernière
+respiration (0,5 s) et sur six jetons au plus, en font partie (`Prononce.amorce`). Ils
+ouvrent la vidéo quand elle l'ouvre, et ne partent pas avec la reprise qui la précède.
+Rien sans respiration — « …plus forte en rebouchant tous les trous, c'est apprendre »
+enchaîne deux phrases —, ni devant une version dite presque mot pour mot : « s'il vous
+plaît | apprenez-moi » reste dehors, comme ci-dessus.
 
 Une version imposée **entraîne sa suite** : la phrase qui la suit dans la même tentative,
 sans pause notable, est préférée aux autres bonnes versions — choisir la première version de
@@ -2147,6 +2206,12 @@ moteur qui a échoué.
 **L'écran** : « Transcrire à nouveau : Whisper | Nova-3 » sous la prise, et la ligne du
 calage dit qui a fait la transcription affichée. Le dépôt transcrit toujours avec
 Whisper ; si Nova-3 l'emporte sur pièces, il deviendra le défaut par décision de Florent.
+
+**Première comparaison, le 30/10/2026**, sur la même prise exportée deux fois : la vidéo
+transcrite par Whisper ne garde aucun blanc de plus de 0,6 s ; celle de Nova-3 en garde
+quatre, de 1 à 1,8 s, et s'ouvre sur une accroche coupée au milieu de sa phrase (§12.5.5,
+« Une reformulation commence avec sa phrase »). La cause des blancs n'est pas établie : la
+transcription de Nova-3 n'a pas été relue, seule la vidéo l'a été. Le défaut reste Whisper.
 
 ### 12.5.7 Les réglages d'une prise (V11) — NORMATIF
 
@@ -2221,6 +2286,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V14** | **Un écran à la fois** — schémas dessinés et animés, illustration de la métaphore (v2.26) | La même prise, redécoupée écran par écran : aucune scène de plus de six secondes, aucune image figée |
 | **V15** | **La signature** — bandeau sur l'accroche, carton final (v2.27) | Une vidéo qui dit qui parle et où le retrouver, même quand l'adresse n'a pas été dite |
 | **V16** | **L'illustration générée** — style des pages du site, par OpenRouter (v2.28) | Un Reel dont l'illustration n'a été ni dessinée ni cherchée par Florent |
+| **V17** | **Ce qu'a montré la prise du 30/10** — fin improvisée, reformulation qui commence avec sa phrase, rien en sous-titre hors de la vidéo ni à cheval sur deux phrases ou sur une scène, zones montées une à une (v2.29) | La prise du 30/10 sort avec son appel à l'action improvisé, sur une accroche entière, sans un mot affiché qu'on n'entend pas |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.
