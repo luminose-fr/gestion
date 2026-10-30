@@ -64,35 +64,97 @@ export const GAMME = {
 export const FUTURA = "'Futura LT', Futura, 'Century Gothic', sans-serif";
 export const ABRIL = "'Abril Display', Georgia, serif";
 
-/** Le fond pointillé, à la taille exacte du cadre : étiré, un point deviendrait une ellipse. */
-const pointilles = (format: FormatVideo) => `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${CADRES[format].largeur}" height="${CADRES[format].hauteur}">`
-    + '<defs><pattern id="p" width="54" height="54" patternUnits="userSpaceOnUse">'
-    + `<circle cx="27" cy="27" r="3" fill="${GAMME.mauve}" fill-opacity="0.18"/></pattern></defs>`
-    + '<rect width="100%" height="100%" fill="url(#p)"/></svg>',
-)}`;
+/** Une couleur de la gamme, voilée. */
+const voile = (hex: string, opacite: number) => {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${opacite})`;
+};
+/** Le violet nuit, assombri : le haut du ciel sombre, pour que la profondeur vienne du dégradé et non de la saturation. */
+const NUIT_PROFONDE = '#2F2650';
+
+const svg = (contenu: string) => `data:image/svg+xml;utf8,${encodeURIComponent(contenu)}`;
+const brumes = new Map<string, string>();
+
+/**
+ * Le fond Brume (v2.31, décision de Florent du 30/10/2026 devant trois pistes :
+ * « La piste brume est très bien ! ») : l'atmosphère des illustrations des pages
+ * du site — un ciel en dégradé, un halo, deux lignes de collines au bas du
+ * cadre, un grain léger —, dans leur gamme. Il remplace le fond uni et ses
+ * pointillés. Une image SVG : le rendu dans le navigateur ne peint ni
+ * `radial-gradient` ni filtre CSS, mais il peint une image, et l'image porte
+ * son dégradé radial et son grain. Une par temps et par format, calculée une fois.
+ */
+export function fondBrume(format: FormatVideo, clair: boolean): string {
+    const cle = `${format}:${clair}`;
+    const deja = brumes.get(cle);
+    if (deja) return deja;
+    const { largeur: L, hauteur: H } = CADRES[format];
+    // Les collines gardent leur hauteur réelle d'un format à l'autre : le 4:5 est plus court.
+    const k = H / 1920;
+    const y = (depuisLeBas: number) => Math.round(H - depuisLeBas * k);
+    const x = (sur1080: number) => Math.round(sur1080 * L / 1080);
+    const ciel = clair
+        ? [[0, GAMME.ivoire], [0.55, GAMME.ivoireRose], [1, GAMME.roseBrumeux]]
+        : [[0, NUIT_PROFONDE], [0.6, GAMME.violetNuit], [1, GAMME.prune]];
+    const halo = clair ? { couleur: GAMME.ivoire, opacite: 0.9, y: y(770) } : { couleur: GAMME.mauveRose, opacite: 0.38, y: y(670) };
+    const [loin, pres] = clair
+        ? [[GAMME.mauveRose, 0.45], [GAMME.mauve, 0.35]]
+        : [[GAMME.prune, 0.85], [NUIT_PROFONDE, 0.9]];
+    const image = svg(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${L}" height="${H}" viewBox="0 0 ${L} ${H}">`
+        + '<defs><linearGradient id="c" x1="0" y1="0" x2="0" y2="1">'
+        + ciel.map(([o, c]) => `<stop offset="${o}" stop-color="${c}"/>`).join('')
+        + `</linearGradient><radialGradient id="h" cx="${L / 2}" cy="${halo.y}" r="${Math.round(760 * k)}" gradientUnits="userSpaceOnUse">`
+        + `<stop offset="0" stop-color="${halo.couleur}" stop-opacity="${halo.opacite}"/><stop offset="1" stop-color="${halo.couleur}" stop-opacity="0"/></radialGradient>`
+        // Le grain sur une tuile de 256 px, répétée : calculé une fois, pas sur tout le cadre.
+        + '<filter id="g" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>'
+        + '<feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.07"/></feComponentTransfer></filter>'
+        + '<pattern id="t" width="256" height="256" patternUnits="userSpaceOnUse"><rect width="256" height="256" filter="url(#g)"/></pattern></defs>'
+        + `<rect width="${L}" height="${H}" fill="url(#c)"/><rect width="${L}" height="${H}" fill="url(#h)"/>`
+        + `<path d="M0 ${y(420)} C ${x(220)} ${y(500)} ${x(380)} ${y(450)} ${x(560)} ${y(480)} C ${x(760)} ${y(515)} ${x(900)} ${y(460)} ${L} ${y(500)} L${L} ${H} L0 ${H}Z" fill="${loin[0]}" fill-opacity="${loin[1]}"/>`
+        + `<path d="M0 ${y(300)} C ${x(260)} ${y(360)} ${x(420)} ${y(280)} ${x(640)} ${y(320)} C ${x(820)} ${y(350)} ${x(960)} ${y(310)} ${L} ${y(330)} L${L} ${H} L0 ${H}Z" fill="${pres[0]}" fill-opacity="${pres[1]}"/>`
+        + `<rect width="${L}" height="${H}" fill="url(#t)"/></svg>`,
+    );
+    brumes.set(cle, image);
+    return image;
+}
+
+/** La crête de l'eau, 60 px de haut : une vague douce et sa ligne de surface. Le corps de l'eau est un dégradé CSS sous elle. */
+const crete = (format: FormatVideo, couleur: string) => {
+    const L = CADRES[format].largeur;
+    const vague = `M0 30 C ${L / 6} 8 ${L / 3} 52 ${L / 2} 30 C ${2 * L / 3} 8 ${5 * L / 6} 52 ${L} 30`;
+    return svg(`<svg xmlns="http://www.w3.org/2000/svg" width="${L}" height="60" viewBox="0 0 ${L} 60">`
+        + `<path d="${vague} L${L} 60 L0 60Z" fill="${couleur}" fill-opacity="0.92"/>`
+        + `<path d="${vague}" fill="none" stroke="${GAMME.ivoire}" stroke-opacity="0.7" stroke-width="5"/></svg>`);
+};
+
+/** Le niveau d'où l'eau est partie, en pointillé : un trait plein ou pointillé en CSS ne se peint pas à coup sûr dans l'export. */
+const trace = (format: FormatVideo, couleur: string) => {
+    const L = CADRES[format].largeur;
+    return svg(`<svg xmlns="http://www.w3.org/2000/svg" width="${L}" height="6" viewBox="0 0 ${L} 6">`
+        + `<line x1="90" x2="${L - 90}" y1="3" y2="3" stroke="${couleur}" stroke-opacity="0.5" stroke-width="3" stroke-dasharray="14 16"/></svg>`);
+};
 
 type Ton = 'ombre' | 'lumiere' | 'neutre';
 
 /**
  * Le ton fait le fond de tout l'écran : passer de l'ombre à la lumière se voit
- * d'un coup — c'est la bascule, et c'est la rupture de fond de la seconde
- * référence. L'ombre est littéralement sombre, la lumière claire : deux symboles
- * que la direction artistique porte déjà. Depuis la v2.30, les fonds vont en deux
- * temps (`enDeuxTemps`) : l'écran ne reçoit plus que l'ombre ou la lumière, et la
- * lumière est sur l'ivoire — l'ivoire rosé faisait une quatrième couleur.
+ * d'un coup — c'est la bascule. Depuis la v2.30, les fonds vont en deux temps
+ * (`enDeuxTemps`), et depuis la v2.31 ce sont des fonds Brume (`fondBrume`) : le
+ * ciel du soir avant la bascule, le matin après. `fond` n'est plus que la
+ * couleur d'attente, le temps que l'image arrive.
  */
-const ECRANS: Record<Ton, { fond: string; texte: string; accent: string; marque: string; trait: string; remplissage: string; pointilles: boolean }> = {
-    ombre:   { fond: GAMME.violetNuit, texte: GAMME.ivoire,     accent: GAMME.roseBrumeux, marque: 'transparent',   trait: GAMME.mauve,     remplissage: GAMME.roseBrumeux, pointilles: false },
-    lumiere: { fond: GAMME.ivoire,     texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux, trait: GAMME.mauveRose, remplissage: GAMME.mauveRose,   pointilles: true },
-    neutre:  { fond: GAMME.ivoire,     texte: GAMME.violetNuit, accent: GAMME.prune,       marque: GAMME.roseBrumeux, trait: GAMME.mauve,     remplissage: GAMME.mauve,       pointilles: true },
+const ECRANS: Record<Ton, { clair: boolean; fond: string; texte: string; accent: string; etiquette: string; trait: string; eau: [string, string] }> = {
+    ombre:   { clair: false, fond: GAMME.violetNuit, texte: GAMME.ivoire,     accent: GAMME.roseBrumeux, etiquette: GAMME.mauveRose, trait: GAMME.mauveRose, eau: [GAMME.roseBrumeux, GAMME.mauve] },
+    lumiere: { clair: true,  fond: GAMME.ivoire,     texte: GAMME.violetNuit, accent: GAMME.prune,       etiquette: GAMME.mauve,     trait: GAMME.mauve,     eau: [GAMME.mauveRose, GAMME.mauve] },
+    neutre:  { clair: true,  fond: GAMME.ivoire,     texte: GAMME.violetNuit, accent: GAMME.prune,       etiquette: GAMME.mauve,     trait: GAMME.mauve,     eau: [GAMME.mauveRose, GAMME.mauve] },
 };
 type Palette = (typeof ECRANS)[Ton];
 
 /** Une carte d'un schéma — un terme d'une opposition, le départ d'un enchaînement. */
-const CARTES: Record<'ombre' | 'lumiere', { fond: string; texte: string; bord: string; portee: string }> = {
-    ombre:   { fond: GAMME.violetNuit, texte: GAMME.ivoire,     bord: GAMME.mauve,     portee: GAMME.prune },
-    lumiere: { fond: GAMME.ivoire,     texte: GAMME.violetNuit, bord: GAMME.mauveRose, portee: GAMME.mauveRose },
+const CARTES: Record<'ombre' | 'lumiere', { fond: string; texte: string; bord: string }> = {
+    ombre:   { fond: GAMME.violetNuit, texte: GAMME.ivoire,     bord: GAMME.mauve },
+    lumiere: { fond: GAMME.ivoire,     texte: GAMME.violetNuit, bord: GAMME.mauveRose },
 };
 
 /**
@@ -109,8 +171,12 @@ function entree(p: number): React.CSSProperties {
 /** Un composant d'image : `img` à l'arrêt, celui de Remotion dans la composition. */
 export type ComposantImage = React.ComponentType<React.ImgHTMLAttributes<HTMLImageElement>>;
 
-/** Le passage surligné passe en Abril italique : les deux typographies de la marque. */
-const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: string }> = ({ texte, accent, marque }) => (
+/**
+ * Le passage surligné passe en Abril italique : les deux typographies de la
+ * marque. Depuis la v2.31 (Brume), il grandit (`grandeur`, en em) plutôt que de
+ * porter une barre de surlignage.
+ */
+const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque?: string; grandeur?: number }> = ({ texte, accent, marque = 'transparent', grandeur }) => (
     <>
         {segmentsSurlignes(texte).map((s, i) => s.surligne ? (
             <span key={i} style={{
@@ -120,6 +186,7 @@ const TexteSurligne: React.FC<{ texte?: string | null; accent: string; marque: s
                 textTransform: 'none',
                 color: accent,
                 padding: '0 6px',
+                ...(grandeur ? { fontSize: `${grandeur}em` } : {}),
                 backgroundImage: marque === 'transparent'
                     ? 'none'
                     : `linear-gradient(transparent 60%, ${marque} 60%, ${marque} 92%, transparent 92%)`,
@@ -178,7 +245,7 @@ const CarteDeSchema: React.FC<{ texte: string; ton: 'ombre' | 'lumiere'; style?:
     const c = CARTES[ton];
     return (
         <div style={{
-            background: c.fond, color: c.texte, border: `6px solid ${c.bord}`, borderRadius: 40, boxShadow: `12px 12px 0 ${c.portee}`,
+            background: c.fond, color: c.texte, border: `6px solid ${c.bord}`, borderRadius: 40,
             padding: '40px 56px', fontSize: 86, lineHeight: 1.12, textAlign: 'center', minWidth: 520, maxWidth: '100%', ...style,
         }}>
             <TexteSurligne texte={texte} accent={ton === 'ombre' ? GAMME.roseBrumeux : GAMME.prune} marque={ton === 'ombre' ? 'transparent' : GAMME.roseBrumeux} />
@@ -202,23 +269,15 @@ const Fleche: React.FC<{ couleur: string; part: number }> = ({ couleur, part }) 
  */
 const Schema: React.FC<{ schema: SchemaEcran; hauteur: number; palette: Palette; ecoule: number; duree: number }> = ({ schema, hauteur, palette, ecoule, duree }) => {
     switch (schema.schema) {
-        case 'niveau': {
-            const niveau = schema.de + (schema.a - schema.de) * pose(ecoule, 0.2, 1.6);
-            return (
-                <div style={{ width: 400, height: hauteur, border: `12px solid ${palette.trait}`, borderRadius: 56, position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${Math.max(0, Math.min(100, niveau))}%`, background: palette.remplissage }} />
-                    {[25, 50, 75].map(g => (
-                        <div key={g} style={{ position: 'absolute', left: 0, width: 70, bottom: `${g}%`, height: 8, background: palette.trait }} />
-                    ))}
-                </div>
-            );
-        }
+        case 'niveau':
+            // L'eau monte dans le paysage, sur tout le cadre (v2.31) : c'est la scène qui la dessine.
+            return null;
         case 'compteur': {
             const valeur = schema.valeur * pose(ecoule, 0.1, 1.2);
             const entier = Number.isInteger(schema.valeur);
             return (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <div style={{ fontSize: 360, fontWeight: 700, lineHeight: 1, color: palette.texte }}>
+                    <div style={{ fontSize: 360, lineHeight: 1, color: palette.texte }}>
                         {(entier ? Math.round(valeur) : valeur).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}
                     </div>
                     {schema.unite && (
@@ -244,21 +303,32 @@ const Schema: React.FC<{ schema: SchemaEcran; hauteur: number; palette: Palette;
                 </div>
             );
         case 'liste': {
+            /*
+             * Une ligne par terme, sans cadre (v2.31) : l'étiquette en capitales,
+             * le mot en Abril, un filet court entre deux. « Colère : un [détail] »
+             * se lit étiquette « Colère », mot « un détail » ; sans deux-points,
+             * la ligne entière est le mot.
+             */
             const arrivees = arriveesDeLaListe((schema.items ?? []).length, duree);
             return (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 48, width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', textAlign: 'center' }}>
                     {(schema.items ?? []).map((item, k) => {
-                        const arrivee = arrivees[k];
+                        const deuxPoints = item.indexOf(' : ');
+                        const etiquette = deuxPoints > 0 ? item.slice(0, deuxPoints) : null;
+                        const mot = texteAffiche(deuxPoints > 0 ? item.slice(deuxPoints + 3) : item);
                         return (
-                            <div key={k} style={{
-                                position: 'relative', border: `8px solid ${palette.trait}`, borderRadius: 999, padding: '40px 64px',
-                                fontSize: 100, lineHeight: 1.15, textAlign: 'center', color: palette.texte, opacity: pose(ecoule, arrivee, 0.25),
-                            }}>
-                                <TexteSurligne texte={item} accent={palette.accent} marque={palette.marque} />
-                                {schema.barres && (
-                                    <div style={{ position: 'absolute', left: 40, top: '50%', height: 10, marginTop: -5, borderRadius: 5, background: palette.accent, width: `calc(${pose(ecoule, arrivee + 0.35, 0.3) * 100}% - 80px)` }} />
-                                )}
-                            </div>
+                            <React.Fragment key={k}>
+                                {k > 0 && <div style={{ width: 120, height: 3, background: palette.trait, opacity: 0.6, margin: '64px 0' }} />}
+                                <div style={{ position: 'relative', opacity: pose(ecoule, arrivees[k], 0.25) }}>
+                                    {etiquette && (
+                                        <div style={{ fontSize: 46, letterSpacing: 12, textTransform: 'uppercase', color: palette.etiquette }}>{texteAffiche(etiquette)}</div>
+                                    )}
+                                    <div style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: etiquette ? 150 : 130, lineHeight: 1.1, color: palette.accent }}>{mot}</div>
+                                    {schema.barres && (
+                                        <div style={{ position: 'absolute', left: -20, bottom: '30%', height: 8, borderRadius: 4, background: palette.texte, width: `calc(${pose(ecoule, arrivees[k] + 0.35, 0.3) * 100}% + 40px)` }} />
+                                    )}
+                                </div>
+                            </React.Fragment>
                         );
                     })}
                 </div>
@@ -329,8 +399,10 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
     const illustre = illustrationDe(element?.visuel);
     const decrit = visuelDecrit(element?.visuel);
     const hauteurVisuel = Math.round(Math.min(1000, hauteurZone * (texte ? 0.62 : 0.85)));
+    // Le niveau ne se pose pas au centre : l'eau monte sur tout le cadre (v2.31).
+    const niveau = schema?.schema === 'niveau' ? schema : null;
     let visuel: React.ReactNode = null;
-    if (schema) visuel = <Schema schema={schema} hauteur={Math.round(hauteurVisuel * 0.9)} palette={palette} ecoule={ecoule} duree={anime?.duree ?? 3} />;
+    if (schema && !niveau) visuel = <Schema schema={schema} hauteur={Math.round(hauteurVisuel * 0.9)} palette={palette} ecoule={ecoule} duree={anime?.duree ?? 3} />;
     else if (illustre) {
         const ill = illustrations?.[illustre.illustration];
         if (ill?.url) visuel = <ImageCadree url={ill.url} hauteur={hauteurVisuel} palette={palette} cadrage={illustre.cadrage} avance={avance} Image={Image} />;
@@ -359,6 +431,19 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
 
     const echelle = largeur / CADRE.largeur;
 
+    /*
+     * L'eau du niveau (v2.31) : elle monte dans le paysage, du bas du cadre vers
+     * le texte, qui se tient alors en haut de la zone sûre. Un trait pointillé
+     * garde le niveau d'où elle part. La crête est une image ; le corps, un
+     * dégradé CSS qui la prolonge : seule leur position change d'une image à
+     * l'autre.
+     */
+    const k = CADRE.hauteur / 1920;
+    const fondDeLEau = CADRE.hauteur - Math.round(160 * k);
+    const plafond = ZONE.haut + Math.round(520 * k);
+    const hauteurDeLEau = (pourcent: number) => fondDeLEau - (Math.max(0, Math.min(100, pourcent)) / 100) * (fondDeLEau - plafond);
+    const surface = niveau ? hauteurDeLEau(niveau.de + (niveau.a - niveau.de) * pose(ecoule, 0.2, 1.6)) : 0;
+
     return (
         <div
             role="img"
@@ -375,8 +460,18 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
                 color: palette.texte,
                 backgroundColor: palette.fond,
             }}>
-                {palette.pointilles && <Image src={pointilles(format)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />}
-                <div style={{ position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: hauteurZone, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Image src={fondBrume(format, palette.clair)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
+                {niveau && (
+                    <>
+                        <Image src={trace(format, palette.clair ? GAMME.mauve : GAMME.ivoire)} alt="" style={{ position: 'absolute', left: 0, top: hauteurDeLEau(niveau.de) - 3, width: CADRE.largeur, height: 6 }} />
+                        <Image src={crete(format, palette.eau[0])} alt="" style={{ position: 'absolute', left: 0, top: surface - 30, width: CADRE.largeur, height: 60 }} />
+                        <div style={{ position: 'absolute', left: 0, right: 0, top: surface + 30, bottom: 0, backgroundImage: `linear-gradient(${voile(palette.eau[0], 0.92)}, ${voile(palette.eau[1], 0.95)})` }} />
+                    </>
+                )}
+                <div style={{
+                    position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: hauteurZone, display: 'flex', justifyContent: 'center',
+                    ...(niveau ? { alignItems: 'flex-start', paddingTop: Math.round(130 * k), boxSizing: 'border-box' } : { alignItems: 'center' }),
+                }}>
                     <div
                         ref={contenuRef}
                         style={{
@@ -389,13 +484,13 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
                             {texte && (
                                 <div style={liaison
                                     ? { fontFamily: ABRIL, fontStyle: 'italic', fontSize: 220, lineHeight: 1, color: palette.accent }
-                                    : { fontSize: visuel ? 100 : 140, lineHeight: 1.1, textAlign: 'center', textWrap: 'balance' } as React.CSSProperties}>
-                                    {liaison ? texte : <TexteSurligne texte={element?.texte} accent={palette.accent} marque={palette.marque} />}
+                                    : { fontSize: visuel ? 92 : 112, lineHeight: 1.15, textAlign: 'center', textWrap: 'balance' } as React.CSSProperties}>
+                                    {liaison ? texte : <TexteSurligne texte={element?.texte} accent={palette.accent} grandeur={1.4} />}
                                 </div>
                             )}
                             {element?.detail && (
                                 <div style={{ fontSize: 56, lineHeight: 1.25, opacity: 0.8, textAlign: 'center' }}>
-                                    <TexteSurligne texte={element.detail} accent={palette.accent} marque={palette.marque} />
+                                    <TexteSurligne texte={element.detail} accent={palette.accent} />
                                 </div>
                             )}
                         </div>
@@ -411,8 +506,9 @@ export const SceneLuminose: React.FC<SceneLuminoseProps> = ({
  * dire — puis le visage revient. Dessiné comme une scène, dans le cadre puis
  * réduit, pour que le storyboard et la vidéo le montrent pareil. Il arrive en se
  * posant (`avancee`, de 0 à 1) et repart sec : c'est une rupture, pas une
- * transition. Son fond suit les deux temps de la vidéo (v2.30) : violet nuit
- * avant la bascule, ivoire après — il était prune, une quatrième couleur.
+ * transition. Son fond suit les deux temps de la vidéo (v2.30), en Brume
+ * (v2.31) ; les mots ordinaires y sont une ligne de capitales espacées, le
+ * passage entre crochets un mot en Abril, aussi grand que la largeur le permet.
  */
 export const CoupDePoingLuminose: React.FC<{
     texte: string;
@@ -422,10 +518,14 @@ export const CoupDePoingLuminose: React.FC<{
     arrondi?: number;
     /** Après la bascule : le temps clair. */
     clair?: boolean;
-}> = ({ texte, largeur, avancee = 1, format = '9:16', arrondi = 8, clair = false }) => {
+    Image?: ComposantImage;
+}> = ({ texte, largeur, avancee = 1, format = '9:16', arrondi = 8, clair = false, Image = ImageSimple }) => {
     const CADRE = CADRES[format];
     const ZONE = ZONES[format];
     const p = Math.min(1, Math.max(0, avancee));
+    const segments = segmentsSurlignes(texte).map(x => ({ ...x, texte: x.texte.trim() })).filter(x => x.texte);
+    const accent = clair ? GAMME.prune : GAMME.roseBrumeux;
+    const sansAccent = !segments.some(x => x.surligne);
     return (
         <div
             role="img"
@@ -442,6 +542,7 @@ export const CoupDePoingLuminose: React.FC<{
                 color: clair ? GAMME.violetNuit : GAMME.ivoire,
                 fontFamily: FUTURA,
             }}>
+                <Image src={fondBrume(format, clair)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
                 <div style={{
                     position: 'absolute',
                     top: ZONE.haut,
@@ -449,19 +550,20 @@ export const CoupDePoingLuminose: React.FC<{
                     right: ZONE.droite,
                     height: ZONE.bas - ZONE.haut,
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    gap: 8,
                     textAlign: 'center',
-                    fontSize: 132,
-                    fontWeight: 700,
-                    lineHeight: 1.05,
-                    letterSpacing: 2,
-                    textTransform: 'uppercase',
-                    textWrap: 'balance',
                     opacity: p,
                     transform: `scale(${1.12 - 0.12 * p})`,
-                } as React.CSSProperties}>
-                    <span><TexteSurligne texte={texte} accent={clair ? GAMME.prune : GAMME.roseBrumeux} marque={clair ? GAMME.roseBrumeux : 'transparent'} /></span>
+                }}>
+                    {segments.map((x, i) => x.surligne ? (
+                        // Aussi grand que la largeur le permet : l'Abril italique fait à peu près une demi-hauteur par lettre.
+                        <div key={i} style={{ fontFamily: ABRIL, fontStyle: 'italic', fontSize: Math.min(230, Math.floor(880 / (x.texte.length * 0.48))), lineHeight: 1.05, color: accent }}>{x.texte}</div>
+                    ) : (
+                        <div key={i} style={{ fontSize: sansAccent ? 120 : 64, letterSpacing: sansAccent ? 4 : 16, lineHeight: 1.2, textTransform: 'uppercase', textWrap: 'balance' } as React.CSSProperties}>{x.texte}</div>
+                    ))}
                 </div>
             </div>
         </div>
@@ -511,7 +613,7 @@ export const CartonFinal: React.FC<{ largeur: number; presence?: number; format?
             style={{ width: largeur, height: Math.round(largeur * CADRE.hauteur / CADRE.largeur), overflow: 'hidden', borderRadius: arrondi, flexShrink: 0 }}
         >
             <div style={{ width: CADRE.largeur, height: CADRE.hauteur, transform: `scale(${largeur / CADRE.largeur})`, transformOrigin: 'top left', position: 'relative', fontFamily: FUTURA, backgroundColor: GAMME.ivoire, color: GAMME.violetNuit }}>
-                <Image src={pointilles(format)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
+                <Image src={fondBrume(format, true)} alt="" style={{ position: 'absolute', top: 0, left: 0, width: CADRE.largeur, height: CADRE.hauteur }} />
                 <div style={{
                     position: 'absolute', top: ZONE.haut, left: ZONE.gauche, right: ZONE.droite, height: ZONE.bas - ZONE.haut,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, textAlign: 'center',
