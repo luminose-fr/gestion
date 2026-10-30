@@ -2424,6 +2424,20 @@ describe('Reel expliqué — prise et rendu', () => {
     expect(vus).toEqual([3.2]);
   });
 
+  it('les écrans se dessinent en Brume : fond d’atmosphère, liste sans pastilles, eau sur tout le cadre (v2.31)', () => {
+    const liste = { plan: 'scene', role: 'Fuites', voix: 'Et elle fuit', elements: [{ texte: null, ton: 'ombre', visuel: { schema: 'liste', items: ['Colère : un [détail]', 'Larmes : une [pub]'] }, apparait_sur: 'Et elle fuit' }] } as any;
+    const { container } = render(<SceneLuminose sequence={liste} largeur={108} />);
+    expect(container.querySelector('img')?.getAttribute('src')).toMatch(/^data:image\/svg\+xml/);
+    expect(container.textContent).toContain('Colère');
+    expect(container.textContent).toContain('un détail');
+    expect(container.textContent).not.toContain('[');
+    cleanup();
+    const niveau = { ...liste, elements: [{ texte: 'L\'eau [s\'accumule]', ton: 'ombre', visuel: { schema: 'niveau', de: 35, a: 80 }, apparait_sur: 'Et elle fuit' }] };
+    const eau = render(<SceneLuminose sequence={niveau} largeur={108} />);
+    // Le fond, le trait du niveau de départ, la crête de l'eau : plus de jauge au centre.
+    expect(eau.container.querySelectorAll('img')).toHaveLength(3);
+  });
+
   it('le coup de poing suit les deux temps : violet nuit avant la bascule, ivoire après (v2.30)', () => {
     const fond = (clair: boolean) => {
       const { container } = render(<CoupDePoingLuminose texte="Pas un [défaut]" largeur={108} clair={clair} />);

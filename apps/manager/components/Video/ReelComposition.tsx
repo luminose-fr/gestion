@@ -114,7 +114,7 @@ const CoupAnime: React.FC<{ texte: string; format: FormatVideo; clair: boolean }
     const avancee = spring({ frame: image, fps, config: { damping: 200 }, durationInFrames: Math.round(fps * 0.2) });
     return (
         <AbsoluteFill>
-            <CoupDePoingLuminose texte={texte} largeur={CADRES[format].largeur} avancee={avancee} format={format} arrondi={0} clair={clair} />
+            <CoupDePoingLuminose texte={texte} largeur={CADRES[format].largeur} avancee={avancee} format={format} arrondi={0} clair={clair} Image={ImageRemotion} />
         </AbsoluteFill>
     );
 };

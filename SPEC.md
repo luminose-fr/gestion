@@ -1,4 +1,4 @@
-# SPEC v2.30 — gestion.luminose.fr
+# SPEC v2.31 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -134,6 +134,11 @@
 > le script et la parole — la prise fait foi : une improvisation redite se coupe (§12.5.2),
 > un mot s'écrit comme dit, et l'alerte porte sur les écrans dont les mots n'ont pas été
 > dits, plus sur l'écart au texte (§12.5).
+> **v2.31 (30/10/2026)** : les écrans en Brume. Devant trois pistes — Brume, Affiche, Arche —,
+> Florent : « La piste brume est très bien ! » Les scènes, les coups de poing et le carton
+> final prennent l'atmosphère des illustrations du site : ciel en dégradé, halo, collines,
+> grain. L'eau du niveau monte dans le paysage, la liste perd ses pastilles, le mot-clé
+> grandit en Abril (§12.3, §12.4.1, §12.5.3).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -1428,6 +1433,7 @@ suffit).
 | Que montre une scène ? (28/10/2026, devant la première vidéo exportée : « beaucoup trop d'infos et donc pas percutant ») | **Une chose à la fois.** Chaque écran remplace le précédent : un visuel en grand et un à quatre mots ; plus de titre ; des scènes de six secondes au plus, le visage revenant entre deux. | §12.3, §12.4.1. Les cartes empilées, leurs tailles et leurs liaisons ne s'écrivent plus. |
 | Qui produit les visuels ? (28/10/2026 : « éviter au max d'avoir besoin d'ajouter des photos ») | **L'outil, autant que possible.** Cinq schémas dessinés et animés par le code ; pour la métaphore, **une** illustration par Reel — deux au plus quand elle se transforme —, réutilisée d'un écran à l'autre au cadrage voulu, générée par l'outil (v2.28) ou déposée. | Plus aucun visuel à produire écran par écran. |
 | Dans quel style ? (29/10/2026 : « essayons de rester dans le style du site ; si c'est trop contraignant et trop monotone, on fera évoluer ça ») | **Celui des illustrations des pages**, l'étalon joint — alors que `direction-artistique.md` §4 laisse les réseaux sans charte : c'est un choix pour le Reel, révisable, pas une charte des réseaux. | §12.3, « L'illustration générée ». |
+| Quelle allure pour les écrans ? (30/10/2026 : « Les illustrations (non photo) sont très peu qualitatives aussi. Il faut monter d'un cran ! », puis, devant trois pistes : « La piste brume est très bien ! ») | **Brume** : l'atmosphère des illustrations des pages du site, dans leur gamme. | §12.3, §12.4.1. Les pistes Affiche (la typographie à plat) et Arche (papier découpé dans une arche) ont été écartées. |
 | Le script et la parole (30/10/2026 : « il y aura forcément des différences, car j'ajuste pour que ça colle à moi et mon style parlé ») | **La prise fait foi** ; le script donne la structure — séquences, écrans, repères. | Rien ne doit supposer un texte lu mot pour mot : fin improvisée, reformulations, redites (§12.5.2, §12.5.5), alerte sur les écrans plutôt que sur l'écart (§12.5). |
 | Quel rythme ? (30/10/2026 : « Le rythme est un peu trop rapide. Ça fait beaucoup de trucs qui s'animent à l'écran et c'est confus à suivre ») | **Plus calme** : plus d'air dans la voix, pas de visage éclair, moins de mouvements, deux fonds au lieu de quatre. Les scripts ne changent pas. | §12.3, §12.4.1, §12.5.2, §12.5.3. Révise en partie la décision du 24/10 (§12.5.3). |
 | Où vivent prises et visuels ? | **Chez Cloudflare** (04/10/2026) : prises et visuels dans R2, transcription et repères dans D1. La première version les gardait dans le navigateur. | Un montage survit à des données de site vidées et se reprend depuis un autre poste ; une prise met une à deux minutes à partir, et l'espace gratuit (10 Go) se surveille. |
@@ -1492,13 +1498,16 @@ Le brouillon reste dans `contents.draft` (§2.5). Sa forme, depuis la v2.26 :
   jusqu'au premier écran de lumière, ivoire ensuite — une seule inversion dans la vidéo, là
   où les scènes alternaient quatre couleurs (ivoire, violet nuit, ivoire rosé, et le prune
   des coups de poing). Sans écran de lumière, ivoire de bout en bout. Les coups de poing
-  suivent (`tempsDeLaSequence`).
-- **Les schémas, l'outil les dessine et les anime** (`visuel.schema`) : `niveau` (un
-  réservoir qui monte ou descend, `de` → `a` en %), `compteur` (un nombre qui défile,
-  `valeur`, `unite`), `opposition` (`gauche` dans l'ombre, `droite` dans la lumière),
-  `enchainement` (`de` → `vers`), `liste` (deux ou trois `items` qui arrivent au fil de
-  l'écran ; `barres` les raye). Libellés de trois mots au plus. Rien à produire, rien à
-  déposer.
+  suivent (`tempsDeLaSequence`). Depuis la v2.31, chaque temps est un **fond Brume**
+  (`fondBrume`) : l'atmosphère des illustrations des pages du site — un ciel en dégradé,
+  un halo, deux lignes de collines au bas du cadre, un grain léger —, le soir avant la
+  bascule (du violet nuit au prune), le matin après (de l'ivoire au rose brumeux). Il
+  remplace le fond uni et ses pointillés.
+- **Les schémas, l'outil les dessine et les anime** (`visuel.schema`) : `niveau` (l'eau
+  qui monte ou descend dans le paysage, `de` → `a` en %), `compteur` (un nombre qui
+  défile, `valeur`, `unite`), `opposition` (`gauche` dans l'ombre, `droite` dans la
+  lumière), `enchainement` (`de` → `vers`), `liste` (deux ou trois `items`, posés ensemble ;
+  `barres` les raye). Libellés de trois mots au plus. Rien à produire, rien à déposer.
 - **L'illustration de la métaphore se décrit une fois** (`illustrations`, deux au plus) :
   une scène figurative, qui dit OÙ se trouve chaque élément — en haut, en bas, à gauche, à
   droite, au centre. Une seconde, `depuis` la première, est la même scène transformée. Un
@@ -1619,9 +1628,18 @@ arrivait de travers et rebondissait, un mouvement de plus dans une vidéo que Fl
 trouvait confuse. Le fond, lui, change sec : c'est une rupture, pas une transition. Un
 écran trop haut pour la zone sûre — en 4:5 surtout — se réduit d'un bloc.
 
-**Les schémas sont des blocs et des traits**, pas du SVG : c'est ce que le rendu dans le
-navigateur sait peindre. Ils s'animent sur le temps de l'écran — un niveau monte en
-1,6 s, un compteur défile en 1,2 s. Les lignes d'une liste arrivent **ensemble**, avec
+**Les schémas sont des blocs, du texte et des images** : le rendu dans le navigateur ne
+peint pas un SVG posé dans la page, mais il peint une image, SVG comprise. Ils s'animent
+sur le temps de l'écran — un niveau monte en 1,6 s, un compteur défile en 1,2 s.
+
+**En Brume** (v2.31) : un écran de texte est centré, en Futura, le passage entre crochets
+en Abril italique 1,4 fois plus grand — sans barre de surlignage. Le **niveau** ne pose plus
+de jauge au centre : l'eau monte dans le paysage, sur toute la largeur du cadre, du bas vers
+le texte, qui se tient alors en haut de la zone sûre ; un trait pointillé garde le niveau
+d'où elle part. Sa crête est une image, son corps un dégradé CSS : seule leur position
+change d'une image à l'autre. La **liste** perd ses pastilles : par ligne, une étiquette en
+capitales espacées et le mot en Abril (« Colère : un [détail] » se lit « COLÈRE », puis
+« un détail »), un filet court entre deux ; sans deux-points, la ligne entière est le mot. Les lignes d'une liste arrivent **ensemble**, avec
 leur écran (`arriveesDeLaListe`, v2.30) : elles arrivaient une à une, de 0,4 à 1,5 s
 d'écart, et chacune comptait comme un changement. Le storyboard montre chaque écran dans
 son état final.
@@ -1632,7 +1650,9 @@ déposer. Elles se rangent parmi les visuels du montage à la séquence −1
 (`SEQUENCE_DES_ILLUSTRATIONS`), leur rang pour élément.
 
 **Ce que le moteur de rendu sait dessiner borne la scène.** Ni `radial-gradient`, ni
-`visibility`, ni `z-index` : le fond pointillé est une image SVG. Les polices de la
+`visibility`, ni `z-index`, ni filtre CSS : le fond Brume est une image SVG, qui porte
+elle-même son dégradé radial et son grain (une tuile de 256 px, répétée). À vérifier au
+premier export : le temps de rendu d'un fond à grain. Les polices de la
 marque sont chargées par `@remotion/fonts`, depuis les mêmes fichiers que `index.css`,
 avant la première image.
 
@@ -1930,7 +1950,8 @@ code, jamais par le modèle**, depuis `NOM`, `TITRE` et `SITE_URL` (`config.ts`)
   avant la séquence suivante, trois secondes au plus ; sur une accroche où il tiendrait
   moins de 1,2 s, il ne vient pas (`bandeauDeSignature`) ;
 - **le carton final**, ajouté après le dernier mot pour 2,2 s (`CARTON_FINAL`) : le nom, le
-  titre, et « luminose.fr » en grand. La vidéo s'arrête dessus ; il n'a pas de son.
+  titre, et « luminose.fr » en grand, sur le fond Brume du matin (v2.31). La vidéo s'arrête
+  dessus ; il n'a pas de son.
 
 Elle est là par défaut ; « Signature : Sans », à côté du format et de la version, la
 retire pour une vidéo qui en porte déjà une.
@@ -2046,14 +2067,15 @@ sous-titrent pas. La vidéo du 30/10 revenait 1,5 s sur le visage pour « la bou
 le dimanche soir », entre deux scènes. Vaut pour la vidéo comme pour l'aperçu au débit
 estimé.
 
-**Le coup de poing** (`coup`, §12.3) : quelques mots, en capitales, plein cadre — le
-passage entre crochets en Abril italique. Il se pose
+**Le coup de poing** (`coup`, §12.3) : quelques mots plein cadre, sur le fond Brume de son
+temps (v2.31) — les mots ordinaires en une ligne de capitales espacées, le passage entre
+crochets en Abril italique, aussi grand que la largeur le permet. Il se pose
 en un cinquième de seconde et repart sec : c'est une rupture, pas une transition. Il frappe
 au premier mot de son repère et tient le temps de le dire plus 0,4 s, jamais moins de
 1,5 s — 0,9 s jusqu'à la v2.29 : tenu une seconde, il passait comme un éclair — ni plus de
 2,5 s. Il couvre tout, sous-titres compris ; une coupe qui en mange la fin lui laisse ses
-1,5 s. Son fond suit les deux temps (§12.3) : violet nuit avant la bascule, ivoire après —
-il était prune. Le storyboard le montre en miniature et souligne ses mots dans la voix.
+1,5 s. Son fond suit les deux temps (§12.3) : le soir avant la bascule, le matin après — il
+était prune. Le storyboard le montre en miniature et souligne ses mots dans la voix.
 
 **L'image figée se signale** (`momentsFiges`) : tout intervalle de plus de **8 s** (5 s
 jusqu'à la v2.29 : l'alerte poussait à rajouter du mouvement à un montage qui en avait
@@ -2340,6 +2362,7 @@ Une branche par étape ; aucune ne laisse l'application cassée, et chacune sert
 | **V16** | **L'illustration générée** — style des pages du site, par OpenRouter (v2.28) | Un Reel dont l'illustration n'a été ni dessinée ni cherchée par Florent |
 | **V17** | **Ce qu'a montré la prise du 30/10** — fin improvisée, reformulation qui commence avec sa phrase, rien en sous-titre hors de la vidéo ni à cheval sur deux phrases ou sur une scène, zones montées une à une (v2.29) | La prise du 30/10 sort avec son appel à l'action improvisé, sur une accroche entière, sans un mot affiché qu'on n'entend pas |
 | **V18** | **Le calme, et la prise fait foi** — plus d'air, pas de visage éclair, moins de mouvements, fonds en deux temps ; redites, flexions, alerte sur les écrans estimés (v2.30) | La prise du 30/10, réexportée, se suit sans effort, et aucune alerte ne tient à l'écart entre le script et la parole |
+| **V19** | **Les écrans en Brume** — fond d'atmosphère par temps, eau dans le paysage, liste sans pastilles, mot-clé en Abril, coup de poing et carton final (v2.31) | Un Reel dont les écrans tiennent dans la série des illustrations du site |
 
 Au 04/10/2026, les quatre étapes sont écrites et vérifiées dans le navigateur ; les
 critères de sortie, eux, demandent une vraie prise et une vraie publication.
