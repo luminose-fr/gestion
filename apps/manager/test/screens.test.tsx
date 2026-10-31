@@ -481,6 +481,30 @@ describe('le contenu ouvert (SPEC §13.9, §13.10)', () => {
     expect(route).not.toHaveBeenCalled();
   });
 
+  it.each([null, '2026-10-20'])('annule le marquage publié en rétablissant le statut et la date précédente (%s)', async (dateInitiale) => {
+    const sauvegarder = vi.fn(async () => {});
+    const item = { ...ITEM, status: ContentStatus.READY, targetFormat: 'Post Texte (Court)' as any, draft: POST, scheduledDate: dateInitiale };
+    const vue = render(editeur(item, 'publication', { onSave: sauvegarder }));
+    fireEvent.change(await vue.findByLabelText('Publié le'), { target: { value: '2026-11-03' } });
+    fireEvent.click(vue.getByText('Marquer publié'));
+    const annuler = await vue.findByText('Annuler le marquage');
+    expect(sauvegarder).toHaveBeenCalledWith(expect.objectContaining({ status: ContentStatus.PUBLISHED, scheduledDate: '2026-11-03' }));
+    fireEvent.click(annuler);
+    await waitFor(() => expect(sauvegarder).toHaveBeenCalledWith(expect.objectContaining({ status: ContentStatus.READY, scheduledDate: dateInitiale })));
+    expect(vue.queryByText('Annuler le marquage')).toBeNull();
+    const champDate = vue.getByLabelText('Publié le') as HTMLInputElement;
+    if (dateInitiale) expect(champDate.value).toBe(dateInitiale);
+    else expect(champDate.value).not.toBe('2026-11-03');
+  });
+
+  it('ne confirme pas une publication dont l’enregistrement a échoué', async () => {
+    const sauvegarder = vi.fn(async () => { throw new Error('Réseau indisponible'); });
+    const vue = render(editeur({ ...ITEM, status: ContentStatus.READY, targetFormat: 'Post Texte (Court)' as any, draft: POST }, 'publication', { onSave: sauvegarder }));
+    fireEvent.click(await vue.findByText('Marquer publié'));
+    await vue.findByText('Non enregistré');
+    expect(vue.queryByText('Annuler le marquage')).toBeNull();
+  });
+
   it('se monte sans contenu, puis avec : ses hooks précèdent son retour anticipé', async () => {
     const { container, rerender, findByText } = render(editeur(null as any, 'ouverture'));
     expect(container.textContent).toBe('');

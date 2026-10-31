@@ -225,7 +225,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                                                 </Bouton>
                                             )}
                                             <Bouton taille="petit" intention={copiedSlide === slide.numero ? 'principale' : 'secondaire'} ton={copiedSlide === slide.numero ? 'succes' : 'neutre'}
-                                    onClick={() => handleCopyPrompt(slide.numero, slide.prompt_dzine)}
+                                    data-confirme={copiedSlide === slide.numero || undefined} aria-live="polite" onClick={() => handleCopyPrompt(slide.numero, slide.prompt_dzine)}
                                 >
                                                 {copiedSlide === slide.numero ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                                                 {copiedSlide === slide.numero ? 'Copié' : 'Copier'}

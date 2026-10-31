@@ -220,7 +220,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         onClick={isAnalyzing ? undefined : onClose}
     >
       <div ref={modal} role="dialog" aria-modal="true" aria-label="Analyse IA en lot" tabIndex={-1}
-        className="bg-white dark:bg-dark-surface w-full max-w-lg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
+        className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-lg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

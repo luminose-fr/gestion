@@ -118,7 +118,7 @@ export const IdeesView: React.FC<IdeesViewProps> = ({
                                 key={item.id}
                                 type="button"
                                 onClick={() => onOuvrir(item)}
-                                className="w-full min-h-[60px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_auto_112px_72px_20px] items-center gap-4 px-4 md:px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
+                                className="ui-list-action w-full min-h-[60px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_auto_112px_72px_20px] items-center gap-4 px-4 md:px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg"
                             >
                                 <span className="text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
                                 <span className="hidden md:block">

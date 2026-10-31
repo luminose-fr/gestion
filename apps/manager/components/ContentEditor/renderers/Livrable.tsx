@@ -21,7 +21,7 @@ const BoutonCopier: React.FC<{ texte: string; titre?: string }> = ({ texte, titr
         window.setTimeout(() => setCopie(false), 2000);
     };
     return (
-        <Bouton taille="petit" intention={copie ? 'principale' : 'secondaire'} ton={copie ? 'succes' : 'neutre'}
+        <Bouton data-confirme={copie || undefined} aria-live="polite" taille="petit" intention={copie ? 'principale' : 'secondaire'} ton={copie ? 'succes' : 'neutre'}
             onClick={copier} disabled={!texte} title={titre}>
             {copie ? <Check /> : <Copy />}
             {copie ? 'Copié' : 'Copier'}

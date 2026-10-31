@@ -134,7 +134,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 type="button"
                 onClick={() => onOuvrir(item)}
                 // Sur téléphone, la ligne devient une carte : le titre et le moment, puis l'avancement dessous.
-                className="w-full min-h-[68px] grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_220px_72px_20px] items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
+                className="ui-list-action w-full min-h-[68px] grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_220px_72px_20px] items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3 text-left hover:bg-survol dark:hover:bg-dark-sec-bg"
             >
                 <span className="min-w-0 space-y-1">
                     <span className="flex items-center gap-2 min-w-0">

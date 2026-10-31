@@ -45,7 +45,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, 
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in" onClick={onClose}>
-      <div ref={modal} role="dialog" aria-modal="true" aria-labelledby={titreId} aria-describedby={descriptionId} tabIndex={-1} className="bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6 relative" onClick={e => e.stopPropagation()}>
+      <div ref={modal} role="dialog" aria-modal="true" aria-labelledby={titreId} aria-describedby={descriptionId} tabIndex={-1} className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6 relative" onClick={e => e.stopPropagation()}>
         <button aria-label="Fermer" onClick={onClose} className="absolute top-4 right-4 text-brand-main hover:text-brand-main dark:hover:text-dark-text">
           <X className="w-5 h-5" />
         </button>
@@ -82,7 +82,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in" onClick={isLoading ? undefined : onClose}>
-      <div ref={modal} role="dialog" aria-modal="true" aria-labelledby={titreId} aria-describedby={descriptionId} tabIndex={-1} className="bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6" onClick={e => e.stopPropagation()}>
+      <div ref={modal} role="dialog" aria-modal="true" aria-labelledby={titreId} aria-describedby={descriptionId} tabIndex={-1} className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-sm rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4 text-brand-main dark:text-white">
           <AlertTriangle className={`w-6 h-6 ${isDestructive ? 'text-erreur' : 'text-alerte'}`} />
           <h3 id={titreId} className={CLASSES_TITRE}>{title}</h3>

@@ -177,7 +177,7 @@ const CopiePostCourt: React.FC<{ draft: string }> = ({ draft }) => {
             <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                     <Etiquette forme="entete">Texte à copier</Etiquette>
-                    <Bouton taille="petit" onClick={() => copier('texte', texte)} disabled={!texte}>
+                    <Bouton data-confirme={copie === 'texte' || undefined} aria-live="polite" taille="petit" onClick={() => copier('texte', texte)} disabled={!texte}>
                         {copie === 'texte' ? <><Check /> Copié</> : <><Copy /> Copier</>}
                     </Bouton>
                 </div>
@@ -189,7 +189,7 @@ const CopiePostCourt: React.FC<{ draft: string }> = ({ draft }) => {
                 <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
                         <Etiquette forme="entete">Prompt Dzine</Etiquette>
-                        <Bouton taille="petit" onClick={() => copier('prompt', prompt)}>
+                        <Bouton data-confirme={copie === 'prompt' || undefined} aria-live="polite" taille="petit" onClick={() => copier('prompt', prompt)}>
                             {copie === 'prompt' ? <><Check /> Copié</> : <><Copy /> Copier</>}
                         </Bouton>
                     </div>

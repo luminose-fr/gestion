@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layers, MoreHorizontal } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, Layers, MoreHorizontal, Undo2 } from 'lucide-react';
 import { Bouton, CLASSES_CHAMP, Champ, Etiquette, Menu, type EntreeMenu } from '../ui';
 import { EnCours } from '../Feedback';
 import { RichTextarea } from '../RichTextarea';
@@ -115,10 +115,15 @@ export const BlocPublier: React.FC<{
     dateInitiale: string | null;
     onPublier: (date: string) => void;
     onRepasserEnEcriture: () => void;
+    onAnnulerMarquage?: () => void;
     onDecliner?: () => void;
     occupe?: boolean;
-}> = ({ plateformes, publie, libellePublication, dateInitiale, onPublier, onRepasserEnEcriture, onDecliner, occupe }) => {
+}> = ({ plateformes, publie, libellePublication, dateInitiale, onPublier, onRepasserEnEcriture, onAnnulerMarquage, onDecliner, occupe }) => {
     const [date, setDate] = useState(() => (dateInitiale ? dateInitiale.slice(0, 10) : new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10)));
+    // Une annulation rétablit aussi le champ visible, et pas seulement la valeur en base.
+    useEffect(() => {
+        setDate(dateInitiale ? dateInitiale.slice(0, 10) : new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10));
+    }, [dateInitiale]);
     return (
         <div className="w-full max-w-[340px] rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5 space-y-4 self-start">
             <Etiquette forme="entete">Publier</Etiquette>
@@ -128,7 +133,16 @@ export const BlocPublier: React.FC<{
                 </div>
             )}
             {publie ? (
-                <p className="text-sm font-semibold text-succes">{libellePublication}</p>
+                <div className="space-y-2">
+                    <p role="status" className="ui-feedback flex items-center gap-1.5 text-sm font-semibold text-succes" data-confirme={!!onAnnulerMarquage || undefined}>
+                        <Check className="size-4 shrink-0" /> {libellePublication}
+                    </p>
+                    {onAnnulerMarquage && (
+                        <Bouton taille="petit" intention="discrete" disabled={occupe} onClick={onAnnulerMarquage}>
+                            <Undo2 /> Annuler le marquage
+                        </Bouton>
+                    )}
+                </div>
             ) : (
                 <>
                     <Champ label="Publié le" id="date-publication" type="date" taille="grand" value={date} onChange={(e) => setDate((e.target as HTMLInputElement).value)} />

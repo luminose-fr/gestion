@@ -54,7 +54,7 @@ export const ConfirmSuppressionSerie: React.FC<{
       onClick={enCours ? undefined : onClose}
     >
       <div ref={modal} role="dialog" aria-modal="true" aria-label="Confirmer la suppression de la série" tabIndex={-1}
-        className="bg-white dark:bg-dark-surface w-full max-w-md rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6"
+        className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-md rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4 text-brand-main dark:text-white">

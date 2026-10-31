@@ -99,6 +99,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [publicationPrecedente, setPublicationPrecedente] = useState<{ statut: ContentStatus; date: string | null } | null>(null);
 
   // Dernière génération IA : permet de revenir à la version précédente.
   // Une génération écrase intégralement le champ cible — sans ça, un
@@ -416,7 +417,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       }
   };
 
-  const changeStatus = async (newStatus: ContentStatus, scheduledDate?: string): Promise<boolean> => {
+  const changeStatus = async (newStatus: ContentStatus, scheduledDate?: string | null): Promise<boolean> => {
       if (isSaving || !editedItem) return false;
       const avant = editedItem.status;
       const newItem = { ...editedItem, status: newStatus };
@@ -428,8 +429,23 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       // Le Worker date le geste (SPEC §13.6) ; le fil l'affiche sans attendre de le relire.
       if (ok && avant !== newStatus && isMountedRef.current) {
           setGestes(prev => [...prev, { statut: newStatus, avant, le: Date.now() }]);
+          if (newStatus !== ContentStatus.PUBLISHED) setPublicationPrecedente(null);
       }
       return ok;
+  };
+
+  /** L'annulation reprend exactement le statut et la date d'avant, après confirmation du serveur. */
+  const marquerPublie = async (date: string) => {
+      if (!editedItem) return;
+      const avant = { statut: editedItem.status, date: editedItem.scheduledDate };
+      if (await changeStatus(ContentStatus.PUBLISHED, date)) {
+          if (isMountedRef.current) setPublicationPrecedente(avant);
+      }
+  };
+
+  const annulerMarquage = async () => {
+      if (!publicationPrecedente) return;
+      await changeStatus(publicationPrecedente.statut, publicationPrecedente.date);
   };
 
   const handleDelete = async () => {
@@ -1367,7 +1383,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                       publie={editedItem.status === ContentStatus.PUBLISHED}
                       libellePublication={ligneAffichee?.statut ?? null}
                       dateInitiale={editedItem.scheduledDate}
-                      onPublier={(date) => void changeStatus(ContentStatus.PUBLISHED, date)}
+                      onPublier={(date) => void marquerPublie(date)}
+                      onAnnulerMarquage={publicationPrecedente ? () => void annulerMarquage() : undefined}
                       onRepasserEnEcriture={() => void repasserEnEcriture()}
                       onDecliner={onDecline ? () => onDecline(editedItem) : undefined}
                       occupe={occupe}
@@ -1429,7 +1446,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             pied={<PiedContenu etat={isDirty && saveStatus !== 'error' ? 'saving' : saveStatus} erreur={saveError} onReessayer={retrySave} cout={coutAffiche} onSupprimer={onDelete ? () => setConfirmDelete(true) : undefined} />}
         >
             {auMontage ? (
-                <div className="relative flex-1 min-h-0 flex flex-col">
+                <div className="ui-stage relative flex-1 min-h-0 flex flex-col">
                     {aUnBrouillon
                         ? <Studio contentId={editedItem.id} draft={brouillon} format={editedItem.targetFormat} titre={editedItem.title} onMontageChange={onMontageChange}
                             dernierExport={resumeMontage?.dernierExport ?? null} priseOuverte={priseAOuvrir} />
@@ -1456,7 +1473,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     </div>
                     <div className={`min-h-0 flex-col bg-white dark:bg-dark-surface ${!compact || vue === 'matiere' ? 'flex' : 'hidden'}`}>
                         {entete}
-                        <div className="flex-1 overflow-y-auto p-4 md:p-7">{corps}</div>
+                        <div key={affichee} className="ui-stage flex-1 overflow-y-auto p-4 md:p-7">{corps}</div>
                     </div>
                 </div>
             )}

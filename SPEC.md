@@ -3032,3 +3032,13 @@ chaque filtre accessible.
 Les dépendances corrigées sont verrouillées dans `package-lock.json`. Remotion
 4.0.532 épingle une version vulnérable de Zod ; la surcharge ciblée de sa dépendance
 utilise Zod 4.6.7 ou ultérieur compatible, sans rétrograder le moteur vidéo.
+
+### Retours d’interaction (31/10/2026)
+
+Les boutons confirment l’appui, les menus et la matière d’une étape apparaissent
+brièvement, les copies et sauvegardes réussies confirment par une coche. Les
+contrôles segmentés se parcourent aussi avec les flèches, Début et Fin.
+Après « Marquer publié », « Annuler le marquage » rétablit le statut ET la date
+d’avant. Cette action n’est proposée qu’après une sauvegarde réussie et reste
+disponible dans le contenu ouvert, sans compte à rebours. Le mouvement respecte
+la préférence système de réduction des animations (DESIGN.md).

@@ -173,7 +173,7 @@ export const CarrouselLegende: React.FC<{ legende?: LegendeCarrousel | null }> =
                 <p className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">
                     Légende de publication
                 </p>
-                <Bouton taille="petit" intention={copied ? 'principale' : 'secondaire'} ton={copied ? 'succes' : 'neutre'}
+                <Bouton data-confirme={copied || undefined} aria-live="polite" taille="petit" intention={copied ? 'principale' : 'secondaire'} ton={copied ? 'succes' : 'neutre'}
                 onClick={handleCopy}
                 title="Copier la légende complète (texte + CTA + hashtags)"
             >

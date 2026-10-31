@@ -317,3 +317,18 @@ sans transparence : `brand-main` passe 4,5:1 sur blanc, `brand-light` et `fil` ;
 et la graisse, plutôt que sur une baisse de contraste. Les contrôles désactivés
 conservent leur opacité. Le zoom utilisateur, le focus visible et la réduction
 des animations suivent les préférences du navigateur.
+
+### Micro-interactions (31/10/2026)
+
+Les composants partagés portent le mouvement dans `index.css` : `ui-action` pour
+l’appui (1 px, échelle 0,985, 120 ms), `ui-list-action` pour une ligne (2 px),
+`ui-popover` et `ui-stage` pour une apparition de 4 px (160 à 180 ms),
+`ui-dialog` pour la confirmation (180 ms), `ui-feedback` pour la coche de succès
+(220 ms). Ce sont les seules exceptions de mouvement ; aucune ombre ni couleur
+additionnelle. Les animations ne retardent pas l’action et ne rejouent pas à
+chaque frappe. `prefers-reduced-motion` retire les animations et le déplacement
+d’appui ; le changement de couleur, la coche et le texte restent visibles.
+
+« Annuler le marquage » reste proposé tant que le contenu ouvert vient d’être
+marqué publié : pas de délai qui ferait disparaître l’action avant de l’avoir lue.
+Il rétablit le statut et la date précédents via l’enregistrement existant.

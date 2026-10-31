@@ -97,7 +97,7 @@ export const Bouton: React.FC<BoutonProps> = ({
 }) => (
   <button
     className={[
-      'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition-colors disabled:opacity-40 [&_svg]:shrink-0',
+      'ui-action inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold disabled:opacity-40 [&_svg]:shrink-0',
       TAILLES[taille],
       INTENTIONS[ton][intention],
       posee ? 'shadow-xs' : '',

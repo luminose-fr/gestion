@@ -66,7 +66,7 @@ export const Menu: React.FC<MenuProps> = ({
       {ouvert && (
         <div
           role="menu"
-          className={`absolute z-30 mt-1 ${alignement === 'droite' ? 'right-0' : 'left-0'} ${LARGEURS[largeur]} max-w-[calc(100vw-2rem)] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1`}
+          className={`ui-popover absolute z-30 mt-1 ${alignement === 'droite' ? 'right-0' : 'left-0'} ${LARGEURS[largeur]} max-w-[calc(100vw-2rem)] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1`}
         >
           {titre && (
             <p className="px-3 pt-2 pb-1 text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">{titre}</p>
@@ -80,7 +80,7 @@ export const Menu: React.FC<MenuProps> = ({
               title={e.desactive ? e.raison : undefined}
               aria-current={e.courante || undefined}
               onClick={() => { e.onChoisir(); onFermer(); }}
-              className={`w-full min-h-11 flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`ui-action w-full min-h-11 flex items-center gap-3 px-3 py-2 rounded-lg text-left disabled:opacity-40 disabled:cursor-not-allowed ${
                 e.courante ? 'bg-brand-light dark:bg-dark-bg' : 'hover:bg-brand-light dark:hover:bg-dark-bg'
               } ${e.ton === 'erreur' ? 'text-erreur' : 'text-brand-main dark:text-dark-text'} [&_svg]:size-4 [&_svg]:shrink-0`}
             >

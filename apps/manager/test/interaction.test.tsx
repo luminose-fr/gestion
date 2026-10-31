@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { Menu } from '../components/ui/Menu';
+import { ControleSegmente } from '../components/ui/ControleSegmente';
 import { ConfirmModal } from '../components/CommonModals';
 import { ErreurEcran } from '../components/ErreurEcran';
 
@@ -49,4 +50,25 @@ it('une erreur de rendu propose une issue au lieu d’une page blanche', () => {
   const vue = render(<ErreurEcran><Casse /></ErreurEcran>);
   expect(vue.getByRole('alert').textContent).toContain('Cet écran n’a pas pu s’afficher.');
   expect(vue.getByText('Recharger l’application')).toBeTruthy();
+});
+
+it('les flèches changent le filtre et sautent les choix indisponibles', () => {
+  function Exemple() {
+    const [valeur, poser] = useState('tout');
+    return <ControleSegmente valeur={valeur} onChange={poser} libelle="Filtrer" options={[
+      { valeur: 'tout', libelle: 'Tout' },
+      { valeur: 'indisponible', libelle: 'Indisponible', desactive: true },
+      { valeur: 'publier', libelle: 'Publier' },
+    ]} />;
+  }
+  const vue = render(<Exemple />);
+  const tout = vue.getByRole('radio', { name: 'Tout' });
+  tout.focus();
+  fireEvent.keyDown(tout, { key: 'ArrowRight' });
+  const publier = vue.getByRole('radio', { name: 'Publier' });
+  expect(document.activeElement).toBe(publier);
+  expect(publier.getAttribute('aria-checked')).toBe('true');
+  fireEvent.keyDown(publier, { key: 'Home' });
+  expect(document.activeElement).toBe(tout);
+  expect(tout.getAttribute('aria-checked')).toBe('true');
 });

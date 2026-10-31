@@ -41,7 +41,7 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                 onClick={() => setOuvert(o => !o)}
                 aria-expanded={ouvert}
                 aria-haspopup="menu"
-                className="w-full md:w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-left hover:border-brand-main/40 transition-colors"
+                className="ui-action w-full md:w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-left hover:border-brand-main/40"
             >
                 <span className="flex-1 min-w-0 space-y-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -58,7 +58,7 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                 <>
                     {/* Un clic dehors referme : le voile ne se voit pas, il attrape. */}
                     <div className="fixed inset-0 z-20" onClick={() => setOuvert(false)} />
-                    <div role="menu" className="absolute right-0 z-30 mt-1 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1"
+                    <div role="menu" className="ui-popover absolute right-0 z-30 mt-1 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1"
 >
                         <Etiquette className="px-3 pt-2 pb-1">Aller à une étape</Etiquette>
                         {lignes.map((l, i) => (
@@ -69,7 +69,7 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                                 disabled={l.verrouillee}
                                 title={l.raison ?? undefined}
                                 onClick={() => { onChoisir(l.etape); setOuvert(false); }}
-                                className={`w-full h-11 flex items-center gap-3 px-3 rounded-lg text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                className={`ui-action w-full h-11 flex items-center gap-3 px-3 rounded-lg text-left disabled:opacity-40 disabled:cursor-not-allowed ${
                                     l.etape === affichee ? 'bg-brand-light dark:bg-dark-bg' : 'hover:bg-brand-light dark:hover:bg-dark-bg'
                                 }`}
                             >
@@ -113,7 +113,7 @@ export interface PiedContenuProps {
  */
 export const PiedContenu: React.FC<PiedContenuProps> = ({ etat, erreur, onReessayer, cout, libelleSupprimer = 'Supprimer ce contenu', onSupprimer }) => (
     <div className="h-12 shrink-0 flex items-center gap-4 px-4 md:px-8 border-t border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
-        <span className="min-w-0 md:min-w-[220px] flex items-center gap-4 text-xs whitespace-nowrap">
+        <span aria-live="polite" aria-atomic="true" className="min-w-0 md:min-w-[220px] flex items-center gap-4 text-xs whitespace-nowrap">
             {etat === 'saving' ? <EnCours label="Enregistrement…" taille="xs" />
                 : etat === 'error' ? (
                     <span className="flex items-center gap-1.5 font-semibold text-erreur" title={erreur ?? undefined}>
@@ -121,7 +121,7 @@ export const PiedContenu: React.FC<PiedContenuProps> = ({ etat, erreur, onReessa
                         {onReessayer && <button type="button" onClick={onReessayer} className="underline hover:no-underline">Réessayer</button>}
                     </span>
                 ) : (
-                    <span className="flex items-center gap-1.5 text-succes"><Check className="w-3.5 h-3.5" /> Enregistré<span className="hidden md:inline"> automatiquement</span></span>
+                    <span className="ui-feedback flex items-center gap-1.5 text-succes" data-confirme={etat === 'saved' || undefined}><Check className="w-3.5 h-3.5" /> Enregistré<span className="hidden md:inline"> automatiquement</span></span>
                 )}
             {cout && <span className="hidden sm:inline text-brand-main dark:text-dark-text tabular-nums" title={cout.detail}>Coût IA {cout.libelle}</span>}
         </span>
