@@ -65,7 +65,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
                 >
                   <div className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${
                     aujourdhui ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                      : duMois ? 'text-brand-main dark:text-dark-text' : 'text-brand-main/30 dark:text-dark-text/30'
+                      : duMois ? 'text-brand-main dark:text-dark-text' : 'text-brand-main dark:text-dark-text'
                   }`}>
                     {format(jour, 'd')}
                   </div>

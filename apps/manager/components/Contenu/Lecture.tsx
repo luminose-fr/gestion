@@ -44,11 +44,11 @@ export const LectureScript: React.FC<{ draft: string | null; format: string | nu
                     <div key={i} className="grid grid-cols-[160px_minmax(0,1fr)] gap-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
                         <div className="space-y-1">
                             <Etiquette forme="entete">{i + 1} · {s.role || nature(s.plan)}</Etiquette>
-                            <p className="text-xs text-brand-main/60 dark:text-dark-text/60">{nature(s.plan)} · {Math.round(m.debut)} à {Math.round(m.fin)} s</p>
+                            <p className="text-xs text-brand-main dark:text-dark-text">{nature(s.plan)} · {Math.round(m.debut)} à {Math.round(m.fin)} s</p>
                         </div>
                         <div className="space-y-2">
                             <p className="text-sm leading-6 text-brand-main dark:text-dark-text whitespace-pre-wrap">{texteAffiche(s.voix)}</p>
-                            {s.intention && <p className="text-xs italic leading-relaxed text-brand-main/70 dark:text-dark-text/70">{s.intention}</p>}
+                            {s.intention && <p className="text-xs italic leading-relaxed text-brand-main dark:text-dark-text">{s.intention}</p>}
                         </div>
                     </div>
                 );
@@ -88,10 +88,10 @@ export const LectureTournage: React.FC<{ draft: string | null; format: string | 
                             <div className="flex items-center gap-3">
                                 <span className="w-7 h-7 rounded-full bg-brand-main text-white dark:bg-white dark:text-brand-main flex items-center justify-center text-xs font-bold">{i + 1}</span>
                                 <Etiquette forme="entete">{nature(s.plan)} · {s.role}</Etiquette>
-                                <span className="text-xs text-brand-main/60 dark:text-dark-text/60">{secondes(m.fin - m.debut)}</span>
+                                <span className="text-xs text-brand-main dark:text-dark-text">{secondes(m.fin - m.debut)}</span>
                             </div>
                             <p className="text-lg font-semibold leading-relaxed text-brand-main dark:text-white">{texteAffiche(s.voix)}</p>
-                            {s.intention && <p className="text-sm italic text-brand-main/70 dark:text-dark-text/70">{s.intention}</p>}
+                            {s.intention && <p className="text-sm italic text-brand-main dark:text-dark-text">{s.intention}</p>}
                         </div>
                         <div className="w-full sm:w-auto sm:max-w-[300px] sm:min-w-[220px] rounded-lg bg-brand-light dark:bg-dark-bg p-4 space-y-2 self-start">
                             <Etiquette>À l’écran</Etiquette>
@@ -106,7 +106,7 @@ export const LectureTournage: React.FC<{ draft: string | null; format: string | 
                 <div className="rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-5 space-y-2">
                     <Etiquette forme="entete">Seconde accroche · publicité</Etiquette>
                     <p className="text-lg font-semibold leading-relaxed text-brand-main dark:text-white">{texteAffiche(reel.accroche_pub.voix)}</p>
-                    <p className="text-xs text-brand-main/60 dark:text-dark-text/60">À tourner dans la foulée : elle remplace la séquence 1 dans la version publicitaire.</p>
+                    <p className="text-xs text-brand-main dark:text-dark-text">À tourner dans la foulée : elle remplace la séquence 1 dans la version publicitaire.</p>
                 </div>
             )}
         </div>
@@ -128,7 +128,7 @@ export const TrameCarrousel: React.FC<{ draft: string }> = ({ draft }) => {
                     <div key={i} className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5 space-y-2">
                         <div className="flex items-center justify-between gap-3">
                             <Etiquette forme="entete">{s.numero ?? i + 1} · {s.role || s.titre || 'Slide'}</Etiquette>
-                            <span className={`text-xs tabular-nums ${trop ? 'text-alerte font-semibold' : 'text-brand-main/60 dark:text-dark-text/60'}`}>{texte.length} / {SLIDE_TEXT_MAX}</span>
+                            <span className={`text-xs tabular-nums ${trop ? 'text-alerte font-semibold' : 'text-brand-main dark:text-dark-text'}`}>{texte.length} / {SLIDE_TEXT_MAX}</span>
                         </div>
                         {s.titre && s.role && <p className="text-sm font-bold text-brand-main dark:text-white">{s.titre}</p>}
                         <p className="text-sm leading-6 text-brand-main dark:text-dark-text">{texte}</p>
@@ -227,7 +227,7 @@ export const CeQuiSeraPublie: React.FC<{
                 <div className="flex-1 min-w-[220px]">
                     {script?.reel.legende
                         ? <CarrouselLegende legende={script.reel.legende as any} />
-                        : <p className="text-sm text-brand-main/70 dark:text-dark-text/70">La vidéo part depuis le fichier exporté.</p>}
+                        : <p className="text-sm text-brand-main dark:text-dark-text">La vidéo part depuis le fichier exporté.</p>}
                 </div>
             </div>
         );
@@ -241,7 +241,7 @@ export const CeQuiSeraPublie: React.FC<{
             </div>
         );
     }
-    if (!draft) return <p className="text-sm text-brand-main/70 dark:text-dark-text/70">Pas de contenu rédigé.</p>;
+    if (!draft) return <p className="text-sm text-brand-main dark:text-dark-text">Pas de contenu rédigé.</p>;
     if (copiable) return <CopiePostCourt draft={draft} />;
     return <BodyRenderer body={draft} datePublication={datePublication ?? undefined} />;
 };

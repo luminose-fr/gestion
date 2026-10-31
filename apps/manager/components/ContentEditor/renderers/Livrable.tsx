@@ -59,7 +59,7 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                 <p className="text-sm font-mono text-brand-main dark:text-dark-text break-all select-text">
                     _posts/{fichier.nom}
                 </p>
-                <p className="text-xs text-brand-main/60 dark:text-dark-text/60 break-all select-text">
+                <p className="text-xs text-brand-main dark:text-dark-text break-all select-text">
                     En ligne à {url}
                 </p>
                 {avertissements.length > 0 && (
@@ -72,7 +72,7 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                     </ul>
                 )}
                 <details className="group">
-                    <summary className="text-xs font-semibold text-brand-main/70 dark:text-dark-text/70 cursor-pointer select-none">
+                    <summary className="text-xs font-semibold text-brand-main dark:text-dark-text cursor-pointer select-none">
                         Voir le code
                     </summary>
                     <pre className="mt-2 max-h-96 overflow-auto custom-scrollbar rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-3 text-xs font-mono text-brand-main dark:text-dark-text whitespace-pre select-text">
@@ -98,7 +98,7 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                                 {illustration.prompt}
                             </p>
                             {/* Le site lit le .jpg et sa variante @2x : les deux noms, pour ne pas avoir à les deviner. */}
-                            <p className="text-xs font-mono text-brand-main/60 dark:text-dark-text/60 break-all">
+                            <p className="text-xs font-mono text-brand-main dark:text-dark-text break-all">
                                 /images/blog/{illustration.fichier}.jpg · {illustration.fichier}@2x.jpg
                             </p>
                         </div>

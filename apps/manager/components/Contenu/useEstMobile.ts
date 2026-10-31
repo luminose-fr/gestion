@@ -6,17 +6,18 @@ import { useEffect, useState } from 'react';
  * Un hook plutôt qu'une classe `hidden` : on ne veut pas charger Remotion pour
  * un écran qu'on ne montrera pas.
  */
-const REQUETE = '(max-width: 767px)';
 
-export function useEstMobile(): boolean {
+export function useEstMobile(largeurMax = 767): boolean {
+    const REQUETE = `(max-width: ${largeurMax}px)`;
     const lire = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(REQUETE).matches;
     const [mobile, setMobile] = useState(lire);
     useEffect(() => {
         if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
         const media = window.matchMedia(REQUETE);
         const suivre = () => setMobile(media.matches);
+        suivre();
         media.addEventListener?.('change', suivre);
         return () => media.removeEventListener?.('change', suivre);
-    }, []);
+    }, [REQUETE]);
     return mobile;
 }

@@ -98,7 +98,7 @@ export default function PsychedelicsCalculator() {
                     className={`min-h-[72px] rounded-xl border px-3 py-3 text-sm font-semibold transition-colors sm:min-h-0 sm:rounded-lg sm:px-3 sm:py-2 ${
                       isActive
                         ? `${tabTheme.soft} ${tabTheme.accent}`
-                        : 'border-brand-border text-brand-main/70 hover:bg-brand-light hover:text-brand-main dark:border-dark-sec-border dark:text-dark-text/70 dark:hover:bg-dark-sec-bg dark:hover:text-white'
+                        : 'border-brand-border text-brand-main hover:bg-brand-light hover:text-brand-main dark:border-dark-sec-border dark:text-dark-text dark:hover:bg-dark-sec-bg dark:hover:text-white'
                     }`}
                   >
                     <span className="flex flex-col items-center justify-center gap-2 sm:flex-row">
@@ -200,7 +200,7 @@ export default function PsychedelicsCalculator() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h4 className={CLASSES_TITRE}>Paliers estimatifs</h4>
-              <p className="mt-1 text-sm text-brand-main/50 dark:text-dark-text/50">
+              <p className="mt-1 text-sm text-brand-main dark:text-dark-text">
                 {activeTab === 'Champignons' && `${selectedMushroomVariant.label}, ${weight} kg`}
                 {activeTab === 'LSD' && 'Doses fixes (indépendantes du poids)'}
                 {activeTab === 'MDMA' && `Règle 1,5 mg/kg, ${weight} kg`}
@@ -219,7 +219,7 @@ export default function PsychedelicsCalculator() {
                         Micro-dose
                       </span>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-brand-main/70 dark:text-dark-text/70">
+                    <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">
                       {microDoseResult.description}
                     </p>
                   </div>
@@ -227,7 +227,7 @@ export default function PsychedelicsCalculator() {
                       l'écran existe pour donner, elle se lit d'un coup d'œil. */}
                   <div className="text-3xl font-bold text-brand-main dark:text-white">
                     {microDoseResult.amount}
-                    <span className="ml-2 text-base font-semibold text-brand-main/55 dark:text-dark-text/60">
+                    <span className="ml-2 text-base font-semibold text-brand-main dark:text-dark-text">
                       {microDoseResult.unit}
                     </span>
                   </div>
@@ -253,14 +253,14 @@ export default function PsychedelicsCalculator() {
                             </span>
                           )}
                         </div>
-                        <p className="mt-2 text-sm leading-6 text-brand-main/70 dark:text-dark-text/70">
+                        <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">
                           {result.description}
                         </p>
                       </div>
 
                       <div className="text-3xl font-bold text-brand-main dark:text-white">
                         {result.amount}
-                        <span className="ml-2 text-base font-semibold text-brand-main/55 dark:text-dark-text/60">
+                        <span className="ml-2 text-base font-semibold text-brand-main dark:text-dark-text">
                           {result.unit}
                         </span>
                       </div>
@@ -283,7 +283,7 @@ export default function PsychedelicsCalculator() {
             <h3 className={`${CLASSES_TITRE} mt-3`}>
               Conseils et réduction des risques
             </h3>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-brand-main/70 dark:text-dark-text/70">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-brand-main dark:text-dark-text">
               Les résultats restent indicatifs et doivent toujours être croisés avec la puissance réelle du produit,
               le contexte de consommation et la sensibilité de la personne.
             </p>
@@ -301,7 +301,7 @@ export default function PsychedelicsCalculator() {
                     className="rounded-xl border border-brand-border bg-brand-light p-4 dark:border-dark-sec-border dark:bg-dark-sec-bg"
                   >
                     <div className="text-sm font-semibold text-brand-main dark:text-white">{item.title}</div>
-                    <p className="mt-2 text-sm leading-6 text-brand-main/70 dark:text-dark-text/70">
+                    <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">
                       {item.description}
                     </p>
                   </div>
@@ -324,7 +324,7 @@ export default function PsychedelicsCalculator() {
               <h4 className={`${CLASSES_TITRE} mt-3`}>
                 Conseils pour {safetyTargetLabel}
               </h4>
-              <p className="mt-2 text-sm leading-6 text-brand-main/70 dark:text-dark-text/70">{safety.advice}</p>
+              <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">{safety.advice}</p>
 
               <div className="mt-5">
                 <Etiquette as="div">

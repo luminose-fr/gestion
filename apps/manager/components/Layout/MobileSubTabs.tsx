@@ -32,7 +32,7 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
         `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
             active
                 ? 'bg-brand-main text-white shadow-sm shadow-brand-main/25 dark:bg-white dark:text-brand-main'
-                : 'text-brand-main/70 dark:text-dark-text/70 hover:bg-brand-light dark:hover:bg-dark-sec-bg'
+                : 'text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg'
         }`;
 
     /*
@@ -140,14 +140,14 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                             active
                                 ? 'bg-brand-main text-white shadow-sm shadow-brand-main/25 dark:bg-white dark:text-brand-main'
-                                : 'text-brand-main/70 dark:text-dark-text/70 hover:bg-brand-light dark:hover:bg-dark-sec-bg'
+                                : 'text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg'
                         }`}
                     >
                         <Icon className="w-3 h-3" />
                         {t.label}
                         {count > 0 && (
                             <span className={`text-[10px] font-bold px-1 rounded-full leading-none ${
-                                active ? 'bg-white/25 text-white dark:bg-brand-main/15 dark:text-brand-main' : 'bg-brand-light text-brand-main/50 dark:bg-dark-bg dark:text-dark-text/50'
+                                active ? 'bg-white/25 text-white dark:bg-brand-main/15 dark:text-brand-main' : 'bg-brand-light text-brand-main dark:bg-dark-bg dark:text-dark-text'
                             }`}>
                                 {count}
                             </span>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { AlertCircle, Check, ChevronDown, ChevronLeft } from 'lucide-react';
 import { NOMS_DES_ETAPES, type Etape, type EtapeDuSelecteur } from '@luminose/editorial';
 import { BarreProgression, CLASSES_SURTITRE, CLASSES_TITRE_ECRAN, Etiquette, TitreEcran, type EtatSegment } from '../ui';
 import { EnCours } from '../Feedback';
+import { useMenuNavigation } from '../hooks/useMenuNavigation';
 
 /**
  * Le cadre d'un contenu ouvert (SPEC §13.9) : le même à toutes les étapes et
@@ -27,12 +28,14 @@ export interface SelecteurEtapeProps {
  */
 export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee, onChoisir }) => {
     const [ouvert, setOuvert] = useState(false);
+    const racine = useRef<HTMLDivElement>(null);
+    useMenuNavigation(ouvert, racine, () => setOuvert(false));
     const rang = Math.max(0, lignes.findIndex(l => l.etape === affichee));
     const actuel = lignes.findIndex(l => l.actuelle);
     const segments: EtatSegment[] = lignes.map((l, i) => (l.faite ? 'fait' : i === actuel ? 'encours' : 'avenir'));
 
     return (
-        <div className="relative shrink-0 w-full md:w-auto">
+        <div ref={racine} className="relative shrink-0 w-full md:w-auto">
             <button
                 type="button"
                 onClick={() => setOuvert(o => !o)}
@@ -49,14 +52,14 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                     </span>
                     <BarreProgression segments={segments} fine />
                 </span>
-                <ChevronDown className={`w-4 h-4 shrink-0 text-brand-main/60 dark:text-dark-text/60 transition-transform ${ouvert ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 shrink-0 text-brand-main dark:text-dark-text transition-transform ${ouvert ? 'rotate-180' : ''}`} />
             </button>
             {ouvert && (
                 <>
                     {/* Un clic dehors referme : le voile ne se voit pas, il attrape. */}
                     <div className="fixed inset-0 z-20" onClick={() => setOuvert(false)} />
                     <div role="menu" className="absolute right-0 z-30 mt-1 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1"
-                        onKeyDown={(e) => { if (e.key === 'Escape') setOuvert(false); }}>
+>
                         <Etiquette className="px-3 pt-2 pb-1">Aller à une étape</Etiquette>
                         {lignes.map((l, i) => (
                             <button
@@ -73,15 +76,15 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-micro font-bold shrink-0 ${
                                     l.faite ? 'bg-succes text-white dark:text-dark-bg'
                                         : l.actuelle ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                                            : 'border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70'
+                                            : 'border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text'
                                 }`}>
                                     {l.faite ? <Check className="w-3.5 h-3.5" /> : i + 1}
                                 </span>
                                 <span className="flex-1 min-w-0">
                                     <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{l.nom}</span>
-                                    {l.actuelle && <span className="block text-micro text-brand-main/60 dark:text-dark-text/60">étape actuelle</span>}
+                                    {l.actuelle && <span className="block text-micro text-brand-main dark:text-dark-text">étape actuelle</span>}
                                 </span>
-                                {l.statut && <span className="text-xs text-brand-main/60 dark:text-dark-text/60 shrink-0">{l.statut}</span>}
+                                {l.statut && <span className="text-xs text-brand-main dark:text-dark-text shrink-0">{l.statut}</span>}
                             </button>
                         ))}
                     </div>
@@ -120,7 +123,7 @@ export const PiedContenu: React.FC<PiedContenuProps> = ({ etat, erreur, onReessa
                 ) : (
                     <span className="flex items-center gap-1.5 text-succes"><Check className="w-3.5 h-3.5" /> Enregistré<span className="hidden md:inline"> automatiquement</span></span>
                 )}
-            {cout && <span className="hidden sm:inline text-brand-main/60 dark:text-dark-text/60 tabular-nums" title={cout.detail}>Coût IA {cout.libelle}</span>}
+            {cout && <span className="hidden sm:inline text-brand-main dark:text-dark-text tabular-nums" title={cout.detail}>Coût IA {cout.libelle}</span>}
         </span>
         <span className="flex-1" />
         {onSupprimer && (
@@ -157,7 +160,7 @@ export const CadreContenu: React.FC<CadreContenuProps> = ({
         {/* Sur téléphone, le bandeau passe sur deux lignes : le titre, puis le sélecteur en pleine largeur. */}
         <div className="md:h-20 shrink-0 flex flex-wrap md:flex-nowrap items-center gap-x-4 gap-y-2 px-4 md:px-8 py-3 md:py-0 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
             <button type="button" onClick={retour.onClick}
-                className="h-10 shrink-0 inline-flex items-center gap-1.5 px-2 rounded-lg text-sm font-semibold text-brand-main/70 dark:text-dark-text/70 hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors">
+                className="h-10 shrink-0 inline-flex items-center gap-1.5 px-2 rounded-lg text-sm font-semibold text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors">
                 <ChevronLeft className="w-4 h-4" /> {retour.libelle}
             </button>
             <div className="flex-1 min-w-0 space-y-1">

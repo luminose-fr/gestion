@@ -47,7 +47,7 @@ const INTENTIONS: Record<TonBouton, Record<IntentionBouton, string>> = {
     secondaire:
       'border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main/40',
     discrete:
-      'border border-transparent text-brand-main/70 dark:text-dark-text/70 underline hover:no-underline',
+      'border border-transparent text-brand-main dark:text-dark-text underline hover:no-underline',
   },
   /*
     Les tokens de sens s'éclaircissent en sombre (#6ee7b7, #fcd34d) : un texte

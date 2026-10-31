@@ -82,6 +82,8 @@ export const estSignalee = (e: unknown): boolean => Boolean((e as any)?.signalee
 const post = async <T>(path: string, payload: unknown): Promise<T> => {
   const res = await fetch(`${WORKER_URL}/api${path}`, {
     method: 'POST',
+    credentials: 'same-origin',
+    signal: AbortSignal.timeout(25 * 60 * 1000),
     headers: {
       'Content-Type': 'application/json',
       'X-Session-Token': getSessionToken() ?? '',

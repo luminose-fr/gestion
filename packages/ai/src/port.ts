@@ -84,6 +84,8 @@ export interface ProviderConfig {
   baseUrl?: string;
   /** Délai avant la seconde tentative. Zéro en test, pour ne pas attendre. */
   repriseDelaiMs?: number;
+  /** Borne une attente fournisseur sans multiplier les appels facturés. */
+  delaiMaxMs?: number;
 }
 
 // ── Reprise sur échec passager ───────────────────────────────────────────
@@ -125,6 +127,9 @@ export const avecUneReprise = async <T>(tenter: () => Promise<T>, delaiMs = 700)
   try {
     return await tenter();
   } catch (e) {
+    if (e instanceof Error && ['TimeoutError', 'AbortError'].includes(e.name)) {
+      throw new ErreurFournisseur('Le fournisseur a dépassé le délai maximal. Vous pouvez réessayer.', false);
+    }
     const passagere = e instanceof ErreurFournisseur ? e.passagere : true;
     if (!passagere) throw e;
     if (delaiMs > 0) await new Promise(resoudre => setTimeout(resoudre, delaiMs));

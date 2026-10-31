@@ -13,6 +13,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Layers, Link2 } from 'lucide-react';
 import type { ModeSuppressionSerie } from '@luminose/shared';
+import { useModalFocus } from '../hooks/useModalFocus';
 import { useEscapeClose } from '../hooks/useEscapeClose';
 import { EnCours } from '../Feedback';
 import { Bouton, CLASSES_TITRE } from '../ui';
@@ -31,6 +32,7 @@ export const ConfirmSuppressionSerie: React.FC<{
   const [enCours, setEnCours] = useState<ModeSuppressionSerie | null>(null);
 
   useEscapeClose(isOpen, onClose, enCours !== null);
+  const modal = useModalFocus(isOpen);
 
   if (!isOpen) return null;
 
@@ -51,7 +53,7 @@ export const ConfirmSuppressionSerie: React.FC<{
       className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in"
       onClick={enCours ? undefined : onClose}
     >
-      <div
+      <div ref={modal} role="dialog" aria-modal="true" aria-label="Confirmer la suppression de la série" tabIndex={-1}
         className="bg-white dark:bg-dark-surface w-full max-w-md rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6"
         onClick={e => e.stopPropagation()}
       >
@@ -61,11 +63,11 @@ export const ConfirmSuppressionSerie: React.FC<{
         </div>
 
         {nbPublications === 0 ? (
-          <p className="text-sm text-brand-main/70 dark:text-dark-text/70 mb-6 leading-relaxed">
+          <p className="text-sm text-brand-main dark:text-dark-text mb-6 leading-relaxed">
             Cette série ne contient aucune publication. Il n'y a que le regroupement à supprimer.
           </p>
         ) : (
-          <p className="text-sm text-brand-main/70 dark:text-dark-text/70 mb-4 leading-relaxed">
+          <p className="text-sm text-brand-main dark:text-dark-text mb-4 leading-relaxed">
             Cette série contient <strong className="font-bold text-brand-main dark:text-white">{publications}</strong>.
             Que faut-il en faire ?
           </p>
@@ -129,7 +131,7 @@ export const ConfirmSuppressionSerie: React.FC<{
         </div>
 
         {nbPublications > 0 && (
-          <p className="text-xs text-brand-main/60 dark:text-dark-text/60 mt-4 leading-relaxed">
+          <p className="text-xs text-brand-main dark:text-dark-text mt-4 leading-relaxed">
             Détachées, les publications restent dans « En cours », « Prêts » ou les archives selon leur
             statut — elles perdent seulement leur rang dans la progression.
           </p>

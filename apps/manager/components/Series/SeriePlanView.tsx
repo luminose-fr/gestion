@@ -225,7 +225,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         <Etiquette as="span" className="shrink-0">
                             Contenu pilier
                         </Etiquette>
-                        <span className="text-xs text-brand-main dark:text-dark-text/80 truncate">
+                        <span className="text-xs text-brand-main dark:text-dark-text truncate">
                             {sourceContent.title || 'Sans titre'}
                         </span>
                     </Bouton>
@@ -251,7 +251,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         Replié, l'en-tête doit répondre à « pourquoi j'ouvrirais ça ? ».
                         Nommer la section ne suffit pas : c'est le geste qu'on annonce.
                     */}
-                    <span className="text-micro text-brand-main/50 dark:text-dark-text/50">
+                    <span className="text-micro text-brand-main dark:text-dark-text">
                         {rows.length > 0
                             ? `${usableRows.length} contenu${usableRows.length > 1 ? 's' : ''} à créer`
                             : planOuvert
@@ -264,7 +264,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             value={nombreSouhaite}
                             onChange={e => setNombreSouhaite(Number(e.target.value))}
                             title="Nombre de publications demandé à l'Éclateur"
-                            className="px-2 py-1.5 rounded-md border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-micro font-semibold text-brand-main/70 dark:text-dark-text/70 outline-hidden cursor-pointer"
+                            className="px-2 py-1.5 rounded-md border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-micro font-semibold text-brand-main dark:text-dark-text outline-hidden cursor-pointer"
                         >
                             {TAILLES.map(n => (
                                 <option key={n} value={n}>{n} publications</option>
@@ -328,7 +328,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 {rows.length === 0 ? (
                     <div className="px-4 py-8 text-center">
                         <Wand2 className="w-10 h-10 mx-auto mb-3 text-brand-border dark:text-dark-sec-border" />
-                        <p className="text-sm text-brand-main/60 dark:text-dark-text/60 text-balance mx-auto">
+                        <p className="text-sm text-brand-main dark:text-dark-text text-balance mx-auto">
                             Le plan est vide. Demandez-en un à l'Éclateur : il rend une progression —
                             titre, angle, matière, format et objectif pour chaque publication, dans
                             l'ordre où elles se lisent. Vous pouvez aussi les ajouter ligne par ligne.
@@ -436,7 +436,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     <Etiquette forme="entete">Publications, dans l’ordre</Etiquette>
                 </div>
                 {contents.length === 0 ? (
-                    <p className="px-4 py-8 text-center text-sm text-brand-main/50 dark:text-dark-text/50">
+                    <p className="px-4 py-8 text-center text-sm text-brand-main dark:text-dark-text">
                         Aucun contenu rattaché pour l'instant.
                     </p>
                 ) : (
@@ -450,19 +450,19 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                     onClick={() => onOpenContent(item)}
                                     className="w-full min-h-[60px] grid grid-cols-[26px_minmax(0,1fr)_auto_200px_16px] items-center gap-4 px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
                                 >
-                                    <span className="w-[26px] h-[26px] rounded-full border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-xs font-bold text-brand-main/70 dark:text-dark-text/70">
+                                    <span className="w-[26px] h-[26px] rounded-full border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-xs font-bold text-brand-main dark:text-dark-text">
                                         {item.seriePosition ?? index + 1}
                                     </span>
                                     <span className="min-w-0">
                                         <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
-                                        {item.angle && <span className="block text-xs text-brand-main/60 dark:text-dark-text/60 truncate">{item.angle}</span>}
+                                        {item.angle && <span className="block text-xs text-brand-main dark:text-dark-text truncate">{item.angle}</span>}
                                     </span>
                                     <span>{getFormatDef(item.targetFormat)?.shortKey && <Etiquette as="span" forme="pastille">{getFormatDef(item.targetFormat)!.shortKey}</Etiquette>}</span>
                                     <span className="space-y-1">
                                         {etapes[item.id] && <BarreProgression segments={etapes[item.id].progression.segments} complet={etapes[item.id].progression.complet} />}
                                         <span className={`block text-xs font-semibold truncate ${etapes[item.id]?.progression.complet ? 'text-succes' : 'text-brand-main dark:text-dark-text'}`}>{etapes[item.id]?.libelle}</span>
                                     </span>
-                                    <ChevronRight className="w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
+                                    <ChevronRight className="w-4 h-4 text-brand-main dark:text-dark-text" />
                                 </button>
                             </li>
                         ))}

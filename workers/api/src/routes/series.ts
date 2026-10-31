@@ -15,11 +15,12 @@ export const series = new Hono<{ Bindings: Env }>();
 series.get('/', async (c) => {
   const { since } = SyncQuerySchema.parse(Object.fromEntries(new URL(c.req.url).searchParams));
 
+  const syncedAt = now() - 1;
   const { results } = since === undefined
     ? await c.env.DB.prepare('SELECT * FROM series WHERE deleted_at IS NULL ORDER BY updated_at DESC').all()
     : await c.env.DB.prepare('SELECT * FROM series WHERE updated_at > ? ORDER BY updated_at DESC').bind(since).all();
 
-  return c.json({ items: results.map(rowToSerie), syncedAt: now() });
+  return c.json({ items: results.map(rowToSerie), syncedAt });
 });
 
 /** 2 requêtes : la série, puis ses contenus. */

@@ -36,6 +36,8 @@ const api = async <T>(
   try {
     const res = await fetch(`${WORKER_URL}/api${path}`, {
       ...init,
+      credentials: 'same-origin',
+      signal: init.signal ?? AbortSignal.timeout(path.includes('/parties/') || init.body instanceof Blob ? 15 * 60 * 1000 : 60_000),
       headers: {
         'Content-Type': 'application/json',
         'X-Session-Token': getSessionToken() ?? '',

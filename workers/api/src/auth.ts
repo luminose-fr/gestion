@@ -70,9 +70,32 @@ export const verifySessionToken = async (
 
   try {
     const data = JSON.parse(atob(payloadB64));
-    if (Date.now() > data.expiresAt) return { valid: false, error: 'Session expirée' };
+    if (typeof data.expiresAt !== 'number' || !Number.isFinite(data.expiresAt) || typeof data.token !== 'string' || !data.token) {
+      return { valid: false, error: 'Token invalide' };
+    }
+    if (Date.now() >= data.expiresAt) return { valid: false, error: 'Session expirée' };
     return { valid: true };
   } catch {
     return { valid: false, error: 'Token invalide' };
   }
 };
+
+export const empreinteSession = async (texte: string): Promise<string> =>
+  Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(texte))), b => b.toString(16).padStart(2, '0')).join('');
+
+/** Le nom __Host- empêche un autre sous-domaine de remplacer la session. */
+const nomCookie = (url: string) => new URL(url).protocol === 'https:' ? '__Host-luminose-session' : 'luminose_dev_session';
+
+export const sessionDe = (req: Request): string | null => {
+  const nom = nomCookie(req.url);
+  const morceau = (req.headers.get('Cookie') ?? '').split(';').map(x => x.trim()).find(x => x.startsWith(`${nom}=`));
+  if (morceau) {
+    try { return decodeURIComponent(morceau.slice(nom.length + 1)); } catch { return null; }
+  }
+  return req.headers.get('X-Session-Token') || null;
+};
+
+export const cookieSession = (url: string, jeton: string, age = SESSION_TTL_MS / 1000): string =>
+  `${nomCookie(url)}=${encodeURIComponent(jeton)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${new URL(url).protocol === 'https:' ? '; Secure' : ''}`;
+
+export const expirationSession = (jeton: string): number => JSON.parse(atob(jeton.slice(0, jeton.lastIndexOf('.')))).expiresAt;

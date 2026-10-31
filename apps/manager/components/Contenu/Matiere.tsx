@@ -34,7 +34,7 @@ export const EnteteMatiere: React.FC<{
         <div className="h-[60px] shrink-0 flex items-center gap-3 px-4 md:px-7 border-b border-brand-border dark:border-dark-sec-border">
             <div className="flex-1 min-w-0 flex items-baseline gap-2">
                 <span className="text-sm font-bold text-brand-main dark:text-white">{nom}</span>
-                {sousTitre && <span className="text-xs text-brand-main/60 dark:text-dark-text/60 truncate">{sousTitre}</span>}
+                {sousTitre && <span className="text-xs text-brand-main dark:text-dark-text truncate">{sousTitre}</span>}
             </div>
             {principale && (
                 <span title={principale.desactive ? principale.raison : undefined}>
@@ -58,7 +58,7 @@ export const EnteteMatiere: React.FC<{
 export const MatiereVide: React.FC<{ titre: string; texte: string }> = ({ titre, texte }) => (
     <div className="rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-6 text-center space-y-1">
         <p className="text-sm font-semibold text-brand-main dark:text-white">{titre}</p>
-        <p className="text-xs text-brand-main/70 dark:text-dark-text/70 text-balance">{texte}</p>
+        <p className="text-xs text-brand-main dark:text-dark-text text-balance">{texte}</p>
     </div>
 );
 
@@ -94,7 +94,7 @@ export const MatiereOuverture: React.FC<{
                     {!format && <option value="">Choisir un format…</option>}
                     {TARGET_FORMAT_VALUES.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
-                <p className="mt-1 text-xs text-brand-main/60 dark:text-dark-text/60">
+                <p className="mt-1 text-xs text-brand-main dark:text-dark-text">
                     {verrouille ? 'L’atelier est ouvert : le format ne change plus.' : 'Modifiable jusqu’à l’ouverture de l’atelier.'}
                 </p>
             </div>
@@ -118,7 +118,7 @@ export const BlocPublier: React.FC<{
     onDecliner?: () => void;
     occupe?: boolean;
 }> = ({ plateformes, publie, libellePublication, dateInitiale, onPublier, onRepasserEnEcriture, onDecliner, occupe }) => {
-    const [date, setDate] = useState(() => (dateInitiale ? dateInitiale.slice(0, 10) : new Date().toISOString().slice(0, 10)));
+    const [date, setDate] = useState(() => (dateInitiale ? dateInitiale.slice(0, 10) : new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10)));
     return (
         <div className="w-full max-w-[340px] rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5 space-y-4 self-start">
             <Etiquette forme="entete">Publier</Etiquette>
@@ -140,7 +140,7 @@ export const BlocPublier: React.FC<{
             <Bouton taille="petit" intention="discrete" disabled={occupe} onClick={onRepasserEnEcriture}>Repasser en écriture</Bouton>
             {onDecliner && (
                 <div className="pt-3 border-t border-brand-border dark:border-dark-sec-border space-y-2">
-                    <p className="text-xs text-brand-main/70 dark:text-dark-text/70">Ce contenu peut devenir le pilier d’une série.</p>
+                    <p className="text-xs text-brand-main dark:text-dark-text">Ce contenu peut devenir le pilier d’une série.</p>
                     <Bouton taille="grand" onClick={onDecliner}><Layers /> Décliner en série</Bouton>
                 </div>
             )}

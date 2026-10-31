@@ -279,3 +279,15 @@ export const rowToMesureSynthese = (r: any): MesureSynthese => {
     dernier: Number(r.dernier ?? 0),
   };
 };
+
+export const rowToCaptureExport = (r: any) => ({
+      id: r.id, decide: r.decide, remplace: r.remplace, source: r.source,
+      createdAt: r.created_at, integratedAt: r.integrated_at, integration: r.integration, deletedAt: r.deleted_at,
+    });
+
+export const rowToMesureExport = (r: any) => ({
+      id: r.id, action: r.action, format: r.format, modelId: r.model_id, modelLabel: r.model_label,
+      provider: r.provider, promptTokens: r.prompt_tokens, completionTokens: r.completion_tokens,
+      costUsd: r.cost_usd, dureeMs: r.duree_ms, feuilleCar: r.feuille_car,
+      ok: Boolean(r.ok), erreur: r.erreur, createdAt: r.created_at,
+    });

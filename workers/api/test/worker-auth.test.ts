@@ -13,16 +13,21 @@
  * touche pas D1 : l'environnement de ce fichier n'a pas de binding. Ce qu'on
  * vérifie reste le jeton, jamais la route.
  */
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 // @ts-ignore — le Worker est du JS sans types
 import worker from '../src/index';
 
-const ENV = {
+import { makeEnv } from './helpers/d1';
+
+let ENV = {
+  ...makeEnv(),
   AUTH_USERNAME: 'florent',
   AUTH_PASSWORD: 'motdepasse-de-test',
   SESSION_SECRET: 'secret-de-signature-de-test',
   ONE_MIN_API_KEY: '1min-key',
 };
+
+beforeEach(() => { ENV = { ...ENV, ...makeEnv(), AUTH_PASSWORD: 'motdepasse-de-test', SESSION_SECRET: 'secret-de-signature-de-test', ONE_MIN_API_KEY: '1min-key' }; });
 
 const ORIGIN = 'https://gestion.luminose.fr';
 
@@ -151,5 +156,51 @@ describe('origine unique — plus aucun CORS', () => {
       ENV
     );
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+});
+
+
+describe('protection de la session navigateur', () => {
+  it('pose un cookie inaccessible à JavaScript, sécurisé et limité au site', async () => {
+    const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD);
+    const cookie = res.headers.get('Set-Cookie')!;
+    expect(cookie).toContain('__Host-luminose-session=');
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('SameSite=Strict');
+    const lecture = await worker.fetch(new Request('https://w.dev/auth/session', { headers: { Cookie: cookie.split(';')[0] } }), ENV);
+    expect(lecture.status).toBe(200);
+    expect(lecture.headers.get('Cache-Control')).toBe('no-store');
+  });
+  it('révoque le jeton côté serveur après déconnexion, même s’il est rejoué en en-tête', async () => {
+    const connexion = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD);
+    const { sessionToken } = await connexion.json() as LoginBody;
+    const res = await worker.fetch(new Request('https://w.dev/auth/logout', {
+      method: 'POST', headers: { Cookie: connexion.headers.get('Set-Cookie')!.split(';')[0], Origin: ORIGIN },
+    }), ENV);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Set-Cookie')).toContain('Max-Age=0');
+    expect((await appelAuthentifie(sessionToken)).status).toBe(401);
+  });
+  it('refuse une écriture venant d’un autre site, même avec une session valide', async () => {
+    const res = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD);
+    const attaque = await worker.fetch(new Request('https://w.dev/auth/logout', {
+      method: 'POST', headers: { Cookie: res.headers.get('Set-Cookie')!.split(';')[0], Origin: 'https://attaque.example' },
+    }), ENV);
+    expect(attaque.status).toBe(403);
+  });
+  it('échoue fermée quand les identifiants ne sont pas configurés', async () => {
+    const res = await worker.fetch(new Request('https://w.dev/auth/login', { method: 'POST', body: '{}' }), { ...ENV, AUTH_USERNAME: undefined, AUTH_PASSWORD: undefined } as any);
+    expect(res.status).toBe(503);
+  });
+  it('limite les tentatives répétées avant de vérifier le mot de passe', async () => {
+    for (let i = 0; i < 20; i++) expect((await login('florent', 'faux')).status).toBe(401);
+    const limite = await login(ENV.AUTH_USERNAME, ENV.AUTH_PASSWORD);
+    expect(limite.status).toBe(429);
+    expect(Number(limite.headers.get('Retry-After'))).toBeGreaterThan(0);
+  });
+  it('refuse un payload signé sans expiration', async () => {
+    const payload = btoa(JSON.stringify({ token: 'x' }));
+    expect((await appelAuthentifie(`${payload}.${await signPayload(payload)}`)).status).toBe(401);
   });
 });

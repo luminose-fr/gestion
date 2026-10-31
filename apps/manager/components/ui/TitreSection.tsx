@@ -53,7 +53,7 @@ export const TitreSection: React.FC<TitreSectionProps> = ({
     <div className="min-w-0">
       {React.createElement(as, { className: CLASSES_TITRE }, titre)}
       {sousTitre && (
-        <p className="mt-1 text-xs text-brand-main/60 dark:text-dark-text/60">{sousTitre}</p>
+        <p className="mt-1 text-xs text-brand-main dark:text-dark-text">{sousTitre}</p>
       )}
     </div>
     {action && <div className="flex items-center gap-2 shrink-0">{action}</div>}

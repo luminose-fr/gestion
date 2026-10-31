@@ -18,10 +18,10 @@
   },
   "dependencies": {
     "@luminose/ai": "^2.0.0",
+    "@luminose/corpus": "*",
     "@luminose/editorial": "^2.0.0",
     "@luminose/shared": "^2.0.0",
     "hono": "^4.13.3",
-    "zod": "^4.4.3",
-    "@luminose/corpus": "*"
+    "zod": "^4.6.7"
   }
 }

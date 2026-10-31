@@ -24,6 +24,8 @@ import DocumentsView from '../components/Corpus/DocumentsView';
 import InboxView from '../components/Corpus/InboxView';
 import { Markdown } from '../components/ui';
 import * as Api from '../services/apiService';
+import * as AiService from '../services/aiService';
+import * as Storage from '../services/storageService';
 import { SETTINGS_SECTIONS } from '../components/Settings/sections';
 import { PERSONAS_NAV } from '../components/Settings/apercus';
 import { AI_ACTION_CATALOG } from '@luminose/editorial';
@@ -110,7 +112,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', async () => new Response('{}', { status: 200 }));
 });
 
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe('espace Réglages', () => {
   const props = {
@@ -448,6 +450,36 @@ describe('le contenu ouvert (SPEC §13.9, §13.10)', () => {
   );
   const boutons = (c: HTMLElement) => Array.from(c.querySelectorAll('button')).map(b => b.textContent?.trim());
   const POST = JSON.stringify({ format: 'Post Texte', accroche: 'Une accroche.', corps: 'Un corps qui se lit.' });
+
+  it('conserve une frappe puis l’enregistre quand on quitte avant le délai automatique', async () => {
+    const sauvegarder = vi.fn(async () => {});
+    const { findByLabelText, unmount } = render(editeur({ ...ITEM, notes: '' }, 'ouverture', { onSave: sauvegarder }));
+    const titre = await findByLabelText('Titre du contenu');
+    fireEvent.change(titre, { target: { value: 'Une frappe à conserver' } });
+    expect(Storage.getPendingContents().find(i => i.id === ITEM.id)?.title).toBe('Une frappe à conserver');
+    unmount();
+    await waitFor(() => expect(sauvegarder).toHaveBeenCalledWith(expect.objectContaining({ title: 'Une frappe à conserver' })));
+  });
+
+  it('une réponse IA arrivée après la fermeture reste journalisée et enregistrée', async () => {
+    let terminer!: (valeur: any) => void;
+    const redaction = new Promise<any>(resolve => { terminer = resolve; });
+    const generer = vi.spyOn(AiService, 'generateContent').mockImplementation((req) =>
+      req.aiAction === 'COLD_READ'
+        ? Promise.resolve({ text: JSON.stringify({ lecture_naive: { sujet: 'Une accroche' }, verdict: 'Publiable' }), usage: { entree: null, sortie: null, coutUsd: null } })
+        : redaction);
+    const journaliser = vi.spyOn(Api, 'recordGeneration').mockResolvedValue({} as any);
+    const sauvegarder = vi.fn(async () => {});
+    const route = vi.fn();
+    const { findByText, unmount } = render(editeur({ ...ITEM, status: ContentStatus.DRAFTING, targetFormat: 'Post Texte (Court)' as any, draft: null }, 'ouverture', { onSave: sauvegarder, onStepChange: route }));
+    fireEvent.click(await findByText('Rédiger sans atelier'));
+    await waitFor(() => expect(generer).toHaveBeenCalled());
+    unmount();
+    terminer({ text: POST, usage: { entree: 1, sortie: 2, coutUsd: 0.01 } });
+    await waitFor(() => expect(journaliser).toHaveBeenCalledWith(ITEM.id, expect.objectContaining({ kind: 'draft', payload: expect.stringContaining('Une accroche.') })));
+    await waitFor(() => expect(sauvegarder).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.stringContaining('Une accroche.') }), ['draft']));
+    expect(route).not.toHaveBeenCalled();
+  });
 
   it('se monte sans contenu, puis avec : ses hooks précèdent son retour anticipé', async () => {
     const { container, rerender, findByText } = render(editeur(null as any, 'ouverture'));

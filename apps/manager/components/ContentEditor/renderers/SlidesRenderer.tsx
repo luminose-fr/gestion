@@ -97,7 +97,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                             </Etiquette>
                             <button
                                 onClick={closeAdjustForm}
-                                className="p-1 rounded-md text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-bg transition-colors"
+                                className="p-1 rounded-md text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-bg transition-colors"
                                 title="Annuler"
                             >
                                 <X className="w-3.5 h-3.5" />
@@ -130,7 +130,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                                     : <><Send className="w-3.5 h-3.5" /> Envoyer</>}
                             </Bouton>
                         </div>
-                        <p className="text-micro text-brand-main/70 dark:text-dark-text/70 mt-1.5">
+                        <p className="text-micro text-brand-main dark:text-dark-text mt-1.5">
                             ⌘+Entrée pour envoyer · Échap pour annuler
                         </p>
                     </div>
@@ -170,7 +170,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                                                 </h3>
                                             )}
                                             {slide.texte && (
-                                                <p className="mt-4 font-sans text-sm leading-[1.55] text-brand-main/85 dark:text-dark-text">
+                                                <p className="mt-4 font-sans text-sm leading-[1.55] text-brand-main dark:text-dark-text">
                                                     {slide.texte}
                                                 </p>
                                             )}
@@ -193,7 +193,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                                                 </h3>
                                             )}
                                             {slide.texte && (
-                                                <p className="mt-5 font-sans text-sm leading-[1.6] text-brand-main/85 dark:text-dark-text">
+                                                <p className="mt-5 font-sans text-sm leading-[1.6] text-brand-main dark:text-dark-text">
                                                     {slide.texte}
                                                 </p>
                                             )}
@@ -209,7 +209,7 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                         <div>
                                             <Etiquette forme="entete">Prompt Dzine</Etiquette>
-                                            <p className="mt-1 text-xs text-brand-main/70 dark:text-dark-text/70">
+                                            <p className="mt-1 text-xs text-brand-main dark:text-dark-text">
                                                 Slide illustrée
                                             </p>
                                         </div>

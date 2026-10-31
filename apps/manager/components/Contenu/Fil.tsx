@@ -50,7 +50,7 @@ export interface FilProps {
 const RAYON_IA = 'rounded-[4px_14px_14px_14px]';
 const RAYON_VOUS = 'rounded-[14px_4px_14px_14px]';
 
-const LIEN = 'text-xs underline hover:no-underline text-brand-main/70 dark:text-dark-text/70 disabled:opacity-40';
+const LIEN = 'text-xs underline hover:no-underline text-brand-main dark:text-dark-text disabled:opacity-40';
 
 /** Ce qui se déplie dans une bulle : on le lit quand on le cherche, il ne masque pas le fil. */
 const Repli: React.FC<{ libelle: string; children: React.ReactNode }> = ({ libelle, children }) => {
@@ -111,7 +111,7 @@ const Bulle: React.FC<{
     if (b.de === 'vous') {
         return (
             <div className="flex flex-col items-end gap-1">
-                <span className="text-xs font-bold text-brand-main/70 dark:text-dark-text/70">Vous · {jourCourt(b.le)}</span>
+                <span className="text-xs font-bold text-brand-main dark:text-dark-text">Vous · {jourCourt(b.le)}</span>
                 <div className={`max-w-[85%] ${RAYON_VOUS} bg-brand-main dark:bg-white px-4 py-2 text-sm leading-[22px] text-white dark:text-brand-main whitespace-pre-wrap`}>
                     {b.texte}
                 </div>
@@ -124,7 +124,7 @@ const Bulle: React.FC<{
     const peutCorriger = !ignoree && !!b.controle && !!onCorrigerLeFormat && !!b.points?.length;
     return (
         <div className="flex flex-col items-start gap-1">
-            <span className="text-xs font-bold text-brand-main/70 dark:text-dark-text/70">{b.role} · {jourCourt(b.le)}</span>
+            <span className="text-xs font-bold text-brand-main dark:text-dark-text">{b.role} · {jourCourt(b.le)}</span>
             <div className={`max-w-[88%] ${RAYON_IA} border ${bordure} bg-white dark:bg-dark-surface px-4 py-2 text-sm leading-[22px] text-brand-main dark:text-dark-text space-y-2`}>
                 {b.verdict && <p className={`font-bold ${sens}`}>{b.verdict}.</p>}
                 {b.texte && (b.role === 'Coach'
@@ -143,7 +143,7 @@ const Bulle: React.FC<{
                     </div>
                 )}
                 {/* « 16 oct. » porte déjà son point ; « 3 mai », non. */}
-                {b.appliqueeLe && <p className="text-xs text-brand-main/60 dark:text-dark-text/60">Appliquées le {jourCourt(b.appliqueeLe).replace(/\.?$/, '.')}</p>}
+                {b.appliqueeLe && <p className="text-xs text-brand-main dark:text-dark-text">Appliquées le {jourCourt(b.appliqueeLe).replace(/\.?$/, '.')}</p>}
                 {b.revenirPossible && onRevenir && (
                     <button type="button" onClick={onRevenir} disabled={occupe} className={`block ${LIEN}`}>
                         Revenir à la version précédente
@@ -156,8 +156,8 @@ const Bulle: React.FC<{
 
 const Attente: React.FC<{ role: RoleDuFil }> = ({ role }) => (
     <div className="flex flex-col items-start gap-1" aria-live="polite">
-        <span className="text-xs font-bold text-brand-main/70 dark:text-dark-text/70">{role}</span>
-        <div className={`${RAYON_IA} border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface px-4 py-2 text-sm italic text-brand-main/70 dark:text-dark-text/70`}>
+        <span className="text-xs font-bold text-brand-main dark:text-dark-text">{role}</span>
+        <div className={`${RAYON_IA} border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface px-4 py-2 text-sm italic text-brand-main dark:text-dark-text`}>
             réfléchit…
         </div>
     </div>
@@ -172,7 +172,7 @@ const Composeur: React.FC<{ zone: ZoneComposeur }> = ({ zone }) => {
     };
     return (
         <div className="space-y-2">
-            <p className="text-xs text-brand-main/70 dark:text-dark-text/70">
+            <p className="text-xs text-brand-main dark:text-dark-text">
                 {zone.destinataire === 'coach'
                     ? <><span className="font-bold">Au Coach</span> · « Go » valide la direction</>
                     : <><span className="font-bold">Au Rédacteur</span> · un message = un ajustement</>}
@@ -237,18 +237,18 @@ export const Fil: React.FC<FilProps> = ({ elements, attente, zone, onAppliquer, 
                 <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-brand-border dark:border-dark-sec-border">
                     <MessageCircle className="w-4 h-4 text-brand-main dark:text-dark-text" />
                     <span className="text-sm font-bold text-brand-main dark:text-white">Le fil</span>
-                    <span className="text-xs text-brand-main/60 dark:text-dark-text/60">ce qui s’est dit et fait</span>
+                    <span className="text-xs text-brand-main dark:text-dark-text">ce qui s’est dit et fait</span>
                 </div>
             )}
             {/* Ancré en bas : le fil s'ouvre sur ses derniers messages. */}
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse px-5 py-4">
                 <div className="space-y-4">
                     {elements.length === 0 && !attente && (
-                        <p className="text-xs text-center text-brand-main/60 dark:text-dark-text/60">Rien ne s’est encore dit sur ce contenu.</p>
+                        <p className="text-xs text-center text-brand-main dark:text-dark-text">Rien ne s’est encore dit sur ce contenu.</p>
                     )}
                     {elements.map(e => e.type === 'atelier' ? (
                         <div key={e.id} className="space-y-4">
-                            <div className="h-10 flex items-center gap-3 px-4 rounded-lg border border-dashed border-brand-border dark:border-dark-sec-border text-xs text-brand-main/70 dark:text-dark-text/70">
+                            <div className="h-10 flex items-center gap-3 px-4 rounded-lg border border-dashed border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
                                 <span className="flex-1">Atelier · {e.messages} message{e.messages > 1 ? 's' : ''} · validé</span>
                                 <button type="button" onClick={() => setDeplie(d => !d)} className="underline hover:no-underline">{deplie ? 'Replier' : 'Lire la trame'}</button>
                             </div>
@@ -262,7 +262,7 @@ export const Fil: React.FC<FilProps> = ({ elements, attente, zone, onAppliquer, 
                 <div className="shrink-0 px-5 py-4 border-t border-brand-border dark:border-dark-sec-border">
                     {zone.type === 'ouverture' ? (
                         <div className="space-y-3">
-                            <p className="text-xs text-brand-main/70 dark:text-dark-text/70">
+                            <p className="text-xs text-brand-main dark:text-dark-text">
                                 Le Coach vous interroge pour trouver l’angle ; « Go » passe la main au Rédacteur.
                             </p>
                             <Bouton taille="grand" intention="principale" posee className="w-full h-11" disabled={zone.occupe} onClick={zone.onOuvrirAtelier}>

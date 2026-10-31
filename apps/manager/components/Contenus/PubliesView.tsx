@@ -36,7 +36,7 @@ export const PubliesView: React.FC<PubliesViewProps> = ({
         <div className="space-y-4 animate-fade-in">
             <div className="flex flex-wrap md:flex-nowrap items-center gap-3">
                 <div className="relative w-full md:w-auto md:flex-1 md:min-w-[140px] md:max-w-[280px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main/50 dark:text-dark-text/50" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main dark:text-dark-text" />
                     <Champ
                         type="search"
                         placeholder="Rechercher…"
@@ -73,14 +73,14 @@ export const PubliesView: React.FC<PubliesViewProps> = ({
                                     )}
                                 </span>
                                 <span className="text-xs font-semibold text-succes truncate">{etapes[item.id]?.libelle ?? 'Publié'}</span>
-                                <ChevronRight className="hidden md:block w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
+                                <ChevronRight className="hidden md:block w-4 h-4 text-brand-main dark:text-dark-text" />
                             </button>
                         ))}
                     </div>
                 </Carte>
             ) : !isInitializing && (
                 <Carte densite="seule" className="text-center space-y-2">
-                    <CheckCircle2 className="w-8 h-8 mx-auto text-brand-main/40 dark:text-dark-text/40" />
+                    <CheckCircle2 className="w-8 h-8 mx-auto text-brand-main dark:text-dark-text" />
                     <p className="text-sm text-brand-main dark:text-dark-text">
                         {searchQuery.trim() ? 'Aucune publication pour cette recherche.' : 'Rien de publié pour l’instant.'}
                     </p>

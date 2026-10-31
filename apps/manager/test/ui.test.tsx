@@ -247,7 +247,7 @@ describe('Etiquette — les deux sur-titres', () => {
     );
     const [surtitre, entete] = classes(container);
     for (const c of [surtitre, entete]) expect(c).toContain('text-micro font-bold uppercase tracking-wider');
-    expect(surtitre).toContain('text-brand-main/60 dark:text-dark-text/50');
+    expect(surtitre).toContain('text-brand-main dark:text-dark-text');
     expect(entete).toContain('text-brand-main dark:text-dark-text');
     expect(entete).not.toMatch(/text-brand-main\//);
   });
@@ -275,7 +275,7 @@ describe('Etiquette — les deux sur-titres', () => {
   });
 
   it('prête ses classes aux en-têtes de tableau, sans disposition', () => {
-    expect(CLASSES_SURTITRE).toBe('text-micro font-bold uppercase tracking-wider text-brand-main/60 dark:text-dark-text/50');
+    expect(CLASSES_SURTITRE).toBe('text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text');
     expect(CLASSES_SURTITRE).not.toMatch(/\b(block|flex)\b/);
   });
 });

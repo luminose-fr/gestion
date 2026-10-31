@@ -1223,15 +1223,22 @@ direction se décide — choisir une direction qu'il faudrait corriger ensuite.
 
 ## 7. Authentification et sécurité
 
-Le dispositif actuel est conservé : jeton `"<payload base64>.<signature base64>"`, signé
-HMAC-SHA256 avec `SESSION_SECRET`, vérifié en temps constant. Il vient d'être posé et
-testé ; le migrer n'apporterait rien.
+Depuis la correction d’audit du 31/10/2026, le jeton HMAC-SHA256 existant voyage
+dans un cookie `__Host-luminose-session`, `HttpOnly`, `Secure`, `SameSite=Strict`,
+valable au plus 24 heures. En développement HTTP, le cookie porte un autre nom
+et omet `Secure`. Le front vérifie sa session par `GET /auth/session`.
 
-Ce qui change : l'origine unique (§1.2) supprime CORS. `ALLOWED_ORIGINS` disparaît.
+Le jeton auparavant en localStorage est converti en cookie, puis retiré du stockage
+JavaScript. L’en-tête `X-Session-Token` reste accepté pour les clients existants ;
+la déconnexion (`POST /auth/logout`) révoque son empreinte en D1 jusqu’à son expiration,
+et retire le cookie. Chaque route protégée ajoute une lecture de révocation à son
+budget. Les empreintes et compteurs d’accès ne font pas partie de l’export métier.
 
-Reste ouvert, non bloquant : comparaison des identifiants en temps constant, limitation de
-débit sur `/api/auth/login` (demanderait un binding KV), et à terme Cloudflare Access en
-remplacement complet du couple identifiant/mot de passe.
+Les écritures vérifient l’origine et refusent `Sec-Fetch-Site: cross-site`.
+La connexion compare des condensats de longueur fixe et limite chaque adresse hachée
+à 20 tentatives par fenêtre de 15 minutes. Les identifiants absents ferment l’accès.
+Les réponses privées portent `Cache-Control: no-store` ; Pages sert la CSP
+de `apps/manager/public/_headers`. Aucun CORS n’est ajouté.
 
 **Invariant** : aucune clé de fournisseur (Notion, 1min.ai, OpenAI, OpenRouter…)
 ne quitte le Worker. Elles peuvent désormais y ENTRER depuis l'administration et
@@ -1255,8 +1262,19 @@ Plus de synchronisation complète périodique, plus de balayage d'identifiants, 
 fusion par `mergeById` avec cas particuliers.
 
 **Conservé de l'existant** : la protection contre l'écrasement du travail non enregistré.
-Un contenu dont l'écriture a échoué reste protégé de la synchronisation et signalé par un
-bandeau. Ce comportement a été construit pour une bonne raison ; il survit à la migration.
+Un contenu dont l'écriture a échoué reste protégé de la synchronisation et signalé
+par un bandeau. Les écritures en attente sont conservées séparément du cache, dès
+la frappe, et restaurées après rechargement. Quitter l’éditeur avant la seconde de
+délai déclenche l’écriture restante. Les sauvegardes d’un même contenu sont sérialisées ;
+une réponse ancienne ne peut acquitter une édition plus récente. La synchronisation
+préserve aussi les éditions faites pendant sa lecture, et son curseur précède la lecture.
+
+Une génération déjà lancée continue d’être journalisée et enregistrée si l’on quitte
+l’éditeur pendant l’attente : le démontage interdit les mises à jour de l’écran, pas
+la persistance du résultat. Le champ produit est fusionné avec les dernières éditions
+locales. Les fournisseurs ont un délai maximal de 12 minutes par tentative ; un délai
+dépassé n’est pas automatiquement rejoué pour éviter une double facturation.
+
 
 ---
 
@@ -1319,7 +1337,8 @@ valeur D1, et affiché zéro écart. Ce script fait partie du livrable de la pha
 - **Après bascule** : Notion reste intact, en lecture seule, pendant au moins un mois.
 - **En régime** : une route d'export (`GET /api/export`) produit un JSON complet
   téléchargeable, lignes supprimées comprises. Time Travel (7 jours en gratuit) ne
-  suffit pas comme unique filet. **Les clés des fournisseurs en sont exclues** (§5.5).
+  suffit pas comme unique filet. Les captures de l’Inbox et les mesures IA sont incluses.
+  Les fichiers binaires R2 restent exclus et l’écran le précise. **Les clés des fournisseurs en sont exclues** (§5.5).
 
 ---
 
@@ -3001,3 +3020,15 @@ bon endroit, et les colonnes redeviennent du JSON pur.
 
 **Modèles IA** : correspondance directe ; `provider` initialisé à `onemin` pour toutes les
 lignes, `vendor` reprenant l'ancienne colonne « Fournisseur » (§5.3).
+
+### Corrections de largeur intermédiaire (31/10/2026)
+
+Les deux onglets du contenu s’utilisent également sous 1024 px, ou sous 1280 px
+quand la série demanderait une troisième colonne. Le panneau Série s’efface alors.
+Le seuil de chargement du studio reste 768 px. Les listes passent leurs étapes sous
+le titre sous 1280 px, et la barre d’outils peut revenir à la ligne pour garder
+chaque filtre accessible.
+
+Les dépendances corrigées sont verrouillées dans `package-lock.json`. Remotion
+4.0.532 épingle une version vulnérable de Zod ; la surcharge ciblée de sa dépendance
+utilise Zod 4.6.7 ou ultérieur compatible, sans rétrograder le moteur vidéo.

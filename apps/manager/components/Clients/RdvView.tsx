@@ -249,17 +249,17 @@ const RdvView: React.FC = () => {
           <h2 className="flex items-center gap-2 text-sm font-bold text-brand-main dark:text-white">
             <Check className="w-4 h-4" /> Rendez-vous posé
           </h2>
-          <p className="text-sm text-brand-main/70 dark:text-dark-text/70 mt-2 first-letter:uppercase">
+          <p className="text-sm text-brand-main dark:text-dark-text mt-2 first-letter:uppercase">
             {confirme.nom} — {JOUR.format(new Date(confirme.debut))} à {HEURE.format(new Date(confirme.debut))}
           </p>
-          <p className="text-xs mt-3 inline-flex items-center gap-1.5 text-brand-main/60 dark:text-dark-text/60">
+          <p className="text-xs mt-3 inline-flex items-center gap-1.5 text-brand-main dark:text-dark-text">
             <MessageSquare className="w-3.5 h-3.5" />
             {confirme.telephone
               ? <>Rappels SMS au {confirme.telephone}, sans confirmation à demander.</>
               : <>Aucun numéro retenu par Calendly : il n’y aura pas de rappel SMS.</>}
           </p>
           {confirme.lieu && (
-            <p className="text-xs mt-2 inline-flex items-center gap-1.5 text-brand-main/60 dark:text-dark-text/60">
+            <p className="text-xs mt-2 inline-flex items-center gap-1.5 text-brand-main dark:text-dark-text">
               <Video className="w-3.5 h-3.5" />
               {confirme.lieu.texte.startsWith('http')
                 ? <a href={confirme.lieu.texte} target="_blank" rel="noreferrer" className="underline">{confirme.lieu.texte}</a>
@@ -268,10 +268,10 @@ const RdvView: React.FC = () => {
           )}
           <div className="flex gap-3 mt-4 text-xs">
             {confirme.annulation && (
-              <a href={confirme.annulation} target="_blank" rel="noreferrer" className="underline text-brand-main/70 dark:text-dark-text/70">Annuler</a>
+              <a href={confirme.annulation} target="_blank" rel="noreferrer" className="underline text-brand-main dark:text-dark-text">Annuler</a>
             )}
             {confirme.report && (
-              <a href={confirme.report} target="_blank" rel="noreferrer" className="underline text-brand-main/70 dark:text-dark-text/70">Reprogrammer</a>
+              <a href={confirme.report} target="_blank" rel="noreferrer" className="underline text-brand-main dark:text-dark-text">Reprogrammer</a>
             )}
           </div>
           <Bouton
@@ -290,7 +290,7 @@ const RdvView: React.FC = () => {
         <Etiquette as="h2" forme="entete" className="mb-1">
           L’invité
         </Etiquette>
-        <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-3">
+        <p className="text-xs text-brand-main dark:text-dark-text mb-3">
           Le numéro sert aux rappels SMS. En le renseignant, vous attestez de l’accord de la personne —
           c’est exactement ce que demande Calendly quand vous réservez pour elle.
         </p>
@@ -309,7 +309,7 @@ const RdvView: React.FC = () => {
           {types && types.length > 0 && (
             <button
               onClick={() => setReglage((r) => !r)}
-              className="inline-flex items-center gap-1.5 text-micro text-brand-main/60 dark:text-dark-text/60 hover:underline"
+              className="inline-flex items-center gap-1.5 text-micro text-brand-main dark:text-dark-text hover:underline"
             >
               <Settings2 className="w-3.5 h-3.5" />
               {reglage ? 'Terminer' : 'Types affichés'}
@@ -318,10 +318,10 @@ const RdvView: React.FC = () => {
         </div>
 
         {types === null ? (
-          <p className="text-sm text-brand-main/60 dark:text-dark-text/60">Lecture des types d’événements…</p>
+          <p className="text-sm text-brand-main dark:text-dark-text">Lecture des types d’événements…</p>
         ) : reglage ? (
           <div>
-            <p className="text-xs text-brand-main/55 dark:text-dark-text/50 mb-2">
+            <p className="text-xs text-brand-main dark:text-dark-text mb-2">
               Cochez ce qui doit apparaître ici. Rien de coché : tout s’affiche.
             </p>
             <div className="grid gap-1.5 md:grid-cols-2">
@@ -333,7 +333,7 @@ const RdvView: React.FC = () => {
                     onChange={() => basculerSelection(t.uri)}
                     className="accent-brand-main"
                   />
-                  {t.nom} <span className="text-xs text-brand-main/45 dark:text-dark-text/40">{t.duree} min</span>
+                  {t.nom} <span className="text-xs text-brand-main dark:text-dark-text">{t.duree} min</span>
                 </label>
               ))}
             </div>
@@ -362,7 +362,7 @@ const RdvView: React.FC = () => {
                   onChange={() => setTypeUri(t.uri)}
                 />
                 {t.nom}
-                <span className={typeUri === t.uri ? 'opacity-70 ml-1.5 text-xs' : 'ml-1.5 text-xs text-brand-main/45 dark:text-dark-text/40'}>
+                <span className={typeUri === t.uri ? 'opacity-70 ml-1.5 text-xs' : 'ml-1.5 text-xs text-brand-main dark:text-dark-text'}>
                   {t.duree} min
                 </span>
               </label>
@@ -414,7 +414,7 @@ const RdvView: React.FC = () => {
                 <div key={q.position}>
                   <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
                     {q.nom}
-                    {!q.requis && <span className="font-normal text-brand-main/45 dark:text-dark-text/40"> — facultatif</span>}
+                    {!q.requis && <span className="font-normal text-brand-main dark:text-dark-text"> — facultatif</span>}
                   </label>
                   {q.choix.length > 0 ? (
                     <div className="space-y-1">
@@ -460,18 +460,18 @@ const RdvView: React.FC = () => {
         {typeUri && !reglage && (
           <div className="mt-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <label className="inline-flex items-center gap-2 text-xs text-brand-main/70 dark:text-dark-text/70">
+              <label className="inline-flex items-center gap-2 text-xs text-brand-main dark:text-dark-text">
                 <input type="checkbox" checked={libre} onChange={(e) => setLibre(e.target.checked)} className="accent-brand-main" />
                 Ignorer le délai minimum et l’horizon de réservation
               </label>
-              <span className="inline-flex items-center gap-1.5 text-micro text-brand-main/50 dark:text-dark-text/45">
+              <span className="inline-flex items-center gap-1.5 text-micro text-brand-main dark:text-dark-text">
                 {chargement ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CalendarClock className="w-3 h-3" />}
                 trois mois
               </span>
             </div>
 
             {libre && (
-              <p className="text-micro text-brand-main/50 dark:text-dark-text/45 mb-3 leading-relaxed">
+              <p className="text-micro text-brand-main dark:text-dark-text mb-3 leading-relaxed">
                 Créneaux recomposés depuis le planning de disponibilité par défaut et les plages déjà occupées :
                 ni délai de 48 h, ni limite à 21 jours. Les tampons et les règles propres à un type d’événement
                 ne sont pas appliqués — Calendly reste seul juge au moment de poser le rendez-vous.
@@ -479,13 +479,13 @@ const RdvView: React.FC = () => {
             )}
 
             {questionsManquantes.length > 0 && (
-              <p className="text-micro text-brand-main/50 dark:text-dark-text/45 mb-3">
+              <p className="text-micro text-brand-main dark:text-dark-text mb-3">
                 À renseigner avant de choisir une heure : {questionsManquantes.map((q) => q.nom).join(' · ')}
               </p>
             )}
 
             {!chargement && creneaux && creneaux.length === 0 && (
-              <p className="text-sm text-brand-main/55 dark:text-dark-text/50">
+              <p className="text-sm text-brand-main dark:text-dark-text">
                 Aucun créneau libre sur les trois prochains mois.
               </p>
             )}

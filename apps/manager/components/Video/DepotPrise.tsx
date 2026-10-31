@@ -82,7 +82,7 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
                     {prise.prise.nom} — {secondes(prise.prise.duree)}, {prise.prise.largeur} × {prise.prise.hauteur}, {poids(prise.prise.taille)}
                 </p>
             ) : (
-                <p className="text-xs text-brand-main/60 dark:text-dark-text/60">{consigne}</p>
+                <p className="text-xs text-brand-main dark:text-dark-text">{consigne}</p>
             )}
 
             {enCours && (
@@ -95,7 +95,7 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
             )}
 
             {!enCours && calage && (
-                <p className={`text-xs ${calage.couverture < COUVERTURE_DOUTEUSE ? 'text-alerte' : 'text-brand-main/70 dark:text-dark-text/70'}`}>
+                <p className={`text-xs ${calage.couverture < COUVERTURE_DOUTEUSE ? 'text-alerte' : 'text-brand-main dark:text-dark-text'}`}>
                     Calée : {Math.round(calage.couverture * 100)} % des mots du script retrouvés dans la prise
                     {` (transcrite par ${MOTEUR[prise?.prise.transcription?.moteur ?? 'whisper']})`}
                     {calage.couverture < COUVERTURE_DOUTEUSE ? ' — moins de la moitié : est-ce bien la prise de ce script ?' : '.'}
@@ -121,7 +121,7 @@ export const DepotPrise: React.FC<DepotPriseProps> = ({
                     </Bouton>
                     {prise?.prise.pretLe && (
                         <>
-                            <span className="text-xs text-brand-main/70 dark:text-dark-text/70">Transcrire à nouveau :</span>
+                            <span className="text-xs text-brand-main dark:text-dark-text">Transcrire à nouveau :</span>
                             <Bouton taille="petit" intention="secondaire" disabled={occupe || !prise.url} onClick={() => onTranscrire('whisper')}
                                 title="Whisper : environ 47 neurones par minute de son, sur 10 000 gratuits par jour">
                                 <RefreshCw /> Whisper

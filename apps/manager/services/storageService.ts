@@ -17,6 +17,28 @@ const STORES = [STORE_CONTENT, STORE_MODELS, STORE_SERIES];
 const SYNC_PREFIX = "luminose_sync_";
 const FULL_SYNC_PREFIX = "luminose_full_sync_";
 const APP_SETTINGS_KEY = "luminose_app_settings";
+const PENDING_KEY = 'luminose_pending_contents';
+
+/** Séparé du cache : une synchronisation ne doit jamais effacer une écriture en attente. */
+export const getPendingContents = (): ContentItem[] => {
+  try {
+    const rows = JSON.parse(localStorage.getItem(PENDING_KEY) ?? '[]');
+    return Array.isArray(rows) ? rows.filter(row => row && typeof row.id === 'string') : [];
+  } catch { return []; }
+};
+
+export const stagePendingContent = (item: ContentItem): void => {
+  const rows = new Map(getPendingContents().map(row => [row.id, row]));
+  rows.set(item.id, item);
+  localStorage.setItem(PENDING_KEY, JSON.stringify([...rows.values()]));
+};
+
+/** Une réponse ancienne ne peut pas acquitter une frappe plus récente. */
+export const acknowledgePendingContent = (item: ContentItem): void => {
+  const rows = getPendingContents();
+  localStorage.setItem(PENDING_KEY, JSON.stringify(rows.filter(row =>
+    row.id !== item.id || JSON.stringify(row) !== JSON.stringify(item))));
+};
 
 export type SyncScope = "content" | "models" | "series";
 
@@ -173,4 +195,8 @@ export const getActiveModelId = (): string | undefined => {
 export const setActiveModelId = (modelId: string): void => {
   const current = getAppSettings();
   setAppSettings({ ...current, activeModelId: modelId });
+};
+
+export const discardPendingContent = (id: string): void => {
+  localStorage.setItem(PENDING_KEY, JSON.stringify(getPendingContents().filter(item => item.id !== id)));
 };

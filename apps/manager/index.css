@@ -127,6 +127,7 @@
 @layer base {
   @font-face {
     font-family: 'Abril Display';
+    font-display: swap;
     font-style: italic;
     src: url('/fonts/5197317/0a5d5485-b415-4692-bc4d-bf1f30dcf946.eot?#iefix');
     src:
@@ -142,6 +143,7 @@
 
   @font-face {
     font-family: 'Futura LT';
+    font-display: swap;
     src: url('/fonts/5313918/a411c21e-f439-48c1-bddb-887ec08b5224.eot?#iefix');
     src:
       url('/fonts/5313918/a411c21e-f439-48c1-bddb-887ec08b5224.eot?#iefix')
@@ -152,5 +154,24 @@
         format('woff'),
       url('/fonts/5313918/feaf9b77-0958-45fa-96c3-1afc445987ef.ttf')
         format('truetype');
+  }
+}
+
+/* Un focus visible demeure nécessaire quand le champ retire le contour natif. */
+@layer base {
+  :where(button, a, input, select, textarea, [contenteditable="true"]):focus-visible {
+    outline: 2px solid var(--color-brand-main);
+    outline-offset: 2px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :where(button, a, input, select, textarea, [contenteditable="true"]):focus-visible { outline-color: white; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

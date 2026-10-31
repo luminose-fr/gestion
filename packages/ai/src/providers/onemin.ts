@@ -90,6 +90,7 @@ export const createOneMinProvider = (config: ProviderConfig): AIProvider => {
   const unAppel = async (payload: unknown): Promise<any> => {
     const res = await fetch(config.baseUrl ?? ENDPOINT, {
       method: 'POST',
+      signal: AbortSignal.timeout(config.delaiMaxMs ?? 12 * 60 * 1000),
       headers: { 'API-KEY': config.apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });

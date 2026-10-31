@@ -107,7 +107,7 @@ export const Patience: React.FC<{
       <Loader2 className="w-6 h-6 text-brand-main dark:text-dark-text animate-spin mb-3" />
       <p className="text-sm font-semibold text-brand-main dark:text-white">{titre}</p>
       {detail && (
-        <p className="mt-1 text-xs text-brand-main/60 dark:text-dark-text/60">{detail}</p>
+        <p className="mt-1 text-xs text-brand-main dark:text-dark-text">{detail}</p>
       )}
       <Barre part={part} libelle={titre} className="mt-4 max-w-64" />
     </>
@@ -228,10 +228,10 @@ const LigneActivite: React.FC<{ tache: Tache; maintenant: number }> = ({ tache, 
           <strong className="font-bold text-brand-main dark:text-white">{tache.label}</strong>
           {tache.persona ? ` — ${tache.persona}` : ''}
           {tache.modele && (
-            <span className="text-brand-main/60 dark:text-dark-text/60"> · {tache.modele}</span>
+            <span className="text-brand-main dark:text-dark-text"> · {tache.modele}</span>
           )}
           {tache.etape && (
-            <span className="text-brand-main/60 dark:text-dark-text/60"> · {tache.etape}</span>
+            <span className="text-brand-main dark:text-dark-text"> · {tache.etape}</span>
           )}
         </span>
         {long && (
@@ -239,7 +239,7 @@ const LigneActivite: React.FC<{ tache: Tache; maintenant: number }> = ({ tache, 
             plus long que d'habitude
           </span>
         )}
-        <span className="shrink-0 tabular-nums text-brand-main/60 dark:text-dark-text/60">
+        <span className="shrink-0 tabular-nums text-brand-main dark:text-dark-text">
           {secondes} s
         </span>
       </div>

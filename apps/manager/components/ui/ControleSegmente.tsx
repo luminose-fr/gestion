@@ -51,12 +51,12 @@ export function ControleSegmente<T extends string>({
             className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-40 ${
               actif
                 ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                : 'text-brand-main/70 dark:text-dark-text/70 hover:text-brand-main dark:hover:text-white'
+                : 'text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white'
             }`}
           >
             {o.libelle}
             {o.compte !== undefined && (
-              <span className={`text-micro font-bold tabular-nums ${actif ? 'text-white/80 dark:text-brand-main/70' : 'text-brand-main/50 dark:text-dark-text/50'}`}>
+              <span className={`text-micro font-bold tabular-nums ${actif ? 'text-white/80 dark:text-brand-main' : 'text-brand-main dark:text-dark-text'}`}>
                 {o.compte}
               </span>
             )}

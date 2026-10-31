@@ -194,7 +194,7 @@ describe('explorateur de catalogue', () => {
     });
 
     const res = await call('/api/models/catalogue');
-    expect(res.headers.get('Cache-Control')).toBeNull();
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
 
     // …alors que la copie mise de côté, elle, porte bien le TTL.
     const garde = [...magasin.values()][0];
