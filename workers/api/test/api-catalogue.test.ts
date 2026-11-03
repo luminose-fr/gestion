@@ -38,6 +38,11 @@ const MODELES = {
       architecture: { output_modalities: ['audio'] },
       pricing: { prompt: '0', completion: '0' },
     },
+    {
+      id: 'google/gemini-3-pro-image', name: 'Nano Banana Pro', context_length: 65000,
+      architecture: { output_modalities: ['image', 'text'] },
+      pricing: { prompt: '0.000002', completion: '0.000012' },
+    },
   ],
 };
 
@@ -77,15 +82,33 @@ interface StubOpts {
   /** `false` coupe EQ-Bench, pour vérifier que le catalogue survit sans lui. */
   ecriture?: boolean | string;
   radar?: boolean;
+  /** Les pages successives de `GET /v1/models` chez Anthropic. */
+  anthropic?: unknown[];
+  anthropicStatus?: number;
+  /** Le corps rendu par 1min.ai, tel quel. */
+  onemin?: unknown;
+  oneminStatus?: number;
+  /** `false` fait tomber la référence elle-même (OpenRouter `/models`). */
+  openrouter?: boolean;
 }
 
 /** Répond selon l'URL appelée, pour distinguer les appels sortants. */
 const stubOpenRouter = (opts: StubOpts = {}) => {
-  const appels: Array<{ url: string; auth: string | null }> = [];
+  const appels: Array<{ url: string; auth: string | null; headers: Record<string, string> }> = [];
+  let pageAnthropic = 0;
   vi.stubGlobal('fetch', async (url: string, init: any) => {
     const u = String(url);
     const auth = init?.headers?.Authorization ?? init?.headers?.authorization ?? null;
-    appels.push({ url: u, auth });
+    appels.push({ url: u, auth, headers: { ...(init?.headers ?? {}) } });
+    if (u.startsWith('https://api.anthropic.com/')) {
+      if (opts.anthropicStatus) return new Response('{}', { status: opts.anthropicStatus });
+      const pages = opts.anthropic ?? [];
+      return new Response(JSON.stringify(pages[pageAnthropic++] ?? { data: [], has_more: false }), { status: 200 });
+    }
+    if (u.startsWith('https://api.1min.ai/')) {
+      if (opts.oneminStatus) return new Response('{}', { status: opts.oneminStatus });
+      return new Response(JSON.stringify(opts.onemin ?? { models: [] }), { status: 200 });
+    }
     if (u.includes('/benchmarks')) {
       return new Response(JSON.stringify(opts.benchmarks ?? BENCHMARKS), { status: opts.benchStatus ?? 200 });
     }
@@ -98,6 +121,7 @@ const stubOpenRouter = (opts: StubOpts = {}) => {
       if (typeof opts.ecriture === 'string') return new Response(opts.ecriture, { status: 200 });
       return new Response(CLASSEMENT_ECRITURE, { status: 200 });
     }
+    if (opts.openrouter === false) return new Response('nope', { status: 503 });
     return new Response(JSON.stringify(MODELES), { status: 200 });
   });
   return appels;
@@ -129,11 +153,20 @@ describe('explorateur de catalogue', () => {
     expect(data.benchmarksAvailable).toBe(true);
   });
 
-  it('écarte ce qui ne produit pas de texte', async () => {
+  it('écarte ce qui ne produit ni texte ni image', async () => {
     stubOpenRouter();
     const data = await json(await call('/api/models/catalogue'));
     expect(data.models.map((m: any) => m.id)).not.toContain('google/lyria-3-pro');
-    expect(data.models).toHaveLength(2);
+    expect(data.models).toHaveLength(3);
+  });
+
+  /** Un modèle qui sort une image s'ajoute depuis l'explorateur, et arrive au catalogue comme tel. */
+  it('dit quels modèles sortent une image, et les tient hors de la sélection', async () => {
+    stubOpenRouter();
+    const data = await json(await call('/api/models/catalogue'));
+    const image = data.models.find((m: any) => m.id === 'google/gemini-3-pro-image');
+    expect(image).toMatchObject({ sortie: 'image', selection: false, promptPrice: 2, completionPrice: 12 });
+    expect(data.models.find((m: any) => m.id === 'anthropic/claude-fable-5').sortie).toBe('texte');
   });
 
   /** Sans clé, l'écran reste utile — et il doit pouvoir dire pourquoi la colonne est vide. */
@@ -141,7 +174,7 @@ describe('explorateur de catalogue', () => {
     const appels = stubOpenRouter();
     const data = await json(await call('/api/models/catalogue'));
 
-    expect(data.models).toHaveLength(2);
+    expect(data.models).toHaveLength(3);
     expect(data.benchmarksAvailable).toBe(false);
     expect(data.benchmarksReason).toBe('clé absente');
     expect(appels.some(a => a.url.includes('/benchmarks'))).toBe(false);
@@ -154,7 +187,7 @@ describe('explorateur de catalogue', () => {
     });
 
     const data = await json(await call('/api/models/catalogue'));
-    expect(data.models).toHaveLength(2);
+    expect(data.models).toHaveLength(3);
     expect(data.benchmarksAvailable).toBe(false);
     expect(data.benchmarksReason).toBe('refus');
   });
@@ -258,7 +291,7 @@ describe('notes d’écriture et courte liste', () => {
     const data = await json(await call('/api/models/catalogue'));
     // Aucun modèle du catalogue ne s'appelle `gpt-4o-mini` : la note est orpheline,
     // et elle ne doit pas inventer de ligne.
-    expect(data.models).toHaveLength(2);
+    expect(data.models).toHaveLength(3);
     expect(data.selection).not.toContain('openai/gpt-4o-mini');
   });
 
@@ -267,7 +300,7 @@ describe('notes d’écriture et courte liste', () => {
     stubOpenRouter({ ecriture: false });
     const data = await json(await call('/api/models/catalogue'));
 
-    expect(data.models).toHaveLength(2);
+    expect(data.models).toHaveLength(3);
     expect(data.ecritureAvailable).toBe(false);
     expect(data.ecritureReason).toBe('refus (503)');
     expect(data.selection).toEqual([]);
@@ -278,7 +311,7 @@ describe('notes d’écriture et courte liste', () => {
     stubOpenRouter({ ecriture: 'const data = [];' });
     const data = await json(await call('/api/models/catalogue'));
 
-    expect(data.models).toHaveLength(2);
+    expect(data.models).toHaveLength(3);
     expect(data.ecritureAvailable).toBe(false);
     expect(data.ecritureReason).toBe('format inattendu');
   });
@@ -293,5 +326,122 @@ describe('notes d’écriture et courte liste', () => {
     expect(fable.suivi).toBeNull();
     expect(fable.forces).toEqual([]);
     expect(data.selection).toHaveLength(2);
+  });
+});
+
+/**
+ * Les deux autres adaptateurs (SPEC §5.6). Leur liste donne le code exact à
+ * poser ; la référence OpenRouter donne prix et notes, par le nom normalisé.
+ */
+describe('explorateur par adaptateur', () => {
+  const poserCle = (fournisseur: string, apiKey: string) =>
+    call(`/api/settings/providers/${fournisseur}`, { method: 'PUT', body: JSON.stringify({ apiKey }) });
+
+  const ANTHROPIC = [
+    {
+      data: [{ type: 'model', id: 'claude-fable-5-20261015', display_name: 'Claude Fable 5',
+        created_at: '2026-10-15T00:00:00Z', max_input_tokens: 1000000 }],
+      has_more: true, last_id: 'claude-fable-5-20261015',
+    },
+    {
+      data: [{ type: 'model', id: 'claude-haiku-9', display_name: 'Claude Haiku 9', created_at: '2026-01-01T00:00:00Z' }],
+      has_more: false, last_id: 'claude-haiku-9',
+    },
+  ];
+
+  it('Anthropic sans clé : un refus qui dit où la poser, sans appel sortant', async () => {
+    const appels = stubOpenRouter({ anthropic: ANTHROPIC });
+    const res = await call('/api/models/catalogue/anthropic');
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toContain('Réglages → Fournisseurs');
+    expect(appels.some(a => a.url.includes('anthropic.com'))).toBe(false);
+  });
+
+  it('Anthropic : toutes les pages, le code exact, et les mesures de la référence', async () => {
+    const appels = stubOpenRouter({ anthropic: ANTHROPIC });
+    await poserCle('anthropic', 'sk-ant-api03-0123456789');
+    const data = await json(await call('/api/models/catalogue/anthropic'));
+
+    expect(data.source).toBe('anthropic');
+    expect(data.models.map((m: any) => m.id)).toEqual(['claude-fable-5-20261015', 'claude-haiku-9']);
+    const fable = data.models[0];
+    expect(fable).toMatchObject({
+      name: 'Claude Fable 5', contextLength: 1000000, reference: 'anthropic/claude-fable-5',
+      promptPrice: 10, completionPrice: 50, ecriture: 16.81, sortie: 'texte',
+    });
+    expect(fable.creeLe).toBe(Date.parse('2026-10-15T00:00:00Z'));
+    // Sans correspondant, le modèle reste listé — sans prix ni note.
+    expect(data.models[1]).toMatchObject({ reference: null, promptPrice: null, ecriture: null });
+
+    const versAnthropic = appels.filter(a => a.url.includes('anthropic.com'));
+    expect(versAnthropic).toHaveLength(2);
+    expect(versAnthropic[1].url).toContain('after_id=claude-fable-5-20261015');
+    for (const a of versAnthropic) expect(a.headers['x-api-key']).toBe('sk-ant-api03-0123456789');
+  });
+
+  it('la clé Anthropic ne part qu’à Anthropic', async () => {
+    const appels = stubOpenRouter({ anthropic: ANTHROPIC });
+    await poserCle('anthropic', 'sk-ant-api03-0123456789');
+    await call('/api/models/catalogue/anthropic');
+    for (const a of appels.filter(x => !x.url.includes('anthropic.com'))) {
+      expect(JSON.stringify(a.headers)).not.toContain('sk-ant-api03');
+    }
+  });
+
+  it('Anthropic refuse la clé : un refus à corriger, pas une panne', async () => {
+    stubOpenRouter({ anthropicStatus: 401 });
+    await poserCle('anthropic', 'sk-ant-api03-0123456789');
+    const res = await call('/api/models/catalogue/anthropic');
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toContain('refuse la clé');
+  });
+
+  it('la référence muette n’emporte pas la liste Anthropic', async () => {
+    stubOpenRouter({ anthropic: ANTHROPIC, openrouter: false });
+    await poserCle('anthropic', 'sk-ant-api03-0123456789');
+    const data = await json(await call('/api/models/catalogue/anthropic'));
+    expect(data.models).toHaveLength(2);
+    expect(data.referenceAvailable).toBe(false);
+    expect(data.models[0].promptPrice).toBeNull();
+  });
+
+  it('1min.ai : la forme constatée, sans doublon, rapprochée de la référence', async () => {
+    stubOpenRouter({
+      onemin: { models: [{ modelId: 'claude-fable-5' }, { modelId: 'claude-fable-5' }, { modelId: 'glm-5.2', name: 'GLM 5.2' }, { autre: 1 }] },
+    });
+    const data = await json(await call('/api/models/catalogue/onemin'));
+    expect(data.source).toBe('onemin');
+    expect(data.models.map((m: any) => m.id)).toEqual(['claude-fable-5', 'glm-5.2']);
+    expect(data.models[0]).toMatchObject({ name: 'claude-fable-5', reference: 'anthropic/claude-fable-5', selection: true });
+    // `z-ai/glm-5.2:free` est la seule variante de la référence : elle sert faute de mieux.
+    expect(data.models[1]).toMatchObject({ name: 'GLM 5.2', reference: 'z-ai/glm-5.2:free' });
+    expect(data.selection.sort()).toEqual(['claude-fable-5', 'glm-5.2']);
+  });
+
+  it('1min.ai accepte un tableau nu', async () => {
+    stubOpenRouter({ onemin: ['gpt-9', { modelId: 'claude-fable-5' }] });
+    const data = await json(await call('/api/models/catalogue/onemin'));
+    expect(data.models.map((m: any) => m.id)).toEqual(['gpt-9', 'claude-fable-5']);
+  });
+
+  it('1min.ai illisible : le dit, en 502, sans trace', async () => {
+    stubOpenRouter({ onemin: { quelqueChose: 'autre' } });
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await call('/api/models/catalogue/onemin');
+    expect(res.status).toBe(502);
+    expect((await json(res)).error).toContain('1min.ai');
+    expect(erreurs).not.toHaveBeenCalled();
+    erreurs.mockRestore();
+  });
+
+  it('1min.ai : la clé, si elle est posée, ne part qu’à 1min.ai', async () => {
+    const appels = stubOpenRouter({ onemin: { models: [{ modelId: 'claude-fable-5' }] } });
+    await poserCle('onemin', 'cle-1min-0123456789');
+    await call('/api/models/catalogue/onemin');
+    const vers1min = appels.filter(a => a.url.startsWith('https://api.1min.ai/'));
+    expect(vers1min[0].headers['API-KEY']).toBe('cle-1min-0123456789');
+    for (const a of appels.filter(x => !x.url.startsWith('https://api.1min.ai/'))) {
+      expect(JSON.stringify(a.headers)).not.toContain('cle-1min');
+    }
   });
 });

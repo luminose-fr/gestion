@@ -1,7 +1,13 @@
 /**
  * L'explorateur du catalogue (SPEC §5.6).
  *
- * Trois appels sortants croisés :
+ * Trois sources de LISTE, une par adaptateur (`sources-modeles.ts`) :
+ * OpenRouter, Anthropic, 1min.ai. La première est aussi la RÉFÉRENCE : seule
+ * elle publie des prix, et ses modèles portent les notes. Les deux autres
+ * listes s'y rapprochent par le nom normalisé — leurs prix sont donc ceux
+ * d'OpenRouter pour le même modèle, une indication et non une facture.
+ *
+ * La référence croise trois appels sortants :
  *  - OpenRouter `/models` (public) — prix, contexte, code exact ;
  *  - OpenRouter `/benchmarks` (clé requise) — les indices d'Artificial Analysis ;
  *  - EQ-Bench Creative Writing — Elo, note d'écriture, densité de tournures d'IA.
@@ -22,12 +28,22 @@ import {
   critereEnFrancais,
   type ModeleNote,
 } from '@luminose/editorial';
+import type { Context } from 'hono';
 import type { Env } from '../env';
 import { resolveApiKey } from '../keys';
+import { Refus } from '../refus';
+import {
+  listerAnthropic,
+  listerOneMin,
+  listerOpenRouter,
+  nombre,
+  SourceMuette,
+  type ModeleSource,
+  type SourceCatalogue,
+} from '../sources-modeles';
 
 export const catalogue = new Hono<{ Bindings: Env }>();
 
-const MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const BENCH_URL = 'https://openrouter.ai/api/v1/benchmarks?source=artificial-analysis';
 
 /**
@@ -46,18 +62,7 @@ const ECRITURE_RADAR_URL = 'https://eqbench.com/creative_writing_chartdata.js';
 const TTL_SECONDS = 3600;
 
 /** Versionnée : un déploiement qui change la forme ne doit pas servir l'ancienne une heure de plus. */
-const CACHE_PATH = '/api/models/catalogue?v=3';
-
-const nombre = (v: unknown): number | null => {
-  const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : NaN;
-  return Number.isFinite(n) ? n : null;
-};
-
-/** Prix par MILLION de jetons : l'unité dans laquelle on raisonne, pas celle de l'API. */
-const parMillion = (v: unknown): number | null => {
-  const n = nombre(v);
-  return n === null ? null : Math.round(n * 1_000_000 * 1000) / 1000;
-};
+const CACHE_PATH = '/api/models/catalogue?v=4';
 
 interface NoteEcriture {
   elo: number | null;
@@ -135,22 +140,49 @@ const enrichirParCritere = (source: string, notes: Map<string, NoteEcriture>): v
   }
 };
 
-catalogue.get('/', async (c) => {
-  const cle = await resolveApiKey(c.env, 'openrouter');
+/** Une ligne de l'explorateur, quelle que soit la source. */
+interface LigneCatalogue {
+  /** Le code exact pour l'adaptateur de la source. */
+  id: string;
+  name: string;
+  contextLength: number;
+  promptPrice: number | null;
+  completionPrice: number | null;
+  intelligence: number | null;
+  coding: number | null;
+  agentic: number | null;
+  elo: number | null;
+  ecriture: number | null;
+  slop: number | null;
+  suivi: number | null;
+  forces: string[];
+  selection: boolean;
+  palier: string | null;
+  palierLibelle: string | null;
+  sortie: 'texte' | 'image';
+  creeLe: number | null;
+  /** Hors OpenRouter : le modèle OpenRouter dont viennent prix et notes. */
+  reference: string | null;
+}
 
-  // Le cache d'exécution quand la plateforme en fournit un (absent en test).
-  const cacheKey = new Request(new URL(CACHE_PATH, c.req.url).toString());
-  const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
-  if (cache) {
-    const garde = await cache.match(cacheKey);
-    if (garde) return garde;
-  }
+interface ReponseCatalogue {
+  source: SourceCatalogue;
+  models: LigneCatalogue[];
+  benchmarksAvailable: boolean;
+  benchmarksReason: string | null;
+  ecritureAvailable: boolean;
+  ecritureReason: string | null;
+  /** Hors OpenRouter : la référence a-t-elle pu être lue ? Sans elle, ni prix ni notes. */
+  referenceAvailable: boolean;
+  /** L'ordre de la courte liste, du moins cher au plus cher. */
+  selection: string[];
+  fetchedAt: number;
+}
 
-  const reponseModeles = await fetch(MODELS_URL, { headers: { Accept: 'application/json' } });
-  if (!reponseModeles.ok) {
-    return c.json({ error: `OpenRouter a refusé le catalogue (${reponseModeles.status}).` }, 502);
-  }
-  const brut = await reponseModeles.json() as any;
+/** La référence : OpenRouter, croisé avec ses indices et les notes d'écriture. */
+const construireReference = async (env: Env): Promise<ReponseCatalogue> => {
+  const cle = await resolveApiKey(env, 'openrouter');
+  const liste = await listerOpenRouter();
 
   // Les indices ne sont disponibles qu'avec une clé ; sans elle, le catalogue
   // reste utile — prix et contexte suffisent à écarter beaucoup de candidats.
@@ -203,34 +235,35 @@ catalogue.get('/', async (c) => {
     }
   }
 
-  const models = ((brut?.data ?? []) as any[])
-    .filter(m => (m?.architecture?.output_modalities ?? []).includes('text'))
-    .map(m => {
-      const id = String(m.id);
-      const bench = indices.get(id) ?? null;
-      const note = notes.get(normaliserNomModele(id)) ?? null;
-      return {
-        id,
-        name: String(m.name ?? id),
-        contextLength: nombre(m.context_length) ?? 0,
-        promptPrice: parMillion(m?.pricing?.prompt),
-        completionPrice: parMillion(m?.pricing?.completion),
-        intelligence: bench?.intelligence ?? null,
-        coding: bench?.coding ?? null,
-        agentic: bench?.agentic ?? null,
-        elo: note?.elo ?? null,
-        ecriture: note?.ecriture ?? null,
-        slop: note?.slop ?? null,
-        suivi: note?.suivi ?? null,
-        forces: note?.forces ?? [],
-        // Renseignés juste après, quand la sélection est connue.
-        selection: false,
-        palier: null as string | null,
-        palierLibelle: null as string | null,
-      };
-    });
+  const models = liste.map((m): LigneCatalogue => {
+    const bench = indices.get(m.id) ?? null;
+    const note = notes.get(normaliserNomModele(m.id)) ?? null;
+    return {
+      id: m.id,
+      name: m.name,
+      contextLength: m.contextLength ?? 0,
+      promptPrice: m.promptPrice,
+      completionPrice: m.completionPrice,
+      intelligence: bench?.intelligence ?? null,
+      coding: bench?.coding ?? null,
+      agentic: bench?.agentic ?? null,
+      elo: note?.elo ?? null,
+      ecriture: note?.ecriture ?? null,
+      slop: note?.slop ?? null,
+      suivi: note?.suivi ?? null,
+      forces: note?.forces ?? [],
+      // Renseignés juste après, quand la sélection est connue.
+      selection: false,
+      palier: null,
+      palierLibelle: null,
+      sortie: m.sortie,
+      creeLe: m.creeLe,
+      reference: null,
+    };
+  });
 
   // La courte liste : la doctrine vit dans @luminose/editorial, testée à part.
+  // Les modèles d'image n'ont pas de note d'écriture : ils n'y entrent jamais.
   const retenus = selectionnerCourteListe(models.map<ModeleNote>(m => ({
     slug: m.id,
     prixSortie: m.completionPrice,
@@ -247,30 +280,45 @@ catalogue.get('/', async (c) => {
     m.palierLibelle = r.palierLibelle;
   }
 
-  const reponse = c.json({
+  return {
+    source: 'openrouter',
     models,
     benchmarksAvailable: benchmarksLus,
     // Sans clé, l'écran doit pouvoir dire POURQUOI la colonne est vide.
     benchmarksReason: benchmarksLus ? null : (cle ? 'refus' : 'clé absente'),
     ecritureAvailable: ecritureLue,
     ecritureReason: ecritureRaison,
-    /** L'ordre de la courte liste, du moins cher au plus cher. */
+    referenceAvailable: true,
     selection: retenus.map(r => r.slug),
     fetchedAt: Date.now(),
-  });
+  };
+};
+
+/**
+ * La référence, gardée une heure dans le cache du Worker quand la plateforme
+ * en fournit un (absent en test). Les trois onglets la lisent : sans cache,
+ * passer d'une source à l'autre retaperait OpenRouter et EQ-Bench à chaque fois.
+ *
+ * Le TTL est celui du cache du Worker, pas celui du navigateur : la copie mise
+ * de côté porte ses propres en-têtes, et la réponse servie se construit à part.
+ * Une copie qui partageait les en-têtes de la réponse a déjà envoyé `max-age`
+ * au navigateur : poser une clé puis rouvrir l'écran continuait d'afficher
+ * « clé absente » pendant une heure.
+ */
+const reference = async (c: Context<{ Bindings: Env }>): Promise<ReponseCatalogue> => {
+  const cacheKey = new Request(new URL(CACHE_PATH, c.req.url).toString());
+  const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
+  if (cache) {
+    const garde = await cache.match(cacheKey);
+    if (garde) return await garde.json() as ReponseCatalogue;
+  }
+
+  const donnees = await construireReference(c.env);
 
   if (cache) {
-    // `clone()` partage la liste d'en-têtes : y poser Cache-Control l'envoyait
-    // AUSSI au navigateur, qui gardait alors le catalogue une heure. Poser une
-    // clé puis rouvrir l'écran continuait d'afficher « clé absente ». Le TTL
-    // est celui du cache du Worker, pas celui du client — d'où une copie avec
-    // ses propres en-têtes.
-    const pourCache = new Response(reponse.clone().body, {
-      status: reponse.status,
-      headers: new Headers(reponse.headers),
+    const pourCache = new Response(JSON.stringify(donnees), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${TTL_SECONDS}` },
     });
-    pourCache.headers.set('Cache-Control', `max-age=${TTL_SECONDS}`);
-
     const enregistrement = cache.put(cacheKey, pourCache);
     // `executionCtx` LÈVE quand la plateforme n'en fournit pas — l'optionnel ne
     // protège pas d'un getter qui jette. Sans ce filet, le cache ne se
@@ -282,5 +330,96 @@ catalogue.get('/', async (c) => {
       await enregistrement;
     }
   }
-  return reponse;
-});
+  return donnees;
+};
+
+/**
+ * Rapproche une liste d'adaptateur de la référence. Le nom normalisé absorbe
+ * le préfixe de fabricant, la date et les points : `claude-fable-5-20261015`
+ * chez Anthropic retrouve `anthropic/claude-fable-5` chez OpenRouter. Un
+ * modèle sans correspondant reste listé, sans prix ni note — absent de la
+ * référence ne veut pas dire indisponible chez l'adaptateur.
+ */
+const croiser = (
+  source: SourceCatalogue,
+  liste: ModeleSource[],
+  ref: ReponseCatalogue | null,
+): ReponseCatalogue => {
+  const parNom = new Map<string, LigneCatalogue>();
+  for (const l of ref?.models ?? []) {
+    const cle = normaliserNomModele(l.id);
+    const deja = parNom.get(cle);
+    // La variante payante d'abord : `:free` partage le nom, pas le prix.
+    if (!deja || (deja.id.includes(':') && !l.id.includes(':'))) parNom.set(cle, l);
+  }
+
+  const models = liste.map((m): LigneCatalogue => {
+    const r = parNom.get(normaliserNomModele(m.id)) ?? null;
+    return {
+      id: m.id,
+      name: m.name,
+      contextLength: m.contextLength ?? r?.contextLength ?? 0,
+      promptPrice: r?.promptPrice ?? null,
+      completionPrice: r?.completionPrice ?? null,
+      intelligence: r?.intelligence ?? null,
+      coding: r?.coding ?? null,
+      agentic: r?.agentic ?? null,
+      elo: r?.elo ?? null,
+      ecriture: r?.ecriture ?? null,
+      slop: r?.slop ?? null,
+      suivi: r?.suivi ?? null,
+      forces: r?.forces ?? [],
+      selection: r?.selection ?? false,
+      palier: r?.palier ?? null,
+      palierLibelle: r?.palierLibelle ?? null,
+      sortie: m.sortie,
+      creeLe: m.creeLe,
+      reference: r?.id ?? null,
+    };
+  });
+
+  return {
+    source,
+    models,
+    benchmarksAvailable: ref?.benchmarksAvailable ?? false,
+    benchmarksReason: ref ? ref.benchmarksReason : 'référence muette',
+    ecritureAvailable: ref?.ecritureAvailable ?? false,
+    ecritureReason: ref ? ref.ecritureReason : 'référence muette',
+    referenceAvailable: ref !== null,
+    selection: (ref?.selection ?? []).flatMap(slug => models.filter(m => m.reference === slug).map(m => m.id)),
+    fetchedAt: Date.now(),
+  };
+};
+
+/** Une source muette se dit à l'écran, sans trace : ce n'est pas l'application qui est en panne. */
+const servir = async (c: Context<{ Bindings: Env }>, produire: () => Promise<ReponseCatalogue>) => {
+  try {
+    return c.json(await produire());
+  } catch (e) {
+    if (e instanceof SourceMuette) return c.json({ error: e.message }, 502);
+    throw e;
+  }
+};
+
+/** La référence elle-même, et la liste la plus large : tout ce qu'OpenRouter route. */
+catalogue.get('/', (c) => servir(c, () => reference(c)));
+
+/** La liste du compte Anthropic : exige la clé, qui ne part qu'à Anthropic. */
+catalogue.get('/anthropic', (c) => servir(c, async () => {
+  const cle = await resolveApiKey(c.env, 'anthropic');
+  if (!cle) {
+    throw new Refus(
+      "Aucune clé posée pour « anthropic » : la liste est celle de votre compte. " +
+      'Renseignez-la dans Réglages → Fournisseurs.',
+      409,
+    );
+  }
+  const liste = await listerAnthropic(cle);
+  return croiser('anthropic', liste, await reference(c).catch(() => null));
+}));
+
+/** La liste de 1min.ai, lue au mieux (voir `ONEMIN_MODELS_URL`). */
+catalogue.get('/onemin', (c) => servir(c, async () => {
+  const liste = await listerOneMin(await resolveApiKey(c.env, 'onemin'));
+  return croiser('onemin', liste, await reference(c).catch(() => null));
+}));

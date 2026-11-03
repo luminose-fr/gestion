@@ -358,7 +358,7 @@ describe('espace Réglages', () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify(catalogueStub()), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
-    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    fireEvent.click(await findByText('Explorer les catalogues'));
 
     expect(container.textContent).toContain('aucune tâche de votre flux');
     expect(await findByText('anthropic/claude-fable-5')).toBeTruthy();
@@ -370,7 +370,7 @@ describe('espace Réglages', () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify(catalogueStub()), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
-    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    fireEvent.click(await findByText('Explorer les catalogues'));
     await findByText('anthropic/claude-fable-5');
 
     expect(container.textContent).toContain('La sélection · 1');
@@ -392,11 +392,102 @@ describe('espace Réglages', () => {
     })), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
-    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    fireEvent.click(await findByText('Explorer les catalogues'));
     await findByText('anthropic/claude-fable-5');
 
     expect(container.textContent).toContain("Notes d'écriture indisponibles (injoignable)");
     expect(container.textContent).not.toContain('La sélection ·');
+  });
+
+  /**
+   * Un onglet par adaptateur (SPEC §5.6). Le code affiché est celui que
+   * l'adaptateur attend : « Ajouter » doit poser CET adaptateur, sans quoi
+   * l'appel partirait chez OpenRouter avec un code qu'il ne connaît pas.
+   */
+  it('l’explorateur lit un autre adaptateur, et y ajoute avec lui', async () => {
+    const appels: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      appels.push(String(url));
+      if (String(url).includes('/catalogue/anthropic')) {
+        return new Response(JSON.stringify(catalogueStub({
+          source: 'anthropic', referenceAvailable: true, selection: [],
+          models: [{
+            ...catalogueStub().models[0], id: 'claude-fable-5-20261015', reference: 'anthropic/claude-fable-5',
+            selection: false, palier: null, palierLibelle: null, sortie: 'texte', creeLe: 1,
+          }],
+        })), { status: 200 });
+      }
+      return new Response(JSON.stringify(catalogueStub()), { status: 200 });
+    });
+
+    const { container, findByText, getByRole, getByText } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer les catalogues'));
+    await findByText('anthropic/claude-fable-5');
+
+    fireEvent.click(getByRole('radio', { name: 'Anthropic en direct' }));
+    await findByText('claude-fable-5-20261015');
+    expect(container.textContent).toContain('lus avec votre clé');
+    expect(container.textContent).toContain('Mesures de anthropic/claude-fable-5');
+    // Une dizaine de modèles : la liste entière, pas de courte liste.
+    expect(container.textContent).not.toContain('La sélection ·');
+
+    fireEvent.click(getByText('Ajouter'));
+    const adaptateur = Array.from(container.querySelectorAll('select')).find(sel => sel.value === 'anthropic');
+    expect(adaptateur).toBeTruthy();
+    expect(container.querySelector('input[value="claude-fable-5-20261015"]')).toBeTruthy();
+
+    // Revenir sur OpenRouter ne relit rien : chaque liste est gardée une fois lue.
+    expect(appels.filter(u => u.includes('/models/catalogue')).length).toBe(2);
+  });
+
+  /**
+   * Le même modèle sur deux adaptateurs : « Actualiser » réécrit l'entrée qui
+   * existe, « Ajouter » reste offert là où il manque. Sur l'onglet de son
+   * adaptateur, seul « Actualiser » reste.
+   */
+  it('déjà là se juge par adaptateur', async () => {
+    const ligne = (over: Record<string, unknown>) => ({
+      ...catalogueStub().models[0], selection: false, palier: null, palierLibelle: null, ...over,
+    });
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (String(url).includes('/catalogue/onemin')) {
+        return new Response(JSON.stringify(catalogueStub({
+          source: 'onemin', selection: [],
+          models: [ligne({ id: 'gpt-5.2-pro', name: 'GPT-5.2 Pro', reference: 'openai/gpt-5.2-pro' })],
+        })), { status: 200 });
+      }
+      return new Response(JSON.stringify(catalogueStub({
+        selection: [], models: [ligne({ id: 'openai/gpt-5.2-pro', name: 'GPT-5.2 Pro' })],
+      })), { status: 200 });
+    });
+
+    const { container, findByText, getByRole, queryByText } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer les catalogues'));
+    await findByText('openai/gpt-5.2-pro');
+    expect(queryByText('Actualiser')).toBeTruthy();
+    expect(queryByText('Ajouter')).toBeTruthy();
+
+    fireEvent.click(getByRole('radio', { name: '1min.ai' }));
+    await findByText('gpt-5.2-pro');
+    expect(container.textContent).toContain("n'est pas documentée");
+    expect(queryByText('Actualiser')).toBeTruthy();
+    expect(queryByText('Ajouter')).toBeNull();
+  });
+
+  it('une source muette se dit sous son onglet, et seulement là', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (String(url).includes('/catalogue/onemin')) {
+        return new Response(JSON.stringify({ error: '1min.ai est injoignable.' }), { status: 502 });
+      }
+      return new Response(JSON.stringify(catalogueStub()), { status: 200 });
+    });
+    const { container, findByText, getByRole } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer les catalogues'));
+    await findByText('anthropic/claude-fable-5');
+    fireEvent.click(getByRole('radio', { name: '1min.ai' }));
+    await findByText(/1min\.ai est injoignable\./);
+    fireEvent.click(getByRole('radio', { name: 'OpenRouter' }));
+    expect(container.textContent).not.toContain('1min.ai est injoignable.');
   });
 
   it('n’affiche jamais autre chose que l’empreinte d’une clé', () => {

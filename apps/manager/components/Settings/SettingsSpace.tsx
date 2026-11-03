@@ -115,6 +115,24 @@ const entier = (n: number | null) =>
 const dollars = (n: number | null) =>
     n === null ? '—' : `${decimal(n, n < 1 ? 3 : 2)} $`;
 
+interface EtatCatalogue {
+    benchmarks: boolean; raison: string | null;
+    ecriture: boolean; ecritureRaison: string | null;
+    /** Hors OpenRouter : la référence (prix, notes) a-t-elle répondu ? */
+    reference: boolean;
+}
+
+const ETAT_CATALOGUE_VIDE: EtatCatalogue = {
+    benchmarks: false, raison: null, ecriture: false, ecritureRaison: null, reference: true,
+};
+
+/** Un onglet par adaptateur qui sait lister ses modèles ; OpenAI n'en a pas l'usage ici. */
+const SOURCES_EXPLORATEUR: Array<{ valeur: Api.SourceCatalogue; libelle: string; lecture: string }> = [
+    { valeur: 'openrouter', libelle: 'OpenRouter', lecture: "OpenRouter, puis les notes d'écriture" },
+    { valeur: 'anthropic', libelle: 'Anthropic en direct', lecture: 'Votre compte Anthropic, puis la référence OpenRouter' },
+    { valeur: 'onemin', libelle: '1min.ai', lecture: '1min.ai, puis la référence OpenRouter' },
+];
+
 /** Des octets en unité lisible. Base 1000, comme les plafonds annoncés. */
 const taille = (octets: number) => {
     if (octets < 1_000_000) return `${decimal(octets / 1000, 0)} ko`;
@@ -256,18 +274,27 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
      * liste, parce qu'une liste qu'on ne lit pas ne réduit rien.
      */
     const [exploring, setExploring] = useState(false);
-    const [catalogue, setCatalogue] = useState<Api.CatalogueModel[] | null>(null);
-    const [catalogueEtat, setCatalogueEtat] = useState<{
-        benchmarks: boolean; raison: string | null;
-        ecriture: boolean; ecritureRaison: string | null;
-    }>({ benchmarks: false, raison: null, ecriture: false, ecritureRaison: null });
-    const [catalogueErreur, setCatalogueErreur] = useState<string | null>(null);
-    const [catalogueCharge, setCatalogueCharge] = useState(false);
+    /**
+     * Une liste par adaptateur : OpenRouter, Anthropic, 1min.ai. Chacune est
+     * gardée une fois lue — passer d'un onglet à l'autre ne relit rien.
+     */
+    const [sourceCatalogue, setSourceCatalogue] = useState<Api.SourceCatalogue>('openrouter');
+    const [catalogues, setCatalogues] = useState<Partial<Record<Api.SourceCatalogue, {
+        models: Api.CatalogueModel[];
+        etat: EtatCatalogue;
+    }>>>({});
+    /** Rattachée à son onglet : l'échec d'une source ne s'affiche pas sous une autre. */
+    const [erreurExplorateur, setErreurExplorateur] = useState<{ source: Api.SourceCatalogue; message: string } | null>(null);
+    const [enLecture, setEnLecture] = useState<Partial<Record<Api.SourceCatalogue, boolean>>>({});
     const [recherche, setRecherche] = useState('');
     const [vueCatalogue, setVueCatalogue] = useState<'selection' | 'tout'>('selection');
     /** L'identifiant du modèle en cours de rafraîchissement, pour ne pas doubler le clic. */
     const [majEnCours, setMajEnCours] = useState<string | null>(null);
-    const [tri, setTri] = useState<'prix' | 'ecriture' | 'slop' | 'intelligence' | 'nom'>('prix');
+    const [tri, setTri] = useState<'prix' | 'ecriture' | 'slop' | 'intelligence' | 'recent' | 'nom'>('prix');
+    const catalogue = catalogues[sourceCatalogue]?.models ?? null;
+    const catalogueEtat = catalogues[sourceCatalogue]?.etat ?? ETAT_CATALOGUE_VIDE;
+    const catalogueCharge = enLecture[sourceCatalogue] === true;
+    const catalogueErreur = erreurExplorateur?.source === sourceCatalogue ? erreurExplorateur.message : null;
 
     const [testApiCode, setTestApiCode] = useState('');
     /** Le testeur sonde un adaptateur précis : « claude-opus-4-7 » chez 1min.ai
@@ -447,26 +474,50 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         }
     };
 
-    const ouvrirExplorateur = async () => {
-        setExploring(true);
-        if (catalogue || catalogueCharge) return;
-        setCatalogueCharge(true);
-        setCatalogueErreur(null);
+    const chargerCatalogue = async (source: Api.SourceCatalogue) => {
+        // Un échec ne se garde pas : revenir sur l'onglet relance la lecture.
+        if (catalogues[source] || enLecture[source]) return;
+        setEnLecture(prev => ({ ...prev, [source]: true }));
+        setErreurExplorateur(null);
         try {
-            const { models, benchmarksAvailable, benchmarksReason, ecritureAvailable, ecritureReason } = await Api.fetchCatalogue();
-            setCatalogue(models ?? []);
-            setCatalogueEtat({
-                benchmarks: benchmarksAvailable, raison: benchmarksReason,
-                ecriture: ecritureAvailable, ecritureRaison: ecritureReason,
-            });
+            const r = await Api.fetchCatalogue(source);
+            setCatalogues(prev => ({
+                ...prev,
+                [source]: {
+                    models: r.models ?? [],
+                    etat: {
+                        benchmarks: r.benchmarksAvailable, raison: r.benchmarksReason,
+                        ecriture: r.ecritureAvailable, ecritureRaison: r.ecritureReason,
+                        // Une réponse d'avant les onglets n'a pas le champ : elle VENAIT de la référence.
+                        reference: r.referenceAvailable ?? true,
+                    },
+                },
+            }));
             // Sans notes d'écriture, la courte liste est vide : montrer un écran
             // vide serait une panne muette. On bascule sur le catalogue entier.
-            if (!ecritureAvailable) setVueCatalogue('tout');
+            if (!r.ecritureAvailable) setVueCatalogue('tout');
         } catch (e: any) {
-            setCatalogueErreur(e?.message || "Le catalogue n'a pas pu être lu.");
+            setErreurExplorateur({ source, message: e?.message || "Le catalogue n'a pas pu être lu." });
         } finally {
-            setCatalogueCharge(false);
+            setEnLecture(prev => ({ ...prev, [source]: false }));
         }
+    };
+
+    const ouvrirExplorateur = () => {
+        setExploring(true);
+        void chargerCatalogue(sourceCatalogue);
+    };
+
+    /**
+     * OpenRouter s'ouvre sur la courte liste : quatre cents lignes ne se lisent
+     * pas. Anthropic en compte une dizaine, 1min.ai quelques dizaines — la
+     * liste entière y EST la réponse à « qu'est-ce qui est disponible ? ».
+     */
+    const changerSource = (source: Api.SourceCatalogue) => {
+        if (source === sourceCatalogue) return;
+        setSourceCatalogue(source);
+        setVueCatalogue(source === 'openrouter' ? 'selection' : 'tout');
+        void chargerCatalogue(source);
     };
 
     /** Le fabricant se lit dans le préfixe du code OpenRouter : `anthropic/claude-…`. */
@@ -477,6 +528,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         'microsoft': 'Microsoft', 'amazon': 'Amazon', 'perplexity': 'Perplexity',
     };
     const vendeurDepuisCode = (code: string): string => {
+        // Sans préfixe (`gpt-9` chez 1min.ai), aucun fabricant ne se lit : mieux
+        // vaut un champ vide qu'un « Gpt-9 » qu'il faudrait corriger.
+        if (!code.includes('/')) return '';
         const prefixe = code.split('/')[0] ?? '';
         return VENDEURS[prefixe] ?? (prefixe ? prefixe.charAt(0).toUpperCase() + prefixe.slice(1) : '');
     };
@@ -511,11 +565,12 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
      * Le même modèle porte deux codes selon l'adaptateur : `claude-fable-5` chez
      * 1min.ai, `anthropic/claude-fable-5` chez OpenRouter. Sans normalisation,
      * « Actualiser » n'apparaîtrait que sur les modèles OpenRouter — c'est-à-dire
-     * presque aucun de ceux déjà posés.
+     * presque aucun de ceux déjà posés. Les mesures sont celles du MODÈLE : elles
+     * réécrivent chaque entrée qui le porte, quel que soit son adaptateur.
      */
-    const modeleCorrespondant = (slug: string): AIModel | undefined => {
+    const modelesCorrespondants = (slug: string): AIModel[] => {
         const cle = normaliserNomModele(slug);
-        return aiModels.find(x => normaliserNomModele(x.apiCode) === cle);
+        return aiModels.filter(x => normaliserNomModele(x.apiCode) === cle);
     };
 
     const ajouterDepuisCatalogue = (m: Api.CatalogueModel) => {
@@ -523,12 +578,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         setEditModel({
             name: m.name,
             apiCode: m.id,
-            provider: 'openrouter',
-            vendor: vendeurDepuisCode(m.id),
+            // L'onglet EST l'adaptateur : le code affiché est celui qu'il attend.
+            provider: sourceCatalogue,
+            vendor: sourceCatalogue === 'anthropic' ? 'Anthropic' : vendeurDepuisCode(m.reference ?? m.id),
             cost: profil.cost,
             textQuality: profil.textQuality ?? 3,
             strengths: profil.strengths,
             bestUseCases: '',
+            sortie: m.sortie ?? 'texte',
         });
         setExploring(false);
         setIsCreating(true);
@@ -544,23 +601,31 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
      * appartiennent à Florent.
      */
     const rafraichirDepuisCatalogue = async (m: Api.CatalogueModel) => {
-        const existant = modeleCorrespondant(m.id);
-        if (!existant || majEnCours === m.id) return;
+        const existants = modelesCorrespondants(m.id);
+        if (!existants.length || majEnCours === m.id) return;
         setMajEnCours(m.id);
+        const majs = new Map<string, AIModel>();
         try {
-            // Le prix ne suit que si le modèle est appelé PAR OpenRouter. Ailleurs,
-            // « Coût / Crédits » reste ce que Florent a posé : c'est sa facture.
-            const memeFournisseur = existant.provider === 'openrouter';
-            const profil = profilDepuisCatalogue(m, memeFournisseur);
-            const { model } = await Api.updateModel(existant.id, {
-                ...(profil.cost !== null ? { cost: profil.cost } : {}),
-                textQuality: profil.textQuality ?? existant.textQuality,
-                strengths: profil.strengths,
-            });
-            onModelsChange(aiModels.map(x => (x.id === model.id ? model : x)));
+            // Un par un : deux ou trois entrées au plus. Un échec arrête la série,
+            // et ce qui a déjà été écrit s'affiche quand même — l'écran ne doit
+            // pas montrer d'anciennes valeurs pour des entrées déjà réécrites.
+            for (const existant of existants) {
+                // Le prix ne suit que si le modèle est appelé PAR OpenRouter : les
+                // prix affichés sont les siens. Ailleurs, « Coût / Crédits » reste
+                // ce que Florent a posé : c'est sa facture.
+                const memeFournisseur = existant.provider === 'openrouter';
+                const profil = profilDepuisCatalogue(m, memeFournisseur);
+                const { model } = await Api.updateModel(existant.id, {
+                    ...(profil.cost !== null ? { cost: profil.cost } : {}),
+                    textQuality: profil.textQuality ?? existant.textQuality,
+                    strengths: profil.strengths,
+                });
+                majs.set(model.id, model);
+            }
         } catch (e: any) {
-            setCatalogueErreur(e?.message || "Le modèle n'a pas pu être mis à jour.");
+            setErreurExplorateur({ source: sourceCatalogue, message: e?.message || "Le modèle n'a pas pu être mis à jour." });
         } finally {
+            if (majs.size) onModelsChange(aiModels.map(x => majs.get(x.id) ?? x));
             setMajEnCours(null);
         }
     };
@@ -823,7 +888,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-colors"
                                 >
                                     <Compass className="w-3.5 h-3.5" />
-                                    Explorer le catalogue OpenRouter
+                                    Explorer les catalogues
                                 </button>
                             </div>
 
@@ -918,7 +983,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {/* ─── MODÈLES IA — explorateur du catalogue ─── */}
                 {isInExplorer && (() => {
-                    const dejaLa = new Set(aiModels.map(m => normaliserNomModele(m.apiCode)));
                     const terme = recherche.trim().toLowerCase();
                     const tous = catalogue ?? [];
                     // Tolérant à une réponse d'une version antérieure (cache, proxy) :
@@ -930,6 +994,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     );
                     const trie = [...filtres].sort((a, b) => {
                         if (tri === 'nom') return a.name.localeCompare(b.name, 'fr');
+                        // Le plus récent d'abord : c'est là que se lisent les nouvelles versions.
+                        if (tri === 'recent') return (b.creeLe ?? 0) - (a.creeLe ?? 0);
                         if (tri === 'prix') return (a.completionPrice ?? 1e9) - (b.completionPrice ?? 1e9);
                         if (tri === 'ecriture') return (b.ecriture ?? -1) - (a.ecriture ?? -1);
                         // Le slop est le seul axe où le plus bas gagne ; les non mesurés en fin de liste.
@@ -955,10 +1021,36 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         <div className="animate-fade-in">
                             <FilAriane label="Catalogue des modèles" />
 
-                            <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
-                                Deux sources croisées : OpenRouter pour le prix, le contexte et les indices
-                                d'Artificial Analysis ; EQ-Bench pour la qualité d'écriture.
-                            </p>
+                            <ControleSegmente
+                                valeur={sourceCatalogue}
+                                onChange={changerSource}
+                                libelle="Adaptateur dont lire la liste"
+                                className="mb-4"
+                                options={SOURCES_EXPLORATEUR.map(o => ({ valeur: o.valeur, libelle: o.libelle }))}
+                            />
+
+                            {sourceCatalogue === 'openrouter' && (
+                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                    Deux sources croisées : OpenRouter pour le prix, le contexte et les indices
+                                    d'Artificial Analysis ; EQ-Bench pour la qualité d'écriture.
+                                </p>
+                            )}
+                            {sourceCatalogue === 'anthropic' && (
+                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                    Les modèles que votre compte Anthropic peut appeler, lus avec votre clé. Le code
+                                    affiché est celui que l'adaptateur Anthropic attend ; prix et notes sont ceux du
+                                    même modèle chez OpenRouter, à titre indicatif — votre facture est celle
+                                    d'Anthropic.
+                                </p>
+                            )}
+                            {sourceCatalogue === 'onemin' && (
+                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                    La liste que 1min.ai sert à son propre site. Elle n'est pas documentée : lue au
+                                    mieux, elle peut cesser de répondre sans préavis. 1min.ai facture en crédits ;
+                                    les prix affichés sont ceux du même modèle chez OpenRouter, pour comparer, pas
+                                    pour compter.
+                                </p>
+                            )}
                             <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-4">
                                 Les indices d'Artificial Analysis mesurent le raisonnement, le code et la capacité
                                 d'agent — aucune tâche de votre flux. EQ-Bench juge de la prose, en anglais et sur
@@ -966,20 +1058,27 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 champ ; le modèle qui écrit le mieux votre français se décide en le lisant.
                             </p>
 
+                            {catalogue && !catalogueEtat.reference && (
+                                <p className="text-xs text-brand-main dark:text-dark-text mb-3">
+                                    La référence OpenRouter n'a pas répondu : la liste est complète, mais sans prix
+                                    ni notes.
+                                </p>
+                            )}
+
                             {catalogueErreur && (
                                 <p className="text-xs font-semibold text-erreur flex items-center gap-1.5 mb-3">
                                     <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {catalogueErreur}
                                 </p>
                             )}
 
-                            {catalogue && !catalogueEtat.ecriture && (
+                            {catalogue && catalogueEtat.reference && !catalogueEtat.ecriture && (
                                 <p className="text-xs text-brand-main dark:text-dark-text mb-3">
                                     Notes d'écriture indisponibles ({catalogueEtat.ecritureRaison ?? 'raison inconnue'}) :
                                     EQ-Bench n'est pas une API publiée, sa forme peut changer sans préavis. La sélection
                                     en dépend — le catalogue entier reste lisible.
                                 </p>
                             )}
-                            {catalogue && !catalogueEtat.benchmarks && (
+                            {catalogue && catalogueEtat.reference && !catalogueEtat.benchmarks && (
                                 <p className="text-xs text-brand-main dark:text-dark-text mb-3">
                                     {catalogueEtat.raison === 'clé absente'
                                         ? "Indices d'Artificial Analysis indisponibles : aucune clé OpenRouter posée."
@@ -987,7 +1086,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </p>
                             )}
 
-                            {catalogue && catalogueEtat.ecriture && (
+                            {catalogue && courteListe.length > 0 && (
                                 <div className="flex items-center gap-1 p-1 mb-3 rounded-xl bg-brand-light dark:bg-dark-bg w-fit">
                                     <button onClick={() => { setVueCatalogue('selection'); setTri('prix'); }} className={ONGLET(vueCatalogue === 'selection')}>
                                         La sélection · {courteListe.length}
@@ -1027,6 +1126,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     <option value="ecriture">Trier par note d'écriture</option>
                                     <option value="slop">Trier par tournures d'IA</option>
                                     <option value="intelligence">Trier par indice d'intelligence</option>
+                                    <option value="recent">Trier par date de sortie</option>
                                     <option value="nom">Trier par nom</option>
                                 </select>
                             </div>
@@ -1034,7 +1134,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             {catalogueCharge && (
                                 <Patience
                                     titre="Lecture du catalogue"
-                                    detail="OpenRouter, puis les notes d'écriture"
+                                    detail={SOURCES_EXPLORATEUR.find(o => o.valeur === sourceCatalogue)?.lecture}
                                 />
                             )}
 
@@ -1046,7 +1146,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
                                                     <tr>
                                                         <th className={`${TH} text-left min-w-[17rem]`}>Modèle</th>
-                                                        <th className={`${TH} text-right`}>Entrée → sortie $/M</th>
+                                                        <th className={`${TH} text-right`}>
+                                                            {sourceCatalogue === 'openrouter' ? 'Entrée → sortie $/M' : 'Prix OpenRouter $/M'}
+                                                        </th>
                                                         <th className={`${TH} text-right`}>Contexte</th>
                                                         <th className={`${TH} text-right`}>Écriture</th>
                                                         <th className={`${TH} text-right`}>Tournures d'IA</th>
@@ -1056,7 +1158,15 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
-                                                    {visibles.map(m => (
+                                                    {visibles.map(m => {
+                                                        const correspondants = modelesCorrespondants(m.id);
+                                                        // Déjà là, c'est déjà là SUR CET ADAPTATEUR : le même
+                                                        // modèle chez 1min.ai n'empêche pas de l'ajouter en direct.
+                                                        const ici = correspondants.some(x => x.provider === sourceCatalogue);
+                                                        // Sans mesures (aucun correspondant dans la référence),
+                                                        // « Actualiser » effacerait les forces au lieu de les réécrire.
+                                                        const mesure = sourceCatalogue === 'openrouter' || !!m.reference;
+                                                        return (
                                                         <tr key={m.id} className="hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors">
                                                             <td className="px-3 py-2">
                                                                 <div className="flex items-center gap-2 flex-wrap">
@@ -1066,8 +1176,16 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                             sélection · {m.palierLibelle}
                                                                         </Etiquette>
                                                                     )}
+                                                                    {m.sortie === 'image' && (
+                                                                        <Etiquette as="span" forme="pastille">Image</Etiquette>
+                                                                    )}
                                                                 </div>
                                                                 <p className="font-mono text-micro text-brand-main dark:text-dark-text">{m.id}</p>
+                                                                {m.reference && (
+                                                                    <p className="text-micro text-brand-main dark:text-dark-text">
+                                                                        Mesures de <span className="font-mono">{m.reference}</span>
+                                                                    </p>
+                                                                )}
                                                                 {(m.forces ?? []).length > 0 && (
                                                                     <p className="text-micro text-brand-main dark:text-dark-text mt-0.5">
                                                                         Fort en : {(m.forces ?? []).join(', ')}
@@ -1113,26 +1231,30 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                 )}
                                                             </td>
                                                             <td className="px-3 py-2 text-right">
-                                                                {dejaLa.has(normaliserNomModele(m.id)) ? (
-                                                                    <Bouton
-                                                                        onClick={() => void rafraichirDepuisCatalogue(m)}
-                                                                        disabled={majEnCours === m.id}
-                                                                        title="Réécrire coût, qualité de rédaction et forces d'après les mesures"
-                                                                        taille="petit">
-                                                                        {majEnCours === m.id
-                                                                            ? <EnCours label="Mise à jour…" taille="xs" />
-                                                                            : <><RefreshCw className="w-3 h-3" /> Actualiser</>}
-                                                                    </Bouton>
-                                                                ) : (
-                                                                    <Bouton
-                                                                        onClick={() => ajouterDepuisCatalogue(m)}
-                                                                        taille="petit">
-                                                                        Ajouter
-                                                                    </Bouton>
-                                                                )}
+                                                                <div className="flex flex-col items-end gap-1">
+                                                                    {correspondants.length > 0 && mesure && (
+                                                                        <Bouton
+                                                                            onClick={() => void rafraichirDepuisCatalogue(m)}
+                                                                            disabled={majEnCours === m.id}
+                                                                            title="Réécrire coût, qualité de rédaction et forces d'après les mesures"
+                                                                            taille="petit">
+                                                                            {majEnCours === m.id
+                                                                                ? <EnCours label="Mise à jour…" taille="xs" />
+                                                                                : <><RefreshCw className="w-3 h-3" /> Actualiser</>}
+                                                                        </Bouton>
+                                                                    )}
+                                                                    {!ici && (
+                                                                        <Bouton
+                                                                            onClick={() => ajouterDepuisCatalogue(m)}
+                                                                            taille="petit">
+                                                                            Ajouter
+                                                                        </Bouton>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                         </tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>

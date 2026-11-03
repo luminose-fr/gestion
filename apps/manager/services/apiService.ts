@@ -178,19 +178,37 @@ export interface CatalogueModel {
   selection: boolean;
   palier: string | null;
   palierLibelle: string | null;
+  /** Ce que le modèle produit. Absent d'une réponse antérieure : du texte. */
+  sortie?: 'texte' | 'image';
+  /** Date de publication, quand la source la donne. */
+  creeLe?: number | null;
+  /** Hors OpenRouter : le modèle OpenRouter dont viennent prix et notes. */
+  reference?: string | null;
 }
 
-export const fetchCatalogue = () =>
+/** Une liste par adaptateur : le code rendu est celui que CET adaptateur attend. */
+export type SourceCatalogue = 'openrouter' | 'anthropic' | 'onemin';
+
+const CHEMINS_CATALOGUE: Record<SourceCatalogue, string> = {
+  openrouter: '/models/catalogue',
+  anthropic: '/models/catalogue/anthropic',
+  onemin: '/models/catalogue/onemin',
+};
+
+export const fetchCatalogue = (source: SourceCatalogue = 'openrouter') =>
   api<{
+    source?: SourceCatalogue;
     models: CatalogueModel[];
     benchmarksAvailable: boolean;
     benchmarksReason: string | null;
     ecritureAvailable: boolean;
     ecritureReason: string | null;
+    /** Hors OpenRouter : la référence a-t-elle répondu ? Sans elle, ni prix ni notes. */
+    referenceAvailable?: boolean;
     /** L'ordre de la courte liste, du moins cher au plus cher. */
     selection: string[];
     fetchedAt: number;
-  }>('/models/catalogue', {}, { label: 'Lecture du catalogue', cle: 'api:catalogue' });
+  }>(CHEMINS_CATALOGUE[source], {}, { label: 'Lecture du catalogue', cle: `api:catalogue:${source}` });
 
 // ── Clés des fournisseurs (SPEC §5.5) ────────────────────────────────────
 
