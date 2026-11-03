@@ -29,6 +29,10 @@ export type GenerationKind = (typeof GENERATION_KINDS)[number];
 export const GENERATION_TARGETS = ['draft', 'slides'] as const;
 
 export const COACH_ROLES = ['user', 'assistant'] as const;
+
+/** Ce qu'un modèle du catalogue produit : un modèle de texte écrit, un modèle d'image illustre (migration 0014). */
+export const MODEL_SORTIES = ['texte', 'image'] as const;
+export type ModelSortie = (typeof MODEL_SORTIES)[number];
 export const COACH_STATUSES = ['in_progress', 'validated'] as const;
 
 // ── Entités ──────────────────────────────────────────────────────────────
@@ -103,6 +107,8 @@ export const AIModelSchema = z.object({
   bestUseCases: z.string().nullable().default(null),
   textQuality: z.number().int().nullable().default(null),
   isDefault: z.boolean().default(false),
+  /** Les menus d'un modèle de texte ne proposent jamais un modèle d'image, et inversement. */
+  sortie: z.enum(MODEL_SORTIES).default('texte'),
   createdAt: z.number().int(),
   updatedAt: z.number().int(),
   deletedAt: z.number().int().nullable().default(null),

@@ -1,4 +1,4 @@
-# SPEC v2.34 — gestion.luminose.fr
+# SPEC v2.35 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -160,6 +160,15 @@
 > fiche, le brouillon par le journal, et le regroupement. Un brouillon retouché à la main est
 > versé au journal avant d'être remplacé. Nouvelle route, ouverte aussi à la console :
 > regrouper des idées en série (§3.3). En chemin : un PATCH des plateformes les perdait.
+> **v2.35 (03/11/2026)** : les modèles, plus simples à régler et à suivre. Florent : « j'ai du
+> mal à effectuer ces paramétrages ». Un modèle par FAMILLE — Juger, Recopier, Synthétiser,
+> Porter la voix, Illustrer — au lieu de neuf réglages par action ; une action garde le droit
+> de suivre son propre réglage, replié (§3.4). Les modèles d'image entrent au catalogue,
+> distingués par leur sortie, et l'illustration du Reel expliqué les y lit (§5.3, §12.3).
+> L'explorateur liste aussi ce que proposent Anthropic et 1min.ai, avec le code que chaque
+> adaptateur attend (§5.6). Une veille quotidienne signale les versions plus récentes des
+> modèles utilisés (§5.7). Réglages → Affichage disparaît : ses options ne pilotaient plus
+> rien depuis le fil (§13).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -596,7 +605,33 @@ GET    /api/models
 POST   /api/models
 PATCH  /api/models/:id
 DELETE /api/models/:id
+
+GET    /api/models/catalogue              l'explorateur, liste OpenRouter (§5.6)
+GET    /api/models/catalogue/anthropic    la liste du compte Anthropic (§5.6, v2.35)
+GET    /api/models/catalogue/onemin       la liste de 1min.ai, au mieux (§5.6, v2.35)
+GET    /api/models/veille                 les nouvelles versions trouvées (§5.7, v2.35)
+POST   /api/models/veille/lancer          « Vérifier maintenant »
+POST   /api/models/veille/ignorer         { id }
+
+GET    /api/settings/actions              → { actions, familles }
+PUT    /api/settings/familles/:famille    { modelId | null }   (v2.35)
+PUT    /api/settings/actions/:action      { modelId | null }
 ```
+
+**Quel modèle sert une action — NORMATIF (v2.35).** Dans cet ordre : le réglage propre
+de l'action (`action_model:<ACTION>`), sinon celui de sa **famille d'attendu**
+(`famille_model:<famille>`), sinon le modèle choisi en haut de l'application. Neuf
+réglages par action demandaient de connaître neuf actions pour en régler une ; les quatre
+familles du flux — `juger`, `recopie`, `synthèse`, `voix` — disent ce qu'on demande
+vraiment au modèle, et c'est là que se décide où mettre l'argent. Réglages → Modèles par
+famille montre les familles d'abord ; le réglage d'une action à part reste possible,
+replié, et une action qui s'écarte de sa famille se dit sous elle, avec de quoi la
+ramener.
+
+Une cinquième famille, `illustrer`, ne porte aucune action du flux : elle désigne le
+modèle d'image par défaut de l'illustration (§12.3). **Un réglage de texte ne désigne
+qu'un modèle de texte, celui d'Illustrer qu'un modèle d'image** — le Worker refuse le
+reste en 409, et le menu ne le propose pas.
 
 ### 3.5 IA
 
@@ -995,6 +1030,14 @@ Dans le modèle cible, deux colonnes :
 Un même modèle peut ainsi être joignable via 1min.ai aujourd'hui et en direct demain :
 on change une valeur dans la table, pas une ligne de code.
 
+**La sortie d'un modèle (v2.35, migration 0014).** `ai_models.sortie` vaut `texte` ou
+`image`. Les trois modèles d'image de l'illustration (§12.3) étaient écrits en dur dans
+`packages/editorial` : ni visibles dans Réglages, ni modifiables, et l'on ne savait pas par
+où ils passaient. Ils sont devenus des lignes du catalogue, amorcées par la migration.
+Les deux sorties ne se croisent jamais : `/api/ai/chat` refuse un modèle d'image,
+`/api/ai/image` un modèle de texte — et un modèle d'image dont l'adaptateur n'est pas
+`openrouter`, le seul qui sache rendre une image.
+
 Adaptateurs disponibles : `onemin`, `openai`, `openrouter`, `anthropic`. Le
 troisième n'est qu'une URL de base posée sur le second — OpenRouter expose l'API
 `/chat/completions` d'OpenAI. C'est la démonstration que le port tient : un
@@ -1057,7 +1100,8 @@ demande plus la ligne de commande ni un redéploiement.
 `GET /api/models/catalogue` croise **trois** appels sortants. Cache d'une heure,
 clé de cache versionnée : les quotas d'OpenRouter sont de 30 requêtes/minute et
 500/jour, et un déploiement qui change la forme de la réponse ne doit pas servir
-l'ancienne une heure de plus.
+l'ancienne une heure de plus. Ce croisement est la **référence** de l'explorateur :
+les deux autres listes (ci-dessous) y prennent leurs prix et leurs notes.
 
 | Source | Clé | Ce qu'elle apporte |
 | :--- | :--- | :--- |
@@ -1086,7 +1130,41 @@ raison, et n'emporte rien d'autre.
 
 **La clé OpenRouter ne part qu'à OpenRouter — NORMATIF.** EQ-Bench est une
 source tierce ajoutée après coup ; aucun appel sortant vers un autre hôte ne
-porte d'en-tête d'autorisation. Le §7 s'applique ici sans exception.
+porte d'en-tête d'autorisation. Le §7 s'applique ici sans exception — et à chaque
+clé : celle d'Anthropic ne part qu'à Anthropic, celle de 1min.ai qu'à 1min.ai.
+
+#### Une liste par adaptateur (v2.35)
+
+L'explorateur a un onglet par adaptateur qui sait lister ses modèles. Le code affiché
+est celui que CET adaptateur attend, et « Ajouter » pose l'adaptateur de l'onglet : un
+code d'Anthropic enregistré sur OpenRouter partirait chez un fournisseur qui ne le
+connaît pas. Les listes vivent dans `workers/api/src/sources-modeles.ts`, que la veille
+(§5.7) lit aussi.
+
+| Onglet | Source | Clé |
+| :--- | :--- | :--- |
+| OpenRouter | `/api/v1/models` — texte **et image** | non |
+| Anthropic | `GET /v1/models`, toutes les pages (cinq au plus) | **oui** : la liste est celle du compte |
+| 1min.ai | `GET /models?feature=UNIFY_CHAT_WITH_AI` | envoyée si posée |
+
+- **Anthropic sans clé, ou clé refusée** : un refus (409) qui dit où la poser, sans
+  appel sortant dans le premier cas.
+- **1min.ai ne documente aucune liste.** Celle-ci est l'adresse que son propre site
+  interroge : lue au mieux, comme EQ-Bench. Une forme inattendue se dit à l'écran (502,
+  sans trace aux journaux) et n'emporte rien d'autre.
+- **Prix et notes viennent de la référence**, par le même nom normalisé que
+  l'appariement d'EQ-Bench : `claude-fable-5-20261015` retrouve
+  `anthropic/claude-fable-5`. Ils sont donc **indicatifs** hors OpenRouter — 1min.ai
+  facture en crédits, Anthropic sur sa propre facture — et l'écran le dit. Un modèle
+  sans correspondant reste listé, sans prix ni note ; une référence muette laisse la
+  liste entière, sans colonnes.
+- **« Déjà là » se juge par adaptateur.** Le même modèle chez 1min.ai n'empêche pas de
+  l'ajouter en direct ; « Actualiser » réécrit les mesures de chaque entrée qui le porte,
+  quel que soit son adaptateur, et le coût de la seule entrée OpenRouter (règle du prix,
+  plus bas).
+- **Un modèle d'image** (sortie `image` chez OpenRouter) est ajoutable comme un autre ;
+  il arrive au catalogue avec la sortie Image, et n'entre jamais dans la courte liste,
+  faute de note d'écriture.
 
 #### La courte liste — NORMATIF
 
@@ -1153,6 +1231,47 @@ qualité et les forces, **jamais le coût**, et le texte dit que les tarifs du
 fournisseur n'y sont pas repris. La correspondance passe par la même
 normalisation que l'appariement des sources : sans elle, `claude-fable-5` et
 `anthropic/claude-fable-5` seraient deux modèles étrangers.
+
+### 5.7 La veille des modèles (v2.35)
+
+Florent : « un CRON qui une fois par jour regarde si des nouvelles versions des modèles
+que j'utilise sont disponibles ». Un déclencheur planifié (`[triggers]` de
+`workers/api/wrangler.toml`, 05:17 UTC) lance `lancerVeille` (`workers/api/src/veille.ts`)
+; « Vérifier maintenant » lance le même passage.
+
+**Ce qui est suivi** : les modèles du catalogue, adaptateur par adaptateur. Un adaptateur
+qui n'en porte aucun n'est pas lu ; Anthropic sans clé est noté « aucune clé posée ».
+`openai` n'a pas de liste.
+
+**Ce qu'est une version plus récente — NORMATIF.** La règle vit dans
+`packages/editorial/src/veille.ts`, testée à part. Un code se décompose en un
+**squelette** (le code sans ses numéros, préfixe de fabricant compris) et une **version**
+(les numéros dans l'ordre : `claude-opus-4-5` → `claude-opus-#`, `[4, 5]`). Tombent
+d'abord la date d'un instantané, les suffixes d'instabilité (`-preview`, `-latest`…), la
+taille (`70b`, `a22b`) et le palier d'OpenRouter (`:free`). Est proposée, par lignée, la
+version publiée la plus haute qui dépasse la plus haute du catalogue. **Une variante
+n'est jamais une mise à jour** : `-mini`, `-flash`, `-fast` changent le squelette, et un
+« Pro » ne se voit jamais proposer sa déclinaison bon marché.
+
+**Ce qui s'écrit** : `veille_modeles` (migration 0015), une ligne par `provider:api_code`.
+
+- **« Ignorer »** pose `ignore_le` : la proposition ne revient pas le lendemain ; une
+  version plus récente encore, si.
+- **« Ajouter au catalogue »** ouvre l'éditeur prérempli sur l'adaptateur de la
+  proposition, avec ce qui tient à l'usage de la version d'avant — fabricant, coût,
+  qualité, cas d'usage — mais pas ses forces, mesurées sur elle. L'ajout ne change
+  aucun réglage. Rien n'est effacé : une proposition dont le modèle est au catalogue sur
+  son adaptateur cesse de s'afficher, et le passage suivant la retire.
+- **Une source muette ne fait taire qu'elle-même** : ses propositions d'hier restent,
+  l'état du passage dit pourquoi elle n'a pas été lue, et l'écran le montre. Seule une
+  source LUE retire ses propositions dépassées.
+
+**L'écran.** Le rail porte le nombre de propositions sur Réglages, le panneau sur
+Modèles IA ; la section les liste en tête du catalogue. Sans proposition, une ligne dit
+quand la veille a regardé — une veille muette ressemble à une veille qui n'a rien trouvé.
+
+**Bornes.** 2 lectures, au plus 2 clés et 1 lot d'écriture par passage ; un appel
+sortant par source, cinq au plus pour Anthropic. `GET /api/models/veille` : 2 requêtes.
 
 ---
 
@@ -1621,17 +1740,20 @@ site) et joint l'étalon — `apps/manager/images/etalon-illustrations.jpg`, ré
 1 200 pixels depuis `_ai_helpers/etalon.jpg`. L'autre état d'une scène (`depuis`) joint en
 plus la première illustration, déjà gardée : sans elle, le lieu et le personnage ne
 seraient plus les mêmes, et le bouton attend. `POST /api/ai/image`
-(`IllustrationRequestSchema`) vérifie le modèle contre `MODELES_ILLUSTRATION`, prend la clé
+(`IllustrationRequestSchema`) résout `modelId` dans le catalogue — un modèle de sortie
+`image`, joint par OpenRouter, sans quoi un refus (v2.35, §5.3) —, prend la clé
 OpenRouter — absente, un refus dit où la poser —, demande une image au format vertical
 3:4 (`image_config.aspect_ratio`), et rend l'image en URL de données avec son coût ; une
 mesure part dans `mesures_ia` (action `ILLUSTRATION`), comme pour le texte. L'image se
 montre avec le modèle et le coût : **Garder** la range comme une image déposée (séquence
 −1), **Refaire** en demande une autre, **Laisser** l'écarte — rien n'est rangé d'un essai
-écarté. Les modèles, tous joints par OpenRouter (une seule clé) :
+écarté. Les modèles sont ceux du catalogue de sortie Image (v2.35) : le menu du studio les
+propose, et le réglage de la famille Illustrer (§3.4) désigne celui qui sert par défaut.
+La migration 0014 a amorcé les trois d'avant, tous joints par OpenRouter (une seule clé) :
 
 | Modèle | Code | |
 | :--- | :--- | :--- |
-| Nano Banana Pro | `google/gemini-3-pro-image` | par défaut, à la demande de Florent |
+| Nano Banana Pro | `google/gemini-3-pro-image` | réglé sur Illustrer à l'amorçage, à la demande de Florent |
 | Nano Banana 2 | `google/gemini-3.1-flash-image` | moitié moins cher |
 | GPT Image 2 | `openai/gpt-image-2` | pour comparer |
 

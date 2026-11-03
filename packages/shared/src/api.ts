@@ -9,7 +9,7 @@
 import { z } from 'zod';
 import {
   CONTENT_STATUSES, PLATFORMS, VERDICTS, SERIE_STATUSES,
-  GENERATION_KINDS, GENERATION_TARGETS, COACH_ROLES, COACH_STATUSES,
+  GENERATION_KINDS, GENERATION_TARGETS, COACH_ROLES, COACH_STATUSES, MODEL_SORTIES,
 } from './entities';
 import {
   TARGET_FORMAT_VALUES, OBJECTIF_VALUES, PROFONDEUR_VALUES,
@@ -103,6 +103,7 @@ const modelWritable = {
   bestUseCases: z.string().nullable(),
   textQuality: z.number().int().min(1).max(5).nullable(),
   isDefault: z.boolean(),
+  sortie: enumOf(MODEL_SORTIES),
 };
 
 export const CreateModelSchema = z.object(modelWritable).partial().required({ name: true, apiCode: true });
@@ -196,7 +197,8 @@ export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
  * première illustration. Le modèle est vérifié contre la liste du Worker.
  */
 export const IllustrationRequestSchema = z.object({
-  modele: z.string().min(1).max(100),
+  /** Un modèle d'image du catalogue (migration 0014) — plus un code écrit en dur. */
+  modelId: z.string().min(1).max(100),
   prompt: z.string().trim().min(20).max(6000),
   references: z.array(
     z.string()
@@ -205,6 +207,12 @@ export const IllustrationRequestSchema = z.object({
   ).min(1).max(3),
 });
 export type IllustrationRequest = z.infer<typeof IllustrationRequestSchema>;
+
+/** « Ignorer » une proposition de la veille des modèles (SPEC §5.7). */
+export const VeilleIgnorerSchema = z.object({
+  /** `provider:api_code`, tel que la veille l'a rendu. */
+  id: z.string().min(3).max(300),
+});
 
 /**
  * Sonde un code d'API AVANT enregistrement : c'est tout l'intérêt du testeur.

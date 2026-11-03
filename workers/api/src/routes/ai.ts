@@ -12,7 +12,7 @@ import { Hono, type Context } from 'hono';
 import { getProvider, nombreOuNull, OPENROUTER_BASE_URL, PROVIDER_IDS, type AIProvider, type UsageIA } from '@luminose/ai';
 import { ChatRequestSchema, IllustrationRequestSchema, TestModelSchema, type ChatRequestInput } from '@luminose/shared';
 import { composerFeuille } from '@luminose/corpus';
-import { feuillePour, MODELES_ILLUSTRATION, FORMAT_ILLUSTRATION } from '@luminose/editorial';
+import { feuillePour, FORMAT_ILLUSTRATION } from '@luminose/editorial';
 import { DOCUMENTS } from '../genere/corpus';
 import type { Env } from '../env';
 import { Refus } from '../refus';
@@ -145,6 +145,9 @@ ai.post('/chat', async (c) => {
 
   const model = await loadModel(c.env, input.modelId);
   if (!model) return c.json({ error: 'Modèle introuvable dans le catalogue' }, 404);
+  if (model.sortie === 'image') {
+    throw new Refus(`« ${model.name} » est un modèle d'image : il illustre, il n'écrit pas. Choisissez un modèle de texte.`, 409);
+  }
 
   // L'ordre compte : on valide d'abord que l'adaptateur existe (voir resolve)
   const provider = await resolve(model.provider, c.env);
@@ -204,22 +207,27 @@ ai.post('/test', async (c) => {
 });
 
 /**
- * Génère l'illustration d'un Reel (SPEC §12.3, v2.28), par OpenRouter : un seul
- * compte pour Nano Banana, GPT Image et les autres, et la clé ne quitte pas le
- * Worker. L'image revient au navigateur, qui la montre ; elle ne se range dans
- * R2 que si Florent la garde — un essai écarté ne coûte pas de place.
+ * Génère l'illustration d'un Reel (SPEC §12.3, v2.28). Le modèle est un modèle
+ * d'image du catalogue (migration 0014), réglé comme les autres ; il passe par
+ * OpenRouter, le seul adaptateur qui sache rendre une image, et la clé ne
+ * quitte pas le Worker. L'image revient au navigateur, qui la montre ; elle ne
+ * se range dans R2 que si Florent la garde — un essai écarté ne coûte pas de
+ * place.
  *
- * 1 requête D1 (la clé), plus la mesure, écrite sans qu'on l'attende.
+ * 2 requêtes D1 (le modèle, la clé), plus la mesure, écrite sans qu'on l'attende.
  */
 ai.post('/image', async (c) => {
   const input = IllustrationRequestSchema.parse(await c.req.json());
-  const modele = MODELES_ILLUSTRATION.find(m => m.id === input.modele);
-  if (!modele) {
-    throw new Refus(
-      `Modèle d'image inconnu : « ${input.modele} ». Proposés : ${MODELES_ILLUSTRATION.map(m => m.libelle).join(', ')}.`,
-      400,
-    );
+  const ligne = await loadModel(c.env, input.modelId);
+  if (!ligne) return c.json({ error: 'Modèle introuvable dans le catalogue' }, 404);
+  if (ligne.sortie !== 'image') {
+    throw new Refus(`« ${ligne.name} » est un modèle de texte : il n'illustre pas. Choisissez un modèle d'image.`, 409);
   }
+  if (ligne.provider !== 'openrouter') {
+    throw new Refus(`« ${ligne.name} » passe par ${ligne.provider} : seul OpenRouter rend une image aujourd'hui. `
+      + 'Changez son adaptateur dans Réglages → Modèles IA.', 409);
+  }
+  const modele = { id: ligne.apiCode, libelle: ligne.name };
   const apiKey = await resolveApiKey(c.env, 'openrouter');
   if (!apiKey) {
     throw new Refus(
@@ -230,7 +238,7 @@ ai.post('/image', async (c) => {
   }
 
   const mesure = { action: 'ILLUSTRATION', format: 'Reel expliqué' };
-  const model = { id: modele.id, name: modele.libelle, provider: 'openrouter' };
+  const model = { id: ligne.id, name: ligne.name, provider: 'openrouter' };
   const depart = Date.now();
   const echec = (message: string) => {
     consigner(c, { input: mesure, model, feuilleCar: 0, dureeMs: Date.now() - depart, usage: null, ok: false, erreur: message });

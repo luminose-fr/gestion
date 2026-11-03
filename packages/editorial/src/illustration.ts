@@ -8,28 +8,12 @@
  * formule de `_ai_helpers/prompts-images-luminose.md` (§7) — le sujet en
  * quelques phrases, le cadrage, aucun texte, le format.
  *
- * Ce module compose le prompt ; il n'appelle personne. Le Worker le transmet à
- * OpenRouter avec sa clé, le navigateur montre l'image, et Florent la garde ou
- * la refait.
+ * Ce module compose le prompt ; il n'appelle personne. Le Worker le transmet au
+ * modèle d'image choisi, le navigateur montre l'image, et Florent la garde ou la
+ * refait. Les modèles d'image sont au catalogue depuis le 03/11/2026
+ * (migration 0014) : ils se règlent dans Réglages comme les autres.
  */
 import type { IllustrationReel } from './reelExplique';
-
-export interface ModeleIllustration {
-    /** Le code OpenRouter. */
-    id: string;
-    libelle: string;
-}
-
-/**
- * Les modèles d'image proposés, tous joints par OpenRouter : une seule clé, et
- * le modèle se change d'un clic. Le premier est le défaut — Nano Banana Pro,
- * à la demande de Florent (29/10/2026).
- */
-export const MODELES_ILLUSTRATION: readonly ModeleIllustration[] = [
-    { id: 'google/gemini-3-pro-image', libelle: 'Nano Banana Pro' },
-    { id: 'google/gemini-3.1-flash-image', libelle: 'Nano Banana 2' },
-    { id: 'openai/gpt-image-2', libelle: 'GPT Image 2' },
-];
 
 /** Vertical, pour un écran qui l'est : l'image se recadre ensuite sur ses zones. */
 export const FORMAT_ILLUSTRATION = '3:4';

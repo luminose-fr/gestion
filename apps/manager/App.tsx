@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { RefreshCw, LogOut, AlertCircle, Menu, Cpu, ChevronDown } from 'lucide-react';
-import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
+import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import {
-  AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection,
+  AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection, familleDeAction,
   etapeCourante, dernierFait, resumerLeFait, momentDuFait, estEtape,
   type Etape, type EtapeCourante, type PlanSeriesEntry, type SerieSibling,
 } from '@luminose/editorial';
 import type { ResumeFils, ResumeMontages } from '@luminose/shared';
 import * as AiService from './services/aiService';
 import * as Activite from './services/activityService';
+import { enregistrerCatalogue, modelesDeTexte, propositionsAVoir } from './services/catalogueModeles';
 import { generateSeriePlan } from './services/seriesService';
 
 import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings/apercus';
@@ -78,7 +79,7 @@ const getHashState = () => {
     // nomme le rôle ouvert sous Personas, comme le bloc sous Documents :
     // une destination, pas un filtre — elle survit au rechargement.
     const settingsSection: SettingsSection =
-        space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'display';
+        space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'models';
     const settingsPersona: string | null =
         settingsSection === 'personas'
             ? (personaParId(parts[2])?.id ?? PERSONAS_NAV[0].id)
@@ -153,6 +154,8 @@ function App() {
   const [series, setSeries] = useState<Serie[]>([]);
   /** Modèle affecté à chaque action ; une action absente prend le modèle actif. */
   const [actionModels, setActionModels] = useState<Record<string, string>>({});
+  /** Le modèle de chaque famille (03/11/2026) : le repli d'une action sans réglage. */
+  const [familleModels, setFamilleModels] = useState<Record<string, string>>({});
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -167,7 +170,7 @@ function App() {
    *  pas au démarrage : personne ne paie deux requêtes pour un espace qu'il
    *  n'ouvrira peut-être pas de la journée. */
   const [corpusCounts, setCorpusCounts] = useState<{ inbox?: number; parBloc?: Record<string, number> }>({});
-  const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('display');
+  const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('models');
   const [currentSettingsPersona, setCurrentSettingsPersona] = useState<string | null>(null);
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -197,13 +200,8 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Adaptateurs et état de leur clé — l'écriture seule fait que seule l'empreinte revient (SPEC §5.5). */
   const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
-
-  const [displayPrefs, setDisplayPrefsState] = useState<DisplayPrefs>(() => StorageService.getDisplayPrefs());
-
-  const handleDisplayPrefsChange = (prefs: DisplayPrefs) => {
-      setDisplayPrefsState(prefs);
-      StorageService.setDisplayPrefs(prefs);
-  };
+  /** La veille des modèles (SPEC §5.7) : ses propositions font la pastille de Réglages. */
+  const [veille, setVeille] = useState<Api.VeilleReponse | null>(null);
 
   // Modèle IA actif — vérité runtime localStorage, seedé depuis le modèle « Défaut » du catalogue.
   const [activeModelId, setActiveModelIdState] = useState<string>(
@@ -228,6 +226,7 @@ function App() {
    * moitié de l'information quand on doute de son fournisseur (SPEC §3.5.1).
    */
   useEffect(() => { Activite.enregistrerModeles(aiModels); }, [aiModels]);
+  useEffect(() => { enregistrerCatalogue(aiModels, familleModels.illustrer ?? null); }, [aiModels, familleModels]);
 
   /**
    * Tout échec d'appel IA s'annonce ici, quelle que soit sa provenance : le
@@ -295,13 +294,17 @@ function App() {
       [...list].sort((a, b) => b.updatedAt - a.updatedAt);
 
   /**
-   * Le modèle d'une action : son preset, à condition que ce modèle existe
-   * encore au catalogue — sinon le modèle actif. Un preset qui pointe vers un
-   * modèle supprimé ne doit pas faire échouer l'action au moment de l'appel.
+   * Le modèle d'une action : son réglage, sinon celui de sa famille, sinon le
+   * modèle actif — à condition que ce modèle existe encore au catalogue et
+   * qu'il écrive. Un réglage qui pointe vers un modèle supprimé ne doit pas
+   * faire échouer l'action au moment de l'appel.
    */
   const modelFor = (action: string): string => {
+      const ecrit = (id: string | undefined): id is string => !!id && aiModels.some(m => m.id === id && m.sortie !== 'image');
       const preset = actionModels[action];
-      return preset && aiModels.some(m => m.id === preset) ? preset : activeModelId;
+      if (ecrit(preset)) return preset;
+      const famille = familleModels[familleDeAction(action) ?? ''];
+      return ecrit(famille) ? famille : activeModelId;
   };
 
   useEffect(() => {
@@ -522,6 +525,7 @@ function App() {
         setAiModels(nextModels);
         setSeries(nextSeries);
         setActionModels(actionRes.actions ?? {});
+        setFamilleModels(actionRes.familles ?? {});
         setProviders(providerRes.providers ?? []);
 
         await Promise.all([
@@ -548,6 +552,13 @@ function App() {
     if (authenticated) {
       initData();
     }
+  }, [authenticated]);
+
+  // Lue à part de la synchronisation : une route en échec — une migration pas
+  // encore appliquée, par exemple — éteint la pastille, rien d'autre.
+  useEffect(() => {
+    if (!authenticated) return;
+    Api.fetchVeille().then(setVeille).catch(() => setVeille(null));
   }, [authenticated]);
 
   useEffect(() => {
@@ -578,15 +589,17 @@ function App() {
 
   // Seed du modèle actif depuis le « Défaut » du catalogue, tant que l'utilisateur n'a pas choisi explicitement.
   useEffect(() => {
-      if (aiModels.length === 0) return;
+      // Le modèle actif écrit : un modèle d'image n'en est jamais un.
+      const textes = modelesDeTexte(aiModels);
+      if (textes.length === 0) return;
 
       // Un réglage hérité contient un CODE d'API, plus un identifiant : il ne
       // correspond à aucun modèle et l'appel IA échouerait en 404. On repart
       // alors du modèle « Défaut », comme au premier lancement.
       const stored = StorageService.getActiveModelId();
-      if (stored && aiModels.some(m => m.id === stored)) return;
+      if (stored && textes.some(m => m.id === stored)) return;
 
-      const def = aiModels.find(m => m.isDefault) || aiModels[0];
+      const def = textes.find(m => m.isDefault) || textes[0];
       if (def) handleActiveModelChange(def.id);
   }, [aiModels]);
 
@@ -1140,6 +1153,7 @@ function App() {
           onNavigateCorpus={updateCorpusRoute}
           counts={counts}
           corpusCounts={corpusCounts}
+          reglagesCounts={{ models: propositionsAVoir(veille, aiModels).length }}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
           replie={isEditorTakeover}
@@ -1195,20 +1209,20 @@ function App() {
             </div>
 
             <div className="flex items-center gap-1.5">
-                 {/* Sélecteur global du modèle IA — utilisé par toutes les actions. Sur téléphone, il
-                     céderait toute la place au titre : chaque action garde son modèle réglé. */}
+                 {/* Sélecteur global du modèle IA — le repli des familles sans réglage (Réglages → Modèles
+                     par famille). Sur téléphone, il céderait toute la place au titre : chaque famille garde le sien. */}
                  <div className="relative hidden md:flex items-center">
                      <Cpu className="w-[13px] h-[13px] absolute left-2 text-brand-main dark:text-dark-text pointer-events-none" />
                      <select
                         value={activeModelId}
                         onChange={(e) => handleActiveModelChange(e.target.value)}
-                        title="Modèle IA utilisé par toutes les actions"
+                        title="Modèle IA des familles sans réglage — Réglages → Modèles par famille"
                         className="appearance-none pl-6 pr-6 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
                      >
-                        {aiModels.length === 0 && <option value="">Aucun modèle configuré</option>}
+                        {modelesDeTexte(aiModels).length === 0 && <option value="">Aucun modèle configuré</option>}
                         {/* Groupé par adaptateur : le même modèle peut être joignable
                             par deux chemins, et le nom seul ne les distingue pas. */}
-                        {grouperParAdaptateur(aiModels, providers)
+                        {grouperParAdaptateur(modelesDeTexte(aiModels), providers)
                             .filter(g => g.models.length > 0)
                             .map(g => (
                                 <optgroup key={g.id} label={g.label}>
@@ -1261,6 +1275,7 @@ function App() {
               onNavigateSettings={updateSettingsRoute}
               onNavigateCorpus={updateCorpusRoute}
               counts={counts}
+              reglagesCounts={{ models: propositionsAVoir(veille, aiModels).length }}
           />
         )}
 
@@ -1310,16 +1325,18 @@ function App() {
             <SettingsSpace
                 section={currentSettingsSection}
                 persona={currentSettingsPersona}
-                displayPrefs={displayPrefs}
-                onDisplayPrefsChange={handleDisplayPrefsChange}
                 aiModels={aiModels}
                 onModelsChange={handleModelsChange}
                 activeModelId={activeModelId}
                 onActiveModelChange={handleActiveModelChange}
                 actionModels={actionModels}
                 onActionModelsChange={setActionModels}
+                familleModels={familleModels}
+                onFamilleModelsChange={setFamilleModels}
                 providers={providers}
                 onProvidersChange={setProviders}
+                veille={veille}
+                onVeilleChange={setVeille}
             />
         )}
 

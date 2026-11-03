@@ -85,9 +85,22 @@ export const rowToModel = (r: any): AIModel => ({
   bestUseCases: r.best_use_cases ?? null,
   textQuality: r.text_quality ?? null,
   isDefault: bool(r.is_default),
+  sortie: r.sortie === 'image' ? 'image' : 'texte',
   createdAt: r.created_at,
   updatedAt: r.updated_at,
   deletedAt: r.deleted_at ?? null,
+});
+
+/** Une proposition de la veille des modèles (migration 0015, SPEC §5.7). */
+export const rowToPropositionVeille = (r: any) => ({
+  id: String(r.id),
+  provider: String(r.provider),
+  apiCode: String(r.api_code),
+  nom: String(r.nom),
+  remplaceModelId: r.remplace_model_id ?? null,
+  remplaceNom: r.remplace_nom ?? null,
+  publieLe: r.publie_le ?? null,
+  detecteLe: Number(r.detecte_le),
 });
 
 export const rowToGeneration = (r: any): Generation => ({
@@ -208,6 +221,7 @@ const MODEL_COLUMNS: Record<string, string> = {
   bestUseCases: 'best_use_cases',
   textQuality: 'text_quality',
   isDefault: 'is_default',
+  sortie: 'sortie',
 };
 
 export const COLUMN_MAPS = {

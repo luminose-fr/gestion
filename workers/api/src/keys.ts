@@ -25,6 +25,10 @@ const ACTION_PREFIX = 'action_model:';
 export const settingKeyForAction = (action: string) => `${ACTION_PREFIX}${action}`;
 export const ACTION_PATTERN = `${ACTION_PREFIX}%`;
 
+/** Modèle d'une famille (`famille_model:<famille>`), depuis le 03/11/2026 — même table. */
+const FAMILLE_PREFIX = 'famille_model:';
+export const settingKeyForFamille = (famille: string) => `${FAMILLE_PREFIX}${famille}`;
+
 /** Tri et filtre retenus par une liste (`vue:<id>`), dans la même table. */
 const VUE_PREFIX = 'vue:';
 

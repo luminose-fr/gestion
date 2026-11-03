@@ -10,27 +10,26 @@
 import React, { useEffect, useState } from 'react';
 import {
     Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
-    FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
+    FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw, Sparkles,
 } from 'lucide-react';
-import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
+import { AIModel, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
 import * as Api from '../../services/apiService';
 import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
 import { EnCours, Patience } from '../Feedback';
 import {
-    VOICE_RULES, AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE,
+    VOICE_RULES, AI_ACTION_CATALOG, ATTENDU_FAMILLES, FAMILLES_MODELE, sortieDeFamille,
     profilerModele, normaliserNomModele,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
+import { propositionsAVoir } from '../../services/catalogueModeles';
 import { APERCUS, compterPresences, VOIX_ID } from './apercus';
-import { Bouton, CLASSES_CHAMP, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
+import { Bouton, Carte, CLASSES_CHAMP, ControleSegmente, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
 
 interface SettingsSpaceProps {
     section: SettingsSection;
     /** Le rôle ouvert sous Personas — il vient de la route, comme le bloc du Corpus. */
     persona: string | null;
-    displayPrefs: DisplayPrefs;
-    onDisplayPrefsChange: (prefs: DisplayPrefs) => void;
     aiModels: AIModel[];
     onModelsChange: (models: AIModel[]) => void;
     /** Modèle IA actif global — un identifiant du catalogue, jamais un code d'API. */
@@ -38,9 +37,15 @@ interface SettingsSpaceProps {
     onActiveModelChange: (modelId: string) => void;
     actionModels: Record<string, string>;
     onActionModelsChange: (map: Record<string, string>) => void;
+    /** Le modèle de chaque famille (03/11/2026) : Juger, Recopier, Synthétiser, Porter la voix, Illustrer. */
+    familleModels: Record<string, string>;
+    onFamilleModelsChange: (map: Record<string, string>) => void;
     /** Adaptateurs et état de leur clé, chargés par l'application. */
     providers: Api.ProviderKeyState[];
     onProvidersChange: (providers: Api.ProviderKeyState[]) => void;
+    /** La veille des modèles (SPEC §5.7), lue par l'application pour sa pastille. */
+    veille?: Api.VeilleReponse | null;
+    onVeilleChange?: (veille: Api.VeilleReponse) => void;
 }
 
 /**
@@ -113,6 +118,24 @@ const entier = (n: number | null) =>
 
 const dollars = (n: number | null) =>
     n === null ? '—' : `${decimal(n, n < 1 ? 3 : 2)} $`;
+
+interface EtatCatalogue {
+    benchmarks: boolean; raison: string | null;
+    ecriture: boolean; ecritureRaison: string | null;
+    /** Hors OpenRouter : la référence (prix, notes) a-t-elle répondu ? */
+    reference: boolean;
+}
+
+const ETAT_CATALOGUE_VIDE: EtatCatalogue = {
+    benchmarks: false, raison: null, ecriture: false, ecritureRaison: null, reference: true,
+};
+
+/** Un onglet par adaptateur qui sait lister ses modèles ; OpenAI n'en a pas l'usage ici. */
+const SOURCES_EXPLORATEUR: Array<{ valeur: Api.SourceCatalogue; libelle: string; lecture: string }> = [
+    { valeur: 'openrouter', libelle: 'OpenRouter', lecture: "OpenRouter, puis les notes d'écriture" },
+    { valeur: 'anthropic', libelle: 'Anthropic en direct', lecture: 'Votre compte Anthropic, puis la référence OpenRouter' },
+    { valeur: 'onemin', libelle: '1min.ai', lecture: '1min.ai, puis la référence OpenRouter' },
+];
 
 /** Des octets en unité lisible. Base 1000, comme les plafonds annoncés. */
 const taille = (octets: number) => {
@@ -189,35 +212,6 @@ const CHAMP = CLASSES_CHAMP;
 
 // ─── Atomes ───────────────────────────────────────────────────────────────
 
-const ToggleSwitch: React.FC<{
-    label: string;
-    description?: string;
-    value: boolean;
-    onChange: (value: boolean) => void;
-}> = ({ label, description, value, onChange }) => (
-    <div className="flex items-center justify-between gap-4 px-4 py-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl">
-        <div className="min-w-0">
-            <p className="text-sm font-semibold text-brand-main dark:text-white">{label}</p>
-            {description && (
-                <p className="text-xs text-brand-main dark:text-dark-text mt-0.5 leading-snug">{description}</p>
-            )}
-        </div>
-        <button
-            type="button"
-            role="switch"
-            aria-checked={value}
-            onClick={() => onChange(!value)}
-            className={`relative shrink-0 w-10 h-[22px] rounded-full transition-colors duration-200 ${
-                value ? 'bg-brand-main dark:bg-white' : 'bg-brand-border dark:bg-dark-sec-border'
-            }`}
-        >
-            <span className={`absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white dark:bg-brand-main shadow-xs transition-transform duration-200 ${
-                value ? 'translate-x-[18px]' : 'translate-x-0'
-            }`} />
-        </button>
-    </div>
-);
-
 /** En-tête de groupe : un titre, ce qu'il regroupe, et un filet. */
 const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.ReactNode }> = ({ titre, detail, droite }) => (
     <div className="flex items-baseline justify-between gap-3 border-b border-brand-border dark:border-dark-sec-border pb-1.5 mb-3">
@@ -231,10 +225,115 @@ const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.Re
 
 // ─── Composant ────────────────────────────────────────────────────────────
 
+const LIBELLES_SOURCE: Record<Api.SourceCatalogue, string> = {
+    openrouter: 'OpenRouter', anthropic: 'Anthropic', onemin: '1min.ai',
+};
+
+const quand = (ms: number) => new Date(ms).toLocaleString('fr-FR', {
+    day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+});
+
+/**
+ * La veille des modèles, en tête du catalogue (SPEC §5.7). Une carte quand
+ * elle a trouvé quelque chose ; une ligne quand elle n'a rien à dire — mais
+ * elle dit toujours QUAND elle a regardé, et ce qu'elle n'a pas pu lire : une
+ * veille muette ressemble à une veille qui n'a rien trouvé.
+ */
+const VeilleModeles: React.FC<{
+    propositions: Api.PropositionVeille[];
+    etat: Api.EtatVeille | null;
+    providers: Api.ProviderKeyState[];
+    enCours: boolean;
+    erreur: string | null;
+    onAjouter: (p: Api.PropositionVeille) => void;
+    onIgnorer: (p: Api.PropositionVeille) => void;
+    onVerifier: () => void;
+}> = ({ propositions, etat, providers, enCours, erreur, onAjouter, onIgnorer, onVerifier }) => {
+    const muettes = Object.entries(etat?.sources ?? {})
+        .filter(([, e]) => e && !e.lue)
+        .map(([source, e]) => `${LIBELLES_SOURCE[source as Api.SourceCatalogue] ?? source} : ${e!.raison ?? 'illisible'}`);
+    const verifier = (
+        <Bouton onClick={onVerifier} disabled={enCours} taille="petit" intention="discrete">
+            {enCours ? <EnCours label="Vérification…" taille="xs" /> : <><RefreshCw className="w-3 h-3" /> Vérifier maintenant</>}
+        </Bouton>
+    );
+    const pied = (
+        <>
+            {muettes.length > 0 && (
+                <p className="text-micro leading-relaxed text-alerte">Non lu — {muettes.join(' · ')}.</p>
+            )}
+            {erreur && (
+                <p className="text-micro font-semibold text-erreur flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {erreur}
+                </p>
+            )}
+        </>
+    );
+
+    if (!propositions.length) {
+        return (
+            <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <p className="text-xs text-brand-main dark:text-dark-text">
+                        <strong className="font-semibold">Veille des modèles</strong> —{' '}
+                        {etat
+                            ? `rien de nouveau au ${quand(etat.le)}.`
+                            : 'aucun passage encore ; elle regarde chaque matin.'}
+                    </p>
+                    {verifier}
+                </div>
+                {pied}
+            </div>
+        );
+    }
+
+    return (
+        <Carte>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <Etiquette forme="entete" avecIcone>
+                    <Sparkles className="w-3 h-3" />
+                    Nouvelles versions · {propositions.length}
+                </Etiquette>
+                {verifier}
+            </div>
+            <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text mb-2">
+                Une version plus récente d'un modèle de votre catalogue, sur le même adaptateur
+                {etat ? ` — vu le ${quand(etat.le)}` : ''}. L'ajouter ne change aucun réglage : choisissez-la
+                ensuite dans Modèles par famille.
+            </p>
+            <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
+                {propositions.map(p => (
+                    <li key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2">
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-brand-main dark:text-white">{p.nom}</p>
+                            <p className="text-micro text-brand-main dark:text-dark-text">
+                                <span className="font-mono">{p.apiCode}</span>
+                                {' · '}{providers.find(x => x.id === p.provider)?.label ?? p.provider}
+                                {p.remplaceNom ? ` · après ${p.remplaceNom}` : ''}
+                                {p.publieLe ? ` · publié le ${new Date(p.publieLe).toLocaleDateString('fr-FR')}` : ''}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Bouton onClick={() => onAjouter(p)} taille="petit">
+                                <Plus className="w-3 h-3" /> Ajouter au catalogue
+                            </Bouton>
+                            <Bouton onClick={() => onIgnorer(p)} taille="petit" intention="discrete">
+                                Ignorer
+                            </Bouton>
+                        </div>
+                    </li>
+                ))}
+            </ul>
+            <div className="mt-2 space-y-1">{pied}</div>
+        </Carte>
+    );
+};
+
 export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
-    section, persona, displayPrefs, onDisplayPrefsChange,
+    section, persona,
     aiModels, onModelsChange, activeModelId, onActiveModelChange,
-    actionModels, onActionModelsChange, providers, onProvidersChange,
+    actionModels, onActionModelsChange, familleModels, onFamilleModelsChange, providers, onProvidersChange,
+    veille = null, onVeilleChange,
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -275,7 +374,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [quotasErreur, setQuotasErreur] = useState<string | null>(null);
 
     const [editModel, setEditModel] = useState<Partial<AIModel>>({
-        name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3,
+        name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3, sortie: 'texte',
     });
 
     /**
@@ -284,18 +383,27 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
      * liste, parce qu'une liste qu'on ne lit pas ne réduit rien.
      */
     const [exploring, setExploring] = useState(false);
-    const [catalogue, setCatalogue] = useState<Api.CatalogueModel[] | null>(null);
-    const [catalogueEtat, setCatalogueEtat] = useState<{
-        benchmarks: boolean; raison: string | null;
-        ecriture: boolean; ecritureRaison: string | null;
-    }>({ benchmarks: false, raison: null, ecriture: false, ecritureRaison: null });
-    const [catalogueErreur, setCatalogueErreur] = useState<string | null>(null);
-    const [catalogueCharge, setCatalogueCharge] = useState(false);
+    /**
+     * Une liste par adaptateur : OpenRouter, Anthropic, 1min.ai. Chacune est
+     * gardée une fois lue — passer d'un onglet à l'autre ne relit rien.
+     */
+    const [sourceCatalogue, setSourceCatalogue] = useState<Api.SourceCatalogue>('openrouter');
+    const [catalogues, setCatalogues] = useState<Partial<Record<Api.SourceCatalogue, {
+        models: Api.CatalogueModel[];
+        etat: EtatCatalogue;
+    }>>>({});
+    /** Rattachée à son onglet : l'échec d'une source ne s'affiche pas sous une autre. */
+    const [erreurExplorateur, setErreurExplorateur] = useState<{ source: Api.SourceCatalogue; message: string } | null>(null);
+    const [enLecture, setEnLecture] = useState<Partial<Record<Api.SourceCatalogue, boolean>>>({});
     const [recherche, setRecherche] = useState('');
     const [vueCatalogue, setVueCatalogue] = useState<'selection' | 'tout'>('selection');
     /** L'identifiant du modèle en cours de rafraîchissement, pour ne pas doubler le clic. */
     const [majEnCours, setMajEnCours] = useState<string | null>(null);
-    const [tri, setTri] = useState<'prix' | 'ecriture' | 'slop' | 'intelligence' | 'nom'>('prix');
+    const [tri, setTri] = useState<'prix' | 'ecriture' | 'slop' | 'intelligence' | 'recent' | 'nom'>('prix');
+    const catalogue = catalogues[sourceCatalogue]?.models ?? null;
+    const catalogueEtat = catalogues[sourceCatalogue]?.etat ?? ETAT_CATALOGUE_VIDE;
+    const catalogueCharge = enLecture[sourceCatalogue] === true;
+    const catalogueErreur = erreurExplorateur?.source === sourceCatalogue ? erreurExplorateur.message : null;
 
     const [testApiCode, setTestApiCode] = useState('');
     /** Le testeur sonde un adaptateur précis : « claude-opus-4-7 » chez 1min.ai
@@ -303,11 +411,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [testProvider, setTestProvider] = useState('onemin');
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testResult, setTestResult] = useState<AiService.ModelTestResult | null>(null);
-
-    const prefs = { ...DEFAULT_DISPLAY_PREFS, ...displayPrefs };
-    const setPref = <K extends keyof DisplayPrefs>(key: K, value: DisplayPrefs[K]) => {
-        onDisplayPrefsChange({ ...prefs, [key]: value });
-    };
 
     // Changer de section referme les vues de détail : rester dans l'éditeur
     // d'un modèle en arrivant sur les Personas n'aurait aucun sens.
@@ -427,6 +530,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         }
     };
 
+    const handleFamilleModel = async (famille: string, modelId: string) => {
+        setPresetBusy(`famille:${famille}`);
+        setSaveError(null);
+        try {
+            await Api.setFamilleModel(famille, modelId || null);
+            const suite = { ...familleModels };
+            if (modelId) suite[famille] = modelId; else delete suite[famille];
+            onFamilleModelsChange(suite);
+        } catch (e) {
+            setSaveError(describeError(e));
+        } finally {
+            setPresetBusy(null);
+        }
+    };
+
     const handleActionModel = async (action: string, modelId: string) => {
         setPresetBusy(action);
         setSaveError(null);
@@ -465,26 +583,50 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         }
     };
 
-    const ouvrirExplorateur = async () => {
-        setExploring(true);
-        if (catalogue || catalogueCharge) return;
-        setCatalogueCharge(true);
-        setCatalogueErreur(null);
+    const chargerCatalogue = async (source: Api.SourceCatalogue) => {
+        // Un échec ne se garde pas : revenir sur l'onglet relance la lecture.
+        if (catalogues[source] || enLecture[source]) return;
+        setEnLecture(prev => ({ ...prev, [source]: true }));
+        setErreurExplorateur(null);
         try {
-            const { models, benchmarksAvailable, benchmarksReason, ecritureAvailable, ecritureReason } = await Api.fetchCatalogue();
-            setCatalogue(models ?? []);
-            setCatalogueEtat({
-                benchmarks: benchmarksAvailable, raison: benchmarksReason,
-                ecriture: ecritureAvailable, ecritureRaison: ecritureReason,
-            });
+            const r = await Api.fetchCatalogue(source);
+            setCatalogues(prev => ({
+                ...prev,
+                [source]: {
+                    models: r.models ?? [],
+                    etat: {
+                        benchmarks: r.benchmarksAvailable, raison: r.benchmarksReason,
+                        ecriture: r.ecritureAvailable, ecritureRaison: r.ecritureReason,
+                        // Une réponse d'avant les onglets n'a pas le champ : elle VENAIT de la référence.
+                        reference: r.referenceAvailable ?? true,
+                    },
+                },
+            }));
             // Sans notes d'écriture, la courte liste est vide : montrer un écran
             // vide serait une panne muette. On bascule sur le catalogue entier.
-            if (!ecritureAvailable) setVueCatalogue('tout');
+            if (!r.ecritureAvailable) setVueCatalogue('tout');
         } catch (e: any) {
-            setCatalogueErreur(e?.message || "Le catalogue n'a pas pu être lu.");
+            setErreurExplorateur({ source, message: e?.message || "Le catalogue n'a pas pu être lu." });
         } finally {
-            setCatalogueCharge(false);
+            setEnLecture(prev => ({ ...prev, [source]: false }));
         }
+    };
+
+    const ouvrirExplorateur = () => {
+        setExploring(true);
+        void chargerCatalogue(sourceCatalogue);
+    };
+
+    /**
+     * OpenRouter s'ouvre sur la courte liste : quatre cents lignes ne se lisent
+     * pas. Anthropic en compte une dizaine, 1min.ai quelques dizaines — la
+     * liste entière y EST la réponse à « qu'est-ce qui est disponible ? ».
+     */
+    const changerSource = (source: Api.SourceCatalogue) => {
+        if (source === sourceCatalogue) return;
+        setSourceCatalogue(source);
+        setVueCatalogue(source === 'openrouter' ? 'selection' : 'tout');
+        void chargerCatalogue(source);
     };
 
     /** Le fabricant se lit dans le préfixe du code OpenRouter : `anthropic/claude-…`. */
@@ -495,6 +637,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         'microsoft': 'Microsoft', 'amazon': 'Amazon', 'perplexity': 'Perplexity',
     };
     const vendeurDepuisCode = (code: string): string => {
+        // Sans préfixe (`gpt-9` chez 1min.ai), aucun fabricant ne se lit : mieux
+        // vaut un champ vide qu'un « Gpt-9 » qu'il faudrait corriger.
+        if (!code.includes('/')) return '';
         const prefixe = code.split('/')[0] ?? '';
         return VENDEURS[prefixe] ?? (prefixe ? prefixe.charAt(0).toUpperCase() + prefixe.slice(1) : '');
     };
@@ -529,11 +674,12 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
      * Le même modèle porte deux codes selon l'adaptateur : `claude-fable-5` chez
      * 1min.ai, `anthropic/claude-fable-5` chez OpenRouter. Sans normalisation,
      * « Actualiser » n'apparaîtrait que sur les modèles OpenRouter — c'est-à-dire
-     * presque aucun de ceux déjà posés.
+     * presque aucun de ceux déjà posés. Les mesures sont celles du MODÈLE : elles
+     * réécrivent chaque entrée qui le porte, quel que soit son adaptateur.
      */
-    const modeleCorrespondant = (slug: string): AIModel | undefined => {
+    const modelesCorrespondants = (slug: string): AIModel[] => {
         const cle = normaliserNomModele(slug);
-        return aiModels.find(x => normaliserNomModele(x.apiCode) === cle);
+        return aiModels.filter(x => normaliserNomModele(x.apiCode) === cle);
     };
 
     const ajouterDepuisCatalogue = (m: Api.CatalogueModel) => {
@@ -541,12 +687,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         setEditModel({
             name: m.name,
             apiCode: m.id,
-            provider: 'openrouter',
-            vendor: vendeurDepuisCode(m.id),
+            // L'onglet EST l'adaptateur : le code affiché est celui qu'il attend.
+            provider: sourceCatalogue,
+            vendor: sourceCatalogue === 'anthropic' ? 'Anthropic' : vendeurDepuisCode(m.reference ?? m.id),
             cost: profil.cost,
             textQuality: profil.textQuality ?? 3,
             strengths: profil.strengths,
             bestUseCases: '',
+            sortie: m.sortie ?? 'texte',
         });
         setExploring(false);
         setIsCreating(true);
@@ -562,23 +710,31 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
      * appartiennent à Florent.
      */
     const rafraichirDepuisCatalogue = async (m: Api.CatalogueModel) => {
-        const existant = modeleCorrespondant(m.id);
-        if (!existant || majEnCours === m.id) return;
+        const existants = modelesCorrespondants(m.id);
+        if (!existants.length || majEnCours === m.id) return;
         setMajEnCours(m.id);
+        const majs = new Map<string, AIModel>();
         try {
-            // Le prix ne suit que si le modèle est appelé PAR OpenRouter. Ailleurs,
-            // « Coût / Crédits » reste ce que Florent a posé : c'est sa facture.
-            const memeFournisseur = existant.provider === 'openrouter';
-            const profil = profilDepuisCatalogue(m, memeFournisseur);
-            const { model } = await Api.updateModel(existant.id, {
-                ...(profil.cost !== null ? { cost: profil.cost } : {}),
-                textQuality: profil.textQuality ?? existant.textQuality,
-                strengths: profil.strengths,
-            });
-            onModelsChange(aiModels.map(x => (x.id === model.id ? model : x)));
+            // Un par un : deux ou trois entrées au plus. Un échec arrête la série,
+            // et ce qui a déjà été écrit s'affiche quand même — l'écran ne doit
+            // pas montrer d'anciennes valeurs pour des entrées déjà réécrites.
+            for (const existant of existants) {
+                // Le prix ne suit que si le modèle est appelé PAR OpenRouter : les
+                // prix affichés sont les siens. Ailleurs, « Coût / Crédits » reste
+                // ce que Florent a posé : c'est sa facture.
+                const memeFournisseur = existant.provider === 'openrouter';
+                const profil = profilDepuisCatalogue(m, memeFournisseur);
+                const { model } = await Api.updateModel(existant.id, {
+                    ...(profil.cost !== null ? { cost: profil.cost } : {}),
+                    textQuality: profil.textQuality ?? existant.textQuality,
+                    strengths: profil.strengths,
+                });
+                majs.set(model.id, model);
+            }
         } catch (e: any) {
-            setCatalogueErreur(e?.message || "Le modèle n'a pas pu être mis à jour.");
+            setErreurExplorateur({ source: sourceCatalogue, message: e?.message || "Le modèle n'a pas pu être mis à jour." });
         } finally {
+            if (majs.size) onModelsChange(aiModels.map(x => majs.get(x.id) ?? x));
             setMajEnCours(null);
         }
     };
@@ -596,6 +752,61 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
             name: '', apiCode: '', cost: 'medium', provider: provider ?? 'onemin',
             vendor: '', strengths: '', bestUseCases: '', textQuality: 3,
         });
+    };
+
+    /**
+     * La veille (SPEC §5.7). « Ajouter au catalogue » ouvre l'éditeur prérempli
+     * plutôt que d'enregistrer d'office : le nom et le coût se relisent, et un
+     * code qu'on n'a jamais appelé se teste avant de servir.
+     */
+    const [veilleEnCours, setVeilleEnCours] = useState(false);
+    const [veilleErreur, setVeilleErreur] = useState<string | null>(null);
+    const propositions = propositionsAVoir(veille, aiModels);
+
+    const ajouterDepuisVeille = (p: Api.PropositionVeille) => {
+        const ancien = aiModels.find(m => m.id === p.remplaceModelId);
+        setEditingId(null);
+        setIsCreating(true);
+        setEditModel({
+            name: p.nom,
+            apiCode: p.apiCode,
+            provider: p.provider,
+            // Ce qui tient à l'usage se reprend de la version d'avant ; les
+            // forces, mesurées sur ELLE, ne se recopient pas sur une autre.
+            vendor: ancien?.vendor ?? '',
+            cost: ancien?.cost ?? 'medium',
+            textQuality: ancien?.textQuality ?? 3,
+            bestUseCases: ancien?.bestUseCases ?? '',
+            strengths: '',
+            sortie: ancien?.sortie ?? 'texte',
+        });
+    };
+
+    const ignorerProposition = async (p: Api.PropositionVeille) => {
+        setVeilleErreur(null);
+        try {
+            await Api.ignorerVeille(p.id);
+        } catch (e: any) {
+            // Déjà disparue côté serveur : l'écarter ici aussi est la bonne issue.
+            if (!String(e?.message ?? '').startsWith('Erreur 404')) {
+                setVeilleErreur(e?.message || "La proposition n'a pas pu être écartée.");
+                return;
+            }
+        }
+        if (veille) onVeilleChange?.({ ...veille, propositions: veille.propositions.filter(x => x.id !== p.id) });
+    };
+
+    const verifierMaintenant = async () => {
+        if (veilleEnCours) return;
+        setVeilleEnCours(true);
+        setVeilleErreur(null);
+        try {
+            onVeilleChange?.(await Api.lancerVeille());
+        } catch (e: any) {
+            setVeilleErreur(e?.message || "La vérification n'a pas abouti.");
+        } finally {
+            setVeilleEnCours(false);
+        }
     };
 
     // Devine le FABRICANT à partir du préfixe du code API — jamais l'adaptateur.
@@ -706,12 +917,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     );
 
     /** Le menu d'un modèle, rangé sous son adaptateur (SPEC §5.3). */
+    /** Un menu de modèles : ceux de texte pour écrire, ceux d'image pour illustrer — jamais les deux. */
     const SelecteurModele: React.FC<{
         value: string;
         onChange: (id: string) => void;
         disabled?: boolean;
         vide: string;
-    }> = ({ value, onChange, disabled, vide }) => (
+        sortie?: 'texte' | 'image';
+    }> = ({ value, onChange, disabled, vide, sortie = 'texte' }) => (
         <select
             value={value}
             disabled={disabled}
@@ -719,7 +932,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
             className={`${CHAMP} cursor-pointer`}
         >
             <option value="">{vide}</option>
-            {groupes.filter(g => g.models.length > 0).map(g => (
+            {groupes.map(g => ({ ...g, models: g.models.filter(m => (m.sortie ?? 'texte') === sortie) }))
+                .filter(g => g.models.length > 0).map(g => (
                 <optgroup key={g.id} label={g.label}>
                     {g.models.map(m => (
                         <option key={m.id} value={m.id}>{m.name} · {m.apiCode}</option>
@@ -733,88 +947,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         <div className="flex-1 overflow-y-auto">
             <div className={ecran('liste')}>
 
-                {/* ─── AFFICHAGE ─── */}
-                {section === 'display' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-fade-in">
-                        <div className="space-y-2">
-                            <Etiquette className="mb-3">Espace Contenus</Etiquette>
-                            <ToggleSwitch
-                                label="Bande verdict colorée"
-                                description="Trait coloré à gauche de chaque idée"
-                                value={prefs.showVerdictStripe}
-                                onChange={v => setPref('showVerdictStripe', v)}
-                            />
-                            <ToggleSwitch
-                                label="Plateformes"
-                                description="Badges LinkedIn, Instagram, etc."
-                                value={prefs.showPlatforms}
-                                onChange={v => setPref('showPlatforms', v)}
-                            />
-                            <ToggleSwitch
-                                label="Niveau d'analyse"
-                                description="Direct, Légère, Complète"
-                                value={prefs.showDepth}
-                                onChange={v => setPref('showDepth', v)}
-                            />
-                            <ToggleSwitch
-                                label="Objectif"
-                                description="Notoriété, Recadrage, Conversion..."
-                                value={prefs.showObjectif}
-                                onChange={v => setPref('showObjectif', v)}
-                            />
-                        </div>
-
-                        <div>
-                            <Etiquette className="mb-3">Aperçu</Etiquette>
-                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface overflow-hidden flex">
-                                {prefs.showVerdictStripe && <div className="w-1 bg-succes shrink-0" />}
-                                <div className="p-4 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                        <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-succes/10 text-succes border-succes/30">
-                                            Valide
-                                        </span>
-                                        <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                            Post Texte (Court)
-                                        </span>
-                                        {prefs.showObjectif && (
-                                            <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                Éducation pratique
-                                            </span>
-                                        )}
-                                        {prefs.showDepth && (
-                                            <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                Légère
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="font-semibold text-sm text-brand-main dark:text-white">
-                                        Non, vous n'allez pas perdre le contrôle
-                                    </p>
-                                    <p className="mt-1 text-xs leading-5 text-brand-main dark:text-dark-text">
-                                        La peur de lâcher prise, et ce que le cadre de la séance rend possible.
-                                    </p>
-                                    {prefs.showPlatforms && (
-                                        <div className="flex flex-wrap gap-1.5 mt-2">
-                                            {['LinkedIn', 'Facebook'].map(p => (
-                                                <span key={p} className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                    {p}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <p className="mt-3 px-1 text-micro leading-relaxed text-brand-main dark:text-dark-text">
-                                L'aperçu suit les réglages : c'est la ligne telle qu'elle apparaîtra dans la boîte à idées.
-                            </p>
-                        </div>
-                    </div>
-                )}
-
                 {/* ─── MODÈLES IA — catalogue ─── */}
                 {section === 'models' && !isInModelEditor && !isInExplorer && (
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start animate-fade-in">
                         <div className="space-y-6">
+                            <VeilleModeles
+                                propositions={propositions}
+                                etat={veille?.etat ?? null}
+                                providers={providers}
+                                enCours={veilleEnCours}
+                                erreur={veilleErreur}
+                                onAjouter={ajouterDepuisVeille}
+                                onIgnorer={p => void ignorerProposition(p)}
+                                onVerifier={() => void verifierMaintenant()}
+                            />
+
                             <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
                                 Rangés par adaptateur — celui qui reçoit l'appel. Un même modèle peut être joignable
                                 chez plusieurs d'entre eux, avec un code différent et un prix différent.
@@ -866,6 +1013,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                         >
                                                             <div className="flex items-center justify-between gap-2 mb-1">
                                                                 <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{m.name}</h3>
+                                                                {m.sortie === 'image' && <Etiquette as="span" forme="pastille" className="ml-auto">Image</Etiquette>}
                                                                 {m.vendor && (
                                                                     <span className="shrink-0 text-micro bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
                                                                         {m.vendor}
@@ -874,7 +1022,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                             </div>
                                                             <p className="text-xs text-brand-main dark:text-dark-text font-mono truncate opacity-70 mb-2">{m.apiCode}</p>
                                                             <div className="flex items-center gap-2">
-                                                                {isActive ? (
+                                                                {/* Un modèle d'image n'est pas le modèle actif : son défaut se règle dans la famille Illustrer. */}
+                                                                {m.sortie === 'image' ? null : isActive ? (
                                                                     <span className="flex items-center gap-1 text-micro font-bold px-2 py-1 rounded-lg bg-brand-main text-white dark:bg-white dark:text-brand-main">
                                                                         <CheckCircle2 className="w-3 h-3" />
                                                                         Défaut
@@ -914,7 +1063,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-colors"
                                 >
                                     <Compass className="w-3.5 h-3.5" />
-                                    Explorer le catalogue OpenRouter
+                                    Explorer les catalogues
                                 </button>
                             </div>
 
@@ -1009,7 +1158,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {/* ─── MODÈLES IA — explorateur du catalogue ─── */}
                 {isInExplorer && (() => {
-                    const dejaLa = new Set(aiModels.map(m => normaliserNomModele(m.apiCode)));
                     const terme = recherche.trim().toLowerCase();
                     const tous = catalogue ?? [];
                     // Tolérant à une réponse d'une version antérieure (cache, proxy) :
@@ -1021,6 +1169,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     );
                     const trie = [...filtres].sort((a, b) => {
                         if (tri === 'nom') return a.name.localeCompare(b.name, 'fr');
+                        // Le plus récent d'abord : c'est là que se lisent les nouvelles versions.
+                        if (tri === 'recent') return (b.creeLe ?? 0) - (a.creeLe ?? 0);
                         if (tri === 'prix') return (a.completionPrice ?? 1e9) - (b.completionPrice ?? 1e9);
                         if (tri === 'ecriture') return (b.ecriture ?? -1) - (a.ecriture ?? -1);
                         // Le slop est le seul axe où le plus bas gagne ; les non mesurés en fin de liste.
@@ -1046,10 +1196,36 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         <div className="animate-fade-in">
                             <FilAriane label="Catalogue des modèles" />
 
-                            <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
-                                Deux sources croisées : OpenRouter pour le prix, le contexte et les indices
-                                d'Artificial Analysis ; EQ-Bench pour la qualité d'écriture.
-                            </p>
+                            <ControleSegmente
+                                valeur={sourceCatalogue}
+                                onChange={changerSource}
+                                libelle="Adaptateur dont lire la liste"
+                                className="mb-4"
+                                options={SOURCES_EXPLORATEUR.map(o => ({ valeur: o.valeur, libelle: o.libelle }))}
+                            />
+
+                            {sourceCatalogue === 'openrouter' && (
+                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                    Deux sources croisées : OpenRouter pour le prix, le contexte et les indices
+                                    d'Artificial Analysis ; EQ-Bench pour la qualité d'écriture.
+                                </p>
+                            )}
+                            {sourceCatalogue === 'anthropic' && (
+                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                    Les modèles que votre compte Anthropic peut appeler, lus avec votre clé. Le code
+                                    affiché est celui que l'adaptateur Anthropic attend ; prix et notes sont ceux du
+                                    même modèle chez OpenRouter, à titre indicatif — votre facture est celle
+                                    d'Anthropic.
+                                </p>
+                            )}
+                            {sourceCatalogue === 'onemin' && (
+                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                    La liste que 1min.ai sert à son propre site. Elle n'est pas documentée : lue au
+                                    mieux, elle peut cesser de répondre sans préavis. 1min.ai facture en crédits ;
+                                    les prix affichés sont ceux du même modèle chez OpenRouter, pour comparer, pas
+                                    pour compter.
+                                </p>
+                            )}
                             <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-4">
                                 Les indices d'Artificial Analysis mesurent le raisonnement, le code et la capacité
                                 d'agent — aucune tâche de votre flux. EQ-Bench juge de la prose, en anglais et sur
@@ -1057,20 +1233,27 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 champ ; le modèle qui écrit le mieux votre français se décide en le lisant.
                             </p>
 
+                            {catalogue && !catalogueEtat.reference && (
+                                <p className="text-xs text-brand-main dark:text-dark-text mb-3">
+                                    La référence OpenRouter n'a pas répondu : la liste est complète, mais sans prix
+                                    ni notes.
+                                </p>
+                            )}
+
                             {catalogueErreur && (
                                 <p className="text-xs font-semibold text-erreur flex items-center gap-1.5 mb-3">
                                     <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {catalogueErreur}
                                 </p>
                             )}
 
-                            {catalogue && !catalogueEtat.ecriture && (
+                            {catalogue && catalogueEtat.reference && !catalogueEtat.ecriture && (
                                 <p className="text-xs text-brand-main dark:text-dark-text mb-3">
                                     Notes d'écriture indisponibles ({catalogueEtat.ecritureRaison ?? 'raison inconnue'}) :
                                     EQ-Bench n'est pas une API publiée, sa forme peut changer sans préavis. La sélection
                                     en dépend — le catalogue entier reste lisible.
                                 </p>
                             )}
-                            {catalogue && !catalogueEtat.benchmarks && (
+                            {catalogue && catalogueEtat.reference && !catalogueEtat.benchmarks && (
                                 <p className="text-xs text-brand-main dark:text-dark-text mb-3">
                                     {catalogueEtat.raison === 'clé absente'
                                         ? "Indices d'Artificial Analysis indisponibles : aucune clé OpenRouter posée."
@@ -1078,7 +1261,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </p>
                             )}
 
-                            {catalogue && catalogueEtat.ecriture && (
+                            {catalogue && courteListe.length > 0 && (
                                 <div className="flex items-center gap-1 p-1 mb-3 rounded-xl bg-brand-light dark:bg-dark-bg w-fit">
                                     <button onClick={() => { setVueCatalogue('selection'); setTri('prix'); }} className={ONGLET(vueCatalogue === 'selection')}>
                                         La sélection · {courteListe.length}
@@ -1118,6 +1301,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     <option value="ecriture">Trier par note d'écriture</option>
                                     <option value="slop">Trier par tournures d'IA</option>
                                     <option value="intelligence">Trier par indice d'intelligence</option>
+                                    <option value="recent">Trier par date de sortie</option>
                                     <option value="nom">Trier par nom</option>
                                 </select>
                             </div>
@@ -1125,7 +1309,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             {catalogueCharge && (
                                 <Patience
                                     titre="Lecture du catalogue"
-                                    detail="OpenRouter, puis les notes d'écriture"
+                                    detail={SOURCES_EXPLORATEUR.find(o => o.valeur === sourceCatalogue)?.lecture}
                                 />
                             )}
 
@@ -1137,7 +1321,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
                                                     <tr>
                                                         <th className={`${TH} text-left min-w-[17rem]`}>Modèle</th>
-                                                        <th className={`${TH} text-right`}>Entrée → sortie $/M</th>
+                                                        <th className={`${TH} text-right`}>
+                                                            {sourceCatalogue === 'openrouter' ? 'Entrée → sortie $/M' : 'Prix OpenRouter $/M'}
+                                                        </th>
                                                         <th className={`${TH} text-right`}>Contexte</th>
                                                         <th className={`${TH} text-right`}>Écriture</th>
                                                         <th className={`${TH} text-right`}>Tournures d'IA</th>
@@ -1147,7 +1333,15 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
-                                                    {visibles.map(m => (
+                                                    {visibles.map(m => {
+                                                        const correspondants = modelesCorrespondants(m.id);
+                                                        // Déjà là, c'est déjà là SUR CET ADAPTATEUR : le même
+                                                        // modèle chez 1min.ai n'empêche pas de l'ajouter en direct.
+                                                        const ici = correspondants.some(x => x.provider === sourceCatalogue);
+                                                        // Sans mesures (aucun correspondant dans la référence),
+                                                        // « Actualiser » effacerait les forces au lieu de les réécrire.
+                                                        const mesure = sourceCatalogue === 'openrouter' || !!m.reference;
+                                                        return (
                                                         <tr key={m.id} className="hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors">
                                                             <td className="px-3 py-2">
                                                                 <div className="flex items-center gap-2 flex-wrap">
@@ -1157,8 +1351,16 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                             sélection · {m.palierLibelle}
                                                                         </Etiquette>
                                                                     )}
+                                                                    {m.sortie === 'image' && (
+                                                                        <Etiquette as="span" forme="pastille">Image</Etiquette>
+                                                                    )}
                                                                 </div>
                                                                 <p className="font-mono text-micro text-brand-main dark:text-dark-text">{m.id}</p>
+                                                                {m.reference && (
+                                                                    <p className="text-micro text-brand-main dark:text-dark-text">
+                                                                        Mesures de <span className="font-mono">{m.reference}</span>
+                                                                    </p>
+                                                                )}
                                                                 {(m.forces ?? []).length > 0 && (
                                                                     <p className="text-micro text-brand-main dark:text-dark-text mt-0.5">
                                                                         Fort en : {(m.forces ?? []).join(', ')}
@@ -1168,7 +1370,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                             <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main dark:text-dark-text">
                                                                 {m.completionPrice === 0 && m.promptPrice === 0
                                                                     ? 'gratuit'
-                                                                    : `${prix(m.promptPrice)} → ${prix(m.completionPrice)}`}
+                                                                    : m.completionPrice === null && m.promptPrice === null
+                                                                        ? '—'
+                                                                        : `${prix(m.promptPrice)} → ${prix(m.completionPrice)}`}
                                                             </td>
                                                             <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main dark:text-dark-text">
                                                                 {m.contextLength ? `${Math.round(m.contextLength / 1000)}k` : '—'}
@@ -1204,26 +1408,30 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                 )}
                                                             </td>
                                                             <td className="px-3 py-2 text-right">
-                                                                {dejaLa.has(normaliserNomModele(m.id)) ? (
-                                                                    <Bouton
-                                                                        onClick={() => void rafraichirDepuisCatalogue(m)}
-                                                                        disabled={majEnCours === m.id}
-                                                                        title="Réécrire coût, qualité de rédaction et forces d'après les mesures"
-                                                                        taille="petit">
-                                                                        {majEnCours === m.id
-                                                                            ? <EnCours label="Mise à jour…" taille="xs" />
-                                                                            : <><RefreshCw className="w-3 h-3" /> Actualiser</>}
-                                                                    </Bouton>
-                                                                ) : (
-                                                                    <Bouton
-                                                                        onClick={() => ajouterDepuisCatalogue(m)}
-                                                                        taille="petit">
-                                                                        Ajouter
-                                                                    </Bouton>
-                                                                )}
+                                                                <div className="flex flex-col items-end gap-1">
+                                                                    {correspondants.length > 0 && mesure && (
+                                                                        <Bouton
+                                                                            onClick={() => void rafraichirDepuisCatalogue(m)}
+                                                                            disabled={majEnCours === m.id}
+                                                                            title="Réécrire coût, qualité de rédaction et forces d'après les mesures"
+                                                                            taille="petit">
+                                                                            {majEnCours === m.id
+                                                                                ? <EnCours label="Mise à jour…" taille="xs" />
+                                                                                : <><RefreshCw className="w-3 h-3" /> Actualiser</>}
+                                                                        </Bouton>
+                                                                    )}
+                                                                    {!ici && (
+                                                                        <Bouton
+                                                                            onClick={() => ajouterDepuisCatalogue(m)}
+                                                                            taille="petit">
+                                                                            Ajouter
+                                                                        </Bouton>
+                                                                    )}
+                                                                </div>
                                                             </td>
                                                         </tr>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -1315,6 +1523,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </div>
 
                                 <div>
+                                    <Etiquette as="span" className="mb-1">Sortie</Etiquette>
+                                    <ControleSegmente<'texte' | 'image'>
+                                        libelle="Sortie du modèle"
+                                        valeur={editModel.sortie ?? 'texte'}
+                                        onChange={sortie => setEditModel({ ...editModel, sortie })}
+                                        options={[{ valeur: 'texte', libelle: 'Texte' }, { valeur: 'image', libelle: 'Image' }]}
+                                    />
+                                    <p className="mt-1.5 text-micro text-brand-main dark:text-dark-text">
+                                        {editModel.sortie === 'image'
+                                            ? 'Il illustre les Reels expliqués, et ne passe que par OpenRouter.'
+                                            : 'Il écrit : les actions du flux éditorial le proposent.'}
+                                    </p>
+                                </div>
+
+                                <div>
                                     <Etiquette as="label" className="mb-1">Fabricant</Etiquette>
                                     <input
                                         type="text"
@@ -1401,13 +1624,16 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 )}
 
                 {/* ─── MODÈLE PAR ACTION ─── */}
-                {section === 'presets' && (
+                {section === 'presets' && (() => {
+                    const nomDe = (id: string) => aiModels.find(m => m.id === id)?.name ?? 'un modèle retiré du catalogue';
+                    const aPart = AI_ACTION_CATALOG.filter(a => actionModels[a.id]);
+                    return (
                     <div className="space-y-6 animate-fade-in">
                         <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
-                            Chaque action peut avoir son modèle. Sans réglage, elle prend celui du sélecteur en haut
-                            de l'application. Les actions sont rangées par ce qu'elles demandent — les classements
-                            publics, eux, mesurent la capacité à coder et à raisonner, ce qu'aucune de ces tâches
-                            ne réclame.
+                            Un modèle par famille de travail. Sans réglage, une famille qui écrit prend le modèle
+                            choisi en haut de l'application, et Illustrer le premier modèle d'image du catalogue.
+                            Les familles sont rangées par ce qu'elles demandent — les classements publics, eux,
+                            mesurent la capacité à coder et à raisonner, ce qu'aucune de ces tâches ne réclame.
                         </p>
 
                         {saveError && (
@@ -1417,53 +1643,78 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         )}
 
                         {/*
-                            Le conseil est rendu PAR FAMILLE et PAR ACTION, pas en préambule :
-                            il doit être sous les yeux au moment où le menu s'ouvre, sinon il
-                            ne sert qu'une fois, à la première lecture.
+                            Le conseil reste sous les yeux au moment où le menu s'ouvre : sur la
+                            carte de la famille, pas en préambule, où il ne servirait qu'une fois.
                         */}
-                        {ATTENDU_ORDRE.map(attendu => {
-                            const famille = ATTENDU_FAMILLES[attendu];
-                            const actions = AI_ACTION_CATALOG.filter(a => a.attendu === attendu);
-                            if (!famille || actions.length === 0) return null;
-                            return (
-                                <div key={attendu}>
-                                    <div className="border-l-2 border-brand-main dark:border-white pl-4 py-0.5 mb-3">
-                                        <p className="text-sm font-bold text-brand-main dark:text-white">{famille.titre}</p>
-                                        <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text mt-0.5">
-                                            {famille.demande}
-                                        </p>
-                                        <p className="text-xs leading-relaxed text-brand-main dark:text-white mt-1 font-semibold">
-                                            → {famille.choix}
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                        {actions.map(action => (
-                                            <div
-                                                key={action.id}
-                                                className="p-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex flex-col gap-3"
-                                            >
-                                                <div className="flex items-baseline justify-between gap-2">
-                                                    <span className="text-sm font-bold text-brand-main dark:text-white">{action.label}</span>
-                                                    <span className="text-micro text-brand-main dark:text-dark-text whitespace-nowrap">{action.persona}</span>
-                                                </div>
-                                                <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text flex-1">
-                                                    {action.pourChoisir}
-                                                </p>
-                                                <SelecteurModele
-                                                    value={actionModels[action.id] ?? ''}
-                                                    disabled={presetBusy === action.id}
-                                                    onChange={id => handleActionModel(action.id, id)}
-                                                    vide="— Modèle actif —"
-                                                />
-                                            </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {FAMILLES_MODELE.map(id => {
+                                const famille = ATTENDU_FAMILLES[id];
+                                if (!famille) return null;
+                                const actions = AI_ACTION_CATALOG.filter(a => a.attendu === id);
+                                const exceptions = actions.filter(a => actionModels[a.id]);
+                                return (
+                                    <Carte key={id} rythme>
+                                        <div className="flex items-baseline justify-between gap-3">
+                                            <span className="text-sm font-bold text-brand-main dark:text-white">{famille.titre}</span>
+                                            <span className="text-micro text-right text-brand-main dark:text-dark-text">
+                                                {actions.length > 0 ? actions.map(a => a.label).join(' · ') : 'Les illustrations du Reel expliqué'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text">{famille.demande}</p>
+                                        <p className="text-xs leading-relaxed font-semibold text-brand-main dark:text-white">→ {famille.choix}</p>
+                                        <SelecteurModele
+                                            sortie={sortieDeFamille(id)}
+                                            value={familleModels[id] ?? ''}
+                                            disabled={presetBusy === `famille:${id}`}
+                                            onChange={modelId => handleFamilleModel(id, modelId)}
+                                            vide={sortieDeFamille(id) === 'image' ? '— Le premier modèle d’image —' : '— Modèle de l’en-tête —'}
+                                        />
+                                        {exceptions.map(a => (
+                                            <p key={a.id} className="flex flex-wrap items-center gap-2 text-xs text-brand-main dark:text-dark-text">
+                                                <span><span className="font-semibold">{a.label}</span> suit son propre réglage : {nomDe(actionModels[a.id])}.</span>
+                                                <Bouton taille="petit" intention="discrete" disabled={presetBusy === a.id}
+                                                    onClick={() => void handleActionModel(a.id, '')}>
+                                                    Suivre la famille
+                                                </Bouton>
+                                            </p>
                                         ))}
+                                    </Carte>
+                                );
+                            })}
+                        </div>
+
+                        {/* Le réglage fin reste possible, replié : il l'emporte sur la famille, et se dit sur sa carte. */}
+                        <details className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+                            <summary className="px-4 py-3 text-sm font-semibold text-brand-main dark:text-white cursor-pointer">
+                                Régler une action à part
+                                {aPart.length > 0 && <span className="font-normal"> — {aPart.length} réglée{aPart.length > 1 ? 's' : ''} à part</span>}
+                            </summary>
+                            <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {AI_ACTION_CATALOG.map(action => (
+                                    <div
+                                        key={action.id}
+                                        className="p-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex flex-col gap-3"
+                                    >
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <span className="text-sm font-bold text-brand-main dark:text-white">{action.label}</span>
+                                            <span className="text-micro text-brand-main dark:text-dark-text whitespace-nowrap">{ATTENDU_FAMILLES[action.attendu]?.titre}</span>
+                                        </div>
+                                        <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text flex-1">
+                                            {action.pourChoisir}
+                                        </p>
+                                        <SelecteurModele
+                                            value={actionModels[action.id] ?? ''}
+                                            disabled={presetBusy === action.id}
+                                            onChange={id => handleActionModel(action.id, id)}
+                                            vide="— Celui de sa famille —"
+                                        />
                                     </div>
-                                </div>
-                            );
-                        })}
+                                ))}
+                            </div>
+                        </details>
                     </div>
-                )}
+                    );
+                })()}
 
                 {/* ─── CLÉS DES FOURNISSEURS ─── */}
                 {section === 'providers' && (

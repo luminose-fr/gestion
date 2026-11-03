@@ -88,10 +88,31 @@ export const ATTENDU_FAMILLES: Record<string, { titre: string; demande: string; 
         demande: 'Écrire comme Florent — vouvoiement, oralité, une seule métaphore filée, zéro emoji — sous une longue liste de contraintes.',
         choix: 'Votre meilleur modèle. Vingt textes par mois coûtent moins qu’un café, même au tarif le plus élevé ; le vrai coût, c’est de réécrire ce qui sonne faux.',
     },
+    illustrer: {
+        titre: 'Illustrer',
+        demande: 'Dessiner l’image d’une métaphore dans le style du site, d’après l’étalon joint : aucun texte, des silhouettes, une scène qu’on recadre.',
+        choix: 'Un modèle d’image — il n’écrit pas. Il se change ici, ou au moment de générer, sans toucher aux autres familles.',
+    },
 };
 
 /** L'ordre de lecture des familles : du moins au plus exigeant. */
 export const ATTENDU_ORDRE = ['juger', 'recopie', 'synthèse', 'voix'];
+
+/**
+ * Ce que Florent règle depuis le 03/11/2026 : un modèle par famille, plus
+ * Illustrer pour les images — cinq réglages au lieu de neuf. Une action peut
+ * encore avoir le sien, qui l'emporte ; sans réglage, une famille de texte prend
+ * le modèle de l'en-tête, et Illustrer le premier modèle d'image du catalogue.
+ */
+export const FAMILLES_MODELE = [...ATTENDU_ORDRE, 'illustrer'] as const;
+export type FamilleModele = (typeof FAMILLES_MODELE)[number];
+
+/** Ce que produit le modèle d'une famille : Illustrer dessine, les autres écrivent. */
+export const sortieDeFamille = (famille: string): 'texte' | 'image' => (famille === 'illustrer' ? 'image' : 'texte');
+
+/** La famille d'une action configurable ; `null` pour une action inconnue. */
+export const familleDeAction = (action: string): string | null =>
+    AI_ACTION_CATALOG.find(a => a.id === action)?.attendu ?? null;
 
 export const AI_ACTIONS = {
 

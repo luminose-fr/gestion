@@ -27,6 +27,12 @@ interface SidebarProps {
     onNavigateCorpus: (section: CorpusSection, bloc?: string | null) => void;
     /** Ce que le panneau Corpus affiche en pastille — captures en attente, documents par bloc. */
     corpusCounts?: { inbox?: number; parBloc?: Record<string, number> };
+    /**
+     * Ce que le panneau Réglages affiche en pastille — les nouvelles versions de
+     * modèles trouvées par la veille (SPEC §5.7). Leur somme se lit aussi sur
+     * le rail : on ne va pas dans Réglages sans raison.
+     */
+    reglagesCounts?: Partial<Record<SettingsSection, number>>;
     counts: Record<ListeContenus, number>;
     isMobileOpen: boolean;
     onMobileClose: () => void;
@@ -67,10 +73,12 @@ const RailButton: React.FC<{
     onClick: () => void;
     icon: React.ComponentType<{ className?: string }>;
     label: string;
-}> = ({ active, onClick, icon: Icon, label }) => (
+    /** Un compteur en coin : ce qui attend un regard dans cet espace. */
+    count?: number;
+}> = ({ active, onClick, icon: Icon, label, count }) => (
     <button
         onClick={onClick}
-        title={label}
+        title={count ? `${label} — ${count} à voir` : label}
         className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 group ${
             active
                 ? 'bg-brand-main text-white shadow-md shadow-brand-main/30 dark:bg-white dark:text-brand-main'
@@ -78,6 +86,11 @@ const RailButton: React.FC<{
         }`}
     >
         <Icon className="w-[18px] h-[18px]" />
+        {count !== undefined && count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-brand-main text-white text-[10px] font-bold leading-none tabular-nums ring-2 ring-white dark:bg-white dark:text-brand-main dark:ring-dark-surface">
+                {count}
+            </span>
+        )}
         <span className="hidden md:block absolute left-full ml-2 px-2 py-1 rounded-md bg-brand-main text-white dark:bg-dark-surface dark:text-white text-[11px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-30 shadow-lg">
             {label}
         </span>
@@ -116,7 +129,7 @@ const PanelTab: React.FC<{
 export const Sidebar: React.FC<SidebarProps> = ({
     currentSpace, currentSocialTab, currentSettingsSection, currentSettingsPersona,
     currentCorpusSection, currentCorpusBloc,
-    onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts,
+    onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts, reglagesCounts,
     isMobileOpen, onMobileClose, replie = false,
 }) => {
     const mobile = useEstMobile();
@@ -171,6 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => { onNavigateSettings(currentSettingsSection); onMobileClose(); }}
                         icon={Settings}
                         label="Réglages"
+                        count={Object.values(reglagesCounts ?? {}).reduce((a, n) => a + (n ?? 0), 0)}
                     />
                 </div>
 
@@ -209,6 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         onClick={() => { onNavigateSettings(s.id); onMobileClose(); }}
                                         icon={s.icon}
                                         label={s.label}
+                                        count={reglagesCounts?.[s.id]}
                                     />
                                 ))
                                 : LISTES.map(t => (

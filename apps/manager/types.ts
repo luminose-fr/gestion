@@ -68,23 +68,8 @@ import type { TargetFormat, Objectif, Profondeur, Verdict } from '@luminose/edit
  */
 export type ContentItem = Content;
 
-export interface DisplayPrefs {
-  showVerdictStripe: boolean;
-  showPlatforms: boolean;
-  showDepth: boolean;
-  showObjectif: boolean;
-}
-
-export const DEFAULT_DISPLAY_PREFS: DisplayPrefs = {
-  showVerdictStripe: true,
-  showPlatforms: true,
-  showDepth: true,
-  showObjectif: true,
-};
-
 export interface AppSettings {
   lastUsedContextId?: string;
-  displayPrefs?: DisplayPrefs;
   /** Identifiant du modèle actif dans le catalogue — pas son code d'API. */
   activeModelId?: string;
 }

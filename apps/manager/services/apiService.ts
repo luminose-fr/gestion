@@ -178,19 +178,75 @@ export interface CatalogueModel {
   selection: boolean;
   palier: string | null;
   palierLibelle: string | null;
+  /** Ce que le modèle produit. Absent d'une réponse antérieure : du texte. */
+  sortie?: 'texte' | 'image';
+  /** Date de publication, quand la source la donne. */
+  creeLe?: number | null;
+  /** Hors OpenRouter : le modèle OpenRouter dont viennent prix et notes. */
+  reference?: string | null;
 }
 
-export const fetchCatalogue = () =>
+/** Une liste par adaptateur : le code rendu est celui que CET adaptateur attend. */
+export type SourceCatalogue = 'openrouter' | 'anthropic' | 'onemin';
+
+const CHEMINS_CATALOGUE: Record<SourceCatalogue, string> = {
+  openrouter: '/models/catalogue',
+  anthropic: '/models/catalogue/anthropic',
+  onemin: '/models/catalogue/onemin',
+};
+
+export const fetchCatalogue = (source: SourceCatalogue = 'openrouter') =>
   api<{
+    source?: SourceCatalogue;
     models: CatalogueModel[];
     benchmarksAvailable: boolean;
     benchmarksReason: string | null;
     ecritureAvailable: boolean;
     ecritureReason: string | null;
+    /** Hors OpenRouter : la référence a-t-elle répondu ? Sans elle, ni prix ni notes. */
+    referenceAvailable?: boolean;
     /** L'ordre de la courte liste, du moins cher au plus cher. */
     selection: string[];
     fetchedAt: number;
-  }>('/models/catalogue', {}, { label: 'Lecture du catalogue', cle: 'api:catalogue' });
+  }>(CHEMINS_CATALOGUE[source], {}, { label: 'Lecture du catalogue', cle: `api:catalogue:${source}` });
+
+// ── Veille des modèles (SPEC §5.7) ──────────────────────────────────────
+
+/** Une version plus récente d'un modèle du catalogue, trouvée par la veille. */
+export interface PropositionVeille {
+  /** `provider:api_code`. */
+  id: string;
+  provider: string;
+  apiCode: string;
+  nom: string;
+  /** Le modèle du catalogue que celui-ci dépasse. */
+  remplaceModelId: string | null;
+  remplaceNom: string | null;
+  publieLe: number | null;
+  detecteLe: number;
+}
+
+export interface EtatVeille {
+  le: number;
+  sources: Partial<Record<SourceCatalogue, { lue: boolean; raison: string | null; suivis: number }>>;
+  propositions: number;
+}
+
+export interface VeilleReponse {
+  propositions: PropositionVeille[];
+  /** `null` tant qu'aucun passage n'a eu lieu. */
+  etat: EtatVeille | null;
+}
+
+/** Anonyme : lue à chaque ouverture de l'application, elle n'a rien à annoncer. */
+export const fetchVeille = () => api<VeilleReponse>('/models/veille');
+
+/** Lit trois sources : assez long pour être nommé. */
+export const lancerVeille = () =>
+  api<VeilleReponse>('/models/veille/lancer', { method: 'POST' }, { label: 'Vérification des modèles', cle: 'api:veille' });
+
+export const ignorerVeille = (id: string) =>
+  api<{ ok: true }>('/models/veille/ignorer', { method: 'POST', ...body({ id }) });
 
 // ── Clés des fournisseurs (SPEC §5.5) ────────────────────────────────────
 
@@ -216,10 +272,19 @@ export const setProviderKey = (id: string, apiKey: string) =>
 export const deleteProviderKey = (id: string) =>
   api<ProviderKeyState>(`/settings/providers/${id}`, { method: 'DELETE' });
 
-// ── Modèle par action ────────────────────────────────────────────────────
+// ── Modèle par famille, et par action ────────────────────────────────────
 
-/** `{ DRAFT_CONTENT: '<id>' }` — les actions absentes prennent le modèle actif. */
-export const fetchActionModels = () => api<{ actions: Record<string, string> }>('/settings/actions');
+/**
+ * `actions` : `{ DRAFT_CONTENT: '<id>' }` ; `familles` : `{ voix: '<id>' }`.
+ * Une action sans réglage prend celui de sa famille, puis le modèle actif.
+ */
+export const fetchActionModels = () =>
+  api<{ actions: Record<string, string>; familles?: Record<string, string> }>('/settings/actions');
+
+export const setFamilleModel = (famille: string, modelId: string | null) =>
+  api<{ famille: string; modelId: string | null }>(`/settings/familles/${encodeURIComponent(famille)}`, {
+    method: 'PUT', ...body({ modelId }),
+  });
 
 export const setActionModel = (action: string, modelId: string | null) =>
   api<{ action: string; modelId: string | null }>(`/settings/actions/${action}`, {

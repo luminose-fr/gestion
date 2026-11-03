@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { Check, ImageIcon, RotateCcw, Sparkles, Upload, Trash2 } from 'lucide-react';
 import {
-    illustrationDe, visuelDecrit, illustrationsDuReel, SEQUENCE_DES_ILLUSTRATIONS, MODELES_ILLUSTRATION,
+    illustrationDe, visuelDecrit, illustrationsDuReel, SEQUENCE_DES_ILLUSTRATIONS,
     type IllustrationReel, type ReelExplique,
 } from '@luminose/editorial';
-import { Bouton, ControleSegmente } from '../ui';
+import { Bouton, CLASSES_CHAMP, Etiquette } from '../ui';
+import { useCatalogueImage } from '../../services/catalogueModeles';
 import { EnCours } from '../Feedback';
 import { enFichier, genererIllustration, type IllustrationProposee } from './illustrations';
 import { t } from '../ContentEditor/renderers/shared';
@@ -104,7 +105,8 @@ const GenerationIllustration: React.FC<{
     reel: ReelExplique;
     rang: number;
     illustration: IllustrationReel;
-    modele: string;
+    /** Un modèle d'image du catalogue ; `null` quand il n'y en a aucun. */
+    modele: { id: string; libelle: string } | null;
     visuels: VisuelsReel;
     deposable: boolean;
 }> = ({ reel, rang, illustration, modele, visuels, deposable }) => {
@@ -117,6 +119,7 @@ const GenerationIllustration: React.FC<{
     const enAttente = illustration.depuis && !urls[illustration.depuis] ? illustration.depuis : null;
 
     const generer = async () => {
+        if (!modele) return;
         setEnCours(true);
         setErreur(null);
         try {
@@ -161,7 +164,7 @@ const GenerationIllustration: React.FC<{
                 </p>
             ) : (
                 <div className="flex flex-wrap items-center gap-2">
-                    <Bouton taille="petit" intention="secondaire" disabled={!!enAttente} onClick={() => void generer()}
+                    <Bouton taille="petit" intention="secondaire" disabled={!!enAttente || !modele} onClick={() => void generer()}
                         title={enAttente ? `Gardez d’abord « ${enAttente} » : celle-ci en est la suite` : undefined}>
                         <Sparkles /> {deja ? 'En générer une autre' : 'Générer'}
                     </Bouton>
@@ -182,7 +185,11 @@ const GenerationIllustration: React.FC<{
  */
 export const VisuelsAFournir: React.FC<{ reel: ReelExplique; visuels: VisuelsReel; deposable: boolean }> = ({ reel, visuels, deposable }) => {
     const illustrations = illustrationsDuReel(reel);
-    const [modele, setModele] = useState(MODELES_ILLUSTRATION[0].id);
+    // Les modèles d'image sont ceux du catalogue (Réglages → Modèles IA) ; le défaut, celui de la famille Illustrer.
+    const catalogue = useCatalogueImage();
+    const [choisi, setChoisi] = useState<string | null>(null);
+    const retenu = catalogue.modeles.find(m => m.id === choisi) ?? catalogue.modeles.find(m => m.id === catalogue.defaut) ?? null;
+    const modele = retenu ? { id: retenu.id, libelle: retenu.name } : null;
     const sequences = reel.sequences ?? [];
     // Les écrans qui montrent chaque illustration : c'est par eux que Florent la reconnaît.
     const ecransDe = (id: string) => sequences.flatMap((s, i) => (s.elements ?? []).some(e => illustrationDe(e.visuel)?.illustration === id) ? [i + 1] : []);
@@ -193,10 +200,19 @@ export const VisuelsAFournir: React.FC<{ reel: ReelExplique; visuels: VisuelsRee
     if (illustrations.length === 0 && decrits.length === 0) return null;
     return (
         <div className="space-y-3">
-            {deposable && illustrations.length > 0 && (
-                <ControleSegmente<string> libelle="Modèle des illustrations" valeur={modele} onChange={setModele}
-                    options={MODELES_ILLUSTRATION.map(m => ({ valeur: m.id, libelle: m.libelle }))} />
-            )}
+            {deposable && illustrations.length > 0 && (catalogue.modeles.length > 0 ? (
+                <div className="w-full md:w-80">
+                    <Etiquette as="label" htmlFor="modele-illustration" className="mb-1">Modèle des illustrations</Etiquette>
+                    <select id="modele-illustration" value={retenu?.id ?? ''} onChange={e => setChoisi(e.target.value)}
+                        className={`${CLASSES_CHAMP} cursor-pointer`}>
+                        {catalogue.modeles.map(m => <option key={m.id} value={m.id}>{m.name} · {m.apiCode}</option>)}
+                    </select>
+                </div>
+            ) : (
+                <p className="text-xs text-brand-main dark:text-dark-text">
+                    Aucun modèle d’image au catalogue : en ajouter un dans Réglages → Modèles IA, sortie « Image ».
+                </p>
+            ))}
             {illustrations.map((ill, k) => {
                 const ecrans = ecransDe(ill.id);
                 const ou = ecrans.length === 0 ? '' : ecrans.length === 1 ? `, écran ${ecrans[0]}` : `, écrans ${ecrans.slice(0, -1).join(', ')} et ${ecrans[ecrans.length - 1]}`;

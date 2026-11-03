@@ -1,4 +1,4 @@
-import { illustrationsDuReel, promptIllustration, MODELES_ILLUSTRATION, type ReelExplique } from '@luminose/editorial';
+import { illustrationsDuReel, promptIllustration, type ReelExplique } from '@luminose/editorial';
 import * as AI from '../../services/aiService';
 // L'étalon des illustrations des pages de luminose.fr (`_ai_helpers/etalon.jpg`
 // du dépôt du site), réduit à 1 200 pixels : il voyage avec chaque demande.
@@ -43,7 +43,8 @@ export interface IllustrationProposee {
 export async function genererIllustration(
     reel: ReelExplique,
     rang: number,
-    modele: string,
+    /** Un modèle d'image du catalogue : son identifiant, et son nom pour le bandeau d'activité. */
+    modele: { id: string; libelle: string },
     urlDe: (id: string) => string | undefined,
 ): Promise<IllustrationProposee> {
     const illustrations = illustrationsDuReel(reel);
@@ -53,9 +54,8 @@ export async function genererIllustration(
     const base = depuis ? urlDe(depuis.id) : undefined;
     if (depuis && !base) throw new Error(`Gardez d’abord « ${depuis.id} » : celle-ci en est la suite.`);
     const references = [await enDonnees(etalon), ...(base ? [await enDonnees(base)] : [])];
-    const libelle = MODELES_ILLUSTRATION.find(m => m.id === modele)?.libelle ?? modele;
     const { image, modelLabel, usage } = await AI.genererIllustration({
-        modele, libelle, prompt: promptIllustration(illustration, depuis), references,
+        modelId: modele.id, libelle: modele.libelle, prompt: promptIllustration(illustration, depuis), references,
     });
     return { image, modelLabel, coutUsd: usage.coutUsd };
 }

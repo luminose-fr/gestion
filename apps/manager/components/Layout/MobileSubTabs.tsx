@@ -17,6 +17,8 @@ interface MobileSubTabsProps {
     currentCorpusBloc?: string | null;
     onNavigateCorpus?: (section: CorpusSection, bloc?: string | null) => void;
     counts: Record<ListeContenus, number>;
+    /** Les pastilles des sections de Réglages (la veille des modèles, SPEC §5.7). */
+    reglagesCounts?: Partial<Record<SettingsSection, number>>;
 }
 
 const RANGEE =
@@ -24,7 +26,7 @@ const RANGEE =
 
 export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
     space, currentTab, currentSettingsSection, currentSettingsPersona = null,
-    onNavigate, onNavigateSettings, counts,
+    onNavigate, onNavigateSettings, counts, reglagesCounts,
     currentCorpusSection = 'etat', currentCorpusBloc = null, onNavigateCorpus,
 }) => {
 
@@ -91,14 +93,23 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                 <div className={RANGEE} style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
                     {SETTINGS_SECTIONS.map(s => {
                         const Icon = s.icon;
+                        const actif = currentSettingsSection === s.id;
+                        const count = reglagesCounts?.[s.id] ?? 0;
                         return (
                             <button
                                 key={s.id}
                                 onClick={() => onNavigateSettings(s.id)}
-                                className={CLASSE_ONGLET(currentSettingsSection === s.id)}
+                                className={CLASSE_ONGLET(actif)}
                             >
                                 <Icon className="w-3 h-3" />
                                 {s.label}
+                                {count > 0 && (
+                                    <span className={`text-[10px] font-bold px-1 rounded-full leading-none ${
+                                        actif ? 'bg-white/25 text-white dark:bg-brand-main/15 dark:text-brand-main' : 'bg-brand-light text-brand-main dark:bg-dark-bg dark:text-dark-text'
+                                    }`}>
+                                        {count}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}

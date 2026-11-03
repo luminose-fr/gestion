@@ -75,7 +75,8 @@ const MONTAGE_SANS_R2 = {
 };
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
-import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
+import { enregistrerCatalogue } from '../services/catalogueModeles';
+import { ContentStatus } from '../types';
 import type { AIModel, ContentItem, Serie, CoachMessage, CoachSession } from '../types';
 
 const now = Date.now();
@@ -84,7 +85,7 @@ const MODELS: AIModel[] = [
   {
     id: 'm1', name: 'GPT-5.2 Pro', apiCode: 'gpt-5.2-pro',
     provider: 'onemin', vendor: 'OpenAI', cost: 'high',
-    strengths: '', bestUseCases: '', textQuality: 5, isDefault: true,
+    strengths: '', bestUseCases: '', textQuality: 5, isDefault: true, sortie: 'texte',
     createdAt: now, updatedAt: now, deletedAt: null,
   },
 ];
@@ -116,13 +117,13 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe('espace Réglages', () => {
   const props = {
-    displayPrefs: DEFAULT_DISPLAY_PREFS,
-    onDisplayPrefsChange: noop,
     aiModels: MODELS,
     onModelsChange: noop,
     activeModelId: 'm1',
     onActiveModelChange: noop,
     actionModels: {},
+    familleModels: {},
+    onFamilleModelsChange: noop,
     onActionModelsChange: noop,
     providers: [
       { id: 'onemin', label: '1min.ai', configured: true, hint: '…f4d9', source: 'environnement' as const, updatedAt: null },
@@ -282,7 +283,7 @@ describe('espace Réglages', () => {
    */
   it('donne le conseil de choix par famille ET par action', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="presets" />);
-    for (const famille of ['Juger', 'Recopier', 'Synthétiser', 'Porter la voix']) {
+    for (const famille of ['Juger', 'Recopier', 'Synthétiser', 'Porter la voix', 'Illustrer']) {
       expect(container.textContent).toContain(famille);
     }
     // Ce que la famille implique pour la dépense…
@@ -290,6 +291,30 @@ describe('espace Réglages', () => {
     // …et ce qui est propre à une action.
     expect(container.textContent).toContain('la conversation grossit à chaque tour');
     expect(container.textContent).not.toContain('Ce qui compte vraiment');
+  });
+
+  /**
+   * Cinq réglages au lieu de neuf (03/11/2026) : un par famille. Une action
+   * réglée à part le dit sur la carte de sa famille, et y revient d'un clic.
+   */
+  it('un modèle par famille ; une action réglée à part se voit sur sa famille, et y revient', async () => {
+    const image = { ...MODELS[0], id: 'img', name: 'Nano Banana Pro', apiCode: 'google/gemini-3-pro-image', provider: 'openrouter', sortie: 'image' as const };
+    const remettre = vi.spyOn(Api, 'setActionModel').mockResolvedValue({ action: 'COLD_READ', modelId: null });
+    const changer = vi.fn();
+    const { container, getByText } = render(<SettingsSpace {...(props as any)} section="presets" aiModels={[...MODELS, image]}
+      actionModels={{ COLD_READ: 'm1' }} onActionModelsChange={changer} familleModels={{ voix: 'm1', illustrer: 'img' }} />);
+    const selects = Array.from(container.querySelectorAll('select'));
+    // Les cinq familles d'abord, puis les neuf actions, repliées.
+    expect(selects).toHaveLength(14);
+    expect(selects.slice(0, 5).map(s => s.value)).toEqual(['', '', '', 'm1', 'img']);
+    // Le menu d'Illustrer ne propose que les modèles d'image ; les autres, jamais.
+    expect(Array.from(selects[4].querySelectorAll('option')).map(o => o.value)).toEqual(['', 'img']);
+    expect(Array.from(selects[3].querySelectorAll('option')).map(o => o.value)).toEqual(['', 'm1']);
+    expect(container.textContent).toContain('Relecture à froid suit son propre réglage : GPT-5.2 Pro.');
+    expect(container.textContent).toContain('1 réglée à part');
+    fireEvent.click(getByText('Suivre la famille'));
+    await waitFor(() => expect(remettre).toHaveBeenCalledWith('COLD_READ', null));
+    expect(changer).toHaveBeenCalledWith({});
   });
 
   it('les sélecteurs d’action rangent les modèles sous leur adaptateur', () => {
@@ -333,7 +358,7 @@ describe('espace Réglages', () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify(catalogueStub()), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
-    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    fireEvent.click(await findByText('Explorer les catalogues'));
 
     expect(container.textContent).toContain('aucune tâche de votre flux');
     expect(await findByText('anthropic/claude-fable-5')).toBeTruthy();
@@ -345,7 +370,7 @@ describe('espace Réglages', () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify(catalogueStub()), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
-    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    fireEvent.click(await findByText('Explorer les catalogues'));
     await findByText('anthropic/claude-fable-5');
 
     expect(container.textContent).toContain('La sélection · 1');
@@ -367,11 +392,165 @@ describe('espace Réglages', () => {
     })), { status: 200 }));
 
     const { container, findByText } = render(<SettingsSpace {...(props as any)} section="models" />);
-    fireEvent.click(await findByText('Explorer le catalogue OpenRouter'));
+    fireEvent.click(await findByText('Explorer les catalogues'));
     await findByText('anthropic/claude-fable-5');
 
     expect(container.textContent).toContain("Notes d'écriture indisponibles (injoignable)");
     expect(container.textContent).not.toContain('La sélection ·');
+  });
+
+  /**
+   * Un onglet par adaptateur (SPEC §5.6). Le code affiché est celui que
+   * l'adaptateur attend : « Ajouter » doit poser CET adaptateur, sans quoi
+   * l'appel partirait chez OpenRouter avec un code qu'il ne connaît pas.
+   */
+  it('l’explorateur lit un autre adaptateur, et y ajoute avec lui', async () => {
+    const appels: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      appels.push(String(url));
+      if (String(url).includes('/catalogue/anthropic')) {
+        return new Response(JSON.stringify(catalogueStub({
+          source: 'anthropic', referenceAvailable: true, selection: [],
+          models: [{
+            ...catalogueStub().models[0], id: 'claude-fable-5-20261015', reference: 'anthropic/claude-fable-5',
+            selection: false, palier: null, palierLibelle: null, sortie: 'texte', creeLe: 1,
+          }],
+        })), { status: 200 });
+      }
+      return new Response(JSON.stringify(catalogueStub()), { status: 200 });
+    });
+
+    const { container, findByText, getByRole, getByText } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer les catalogues'));
+    await findByText('anthropic/claude-fable-5');
+
+    fireEvent.click(getByRole('radio', { name: 'Anthropic en direct' }));
+    await findByText('claude-fable-5-20261015');
+    expect(container.textContent).toContain('lus avec votre clé');
+    expect(container.textContent).toContain('Mesures de anthropic/claude-fable-5');
+    // Une dizaine de modèles : la liste entière, pas de courte liste.
+    expect(container.textContent).not.toContain('La sélection ·');
+
+    fireEvent.click(getByText('Ajouter'));
+    const adaptateur = Array.from(container.querySelectorAll('select')).find(sel => sel.value === 'anthropic');
+    expect(adaptateur).toBeTruthy();
+    expect(container.querySelector('input[value="claude-fable-5-20261015"]')).toBeTruthy();
+
+    // Revenir sur OpenRouter ne relit rien : chaque liste est gardée une fois lue.
+    expect(appels.filter(u => u.includes('/models/catalogue')).length).toBe(2);
+  });
+
+  /**
+   * Le même modèle sur deux adaptateurs : « Actualiser » réécrit l'entrée qui
+   * existe, « Ajouter » reste offert là où il manque. Sur l'onglet de son
+   * adaptateur, seul « Actualiser » reste.
+   */
+  it('déjà là se juge par adaptateur', async () => {
+    const ligne = (over: Record<string, unknown>) => ({
+      ...catalogueStub().models[0], selection: false, palier: null, palierLibelle: null, ...over,
+    });
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (String(url).includes('/catalogue/onemin')) {
+        return new Response(JSON.stringify(catalogueStub({
+          source: 'onemin', selection: [],
+          models: [ligne({ id: 'gpt-5.2-pro', name: 'GPT-5.2 Pro', reference: 'openai/gpt-5.2-pro' })],
+        })), { status: 200 });
+      }
+      return new Response(JSON.stringify(catalogueStub({
+        selection: [], models: [ligne({ id: 'openai/gpt-5.2-pro', name: 'GPT-5.2 Pro' })],
+      })), { status: 200 });
+    });
+
+    const { container, findByText, getByRole, queryByText } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer les catalogues'));
+    await findByText('openai/gpt-5.2-pro');
+    expect(queryByText('Actualiser')).toBeTruthy();
+    expect(queryByText('Ajouter')).toBeTruthy();
+
+    fireEvent.click(getByRole('radio', { name: '1min.ai' }));
+    await findByText('gpt-5.2-pro');
+    expect(container.textContent).toContain("n'est pas documentée");
+    expect(queryByText('Actualiser')).toBeTruthy();
+    expect(queryByText('Ajouter')).toBeNull();
+  });
+
+  it('une source muette se dit sous son onglet, et seulement là', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (String(url).includes('/catalogue/onemin')) {
+        return new Response(JSON.stringify({ error: '1min.ai est injoignable.' }), { status: 502 });
+      }
+      return new Response(JSON.stringify(catalogueStub()), { status: 200 });
+    });
+    const { container, findByText, getByRole } = render(<SettingsSpace {...(props as any)} section="models" />);
+    fireEvent.click(await findByText('Explorer les catalogues'));
+    await findByText('anthropic/claude-fable-5');
+    fireEvent.click(getByRole('radio', { name: '1min.ai' }));
+    await findByText(/1min\.ai est injoignable\./);
+    fireEvent.click(getByRole('radio', { name: 'OpenRouter' }));
+    expect(container.textContent).not.toContain('1min.ai est injoignable.');
+  });
+
+  /**
+   * La veille des modèles (SPEC §5.7). « Ajouter au catalogue » ouvre
+   * l'éditeur prérempli SUR L'ADAPTATEUR de la proposition, et reprend de la
+   * version d'avant ce qui tient à l'usage — pas ses forces, mesurées sur elle.
+   */
+  const VEILLE = {
+    propositions: [{
+      id: 'onemin:gpt-5.5-pro', provider: 'onemin', apiCode: 'gpt-5.5-pro', nom: 'GPT-5.5 Pro',
+      remplaceModelId: 'm1', remplaceNom: 'GPT-5.2 Pro', publieLe: null, detecteLe: 1,
+    }],
+    etat: { le: Date.now(), sources: { onemin: { lue: true, raison: null, suivis: 1 } }, propositions: 1 },
+  };
+
+  it('la veille propose une nouvelle version, et l’ajoute sur son adaptateur', () => {
+    const { container, getByText } = render(<SettingsSpace {...(props as any)} section="models"
+      aiModels={[{ ...MODELS[0], strengths: 'Mesuré sur 5.2', bestUseCases: 'Relecture' }]} veille={VEILLE} />);
+    expect(container.textContent).toContain('Nouvelles versions · 1');
+    expect(container.textContent).toContain('après GPT-5.2 Pro');
+
+    fireEvent.click(getByText('Ajouter au catalogue'));
+    expect(container.querySelector('input[value="gpt-5.5-pro"]')).toBeTruthy();
+    expect(container.querySelector('input[value="GPT-5.5 Pro"]')).toBeTruthy();
+    expect(Array.from(container.querySelectorAll('select')).some(sel => sel.value === 'onemin')).toBe(true);
+    expect(container.textContent).not.toContain('Mesuré sur 5.2');
+  });
+
+  it('« Ignorer » écarte la proposition, côté serveur puis à l’écran', async () => {
+    const ignorer = vi.spyOn(Api, 'ignorerVeille').mockResolvedValue({ ok: true });
+    const changer = vi.fn();
+    const { getByText } = render(<SettingsSpace {...(props as any)} section="models" veille={VEILLE} onVeilleChange={changer} />);
+    fireEvent.click(getByText('Ignorer'));
+    await waitFor(() => expect(changer).toHaveBeenCalledWith({ ...VEILLE, propositions: [] }));
+    expect(ignorer).toHaveBeenCalledWith('onemin:gpt-5.5-pro');
+  });
+
+  it('une proposition déjà au catalogue sur son adaptateur ne s’affiche plus', () => {
+    const deja = { ...MODELS[0], id: 'm2', name: 'GPT-5.5 Pro', apiCode: 'gpt-5.5-pro', isDefault: false };
+    const { container } = render(<SettingsSpace {...(props as any)} section="models" aiModels={[...MODELS, deja]} veille={VEILLE} />);
+    expect(container.textContent).not.toContain('Nouvelles versions');
+    expect(container.textContent).toContain('rien de nouveau');
+  });
+
+  it('une veille sans trouvaille dit quand elle a regardé, et ce qu’elle n’a pas lu', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="models" veille={{
+      propositions: [],
+      etat: { le: Date.now(), propositions: 0, sources: { anthropic: { lue: false, raison: 'aucune clé posée', suivis: 1 } } },
+    }} />);
+    expect(container.textContent).toContain('rien de nouveau au');
+    expect(container.textContent).toContain('Non lu — Anthropic : aucune clé posée.');
+    cleanup();
+    const jamais = render(<SettingsSpace {...(props as any)} section="models" veille={null} />);
+    expect(jamais.container.textContent).toContain('aucun passage encore');
+  });
+
+  it('« Vérifier maintenant » relance la veille et rend son résultat', async () => {
+    const lancer = vi.spyOn(Api, 'lancerVeille').mockResolvedValue(VEILLE as any);
+    const changer = vi.fn();
+    const { getByText } = render(<SettingsSpace {...(props as any)} section="models" veille={null} onVeilleChange={changer} />);
+    fireEvent.click(getByText('Vérifier maintenant'));
+    await waitFor(() => expect(changer).toHaveBeenCalledWith(VEILLE));
+    expect(lancer).toHaveBeenCalledTimes(1);
   });
 
   it('n’affiche jamais autre chose que l’empreinte d’une clé', () => {
@@ -1797,7 +1976,7 @@ describe('Corpus — navigation à trois niveaux', () => {
   const props = {
     currentSpace: 'corpus' as const,
     currentSocialTab: 'conversations' as const,
-    currentSettingsSection: 'display' as const,
+    currentSettingsSection: 'models' as const,
     currentSettingsPersona: null,
     onNavigate: () => {},
     onNavigateSettings: () => {},
@@ -1838,9 +2017,29 @@ describe('Corpus — navigation à trois niveaux', () => {
     expect(container.textContent).toContain('3');
   });
 
+  /** La veille des modèles (SPEC §5.7) : on ne va pas dans Réglages sans raison. */
+  it('porte les nouvelles versions de modèles sur Réglages et sur Modèles IA', () => {
+    const { container, getByTitle } = render(
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="presets"
+        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}}
+        reglagesCounts={{ models: 2 }} />,
+    );
+    expect(getByTitle('Réglages — 2 à voir')).toBeTruthy();
+    const onglet = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.startsWith('Modèles IA'));
+    expect(onglet?.textContent).toBe('Modèles IA2');
+    cleanup();
+    // Rien à voir : ni compteur, ni mention.
+    const vide = render(
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="presets"
+        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}}
+        reglagesCounts={{ models: 0 }} />,
+    );
+    expect(vide.getByTitle('Réglages')).toBeTruthy();
+  });
+
   it('le troisième panneau des rôles apparaît sous Personas, et pas ailleurs', () => {
     const sansRoles = render(
-      <Sidebar {...props} currentSpace="settings" currentSettingsSection="display"
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="models"
         currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
     );
     expect(sansRoles.container.querySelectorAll('aside > div').length).toBe(2);
@@ -1881,7 +2080,7 @@ describe('Corpus — navigation sur téléphone', () => {
 
   const props = {
     currentTab: 'conversations' as const,
-    currentSettingsSection: 'display' as const,
+    currentSettingsSection: 'models' as const,
     onNavigate: () => {},
     onNavigateSettings: () => {},
     counts: { conversations: 0, ideas: 0, publies: 0 },
@@ -2060,7 +2259,13 @@ describe('Reel expliqué — storyboard', () => {
       sequences: [],
     };
     const visuels = { ...VISUELS, deposer: async (...a: any[]) => { deposes.push(a); } };
+    // Les modèles d'image viennent du catalogue (migration 0014), enregistré par App ; la famille Illustrer donne le défaut.
+    enregistrerCatalogue([
+      { ...MODELS[0], id: 'image-gpt-image-2', name: 'GPT Image 2', apiCode: 'openai/gpt-image-2', provider: 'openrouter', sortie: 'image' },
+      { ...MODELS[0], id: 'image-nano-banana-pro', name: 'Nano Banana Pro', apiCode: 'google/gemini-3-pro-image', provider: 'openrouter', sortie: 'image' },
+    ], 'image-nano-banana-pro');
     const { container, findByText } = render(<VisuelsAFournir reel={data} visuels={visuels} deposable />);
+    expect((container.querySelector('#modele-illustration') as HTMLSelectElement).value).toBe('image-nano-banana-pro');
     const boutons = () => Array.from(container.querySelectorAll('button'));
     // La suite attend la première : elle se génère à partir d'elle.
     expect(container.textContent).toContain('Après « digue », dont elle est la suite.');
@@ -2068,7 +2273,7 @@ describe('Reel expliqué — storyboard', () => {
     fireEvent.click(boutons().find(b => b.textContent?.trim() === 'Générer')!);
     await findByText(/Nano Banana Pro · \$0[.,]134|Nano Banana Pro · 0,134/);
     const demande = appels.find(a => a.url.endsWith('/api/ai/image'))!.corps;
-    expect(demande.modele).toBe('google/gemini-3-pro-image');
+    expect(demande.modelId).toBe('image-nano-banana-pro');
     expect(demande.prompt).toContain("Nouvelle image indépendante — l'image jointe sert uniquement de référence de style, de palette et de grain : En haut, une digue fissurée");
     expect(demande.references).toHaveLength(1);
     expect(demande.references[0]).toMatch(/^data:image\//);
@@ -2572,7 +2777,7 @@ describe('Reel expliqué — prise et rendu', () => {
 describe('la navigation de Contenus (SPEC §13)', () => {
   it('trois entrées, chacune avec son compteur, et plus d’espace Vidéos', () => {
     const { container } = render(<Sidebar
-      currentSpace="social" currentSocialTab="conversations" currentSettingsSection="display" currentSettingsPersona={null}
+      currentSpace="social" currentSocialTab="conversations" currentSettingsSection="models" currentSettingsPersona={null}
       currentCorpusSection="etat" currentCorpusBloc={null}
       onNavigate={noop} onNavigateSettings={noop} onNavigateCorpus={noop}
       counts={{ conversations: 25, ideas: 44, publies: 17 }} isMobileOpen={false} onMobileClose={noop} />);
@@ -2580,7 +2785,7 @@ describe('la navigation de Contenus (SPEC §13)', () => {
     expect(container.textContent).toContain('Idées44');
     expect(container.textContent).toContain('Publiés17');
     expect(container.querySelector('[title="Vidéos"]')).toBeNull();
-    const mobile = render(<MobileSubTabs space="social" currentTab="ideas" currentSettingsSection="display"
+    const mobile = render(<MobileSubTabs space="social" currentTab="ideas" currentSettingsSection="models"
       onNavigate={noop} onNavigateSettings={noop} counts={{ conversations: 25, ideas: 44, publies: 17 }} />);
     expect(mobile.container.textContent).toContain('Publiés');
   });

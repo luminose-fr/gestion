@@ -52,6 +52,8 @@ export * from './coldRead';
 
 // Le choix des modèles — courte liste et paliers de prix (SPEC §5.6)
 export * from './shortlist';
+// … et la veille de leurs nouvelles versions (SPEC §5.7)
+export * from './veille';
 
 // Composition des prompts et parsing des réponses
 export * from './prompts';

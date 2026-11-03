@@ -32,12 +32,12 @@ models.post('/', async (c) => {
 
   const insert = c.env.DB.prepare(
     `INSERT INTO ai_models (id, name, api_code, provider, vendor, cost, strengths,
-       best_use_cases, text_quality, is_default, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       best_use_cases, text_quality, is_default, sortie, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, input.name, input.apiCode, input.provider ?? 'onemin',
          toSql(input.vendor ?? null), toSql(input.cost ?? null), toSql(input.strengths ?? null),
          toSql(input.bestUseCases ?? null), toSql(input.textQuality ?? null),
-         input.isDefault ? 1 : 0, ts, ts);
+         input.isDefault ? 1 : 0, input.sortie ?? 'texte', ts, ts);
 
   await c.env.DB.batch(input.isDefault ? [insert, clearOtherDefaults(c.env.DB, id, ts)] : [insert]);
 
