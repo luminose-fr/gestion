@@ -245,10 +245,12 @@ const VeilleModeles: React.FC<{
     providers: Api.ProviderKeyState[];
     enCours: boolean;
     erreur: string | null;
-    onAjouter: (p: Api.PropositionVeille) => void;
+    /** La fiche que la proposition remplacerait, si elle est encore au catalogue. */
+    ficheDe: (p: Api.PropositionVeille) => AIModel | undefined;
+    onMettreAJour: (p: Api.PropositionVeille) => void;
     onIgnorer: (p: Api.PropositionVeille) => void;
     onVerifier: () => void;
-}> = ({ propositions, etat, providers, enCours, erreur, onAjouter, onIgnorer, onVerifier }) => {
+}> = ({ propositions, etat, providers, enCours, erreur, ficheDe, onMettreAJour, onIgnorer, onVerifier }) => {
     const muettes = Object.entries(etat?.sources ?? {})
         .filter(([, e]) => e && !e.lue)
         .map(([source, e]) => `${LIBELLES_SOURCE[source as Api.SourceCatalogue] ?? source} : ${e!.raison ?? 'illisible'}`);
@@ -298,8 +300,16 @@ const VeilleModeles: React.FC<{
             </div>
             <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text mb-2">
                 Une version plus récente d'un modèle de votre catalogue, sur le même adaptateur
-                {etat ? ` — vu le ${quand(etat.le)}` : ''}. L'ajouter ne change aucun réglage : choisissez-la
-                ensuite dans Modèles par famille.
+                {etat ? ` — vu le ${quand(etat.le)}` : ''}.
+                {propositions.some(p => ficheDe(p)) && (
+                    <> « Mettre à jour » ouvre la fiche de la version d'avant avec le nom et le code de la nouvelle :
+                    enregistrée, elle la remplace partout où elle servait — familles, actions, défaut. Les mesures
+                    déjà prises gardent l'ancien nom.</>
+                )}
+                {propositions.some(p => !ficheDe(p)) && (
+                    <> Une version dont la fiche d'avant a quitté le catalogue s'ajoute comme un modèle neuf, à
+                    choisir ensuite dans Modèles par famille.</>
+                )}
             </p>
             <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
                 {propositions.map(p => (
@@ -314,8 +324,12 @@ const VeilleModeles: React.FC<{
                             </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            <Bouton onClick={() => onAjouter(p)} taille="petit">
-                                <Plus className="w-3 h-3" /> Ajouter au catalogue
+                            {/* La version d'avant a quitté le catalogue : il n'y a plus rien à
+                                mettre à jour, seulement un modèle à ajouter. */}
+                            <Bouton onClick={() => onMettreAJour(p)} taille="petit">
+                                {ficheDe(p)
+                                    ? <><RefreshCw className="w-3 h-3" /> Mettre à jour</>
+                                    : <><Plus className="w-3 h-3" /> Ajouter au catalogue</>}
                             </Bouton>
                             <Bouton onClick={() => onIgnorer(p)} taille="petit" intention="discrete">
                                 Ignorer
@@ -755,13 +769,36 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     };
 
     /**
-     * La veille (SPEC §5.7). « Ajouter au catalogue » ouvre l'éditeur prérempli
-     * plutôt que d'enregistrer d'office : le nom et le coût se relisent, et un
-     * code qu'on n'a jamais appelé se teste avant de servir.
+     * La veille (SPEC §5.7). « Mettre à jour » ouvre l'éditeur prérempli plutôt
+     * que d'enregistrer d'office : le nom se relit, et un code qu'on n'a jamais
+     * appelé se teste avant de servir.
+     *
+     * Il ouvre la fiche de la version d'avant, pas une fiche neuve : les familles,
+     * les actions et le défaut désignent un IDENTIFIANT, si bien qu'une nouvelle
+     * fiche ne servait nulle part tant qu'on n'allait pas la choisir partout. Les
+     * mesures, elles, regroupent par le nom figé à l'appel : l'historique de
+     * l'ancienne version ne passe pas sous la nouvelle.
      */
     const [veilleEnCours, setVeilleEnCours] = useState(false);
     const [veilleErreur, setVeilleErreur] = useState<string | null>(null);
     const propositions = propositionsAVoir(veille, aiModels);
+    const ficheDe = (p: Api.PropositionVeille) =>
+        aiModels.find(m => m.id === p.remplaceModelId && !m.deletedAt);
+
+    const mettreAJourDepuisVeille = (p: Api.PropositionVeille) => {
+        const fiche = ficheDe(p);
+        if (!fiche) {
+            ajouterDepuisVeille(p);
+            return;
+        }
+        // Tout le reste de la fiche — adaptateur, fabricant, coût, sortie,
+        // forces — se garde : c'est la même place dans le flux, tenue par une
+        // version plus récente. « Actualiser », dans l'explorateur, réécrit les
+        // mesures quand on le souhaite.
+        setIsCreating(false);
+        setEditingId(fiche.id);
+        setEditModel({ ...fiche, name: p.nom, apiCode: p.apiCode });
+    };
 
     const ajouterDepuisVeille = (p: Api.PropositionVeille) => {
         const ancien = aiModels.find(m => m.id === p.remplaceModelId);
@@ -957,7 +994,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 providers={providers}
                                 enCours={veilleEnCours}
                                 erreur={veilleErreur}
-                                onAjouter={ajouterDepuisVeille}
+                                ficheDe={ficheDe}
+                                onMettreAJour={mettreAJourDepuisVeille}
                                 onIgnorer={p => void ignorerProposition(p)}
                                 onVerifier={() => void verifierMaintenant()}
                             />

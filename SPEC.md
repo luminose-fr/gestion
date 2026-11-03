@@ -1257,11 +1257,20 @@ n'est jamais une mise à jour** : `-mini`, `-flash`, `-fast` changent le squelet
 
 - **« Ignorer »** pose `ignore_le` : la proposition ne revient pas le lendemain ; une
   version plus récente encore, si.
-- **« Ajouter au catalogue »** ouvre l'éditeur prérempli sur l'adaptateur de la
-  proposition, avec ce qui tient à l'usage de la version d'avant — fabricant, coût,
-  qualité, cas d'usage — mais pas ses forces, mesurées sur elle. L'ajout ne change
-  aucun réglage. Rien n'est effacé : une proposition dont le modèle est au catalogue sur
-  son adaptateur cesse de s'afficher, et le passage suivant la retire.
+- **« Mettre à jour »** ouvre la fiche de la version d'avant, avec le nom et le code de
+  la nouvelle. Enregistrée, elle la remplace partout où elle servait : les familles, les
+  actions et le défaut désignent un identifiant, pas un code. Une fiche neuve, elle, ne
+  servait nulle part tant qu'on n'allait pas la choisir partout. L'historique ne passe
+  pas sous la nouvelle version : les mesures regroupent par le nom figé à l'appel (§2.6).
+  Une source qui ne publie que des codes (1min.ai) reçoit le nom de la version d'avant,
+  son numéro remplacé : « GPT-5.2 Pro » devient « GPT-5.5 Pro » ; sans ce numéro écrit
+  tel quel dans le nom, le code reste le nom.
+- **« Ajouter au catalogue »**, quand la version d'avant a quitté le catalogue : l'éditeur
+  s'ouvre sur une fiche neuve, sur l'adaptateur de la proposition, avec ce qui tient à
+  l'usage de l'ancienne — fabricant, coût, qualité, cas d'usage — mais pas ses forces,
+  mesurées sur elle.
+- Rien n'est effacé : une proposition dont le modèle est au catalogue sur son adaptateur
+  cesse de s'afficher, et le passage suivant la retire.
 - **Une source muette ne fait taire qu'elle-même** : ses propositions d'hier restent,
   l'état du passage dit pourquoi elle n'a pas été lue, et l'écran le montre. Seule une
   source LUE retire ses propositions dépassées.

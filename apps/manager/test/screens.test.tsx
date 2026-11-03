@@ -491,9 +491,10 @@ describe('espace Réglages', () => {
   });
 
   /**
-   * La veille des modèles (SPEC §5.7). « Ajouter au catalogue » ouvre
-   * l'éditeur prérempli SUR L'ADAPTATEUR de la proposition, et reprend de la
-   * version d'avant ce qui tient à l'usage — pas ses forces, mesurées sur elle.
+   * La veille des modèles (SPEC §5.7). « Mettre à jour » ouvre la fiche de la
+   * version d'avant, avec le nom et le code de la nouvelle : les familles, les
+   * actions et le défaut désignent un identifiant, et la suivent donc sans
+   * qu'on ait à les régler une à une.
    */
   const VEILLE = {
     propositions: [{
@@ -503,17 +504,41 @@ describe('espace Réglages', () => {
     etat: { le: Date.now(), sources: { onemin: { lue: true, raison: null, suivis: 1 } }, propositions: 1 },
   };
 
-  it('la veille propose une nouvelle version, et l’ajoute sur son adaptateur', () => {
+  it('« Mettre à jour » remplace la version d’avant dans sa fiche, et l’enregistre en place', async () => {
+    const maj = vi.spyOn(Api, 'updateModel').mockResolvedValue({ model: MODELS[0] } as any);
+    const creer = vi.spyOn(Api, 'createModel');
+    const changer = vi.fn();
     const { container, getByText } = render(<SettingsSpace {...(props as any)} section="models"
-      aiModels={[{ ...MODELS[0], strengths: 'Mesuré sur 5.2', bestUseCases: 'Relecture' }]} veille={VEILLE} />);
+      aiModels={[{ ...MODELS[0], bestUseCases: 'Relecture' }]} onModelsChange={changer} veille={VEILLE} />);
     expect(container.textContent).toContain('Nouvelles versions · 1');
     expect(container.textContent).toContain('après GPT-5.2 Pro');
+    expect(container.textContent).not.toContain('Ajouter au catalogue');
 
-    fireEvent.click(getByText('Ajouter au catalogue'));
+    fireEvent.click(getByText('Mettre à jour'));
+    expect(container.textContent).toContain('Modifier le modèle');
     expect(container.querySelector('input[value="gpt-5.5-pro"]')).toBeTruthy();
     expect(container.querySelector('input[value="GPT-5.5 Pro"]')).toBeTruthy();
     expect(Array.from(container.querySelectorAll('select')).some(sel => sel.value === 'onemin')).toBe(true);
-    expect(container.textContent).not.toContain('Mesuré sur 5.2');
+
+    fireEvent.click(getByText('Enregistrer'));
+    await waitFor(() => expect(maj).toHaveBeenCalledTimes(1));
+    expect(maj.mock.calls[0][0]).toBe('m1');
+    expect(maj.mock.calls[0][1]).toMatchObject({ apiCode: 'gpt-5.5-pro', name: 'GPT-5.5 Pro', provider: 'onemin', bestUseCases: 'Relecture' });
+    expect(creer).not.toHaveBeenCalled();
+    // Même identifiant : tout ce qui désignait l'ancienne version désigne la nouvelle.
+    expect(changer.mock.calls[0][0].map((m: any) => [m.id, m.apiCode])).toEqual([['m1', 'gpt-5.5-pro']]);
+  });
+
+  it('la version d’avant a quitté le catalogue : on l’ajoute, sur son adaptateur', () => {
+    const { container, getByText, queryByText } = render(<SettingsSpace {...(props as any)} section="models"
+      veille={{ ...VEILLE, propositions: [{ ...VEILLE.propositions[0], remplaceModelId: 'retire' }] }} />);
+    expect(queryByText('Mettre à jour')).toBeNull();
+    expect(container.textContent).not.toContain('« Mettre à jour »');
+    expect(container.textContent).toContain('s\'ajoute comme un modèle neuf');
+    fireEvent.click(getByText('Ajouter au catalogue'));
+    expect(container.textContent).toContain('Nouveau modèle');
+    expect(container.querySelector('input[value="gpt-5.5-pro"]')).toBeTruthy();
+    expect(Array.from(container.querySelectorAll('select')).some(sel => sel.value === 'onemin')).toBe(true);
   });
 
   it('« Ignorer » écarte la proposition, côté serveur puis à l’écran', async () => {
