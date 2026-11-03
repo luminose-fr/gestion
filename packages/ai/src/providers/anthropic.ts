@@ -71,6 +71,7 @@ export const createAnthropicProvider = (config: ProviderConfig): AIProvider => {
   const unAppel = async (payload: unknown): Promise<any> => {
     const res = await fetch(`${config.baseUrl ?? ANTHROPIC_BASE_URL}/messages`, {
       method: 'POST',
+      signal: AbortSignal.timeout(config.delaiMaxMs ?? 12 * 60 * 1000),
       headers: {
         'x-api-key': config.apiKey,
         'anthropic-version': ANTHROPIC_VERSION,

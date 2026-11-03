@@ -1,4 +1,5 @@
 import React from 'react';
+import { useEstMobile } from '../Contenu/useEstMobile';
 import { Users, Settings, Briefcase, X, Sparkles, BookMarked } from 'lucide-react';
 
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
@@ -73,7 +74,7 @@ const RailButton: React.FC<{
         className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 group ${
             active
                 ? 'bg-brand-main text-white shadow-md shadow-brand-main/30 dark:bg-white dark:text-brand-main'
-                : 'text-brand-main/50 hover:bg-brand-light hover:text-brand-main dark:text-dark-text/60 dark:hover:bg-dark-sec-bg dark:hover:text-white'
+                : 'text-brand-main hover:bg-brand-light hover:text-brand-main dark:text-dark-text dark:hover:bg-dark-sec-bg dark:hover:text-white'
         }`}
     >
         <Icon className="w-[18px] h-[18px]" />
@@ -95,16 +96,16 @@ const PanelTab: React.FC<{
         className={`w-full h-11 flex items-center justify-between px-3 rounded-[10px] text-sm font-semibold transition-all group ${
             active
                 ? 'bg-brand-main text-white shadow-sm shadow-brand-main/25 dark:bg-white dark:text-brand-main'
-                : 'text-brand-main/70 hover:bg-white hover:text-brand-main dark:text-dark-text/70 dark:hover:bg-dark-sec-bg dark:hover:text-white'
+                : 'text-brand-main hover:bg-white hover:text-brand-main dark:text-dark-text dark:hover:bg-dark-sec-bg dark:hover:text-white'
         }`}
     >
         <span className="flex items-center gap-2.5">
-            <Icon className={`w-4 h-4 ${active ? '' : 'text-brand-main/40 group-hover:text-brand-main dark:text-dark-text/40 dark:group-hover:text-white'}`} />
+            <Icon className={`w-4 h-4 ${active ? '' : 'text-brand-main group-hover:text-brand-main dark:text-dark-text dark:group-hover:text-white'}`} />
             {label}
         </span>
         {count !== undefined && count > 0 && (
             <span className={`text-[11px] font-bold min-w-[22px] text-center px-1.5 py-0.5 rounded-full leading-none tabular-nums ${
-                active ? 'bg-white/20 text-white dark:bg-brand-main/15 dark:text-brand-main' : 'bg-brand-light text-brand-main/50 dark:bg-dark-bg dark:text-dark-text/50'
+                active ? 'bg-white/20 text-white dark:bg-brand-main/15 dark:text-brand-main' : 'bg-brand-light text-brand-main dark:bg-dark-bg dark:text-dark-text'
             }`}>
                 {count}
             </span>
@@ -118,6 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onNavigate, onNavigateSettings, onNavigateCorpus, counts, corpusCounts,
     isMobileOpen, onMobileClose, replie = false,
 }) => {
+    const mobile = useEstMobile();
     // Trois espaces partagent le même panneau de deuxième niveau : Contenus,
     // Réglages et Corpus. C'est le même geste, au même endroit — et c'est ce
     // qui fait qu'un nouvel espace ne demande pas d'apprendre une navigation.
@@ -136,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
             )}
 
-            <aside className={`
+            <aside inert={mobile && !isMobileOpen ? true : undefined} aria-hidden={mobile && !isMobileOpen ? true : undefined} className={`
                 fixed md:static inset-y-0 left-0 z-40 h-full
                 flex shrink-0 transition-transform duration-300 ease-out md:translate-x-0
                 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -181,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </p>
                             <button
                                 onClick={onMobileClose}
-                                className="md:hidden p-1 -mr-1 rounded-md text-brand-main/50 dark:text-dark-text/50 hover:bg-white dark:hover:bg-dark-sec-bg"
+                                className="md:hidden p-1 -mr-1 rounded-md text-brand-main dark:text-dark-text hover:bg-white dark:hover:bg-dark-sec-bg"
                                 aria-label="Fermer le menu"
                             >
                                 <X className="w-4 h-4" />

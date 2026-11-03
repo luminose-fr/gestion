@@ -91,7 +91,7 @@ export const IdeesView: React.FC<IdeesViewProps> = ({
 
             <div className="flex flex-wrap md:flex-nowrap items-center gap-3">
                 <div className="relative w-full md:w-auto md:flex-1 md:min-w-[140px] md:max-w-[280px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main/50 dark:text-dark-text/50" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main dark:text-dark-text" />
                     <Champ
                         type="search"
                         placeholder="Rechercher…"
@@ -101,7 +101,7 @@ export const IdeesView: React.FC<IdeesViewProps> = ({
                         aria-label="Rechercher dans les idées"
                     />
                 </div>
-                <p className="basis-full md:basis-auto md:flex-1 text-xs text-brand-main/70 dark:text-dark-text/70">
+                <p className="basis-full md:basis-auto md:flex-1 text-xs text-brand-main dark:text-dark-text">
                     Pas de verdict : l’Analyste prépare l’ouverture de chaque idée, ce qu’elle dit et ce qui lui manque.
                 </p>
                 <Bouton taille="grand" onClick={onPreparer} disabled={aPreparer === 0}
@@ -118,7 +118,7 @@ export const IdeesView: React.FC<IdeesViewProps> = ({
                                 key={item.id}
                                 type="button"
                                 onClick={() => onOuvrir(item)}
-                                className="w-full min-h-[60px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_auto_112px_72px_20px] items-center gap-4 px-4 md:px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
+                                className="ui-list-action w-full min-h-[60px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_auto_112px_72px_20px] items-center gap-4 px-4 md:px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg"
                             >
                                 <span className="text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
                                 <span className="hidden md:block">
@@ -126,18 +126,18 @@ export const IdeesView: React.FC<IdeesViewProps> = ({
                                         <Etiquette as="span" forme="pastille">{getFormatDef(item.targetFormat)!.shortKey}</Etiquette>
                                     )}
                                 </span>
-                                <span className={`text-xs font-semibold ${item.analyzedAt ? 'text-brand-main dark:text-dark-text' : 'text-brand-main/50 dark:text-dark-text/50'}`}>
+                                <span className={`text-xs font-semibold ${item.analyzedAt ? 'text-brand-main dark:text-dark-text' : 'text-brand-main dark:text-dark-text'}`}>
                                     {item.analyzedAt ? 'Préparée' : 'À préparer'}
                                 </span>
-                                <span className="hidden md:block text-xs text-right text-brand-main/60 dark:text-dark-text/60">{LE.format(new Date(item.createdAt))}</span>
-                                <ChevronRight className="hidden md:block w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
+                                <span className="hidden md:block text-xs text-right text-brand-main dark:text-dark-text">{LE.format(new Date(item.createdAt))}</span>
+                                <ChevronRight className="hidden md:block w-4 h-4 text-brand-main dark:text-dark-text" />
                             </button>
                         ))}
                     </div>
                 </Carte>
             ) : !isInitializing && (
                 <Carte densite="seule" className="text-center space-y-2">
-                    <Lightbulb className="w-8 h-8 mx-auto text-brand-main/40 dark:text-dark-text/40" />
+                    <Lightbulb className="w-8 h-8 mx-auto text-brand-main dark:text-dark-text" />
                     <p className="text-sm text-brand-main dark:text-dark-text">
                         {searchQuery.trim() ? 'Aucune idée pour cette recherche.' : 'Aucune idée en réserve. Écrivez-en une ci-dessus.'}
                     </p>

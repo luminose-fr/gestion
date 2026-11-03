@@ -558,3 +558,15 @@ describe('ce qu’un appel a coûté', () => {
       .toEqual({ entree: 0, sortie: 0, coutUsd: 0 });
   });
 });
+
+it.each([createOpenAIProvider, createOneMinProvider, createAnthropicProvider])('borne une attente réseau sans doubler un appel expiré', async (creer) => {
+  const appel = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    const signal = init.signal!;
+    if (signal.aborted) reject(signal.reason);
+    else signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+  vi.stubGlobal('fetch', appel);
+  const fournisseur = creer({ apiKey: 'test', delaiMaxMs: 5, repriseDelaiMs: 0 });
+  await expect(fournisseur.chat({ model: 'modele-test', messages: [{ role: 'user', content: 'Bonjour' }] })).rejects.toThrow('délai maximal');
+  expect(appel).toHaveBeenCalledTimes(1);
+});

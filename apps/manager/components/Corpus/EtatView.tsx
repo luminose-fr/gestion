@@ -23,8 +23,8 @@ import { Bouton, Etiquette, CLASSES_SURTITRE } from '../ui';
 const NON_PROPOSABLE = ['suspendu', 'termine', 'candidat'];
 
 const ETIQUETTE_DEPLOIEMENT: Record<string, { mot: string; classe: string }> = {
-  en_attente: { mot: 'en attente', classe: 'text-brand-main/70 dark:text-dark-text/60' },
-  en_cours:   { mot: 'en cours',   classe: 'text-brand-main/70 dark:text-dark-text/60' },
+  en_attente: { mot: 'en attente', classe: 'text-brand-main dark:text-dark-text' },
+  en_cours:   { mot: 'en cours',   classe: 'text-brand-main dark:text-dark-text' },
   reussi:     { mot: 'réussi',     classe: 'text-succes' },
   echoue:     { mot: 'échoué',     classe: 'text-erreur' },
 };
@@ -134,7 +134,7 @@ const EtatView: React.FC = () => {
   }
 
   if (!etat) {
-    return <div className="text-sm text-brand-main/60 dark:text-dark-text/60">Lecture du corpus…</div>;
+    return <div className="text-sm text-brand-main dark:text-dark-text">Lecture du corpus…</div>;
   }
 
   const hashCourant = (profil: string) => etat.profils.find((p) => p.profil === profil)?.hash ?? '';
@@ -202,17 +202,17 @@ const EtatView: React.FC = () => {
                   : `${ecart!.differents.length} fiches commitées ne sont pas encore servies.`}
               </span>
             ) : incertain ? (
-              <span className="text-sm text-brand-main/70 dark:text-dark-text/60">
+              <span className="text-sm text-brand-main dark:text-dark-text">
                 <HelpCircle className="w-4 h-4 inline -mt-0.5" /> Impossible de savoir si un écart existe.
               </span>
             ) : (
-              <span className="text-sm text-brand-main/70 dark:text-dark-text/60">
+              <span className="text-sm text-brand-main dark:text-dark-text">
                 Ce qui est servi correspond au dépôt.
               </span>
             )}
 
             {deploiement.etat?.statut && (
-              <span className="text-xs text-brand-main/55 dark:text-dark-text/50">
+              <span className="text-xs text-brand-main dark:text-dark-text">
                 Dernier déploiement : <strong className={ETIQUETTE_DEPLOIEMENT[deploiement.etat.statut].classe}>
                   {ETIQUETTE_DEPLOIEMENT[deploiement.etat.statut].mot}
                 </strong>
@@ -237,13 +237,13 @@ const EtatView: React.FC = () => {
           {enRetard && (
             <ul className="mt-3 space-y-0.5">
               {ecart!.differents.slice(0, 6).map((d) => (
-                <li key={d.chemin} className="text-micro text-brand-main/60 dark:text-dark-text/50">
+                <li key={d.chemin} className="text-micro text-brand-main dark:text-dark-text">
                   <code className="font-mono">{d.chemin}</code>
                   {d.etat !== 'modifie' && <span className="ml-1.5 opacity-70">({d.etat === 'ajoute' ? 'nouvelle' : 'supprimée'})</span>}
                 </li>
               ))}
               {ecart!.differents.length > 6 && (
-                <li className="text-micro text-brand-main/45 dark:text-dark-text/40">
+                <li className="text-micro text-brand-main dark:text-dark-text">
                   et {ecart!.differents.length - 6} autre{ecart!.differents.length - 6 > 1 ? 's' : ''}…
                 </li>
               )}
@@ -251,12 +251,12 @@ const EtatView: React.FC = () => {
           )}
 
           {incertain && ecart?.raison && (
-            <p className="mt-3 text-micro text-brand-main/50 dark:text-dark-text/45 leading-relaxed">
+            <p className="mt-3 text-micro text-brand-main dark:text-dark-text leading-relaxed">
               {ecart.raison}
             </p>
           )}
 
-          <p className="text-micro text-brand-main/45 dark:text-dark-text/40 mt-3 leading-relaxed">
+          <p className="text-micro text-brand-main dark:text-dark-text mt-3 leading-relaxed">
             Tests et typecheck tournent d'abord ; comptez deux minutes. Seul le Worker repart —
             une correction du corpus ne touche pas le front. « Actualiser » rafraîchit l'état.
           </p>
@@ -268,7 +268,7 @@ const EtatView: React.FC = () => {
         <span className="font-semibold text-brand-main dark:text-white">
           {etat.documents} documents
         </span>
-        <span className="text-brand-main/60 dark:text-dark-text/60">
+        <span className="text-brand-main dark:text-dark-text">
           {etat.blocs.length} blocs · relevé du {etat.date}
         </span>
         {derives > 0 && (
@@ -283,7 +283,7 @@ const EtatView: React.FC = () => {
         )}
         <button
           onClick={() => void recharger()}
-          className="ml-auto inline-flex items-center gap-1.5 text-xs text-brand-main/70 hover:text-brand-main dark:text-dark-text/60 dark:hover:text-white"
+          className="ml-auto inline-flex items-center gap-1.5 text-xs text-brand-main hover:text-brand-main dark:text-dark-text dark:hover:text-white"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Actualiser
         </button>
@@ -311,13 +311,13 @@ const EtatView: React.FC = () => {
                   <tr key={s.id} className="border-t border-brand-border dark:border-dark-sec-border align-top">
                     <td className="py-2 pr-3">
                       <div className="font-semibold text-brand-main dark:text-white">{s.nom}</div>
-                      <div className="text-xs text-brand-main/50 dark:text-dark-text/50">{s.note}</div>
+                      <div className="text-xs text-brand-main dark:text-dark-text">{s.note}</div>
                     </td>
-                    <td className="py-2 pr-3 font-mono text-xs text-brand-main/70 dark:text-dark-text/60">{s.profil}</td>
-                    <td className="py-2 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
+                    <td className="py-2 pr-3 font-mono text-xs text-brand-main dark:text-dark-text">{s.profil}</td>
+                    <td className="py-2 pr-3 font-mono text-xs tabular-nums text-brand-main dark:text-dark-text">
                       {pose?.hash ?? '—'}
                     </td>
-                    <td className="py-2 pr-3 font-mono text-xs tabular-nums text-brand-main/70 dark:text-dark-text/60">
+                    <td className="py-2 pr-3 font-mono text-xs tabular-nums text-brand-main dark:text-dark-text">
                       {courant}
                     </td>
                     {/*
@@ -333,7 +333,7 @@ const EtatView: React.FC = () => {
                     */}
                     <td className="py-2 pr-3">
                       {s.automatique ? (
-                        <span className="text-xs text-brand-main/45 dark:text-dark-text/40">automatique</span>
+                        <span className="text-xs text-brand-main dark:text-dark-text">automatique</span>
                       ) : aJour ? (
                         <span className="inline-flex items-center gap-1 text-xs text-succes">
                           <Check className="w-3.5 h-3.5" /> à jour
@@ -371,7 +371,7 @@ const EtatView: React.FC = () => {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-3">
+        <p className="text-xs text-brand-main dark:text-dark-text mt-3">
           Le texte est copié dans le presse-papier, puis la version est enregistrée. Si la copie
           échoue, rien n’est enregistré : une surface ne peut pas passer pour à jour sans l’être.
         </p>
@@ -383,10 +383,10 @@ const EtatView: React.FC = () => {
             <div key={p.profil} className="rounded-lg border border-brand-border dark:border-dark-sec-border p-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-mono text-xs font-semibold text-brand-main dark:text-white">{p.profil}</span>
-                <span className="font-mono text-micro tabular-nums text-brand-main/50 dark:text-dark-text/50">{p.hash}</span>
+                <span className="font-mono text-micro tabular-nums text-brand-main dark:text-dark-text">{p.hash}</span>
               </div>
-              <p className="text-xs text-brand-main/60 dark:text-dark-text/55 mt-1.5">{p.intention}</p>
-              <p className="text-micro tabular-nums text-brand-main/45 dark:text-dark-text/40 mt-2">
+              <p className="text-xs text-brand-main dark:text-dark-text mt-1.5">{p.intention}</p>
+              <p className="text-micro tabular-nums text-brand-main dark:text-dark-text mt-2">
                 {p.taille.toLocaleString('fr-FR')} car. · {p.documents} doc.
                 {p.plafond !== null && ` · plafond ${p.plafond.toLocaleString('fr-FR')}`}
               </p>
@@ -412,7 +412,7 @@ const EtatView: React.FC = () => {
               </li>
             ))}
           </ul>
-          <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mt-3">
+          <p className="text-xs text-brand-main dark:text-dark-text mt-3">
             Ce tableau est dérivé du frontmatter et injecté dans les trois profils, avec la mention
             « NE PAS PROPOSER ». Changer un statut dans le corpus suffit — aucun texte à réécrire.
           </p>
@@ -425,16 +425,16 @@ const EtatView: React.FC = () => {
             <div key={d.chemin} className="flex items-baseline gap-2 text-sm py-1">
               <AlertTriangle className="w-3.5 h-3.5 text-alerte shrink-0 translate-y-0.5" />
               <span className="text-brand-main dark:text-dark-text">{d.titre}</span>
-              <span className="font-mono text-micro text-brand-main/50 dark:text-dark-text/50">
+              <span className="font-mono text-micro text-brand-main dark:text-dark-text">
                 à revoir depuis {d.review_at}
               </span>
             </div>
           ))}
           {etat.absencesDeliberees.map((a) => (
             <div key={a.chemin} className="flex items-baseline gap-2 text-sm py-1">
-              <FileText className="w-3.5 h-3.5 text-brand-main/40 shrink-0 translate-y-0.5" />
-              <span className="font-mono text-xs text-brand-main/70 dark:text-dark-text/60">{a.chemin}</span>
-              <span className="text-xs text-brand-main/50 dark:text-dark-text/50">
+              <FileText className="w-3.5 h-3.5 text-brand-main shrink-0 translate-y-0.5" />
+              <span className="font-mono text-xs text-brand-main dark:text-dark-text">{a.chemin}</span>
+              <span className="text-xs text-brand-main dark:text-dark-text">
                 absence délibérée, confirmée en {a.revu} — à re-confirmer, jamais à combler
               </span>
             </div>

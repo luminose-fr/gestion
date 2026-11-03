@@ -13,10 +13,10 @@
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
  */
 import { Hono } from 'hono';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { Refus } from './refus';
 import type { Contexte } from './env';
-import { createSessionToken, verifySessionToken, getSessionSecret } from './auth';
+import { createSessionToken, verifySessionToken, getSessionSecret, sessionDe, cookieSession, empreinteSession, expirationSession } from './auth';
 import { routeOuverteAuMcp, verifierJetonMcp } from './acces-mcp';
 import { contents } from './routes/contents';
 import { series } from './routes/series';
@@ -42,26 +42,56 @@ const app = new Hono<Contexte>();
 
 // ── Authentification ─────────────────────────────────────────────────────
 
+// Les cookies exigent une vérification d'origine, y compris à la connexion (CSRF).
+app.use('*', async (c, next) => {
+  c.header('Cache-Control', 'no-store');
+  c.header('X-Content-Type-Options', 'nosniff');
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
+    const origin = c.req.header('Origin');
+    if (c.req.header('Sec-Fetch-Site') === 'cross-site' ||
+        (origin && origin !== new URL(c.req.url).origin && origin !== 'https://gestion.luminose.fr')) {
+      return c.json({ error: 'Origine refusée' }, 403);
+    }
+  }
+  await next();
+});
+
+const LoginSchema = z.object({ username: z.string().min(1).max(200), password: z.string().min(1).max(1024) });
 app.post('/auth/login', async (c) => {
-  const { username, password } = await c.req.json<{ username?: string; password?: string }>();
-
-  if (username !== c.env.AUTH_USERNAME || password !== c.env.AUTH_PASSWORD) {
-    return c.json({ error: 'Identifiants incorrects' }, 401);
+  if (!c.env.AUTH_USERNAME || !c.env.AUTH_PASSWORD || !getSessionSecret(c.env)) {
+    return c.json({ error: 'Authentification non configurée.' }, 503);
   }
-  if (!getSessionSecret(c.env)) {
-    return c.json({
-      error: 'Worker mal configuré : définissez le secret SESSION_SECRET (npx wrangler secret put SESSION_SECRET).',
-    }, 500);
+  const fenetre = 15 * 60 * 1000;
+  const debut = Math.floor(Date.now() / fenetre) * fenetre;
+  const cle = await empreinteSession(`${c.req.header('CF-Connecting-IP') ?? 'local'}:${debut}`);
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM login_attempts WHERE expires_at <= ?').bind(Date.now()),
+    c.env.DB.prepare('INSERT INTO login_attempts (key, attempts, expires_at) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET attempts = attempts + 1').bind(cle, debut + fenetre),
+  ]);
+  const compteur = await c.env.DB.prepare('SELECT attempts FROM login_attempts WHERE key = ?').bind(cle).first<{ attempts: number }>();
+  if ((compteur?.attempts ?? 0) > 20) {
+    c.header('Retry-After', String(Math.ceil((debut + fenetre - Date.now()) / 1000)));
+    return c.json({ error: 'Trop de tentatives. Réessayez dans quelques minutes.' }, 429);
   }
-
-  return c.json({ success: true, sessionToken: await createSessionToken(c.env) });
+  const input = LoginSchema.safeParse(await c.req.json());
+  if (!input.success) return c.json({ error: 'Identifiants incorrects' }, 401);
+  // Les deux condensats ont la même longueur ; la comparaison ne dépend pas du premier écart.
+  const fourni = await empreinteSession(JSON.stringify([input.data.username, input.data.password]));
+  const attendu = await empreinteSession(JSON.stringify([c.env.AUTH_USERNAME, c.env.AUTH_PASSWORD]));
+  let ecart = 0;
+  for (let i = 0; i < attendu.length; i++) ecart |= fourni.charCodeAt(i) ^ attendu.charCodeAt(i);
+  if (ecart) return c.json({ error: 'Identifiants incorrects' }, 401);
+  const sessionToken = await createSessionToken(c.env);
+  c.header('Set-Cookie', cookieSession(c.req.url, sessionToken));
+  // Le champ est conservé pour les anciens clients pendant la bascule ; le nouveau front ne le stocke plus.
+  return c.json({ success: true, sessionToken });
 });
 
 /**
- * Toute route hors /auth/login exige un jeton valide : celui de la session, ou
- * celui du serveur MCP — qui n'ouvre que sa liste fermée de routes (acces-mcp.ts).
- * Les routes savent ensuite qui les appelle, et le serveur MCP n'y écrit que ce
- * qui lui est accordé.
+ * Toute route hors /auth/login exige un jeton valide : celui de la session —
+ * cookie, ou en-tête pendant la bascule —, ou celui du serveur MCP, qui n'ouvre
+ * que sa liste fermée de routes (acces-mcp.ts). Les routes savent ensuite qui
+ * les appelle, et le serveur MCP n'y écrit que ce qui lui est accordé.
  */
 const requireSession = async (c: any, next: () => Promise<void>) => {
   const porteur = c.req.header('Authorization');
@@ -75,14 +105,34 @@ const requireSession = async (c: any, next: () => Promise<void>) => {
     return next();
   }
 
-  const check = await verifySessionToken(c.req.header('X-Session-Token') ?? null, c.env);
+  const jeton = sessionDe(c.req.raw);
+  const check = await verifySessionToken(jeton, c.env);
   if (!check.valid) return c.json({ error: `Non authentifié - ${check.error}` }, 401);
+  const revoquee = await c.env.DB.prepare('SELECT 1 FROM auth_revocations WHERE token_hash = ? AND expires_at > ?')
+    .bind(await empreinteSession(jeton!), Date.now()).first();
+  if (revoquee) return c.json({ error: 'Session révoquée' }, 401);
   c.set('appelant', 'console');
   await next();
 };
 
 app.use('/api/*', requireSession);
 app.use('/v1/*', requireSession);
+app.use('/auth/session', requireSession);
+app.use('/auth/logout', requireSession);
+app.get('/auth/session', (c) => {
+  c.header('Set-Cookie', cookieSession(c.req.url, sessionDe(c.req.raw)!));
+  return c.json({ authenticated: true });
+});
+app.post('/auth/logout', async (c) => {
+  const jeton = sessionDe(c.req.raw)!;
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM auth_revocations WHERE expires_at <= ?').bind(Date.now()),
+    c.env.DB.prepare('INSERT OR IGNORE INTO auth_revocations (token_hash, expires_at) VALUES (?, ?)')
+      .bind(await empreinteSession(jeton), expirationSession(jeton)),
+  ]);
+  c.header('Set-Cookie', cookieSession(c.req.url, '', 0));
+  return c.json({ success: true });
+});
 
 // ── Routes ───────────────────────────────────────────────────────────────
 
@@ -121,6 +171,7 @@ app.notFound((c) => c.json({ error: 'Not found' }, 404));
  * Le reste est une vraie panne : 500, et la trace part dans les journaux.
  */
 app.onError((err, c) => {
+  if (err instanceof SyntaxError) return c.json({ error: 'JSON invalide' }, 400);
   if (err instanceof ZodError) {
     return c.json({ error: 'Entrée invalide', detail: err.issues }, 400);
   }
@@ -128,7 +179,7 @@ app.onError((err, c) => {
     return c.json({ error: err.message }, err.status);
   }
   console.error('Erreur non gérée :', err);
-  return c.json({ error: 'Erreur interne', detail: err.message }, 500);
+  return c.json({ error: 'Erreur interne', }, 500);
 });
 
 export default app;

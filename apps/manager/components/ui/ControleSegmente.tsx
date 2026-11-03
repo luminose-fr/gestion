@@ -35,6 +35,19 @@ export function ControleSegmente<T extends string>({
     <div
       role="radiogroup"
       aria-label={libelle}
+      onKeyDown={(e) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+        const disponibles = options.filter(option => !option.desactive);
+        if (!disponibles.length) return;
+        e.preventDefault();
+        const actuel = disponibles.findIndex(option => option.valeur === valeur);
+        const index = e.key === 'Home' ? 0 : e.key === 'End' ? disponibles.length - 1
+          : (actuel + (e.key === 'ArrowLeft' ? -1 : 1) + disponibles.length) % disponibles.length;
+        const prochaine = disponibles[index];
+        const boutons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+        boutons[index]?.focus();
+        onChange(prochaine.valeur);
+      }}
       className={`inline-flex items-center gap-1 h-10 p-1 rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 ${className}`}
     >
       {options.map(o => {
@@ -45,18 +58,19 @@ export function ControleSegmente<T extends string>({
             type="button"
             role="radio"
             aria-checked={actif}
+            tabIndex={actif || !options.some(option => option.valeur === valeur && !option.desactive) ? 0 : -1}
             disabled={o.desactive}
             title={o.titre}
             onClick={() => onChange(o.valeur)}
-            className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-40 ${
+            className={`ui-action ui-segment inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-semibold whitespace-nowrap disabled:opacity-40 ${
               actif
                 ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                : 'text-brand-main/70 dark:text-dark-text/70 hover:text-brand-main dark:hover:text-white'
+                : 'text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white'
             }`}
           >
             {o.libelle}
             {o.compte !== undefined && (
-              <span className={`text-micro font-bold tabular-nums ${actif ? 'text-white/80 dark:text-brand-main/70' : 'text-brand-main/50 dark:text-dark-text/50'}`}>
+              <span className={`text-micro font-bold tabular-nums ${actif ? 'text-white/80 dark:text-brand-main' : 'text-brand-main dark:text-dark-text'}`}>
                 {o.compte}
               </span>
             )}

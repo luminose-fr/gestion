@@ -31,5 +31,10 @@
     "esbuild@0.28.1": true,
     "esbuild@0.28.2": true,
     "workerd@1.20260921.1": true
+  },
+  "overrides": {
+    "@remotion/media": {
+      "zod": "^4.6.7"
+    }
   }
 }

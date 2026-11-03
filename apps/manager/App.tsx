@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { RefreshCw, LogOut, AlertCircle, Menu, Cpu, ChevronDown } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
@@ -13,23 +13,18 @@ import * as AiService from './services/aiService';
 import * as Activite from './services/activityService';
 import { generateSeriePlan } from './services/seriesService';
 
-import SettingsSpace from './components/Settings/SettingsSpace';
 import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings/apercus';
-import CorpusSpace from './components/Corpus/CorpusSpace';
 import { BLOCS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
 import { fetchDocumentsCorpus, fetchInbox } from './services/apiService';
 import {
   SettingsSection, isSettingsSection, settingsSectionLabel, settingsSectionSousTitre,
   grouperParAdaptateur,
 } from './components/Settings/sections';
-import ContentEditor from './components/ContentEditor';
 import AnalysisModal from './components/AnalysisModal';
 import { LoginPage } from './components/LoginPage';
 import { isAuthenticated, logout } from './auth';
 import { AlertModal } from './components/CommonModals';
 import { BandeauActivite, EnCours, FiletActivite, Patience } from './components/Feedback';
-import PsychedelicsCalculator from './components/PsychedelicsCalculator';
-import RdvView from './components/Clients/RdvView';
 import { ecran, TitreEcran } from './components/ui';
 
 // Components refactorisés
@@ -43,6 +38,12 @@ import { PubliesView, type VuePublies } from './components/Contenus/PubliesView'
 import { REDIRECTIONS, estListe, libelleDeListe, listeDuContenu, type ListeContenus } from './components/Contenus/listes';
 import { PanneauSerie, AvancementSerie } from './components/Contenu/Serie';
 import { CadreContenu, PiedContenu } from './components/Contenu/CadreContenu';
+
+const SettingsSpace = lazy(() => import('./components/Settings/SettingsSpace'));
+const CorpusSpace = lazy(() => import('./components/Corpus/CorpusSpace'));
+const ContentEditor = lazy(() => import('./components/ContentEditor'));
+const PsychedelicsCalculator = lazy(() => import('./components/PsychedelicsCalculator'));
+const RdvView = lazy(() => import('./components/Clients/RdvView'));
 
 type SpaceView = 'social' | 'clients' | 'psychedelics' | 'corpus' | 'settings';
 /** Les trois listes, et `series` : l'adresse d'un plan de série (SPEC §13). */
@@ -146,6 +147,8 @@ function App() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [items, setItems] = useState<ContentItem[]>([]);
+  const latestItemsRef = useRef(items);
+  latestItemsRef.current = items;
   const [aiModels, setAiModels] = useState<AIModel[]>([]);
   const [series, setSeries] = useState<Serie[]>([]);
   /** Modèle affecté à chaque action ; une action absente prend le modèle actif. */
@@ -244,28 +247,39 @@ function App() {
   // Contenus dont l'écriture serveur a échoué : ils n'existent qu'en local.
   // Le ref porte la version à réémettre (toujours à jour, même dans une closure
   // de sync périmée) ; le state ne sert qu'à l'affichage du bandeau.
-  const unsavedItemsRef = useRef<Map<string, ContentItem>>(new Map());
-  const [unsavedIds, setUnsavedIds] = useState<string[]>([]);
+  const unsavedItemsRef = useRef<Map<string, ContentItem>>(new Map(StorageService.getPendingContents().map(item => [item.id, item])));
+  const failedIdsRef = useRef(new Set(unsavedItemsRef.current.keys()));
+  const saveQueue = useRef(new Map<string, Promise<void>>());
+  const localEditsRef = useRef(new Map<string, ContentItem>());
+  const [unsavedIds, setUnsavedIds] = useState<string[]>(() => [...unsavedItemsRef.current.keys()]);
   const [isRetryingUnsaved, setIsRetryingUnsaved] = useState(false);
 
-  const syncUnsavedState = () => setUnsavedIds(Array.from(unsavedItemsRef.current.keys()));
+  const syncUnsavedState = () => setUnsavedIds([...failedIdsRef.current].filter(id => unsavedItemsRef.current.has(id)));
 
-  const markItemSaved = (id: string) => {
-      if (unsavedItemsRef.current.delete(id)) syncUnsavedState();
+  const markItemSaved = (item: ContentItem) => {
+      try { StorageService.acknowledgePendingContent(item); } catch (e) { console.warn('Acquittement local impossible :', e); }
+      if (JSON.stringify(unsavedItemsRef.current.get(item.id)) === JSON.stringify(item)) {
+          unsavedItemsRef.current.delete(item.id);
+          failedIdsRef.current.delete(item.id);
+          syncUnsavedState();
+      }
   };
 
   const markItemUnsaved = (item: ContentItem) => {
+      localEditsRef.current.set(item.id, item);
       unsavedItemsRef.current.set(item.id, item);
-      syncUnsavedState();
+      try { StorageService.stagePendingContent(item); return true; }
+      catch (e) { failedIdsRef.current.add(item.id); syncUnsavedState(); console.warn('Copie locale impossible :', e); return false; }
   };
 
   // Garde-fou navigateur : on ne quitte pas la page sur du travail non enregistré
   useEffect(() => {
-      if (unsavedIds.length === 0) return;
-      const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+      const handler = (e: BeforeUnloadEvent) => {
+          if (unsavedItemsRef.current.size) { e.preventDefault(); e.returnValue = ''; }
+      };
       window.addEventListener('beforeunload', handler);
       return () => window.removeEventListener('beforeunload', handler);
-  }, [unsavedIds.length]);
+  }, []);
 
   const mergeById = <T extends { id: string }>(current: T[], updates: T[]): T[] => {
       if (updates.length === 0) return current;
@@ -384,8 +398,7 @@ function App() {
   const editingSerie = editingSerieId ? series.find(s => s.id === editingSerieId) || null : null;
 
   useEffect(() => {
-    setAuthenticated(isAuthenticated());
-    setCheckingAuth(false);
+    void isAuthenticated().then(setAuthenticated).finally(() => setCheckingAuth(false));
   }, []);
 
   // Les pastilles du panneau Corpus. Rechargées à chaque changement de section :
@@ -454,6 +467,7 @@ function App() {
     // l'écran : elle ne réclame rien de Florent, donc elle ne doit rien lui
     // interdire — surtout celle qui part toute seule au démarrage.
     const suivi = Activite.ouvrir({ label: 'Synchronisation', cle: 'app:sync' });
+    const editionsAuDepart = new Map(localEditsRef.current);
     let abouti = false;
 
     try {
@@ -489,7 +503,8 @@ function App() {
 
         // Les lignes supprimées remontent avec un deletedAt : on les retire du
         // cache, sauf si elles portent du travail non enregistré.
-        const alive = merged.filter(item => !item.deletedAt || unsaved.has(item.id));
+        const pendantLaLecture = [...localEditsRef.current.values()].filter(i => editionsAuDepart.get(i.id) !== i);
+        const alive = mergeById(merged, [...unsaved.values(), ...pendantLaLecture]).filter(item => !item.deletedAt || unsaved.has(item.id));
 
         // Une série supprimée remonte comme une modification ordinaire, avec
         // son deletedAt : on la retire du cache au passage (SPEC §8).
@@ -502,6 +517,7 @@ function App() {
         const nextItems = sortByLastEditedDesc(alive);
         const nextModels = modelRes.items;
 
+        latestItemsRef.current = nextItems;
         setItems(nextItems);
         setAiModels(nextModels);
         setSeries(nextSeries);
@@ -545,8 +561,9 @@ function App() {
     setAuthenticated(true);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try { await logout(); }
+    catch (e: any) { setError(e.message); return; }
     setAuthenticated(false);
     setItems([]);
     setAiModels([]);
@@ -686,18 +703,22 @@ function App() {
    * L'erreur est propagée : c'est ce qui permet à l'éditeur d'afficher
    * "Erreur sauvegarde" au lieu d'un "Enregistré" mensonger.
    */
-  const handleUpdateItem = async (updatedItem: ContentItem): Promise<void> => {
+  const handleUpdateItem = async (input: ContentItem, champs?: Array<'draft' | 'slides'>): Promise<void> => {
+    const base = unsavedItemsRef.current.get(input.id) ?? latestItemsRef.current.find(i => i.id === input.id) ?? input;
+    const updatedItem = champs ? { ...base, ...Object.fromEntries(champs.map(champ => [champ, input[champ]])) } : input;
+    markItemUnsaved(updatedItem);
     setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
     StorageService.updateCachedItem(updatedItem).catch(console.error);
-
-    try {
+    // Les requêtes d'un même contenu gardent l'ordre des frappes, même si le réseau ralentit.
+    const precedente = saveQueue.current.get(updatedItem.id) ?? Promise.resolve();
+    const ecriture = precedente.catch(() => {}).then(async () => {
       await Api.updateContent(updatedItem.id, updatedItem);
-      markItemSaved(updatedItem.id);
-    } catch (error: any) {
-      console.error("Erreur d'enregistrement :", error);
-      markItemUnsaved(updatedItem);
-      throw error;
-    }
+      markItemSaved(updatedItem);
+    });
+    saveQueue.current.set(updatedItem.id, ecriture);
+    try { await ecriture; }
+    catch (e) { failedIdsRef.current.add(updatedItem.id); syncUnsavedState(); throw e; }
+    finally { if (saveQueue.current.get(updatedItem.id) === ecriture) saveQueue.current.delete(updatedItem.id); }
   };
 
   /** Réémet vers le serveur tous les contenus restés en échec. */
@@ -706,10 +727,11 @@ function App() {
     setIsRetryingUnsaved(true);
     let lastError: string | null = null;
 
-    for (const item of Array.from(unsavedItemsRef.current.values())) {
+    for (const id of Array.from(unsavedItemsRef.current.keys())) {
+        const item = unsavedItemsRef.current.get(id);
+        if (!item) continue;
         try {
-            await Api.updateContent(item.id, item);
-            unsavedItemsRef.current.delete(item.id);
+            await handleUpdateItem(item);
         } catch (e: any) {
             lastError = e?.message || "Erreur inconnue";
         }
@@ -736,25 +758,20 @@ function App() {
   };
 
   const handleDeleteItem = async (itemToDelete: ContentItem): Promise<void> => {
-      const newItems = items.filter(i => i.id !== itemToDelete.id);
-      setItems(newItems);
-      if (editingSerieId) updateSerieRoute(editingSerieId);
-      else updateRoute(currentSpace, currentSocialTab);
-      
-      StorageService.setCachedContent(newItems).catch(console.error);
-
-      try {
-          await Api.deleteContent(itemToDelete.id);
-          setAlertInfo({
-              isOpen: true,
-              title: "Suppression réussie",
-              message: "L'élément a été supprimé.",
-              type: 'success'
-          });
-      } catch (error: any) {
-          console.error("Erreur à la suppression :", error);
-          setError("Impossible de supprimer ce contenu. " + error.message);
-      }
+      // La suppression attend les écritures déjà parties et ne masque rien si elle échoue.
+      await saveQueue.current.get(itemToDelete.id)?.catch(() => {});
+      await Api.deleteContent(itemToDelete.id);
+      unsavedItemsRef.current.delete(itemToDelete.id);
+      failedIdsRef.current.delete(itemToDelete.id);
+      localEditsRef.current.delete(itemToDelete.id);
+      try { StorageService.discardPendingContent(itemToDelete.id); } catch (e) { console.warn(e); }
+      syncUnsavedState();
+      setItems(prev => {
+          const restants = prev.filter(i => i.id !== itemToDelete.id);
+          void StorageService.setCachedContent(restants).catch(console.error);
+          return restants;
+      });
+      setAlertInfo({ isOpen: true, title: 'Suppression réussie', message: 'L’élément a été supprimé.', type: 'success' });
   };
 
   // --- SÉRIES (SPEC §6) ---
@@ -1149,7 +1166,9 @@ function App() {
             <div className="flex items-center gap-3 min-w-0">
               <button
                   onClick={() => setIsMobileMenuOpen(true)}
-                  className="md:hidden p-2 -ml-1 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors"
+                  aria-label="Ouvrir la navigation"
+                  aria-expanded={isMobileMenuOpen}
+                  className="md:hidden p-2 -ml-1 rounded-lg text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors"
               >
                   <Menu className="w-5 h-5" />
               </button>
@@ -1164,12 +1183,12 @@ function App() {
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
               </TitreEcran>
               {currentSpace === 'corpus' && (
-                  <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
+                  <p className="hidden lg:block text-xs text-brand-main dark:text-dark-text truncate">
                       {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
                   </p>
               )}
               {currentSpace === 'settings' && (
-                  <p className="hidden lg:block text-xs text-brand-main/50 dark:text-dark-text/50 truncate">
+                  <p className="hidden lg:block text-xs text-brand-main dark:text-dark-text truncate">
                       {settingsSectionSousTitre(currentSettingsSection)}
                   </p>
               )}
@@ -1179,7 +1198,7 @@ function App() {
                  {/* Sélecteur global du modèle IA — utilisé par toutes les actions. Sur téléphone, il
                      céderait toute la place au titre : chaque action garde son modèle réglé. */}
                  <div className="relative hidden md:flex items-center">
-                     <Cpu className="w-[13px] h-[13px] absolute left-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />
+                     <Cpu className="w-[13px] h-[13px] absolute left-2 text-brand-main dark:text-dark-text pointer-events-none" />
                      <select
                         value={activeModelId}
                         onChange={(e) => handleActiveModelChange(e.target.value)}
@@ -1199,7 +1218,7 @@ function App() {
                                 </optgroup>
                             ))}
                      </select>
-                     <ChevronDown className="w-3 h-3 absolute right-2 text-brand-main/40 dark:text-dark-text/40 pointer-events-none" />
+                     <ChevronDown className="w-3 h-3 absolute right-2 text-brand-main dark:text-dark-text pointer-events-none" />
                  </div>
 
                  {/* L'icône tourne, pas le bouton : `disabled:animate-spin` faisait
@@ -1207,14 +1226,14 @@ function App() {
                  <button
                     onClick={() => synchroniser(true)}
                     disabled={isSyncing}
-                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-brand-light dark:hover:bg-dark-sec-bg hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-60"
+                    className="p-2 rounded-lg text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-60"
                     title={isSyncing ? 'Synchronisation en cours…' : 'Synchroniser'}
                  >
                      <RefreshCw className={`w-[14px] h-[14px] ${isSyncing ? 'animate-spin' : ''}`} />
                  </button>
                  <button
                     onClick={handleLogout}
-                    className="p-2 rounded-lg text-brand-main/60 dark:text-dark-text/60 hover:bg-erreur/10 hover:text-erreur transition-colors"
+                    className="p-2 rounded-lg text-brand-main dark:text-dark-text hover:bg-erreur/10 hover:text-erreur transition-colors"
                     title="Déconnexion"
                  >
                      <LogOut className="w-[14px] h-[14px]" />
@@ -1280,6 +1299,7 @@ function App() {
           </div>
         )}
 
+        <Suspense fallback={<Patience titre="Chargement de l’écran" />}>
         {currentSpace === 'clients' && (
             <main className="flex-1 overflow-y-auto">
                 <RdvView />
@@ -1314,7 +1334,7 @@ function App() {
         {currentSpace === 'psychedelics' && (
             <main className="flex-1 overflow-y-auto">
                 <div className={ecran('liste')}>
-                    <p className="text-xs text-brand-main/50 dark:text-dark-text/50 mb-4">
+                    <p className="text-xs text-brand-main dark:text-dark-text mb-4">
                         Calculateur de repères de dosage et aide à la réduction des risques
                     </p>
                     <PsychedelicsCalculator />
@@ -1336,6 +1356,7 @@ function App() {
                         onClose={handleCloseEditor}
                         libelleRetour={editingSerieId ? 'Plan de la série' : currentSocialTab === 'series' ? 'Conversations' : libelleDeListe(currentSocialTab)}
                         onSave={handleUpdateItem}
+                        onPending={markItemUnsaved}
                         onDelete={handleDeleteItem}
                         onDecline={handleDeclineContent}
                         modelFor={modelFor}
@@ -1454,6 +1475,7 @@ function App() {
                 />
             </main>
         )}
+        </Suspense>
       </div>
 
     </div>

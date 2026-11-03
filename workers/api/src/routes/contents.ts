@@ -38,11 +38,12 @@ const C = 'id, title, status, platforms, target_format, objectif, depth, analyze
 contents.get('/', async (c) => {
   const { since } = SyncQuerySchema.parse(Object.fromEntries(new URL(c.req.url).searchParams));
 
+  const syncedAt = now() - 1;
   const { results } = since === undefined
     ? await c.env.DB.prepare(`SELECT ${C} FROM contents WHERE deleted_at IS NULL ORDER BY updated_at DESC`).all()
     : await c.env.DB.prepare(`SELECT ${C} FROM contents WHERE updated_at > ? ORDER BY updated_at DESC`).bind(since).all();
 
-  return c.json({ items: results.map(rowToContent), syncedAt: now() });
+  return c.json({ items: results.map(rowToContent), syncedAt });
 });
 
 // ── Le fil, résumé pour les listes (SPEC §13.7) ─────────────────────────
@@ -294,7 +295,7 @@ contents.patch('/:id', async (c) => {
     return c.json({ content: rowToContent(row) });
   }
 
-  const sets = [update.sql, 'updated_at = ?'];
+  const sets = [update.sql, 'updated_at = MAX(updated_at + 1, ?)'];
   const params = [...update.params, ts, id];
 
   const miseAJour = c.env.DB

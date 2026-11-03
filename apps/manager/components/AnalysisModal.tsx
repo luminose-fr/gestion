@@ -5,6 +5,7 @@ import * as AiService from '../services/aiService';
 import { AI_ACTIONS } from '@luminose/editorial';
 import * as Api from '../services/apiService';
 import type { UsageIA } from '@luminose/shared';
+import { useModalFocus } from './hooks/useModalFocus';
 import { useEscapeClose } from './hooks/useEscapeClose';
 import { Patience } from './Feedback';
 import { Bouton, Etiquette, TitreSection } from './ui';
@@ -77,6 +78,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
   }, []);
 
   useEscapeClose(isOpen, onClose, isAnalyzing);
+  const modal = useModalFocus(isOpen);
 
   if (!isOpen) return null;
 
@@ -217,8 +219,8 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         className="fixed inset-0 z-60 flex items-center justify-center bg-brand-main/20 dark:bg-black/50 backdrop-blur-xs p-4 animate-fade-in"
         onClick={isAnalyzing ? undefined : onClose}
     >
-      <div 
-        className="bg-white dark:bg-dark-surface w-full max-w-lg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
+      <div ref={modal} role="dialog" aria-modal="true" aria-label="Analyse IA en lot" tabIndex={-1}
+        className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-lg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -230,7 +232,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                 <TitreSection as="h3" titre="Analyse IA en lot" sousTitre="Optimisez vos idées automatiquement" />
             </div>
             {!isAnalyzing && (
-                <button onClick={onClose} className="text-brand-main/50 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white transition-colors">
+                <button aria-label="Fermer" onClick={onClose} className="text-brand-main hover:text-brand-main dark:text-dark-text dark:hover:text-white transition-colors">
                     <X className="w-5 h-5" />
                 </button>
             )}
@@ -245,7 +247,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
                             <span className="text-sm font-semibold text-brand-main dark:text-white">Idées à analyser</span>
                             <span className="bg-brand-main text-white text-xs px-2 py-0.5 rounded-full font-bold">{itemsToAnalyze.length}</span>
                         </div>
-                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
+                        <p className="text-xs text-brand-main dark:text-dark-text">
                             Ces idées seront envoyées à l'IA pour évaluation, suggestion d'angle stratégique et choix des plateformes.
                         </p>
                     </div>

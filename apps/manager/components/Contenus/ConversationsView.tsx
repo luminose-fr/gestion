@@ -134,32 +134,32 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 type="button"
                 onClick={() => onOuvrir(item)}
                 // Sur téléphone, la ligne devient une carte : le titre et le moment, puis l'avancement dessous.
-                className="w-full min-h-[68px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_220px_72px_20px] items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
+                className="ui-list-action w-full min-h-[68px] grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_220px_72px_20px] items-center gap-x-4 gap-y-2 px-4 md:px-5 py-3 text-left hover:bg-survol dark:hover:bg-dark-sec-bg"
             >
                 <span className="min-w-0 space-y-1">
                     <span className="flex items-center gap-2 min-w-0">
                         {item.seriePosition !== null && total > 0 && (
-                            <span className="shrink-0 rounded-full border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 text-micro font-semibold tabular-nums text-brand-main/70 dark:text-dark-text/70">
+                            <span className="shrink-0 rounded-full border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 text-micro font-semibold tabular-nums text-brand-main dark:text-dark-text">
                                 {item.seriePosition}/{total}
                             </span>
                         )}
-                        <span className="text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
+                        <span className="text-sm font-semibold text-brand-main dark:text-white line-clamp-2 xl:truncate">{item.title || 'Sans titre'}</span>
                         {format && <Etiquette as="span" forme="pastille" className="shrink-0">{format}</Etiquette>}
                     </span>
                     {dernier && (
-                        <span className="block text-xs text-brand-main/70 dark:text-dark-text/70 truncate">
+                        <span className="block text-xs text-brand-main dark:text-dark-text truncate">
                             <span className="font-bold">{dernier.role}</span> · {dernier.texte}
                         </span>
                     )}
                 </span>
-                <span className="space-y-1.5 col-span-2 md:col-span-1 order-3 md:order-none">
+                <span className="space-y-1.5 col-span-2 xl:col-span-1 order-3 xl:order-none">
                     {etape && <BarreProgression segments={etape.progression.segments} complet={etape.progression.complet} className="w-[200px]" />}
                     <span className={`block text-xs font-semibold truncate ${etape?.progression.complet ? 'text-succes' : 'text-brand-main dark:text-dark-text'}`}>
                         {etape?.libelle ?? ''}
                     </span>
                 </span>
-                <span className="text-xs text-right text-brand-main/60 dark:text-dark-text/60 tabular-nums self-start md:self-center">{dernier?.moment ?? ''}</span>
-                <ChevronRight className="hidden md:block w-4 h-4 text-brand-main/40 dark:text-dark-text/40" />
+                <span className="text-xs text-right text-brand-main dark:text-dark-text tabular-nums self-start md:self-center">{dernier?.moment ?? ''}</span>
+                <ChevronRight className="hidden xl:block w-4 h-4 text-brand-main dark:text-dark-text" />
             </button>
         );
     };
@@ -170,9 +170,9 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
         <div className="space-y-4 animate-fade-in">
             {/* Une seule ligne : la recherche rétrécit la première, les filtres et « Nouveau » gardent leur place.
                 Sur téléphone, la recherche prend sa ligne et les filtres défilent. */}
-            <div className="flex flex-wrap md:flex-nowrap items-center gap-3">
+            <div className="flex flex-wrap xl:flex-nowrap items-center gap-3">
                 <div className="relative w-full md:w-auto md:flex-1 md:min-w-[140px] md:max-w-[280px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main/50 dark:text-dark-text/50" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main dark:text-dark-text" />
                     <Champ
                         type="search"
                         placeholder="Rechercher…"
@@ -190,7 +190,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                         options={FILTRES.map(f => ({ ...f, compte: comptes[f.valeur] }))}
                     />
                 </div>
-                <div className="hidden md:block flex-1" />
+                <div className="hidden xl:block flex-1" />
                 <Menu
                     ouvert={menu}
                     onFermer={() => setMenu(false)}
@@ -229,7 +229,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                             </Bouton>
                             <Bouton type="button" intention="discrete" onClick={() => setFormulaire(null)}>Annuler</Bouton>
                         </div>
-                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
+                        <p className="text-xs text-brand-main dark:text-dark-text">
                             {formulaire === 'serie'
                                 ? 'Le plan s’ouvre ensuite : l’Éclateur y propose les publications, dans l’ordre où elles se lisent.'
                                 : 'Face caméra, sans script : déposez la prise telle que tournée, sa transcription servira de texte.'}
@@ -244,18 +244,18 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 return (
                     <Carte key={serie.id} densite="tableau" posee>
                         <div className="min-h-[52px] flex items-center gap-3 px-5 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
-                            <Layers className="w-4 h-4 shrink-0 text-brand-main/60 dark:text-dark-text/60" />
-                            <span className="flex-1 md:flex-none min-w-0 text-sm font-semibold text-brand-main dark:text-white truncate">Série · {serie.titre}</span>
-                            <span className="hidden sm:inline text-xs text-brand-main/60 dark:text-dark-text/60 shrink-0">
+                            <Layers className="w-4 h-4 shrink-0 text-brand-main dark:text-dark-text" />
+                            <span className="flex-1 min-w-0 text-sm font-semibold text-brand-main dark:text-white line-clamp-2">Série · {serie.titre}</span>
+                            <span className="hidden xl:inline text-xs text-brand-main dark:text-dark-text shrink-0">
                                 {toutes.length} publication{toutes.length > 1 ? 's' : ''} · {nbPubliees} publiée{nbPubliees > 1 ? 's' : ''}
                             </span>
-                            <span className="hidden md:block flex-1" />
+                            <span className="hidden xl:block flex-1" />
                             <Bouton intention="discrete" taille="petit" className="shrink-0" onClick={() => onOuvrirPlan(serie)}>Ouvrir le plan</Bouton>
                         </div>
                         <div className="divide-y divide-brand-border/60 dark:divide-dark-sec-border/60">
                             {lignes.length > 0
                                 ? lignes.map(ligne)
-                                : <p className="px-5 py-4 text-xs text-brand-main/60 dark:text-dark-text/60">Pas encore de publication : le plan les propose.</p>}
+                                : <p className="px-5 py-4 text-xs text-brand-main dark:text-dark-text">Pas encore de publication : le plan les propose.</p>}
                         </div>
                     </Carte>
                 );
@@ -265,7 +265,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
                 <Carte densite="tableau" posee>
                     <div className="min-h-[52px] flex items-center gap-3 px-5 py-2 bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
                         <span className="text-sm font-semibold text-brand-main dark:text-white">Hors série</span>
-                        <span className="text-xs text-brand-main/60 dark:text-dark-text/60">les plus proches de la publication d’abord</span>
+                        <span className="text-xs text-brand-main dark:text-dark-text">les plus proches de la publication d’abord</span>
                     </div>
                     <div className="divide-y divide-brand-border/60 dark:divide-dark-sec-border/60">
                         {groupes.horsSerie.map(ligne)}
@@ -275,7 +275,7 @@ export const ConversationsView: React.FC<ConversationsViewProps> = ({
 
             {!isInitializing && visibles.length === 0 && groupes.cartes.length === 0 && (
                 <Carte densite="seule" className="text-center space-y-2">
-                    <MessagesSquare className="w-8 h-8 mx-auto text-brand-main/40 dark:text-dark-text/40" />
+                    <MessagesSquare className="w-8 h-8 mx-auto text-brand-main dark:text-dark-text" />
                     <p className="text-sm text-brand-main dark:text-dark-text">
                         {searchQuery.trim()
                             ? 'Aucune conversation pour cette recherche.'

@@ -14,7 +14,7 @@
  *   « Le piège »). Il tient lieu de titre ; il est plein, parce qu'un `/50` sur
  *   le fond `brand-light` d'un bandeau ne se lit plus.
  * - `surtitre` nomme **ce qui suit** : un champ, une colonne, un groupe de
- *   cartes, une métadonnée. Il s'efface devant le contenu : `/60`.
+ *   cartes, une métadonnée. Il s'efface devant le contenu par sa taille, sans perte de contraste.
  */
 import React from 'react';
 
@@ -30,7 +30,7 @@ export type TonEtiquette = 'neutre' | 'succes' | 'alerte' | 'erreur';
 const CAPITALES = 'text-micro font-bold uppercase tracking-wider';
 
 const COULEUR_ROLE: Record<'surtitre' | 'entete', string> = {
-  surtitre: 'text-brand-main/60 dark:text-dark-text/50',
+  surtitre: 'text-brand-main dark:text-dark-text',
   entete: 'text-brand-main dark:text-dark-text',
 };
 

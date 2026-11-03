@@ -80,6 +80,7 @@ export const createOpenAIProvider = (config: ProviderConfig, id = 'openai'): AIP
   const unAppel = async (payload: unknown): Promise<any> => {
     const res = await fetch(`${config.baseUrl ?? DEFAULT_BASE}/chat/completions`, {
       method: 'POST',
+      signal: AbortSignal.timeout(config.delaiMaxMs ?? 12 * 60 * 1000),
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',

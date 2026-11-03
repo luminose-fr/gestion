@@ -62,7 +62,7 @@ const DepotVisuel: React.FC<{
             {visuel ? (
                 <img src={visuel.url} alt="" className="size-10 shrink-0 rounded-md object-cover border border-brand-border dark:border-dark-sec-border" />
             ) : (
-                <div className="size-10 shrink-0 rounded-md border border-dashed border-brand-border dark:border-dark-sec-border flex items-center justify-center text-brand-main/40 dark:text-dark-text/40">
+                <div className="size-10 shrink-0 rounded-md border border-dashed border-brand-border dark:border-dark-sec-border flex items-center justify-center text-brand-main dark:text-dark-text">
                     <ImageIcon className="size-4" />
                 </div>
             )}
@@ -147,7 +147,7 @@ const GenerationIllustration: React.FC<{
                 <div className="flex items-start gap-3">
                     <img src={proposee.image} alt={`Proposition pour « ${illustration.id} »`} className="w-32 shrink-0 rounded-lg border border-brand-border dark:border-dark-sec-border" />
                     <div className="space-y-2">
-                        <p className="text-xs text-brand-main/70 dark:text-dark-text/70">{proposee.modelLabel}{cout(proposee.coutUsd)}</p>
+                        <p className="text-xs text-brand-main dark:text-dark-text">{proposee.modelLabel}{cout(proposee.coutUsd)}</p>
                         <div className="flex flex-wrap items-center gap-2">
                             <Bouton taille="petit" intention="principale" disabled={enCours} onClick={() => void garder()}><Check /> Garder</Bouton>
                             <Bouton taille="petit" intention="secondaire" disabled={enCours} onClick={() => void generer()}><RotateCcw /> Refaire</Bouton>
@@ -165,7 +165,7 @@ const GenerationIllustration: React.FC<{
                         title={enAttente ? `Gardez d’abord « ${enAttente} » : celle-ci en est la suite` : undefined}>
                         <Sparkles /> {deja ? 'En générer une autre' : 'Générer'}
                     </Bouton>
-                    {enAttente && <span className="text-xs text-brand-main/60 dark:text-dark-text/60">Après « {enAttente} », dont elle est la suite.</span>}
+                    {enAttente && <span className="text-xs text-brand-main dark:text-dark-text">Après « {enAttente} », dont elle est la suite.</span>}
                 </div>
             )}
             {erreur && <p className="text-xs text-erreur">{erreur}</p>}

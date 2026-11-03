@@ -71,10 +71,10 @@ ligne. Le 9, le 10 et le 11 deviennent `text-micro` ; le 13 et `text-base` devie
 | Forme | Couleur | Emploi |
 | :--- | :--- | :--- |
 | `entete` | `text-brand-main dark:text-dark-text` | nomme **la carte ou l'encadré où il se trouve** : bandeau d'en-tête (« Script », « Copie »), première ligne d'un encadré (« Lecteur froid », « Le piège ») |
-| `surtitre` | `text-brand-main/60 dark:text-dark-text/50` | nomme **ce qui suit** : un champ, une colonne de tableau, un groupe de cartes, une métadonnée |
+| `surtitre` | `text-brand-main dark:text-dark-text` | nomme **ce qui suit** : un champ, une colonne de tableau, un groupe de cartes, une métadonnée |
 
 `entete` tient lieu de titre et reste plein : un `/50` sur le fond `brand-light` d'un
-bandeau ne se lit plus. `surtitre` s'efface devant le contenu. Un sens (`ton`) remplace
+bandeau ne se lit plus. `surtitre` se distingue du contenu par sa taille. Un sens (`ton`) remplace
 la couleur du rôle. Un en-tête de tableau prend `CLASSES_SURTITRE`, puisqu'un `<th>` ne
 peut pas devenir une `Etiquette`. Un sur-titre ne s'écrit jamais en `text-xs`.
 
@@ -308,3 +308,27 @@ Le vrai critère, lui, ne se mesure pas au `grep` : **passer d'un espace à l'au
 plus se voir**. Même hauteur de bouton, même gouttière, même largeur utile, même taille de
 texte pour le même rôle. C'est le test à faire dans le navigateur, avant de dire que c'est
 terminé.
+
+### Correction de lisibilité (31/10/2026)
+
+Les textes secondaires et sur-titres emploient désormais les couleurs de marque
+sans transparence : `brand-main` passe 4,5:1 sur blanc, `brand-light` et `fil` ;
+`dark-text` passe sur les deux fonds sombres. La hiérarchie repose sur la taille
+et la graisse, plutôt que sur une baisse de contraste. Les contrôles désactivés
+conservent leur opacité. Le zoom utilisateur, le focus visible et la réduction
+des animations suivent les préférences du navigateur.
+
+### Micro-interactions (31/10/2026)
+
+Les composants partagés portent le mouvement dans `index.css` : `ui-action` pour
+l’appui (1 px, échelle 0,985, 120 ms), `ui-list-action` pour une ligne (2 px),
+`ui-popover` et `ui-stage` pour une apparition de 4 px (160 à 180 ms),
+`ui-dialog` pour la confirmation (180 ms), `ui-feedback` pour la coche de succès
+(220 ms). Ce sont les seules exceptions de mouvement ; aucune ombre ni couleur
+additionnelle. Les animations ne retardent pas l’action et ne rejouent pas à
+chaque frappe. `prefers-reduced-motion` retire les animations et le déplacement
+d’appui ; le changement de couleur, la coche et le texte restent visibles.
+
+« Annuler le marquage » reste proposé tant que le contenu ouvert vient d’être
+marqué publié : pas de délai qui ferait disparaître l’action avant de l’avoir lue.
+Il rétablit le statut et la date précédents via l’enregistrement existant.

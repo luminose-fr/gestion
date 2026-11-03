@@ -104,7 +104,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                             {/* La conclusion ferme la dernière section, comme dans le fichier du site. */}
                             {i === sections.length - 1 && t(data.conclusion) && <TexteLeger source={t(data.conclusion)} />}
                             {illustrationsApres(i + 1).map((ill, j) => (
-                                <div key={j} className="rounded-lg border border-dashed border-brand-border dark:border-dark-sec-border px-4 py-3 text-xs text-brand-main/60 dark:text-dark-text/60">
+                                <div key={j} className="rounded-lg border border-dashed border-brand-border dark:border-dark-sec-border px-4 py-3 text-xs text-brand-main dark:text-dark-text">
                                     Illustration — {ill.alt || ill.fichier}
                                 </div>
                             ))}
@@ -132,7 +132,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
 
     if (isReelShort) return (
         <div className="p-6 space-y-4">
-            {data.contrainte && <p className="text-micro font-bold text-brand-main/40 dark:text-dark-text/40 uppercase">{t(data.contrainte)}</p>}
+            {data.contrainte && <p className="text-micro font-bold text-brand-main dark:text-dark-text uppercase">{t(data.contrainte)}</p>}
             {(data.sections || []).map((s: any, i: number) => (
                 <BlockPre key={i} label={`${t(s.timing)} ${t(s.role)}`} color={
                     i === 0 ? "border-pink-400" :
@@ -170,7 +170,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                             <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-micro font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
                             {s.titre && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.titre)}</span>}
                             {s.type && (
-                                <span className={`px-1.5 py-0.5 rounded-full text-micro font-semibold ${isIllustree ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-brand-border/50 dark:bg-dark-sec-border/50 text-brand-main/70 dark:text-dark-text/70'}`}>
+                                <span className={`px-1.5 py-0.5 rounded-full text-micro font-semibold ${isIllustree ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-brand-border/50 dark:bg-dark-sec-border/50 text-brand-main dark:text-dark-text'}`}>
                                     {isIllustree ? 'Illustrée' : 'Typo'}
                                 </span>
                             )}

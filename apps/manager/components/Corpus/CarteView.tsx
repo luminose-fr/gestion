@@ -84,7 +84,7 @@ const Section: React.FC<{ titre: string; chapeau?: string; children: React.React
   <section className="pt-8 first:pt-0 border-t first:border-t-0 border-brand-border/70 dark:border-dark-sec-border">
     <TitreSection titre={titre} />
     {chapeau && (
-      <p className="mt-1 text-sm text-brand-main/60 dark:text-dark-text/60 max-w-3xl">{chapeau}</p>
+      <p className="mt-1 text-sm text-brand-main dark:text-dark-text max-w-3xl">{chapeau}</p>
     )}
     <div className="mt-4">{children}</div>
   </section>
@@ -99,7 +99,7 @@ const Prose: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const Figure: React.FC<{ titre: string; legende: React.ReactNode; children: React.ReactNode }> = ({ titre, legende, children }) => (
   <figure className="m-0 mt-5 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 md:p-5">
     <div className="overflow-x-auto text-brand-main dark:text-dark-text">{children}</div>
-    <figcaption className="mt-4 pt-3 border-t border-brand-border dark:border-dark-sec-border text-xs leading-relaxed text-brand-main/70 dark:text-dark-text/60 max-w-3xl">
+    <figcaption className="mt-4 pt-3 border-t border-brand-border dark:border-dark-sec-border text-xs leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
       <strong className="text-brand-main dark:text-dark-text">{titre}</strong>{' '}{legende}
     </figcaption>
   </figure>
@@ -129,7 +129,7 @@ const Puce: React.FC<{ children: React.ReactNode; ton?: 'neutre' | 'attention' }
   <span className={`inline-block font-mono text-micro px-1.5 py-0.5 rounded-md border ${
     ton === 'attention'
       ? 'text-alerte border-alerte/30'
-      : 'text-brand-main/70 border-brand-border dark:text-dark-text/70 dark:border-dark-sec-border'
+      : 'text-brand-main border-brand-border dark:text-dark-text dark:border-dark-sec-border'
   }`}>{children}</span>
 );
 
@@ -142,13 +142,13 @@ const Couches: React.FC<{ items: Array<{ titre: string; texte: string; option?: 
   <ol className="mt-4 space-y-0 list-none p-0 max-w-3xl">
     {items.map((c, i) => (
       <li key={c.titre} className="grid grid-cols-[1.8rem_1fr] gap-x-3 py-2 border-b border-brand-border dark:border-dark-sec-border last:border-b-0">
-        <span className="font-mono text-xs tabular-nums text-brand-main/45 dark:text-dark-text/40 pt-0.5">
+        <span className="font-mono text-xs tabular-nums text-brand-main dark:text-dark-text pt-0.5">
           {String(i + 1).padStart(2, '0')}
         </span>
         <span className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
           <strong className="font-semibold">{c.titre}</strong>
           {c.option && <span className="ml-2 align-middle"><Puce>seulement si</Puce></span>}
-          <span className="block text-brand-main/70 dark:text-dark-text/60">{c.texte}</span>
+          <span className="block text-brand-main dark:text-dark-text">{c.texte}</span>
         </span>
       </li>
     ))}
@@ -170,12 +170,12 @@ const Refus: React.FC<{ items: Array<{ titre: string; texte: string; renverse?: 
   <ul className="mt-4 space-y-3 list-none p-0 max-w-3xl">
     {items.map(x => (
       <li key={x.titre} className="grid grid-cols-[1.1rem_1fr] gap-x-3 text-sm leading-relaxed text-brand-main dark:text-dark-text">
-        <span className={`font-mono leading-relaxed ${x.renverse ? 'text-alerte' : 'text-brand-main/45 dark:text-dark-text/40'}`}>
+        <span className={`font-mono leading-relaxed ${x.renverse ? 'text-alerte' : 'text-brand-main dark:text-dark-text'}`}>
           {x.renverse ? '~' : '\u00d7'}
         </span>
         <span>
           <strong className="font-semibold">{x.titre}</strong>{' '}
-          <span className="text-brand-main/70 dark:text-dark-text/60">{x.texte}</span>
+          <span className="text-brand-main dark:text-dark-text">{x.texte}</span>
         </span>
       </li>
     ))}
@@ -214,7 +214,7 @@ const CarteView: React.FC = () => {
     return <p className="text-sm text-erreur">Échec — {erreur}</p>;
   }
   if (!etat) {
-    return <div className="text-sm text-brand-main/60 dark:text-dark-text/60">Lecture du corpus…</div>;
+    return <div className="text-sm text-brand-main dark:text-dark-text">Lecture du corpus…</div>;
   }
 
   const profil = (id: string) => etat.profils.find(p => p.profil === id);
@@ -232,7 +232,7 @@ const CarteView: React.FC = () => {
           empêche de diverger. <strong>Aucun chiffre n'y est recopié :</strong> tout ce qui est
           compté ci-dessous est lu à l'ouverture de l'écran.
         </p>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs text-brand-main/70 dark:text-dark-text/60">
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs text-brand-main dark:text-dark-text">
           <span><strong className="text-brand-main dark:text-dark-text">{nb(etat.documents)}</strong> fiches</span>
           <span><strong className="text-brand-main dark:text-dark-text">{etat.blocs.length}</strong> blocs</span>
           <span><strong className="text-brand-main dark:text-dark-text">{etat.profils.length}</strong> profils</span>
@@ -270,10 +270,10 @@ const CarteView: React.FC = () => {
             {BLOCS.map(b => (
               <tr key={b.id}>
                 <Td className="font-semibold whitespace-nowrap text-brand-main dark:text-white">{b.label}</Td>
-                <Td className="font-mono text-xs tabular-nums text-right text-brand-main/70 dark:text-dark-text/70">
+                <Td className="font-mono text-xs tabular-nums text-right text-brand-main dark:text-dark-text">
                   {parBloc[b.id] ?? 0}
                 </Td>
-                <Td className="text-brand-main/70 dark:text-dark-text/60">{b.sousTitre}</Td>
+                <Td className="text-brand-main dark:text-dark-text">{b.sousTitre}</Td>
               </tr>
             ))}
           </tbody>
@@ -300,7 +300,7 @@ const CarteView: React.FC = () => {
             {(etat.statuts ?? Object.keys(SENS_DES_STATUTS)).map(s => (
               <tr key={s}>
                 <Td className="whitespace-nowrap"><Mono>{s}</Mono></Td>
-                <Td className="text-brand-main/70 dark:text-dark-text/60">
+                <Td className="text-brand-main dark:text-dark-text">
                   {SENS_DES_STATUTS[s] ?? (
                     <span className="text-alerte">
                       Statut connu du Worker mais pas décrit ici — ajouter sa définition.
@@ -434,7 +434,7 @@ const CarteView: React.FC = () => {
               <tr key={s.id}>
                 <Td className="font-semibold text-brand-main dark:text-white">{s.nom}</Td>
                 <Td><Mono>{s.profil}</Mono></Td>
-                <Td className="text-brand-main/70 dark:text-dark-text/60">
+                <Td className="text-brand-main dark:text-dark-text">
                   {s.automatique
                     ? <><Puce>automatique</Puce> {s.note}</>
                     : <><Puce ton="attention">{s.geste === 'telecharger' ? 'fichier à importer' : 'à coller'}</Puce> {s.note}</>}
@@ -589,13 +589,13 @@ const CarteView: React.FC = () => {
                 <tr key={a.id}>
                   <Td><Mono>{a.id}</Mono></Td>
                   <Td className="whitespace-nowrap text-brand-main dark:text-white">{a.persona}</Td>
-                  <Td className="text-brand-main/70 dark:text-dark-text/60">{a.attendu}</Td>
+                  <Td className="text-brand-main dark:text-dark-text">{a.attendu}</Td>
                   <Td>
                     {chemins === null
                       ? <Puce ton="attention">rien — décision</Puce>
-                      : <span className="font-mono text-xs text-brand-main/70 dark:text-dark-text/70">{chemins.join(' · ')}</span>}
+                      : <span className="font-mono text-xs text-brand-main dark:text-dark-text">{chemins.join(' · ')}</span>}
                   </Td>
-                  <Td className="font-mono text-xs tabular-nums text-right whitespace-nowrap text-brand-main/70 dark:text-dark-text/70">
+                  <Td className="font-mono text-xs tabular-nums text-right whitespace-nowrap text-brand-main dark:text-dark-text">
                     {chemins === null ? '—' : f ? nb(f.taille) : '…'}
                   </Td>
                 </tr>

@@ -16,16 +16,13 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
     setError('');
     setLoading(true);
 
-    const success = await login(username, password);
-
-    setLoading(false);
-
-    if (success) {
-      onLoginSuccess();
-    } else {
-      setError('Identifiants incorrects');
-      setPassword('');
-    }
+    try {
+      const success = await login(username, password);
+      if (success) onLoginSuccess();
+      else { setError('Identifiants incorrects'); setPassword(''); }
+    } catch (e: any) {
+      setError(e?.message || 'Connexion impossible. Réessayez.');
+    } finally { setLoading(false); }
   };
 
   return (
@@ -39,7 +36,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
           <h1 className="font-display italic text-lg text-brand-main dark:text-white">
             Gestion Luminose
           </h1>
-          <p className="text-sm text-brand-main/60 dark:text-dark-text/60 mt-1">
+          <p className="text-sm text-brand-main dark:text-dark-text mt-1">
             Connectez-vous pour accéder à votre studio
           </p>
         </div>
@@ -57,10 +54,11 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
 
             {/* Username */}
             <div>
-              <Etiquette as="label" className="mb-1">
+              <Etiquette as="label" htmlFor="login-username" className="mb-1">
                 Identifiant
               </Etiquette>
               <input
+                id="login-username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -75,11 +73,12 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
 
             {/* Password */}
             <div>
-              <Etiquette as="label" className="mb-1">
+              <Etiquette as="label" htmlFor="login-password" className="mb-1">
                 Mot de passe
               </Etiquette>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -92,8 +91,9 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
                 <button
                   type="button"
                   onClick={() => setShowPassword(s => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-brand-main/50 dark:text-dark-text/50 hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors"
-                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors"
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -113,7 +113,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
           </form>
         </div>
 
-        <p className="text-center text-xs text-brand-main/40 dark:text-dark-text/40 mt-6">
+        <p className="text-center text-xs text-brand-main dark:text-dark-text mt-6">
           © {new Date().getFullYear()} Luminose Studio
         </p>
       </div>

@@ -127,6 +127,7 @@
 @layer base {
   @font-face {
     font-family: 'Abril Display';
+    font-display: swap;
     font-style: italic;
     src: url('/fonts/5197317/0a5d5485-b415-4692-bc4d-bf1f30dcf946.eot?#iefix');
     src:
@@ -142,6 +143,7 @@
 
   @font-face {
     font-family: 'Futura LT';
+    font-display: swap;
     src: url('/fonts/5313918/a411c21e-f439-48c1-bddb-887ec08b5224.eot?#iefix');
     src:
       url('/fonts/5313918/a411c21e-f439-48c1-bddb-887ec08b5224.eot?#iefix')
@@ -153,4 +155,69 @@
       url('/fonts/5313918/feaf9b77-0958-45fa-96c3-1afc445987ef.ttf')
         format('truetype');
   }
+}
+
+/* Un focus visible demeure nécessaire quand le champ retire le contour natif. */
+@layer base {
+  :where(button, a, input, select, textarea, [contenteditable="true"]):focus-visible {
+    outline: 2px solid var(--color-brand-main);
+    outline-offset: 2px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :where(button, a, input, select, textarea, [contenteditable="true"]):focus-visible { outline-color: white; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Le mouvement confirme un geste ; il n'attend jamais avant de l'exécuter. */
+@layer components {
+  .ui-action {
+    transition: transform 120ms ease-out, background-color 160ms ease-out,
+      border-color 160ms ease-out, color 160ms ease-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ui-action:not(:disabled):active { transform: translateY(1px) scale(0.985); }
+  .ui-list-action {
+    transition: background-color 160ms ease-out, transform 120ms ease-out;
+  }
+  .ui-list-action:not(:disabled):active { transform: translateX(2px); }
+  .ui-segment[aria-checked="true"] { animation: ui-selection 160ms ease-out; }
+  .ui-popover { transform-origin: top right; animation: ui-apparition 160ms ease-out; }
+  .ui-dialog { animation: ui-dialogue 180ms ease-out; }
+  .ui-stage { animation: ui-apparition 180ms ease-out; }
+  .ui-feedback[data-confirme="true"] > svg,
+  .ui-action[data-confirme="true"] > svg { animation: ui-confirmation 220ms ease-out; }
+
+  @keyframes ui-apparition {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes ui-dialogue {
+    from { opacity: 0; transform: translateY(4px) scale(0.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes ui-confirmation {
+    from { opacity: 0; transform: scale(0.65); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes ui-selection {
+    from { opacity: 0.7; }
+    to { opacity: 1; }
+  }
+}
+
+/* La préférence système neutralise aussi l'appui, qui n'est pas une animation CSS. */
+@media (prefers-reduced-motion: reduce) {
+  .ui-action:not(:disabled):active,
+  .ui-list-action:not(:disabled):active { transform: none; }
+  .ui-popover, .ui-dialog, .ui-stage, .ui-segment[aria-checked="true"],
+  .ui-feedback[data-confirme="true"] > svg,
+  .ui-action[data-confirme="true"] > svg { animation: none; }
 }

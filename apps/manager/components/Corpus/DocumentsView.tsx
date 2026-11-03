@@ -35,9 +35,9 @@ const COULEUR_STATUT: Record<string, string> = {
   actif: 'text-succes',
   active: 'text-succes',
   suspendu: 'text-alerte',
-  termine: 'text-brand-main/45 dark:text-dark-text/40',
+  termine: 'text-brand-main dark:text-dark-text',
   candidat: 'text-brand-main dark:text-white',
-  'volontairement-absent': 'text-brand-main/45 dark:text-dark-text/40',
+  'volontairement-absent': 'text-brand-main dark:text-dark-text',
 };
 
 interface Props {
@@ -191,7 +191,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
   };
 
   if (erreur && !liste) return <p className="text-sm text-erreur">Échec — {erreur}</p>;
-  if (!liste) return <p className="text-sm text-brand-main/60 dark:text-dark-text/60">Lecture des documents…</p>;
+  if (!liste) return <p className="text-sm text-brand-main dark:text-dark-text">Lecture des documents…</p>;
 
   return (
     /*
@@ -202,7 +202,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
     <div className="grid gap-5 lg:grid-cols-[210px_1fr]">
       <nav>
         {docs.length === 0 ? (
-          <p className="text-sm text-brand-main/50 dark:text-dark-text/45">
+          <p className="text-sm text-brand-main dark:text-dark-text">
             Ce bloc est vide — il se remplira quand un cas d'usage l'exigera.
           </p>
         ) : (
@@ -226,7 +226,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                 >
                   <span className="block truncate">{d.titre}</span>
                   <span className={`block text-micro font-mono ${
-                    ouvert?.chemin === d.chemin ? 'opacity-70' : COULEUR_STATUT[d.statut ?? ''] ?? 'text-brand-main/40 dark:text-dark-text/35'
+                    ouvert?.chemin === d.chemin ? 'opacity-70' : COULEUR_STATUT[d.statut ?? ''] ?? 'text-brand-main dark:text-dark-text'
                   }`}>
                     {d.statut ?? d.type ?? '—'}
                     {chargement === d.chemin && ' · ouverture…'}
@@ -241,19 +241,19 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
       <article className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-6 min-h-[20rem]">
         {erreur && <p className="text-sm text-erreur mb-3">Échec — {erreur}</p>}
         {!ouvert ? (
-          <p className="text-sm text-brand-main/50 dark:text-dark-text/50">
+          <p className="text-sm text-brand-main dark:text-dark-text">
             Choisissez un document. Le corpus est en lecture seule ici — il se modifie dans Git,
             et le déploiement le republie.
           </p>
         ) : (
           <>
             <header className="mb-4 pb-3 border-b border-brand-border dark:border-dark-sec-border">
-              <p className="font-mono text-micro text-brand-main/50 dark:text-dark-text/45">{ouvert.chemin}.md</p>
+              <p className="font-mono text-micro text-brand-main dark:text-dark-text">{ouvert.chemin}.md</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-micro font-mono">
                 {Object.entries(ouvert.meta)
                   .filter(([, v]) => v !== null && v !== undefined && v !== '')
                   .map(([k, v]) => (
-                    <span key={k} className="text-brand-main/60 dark:text-dark-text/50">
+                    <span key={k} className="text-brand-main dark:text-dark-text">
                       {k}: <span className={k === 'statut' ? COULEUR_STATUT[String(v)] ?? '' : 'text-brand-main dark:text-dark-text'}>
                         {Array.isArray(v) ? v.join(', ') : String(v)}
                       </span>
@@ -275,7 +275,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   href={EDITEUR(ouvert.chemin)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-micro text-brand-main/55 hover:text-brand-main dark:text-dark-text/50 dark:hover:text-white"
+                  className="inline-flex items-center gap-1 text-micro text-brand-main hover:text-brand-main dark:text-dark-text dark:hover:text-white"
                 >
                   <ExternalLink className="w-3 h-3" /> {depotOuvert ? 'ou sur GitHub' : 'Modifier sur GitHub'}
                 </a>
@@ -287,7 +287,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   que c'est cassé.
                 */}
                 {!edition && !retardDeLaFiche && (
-                  <span className="text-micro text-brand-main/40 dark:text-dark-text/35">
+                  <span className="text-micro text-brand-main dark:text-dark-text">
                     une correction n'entre dans les prompts qu'au déploiement
                   </span>
                 )}

@@ -96,7 +96,7 @@ export const Champ = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, Ch
         )}
         {controle}
         {aide && (
-          <p className="mt-1 text-xs text-brand-main/60 dark:text-dark-text/60">{aide}</p>
+          <p className="mt-1 text-xs text-brand-main dark:text-dark-text">{aide}</p>
         )}
       </div>
     );

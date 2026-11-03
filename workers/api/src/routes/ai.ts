@@ -242,6 +242,7 @@ ai.post('/image', async (c) => {
   try {
     const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: 'POST',
+      signal: AbortSignal.timeout(12 * 60 * 1000),
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: modele.id,

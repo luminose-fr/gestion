@@ -75,7 +75,7 @@ const LISTE = /^\s*([-*•]|\d+\.)\s+/;
 export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> = ({ texte, variante = 'document' }) => {
   const message = variante === 'message';
   // Un document atténue son texte courant ; un message garde la couleur de sa bulle.
-  const couleur = message ? '' : 'text-brand-main/80 dark:text-dark-text/75';
+  const couleur = message ? '' : 'text-brand-main dark:text-dark-text';
   const marge = message ? 'my-2 first:mt-0 last:mb-0' : 'my-2';
   const lignes = texte.split('\n');
   const out: React.ReactNode[] = [];
@@ -141,7 +141,7 @@ export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> 
       const bloc: string[] = [];
       while (i < lignes.length && lignes[i].startsWith('>')) bloc.push(lignes[i++].replace(/^>\s?/, ''));
       out.push(
-        <blockquote key={debut} className="my-3 pl-3 border-l-2 border-brand-main/30 dark:border-dark-text/25 text-brand-main/70 dark:text-dark-text/65 text-sm">
+        <blockquote key={debut} className="my-3 pl-3 border-l-2 border-brand-main/30 dark:border-dark-text/25 text-brand-main dark:text-dark-text text-sm">
           {inline(bloc.join(' '), `q${debut}`, variante)}
         </blockquote>,
       );
@@ -160,7 +160,7 @@ export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> 
         <ul key={debut} className={`${marge} space-y-1 text-sm`}>
           {items.map((t, k) => (
             <li key={k} className={`flex gap-2 ${couleur}`}>
-              <span className="text-brand-main/35 dark:text-dark-text/30 select-none">{t.puce}</span>
+              <span className="text-brand-main dark:text-dark-text select-none">{t.puce}</span>
               <span>{inline(t.texte, `li${debut}${k}`, variante)}</span>
             </li>
           ))}

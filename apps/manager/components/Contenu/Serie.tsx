@@ -35,7 +35,7 @@ export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications,
             className={`w-full h-12 flex items-center gap-3 px-3 rounded-[10px] text-sm font-semibold transition-colors ${
                 active === null
                     ? 'bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border shadow-xs text-brand-main dark:text-white'
-                    : 'text-brand-main/80 dark:text-dark-text/80 hover:bg-white dark:hover:bg-dark-surface'
+                    : 'text-brand-main dark:text-dark-text hover:bg-white dark:hover:bg-dark-surface'
             }`}
         >
             <ListOrdered className="w-4 h-4 shrink-0" /> Plan de la série
@@ -56,14 +56,14 @@ export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications,
                     }`}
                 >
                     <span className={`w-[26px] h-[26px] shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
-                        ici ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main' : 'border border-brand-border dark:border-dark-sec-border text-brand-main/70 dark:text-dark-text/70'
+                        ici ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main' : 'border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text'
                     }`}>
                         {item.seriePosition ?? i + 1}
                     </span>
                     <span className="flex-1 min-w-0 space-y-1">
                         <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
                         {etape && <BarreProgression segments={etape.progression.segments} complet={etape.progression.complet} fine />}
-                        <span className={`block text-xs truncate ${etape?.progression.complet ? 'text-succes' : 'text-brand-main/70 dark:text-dark-text/70'}`}>{etape?.libelle}</span>
+                        <span className={`block text-xs truncate ${etape?.progression.complet ? 'text-succes' : 'text-brand-main dark:text-dark-text'}`}>{etape?.libelle}</span>
                     </span>
                 </button>
             );

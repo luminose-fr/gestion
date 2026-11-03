@@ -70,3 +70,15 @@ describe('export', () => {
     expect(res.status).toBe(401);
   });
 });
+
+
+it('sauvegarde les captures supprimées et les mesures, sans données d’authentification', async () => {
+  await env.DB.prepare("INSERT INTO inbox (id, decide, created_at, deleted_at) VALUES ('capture-audit', 'Une décision à conserver', 1, 2)").run();
+  await env.DB.prepare("INSERT INTO mesures_ia (id, model_label, provider, duree_ms, feuille_car, ok, created_at) VALUES ('mesure-audit', 'Modèle', 'openrouter', 10, 0, 1, 1)").run();
+  await env.DB.prepare("INSERT INTO auth_revocations VALUES ('empreinte-confidentielle', 9999999999999)").run();
+  const data = await json(await call('/api/export'));
+  expect(data.inbox.find((c: any) => c.id === 'capture-audit')).toMatchObject({ decide: 'Une décision à conserver', deletedAt: 2 });
+  expect(data.mesuresIA).toEqual([expect.objectContaining({ id: 'mesure-audit', dureeMs: 10, ok: true })]);
+  expect(data.fichiersMediasInclus).toBe(false);
+  expect(JSON.stringify(data)).not.toContain('empreinte-confidentielle');
+});

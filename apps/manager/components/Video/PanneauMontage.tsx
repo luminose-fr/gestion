@@ -523,7 +523,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                         </label>
                         <input id="debit-reel" type="range" min={DEBIT_MIN} max={DEBIT_MAX} step={5} value={debit}
                             onChange={e => setDebit(Number(e.target.value))} className="w-full accent-brand-main dark:accent-dark-text" />
-                        <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
+                        <p className="text-xs text-brand-main dark:text-dark-text">
                             Lisez le script à voix haute, chronométrez, et réglez le débit : l’aperçu et les scènes seules tomberont au bon rythme.
                         </p>
                     </div>
@@ -531,8 +531,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                 {section('Stockage', montage.etat && prises.indisponible
                     ? <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : aucune prise ne peut être déposée.</p>
                     : montage.etat?.stockage.disponible && montage.etat.stockage.plafond > 0
-                        ? <p className="text-xs text-brand-main/70 dark:text-dark-text/70">{poids(montage.etat.stockage.octets)} sur {poids(montage.etat.stockage.plafond)} gratuits, tous contenus confondus. Une prise retirée rend sa place.</p>
-                        : <p className="text-xs text-brand-main/60 dark:text-dark-text/60">—</p>)}
+                        ? <p className="text-xs text-brand-main dark:text-dark-text">{poids(montage.etat.stockage.octets)} sur {poids(montage.etat.stockage.plafond)} gratuits, tous contenus confondus. Une prise retirée rend sa place.</p>
+                        : <p className="text-xs text-brand-main dark:text-dark-text">—</p>)}
             </div>
         </div>
     );
@@ -653,7 +653,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                     {plan && principale ? (
                         <>
                             <span className="text-lg font-bold tabular-nums text-brand-main dark:text-white">{minutes(plan.duree)}</span>
-                            <span className="text-sm text-brand-main/80 dark:text-dark-text/80">gardées sur {minutes(principale.prise.duree)} de prise</span>
+                            <span className="text-sm text-brand-main dark:text-dark-text">gardées sur {minutes(principale.prise.duree)} de prise</span>
                         </>
                     ) : (
                         <span className="text-sm font-semibold text-brand-main dark:text-white">{sansScript || !animations ? 'La prise' : 'Avant le tournage'}</span>

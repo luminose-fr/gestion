@@ -7,7 +7,7 @@
  * d'être gardé : c'est justement une ligne effacée par erreur qu'on vient y
  * rechercher.
  *
- * 1 batch de 10 lectures : borné, indépendant du volume (SPEC §3.6).
+ * 1 batch de 12 lectures : borné, indépendant du volume (SPEC §3.6).
  *
  * Le montage (SPEC §12.4) y entre par ses DESCRIPTIONS — transcriptions,
  * repères corrigés, descriptions des visuels —, pas par ses fichiers : une
@@ -17,7 +17,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
 import {
-  now, rowToContent, rowToSerie, rowToModel, rowToGeneration, rowToCoachMessage, rowToPrise, rowToVisuel,
+  rowToCaptureExport, rowToMesureExport, now, rowToContent, rowToSerie, rowToModel, rowToGeneration, rowToCoachMessage, rowToPrise, rowToVisuel,
 } from '../db';
 
 export const exportRoute = new Hono<{ Bindings: Env }>();
@@ -40,6 +40,8 @@ exportRoute.get('/', async (c) => {
     c.env.DB.prepare('SELECT * FROM montage_visuels ORDER BY created_at ASC'),
     c.env.DB.prepare('SELECT * FROM montage_exports ORDER BY created_at ASC'),
     c.env.DB.prepare('SELECT * FROM gestes ORDER BY created_at ASC, rowid ASC'),
+    c.env.DB.prepare('SELECT * FROM inbox ORDER BY created_at ASC'),
+    c.env.DB.prepare('SELECT * FROM mesures_ia ORDER BY created_at ASC'),
   ]);
 
   const rows = (index: number): any[] => (results[index]?.results ?? []) as any[];
@@ -49,6 +51,10 @@ exportRoute.get('/', async (c) => {
     exportedAt: ts,
     /** Version du FORMAT d'export, pas de l'application : un restaurateur doit savoir ce qu'il lit. */
     formatVersion: 1,
+    // Champs ajoutés sans casser les lecteurs v1 : les captures sont des données métier.
+    inbox: rows(10).map(rowToCaptureExport),
+    mesuresIA: rows(11).map(rowToMesureExport),
+    fichiersMediasInclus: false,
     contents: rows(0).map(rowToContent),
     series: rows(1).map(rowToSerie),
     models: rows(2).map(rowToModel),

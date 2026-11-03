@@ -15,6 +15,7 @@ import {
     type Etape, type GenerationDuFil, type GesteDuFil, type RoleDuFil,
 } from '@luminose/editorial';
 import * as Api from '../../services/apiService';
+import * as Storage from '../../services/storageService';
 import {
     parseDraftResponse, sanitizeSlidesResponse,
     extractJsonPayload, formatDraftContent,
@@ -54,7 +55,8 @@ interface ContentEditorProps {
   onClose: () => void;
   /** Le libellé du retour : la liste d'où l'on vient (SPEC §13.4). */
   libelleRetour: string;
-  onSave: (item: ContentItem) => Promise<void>;
+  onSave: (item: ContentItem, champs?: Array<'draft' | 'slides'>) => Promise<void>;
+  onPending?: (item: ContentItem) => boolean | void;
   onDelete?: (item: ContentItem) => Promise<void>;
   /** « Décliner » : ce contenu devient le pilier d'une nouvelle série (SPEC §6.3). */
   onDecline?: (item: ContentItem) => void;
@@ -87,7 +89,7 @@ export { bodyJsonToText } from '@luminose/editorial';
 // parseAIResponse → ai/executors.ts
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
-    item, aiModels = [], activeModelId, modelFor, onClose, libelleRetour, onSave, onDelete, onDecline, serieContext,
+    item, aiModels = [], activeModelId, modelFor, onClose, libelleRetour, onSave, onPending, onDelete, onDecline, serieContext,
     panneauSerie, activeStep, onStepChange, resumeFil, resumeMontage, onMontageChange, onAnalyser, analyseEnCours,
 }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
@@ -97,6 +99,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [publicationPrecedente, setPublicationPrecedente] = useState<{ statut: ContentStatus; date: string | null } | null>(null);
 
   // Dernière génération IA : permet de revenir à la version précédente.
   // Une génération écrase intégralement le champ cible — sans ça, un
@@ -232,7 +235,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // L'étape ne se choisit plus ici : elle arrive calculée par l'application,
   // d'où qu'on vienne (SPEC §13.4). L'éditeur ne fait que suivre le contenu.
+  const sourceItemRef = useRef<ContentItem | null>(null);
   useEffect(() => {
+    const precedente = sourceItemRef.current;
+    sourceItemRef.current = item;
     if (item) {
         if (!editedItem || item.id !== editedItem.id) {
             setEditedItem({ ...item });
@@ -245,7 +251,14 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             setEditionManuelle(null);
             setVersLeCoach(false);
         } else {
-            setEditedItem(prev => prev ? { ...prev, ...item } : item);
+            setEditedItem(prev => {
+                if (!prev || !precedente) return item;
+                const suivant = { ...prev };
+                for (const key of Object.keys(item) as Array<keyof ContentItem>) {
+                    if (prev[key] === precedente[key]) (suivant as any)[key] = item[key];
+                }
+                return suivant;
+            });
         }
     }
   }, [item]);
@@ -264,6 +277,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    */
   const [vueMobile, setVueMobile] = useState<'fil' | 'matiere' | null>(null);
   const mobile = useEstMobile();
+  const compact = useEstMobile(panneauSerie ? 1279 : 1023);
 
   /*
    * Le témoin d'appel IA ne vit plus ici.
@@ -278,6 +292,33 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
   // isDirty : vrai si editedItem diffère de l'item source
   const isDirty = !!editedItem && !!item && JSON.stringify(editedItem) !== JSON.stringify(item);
+  const derniereEdition = useRef<{ item: ContentItem; save: typeof onSave } | null>(null);
+  useEffect(() => {
+      if (!isDirty || !editedItem || editedItem.id !== item?.id) {
+          derniereEdition.current = null;
+          return;
+      }
+      derniereEdition.current = { item: editedItem, save: onSave };
+      try {
+          if (onPending) {
+              if (onPending(editedItem) === false) throw new Error('Stockage local indisponible');
+          } else Storage.stagePendingContent(editedItem);
+      } catch {
+          setSaveError('Le stockage local est indisponible. Gardez cet écran ouvert jusqu’à l’enregistrement.');
+          setSaveStatus('error');
+      }
+  }, [editedItem, isDirty]);
+  useEffect(() => {
+      const proteger = (e: BeforeUnloadEvent) => {
+          if (derniereEdition.current) { e.preventDefault(); e.returnValue = ''; }
+      };
+      window.addEventListener('beforeunload', proteger);
+      return () => {
+          window.removeEventListener('beforeunload', proteger);
+          const attente = derniereEdition.current;
+          if (attente) void attente.save(attente.item).catch(console.error);
+      };
+  }, []);
 
   /**
    * Plus de bouton « Enregistrer » (SPEC §13.9) : ce qu'on tape — titre, notes,
@@ -324,13 +365,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   };
 
   /** Retourne true si le serveur a bien accepté l'écriture. Ne lève jamais. */
-  const saveWithStatus = async (itemToSave: ContentItem): Promise<boolean> => {
-      if (!isMountedRef.current) return false;
-      setSaveStatus('saving');
-      setSaveError(null);
-      setIsSaving(true);
+  const saveWithStatus = async (itemToSave: ContentItem, champs?: Array<'draft' | 'slides'>): Promise<boolean> => {
+      if (isMountedRef.current) {
+          setSaveStatus('saving');
+          setSaveError(null);
+          setIsSaving(true);
+      }
       try {
-          await onSave(itemToSave);
+          if (champs) await onSave(itemToSave, champs);
+          else await onSave(itemToSave);
           triggerSaveStatus('saved');
           return true;
       } catch (e: any) {
@@ -374,7 +417,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       }
   };
 
-  const changeStatus = async (newStatus: ContentStatus, scheduledDate?: string): Promise<boolean> => {
+  const changeStatus = async (newStatus: ContentStatus, scheduledDate?: string | null): Promise<boolean> => {
       if (isSaving || !editedItem) return false;
       const avant = editedItem.status;
       const newItem = { ...editedItem, status: newStatus };
@@ -386,15 +429,35 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       // Le Worker date le geste (SPEC §13.6) ; le fil l'affiche sans attendre de le relire.
       if (ok && avant !== newStatus && isMountedRef.current) {
           setGestes(prev => [...prev, { statut: newStatus, avant, le: Date.now() }]);
+          if (newStatus !== ContentStatus.PUBLISHED) setPublicationPrecedente(null);
       }
       return ok;
   };
 
-  const handleDelete = async () => {
-      if (onDelete && editedItem) {
-          await onDelete(editedItem);
+  /** L'annulation reprend exactement le statut et la date d'avant, après confirmation du serveur. */
+  const marquerPublie = async (date: string) => {
+      if (!editedItem) return;
+      const avant = { statut: editedItem.status, date: editedItem.scheduledDate };
+      if (await changeStatus(ContentStatus.PUBLISHED, date)) {
+          if (isMountedRef.current) setPublicationPrecedente(avant);
       }
-      onClose(); 
+  };
+
+  const annulerMarquage = async () => {
+      if (!publicationPrecedente) return;
+      await changeStatus(publicationPrecedente.statut, publicationPrecedente.date);
+  };
+
+  const handleDelete = async () => {
+      const attente = derniereEdition.current;
+      derniereEdition.current = null;
+      try {
+          if (onDelete && editedItem) await onDelete(editedItem);
+          onClose();
+      } catch (e: any) {
+          derniereEdition.current = attente;
+          setAlertInfo({ isOpen: true, title: 'Suppression impossible', message: e?.message || 'Réessayez.', type: 'error' });
+      }
   };
 
   // --- JOURNAL DES PRODUCTIONS IA (SPEC §2.6) ---
@@ -503,7 +566,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    * attendre le réseau pour s'afficher.
    */
   const handleCoachMessage = async (message: CoachMessage) => {
-      if (!isMountedRef.current || !editedItem) return;
+      if (!editedItem) return;
 
       const premierMessage = (coachSessionState?.messages.length ?? 0) === 0;
       setCoachSessionState(prev => {
@@ -531,6 +594,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       } catch (e: any) {
           if (isMountedRef.current) setSaveError(e?.message || "Le message n'a pas pu être enregistré.");
           triggerSaveStatus('error');
+          throw e;
       }
   };
 
@@ -590,15 +654,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       } catch (e) {
           console.warn('Verrouillage du brief impossible — fallback session brute.', e);
       }
-      if (!isMountedRef.current) return;
-
       const validated: CoachSession = {
           ...session,
           status: 'validated',
           validatedAt: Date.now(),
           brief: brief ?? session.brief,
       };
-      setCoachSessionState(validated);
+      if (isMountedRef.current) setCoachSessionState(validated);
 
       try {
           await Api.updateCoach(editedItem.id, { status: 'validated', brief: validated.brief });
@@ -671,9 +733,11 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const modeleRelecture = modelFor('COLD_READ');
           const { text: responseText, usage } = await callAI('COLD_READ', modeleRelecture, systemInstruction, "Relis ce contenu.", actionConfig.generationConfig);
           const report = JSON.parse(extractJsonPayload(responseText));
-          if (isMountedRef.current && report && report.lecture_naive) {
-              setColdRead(report as ColdReadReport);
-              setColdReadMeta({ at: Date.now(), modelLabel: modelLabel(modeleRelecture) });
+          if (report && report.lecture_naive) {
+              if (isMountedRef.current) {
+                  setColdRead(report as ColdReadReport);
+                  setColdReadMeta({ at: Date.now(), modelLabel: modelLabel(modeleRelecture) });
+              }
               // Journalisée sans être appliquée : une relecture ne vise aucune
               // colonne, mais c'est un fait daté qu'on veut pouvoir relire.
               Api.recordGeneration(item.id, {
@@ -780,7 +844,6 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   };
 
   const executeDrafting = async (itemArg?: ContentItem, sessionArg?: CoachSession | null) => {
-      if (!isMountedRef.current) return;
       const base = itemArg ?? editedItem;
       if (!base) return;
       setIsGenerating(true);
@@ -852,18 +915,18 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const newItem = { ...base, draft: finalContent };
 
           if (isMountedRef.current) {
-              setEditedItem(newItem);
+              setEditedItem(prev => prev ? { ...prev, draft: finalContent } : newItem);
               if (previousValue) setLastGeneration({ field: 'draft', previousValue, label: `Rédaction régénérée par ${modelLabel(modeleRedaction)}` });
               // Le brouillon a changé : les slides déjà produites ne collent plus
               if (base.slides) setSlidesStale(true);
+          }
               await journalise({ usage, kind: 'draft', target: 'draft', payload: finalContent, modelId: modeleRedaction });
-              await saveWithStatus(newItem);
+              await saveWithStatus(newItem, ['draft']);
               // L'écran passe à l'étape d'écriture une fois le brouillon arrivé (SPEC §13.10).
-              onStepChange(etapeDEcriture(etapeCourante({ contenu: newItem }).sorte));
+              if (isMountedRef.current) onStepChange(etapeDEcriture(etapeCourante({ contenu: newItem }).sorte));
 
               // Relecture "Lecteur Froid" (non bloquante) sur le contenu fraîchement rédigé
               await executeColdRead(newItem);
-          }
       } catch (error: any) {
           // L'échec d'appel est déjà annoncé par le passage obligé ; ici on ne
           // rattrape que ce qui a cassé APRÈS la réponse — un parsing, une écriture.
@@ -893,13 +956,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const previousValue = editedItem?.slides || "";
           const newItem = { ...editedItem!, slides: cleaned };
           if (isMountedRef.current) {
-              setEditedItem(newItem);
+              setEditedItem(prev => prev ? { ...prev, slides: cleaned } : newItem);
               if (previousValue) setLastGeneration({ field: 'slides', previousValue, label: `Slides régénérées par ${modelLabel(modeleSlides)}` });
               setSlidesStale(false);
-              await journalise({ usage, kind: 'slides', target: 'slides', payload: cleaned, modelId: modeleSlides });
-              await saveWithStatus(newItem);
-              onStepChange('slides');
           }
+              await journalise({ usage, kind: 'slides', target: 'slides', payload: cleaned, modelId: modeleSlides });
+              await saveWithStatus(newItem, ['slides']);
+              if (isMountedRef.current) onStepChange('slides');
       } catch (error: any) {
           if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Slides impossibles", message: error.message, type: "error" });
       } finally {
@@ -974,16 +1037,16 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           const newItem = { ...editedItem!, [targetField]: applied };
 
           if (isMountedRef.current) {
-              setEditedItem(newItem);
+              setEditedItem(prev => prev ? { ...prev, [targetField]: applied } : newItem);
               if (previousValue) setLastGeneration({ field: targetField, previousValue, label: `Ajustement appliqué par ${modelLabel(modeleAjustement)}` });
               // Ajuster le brouillon périme les slides ; ajuster les slides les remet à jour
               if (targetField === 'slides') setSlidesStale(false);
               else if (editedItem?.slides) setSlidesStale(true);
+          }
               // L'instruction fait partie du fait daté : sans elle, on relit un
               // texte modifié sans savoir ce qu'on avait demandé.
               await journalise({ usage, kind: 'adjustment', target: targetField, payload: applied, instruction: adjustmentText, modelId: modeleAjustement });
-              await saveWithStatus(newItem);
-          }
+              await saveWithStatus(newItem, [targetField]);
           return true;
       } catch (error: any) {
           if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Ajustement impossible", message: error.message, type: "error" });
@@ -1025,15 +1088,15 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
 
           const newItem = { ...editedItem, slides: cleaned };
           if (isMountedRef.current) {
-              setEditedItem(newItem);
+              setEditedItem(prev => prev ? { ...prev, slides: cleaned } : newItem);
+          }
               await journalise({
                   usage,
                   kind: 'adjustment', target: 'slides', payload: cleaned,
                   instruction: `Prompts d'image, ${cible} : ${instruction}`,
                   modelId: modelePrompts,
               });
-              await saveWithStatus(newItem);
-          }
+              await saveWithStatus(newItem, ['slides']);
       } catch (error: any) {
           if (isMountedRef.current && !AiService.estSignalee(error)) setAlertInfo({ isOpen: true, title: "Ajustement des prompts impossible", message: error.message, type: "error" });
       } finally {
@@ -1310,7 +1373,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
           entete = <EnteteMatiere nom="Publication" sousTitre={ligneAffichee?.statut} />;
           corps = (
               <div className="flex flex-wrap gap-6 items-start">
-                  <div className="flex-1 min-w-[320px] space-y-3">
+                  <div className="flex-1 min-w-0 basis-[320px] space-y-3">
                       <Etiquette>Ce qui sera publié</Etiquette>
                       <CeQuiSeraPublie sorte={sorte} draft={editedItem.draft} slides={editedItem.slides} format={editedItem.targetFormat}
                           copiable={getEditorTab(editedItem.targetFormat as TargetFormat) === 'postcourt'} datePublication={editedItem.scheduledDate} />
@@ -1320,7 +1383,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                       publie={editedItem.status === ContentStatus.PUBLISHED}
                       libellePublication={ligneAffichee?.statut ?? null}
                       dateInitiale={editedItem.scheduledDate}
-                      onPublier={(date) => void changeStatus(ContentStatus.PUBLISHED, date)}
+                      onPublier={(date) => void marquerPublie(date)}
+                      onAnnulerMarquage={publicationPrecedente ? () => void annulerMarquage() : undefined}
                       onRepasserEnEcriture={() => void repasserEnEcriture()}
                       onDecliner={onDecline ? () => onDecline(editedItem) : undefined}
                       occupe={occupe}
@@ -1366,23 +1430,23 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             onTitre={(title) => setEditedItem({ ...editedItem, title })}
             pastilles={[getFormatDef(editedItem.targetFormat)?.shortKey, editedItem.objectif, ...editedItem.platforms].filter(Boolean) as string[]}
             selecteur={<SelecteurEtape lignes={lignes} affichee={affichee} onChoisir={(e) => { setEditionManuelle(null); setVueMobile(null); onStepChange(e); }} />}
-            bandeau={auMontage ? undefined : (
-                <div className="md:hidden px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+            bandeau={auMontage || !compact ? undefined : (
+                <div className="px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
                     <ControleSegmente<'fil' | 'matiere'> libelle="Afficher" valeur={vue} onChange={setVueMobile}
                         options={[{ valeur: 'fil', libelle: 'Le fil' }, { valeur: 'matiere', libelle: NOMS_DES_ETAPES[affichee] }]} />
                 </div>
             )}
-            panneauSerie={auMontage ? undefined : panneauSerie}
+            panneauSerie={auMontage || compact ? undefined : panneauSerie}
             actionDroite={auMontage ? (
                 <Bouton taille="grand" onClick={() => setFilOuvert(o => !o)} aria-expanded={filOuvert}>
                     <MessageCircle /> Le fil
-                    <span className="text-micro font-bold tabular-nums text-brand-main/60 dark:text-dark-text/60">{elements.length}</span>
+                    <span className="text-micro font-bold tabular-nums text-brand-main dark:text-dark-text">{elements.length}</span>
                 </Bouton>
             ) : undefined}
-            pied={<PiedContenu etat={saveStatus} erreur={saveError} onReessayer={retrySave} cout={coutAffiche} onSupprimer={onDelete ? () => setConfirmDelete(true) : undefined} />}
+            pied={<PiedContenu etat={isDirty && saveStatus !== 'error' ? 'saving' : saveStatus} erreur={saveError} onReessayer={retrySave} cout={coutAffiche} onSupprimer={onDelete ? () => setConfirmDelete(true) : undefined} />}
         >
             {auMontage ? (
-                <div className="relative flex-1 min-h-0 flex flex-col">
+                <div className="ui-stage relative flex-1 min-h-0 flex flex-col">
                     {aUnBrouillon
                         ? <Studio contentId={editedItem.id} draft={brouillon} format={editedItem.targetFormat} titre={editedItem.title} onMontageChange={onMontageChange}
                             dernierExport={resumeMontage?.dernierExport ?? null} priseOuverte={priseAOuvrir} />
@@ -1393,7 +1457,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                                 <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-brand-border dark:border-dark-sec-border">
                                     <MessageCircle className="w-4 h-4 text-brand-main dark:text-dark-text" />
                                     <span className="text-sm font-bold text-brand-main dark:text-white">Le fil</span>
-                                    <span className="flex-1 text-xs text-brand-main/60 dark:text-dark-text/60">ce qui s’est dit et fait</span>
+                                    <span className="flex-1 text-xs text-brand-main dark:text-dark-text">ce qui s’est dit et fait</span>
                                     <Bouton taille="grand" intention="discrete" className="w-10 px-0 no-underline" aria-label="Fermer le fil" onClick={() => setFilOuvert(false)}>
                                         <X />
                                     </Bouton>
@@ -1403,13 +1467,13 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                     )}
                 </div>
             ) : (
-                <div className={`flex-1 min-h-0 grid grid-cols-1 ${panneauSerie ? 'md:grid-cols-[380px_minmax(0,1fr)]' : 'md:grid-cols-[440px_minmax(0,1fr)]'}`}>
-                    <div className={`min-h-0 border-r border-brand-border dark:border-dark-sec-border ${vue === 'fil' ? 'block' : 'hidden'} md:block`}>
+                <div className={`flex-1 min-h-0 grid grid-cols-1 ${compact ? '' : panneauSerie ? 'grid-cols-[380px_minmax(0,1fr)]' : 'grid-cols-[440px_minmax(0,1fr)]'}`}>
+                    <div className={`min-h-0 border-r border-brand-border dark:border-dark-sec-border ${!compact || vue === 'fil' ? 'block' : 'hidden'}`}>
                         {leFil()}
                     </div>
-                    <div className={`min-h-0 flex-col bg-white dark:bg-dark-surface ${vue === 'matiere' ? 'flex' : 'hidden'} md:flex`}>
+                    <div className={`min-h-0 flex-col bg-white dark:bg-dark-surface ${!compact || vue === 'matiere' ? 'flex' : 'hidden'}`}>
                         {entete}
-                        <div className="flex-1 overflow-y-auto p-4 md:p-7">{corps}</div>
+                        <div key={affichee} className="ui-stage flex-1 overflow-y-auto p-4 md:p-7">{corps}</div>
                     </div>
                 </div>
             )}

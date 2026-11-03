@@ -63,7 +63,7 @@ export const ReglagesPrise: React.FC<ReglagesPriseProps> = ({ decalageSon, rotat
     return (
         <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-brand-main/70 dark:text-dark-text/70">Image :</span>
+                <span className="text-xs text-brand-main dark:text-dark-text">Image :</span>
                 <Bouton
                     taille="petit"
                     intention="secondaire"
@@ -77,7 +77,7 @@ export const ReglagesPrise: React.FC<ReglagesPriseProps> = ({ decalageSon, rotat
             </div>
             {horizontale && <p className="text-xs text-alerte">{horizontale}</p>}
             <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-brand-main/70 dark:text-dark-text/70">Son :</span>
+                <span className="text-xs text-brand-main dark:text-dark-text">Son :</span>
                 <Bouton taille="petit" intention="secondaire" disabled={desactive} onClick={() => pas(1)}
                     title="Le son arrive après les lèvres : l'avancer d'une image">
                     Son en retard
@@ -94,7 +94,7 @@ export const ReglagesPrise: React.FC<ReglagesPriseProps> = ({ decalageSon, rotat
                     </Bouton>
                 )}
             </div>
-            <p className="text-xs text-brand-main/60 dark:text-dark-text/60">
+            <p className="text-xs text-brand-main dark:text-dark-text">
                 Pour régler le son, regardez dans l'aperçu un mot qui commence par p, b ou m : les lèvres doivent s'ouvrir avec
                 le son. Chaque clic décale d'une image. Ces réglages se reprennent pour la prise suivante filmée au même format — même caméra, même micro.
             </p>

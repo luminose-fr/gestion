@@ -67,8 +67,8 @@ export function useAtelier({
         // qui a été tapé est déjà en sécurité (SPEC §2.7).
         const message = buildUserMessage(item.id, texte.trim());
         const avecLui = withMessage(session, message);
-        void onMessage(message);
         try {
+            await onMessage(message);
             const reponse = await sendCoachMessage({
                 session: avecLui, userMessage: texte.trim(), modelId,
                 serieContext: contexteSerie || undefined, aiModels,
