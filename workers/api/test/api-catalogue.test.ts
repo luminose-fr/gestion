@@ -396,6 +396,32 @@ describe('explorateur par adaptateur', () => {
     expect((await json(res)).error).toContain('refuse la clé');
   });
 
+  /**
+   * Le 03/11/2026, l'écran disait « Anthropic a refusé la liste des modèles (400) »
+   * et rien d'autre : la raison était dans le corps de la réponse, jetée.
+   */
+  it('un refus d’Anthropic dit sa raison, telle qu’Anthropic la donne', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (String(url).startsWith('https://api.anthropic.com/')) {
+        return new Response(JSON.stringify({
+          type: 'error', error: { type: 'invalid_request_error', message: 'Raison donnée par Anthropic.' },
+        }), { status: 400 });
+      }
+      return new Response(JSON.stringify(MODELES), { status: 200 });
+    });
+    await poserCle('anthropic', 'sk-ant-api03-0123456789');
+    const res = await call('/api/models/catalogue/anthropic');
+    expect(res.status).toBe(502);
+    expect((await json(res)).error).toBe(
+      'Anthropic a refusé la liste des modèles (400) : invalid_request_error — Raison donnée par Anthropic.');
+  });
+
+  it('un corps illisible n’ajoute rien au code', async () => {
+    stubOpenRouter({ oneminStatus: 503 });
+    const res = await call('/api/models/catalogue/onemin');
+    expect((await json(res)).error).toBe('1min.ai a refusé la liste des modèles (503).');
+  });
+
   it('la référence muette n’emporte pas la liste Anthropic', async () => {
     stubOpenRouter({ anthropic: ANTHROPIC, openrouter: false });
     await poserCle('anthropic', 'sk-ant-api03-0123456789');
