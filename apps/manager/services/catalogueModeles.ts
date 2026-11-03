@@ -9,6 +9,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import type { AIModel } from '../types';
+import type { PropositionVeille, VeilleReponse } from './apiService';
 
 export interface CatalogueImage {
   /** Les modèles d'image du catalogue (migration 0014), dans l'ordre du catalogue. */
@@ -36,3 +37,12 @@ export const useCatalogueImage = (): CatalogueImage => useSyncExternalStore(sAbo
 
 /** Les modèles qui écrivent : ceux que proposent les menus de texte. */
 export const modelesDeTexte = (modeles: AIModel[]) => modeles.filter(m => m.sortie !== 'image');
+
+/**
+ * Les propositions de la veille encore à voir : celles dont le modèle n'est
+ * pas déjà au catalogue SUR LEUR ADAPTATEUR. Le serveur filtre de même ; le
+ * refaire ici éteint la pastille dès l'ajout, sans attendre une relecture.
+ */
+export const propositionsAVoir = (veille: VeilleReponse | null, modeles: AIModel[]): PropositionVeille[] =>
+  (veille?.propositions ?? []).filter(p =>
+    !modeles.some(m => !m.deletedAt && m.provider === p.provider && m.apiCode === p.apiCode));

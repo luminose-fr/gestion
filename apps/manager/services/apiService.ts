@@ -210,6 +210,44 @@ export const fetchCatalogue = (source: SourceCatalogue = 'openrouter') =>
     fetchedAt: number;
   }>(CHEMINS_CATALOGUE[source], {}, { label: 'Lecture du catalogue', cle: `api:catalogue:${source}` });
 
+// ── Veille des modèles (SPEC §5.7) ──────────────────────────────────────
+
+/** Une version plus récente d'un modèle du catalogue, trouvée par la veille. */
+export interface PropositionVeille {
+  /** `provider:api_code`. */
+  id: string;
+  provider: string;
+  apiCode: string;
+  nom: string;
+  /** Le modèle du catalogue que celui-ci dépasse. */
+  remplaceModelId: string | null;
+  remplaceNom: string | null;
+  publieLe: number | null;
+  detecteLe: number;
+}
+
+export interface EtatVeille {
+  le: number;
+  sources: Partial<Record<SourceCatalogue, { lue: boolean; raison: string | null; suivis: number }>>;
+  propositions: number;
+}
+
+export interface VeilleReponse {
+  propositions: PropositionVeille[];
+  /** `null` tant qu'aucun passage n'a eu lieu. */
+  etat: EtatVeille | null;
+}
+
+/** Anonyme : lue à chaque ouverture de l'application, elle n'a rien à annoncer. */
+export const fetchVeille = () => api<VeilleReponse>('/models/veille');
+
+/** Lit trois sources : assez long pour être nommé. */
+export const lancerVeille = () =>
+  api<VeilleReponse>('/models/veille/lancer', { method: 'POST' }, { label: 'Vérification des modèles', cle: 'api:veille' });
+
+export const ignorerVeille = (id: string) =>
+  api<{ ok: true }>('/models/veille/ignorer', { method: 'POST', ...body({ id }) });
+
 // ── Clés des fournisseurs (SPEC §5.5) ────────────────────────────────────
 
 /**

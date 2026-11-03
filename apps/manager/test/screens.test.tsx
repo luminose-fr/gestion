@@ -490,6 +490,69 @@ describe('espace Réglages', () => {
     expect(container.textContent).not.toContain('1min.ai est injoignable.');
   });
 
+  /**
+   * La veille des modèles (SPEC §5.7). « Ajouter au catalogue » ouvre
+   * l'éditeur prérempli SUR L'ADAPTATEUR de la proposition, et reprend de la
+   * version d'avant ce qui tient à l'usage — pas ses forces, mesurées sur elle.
+   */
+  const VEILLE = {
+    propositions: [{
+      id: 'onemin:gpt-5.5-pro', provider: 'onemin', apiCode: 'gpt-5.5-pro', nom: 'GPT-5.5 Pro',
+      remplaceModelId: 'm1', remplaceNom: 'GPT-5.2 Pro', publieLe: null, detecteLe: 1,
+    }],
+    etat: { le: Date.now(), sources: { onemin: { lue: true, raison: null, suivis: 1 } }, propositions: 1 },
+  };
+
+  it('la veille propose une nouvelle version, et l’ajoute sur son adaptateur', () => {
+    const { container, getByText } = render(<SettingsSpace {...(props as any)} section="models"
+      aiModels={[{ ...MODELS[0], strengths: 'Mesuré sur 5.2', bestUseCases: 'Relecture' }]} veille={VEILLE} />);
+    expect(container.textContent).toContain('Nouvelles versions · 1');
+    expect(container.textContent).toContain('après GPT-5.2 Pro');
+
+    fireEvent.click(getByText('Ajouter au catalogue'));
+    expect(container.querySelector('input[value="gpt-5.5-pro"]')).toBeTruthy();
+    expect(container.querySelector('input[value="GPT-5.5 Pro"]')).toBeTruthy();
+    expect(Array.from(container.querySelectorAll('select')).some(sel => sel.value === 'onemin')).toBe(true);
+    expect(container.textContent).not.toContain('Mesuré sur 5.2');
+  });
+
+  it('« Ignorer » écarte la proposition, côté serveur puis à l’écran', async () => {
+    const ignorer = vi.spyOn(Api, 'ignorerVeille').mockResolvedValue({ ok: true });
+    const changer = vi.fn();
+    const { getByText } = render(<SettingsSpace {...(props as any)} section="models" veille={VEILLE} onVeilleChange={changer} />);
+    fireEvent.click(getByText('Ignorer'));
+    await waitFor(() => expect(changer).toHaveBeenCalledWith({ ...VEILLE, propositions: [] }));
+    expect(ignorer).toHaveBeenCalledWith('onemin:gpt-5.5-pro');
+  });
+
+  it('une proposition déjà au catalogue sur son adaptateur ne s’affiche plus', () => {
+    const deja = { ...MODELS[0], id: 'm2', name: 'GPT-5.5 Pro', apiCode: 'gpt-5.5-pro', isDefault: false };
+    const { container } = render(<SettingsSpace {...(props as any)} section="models" aiModels={[...MODELS, deja]} veille={VEILLE} />);
+    expect(container.textContent).not.toContain('Nouvelles versions');
+    expect(container.textContent).toContain('rien de nouveau');
+  });
+
+  it('une veille sans trouvaille dit quand elle a regardé, et ce qu’elle n’a pas lu', () => {
+    const { container } = render(<SettingsSpace {...(props as any)} section="models" veille={{
+      propositions: [],
+      etat: { le: Date.now(), propositions: 0, sources: { anthropic: { lue: false, raison: 'aucune clé posée', suivis: 1 } } },
+    }} />);
+    expect(container.textContent).toContain('rien de nouveau au');
+    expect(container.textContent).toContain('Non lu — Anthropic : aucune clé posée.');
+    cleanup();
+    const jamais = render(<SettingsSpace {...(props as any)} section="models" veille={null} />);
+    expect(jamais.container.textContent).toContain('aucun passage encore');
+  });
+
+  it('« Vérifier maintenant » relance la veille et rend son résultat', async () => {
+    const lancer = vi.spyOn(Api, 'lancerVeille').mockResolvedValue(VEILLE as any);
+    const changer = vi.fn();
+    const { getByText } = render(<SettingsSpace {...(props as any)} section="models" veille={null} onVeilleChange={changer} />);
+    fireEvent.click(getByText('Vérifier maintenant'));
+    await waitFor(() => expect(changer).toHaveBeenCalledWith(VEILLE));
+    expect(lancer).toHaveBeenCalledTimes(1);
+  });
+
   it('n’affiche jamais autre chose que l’empreinte d’une clé', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="providers" />);
     expect(container.textContent).toContain('…f4d9');
@@ -1952,6 +2015,26 @@ describe('Corpus — navigation à trois niveaux', () => {
         onNavigateCorpus={() => {}} corpusCounts={{ inbox: 3, parBloc: { socle: 9 } }} />,
     );
     expect(container.textContent).toContain('3');
+  });
+
+  /** La veille des modèles (SPEC §5.7) : on ne va pas dans Réglages sans raison. */
+  it('porte les nouvelles versions de modèles sur Réglages et sur Modèles IA', () => {
+    const { container, getByTitle } = render(
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="presets"
+        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}}
+        reglagesCounts={{ models: 2 }} />,
+    );
+    expect(getByTitle('Réglages — 2 à voir')).toBeTruthy();
+    const onglet = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.startsWith('Modèles IA'));
+    expect(onglet?.textContent).toBe('Modèles IA2');
+    cleanup();
+    // Rien à voir : ni compteur, ni mention.
+    const vide = render(
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="presets"
+        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}}
+        reglagesCounts={{ models: 0 }} />,
+    );
+    expect(vide.getByTitle('Réglages')).toBeTruthy();
   });
 
   it('le troisième panneau des rôles apparaît sous Personas, et pas ailleurs', () => {

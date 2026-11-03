@@ -208,6 +208,12 @@ export const IllustrationRequestSchema = z.object({
 });
 export type IllustrationRequest = z.infer<typeof IllustrationRequestSchema>;
 
+/** « Ignorer » une proposition de la veille des modèles (SPEC §5.7). */
+export const VeilleIgnorerSchema = z.object({
+  /** `provider:api_code`, tel que la veille l'a rendu. */
+  id: z.string().min(3).max(300),
+});
+
 /**
  * Sonde un code d'API AVANT enregistrement : c'est tout l'intérêt du testeur.
  * On ne passe donc pas par un modèle du catalogue, qui n'existe pas encore.

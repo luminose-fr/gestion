@@ -15,7 +15,7 @@
 import { Hono } from 'hono';
 import { z, ZodError } from 'zod';
 import { Refus } from './refus';
-import type { Contexte } from './env';
+import type { Contexte, Env } from './env';
 import { createSessionToken, verifySessionToken, getSessionSecret, sessionDe, cookieSession, empreinteSession, expirationSession } from './auth';
 import { routeOuverteAuMcp, verifierJetonMcp } from './acces-mcp';
 import { contents } from './routes/contents';
@@ -32,6 +32,8 @@ import { quotas } from './routes/quotas';
 import { rdv } from './routes/rdv';
 import { transcription } from './routes/transcription';
 import { montage } from './routes/montage';
+import { veille } from './routes/veille';
+import { lancerVeille } from './veille';
 
 const app = new Hono<Contexte>();
 
@@ -142,6 +144,8 @@ app.route('/api/models', models);
 // Avant /api/models pour la lisibilité seulement : aucune route de `models`
 // ne capte /catalogue, il n'y a pas de GET /:id.
 app.route('/api/models/catalogue', catalogue);
+// Même remarque : `models` n'a ni GET /:id ni POST /:id/… — rien ne capte /veille.
+app.route('/api/models/veille', veille);
 app.route('/api/ai', ai);
 app.route('/api/export', exportRoute);
 app.route('/api/settings', settings);
@@ -182,4 +186,14 @@ app.onError((err, c) => {
   return c.json({ error: 'Erreur interne', }, 500);
 });
 
-export default app;
+/**
+ * Le Worker : l'application, et le passage planifié de la veille des modèles
+ * (`[triggers]` dans wrangler.toml, SPEC §5.7). `waitUntil` : le passage lit
+ * trois sources lentes, et la plateforme ne doit pas couper avant l'écriture.
+ */
+export default {
+  fetch: app.fetch,
+  scheduled: (_evenement: ScheduledController, env: Env, ctx: ExecutionContext) => {
+    ctx.waitUntil(lancerVeille(env).then(() => undefined));
+  },
+};

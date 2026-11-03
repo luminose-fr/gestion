@@ -60,3 +60,10 @@ bucket_name = "luminose-montage"
 binding = "DB"
 database_name = "luminose-gestion"
 database_id = "e9327701-3b46-4f85-9e3f-513df1488118"
+
+# La veille des modèles (SPEC §5.7) : une fois par jour, 05:17 UTC — avant la
+# journée de travail, et hors de l'heure ronde où les déclencheurs s'empilent.
+# Le passage lit OpenRouter, Anthropic et 1min.ai pour les seuls adaptateurs
+# qui portent un modèle du catalogue ; ce qu'il trouve s'affiche dans Réglages.
+[triggers]
+crons = ["17 5 * * *"]

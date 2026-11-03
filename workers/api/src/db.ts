@@ -91,6 +91,18 @@ export const rowToModel = (r: any): AIModel => ({
   deletedAt: r.deleted_at ?? null,
 });
 
+/** Une proposition de la veille des modèles (migration 0015, SPEC §5.7). */
+export const rowToPropositionVeille = (r: any) => ({
+  id: String(r.id),
+  provider: String(r.provider),
+  apiCode: String(r.api_code),
+  nom: String(r.nom),
+  remplaceModelId: r.remplace_model_id ?? null,
+  remplaceNom: r.remplace_nom ?? null,
+  publieLe: r.publie_le ?? null,
+  detecteLe: Number(r.detecte_le),
+});
+
 export const rowToGeneration = (r: any): Generation => ({
   id: r.id,
   contentId: r.content_id,

@@ -10,7 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
-    FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
+    FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { AIModel, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
 import * as Api from '../../services/apiService';
@@ -22,6 +22,7 @@ import {
     profilerModele, normaliserNomModele,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
+import { propositionsAVoir } from '../../services/catalogueModeles';
 import { APERCUS, compterPresences, VOIX_ID } from './apercus';
 import { Bouton, Carte, CLASSES_CHAMP, ControleSegmente, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
 
@@ -42,6 +43,9 @@ interface SettingsSpaceProps {
     /** Adaptateurs et état de leur clé, chargés par l'application. */
     providers: Api.ProviderKeyState[];
     onProvidersChange: (providers: Api.ProviderKeyState[]) => void;
+    /** La veille des modèles (SPEC §5.7), lue par l'application pour sa pastille. */
+    veille?: Api.VeilleReponse | null;
+    onVeilleChange?: (veille: Api.VeilleReponse) => void;
 }
 
 /**
@@ -221,10 +225,115 @@ const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.Re
 
 // ─── Composant ────────────────────────────────────────────────────────────
 
+const LIBELLES_SOURCE: Record<Api.SourceCatalogue, string> = {
+    openrouter: 'OpenRouter', anthropic: 'Anthropic', onemin: '1min.ai',
+};
+
+const quand = (ms: number) => new Date(ms).toLocaleString('fr-FR', {
+    day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+});
+
+/**
+ * La veille des modèles, en tête du catalogue (SPEC §5.7). Une carte quand
+ * elle a trouvé quelque chose ; une ligne quand elle n'a rien à dire — mais
+ * elle dit toujours QUAND elle a regardé, et ce qu'elle n'a pas pu lire : une
+ * veille muette ressemble à une veille qui n'a rien trouvé.
+ */
+const VeilleModeles: React.FC<{
+    propositions: Api.PropositionVeille[];
+    etat: Api.EtatVeille | null;
+    providers: Api.ProviderKeyState[];
+    enCours: boolean;
+    erreur: string | null;
+    onAjouter: (p: Api.PropositionVeille) => void;
+    onIgnorer: (p: Api.PropositionVeille) => void;
+    onVerifier: () => void;
+}> = ({ propositions, etat, providers, enCours, erreur, onAjouter, onIgnorer, onVerifier }) => {
+    const muettes = Object.entries(etat?.sources ?? {})
+        .filter(([, e]) => e && !e.lue)
+        .map(([source, e]) => `${LIBELLES_SOURCE[source as Api.SourceCatalogue] ?? source} : ${e!.raison ?? 'illisible'}`);
+    const verifier = (
+        <Bouton onClick={onVerifier} disabled={enCours} taille="petit" intention="discrete">
+            {enCours ? <EnCours label="Vérification…" taille="xs" /> : <><RefreshCw className="w-3 h-3" /> Vérifier maintenant</>}
+        </Bouton>
+    );
+    const pied = (
+        <>
+            {muettes.length > 0 && (
+                <p className="text-micro leading-relaxed text-alerte">Non lu — {muettes.join(' · ')}.</p>
+            )}
+            {erreur && (
+                <p className="text-micro font-semibold text-erreur flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {erreur}
+                </p>
+            )}
+        </>
+    );
+
+    if (!propositions.length) {
+        return (
+            <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <p className="text-xs text-brand-main dark:text-dark-text">
+                        <strong className="font-semibold">Veille des modèles</strong> —{' '}
+                        {etat
+                            ? `rien de nouveau au ${quand(etat.le)}.`
+                            : 'aucun passage encore ; elle regarde chaque matin.'}
+                    </p>
+                    {verifier}
+                </div>
+                {pied}
+            </div>
+        );
+    }
+
+    return (
+        <Carte>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                <Etiquette forme="entete" avecIcone>
+                    <Sparkles className="w-3 h-3" />
+                    Nouvelles versions · {propositions.length}
+                </Etiquette>
+                {verifier}
+            </div>
+            <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text mb-2">
+                Une version plus récente d'un modèle de votre catalogue, sur le même adaptateur
+                {etat ? ` — vu le ${quand(etat.le)}` : ''}. L'ajouter ne change aucun réglage : choisissez-la
+                ensuite dans Modèles par famille.
+            </p>
+            <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
+                {propositions.map(p => (
+                    <li key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2">
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-brand-main dark:text-white">{p.nom}</p>
+                            <p className="text-micro text-brand-main dark:text-dark-text">
+                                <span className="font-mono">{p.apiCode}</span>
+                                {' · '}{providers.find(x => x.id === p.provider)?.label ?? p.provider}
+                                {p.remplaceNom ? ` · après ${p.remplaceNom}` : ''}
+                                {p.publieLe ? ` · publié le ${new Date(p.publieLe).toLocaleDateString('fr-FR')}` : ''}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Bouton onClick={() => onAjouter(p)} taille="petit">
+                                <Plus className="w-3 h-3" /> Ajouter au catalogue
+                            </Bouton>
+                            <Bouton onClick={() => onIgnorer(p)} taille="petit" intention="discrete">
+                                Ignorer
+                            </Bouton>
+                        </div>
+                    </li>
+                ))}
+            </ul>
+            <div className="mt-2 space-y-1">{pied}</div>
+        </Carte>
+    );
+};
+
 export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     section, persona,
     aiModels, onModelsChange, activeModelId, onActiveModelChange,
     actionModels, onActionModelsChange, familleModels, onFamilleModelsChange, providers, onProvidersChange,
+    veille = null, onVeilleChange,
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -645,6 +754,61 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         });
     };
 
+    /**
+     * La veille (SPEC §5.7). « Ajouter au catalogue » ouvre l'éditeur prérempli
+     * plutôt que d'enregistrer d'office : le nom et le coût se relisent, et un
+     * code qu'on n'a jamais appelé se teste avant de servir.
+     */
+    const [veilleEnCours, setVeilleEnCours] = useState(false);
+    const [veilleErreur, setVeilleErreur] = useState<string | null>(null);
+    const propositions = propositionsAVoir(veille, aiModels);
+
+    const ajouterDepuisVeille = (p: Api.PropositionVeille) => {
+        const ancien = aiModels.find(m => m.id === p.remplaceModelId);
+        setEditingId(null);
+        setIsCreating(true);
+        setEditModel({
+            name: p.nom,
+            apiCode: p.apiCode,
+            provider: p.provider,
+            // Ce qui tient à l'usage se reprend de la version d'avant ; les
+            // forces, mesurées sur ELLE, ne se recopient pas sur une autre.
+            vendor: ancien?.vendor ?? '',
+            cost: ancien?.cost ?? 'medium',
+            textQuality: ancien?.textQuality ?? 3,
+            bestUseCases: ancien?.bestUseCases ?? '',
+            strengths: '',
+            sortie: ancien?.sortie ?? 'texte',
+        });
+    };
+
+    const ignorerProposition = async (p: Api.PropositionVeille) => {
+        setVeilleErreur(null);
+        try {
+            await Api.ignorerVeille(p.id);
+        } catch (e: any) {
+            // Déjà disparue côté serveur : l'écarter ici aussi est la bonne issue.
+            if (!String(e?.message ?? '').startsWith('Erreur 404')) {
+                setVeilleErreur(e?.message || "La proposition n'a pas pu être écartée.");
+                return;
+            }
+        }
+        if (veille) onVeilleChange?.({ ...veille, propositions: veille.propositions.filter(x => x.id !== p.id) });
+    };
+
+    const verifierMaintenant = async () => {
+        if (veilleEnCours) return;
+        setVeilleEnCours(true);
+        setVeilleErreur(null);
+        try {
+            onVeilleChange?.(await Api.lancerVeille());
+        } catch (e: any) {
+            setVeilleErreur(e?.message || "La vérification n'a pas abouti.");
+        } finally {
+            setVeilleEnCours(false);
+        }
+    };
+
     // Devine le FABRICANT à partir du préfixe du code API — jamais l'adaptateur.
     const guessProvider = (apiCode: string): string => {
         const c = apiCode.toLowerCase();
@@ -787,6 +951,17 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 {section === 'models' && !isInModelEditor && !isInExplorer && (
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start animate-fade-in">
                         <div className="space-y-6">
+                            <VeilleModeles
+                                propositions={propositions}
+                                etat={veille?.etat ?? null}
+                                providers={providers}
+                                enCours={veilleEnCours}
+                                erreur={veilleErreur}
+                                onAjouter={ajouterDepuisVeille}
+                                onIgnorer={p => void ignorerProposition(p)}
+                                onVerifier={() => void verifierMaintenant()}
+                            />
+
                             <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
                                 Rangés par adaptateur — celui qui reçoit l'appel. Un même modèle peut être joignable
                                 chez plusieurs d'entre eux, avec un code différent et un prix différent.

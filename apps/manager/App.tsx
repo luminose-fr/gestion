@@ -11,7 +11,7 @@ import {
 import type { ResumeFils, ResumeMontages } from '@luminose/shared';
 import * as AiService from './services/aiService';
 import * as Activite from './services/activityService';
-import { enregistrerCatalogue, modelesDeTexte } from './services/catalogueModeles';
+import { enregistrerCatalogue, modelesDeTexte, propositionsAVoir } from './services/catalogueModeles';
 import { generateSeriePlan } from './services/seriesService';
 
 import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings/apercus';
@@ -200,6 +200,8 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Adaptateurs et état de leur clé — l'écriture seule fait que seule l'empreinte revient (SPEC §5.5). */
   const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
+  /** La veille des modèles (SPEC §5.7) : ses propositions font la pastille de Réglages. */
+  const [veille, setVeille] = useState<Api.VeilleReponse | null>(null);
 
   // Modèle IA actif — vérité runtime localStorage, seedé depuis le modèle « Défaut » du catalogue.
   const [activeModelId, setActiveModelIdState] = useState<string>(
@@ -550,6 +552,13 @@ function App() {
     if (authenticated) {
       initData();
     }
+  }, [authenticated]);
+
+  // Lue à part de la synchronisation : une route en échec — une migration pas
+  // encore appliquée, par exemple — éteint la pastille, rien d'autre.
+  useEffect(() => {
+    if (!authenticated) return;
+    Api.fetchVeille().then(setVeille).catch(() => setVeille(null));
   }, [authenticated]);
 
   useEffect(() => {
@@ -1144,6 +1153,7 @@ function App() {
           onNavigateCorpus={updateCorpusRoute}
           counts={counts}
           corpusCounts={corpusCounts}
+          reglagesCounts={{ models: propositionsAVoir(veille, aiModels).length }}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
           replie={isEditorTakeover}
@@ -1265,6 +1275,7 @@ function App() {
               onNavigateSettings={updateSettingsRoute}
               onNavigateCorpus={updateCorpusRoute}
               counts={counts}
+              reglagesCounts={{ models: propositionsAVoir(veille, aiModels).length }}
           />
         )}
 
@@ -1324,6 +1335,8 @@ function App() {
                 onFamilleModelsChange={setFamilleModels}
                 providers={providers}
                 onProvidersChange={setProviders}
+                veille={veille}
+                onVeilleChange={setVeille}
             />
         )}
 
