@@ -66,8 +66,8 @@ reprend pas, il casserait l'équilibre construit par l'Éclateur.
 
 Chaque action a un persona, un libellé — celui qu'affiche le bandeau d'attente et
 le message d'échec — et une **famille d'attendu** qui dit ce qu'on demande
-vraiment au modèle. Le modèle de chaque action se règle dans
-**Réglages → Modèle par action**.
+vraiment au modèle. Le modèle se règle par famille dans
+**Réglages → Modèles par famille** ; une action peut y suivre son propre réglage.
 
 | Action | Persona | Libellé | Famille |
 | :--- | :--- | :--- | :--- |

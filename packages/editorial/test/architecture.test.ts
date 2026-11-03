@@ -47,7 +47,7 @@ describe.each(PURE)('packages/%s', (pkg) => {
 });
 
 /**
- * Le catalogue des actions réglables (Réglages → Modèle par action) doit
+ * Le catalogue des actions réglables (Réglages → Modèles par famille, réglages à part) doit
  * désigner des actions qui existent vraiment. Une entrée orpheline afficherait
  * un menu qui ne pilote rien.
  */
