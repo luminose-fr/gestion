@@ -1,7 +1,7 @@
 ---
 type: fact
 statut: actif
-revu: 2026-08
+revu: 2026-11
 noyau: true
 expose: public
 ---
@@ -47,6 +47,9 @@ du monde extérieur, il est plus simple de modifier son rapport intérieur à l'
 C'est la métaphore qui relie les deux moitiés du parcours — recherche en design et
 expérience utilisateur, puis psychothérapie. Elle n'est pas décorative : elle explique la
 reconversion.
+
+Son terrain est ce récit et les contenus « pourquoi moi ». Ce n'est pas l'image par défaut du
+changement intérieur : chaque contenu cherche celle qui convient à son sujet.
 
 ## Les quatre piliers
 
