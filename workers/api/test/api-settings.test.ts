@@ -42,7 +42,7 @@ describe('clés des fournisseurs', () => {
   it('liste les adaptateurs connus, sans clé posée', async () => {
     // makeEnv fournit ONE_MIN_API_KEY : 1min est donc déjà servi par l'environnement.
     const { providers } = await json(await call('/api/settings/providers'));
-    expect(providers.map((p: any) => p.id).sort()).toEqual(['onemin', 'openai', 'openrouter']);
+    expect(providers.map((p: any) => p.id).sort()).toEqual(['anthropic', 'onemin', 'openai', 'openrouter']);
 
     const openrouter = providers.find((p: any) => p.id === 'openrouter');
     expect(openrouter).toMatchObject({ configured: false, hint: null, source: null });

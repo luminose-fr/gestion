@@ -94,8 +94,11 @@ export interface ProviderConfig {
  *
  * Tout le reste — 401, 402, 404, 422 — est un refus MOTIVÉ : réessayer ne
  * changerait rien et ferait perdre du temps sur un message déjà clair.
+ *
+ * 529 est l'encombrement d'Anthropic (`overloaded_error`) : un 5xx comme les
+ * autres, que la liste nomme parce qu'elle les nomme tous.
  */
-export const STATUTS_PASSAGERS = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+export const STATUTS_PASSAGERS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 529]);
 
 /** Une erreur de fournisseur, avec ce qu'on sait de sa nature. */
 export class ErreurFournisseur extends Error {

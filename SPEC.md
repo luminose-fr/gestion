@@ -1,4 +1,4 @@
-# SPEC v2.32 — gestion.luminose.fr
+# SPEC v2.33 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -149,6 +149,10 @@
 > se replie sous un ✂ ; une phrase se clique pour l'écouter, la couper ou choisir sa
 > version ; un écran se déplace en cliquant son étiquette, puis un mot. La prise passe dans
 > un tiroir. Une improvisation se range là où la vidéo la montre (§12.5, §12.5.5, §13.11).
+> **v2.33 (03/11/2026)** : Claude en direct. Un quatrième adaptateur, `anthropic`, appelle
+> l'API Messages d'Anthropic : les crédits API mensuels de l'offre Max ne servent qu'aux
+> appels faits avec une clé de l'organisation Console liée, et OpenRouter les laissait
+> dormir. Il ne déclare aucun prix, et le produit n'en recalcule pas (§2.6, §5.3).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -969,10 +973,25 @@ Dans le modèle cible, deux colonnes :
 Un même modèle peut ainsi être joignable via 1min.ai aujourd'hui et en direct demain :
 on change une valeur dans la table, pas une ligne de code.
 
-Adaptateurs disponibles : `onemin`, `openai`, `openrouter`. Le troisième n'est
-qu'une URL de base posée sur le second — OpenRouter expose l'API
+Adaptateurs disponibles : `onemin`, `openai`, `openrouter`, `anthropic`. Le
+troisième n'est qu'une URL de base posée sur le second — OpenRouter expose l'API
 `/chat/completions` d'OpenAI. C'est la démonstration que le port tient : un
 fournisseur de plus n'a obligé à réimplémenter personne.
+
+`anthropic` (v2.33) appelle l'API Messages d'Anthropic en direct, avec une clé de la
+Console (`ANTHROPIC_API_KEY`, ou Réglages → Fournisseurs). Raison d'être : les crédits
+API mensuels de l'offre Max ne se dépensent qu'avec une clé de l'organisation Console
+liée à l'abonnement. Ce qui le distingue, et que l'appelant ne voit pas :
+
+- **un plafond de réponse obligatoire**, 32 000 jetons réflexion comprise. Une réponse
+  qui l'atteint, ou que Claude décline (`stop_reason: refusal`), est une erreur
+  motivée — jamais un texte tronqué rendu pour entier, jamais une reprise ;
+- **aucun prix déclaré** : `cost_usd` reste nul, les jetons sont comptés (§2.6) ;
+- **`json` s'en remet au prompt** : la sortie JSON stricte d'Anthropic exige un
+  schéma, que le port ne porte pas ;
+- **un tour vide est écarté** dans l'adaptateur : l'API le refuse, le schéma de
+  l'application l'admet pourvu qu'un autre tour porte du contenu (§3.5) ;
+- **529** (`overloaded_error`) est un échec passager, comme tout 5xx (§5.2).
 
 ### 5.4 Le testeur
 

@@ -23,6 +23,7 @@ const LABELS: Record<string, string> = {
   onemin: '1min.ai',
   openai: 'OpenAI',
   openrouter: 'OpenRouter',
+  anthropic: 'Anthropic (Claude en direct)',
 };
 
 /**

@@ -30,6 +30,7 @@ export type Env = {
   ONE_MIN_API_KEY?: string;
   OPENAI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
 
   /**
    * Jeton GitHub à portée réduite — dépôt `luminose-fr/gestion` seul, droits

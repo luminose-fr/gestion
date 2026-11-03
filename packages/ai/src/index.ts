@@ -11,17 +11,20 @@ export * from './port';
 export { createOneMinProvider, flattenConversation, extractText, findBusinessError } from './providers/onemin';
 export { createOpenAIProvider, describeError, PROBE_MAX_TOKENS } from './providers/openai';
 export { createOpenRouterProvider, OPENROUTER_BASE_URL } from './providers/openrouter';
+export { createAnthropicProvider, ANTHROPIC_BASE_URL, ANTHROPIC_VERSION, ANTHROPIC_MAX_TOKENS } from './providers/anthropic';
 
 import type { AIProvider, ProviderConfig } from './port';
 import { createOneMinProvider } from './providers/onemin';
 import { createOpenAIProvider } from './providers/openai';
 import { createOpenRouterProvider } from './providers/openrouter';
+import { createAnthropicProvider } from './providers/anthropic';
 
 /** Fabriques disponibles, indexées par la valeur de `ai_models.provider`. */
 export const PROVIDER_FACTORIES: Record<string, (config: ProviderConfig) => AIProvider> = {
   onemin: createOneMinProvider,
   openai: (config) => createOpenAIProvider(config),
   openrouter: createOpenRouterProvider,
+  anthropic: createAnthropicProvider,
 };
 
 export const PROVIDER_IDS = Object.keys(PROVIDER_FACTORIES);

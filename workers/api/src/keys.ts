@@ -53,6 +53,7 @@ const ENV_VARS: Record<string, keyof Env> = {
   onemin: 'ONE_MIN_API_KEY',
   openai: 'OPENAI_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
+  anthropic: 'ANTHROPIC_API_KEY',
 };
 
 const clean = (value: unknown): string | null => {

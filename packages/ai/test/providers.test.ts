@@ -11,8 +11,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getProvider, PROVIDER_IDS, flattenConversation, extractText, findBusinessError,
   createOneMinProvider, createOpenAIProvider, createOpenRouterProvider, OPENROUTER_BASE_URL,
+  createAnthropicProvider, ANTHROPIC_BASE_URL, ANTHROPIC_VERSION, ANTHROPIC_MAX_TOKENS,
   describeError, PROBE_MAX_TOKENS, stripCodeFences, type ChatMessage,
 } from '../src/index';
+import { lireUsageAnthropic } from '../src/providers/anthropic';
 
 const CONFIG = { apiKey: 'cle-de-test' };
 
@@ -34,12 +36,18 @@ const stubFetch = (payload: unknown, status = 200) => {
 
 const ONEMIN_OK = { aiRecord: { aiRecordDetail: { resultObject: ['La réponse du modèle'] } } };
 const OPENAI_OK = { choices: [{ message: { content: 'La réponse du modèle' } }] };
+/** Un modèle récent réfléchit d'abord : un bloc de réflexion, vide par défaut, précède le texte. */
+const ANTHROPIC_OK = {
+  content: [{ type: 'thinking', thinking: '', signature: 'sig' }, { type: 'text', text: 'La réponse du modèle' }],
+  stop_reason: 'end_turn',
+  usage: { input_tokens: 120, output_tokens: 45, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+};
 
 beforeEach(() => vi.unstubAllGlobals());
 
 describe('registre', () => {
-  it('expose les trois fournisseurs', () => {
-    expect(PROVIDER_IDS.sort()).toEqual(['onemin', 'openai', 'openrouter']);
+  it('expose les quatre fournisseurs', () => {
+    expect(PROVIDER_IDS.sort()).toEqual(['anthropic', 'onemin', 'openai', 'openrouter']);
   });
 
   it('refuse un fournisseur inconnu au lieu de retomber sur un autre', () => {
@@ -48,11 +56,12 @@ describe('registre', () => {
   });
 });
 
-describe('même contrat, deux fournisseurs', () => {
+describe('même contrat, quatre fournisseurs', () => {
   it.each([
     ['onemin', ONEMIN_OK],
     ['openai', OPENAI_OK],
     ['openrouter', OPENAI_OK],
+    ['anthropic', ANTHROPIC_OK],
   ])('%s renvoie le texte du modèle', async (id, payload) => {
     stubFetch(payload);
     const result = await getProvider(id, CONFIG).chat({
@@ -65,6 +74,7 @@ describe('même contrat, deux fournisseurs', () => {
     ['onemin', ONEMIN_OK],
     ['openai', OPENAI_OK],
     ['openrouter', OPENAI_OK],
+    ['anthropic', ANTHROPIC_OK],
   ])('%s teste un modèle et mesure sa latence', async (id, payload) => {
     stubFetch(payload);
     const res = await getProvider(id, CONFIG).test('un-modele');
@@ -73,7 +83,7 @@ describe('même contrat, deux fournisseurs', () => {
     expect(res.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
-  it.each(['onemin', 'openai'])('%s signale un code vide sans appeler le réseau', async (id) => {
+  it.each(['onemin', 'openai', 'anthropic'])('%s signale un code vide sans appeler le réseau', async (id) => {
     const calls = stubFetch({});
     const res = await getProvider(id, CONFIG).test('   ');
     expect(res.available).toBe(false);
@@ -83,6 +93,7 @@ describe('même contrat, deux fournisseurs', () => {
   it.each([
     ['onemin', { error: 'Modèle inconnu' }],
     ['openai', { error: { message: 'Modèle inconnu' } }],
+    ['anthropic', { type: 'error', error: { type: 'not_found_error', message: 'Modèle inconnu' } }],
   ])('%s remonte l’erreur du fournisseur sans lever', async (id, payload) => {
     stubFetch(payload, 400);
     const res = await getProvider(id, CONFIG).test('modele-fantome');
@@ -284,6 +295,116 @@ describe('openai utilise le format natif', () => {
     await createOpenAIProvider({ apiKey: 'k', baseUrl: 'https://api.groq.com/openai/v1' }, 'groq')
       .chat({ model: 'm', messages: CONVERSATION });
     expect(calls[0].url).toBe('https://api.groq.com/openai/v1/chat/completions');
+  });
+});
+
+describe('anthropic : l’API Messages, en direct', () => {
+  it('vise api.anthropic.com avec la clé, la version datée, et le plafond obligatoire', async () => {
+    const calls = stubFetch(ANTHROPIC_OK);
+    await createAnthropicProvider(CONFIG).chat({ model: 'claude-opus-5-5', system: 'Tu es le Coach.', messages: CONVERSATION });
+    expect(calls[0].url).toBe(`${ANTHROPIC_BASE_URL}/messages`);
+    expect(calls[0].headers).toMatchObject({ 'x-api-key': 'cle-de-test', 'anthropic-version': ANTHROPIC_VERSION });
+    expect(calls[0].headers.Authorization).toBeUndefined();
+    expect(calls[0].body).toEqual({
+      model: 'claude-opus-5-5', max_tokens: ANTHROPIC_MAX_TOKENS, system: 'Tu es le Coach.', messages: CONVERSATION,
+    });
+  });
+
+  it('le système est un champ à part, jamais un message ; absent, il n’est pas envoyé', async () => {
+    const calls = stubFetch(ANTHROPIC_OK);
+    await createAnthropicProvider(CONFIG).chat({ model: 'claude-opus-5-5', messages: CONVERSATION });
+    expect(calls[0].body).not.toHaveProperty('system');
+    expect(calls[0].body.messages.every((m: any) => m.role !== 'system')).toBe(true);
+  });
+
+  it('écarte un tour vide, que l’application admet et que l’API refuse', async () => {
+    const calls = stubFetch(ANTHROPIC_OK);
+    await createAnthropicProvider(CONFIG).chat({
+      model: 'claude-opus-5-5',
+      messages: [{ role: 'user', content: 'Le brouillon : …' }, { role: 'assistant', content: '  ' }, { role: 'user', content: 'Applique l’ajustement demandé.' }],
+    });
+    expect(calls[0].body.messages).toEqual([
+      { role: 'user', content: 'Le brouillon : …' }, { role: 'user', content: 'Applique l’ajustement demandé.' },
+    ]);
+  });
+
+  it('le mode JSON s’en remet au prompt : aucun champ inconnu, les clôtures retirées', async () => {
+    const calls = stubFetch({ ...ANTHROPIC_OK, content: [{ type: 'text', text: '```json\n{"verdict":"ok"}\n```' }] });
+    const res = await createAnthropicProvider(CONFIG).chat({ model: 'claude-opus-5-5', messages: CONVERSATION, json: true });
+    expect(Object.keys(calls[0].body).sort()).toEqual(['max_tokens', 'messages', 'model']);
+    expect(res.text).toBe('{"verdict":"ok"}');
+  });
+
+  it('rend le texte seul : la réflexion n’en fait pas partie, plusieurs blocs se recollent', async () => {
+    stubFetch({ ...ANTHROPIC_OK, content: [
+      { type: 'thinking', thinking: 'Je pèse les deux angles.', signature: 's' },
+      { type: 'text', text: 'Première partie, ' }, { type: 'text', text: 'seconde partie.' },
+    ] });
+    const res = await createAnthropicProvider(CONFIG).chat({ model: 'claude-opus-5-5', messages: CONVERSATION });
+    expect(res.text).toBe('Première partie, seconde partie.');
+  });
+
+  it('un refus de Claude se dit, avec sa catégorie, et ne se rejoue pas', async () => {
+    const calls = stubFetch({ content: [], stop_reason: 'refusal', stop_details: { type: 'refusal', category: 'bio', explanation: 'Raison donnée.' } });
+    await expect(createAnthropicProvider({ ...CONFIG, repriseDelaiMs: 0 }).chat({ model: 'claude-opus-5-5', messages: CONVERSATION }))
+      .rejects.toThrow('anthropic : Claude a décliné la demande (bio). Raison donnée.');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('une réponse tronquée au plafond ne passe pas pour une réponse entière', async () => {
+    stubFetch({ ...ANTHROPIC_OK, stop_reason: 'max_tokens' });
+    await expect(createAnthropicProvider(CONFIG).chat({ model: 'claude-opus-5-5', messages: CONVERSATION }))
+      .rejects.toThrow(/réponse tronquée — le plafond de 32000 jetons, réflexion comprise, est atteint/);
+  });
+
+  it('une erreur de l’API se lit avec sa nature et son code — les crédits épuisés compris', async () => {
+    stubFetch({ type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } }, 400);
+    await expect(createAnthropicProvider(CONFIG).chat({ model: 'claude-opus-5-5', messages: CONVERSATION }))
+      .rejects.toThrow('anthropic : Your credit balance is too low to access the Anthropic API. (invalid_request_error, code 400)');
+  });
+
+  it('reprend une fois sur un 529 — l’encombrement d’Anthropic passe', async () => {
+    let n = 0;
+    vi.stubGlobal('fetch', async () => {
+      n += 1;
+      return n === 1
+        ? new Response(JSON.stringify({ type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } }), { status: 529 })
+        : new Response(JSON.stringify(ANTHROPIC_OK), { status: 200 });
+    });
+    const res = await createAnthropicProvider({ ...CONFIG, repriseDelaiMs: 0 }).chat({ model: 'claude-opus-5-5', messages: CONVERSATION });
+    expect(res.text).toBe('La réponse du modèle');
+    expect(n).toBe(2);
+  });
+
+  it('sonde avec le même petit budget que les autres', async () => {
+    const calls = stubFetch(ANTHROPIC_OK);
+    await createAnthropicProvider(CONFIG).test('claude-haiku-5-5');
+    expect(calls[0].body).toEqual({ model: 'claude-haiku-5-5', max_tokens: PROBE_MAX_TOKENS, messages: [{ role: 'user', content: 'ping' }] });
+  });
+
+  it('se laisse pointer ailleurs', async () => {
+    const calls = stubFetch(ANTHROPIC_OK);
+    await createAnthropicProvider({ ...CONFIG, baseUrl: 'https://passerelle.exemple/v1' }).chat({ model: 'claude-opus-5-5', messages: CONVERSATION });
+    expect(calls[0].url).toBe('https://passerelle.exemple/v1/messages');
+  });
+});
+
+describe('ce qu’un appel à Anthropic a coûté', () => {
+  it('des jetons, jamais de prix : Anthropic n’en déclare pas, et on ne le recalcule pas', () => {
+    expect(lireUsageAnthropic(ANTHROPIC_OK)).toEqual({ entree: 120, sortie: 45, coutUsd: null });
+  });
+
+  it('les jetons servis par le cache sont des jetons reçus', () => {
+    expect(lireUsageAnthropic({ usage: { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 100, cache_read_input_tokens: 1000 } }))
+      .toEqual({ entree: 1110, sortie: 5, coutUsd: null });
+  });
+
+  it('sans bloc usage, on ne sait rien', () => {
+    expect(lireUsageAnthropic({})).toEqual({ entree: null, sortie: null, coutUsd: null });
+  });
+
+  it('sans jetons d’entrée déclarés, le cache seul ne fait pas un total', () => {
+    expect(lireUsageAnthropic({ usage: { output_tokens: 5, cache_read_input_tokens: 1000 } })).toEqual({ entree: null, sortie: 5, coutUsd: null });
   });
 });
 
