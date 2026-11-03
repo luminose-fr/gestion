@@ -110,6 +110,28 @@ if [ -n "$(git status --porcelain)" ]; then
   warn "Arbre de travail non propre — on déploie du code non commité."
 fi
 
+# Le bon compte Cloudflare, AVANT les tests et surtout avant le bucket R2. Le
+# 03/11/2026, wrangler était connecté sur la VM au compte d'un autre projet : le
+# script y a créé le bucket du montage, puis s'est arrêté aux migrations faute
+# d'y trouver la base. La base D1 de wrangler.toml sert de témoin ; absente, rien
+# ne part — pas même `pages deploy`, qui créerait le projet dans ce compte-là.
+# En répétition, rien n'est appelé : la CI la joue sans secrets.
+D1_ID="$(sed -n 's/^database_id = "\(.*\)"$/\1/p' workers/api/wrangler.toml | head -n 1)"
+step "Compte Cloudflare"
+if [ "${DRY_RUN:-0}" = "1" ]; then
+  printf '   \033[2m$ npx wrangler d1 list --json | grep %s\033[0m\n' "$D1_ID"
+# `grep` sans `-q`, pour la même raison qu'au bucket R2 plus bas.
+elif [ -n "$D1_ID" ] && ( cd workers/api && npx wrangler d1 list --json 2>/dev/null ) | grep -F "$D1_ID" >/dev/null; then
+  ok "Compte de Luminose (base ${D1_ID} visible)"
+else
+  warn "Base D1 ${D1_ID:-?} introuvable : wrangler n'est pas connecté au compte Cloudflare de Luminose."
+  ( cd workers/api && npx wrangler whoami 2>/dev/null | grep -E 'associated with|[0-9a-f]{32}' ) || true
+  warn "  Sur la VM : npx wrangler logout && npx wrangler login, avec le compte de Luminose"
+  warn "  En CI : les secrets CLOUDFLARE_ACCOUNT_ID et CLOUDFLARE_API_TOKEN"
+  warn "Arrêt avant toute écriture : rien n'a changé, ni chez Luminose ni ailleurs."
+  exit 1
+fi
+
 if [ "${SKIP_TESTS:-0}" != "1" ]; then
   step "Tests et typecheck (bloquants)"
   # Exécutés même en DRY_RUN : ils ne modifient rien, et un dry-run qui se
