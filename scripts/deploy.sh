@@ -111,9 +111,9 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 # Le bon compte Cloudflare, AVANT les tests et surtout avant le bucket R2. Le
-# 03/11/2026, wrangler était connecté sur la VM au compte d'un autre projet : le
-# script y a créé le bucket du montage, puis s'est arrêté aux migrations faute
-# d'y trouver la base. La base D1 de wrangler.toml sert de témoin ; absente, rien
+# 03/11/2026, lancé sans `~/.cf-luminose`, wrangler a pris la connexion par
+# défaut de la VM, celle d'un autre projet : le script y a créé le bucket du
+# montage, puis s'est arrêté aux migrations faute d'y trouver la base. La base D1 de wrangler.toml sert de témoin ; absente, rien
 # ne part — pas même `pages deploy`, qui créerait le projet dans ce compte-là.
 # En répétition, rien n'est appelé : la CI la joue sans secrets.
 D1_ID="$(sed -n 's/^database_id = "\(.*\)"$/\1/p' workers/api/wrangler.toml | head -n 1)"
@@ -126,7 +126,8 @@ elif [ -n "$D1_ID" ] && ( cd workers/api && npx wrangler d1 list --json 2>/dev/n
 else
   warn "Base D1 ${D1_ID:-?} introuvable : wrangler n'est pas connecté au compte Cloudflare de Luminose."
   ( cd workers/api && npx wrangler whoami 2>/dev/null | grep -E 'associated with|[0-9a-f]{32}' ) || true
-  warn "  Sur la VM : npx wrangler logout && npx wrangler login, avec le compte de Luminose"
+  # Pas de `wrangler logout` : la connexion par défaut de la VM sert à un autre projet.
+  warn "  Sur la VM : source ~/.cf-luminose && npm run deploy (jeton et compte de Luminose)"
   warn "  En CI : les secrets CLOUDFLARE_ACCOUNT_ID et CLOUDFLARE_API_TOKEN"
   warn "Arrêt avant toute écriture : rien n'a changé, ni chez Luminose ni ailleurs."
   exit 1
