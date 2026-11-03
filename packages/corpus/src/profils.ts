@@ -29,7 +29,8 @@ export const PROFILS: Record<Profil, RegleProfil> = {
       "L'essentiel qui doit être présent en permanence, y compris dans un champ d'instructions plafonné.",
     blocs: ['socle', 'voix'],
     retient: (d) => d.meta.noyau === true,
-    plafond: 7500,
+    // 200 caractères de marge sous les 8 000 d'un GPT personnalisé (relevé de 7 500 le 03/11/2026).
+    plafond: 7800,
   },
   complet: {
     titre: 'Contexte Luminose',

@@ -2272,7 +2272,10 @@ describe('Reel expliqué — storyboard', () => {
         return new Response(JSON.stringify({ image: 'data:image/png;base64,iVBORw0KGgo=', modelLabel: 'Nano Banana Pro', usage: { entree: 1, sortie: 1, coutUsd: 0.134 } }), { status: 200 });
       }
       // L'étalon, puis l'image proposée qu'on range : des octets, quelle que soit l'URL.
-      return new Response(new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' }));
+      // Pas de `new Response(blob)` : la Response de Node ne connaît pas le Blob de jsdom.
+      // Sous Node 22 elle le refuse (« object.stream is not a function »), et le Blob qu'elle
+      // rend, le FileReader de jsdom le refuse à son tour ; seul Node 25 s'en accommodait.
+      return { ok: true, status: 200, blob: async () => new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' }) };
     });
     const deposes: any[] = [];
     const data: any = {
