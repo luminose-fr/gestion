@@ -1,7 +1,7 @@
 ---
 type: fact
 statut: actif
-revu: 2026-08
+revu: 2026-11
 expose: prive
 ---
 
@@ -20,15 +20,37 @@ Matière de fond mobilisée dans les articles et les accompagnements.
 
 ## Métaphores éprouvées
 
-Elles ont déjà porté un contenu et fonctionné. À réutiliser plutôt qu'à réinventer — mais
+**Ce sont des exemples, pas un catalogue où piocher.** Ils montrent le genre d'image qui
+fonctionne et ce qui a déjà servi. Chaque contenu cherche l'image juste pour son sujet —
 **une seule par contenu**, filée du début au CTA (règle de voix).
 
 | Métaphore | Ce qu'elle sert |
 | :--- | :--- |
-| Les **poignées de porte** | changer l'intérieur plutôt que l'extérieur — la métaphore fondatrice, issue de l'UX |
+| Les **poignées de porte** | le récit de la reconversion (UX puis psychothérapie) et les contenus « pourquoi moi » — pas l'illustration générale du changement intérieur |
 | Le **jardinage** | la vie amoureuse |
 | L'**orchestre et les instruments** | les styles d'attachement |
 | La **chenille et le cocon** | la liminalité |
+| Le **voyant de réserve** qu'on débranche | l'émotion comme signal, qu'on fait taire parce qu'il gêne — utilisée régulièrement en séance |
+| La **ficelle** (« quand je m'en mêle, je m'emmêle ») | vouloir contrôler ce qui ne dépend pas de soi |
+| Les **amandes amères** | pardonner sans faire de procès, ni à l'autre ni à soi |
+| Les **fraises qu'on engueule** | ce qui aide vraiment quelqu'un à grandir — ou à changer |
+| La **main gauche** qu'on voudrait couper | les parts de soi moins « présentables » qu'on rejette |
+| La **cage à oiseaux** | retenir ceux qu'on aime en croyant que c'est l'amour |
+| La **flèche empoisonnée** | vouloir tout comprendre avant d'accepter d'être soigné |
+| Le **feu** | l'hypnose : un phénomène naturel, qui demande un cadre |
+
+### Prêtes, pas encore publiées
+
+| Métaphore | Ce qu'elle sert |
+| :--- | :--- |
+| Le **pied collé** | deux besoins contradictoires : la sécurité et l'exploration |
+| Le **sparadrap** | chercher de meilleurs outils pour couvrir plutôt que traverser |
+
+### Règle de rotation — NORMATIF
+
+Quand une de ces métaphores est reprise, elle ne revient pas dans deux contenus d'une même
+série, ni dans deux séries menées en parallèle. Vérifier d'abord qu'elle n'a pas servi dans
+les contenus récents ou en cours.
 
 ## Ce qui ne vit pas ici
 
