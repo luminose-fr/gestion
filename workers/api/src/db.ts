@@ -85,6 +85,7 @@ export const rowToModel = (r: any): AIModel => ({
   bestUseCases: r.best_use_cases ?? null,
   textQuality: r.text_quality ?? null,
   isDefault: bool(r.is_default),
+  sortie: r.sortie === 'image' ? 'image' : 'texte',
   createdAt: r.created_at,
   updatedAt: r.updated_at,
   deletedAt: r.deleted_at ?? null,
@@ -208,6 +209,7 @@ const MODEL_COLUMNS: Record<string, string> = {
   bestUseCases: 'best_use_cases',
   textQuality: 'text_quality',
   isDefault: 'is_default',
+  sortie: 'sortie',
 };
 
 export const COLUMN_MAPS = {

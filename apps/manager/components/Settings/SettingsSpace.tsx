@@ -23,7 +23,7 @@ import {
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
 import { APERCUS, compterPresences, VOIX_ID } from './apercus';
-import { Bouton, CLASSES_CHAMP, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
+import { Bouton, CLASSES_CHAMP, ControleSegmente, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
 
 interface SettingsSpaceProps {
     section: SettingsSection;
@@ -244,7 +244,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [quotasErreur, setQuotasErreur] = useState<string | null>(null);
 
     const [editModel, setEditModel] = useState<Partial<AIModel>>({
-        name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3,
+        name: '', apiCode: '', cost: 'medium', provider: 'onemin', vendor: '', strengths: '', bestUseCases: '', textQuality: 3, sortie: 'texte',
     });
 
     /**
@@ -670,12 +670,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     );
 
     /** Le menu d'un modèle, rangé sous son adaptateur (SPEC §5.3). */
+    /** Un menu de modèles : ceux de texte pour écrire, ceux d'image pour illustrer — jamais les deux. */
     const SelecteurModele: React.FC<{
         value: string;
         onChange: (id: string) => void;
         disabled?: boolean;
         vide: string;
-    }> = ({ value, onChange, disabled, vide }) => (
+        sortie?: 'texte' | 'image';
+    }> = ({ value, onChange, disabled, vide, sortie = 'texte' }) => (
         <select
             value={value}
             disabled={disabled}
@@ -683,7 +685,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
             className={`${CHAMP} cursor-pointer`}
         >
             <option value="">{vide}</option>
-            {groupes.filter(g => g.models.length > 0).map(g => (
+            {groupes.map(g => ({ ...g, models: g.models.filter(m => (m.sortie ?? 'texte') === sortie) }))
+                .filter(g => g.models.length > 0).map(g => (
                 <optgroup key={g.id} label={g.label}>
                     {g.models.map(m => (
                         <option key={m.id} value={m.id}>{m.name} · {m.apiCode}</option>
@@ -697,7 +700,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         <div className="flex-1 overflow-y-auto">
             <div className={ecran('liste')}>
 
-                {/* ─── AFFICHAGE ─── */}
                 {/* ─── MODÈLES IA — catalogue ─── */}
                 {section === 'models' && !isInModelEditor && !isInExplorer && (
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start animate-fade-in">
@@ -753,6 +755,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                         >
                                                             <div className="flex items-center justify-between gap-2 mb-1">
                                                                 <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{m.name}</h3>
+                                                                {m.sortie === 'image' && <Etiquette as="span" forme="pastille" className="ml-auto">Image</Etiquette>}
                                                                 {m.vendor && (
                                                                     <span className="shrink-0 text-micro bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
                                                                         {m.vendor}
@@ -761,7 +764,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                             </div>
                                                             <p className="text-xs text-brand-main dark:text-dark-text font-mono truncate opacity-70 mb-2">{m.apiCode}</p>
                                                             <div className="flex items-center gap-2">
-                                                                {isActive ? (
+                                                                {/* Un modèle d'image n'est pas le modèle actif : son défaut se règle dans la famille Illustrer. */}
+                                                                {m.sortie === 'image' ? null : isActive ? (
                                                                     <span className="flex items-center gap-1 text-micro font-bold px-2 py-1 rounded-lg bg-brand-main text-white dark:bg-white dark:text-brand-main">
                                                                         <CheckCircle2 className="w-3 h-3" />
                                                                         Défaut
@@ -1198,6 +1202,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     </select>
                                     <p className="mt-1.5 text-micro text-brand-main dark:text-dark-text">
                                         Par où passe l'appel. Sa clé se pose dans « Clés des fournisseurs ».
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <Etiquette as="span" className="mb-1">Sortie</Etiquette>
+                                    <ControleSegmente<'texte' | 'image'>
+                                        libelle="Sortie du modèle"
+                                        valeur={editModel.sortie ?? 'texte'}
+                                        onChange={sortie => setEditModel({ ...editModel, sortie })}
+                                        options={[{ valeur: 'texte', libelle: 'Texte' }, { valeur: 'image', libelle: 'Image' }]}
+                                    />
+                                    <p className="mt-1.5 text-micro text-brand-main dark:text-dark-text">
+                                        {editModel.sortie === 'image'
+                                            ? 'Il illustre les Reels expliqués, et ne passe que par OpenRouter.'
+                                            : 'Il écrit : les actions du flux éditorial le proposent.'}
                                     </p>
                                 </div>
 

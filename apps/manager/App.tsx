@@ -11,6 +11,7 @@ import {
 import type { ResumeFils, ResumeMontages } from '@luminose/shared';
 import * as AiService from './services/aiService';
 import * as Activite from './services/activityService';
+import { enregistrerCatalogue, modelesDeTexte } from './services/catalogueModeles';
 import { generateSeriePlan } from './services/seriesService';
 
 import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings/apercus';
@@ -221,6 +222,7 @@ function App() {
    * moitié de l'information quand on doute de son fournisseur (SPEC §3.5.1).
    */
   useEffect(() => { Activite.enregistrerModeles(aiModels); }, [aiModels]);
+  useEffect(() => { enregistrerCatalogue(aiModels, null); }, [aiModels]);
 
   /**
    * Tout échec d'appel IA s'annonce ici, quelle que soit sa provenance : le
@@ -571,15 +573,17 @@ function App() {
 
   // Seed du modèle actif depuis le « Défaut » du catalogue, tant que l'utilisateur n'a pas choisi explicitement.
   useEffect(() => {
-      if (aiModels.length === 0) return;
+      // Le modèle actif écrit : un modèle d'image n'en est jamais un.
+      const textes = modelesDeTexte(aiModels);
+      if (textes.length === 0) return;
 
       // Un réglage hérité contient un CODE d'API, plus un identifiant : il ne
       // correspond à aucun modèle et l'appel IA échouerait en 404. On repart
       // alors du modèle « Défaut », comme au premier lancement.
       const stored = StorageService.getActiveModelId();
-      if (stored && aiModels.some(m => m.id === stored)) return;
+      if (stored && textes.some(m => m.id === stored)) return;
 
-      const def = aiModels.find(m => m.isDefault) || aiModels[0];
+      const def = textes.find(m => m.isDefault) || textes[0];
       if (def) handleActiveModelChange(def.id);
   }, [aiModels]);
 
@@ -1198,10 +1202,10 @@ function App() {
                         title="Modèle IA utilisé par toutes les actions"
                         className="appearance-none pl-6 pr-6 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
                      >
-                        {aiModels.length === 0 && <option value="">Aucun modèle configuré</option>}
+                        {modelesDeTexte(aiModels).length === 0 && <option value="">Aucun modèle configuré</option>}
                         {/* Groupé par adaptateur : le même modèle peut être joignable
                             par deux chemins, et le nom seul ne les distingue pas. */}
-                        {grouperParAdaptateur(aiModels, providers)
+                        {grouperParAdaptateur(modelesDeTexte(aiModels), providers)
                             .filter(g => g.models.length > 0)
                             .map(g => (
                                 <optgroup key={g.id} label={g.label}>

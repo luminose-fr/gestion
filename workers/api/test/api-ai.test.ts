@@ -383,13 +383,14 @@ describe('mesure des appels', () => {
 });
 
 /**
- * L'illustration générée (SPEC §12.3, v2.28) : par OpenRouter, le modèle pris
- * dans la liste du Worker, l'étalon joint, l'image rendue au navigateur.
+ * L'illustration générée (SPEC §12.3, v2.28) : par OpenRouter, un modèle d'image
+ * du catalogue (migration 0014, qui amorce les trois d'avant), l'étalon joint,
+ * l'image rendue au navigateur.
  */
 describe('POST /api/ai/image', () => {
   const ETALON = 'data:image/jpeg;base64,/9j/AAAA';
-  const demande = (modele = 'google/gemini-3-pro-image') => ({
-    modele, prompt: 'Nouvelle image indépendante — une digue, en haut un lac.', references: [ETALON],
+  const demande = (modelId = 'image-nano-banana-pro') => ({
+    modelId, prompt: 'Nouvelle image indépendante — une digue, en haut un lac.', references: [ETALON],
   });
   const repondre = (payload: unknown, status = 200) => {
     outbound = [];
@@ -405,11 +406,34 @@ describe('POST /api/ai/image', () => {
     expect((await json(res)).error).toContain('Réglages → Fournisseurs');
   });
 
-  it('refuse un modèle que la liste ne propose pas', async () => {
+  it('les trois modèles d’avant sont amorcés au catalogue, comme modèles d’image', async () => {
+    const { items } = await json(await app.fetch(new Request('https://api.test/api/models', {
+      headers: { 'X-Session-Token': token },
+    }), env as any));
+    expect(items.filter((m: any) => m.sortie === 'image').map((m: any) => [m.name, m.apiCode, m.provider])).toEqual([
+      ['GPT Image 2', 'openai/gpt-image-2', 'openrouter'],
+      ['Nano Banana 2', 'google/gemini-3.1-flash-image', 'openrouter'],
+      ['Nano Banana Pro', 'google/gemini-3-pro-image', 'openrouter'],
+    ]);
+  });
+
+  it('refuse un modèle absent du catalogue, un modèle de texte, ou un modèle d’image hors d’OpenRouter', async () => {
     (env as any).OPENROUTER_API_KEY = 'cle-openrouter';
-    const res = await call('/api/ai/image', demande('quelquun/autre-chose'));
-    expect(res.status).toBe(400);
-    expect((await json(res)).error).toContain('Nano Banana Pro');
+    expect((await call('/api/ai/image', demande('inconnu'))).status).toBe(404);
+    await seedModel('texte-1', 'openrouter');
+    const texte = await call('/api/ai/image', demande('texte-1'));
+    expect(texte.status).toBe(409);
+    expect((await json(texte)).error).toContain('modèle de texte');
+    await env.DB.prepare("UPDATE ai_models SET provider = 'onemin' WHERE id = 'image-gpt-image-2'").run();
+    const ailleurs = await call('/api/ai/image', demande('image-gpt-image-2'));
+    expect(ailleurs.status).toBe(409);
+    expect((await json(ailleurs)).error).toContain('seul OpenRouter rend une image');
+  });
+
+  it('un modèle d’image n’écrit pas : /chat le refuse', async () => {
+    const res = await call('/api/ai/chat', { modelId: 'image-nano-banana-pro', messages: [{ role: 'user', content: 'Bonjour' }] });
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toContain('modèle d\'image');
   });
 
   it('envoie le prompt et l’étalon, demande une image verticale, rend l’image et son coût', async () => {

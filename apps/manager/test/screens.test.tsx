@@ -75,6 +75,7 @@ const MONTAGE_SANS_R2 = {
 };
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
+import { enregistrerCatalogue } from '../services/catalogueModeles';
 import { ContentStatus } from '../types';
 import type { AIModel, ContentItem, Serie, CoachMessage, CoachSession } from '../types';
 
@@ -84,7 +85,7 @@ const MODELS: AIModel[] = [
   {
     id: 'm1', name: 'GPT-5.2 Pro', apiCode: 'gpt-5.2-pro',
     provider: 'onemin', vendor: 'OpenAI', cost: 'high',
-    strengths: '', bestUseCases: '', textQuality: 5, isDefault: true,
+    strengths: '', bestUseCases: '', textQuality: 5, isDefault: true, sortie: 'texte',
     createdAt: now, updatedAt: now, deletedAt: null,
   },
 ];
@@ -2058,7 +2059,13 @@ describe('Reel expliqué — storyboard', () => {
       sequences: [],
     };
     const visuels = { ...VISUELS, deposer: async (...a: any[]) => { deposes.push(a); } };
+    // Les modèles d'image viennent du catalogue (migration 0014), enregistré par App ; la famille Illustrer donne le défaut.
+    enregistrerCatalogue([
+      { ...MODELS[0], id: 'image-gpt-image-2', name: 'GPT Image 2', apiCode: 'openai/gpt-image-2', provider: 'openrouter', sortie: 'image' },
+      { ...MODELS[0], id: 'image-nano-banana-pro', name: 'Nano Banana Pro', apiCode: 'google/gemini-3-pro-image', provider: 'openrouter', sortie: 'image' },
+    ], 'image-nano-banana-pro');
     const { container, findByText } = render(<VisuelsAFournir reel={data} visuels={visuels} deposable />);
+    expect((container.querySelector('#modele-illustration') as HTMLSelectElement).value).toBe('image-nano-banana-pro');
     const boutons = () => Array.from(container.querySelectorAll('button'));
     // La suite attend la première : elle se génère à partir d'elle.
     expect(container.textContent).toContain('Après « digue », dont elle est la suite.');
@@ -2066,7 +2073,7 @@ describe('Reel expliqué — storyboard', () => {
     fireEvent.click(boutons().find(b => b.textContent?.trim() === 'Générer')!);
     await findByText(/Nano Banana Pro · \$0[.,]134|Nano Banana Pro · 0,134/);
     const demande = appels.find(a => a.url.endsWith('/api/ai/image'))!.corps;
-    expect(demande.modele).toBe('google/gemini-3-pro-image');
+    expect(demande.modelId).toBe('image-nano-banana-pro');
     expect(demande.prompt).toContain("Nouvelle image indépendante — l'image jointe sert uniquement de référence de style, de palette et de grain : En haut, une digue fissurée");
     expect(demande.references).toHaveLength(1);
     expect(demande.references[0]).toMatch(/^data:image\//);

@@ -43,7 +43,9 @@ describe('export', () => {
     const data = await json(res);
     expect(data.contents).toHaveLength(1);
     expect(data.series).toHaveLength(1);
-    expect(data.models).toHaveLength(1);
+    // Plus les trois modèles d'image que la migration 0014 amorce.
+    expect(data.models).toHaveLength(4);
+    expect(data.models.filter((m: any) => m.sortie === 'image')).toHaveLength(3);
     expect(data.coachMessages).toHaveLength(1);
     expect(data.generations).toHaveLength(1);
     expect(data.exportedAt).toBeGreaterThan(0);
