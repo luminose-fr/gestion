@@ -54,6 +54,14 @@ describe('création', () => {
     expect(content.platforms).toEqual(['Instagram', 'LinkedIn']);
   });
 
+  it('modifie les plateformes — un PATCH les perdait sans un mot jusqu’au 03/11/2026', async () => {
+    const { id } = await createContent({ platforms: ['Instagram'] });
+    const res = await patch(`/api/contents/${id}`, { platforms: ['LinkedIn', 'Blog'] });
+    expect((await res.json() as any).content.platforms).toEqual(['LinkedIn', 'Blog']);
+    const relu = await (await call(`/api/contents/${id}`)).json() as any;
+    expect(relu.content.platforms).toEqual(['LinkedIn', 'Blog']);
+  });
+
   it('refuse un statut inconnu', async () => {
     const res = await post('/api/contents', { title: 'x', status: 'Archivé' });
     expect(res.status).toBe(400);

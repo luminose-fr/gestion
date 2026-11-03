@@ -171,6 +171,9 @@ export const rowToVisuel = (r: any): VisuelDistant => ({
 const CONTENT_COLUMNS: Record<string, string> = {
   title: 'title',
   status: 'status',
+  // Absente jusqu'au 03/11/2026 : un PATCH des plateformes était ignoré sans un mot — celles
+  // que l'analyse choisit ne survivaient pas au rechargement. `toSql` sérialise le tableau.
+  platforms: 'platforms',
   analyzedAt: 'analyzed_at',
   targetFormat: 'target_format',
   objectif: 'objectif',
