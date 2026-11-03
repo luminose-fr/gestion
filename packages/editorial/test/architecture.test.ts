@@ -80,11 +80,15 @@ describe('catalogue des actions réglables', () => {
   });
 
   it('range les familles du moins au plus exigeant, sans en oublier', async () => {
-    const { AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE } = await import('../src/actions');
-    expect(ATTENDU_ORDRE).toEqual(Object.keys(ATTENDU_FAMILLES));
-    // Toute famille utilisée par une action est rendue par l'écran.
+    const { AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE, FAMILLES_MODELE, sortieDeFamille } = await import('../src/actions');
+    // L'écran rend FAMILLES_MODELE : toute famille décrite y figure, et Illustrer ferme la marche.
+    expect([...FAMILLES_MODELE]).toEqual(Object.keys(ATTENDU_FAMILLES));
+    expect(FAMILLES_MODELE.at(-1)).toBe('illustrer');
+    // Toute famille utilisée par une action est rendue par l'écran, et elle écrit.
     for (const action of AI_ACTION_CATALOG) {
       expect(ATTENDU_ORDRE).toContain(action.attendu);
+      expect(sortieDeFamille(action.attendu)).toBe('texte');
     }
+    expect(sortieDeFamille('illustrer')).toBe('image');
   });
 });

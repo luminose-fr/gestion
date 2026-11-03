@@ -126,9 +126,10 @@ describe('modèle par action', () => {
   const creerModele = async (nom: string) =>
     (await json(await post('/api/models', { name: nom, apiCode: `code-${nom}` }))).model;
 
-  it('sans réglage, aucune action n’est affectée', async () => {
-    const { actions } = await json(await call('/api/settings/actions'));
+  it('sans réglage, aucune action n’est affectée ; Illustrer garde le défaut d’avant, Nano Banana Pro', async () => {
+    const { actions, familles } = await json(await call('/api/settings/actions'));
     expect(actions).toEqual({});
+    expect(familles).toEqual({ illustrer: 'image-nano-banana-pro' });
   });
 
   it('affecte un modèle à une action et le relit', async () => {
@@ -267,5 +268,41 @@ describe('dépôts du corpus sur les surfaces', () => {
   it('refuse une surface inconnue', async () => {
     const res = await put('/api/settings/poses/inconnue', { profil: 'complet', hash: 'abcdef12' });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('modèle par famille (03/11/2026)', () => {
+  const creerModele = async (nom: string, sortie: 'texte' | 'image' = 'texte') =>
+    (await json(await post('/api/models', { name: nom, apiCode: `code-${nom}`, sortie }))).model;
+
+  it('affecte un modèle à une famille, accent compris dans l’adresse, et l’efface', async () => {
+    const modele = await creerModele('Opus');
+    for (const famille of ['juger', 'synthèse', 'voix']) {
+      expect((await put(`/api/settings/familles/${encodeURIComponent(famille)}`, { modelId: modele.id })).status, famille).toBe(200);
+    }
+    expect((await json(await call('/api/settings/actions'))).familles)
+      .toEqual({ juger: modele.id, 'synthèse': modele.id, voix: modele.id, illustrer: 'image-nano-banana-pro' });
+    await put('/api/settings/familles/voix', { modelId: null });
+    expect((await json(await call('/api/settings/actions'))).familles.voix).toBeUndefined();
+  });
+
+  it('un modèle d’image n’écrit pas, un modèle de texte n’illustre pas — par famille comme par action', async () => {
+    const texte = await creerModele('Sonnet');
+    const image = await creerModele('Flux', 'image');
+    const refus = [
+      await put('/api/settings/familles/voix', { modelId: image.id }),
+      await put('/api/settings/familles/illustrer', { modelId: texte.id }),
+      await put('/api/settings/actions/DRAFT_CONTENT', { modelId: image.id }),
+    ];
+    for (const res of refus) expect(res.status).toBe(409);
+    expect((await json(refus[0])).error).toContain("modèle d'image : il n'écrit pas");
+    expect((await json(refus[1])).error).toContain('Illustrer attend un modèle d');
+    expect((await put('/api/settings/familles/illustrer', { modelId: image.id })).status).toBe(200);
+  });
+
+  it('refuse une famille inconnue et un modèle absent', async () => {
+    const modele = await creerModele('Haiku');
+    expect((await put('/api/settings/familles/resumer', { modelId: modele.id })).status).toBe(404);
+    expect((await put('/api/settings/familles/juger', { modelId: 'fantome' })).status).toBe(404);
   });
 });

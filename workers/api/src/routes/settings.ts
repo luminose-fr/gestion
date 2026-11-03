@@ -10,11 +10,11 @@
  */
 import { Hono } from 'hono';
 import { PROVIDER_IDS } from '@luminose/ai';
-import { CONFIGURABLE_ACTIONS } from '@luminose/editorial';
+import { CONFIGURABLE_ACTIONS, FAMILLES_MODELE, sortieDeFamille } from '@luminose/editorial';
 import { SetProviderKeySchema, SetActionModelSchema, EtatDeVueSchema, VUES, PoseSchema, SURFACES } from '@luminose/shared';
 import type { Env } from '../env';
 import { now } from '../db';
-import { readEnvKey, settingKeyFor, settingKeyForAction, settingKeyForVue, vueFromSettingKey, VUE_PATTERN, settingKeyForPose, poseFromSettingKey, POSE_PATTERN, fingerprint } from '../keys';
+import { readEnvKey, settingKeyFor, settingKeyForAction, settingKeyForFamille, settingKeyForVue, vueFromSettingKey, VUE_PATTERN, settingKeyForPose, poseFromSettingKey, POSE_PATTERN, fingerprint } from '../keys';
 
 export const settings = new Hono<{ Bindings: Env }>();
 
@@ -95,27 +95,77 @@ settings.delete('/providers/:id', async (c) => {
   return c.json({ id, configured: !!repli, source: repli ? 'environnement' : null });
 });
 
-// ── Modèle par action (les « presets ») ──────────────────────────────────
+// ── Modèle par famille, et par action (les « presets ») ──────────────────
 
 /**
- * Quel modèle sert quelle action. Sans réglage, l'action prend le modèle actif
- * — c'est le comportement d'avant, et il reste le repli.
+ * Quel modèle sert quel travail. Depuis le 03/11/2026, on règle une famille —
+ * Juger, Recopier, Synthétiser, Porter la voix, Illustrer — et une action peut
+ * encore avoir le sien, qui l'emporte. Sans réglage, une action prend le modèle
+ * de sa famille, puis le modèle actif : le comportement d'avant reste le repli.
  *
  * 1 requête : toutes les affectations d'un coup.
  */
 settings.get('/actions', async (c) => {
   const { results } = await c.env.DB
-    .prepare("SELECT key, value FROM app_settings WHERE key LIKE 'action_model:%'")
+    .prepare("SELECT key, value FROM app_settings WHERE key LIKE 'action_model:%' OR key LIKE 'famille_model:%'")
     .all();
 
   const actions: Record<string, string> = {};
+  const familles: Record<string, string> = {};
   for (const row of results as any[]) {
-    const action = String(row.key).slice('action_model:'.length);
-    // Une action inconnue en base (renommée, retirée) ne remonte pas : elle
-    // n'a plus de sens et encombrerait l'écran de réglage.
-    if (CONFIGURABLE_ACTIONS.includes(action) && row.value) actions[action] = String(row.value);
+    const cle = String(row.key);
+    if (!row.value) continue;
+    // Une action ou une famille inconnue en base (renommée, retirée) ne remonte
+    // pas : elle n'a plus de sens et encombrerait l'écran de réglage.
+    if (cle.startsWith('action_model:')) {
+      const action = cle.slice('action_model:'.length);
+      if (CONFIGURABLE_ACTIONS.includes(action)) actions[action] = String(row.value);
+    } else {
+      const famille = cle.slice('famille_model:'.length);
+      if ((FAMILLES_MODELE as readonly string[]).includes(famille)) familles[famille] = String(row.value);
+    }
   }
-  return c.json({ actions });
+  return c.json({ actions, familles });
+});
+
+/**
+ * Le modèle visé : il existe, et il produit ce que le réglage attend — un modèle
+ * d'image n'écrit pas, un modèle de texte n'illustre pas. 1 requête.
+ */
+const modeleAttendu = async (env: Env, modelId: string, sortie: 'texte' | 'image') => {
+  const model = await env.DB
+    .prepare('SELECT id, name, sortie FROM ai_models WHERE id = ? AND deleted_at IS NULL')
+    .bind(modelId).first<{ id: string; name: string; sortie: string | null }>();
+  if (!model) return 'Modèle introuvable dans le catalogue';
+  if ((model.sortie ?? 'texte') !== sortie) {
+    return sortie === 'image'
+      ? `« ${model.name} » est un modèle de texte : Illustrer attend un modèle d'image.`
+      : `« ${model.name} » est un modèle d'image : il n'écrit pas.`;
+  }
+  return null;
+};
+
+const poserReglage = (env: Env, cle: string, modelId: string) =>
+  env.DB.prepare(
+    `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  ).bind(cle, modelId, now()).run();
+
+/** 2 requêtes. `null` remet la famille sur le repli. */
+settings.put('/familles/:famille', async (c) => {
+  const famille = c.req.param('famille');
+  if (!(FAMILLES_MODELE as readonly string[]).includes(famille)) {
+    return c.json({ error: `Famille inconnue : « ${famille} ».` }, 404);
+  }
+  const { modelId } = SetActionModelSchema.parse(await c.req.json());
+  if (modelId === null) {
+    await c.env.DB.prepare('DELETE FROM app_settings WHERE key = ?').bind(settingKeyForFamille(famille)).run();
+    return c.json({ famille, modelId: null });
+  }
+  const refus = await modeleAttendu(c.env, modelId, sortieDeFamille(famille));
+  if (refus) return c.json({ error: refus }, refus.startsWith('Modèle introuvable') ? 404 : 409);
+  await poserReglage(c.env, settingKeyForFamille(famille), modelId);
+  return c.json({ famille, modelId });
 });
 
 /**
@@ -130,25 +180,17 @@ settings.put('/actions/:action', async (c) => {
   }
 
   const { modelId } = SetActionModelSchema.parse(await c.req.json());
-  const ts = now();
 
-  // `null` remet l'action sur le modèle actif.
+  // `null` remet l'action sur le modèle de sa famille.
   if (modelId === null) {
     await c.env.DB.prepare('DELETE FROM app_settings WHERE key = ?')
       .bind(settingKeyForAction(action)).run();
     return c.json({ action, modelId: null });
   }
 
-  const model = await c.env.DB
-    .prepare('SELECT id FROM ai_models WHERE id = ? AND deleted_at IS NULL')
-    .bind(modelId).first();
-  if (!model) return c.json({ error: 'Modèle introuvable dans le catalogue' }, 404);
-
-  await c.env.DB.prepare(
-    `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-  ).bind(settingKeyForAction(action), modelId, ts).run();
-
+  const refus = await modeleAttendu(c.env, modelId, 'texte');
+  if (refus) return c.json({ error: refus }, refus.startsWith('Modèle introuvable') ? 404 : 409);
+  await poserReglage(c.env, settingKeyForAction(action), modelId);
   return c.json({ action, modelId });
 });
 

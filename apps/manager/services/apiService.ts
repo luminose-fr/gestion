@@ -216,10 +216,19 @@ export const setProviderKey = (id: string, apiKey: string) =>
 export const deleteProviderKey = (id: string) =>
   api<ProviderKeyState>(`/settings/providers/${id}`, { method: 'DELETE' });
 
-// ── Modèle par action ────────────────────────────────────────────────────
+// ── Modèle par famille, et par action ────────────────────────────────────
 
-/** `{ DRAFT_CONTENT: '<id>' }` — les actions absentes prennent le modèle actif. */
-export const fetchActionModels = () => api<{ actions: Record<string, string> }>('/settings/actions');
+/**
+ * `actions` : `{ DRAFT_CONTENT: '<id>' }` ; `familles` : `{ voix: '<id>' }`.
+ * Une action sans réglage prend celui de sa famille, puis le modèle actif.
+ */
+export const fetchActionModels = () =>
+  api<{ actions: Record<string, string>; familles?: Record<string, string> }>('/settings/actions');
+
+export const setFamilleModel = (famille: string, modelId: string | null) =>
+  api<{ famille: string; modelId: string | null }>(`/settings/familles/${encodeURIComponent(famille)}`, {
+    method: 'PUT', ...body({ modelId }),
+  });
 
 export const setActionModel = (action: string, modelId: string | null) =>
   api<{ action: string; modelId: string | null }>(`/settings/actions/${action}`, {

@@ -26,3 +26,12 @@ WHERE NOT EXISTS (SELECT 1 FROM ai_models WHERE api_code = 'google/gemini-3.1-fl
 INSERT INTO ai_models (id, name, api_code, provider, vendor, cost, is_default, sortie, created_at, updated_at)
 SELECT 'image-gpt-image-2', 'GPT Image 2', 'openai/gpt-image-2', 'openrouter', 'OpenAI', 'high', 0, 'image', 1793664000002, 1793664000002
 WHERE NOT EXISTS (SELECT 1 FROM ai_models WHERE api_code = 'openai/gpt-image-2' AND deleted_at IS NULL);
+
+-- Le défaut d'avant reste le défaut : Nano Banana Pro, à la demande de Florent
+-- (29/10/2026), devient le modèle de la famille Illustrer — l'un des cinq
+-- réglages de « Modèles par famille » (03/11/2026). Rien n'est écrit si le
+-- modèle n'a pas été amorcé, ni si la famille a déjà le sien.
+INSERT INTO app_settings (key, value, updated_at)
+SELECT 'famille_model:illustrer', 'image-nano-banana-pro', 1793664000000
+WHERE EXISTS (SELECT 1 FROM ai_models WHERE id = 'image-nano-banana-pro' AND deleted_at IS NULL)
+  AND NOT EXISTS (SELECT 1 FROM app_settings WHERE key = 'famille_model:illustrer');

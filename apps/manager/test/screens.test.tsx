@@ -122,6 +122,8 @@ describe('espace Réglages', () => {
     activeModelId: 'm1',
     onActiveModelChange: noop,
     actionModels: {},
+    familleModels: {},
+    onFamilleModelsChange: noop,
     onActionModelsChange: noop,
     providers: [
       { id: 'onemin', label: '1min.ai', configured: true, hint: '…f4d9', source: 'environnement' as const, updatedAt: null },
@@ -281,7 +283,7 @@ describe('espace Réglages', () => {
    */
   it('donne le conseil de choix par famille ET par action', () => {
     const { container } = render(<SettingsSpace {...(props as any)} section="presets" />);
-    for (const famille of ['Juger', 'Recopier', 'Synthétiser', 'Porter la voix']) {
+    for (const famille of ['Juger', 'Recopier', 'Synthétiser', 'Porter la voix', 'Illustrer']) {
       expect(container.textContent).toContain(famille);
     }
     // Ce que la famille implique pour la dépense…
@@ -289,6 +291,30 @@ describe('espace Réglages', () => {
     // …et ce qui est propre à une action.
     expect(container.textContent).toContain('la conversation grossit à chaque tour');
     expect(container.textContent).not.toContain('Ce qui compte vraiment');
+  });
+
+  /**
+   * Cinq réglages au lieu de neuf (03/11/2026) : un par famille. Une action
+   * réglée à part le dit sur la carte de sa famille, et y revient d'un clic.
+   */
+  it('un modèle par famille ; une action réglée à part se voit sur sa famille, et y revient', async () => {
+    const image = { ...MODELS[0], id: 'img', name: 'Nano Banana Pro', apiCode: 'google/gemini-3-pro-image', provider: 'openrouter', sortie: 'image' as const };
+    const remettre = vi.spyOn(Api, 'setActionModel').mockResolvedValue({ action: 'COLD_READ', modelId: null });
+    const changer = vi.fn();
+    const { container, getByText } = render(<SettingsSpace {...(props as any)} section="presets" aiModels={[...MODELS, image]}
+      actionModels={{ COLD_READ: 'm1' }} onActionModelsChange={changer} familleModels={{ voix: 'm1', illustrer: 'img' }} />);
+    const selects = Array.from(container.querySelectorAll('select'));
+    // Les cinq familles d'abord, puis les neuf actions, repliées.
+    expect(selects).toHaveLength(14);
+    expect(selects.slice(0, 5).map(s => s.value)).toEqual(['', '', '', 'm1', 'img']);
+    // Le menu d'Illustrer ne propose que les modèles d'image ; les autres, jamais.
+    expect(Array.from(selects[4].querySelectorAll('option')).map(o => o.value)).toEqual(['', 'img']);
+    expect(Array.from(selects[3].querySelectorAll('option')).map(o => o.value)).toEqual(['', 'm1']);
+    expect(container.textContent).toContain('Relecture à froid suit son propre réglage : GPT-5.2 Pro.');
+    expect(container.textContent).toContain('1 réglée à part');
+    fireEvent.click(getByText('Suivre la famille'));
+    await waitFor(() => expect(remettre).toHaveBeenCalledWith('COLD_READ', null));
+    expect(changer).toHaveBeenCalledWith({});
   });
 
   it('les sélecteurs d’action rangent les modèles sous leur adaptateur', () => {

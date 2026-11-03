@@ -4,7 +4,7 @@ import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, isObject
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import {
-  AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection,
+  AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection, familleDeAction,
   etapeCourante, dernierFait, resumerLeFait, momentDuFait, estEtape,
   type Etape, type EtapeCourante, type PlanSeriesEntry, type SerieSibling,
 } from '@luminose/editorial';
@@ -154,6 +154,8 @@ function App() {
   const [series, setSeries] = useState<Serie[]>([]);
   /** Modèle affecté à chaque action ; une action absente prend le modèle actif. */
   const [actionModels, setActionModels] = useState<Record<string, string>>({});
+  /** Le modèle de chaque famille (03/11/2026) : le repli d'une action sans réglage. */
+  const [familleModels, setFamilleModels] = useState<Record<string, string>>({});
   
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -222,7 +224,7 @@ function App() {
    * moitié de l'information quand on doute de son fournisseur (SPEC §3.5.1).
    */
   useEffect(() => { Activite.enregistrerModeles(aiModels); }, [aiModels]);
-  useEffect(() => { enregistrerCatalogue(aiModels, null); }, [aiModels]);
+  useEffect(() => { enregistrerCatalogue(aiModels, familleModels.illustrer ?? null); }, [aiModels, familleModels]);
 
   /**
    * Tout échec d'appel IA s'annonce ici, quelle que soit sa provenance : le
@@ -290,13 +292,17 @@ function App() {
       [...list].sort((a, b) => b.updatedAt - a.updatedAt);
 
   /**
-   * Le modèle d'une action : son preset, à condition que ce modèle existe
-   * encore au catalogue — sinon le modèle actif. Un preset qui pointe vers un
-   * modèle supprimé ne doit pas faire échouer l'action au moment de l'appel.
+   * Le modèle d'une action : son réglage, sinon celui de sa famille, sinon le
+   * modèle actif — à condition que ce modèle existe encore au catalogue et
+   * qu'il écrive. Un réglage qui pointe vers un modèle supprimé ne doit pas
+   * faire échouer l'action au moment de l'appel.
    */
   const modelFor = (action: string): string => {
+      const ecrit = (id: string | undefined): id is string => !!id && aiModels.some(m => m.id === id && m.sortie !== 'image');
       const preset = actionModels[action];
-      return preset && aiModels.some(m => m.id === preset) ? preset : activeModelId;
+      if (ecrit(preset)) return preset;
+      const famille = familleModels[familleDeAction(action) ?? ''];
+      return ecrit(famille) ? famille : activeModelId;
   };
 
   useEffect(() => {
@@ -517,6 +523,7 @@ function App() {
         setAiModels(nextModels);
         setSeries(nextSeries);
         setActionModels(actionRes.actions ?? {});
+        setFamilleModels(actionRes.familles ?? {});
         setProviders(providerRes.providers ?? []);
 
         await Promise.all([
@@ -1192,14 +1199,14 @@ function App() {
             </div>
 
             <div className="flex items-center gap-1.5">
-                 {/* Sélecteur global du modèle IA — utilisé par toutes les actions. Sur téléphone, il
-                     céderait toute la place au titre : chaque action garde son modèle réglé. */}
+                 {/* Sélecteur global du modèle IA — le repli des familles sans réglage (Réglages → Modèles
+                     par famille). Sur téléphone, il céderait toute la place au titre : chaque famille garde le sien. */}
                  <div className="relative hidden md:flex items-center">
                      <Cpu className="w-[13px] h-[13px] absolute left-2 text-brand-main dark:text-dark-text pointer-events-none" />
                      <select
                         value={activeModelId}
                         onChange={(e) => handleActiveModelChange(e.target.value)}
-                        title="Modèle IA utilisé par toutes les actions"
+                        title="Modèle IA des familles sans réglage — Réglages → Modèles par famille"
                         className="appearance-none pl-6 pr-6 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
                      >
                         {modelesDeTexte(aiModels).length === 0 && <option value="">Aucun modèle configuré</option>}
@@ -1313,6 +1320,8 @@ function App() {
                 onActiveModelChange={handleActiveModelChange}
                 actionModels={actionModels}
                 onActionModelsChange={setActionModels}
+                familleModels={familleModels}
+                onFamilleModelsChange={setFamilleModels}
                 providers={providers}
                 onProvidersChange={setProviders}
             />

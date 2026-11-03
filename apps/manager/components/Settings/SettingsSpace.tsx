@@ -18,12 +18,12 @@ import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
 import { EnCours, Patience } from '../Feedback';
 import {
-    VOICE_RULES, AI_ACTION_CATALOG, ATTENDU_FAMILLES, ATTENDU_ORDRE,
+    VOICE_RULES, AI_ACTION_CATALOG, ATTENDU_FAMILLES, FAMILLES_MODELE, sortieDeFamille,
     profilerModele, normaliserNomModele,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
 import { APERCUS, compterPresences, VOIX_ID } from './apercus';
-import { Bouton, CLASSES_CHAMP, ControleSegmente, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
+import { Bouton, Carte, CLASSES_CHAMP, ControleSegmente, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
 
 interface SettingsSpaceProps {
     section: SettingsSection;
@@ -36,6 +36,9 @@ interface SettingsSpaceProps {
     onActiveModelChange: (modelId: string) => void;
     actionModels: Record<string, string>;
     onActionModelsChange: (map: Record<string, string>) => void;
+    /** Le modèle de chaque famille (03/11/2026) : Juger, Recopier, Synthétiser, Porter la voix, Illustrer. */
+    familleModels: Record<string, string>;
+    onFamilleModelsChange: (map: Record<string, string>) => void;
     /** Adaptateurs et état de leur clé, chargés par l'application. */
     providers: Api.ProviderKeyState[];
     onProvidersChange: (providers: Api.ProviderKeyState[]) => void;
@@ -203,7 +206,7 @@ const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.Re
 export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     section, persona,
     aiModels, onModelsChange, activeModelId, onActiveModelChange,
-    actionModels, onActionModelsChange, providers, onProvidersChange,
+    actionModels, onActionModelsChange, familleModels, onFamilleModelsChange, providers, onProvidersChange,
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
@@ -388,6 +391,21 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
             setProviderError(e?.message || "La clé n'a pas pu être effacée.");
         } finally {
             setProviderBusy(null);
+        }
+    };
+
+    const handleFamilleModel = async (famille: string, modelId: string) => {
+        setPresetBusy(`famille:${famille}`);
+        setSaveError(null);
+        try {
+            await Api.setFamilleModel(famille, modelId || null);
+            const suite = { ...familleModels };
+            if (modelId) suite[famille] = modelId; else delete suite[famille];
+            onFamilleModelsChange(suite);
+        } catch (e) {
+            setSaveError(describeError(e));
+        } finally {
+            setPresetBusy(null);
         }
     };
 
@@ -1307,13 +1325,16 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 )}
 
                 {/* ─── MODÈLE PAR ACTION ─── */}
-                {section === 'presets' && (
+                {section === 'presets' && (() => {
+                    const nomDe = (id: string) => aiModels.find(m => m.id === id)?.name ?? 'un modèle retiré du catalogue';
+                    const aPart = AI_ACTION_CATALOG.filter(a => actionModels[a.id]);
+                    return (
                     <div className="space-y-6 animate-fade-in">
                         <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
-                            Chaque action peut avoir son modèle. Sans réglage, elle prend celui du sélecteur en haut
-                            de l'application. Les actions sont rangées par ce qu'elles demandent — les classements
-                            publics, eux, mesurent la capacité à coder et à raisonner, ce qu'aucune de ces tâches
-                            ne réclame.
+                            Un modèle par famille de travail. Sans réglage, une famille qui écrit prend le modèle
+                            choisi en haut de l'application, et Illustrer le premier modèle d'image du catalogue.
+                            Les familles sont rangées par ce qu'elles demandent — les classements publics, eux,
+                            mesurent la capacité à coder et à raisonner, ce qu'aucune de ces tâches ne réclame.
                         </p>
 
                         {saveError && (
@@ -1323,53 +1344,78 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         )}
 
                         {/*
-                            Le conseil est rendu PAR FAMILLE et PAR ACTION, pas en préambule :
-                            il doit être sous les yeux au moment où le menu s'ouvre, sinon il
-                            ne sert qu'une fois, à la première lecture.
+                            Le conseil reste sous les yeux au moment où le menu s'ouvre : sur la
+                            carte de la famille, pas en préambule, où il ne servirait qu'une fois.
                         */}
-                        {ATTENDU_ORDRE.map(attendu => {
-                            const famille = ATTENDU_FAMILLES[attendu];
-                            const actions = AI_ACTION_CATALOG.filter(a => a.attendu === attendu);
-                            if (!famille || actions.length === 0) return null;
-                            return (
-                                <div key={attendu}>
-                                    <div className="border-l-2 border-brand-main dark:border-white pl-4 py-0.5 mb-3">
-                                        <p className="text-sm font-bold text-brand-main dark:text-white">{famille.titre}</p>
-                                        <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text mt-0.5">
-                                            {famille.demande}
-                                        </p>
-                                        <p className="text-xs leading-relaxed text-brand-main dark:text-white mt-1 font-semibold">
-                                            → {famille.choix}
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                        {actions.map(action => (
-                                            <div
-                                                key={action.id}
-                                                className="p-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex flex-col gap-3"
-                                            >
-                                                <div className="flex items-baseline justify-between gap-2">
-                                                    <span className="text-sm font-bold text-brand-main dark:text-white">{action.label}</span>
-                                                    <span className="text-micro text-brand-main dark:text-dark-text whitespace-nowrap">{action.persona}</span>
-                                                </div>
-                                                <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text flex-1">
-                                                    {action.pourChoisir}
-                                                </p>
-                                                <SelecteurModele
-                                                    value={actionModels[action.id] ?? ''}
-                                                    disabled={presetBusy === action.id}
-                                                    onChange={id => handleActionModel(action.id, id)}
-                                                    vide="— Modèle actif —"
-                                                />
-                                            </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {FAMILLES_MODELE.map(id => {
+                                const famille = ATTENDU_FAMILLES[id];
+                                if (!famille) return null;
+                                const actions = AI_ACTION_CATALOG.filter(a => a.attendu === id);
+                                const exceptions = actions.filter(a => actionModels[a.id]);
+                                return (
+                                    <Carte key={id} rythme>
+                                        <div className="flex items-baseline justify-between gap-3">
+                                            <span className="text-sm font-bold text-brand-main dark:text-white">{famille.titre}</span>
+                                            <span className="text-micro text-right text-brand-main dark:text-dark-text">
+                                                {actions.length > 0 ? actions.map(a => a.label).join(' · ') : 'Les illustrations du Reel expliqué'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text">{famille.demande}</p>
+                                        <p className="text-xs leading-relaxed font-semibold text-brand-main dark:text-white">→ {famille.choix}</p>
+                                        <SelecteurModele
+                                            sortie={sortieDeFamille(id)}
+                                            value={familleModels[id] ?? ''}
+                                            disabled={presetBusy === `famille:${id}`}
+                                            onChange={modelId => handleFamilleModel(id, modelId)}
+                                            vide={sortieDeFamille(id) === 'image' ? '— Le premier modèle d’image —' : '— Modèle de l’en-tête —'}
+                                        />
+                                        {exceptions.map(a => (
+                                            <p key={a.id} className="flex flex-wrap items-center gap-2 text-xs text-brand-main dark:text-dark-text">
+                                                <span><span className="font-semibold">{a.label}</span> suit son propre réglage : {nomDe(actionModels[a.id])}.</span>
+                                                <Bouton taille="petit" intention="discrete" disabled={presetBusy === a.id}
+                                                    onClick={() => void handleActionModel(a.id, '')}>
+                                                    Suivre la famille
+                                                </Bouton>
+                                            </p>
                                         ))}
+                                    </Carte>
+                                );
+                            })}
+                        </div>
+
+                        {/* Le réglage fin reste possible, replié : il l'emporte sur la famille, et se dit sur sa carte. */}
+                        <details className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+                            <summary className="px-4 py-3 text-sm font-semibold text-brand-main dark:text-white cursor-pointer">
+                                Régler une action à part
+                                {aPart.length > 0 && <span className="font-normal"> — {aPart.length} réglée{aPart.length > 1 ? 's' : ''} à part</span>}
+                            </summary>
+                            <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {AI_ACTION_CATALOG.map(action => (
+                                    <div
+                                        key={action.id}
+                                        className="p-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex flex-col gap-3"
+                                    >
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <span className="text-sm font-bold text-brand-main dark:text-white">{action.label}</span>
+                                            <span className="text-micro text-brand-main dark:text-dark-text whitespace-nowrap">{ATTENDU_FAMILLES[action.attendu]?.titre}</span>
+                                        </div>
+                                        <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text flex-1">
+                                            {action.pourChoisir}
+                                        </p>
+                                        <SelecteurModele
+                                            value={actionModels[action.id] ?? ''}
+                                            disabled={presetBusy === action.id}
+                                            onChange={id => handleActionModel(action.id, id)}
+                                            vide="— Celui de sa famille —"
+                                        />
                                     </div>
-                                </div>
-                            );
-                        })}
+                                ))}
+                            </div>
+                        </details>
                     </div>
-                )}
+                    );
+                })()}
 
                 {/* ─── CLÉS DES FOURNISSEURS ─── */}
                 {section === 'providers' && (

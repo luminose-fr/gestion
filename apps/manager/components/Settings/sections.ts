@@ -18,7 +18,7 @@ export const SETTINGS_SECTIONS: Array<{
     icon: React.ComponentType<{ className?: string }>;
 }> = [
     { id: 'models',    label: 'Modèles IA',             sousTitre: 'Le catalogue, rangé par adaptateur',     icon: Cpu },
-    { id: 'presets',   label: 'Modèle par action',      sousTitre: 'Quel modèle sert quelle tâche',          icon: Crosshair },
+    { id: 'presets',   label: 'Modèles par famille',    sousTitre: 'Quel modèle sert quel travail',          icon: Crosshair },
     { id: 'mesures',   label: 'Mesures',                sousTitre: 'Ce que chaque action consomme, et en combien de temps', icon: Gauge },
     { id: 'quotas',    label: 'Quotas Cloudflare',      sousTitre: 'La consommation du jour, face au plan gratuit', icon: Cloud },
     { id: 'providers', label: 'Clés des fournisseurs',  sousTitre: 'Écriture seule — rien ne revient',       icon: KeyRound },
