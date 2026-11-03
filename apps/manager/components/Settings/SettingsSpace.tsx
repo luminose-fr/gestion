@@ -12,7 +12,7 @@ import {
     Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw,
 } from 'lucide-react';
-import { AIModel, DisplayPrefs, DEFAULT_DISPLAY_PREFS, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
+import { AIModel, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
 import * as Api from '../../services/apiService';
 import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
@@ -29,8 +29,6 @@ interface SettingsSpaceProps {
     section: SettingsSection;
     /** Le rôle ouvert sous Personas — il vient de la route, comme le bloc du Corpus. */
     persona: string | null;
-    displayPrefs: DisplayPrefs;
-    onDisplayPrefsChange: (prefs: DisplayPrefs) => void;
     aiModels: AIModel[];
     onModelsChange: (models: AIModel[]) => void;
     /** Modèle IA actif global — un identifiant du catalogue, jamais un code d'API. */
@@ -189,35 +187,6 @@ const CHAMP = CLASSES_CHAMP;
 
 // ─── Atomes ───────────────────────────────────────────────────────────────
 
-const ToggleSwitch: React.FC<{
-    label: string;
-    description?: string;
-    value: boolean;
-    onChange: (value: boolean) => void;
-}> = ({ label, description, value, onChange }) => (
-    <div className="flex items-center justify-between gap-4 px-4 py-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl">
-        <div className="min-w-0">
-            <p className="text-sm font-semibold text-brand-main dark:text-white">{label}</p>
-            {description && (
-                <p className="text-xs text-brand-main dark:text-dark-text mt-0.5 leading-snug">{description}</p>
-            )}
-        </div>
-        <button
-            type="button"
-            role="switch"
-            aria-checked={value}
-            onClick={() => onChange(!value)}
-            className={`relative shrink-0 w-10 h-[22px] rounded-full transition-colors duration-200 ${
-                value ? 'bg-brand-main dark:bg-white' : 'bg-brand-border dark:bg-dark-sec-border'
-            }`}
-        >
-            <span className={`absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white dark:bg-brand-main shadow-xs transition-transform duration-200 ${
-                value ? 'translate-x-[18px]' : 'translate-x-0'
-            }`} />
-        </button>
-    </div>
-);
-
 /** En-tête de groupe : un titre, ce qu'il regroupe, et un filet. */
 const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.ReactNode }> = ({ titre, detail, droite }) => (
     <div className="flex items-baseline justify-between gap-3 border-b border-brand-border dark:border-dark-sec-border pb-1.5 mb-3">
@@ -232,7 +201,7 @@ const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.Re
 // ─── Composant ────────────────────────────────────────────────────────────
 
 export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
-    section, persona, displayPrefs, onDisplayPrefsChange,
+    section, persona,
     aiModels, onModelsChange, activeModelId, onActiveModelChange,
     actionModels, onActionModelsChange, providers, onProvidersChange,
 }) => {
@@ -303,11 +272,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const [testProvider, setTestProvider] = useState('onemin');
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [testResult, setTestResult] = useState<AiService.ModelTestResult | null>(null);
-
-    const prefs = { ...DEFAULT_DISPLAY_PREFS, ...displayPrefs };
-    const setPref = <K extends keyof DisplayPrefs>(key: K, value: DisplayPrefs[K]) => {
-        onDisplayPrefsChange({ ...prefs, [key]: value });
-    };
 
     // Changer de section referme les vues de détail : rester dans l'éditeur
     // d'un modèle en arrivant sur les Personas n'aurait aucun sens.
@@ -734,83 +698,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
             <div className={ecran('liste')}>
 
                 {/* ─── AFFICHAGE ─── */}
-                {section === 'display' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-fade-in">
-                        <div className="space-y-2">
-                            <Etiquette className="mb-3">Espace Contenus</Etiquette>
-                            <ToggleSwitch
-                                label="Bande verdict colorée"
-                                description="Trait coloré à gauche de chaque idée"
-                                value={prefs.showVerdictStripe}
-                                onChange={v => setPref('showVerdictStripe', v)}
-                            />
-                            <ToggleSwitch
-                                label="Plateformes"
-                                description="Badges LinkedIn, Instagram, etc."
-                                value={prefs.showPlatforms}
-                                onChange={v => setPref('showPlatforms', v)}
-                            />
-                            <ToggleSwitch
-                                label="Niveau d'analyse"
-                                description="Direct, Légère, Complète"
-                                value={prefs.showDepth}
-                                onChange={v => setPref('showDepth', v)}
-                            />
-                            <ToggleSwitch
-                                label="Objectif"
-                                description="Notoriété, Recadrage, Conversion..."
-                                value={prefs.showObjectif}
-                                onChange={v => setPref('showObjectif', v)}
-                            />
-                        </div>
-
-                        <div>
-                            <Etiquette className="mb-3">Aperçu</Etiquette>
-                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface overflow-hidden flex">
-                                {prefs.showVerdictStripe && <div className="w-1 bg-succes shrink-0" />}
-                                <div className="p-4 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                                        <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-succes/10 text-succes border-succes/30">
-                                            Valide
-                                        </span>
-                                        <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                            Post Texte (Court)
-                                        </span>
-                                        {prefs.showObjectif && (
-                                            <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-main/20 dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                Éducation pratique
-                                            </span>
-                                        )}
-                                        {prefs.showDepth && (
-                                            <span className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                Légère
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="font-semibold text-sm text-brand-main dark:text-white">
-                                        Non, vous n'allez pas perdre le contrôle
-                                    </p>
-                                    <p className="mt-1 text-xs leading-5 text-brand-main dark:text-dark-text">
-                                        La peur de lâcher prise, et ce que le cadre de la séance rend possible.
-                                    </p>
-                                    {prefs.showPlatforms && (
-                                        <div className="flex flex-wrap gap-1.5 mt-2">
-                                            {['LinkedIn', 'Facebook'].map(p => (
-                                                <span key={p} className="inline-flex items-center rounded-full border text-micro px-1.5 py-0.5 font-semibold bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
-                                                    {p}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <p className="mt-3 px-1 text-micro leading-relaxed text-brand-main dark:text-dark-text">
-                                L'aperçu suit les réglages : c'est la ligne telle qu'elle apparaîtra dans la boîte à idées.
-                            </p>
-                        </div>
-                    </div>
-                )}
-
                 {/* ─── MODÈLES IA — catalogue ─── */}
                 {section === 'models' && !isInModelEditor && !isInExplorer && (
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start animate-fade-in">

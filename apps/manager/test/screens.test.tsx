@@ -75,7 +75,7 @@ const MONTAGE_SANS_R2 = {
 };
 import { Barre, BandeauActivite, EnCours, FiletActivite, Patience } from '../components/Feedback';
 import * as Activite from '../services/activityService';
-import { ContentStatus, DEFAULT_DISPLAY_PREFS } from '../types';
+import { ContentStatus } from '../types';
 import type { AIModel, ContentItem, Serie, CoachMessage, CoachSession } from '../types';
 
 const now = Date.now();
@@ -116,8 +116,6 @@ afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe('espace Réglages', () => {
   const props = {
-    displayPrefs: DEFAULT_DISPLAY_PREFS,
-    onDisplayPrefsChange: noop,
     aiModels: MODELS,
     onModelsChange: noop,
     activeModelId: 'm1',
@@ -1797,7 +1795,7 @@ describe('Corpus — navigation à trois niveaux', () => {
   const props = {
     currentSpace: 'corpus' as const,
     currentSocialTab: 'conversations' as const,
-    currentSettingsSection: 'display' as const,
+    currentSettingsSection: 'models' as const,
     currentSettingsPersona: null,
     onNavigate: () => {},
     onNavigateSettings: () => {},
@@ -1840,7 +1838,7 @@ describe('Corpus — navigation à trois niveaux', () => {
 
   it('le troisième panneau des rôles apparaît sous Personas, et pas ailleurs', () => {
     const sansRoles = render(
-      <Sidebar {...props} currentSpace="settings" currentSettingsSection="display"
+      <Sidebar {...props} currentSpace="settings" currentSettingsSection="models"
         currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
     );
     expect(sansRoles.container.querySelectorAll('aside > div').length).toBe(2);
@@ -1881,7 +1879,7 @@ describe('Corpus — navigation sur téléphone', () => {
 
   const props = {
     currentTab: 'conversations' as const,
-    currentSettingsSection: 'display' as const,
+    currentSettingsSection: 'models' as const,
     onNavigate: () => {},
     onNavigateSettings: () => {},
     counts: { conversations: 0, ideas: 0, publies: 0 },
@@ -2572,7 +2570,7 @@ describe('Reel expliqué — prise et rendu', () => {
 describe('la navigation de Contenus (SPEC §13)', () => {
   it('trois entrées, chacune avec son compteur, et plus d’espace Vidéos', () => {
     const { container } = render(<Sidebar
-      currentSpace="social" currentSocialTab="conversations" currentSettingsSection="display" currentSettingsPersona={null}
+      currentSpace="social" currentSocialTab="conversations" currentSettingsSection="models" currentSettingsPersona={null}
       currentCorpusSection="etat" currentCorpusBloc={null}
       onNavigate={noop} onNavigateSettings={noop} onNavigateCorpus={noop}
       counts={{ conversations: 25, ideas: 44, publies: 17 }} isMobileOpen={false} onMobileClose={noop} />);
@@ -2580,7 +2578,7 @@ describe('la navigation de Contenus (SPEC §13)', () => {
     expect(container.textContent).toContain('Idées44');
     expect(container.textContent).toContain('Publiés17');
     expect(container.querySelector('[title="Vidéos"]')).toBeNull();
-    const mobile = render(<MobileSubTabs space="social" currentTab="ideas" currentSettingsSection="display"
+    const mobile = render(<MobileSubTabs space="social" currentTab="ideas" currentSettingsSection="models"
       onNavigate={noop} onNavigateSettings={noop} counts={{ conversations: 25, ideas: 44, publies: 17 }} />);
     expect(mobile.container.textContent).toContain('Publiés');
   });

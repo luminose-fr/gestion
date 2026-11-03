@@ -1,4 +1,4 @@
-import { ContentItem, AIModel, Serie, AppSettings, DisplayPrefs, DEFAULT_DISPLAY_PREFS } from "../types";
+import { ContentItem, AIModel, Serie, AppSettings } from "../types";
 
 const DB_NAME = "LuminoseDB";
 /**
@@ -160,31 +160,22 @@ export const setLastFullSync = (scope: SyncScope, isoDate: string): void => {
   safeSetLocalStorage(`${FULL_SYNC_PREFIX}${scope}`, isoDate);
 };
 
+/**
+ * Les réglages locaux. Un ancien `displayPrefs` peut y traîner : la section
+ * Affichage a été retirée le 03/11/2026, plus rien ne le lit.
+ */
 export const getAppSettings = (): AppSettings => {
   const raw = safeGetLocalStorage(APP_SETTINGS_KEY);
-  if (!raw) return { displayPrefs: { ...DEFAULT_DISPLAY_PREFS } };
+  if (!raw) return {};
   try {
-    const parsed = JSON.parse(raw) as AppSettings;
-    return {
-      ...parsed,
-      displayPrefs: { ...DEFAULT_DISPLAY_PREFS, ...(parsed.displayPrefs || {}) },
-    };
+    return JSON.parse(raw) as AppSettings;
   } catch {
-    return { displayPrefs: { ...DEFAULT_DISPLAY_PREFS } };
+    return {};
   }
 };
 
 export const setAppSettings = (settings: AppSettings): void => {
   safeSetLocalStorage(APP_SETTINGS_KEY, JSON.stringify(settings));
-};
-
-export const getDisplayPrefs = (): DisplayPrefs => {
-  return getAppSettings().displayPrefs || { ...DEFAULT_DISPLAY_PREFS };
-};
-
-export const setDisplayPrefs = (prefs: DisplayPrefs): void => {
-  const current = getAppSettings();
-  setAppSettings({ ...current, displayPrefs: prefs });
 };
 
 /** Modèle IA actif (vérité runtime côté app). undefined = pas encore choisi → seed depuis le catalogue. */

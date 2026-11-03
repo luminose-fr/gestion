@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { RefreshCw, LogOut, AlertCircle, Menu, Cpu, ChevronDown } from 'lucide-react';
-import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, DisplayPrefs, isObjectif, isProfondeur } from './types';
+import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import {
@@ -78,7 +78,7 @@ const getHashState = () => {
     // nomme le rôle ouvert sous Personas, comme le bloc sous Documents :
     // une destination, pas un filtre — elle survit au rechargement.
     const settingsSection: SettingsSection =
-        space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'display';
+        space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'models';
     const settingsPersona: string | null =
         settingsSection === 'personas'
             ? (personaParId(parts[2])?.id ?? PERSONAS_NAV[0].id)
@@ -167,7 +167,7 @@ function App() {
    *  pas au démarrage : personne ne paie deux requêtes pour un espace qu'il
    *  n'ouvrira peut-être pas de la journée. */
   const [corpusCounts, setCorpusCounts] = useState<{ inbox?: number; parBloc?: Record<string, number> }>({});
-  const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('display');
+  const [currentSettingsSection, setCurrentSettingsSection] = useState<SettingsSection>('models');
   const [currentSettingsPersona, setCurrentSettingsPersona] = useState<string | null>(null);
   
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -197,13 +197,6 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Adaptateurs et état de leur clé — l'écriture seule fait que seule l'empreinte revient (SPEC §5.5). */
   const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
-
-  const [displayPrefs, setDisplayPrefsState] = useState<DisplayPrefs>(() => StorageService.getDisplayPrefs());
-
-  const handleDisplayPrefsChange = (prefs: DisplayPrefs) => {
-      setDisplayPrefsState(prefs);
-      StorageService.setDisplayPrefs(prefs);
-  };
 
   // Modèle IA actif — vérité runtime localStorage, seedé depuis le modèle « Défaut » du catalogue.
   const [activeModelId, setActiveModelIdState] = useState<string>(
@@ -1310,8 +1303,6 @@ function App() {
             <SettingsSpace
                 section={currentSettingsSection}
                 persona={currentSettingsPersona}
-                displayPrefs={displayPrefs}
-                onDisplayPrefsChange={handleDisplayPrefsChange}
                 aiModels={aiModels}
                 onModelsChange={handleModelsChange}
                 activeModelId={activeModelId}

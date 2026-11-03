@@ -3,12 +3,12 @@
  * mobiles et l'écran lui-même — pour qu'une section ajoutée le soit à un
  * seul endroit.
  */
-import { SlidersHorizontal, Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud } from 'lucide-react';
+import { Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud } from 'lucide-react';
 import type { AIModel } from '../../types';
 import type { ProviderKeyState } from '../../services/apiService';
 
 export type SettingsSection =
-    | 'display' | 'models' | 'presets' | 'mesures' | 'quotas' | 'providers' | 'personas' | 'backup';
+    | 'models' | 'presets' | 'mesures' | 'quotas' | 'providers' | 'personas' | 'backup';
 
 export const SETTINGS_SECTIONS: Array<{
     id: SettingsSection;
@@ -17,7 +17,6 @@ export const SETTINGS_SECTIONS: Array<{
     sousTitre: string;
     icon: React.ComponentType<{ className?: string }>;
 }> = [
-    { id: 'display',   label: 'Affichage',              sousTitre: 'Ce que montrent les listes de contenus', icon: SlidersHorizontal },
     { id: 'models',    label: 'Modèles IA',             sousTitre: 'Le catalogue, rangé par adaptateur',     icon: Cpu },
     { id: 'presets',   label: 'Modèle par action',      sousTitre: 'Quel modèle sert quelle tâche',          icon: Crosshair },
     { id: 'mesures',   label: 'Mesures',                sousTitre: 'Ce que chaque action consomme, et en combien de temps', icon: Gauge },
