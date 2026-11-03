@@ -96,6 +96,19 @@ export const comparerVersions = (a: number[], b: number[]): number => {
 };
 
 /**
+ * Le nom d'une version qu'une source publie sans nom (1min.ai ne donne que des
+ * codes) : celui de la version d'avant, son numéro remplacé — « GPT-5.2 Pro »
+ * devient « GPT-5.5 Pro ». Sans le numéro d'avant écrit tel quel dans le nom,
+ * on ne devine pas : le code reste le nom, et Florent le corrige à l'enregistrement.
+ */
+export const nomDeVersion = (ancienNom: string, ancienne: number[], nouvelle: number[]): string | null => {
+  const avant = ancienne.join('.');
+  const motif = new RegExp(`(^|[^0-9.])${avant.replace(/\./g, '\\.')}(?![0-9]|\\.[0-9])`);
+  if (!motif.test(ancienNom)) return null;
+  return ancienNom.replace(motif, (_, bord: string) => `${bord}${nouvelle.join('.')}`);
+};
+
+/**
  * Une proposition par lignée, au plus : la version la plus haute publiée, si
  * elle dépasse la plus haute que le catalogue porte déjà. Une proposition
  * écartée par Florent ne revient pas — mais une version plus récente encore,
@@ -136,13 +149,15 @@ export const nouvellesVersions = (
   }
 
   const propositions: NouvelleVersion[] = [];
-  for (const [squelette, { publie }] of meilleures) {
+  for (const [squelette, { publie, version }] of meilleures) {
     if (ecartes.has(publie.id)) continue;
+    const tete = tetes.get(squelette)!;
+    const sansNom = publie.name.trim() === '' || publie.name === publie.id;
     propositions.push({
       apiCode: publie.id,
-      name: publie.name,
+      name: (sansNom && nomDeVersion(tete.modele.name, tete.version, version)) || publie.name,
       creeLe: publie.creeLe,
-      remplace: tetes.get(squelette)!.modele,
+      remplace: tete.modele,
     });
   }
   return propositions;

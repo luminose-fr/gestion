@@ -4,7 +4,7 @@
  * comme mise à jour d'un « Pro » ferait descendre le flux en gamme sans bruit.
  */
 import { describe, it, expect } from 'vitest';
-import { comparerVersions, decomposerCode, nouvellesVersions } from '../src/veille';
+import { comparerVersions, decomposerCode, nomDeVersion, nouvellesVersions } from '../src/veille';
 
 const suivi = (apiCode: string, id = apiCode) => ({ id, name: apiCode, apiCode });
 const publie = (id: string, creeLe: number | null = null) => ({ id, name: id, creeLe });
@@ -91,5 +91,31 @@ describe('nouvellesVersions', () => {
   it('suit aussi les modèles d’image', () => {
     const r = nouvellesVersions([suivi('google/gemini-3-pro-image')], [publie('google/gemini-3.5-pro-image'), publie('google/gemini-3.5-flash-image')]);
     expect(r.map(p => p.apiCode)).toEqual(['google/gemini-3.5-pro-image']);
+  });
+});
+
+/**
+ * 1min.ai ne publie que des codes. « Mettre à jour » écrit le nom proposé dans
+ * la fiche : « gpt-5.5-pro » à la place de « GPT-5.2 Pro » serait une régression.
+ */
+describe('nomDeVersion', () => {
+  it('remplace le numéro dans le nom d’avant', () => {
+    expect(nomDeVersion('GPT-5.2 Pro', [5, 2], [5, 5])).toBe('GPT-5.5 Pro');
+    expect(nomDeVersion('Claude Opus 4.5', [4, 5], [5])).toBe('Claude Opus 5');
+    expect(nomDeVersion('Kimi K2.6', [2, 6], [3])).toBe('Kimi K3');
+  });
+
+  it('ne devine pas quand le numéro n’est pas écrit tel quel', () => {
+    expect(nomDeVersion('Mon modèle de rédaction', [5, 2], [5, 5])).toBeNull();
+    // « 5.2 » ne se confond pas avec « 15.2 » ni avec « 5.21 ».
+    expect(nomDeVersion('Truc 15.2', [5, 2], [5, 5])).toBeNull();
+    expect(nomDeVersion('Truc 5.21', [5, 2], [5, 5])).toBeNull();
+  });
+
+  it('sert seulement quand la source ne donne pas de nom', () => {
+    const suivis = [{ id: 'm1', name: 'GPT-5.2 Pro', apiCode: 'gpt-5.2-pro' }];
+    expect(nouvellesVersions(suivis, [publie('gpt-5.5-pro')])[0].name).toBe('GPT-5.5 Pro');
+    expect(nouvellesVersions(suivis, [{ id: 'gpt-5.5-pro', name: 'GPT‑5.5 Pro (nouveau)', creeLe: null }])[0].name)
+      .toBe('GPT‑5.5 Pro (nouveau)');
   });
 });
