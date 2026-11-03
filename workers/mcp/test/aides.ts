@@ -82,6 +82,8 @@ export const creerEnv = (surcharges: Partial<Env> = {}): EnvFactice => {
     ADS_CAMPAGNE_MODELE: '111',
     GITHUB_TOKEN: 'jeton-github-de-test',
     CORPUS_ECRITURES_MAX_JOUR: '20',
+    CONSOLE_JETON: 'jeton-console-de-test',
+    CONTENUS_ECRITURES_MAX_JOUR: '10',
     ...surcharges,
   } as EnvFactice;
 };

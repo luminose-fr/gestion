@@ -11,6 +11,7 @@
  * TAG MANAGER : outils-gtm.ts (08/10/2026) — lire le conteneur du site ;
  * outils-gtm-ecriture.ts (09/10/2026) — y préparer, dans l'espace « [Claude] », ce que Florent publie ;
  * outils-gtm-modification.ts (11/10/2026) — y modifier une balise existante, de trois façons.
+ * LES CONTENUS : outils-contenus.ts (03/11/2026) — lire et écrire ceux de la console, par son API.
  *
  * Le vocabulaire évite « action » dans les noms, les champs et les schémas :
  * dans ce dépôt, le mot désigne une action IA du catalogue.
@@ -32,6 +33,7 @@ import { OUTILS_GTM } from './outils-gtm';
 import { OUTILS_GTM_ECRITURE } from './outils-gtm-ecriture';
 import { OUTILS_GTM_MODIFICATION } from './outils-gtm-modification';
 import { OUTILS_CORPUS } from './outils-corpus';
+import { OUTILS_CONTENUS } from './outils-contenus';
 import type { Contexte } from './ecriture';
 import type { Env } from './env';
 
@@ -188,7 +190,7 @@ const requeteGaql = outil({
 
 // ── Registre ─────────────────────────────────────────────────────────────
 
-const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_REACTIVER, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_ELEMENTS, ...OUTILS_DEMAND_GEN, ...OUTILS_GTM, ...OUTILS_GTM_ECRITURE, ...OUTILS_GTM_MODIFICATION, ...OUTILS_CORPUS] as const;
+const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_REACTIVER, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_ELEMENTS, ...OUTILS_DEMAND_GEN, ...OUTILS_GTM, ...OUTILS_GTM_ECRITURE, ...OUTILS_GTM_MODIFICATION, ...OUTILS_CORPUS, ...OUTILS_CONTENUS] as const;
 
 /**
  * Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en

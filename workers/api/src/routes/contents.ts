@@ -11,13 +11,16 @@ import {
   AppendCoachMessageSchema, UpdateCoachSchema, CreateGenerationSchema,
   SyncQuerySchema, type CoachSession, type ResumeFil, type ResumeFils, type DernierDuFil,
 } from '@luminose/shared';
-import type { Env } from '../env';
+import { getFormatDef, getFormatPromptTemplate, isTargetFormat, parseDraftResponse } from '@luminose/editorial';
+import type { Contexte } from '../env';
 import {
   now, newId, rowToContent, rowToCoachMessage, rowToGeneration,
   buildUpdate, COLUMN_MAPS, toSql,
 } from '../db';
+import { LIBELLE_EN_PLACE, LIBELLE_MCP, exigerFiche } from '../acces-mcp';
+import { Refus } from '../refus';
 
-export const contents = new Hono<{ Bindings: Env }>();
+export const contents = new Hono<Contexte>();
 
 /** Colonnes du contenu, listées une fois — évite les SELECT * divergents. */
 const C = 'id, title, status, platforms, target_format, objectif, depth, analyzed_at, verdict, ' +
@@ -191,6 +194,11 @@ contents.get('/:id', async (c) => {
   return c.json({
     content,
     coachSession,
+    // Le serveur MCP écrit un brouillon sans le Rédacteur : il lui faut la forme
+    // que l'éditeur attend, celle que le Rédacteur reçoit dans son prompt.
+    ...(c.get('appelant') === 'mcp' && isTargetFormat(content.targetFormat)
+      ? { gabaritBrouillon: getFormatPromptTemplate(content.targetFormat) }
+      : {}),
     gestes: (gestes as any[]).map((g) => ({ statut: g.statut, avant: g.avant, le: g.created_at })),
     cout: {
       appels: Number(cout?.appels ?? 0),
@@ -237,6 +245,7 @@ const insertStatement = (db: D1Database, input: Record<string, any>, ts: number)
 /** 2 requêtes : insertion puis relecture. */
 contents.post('/', async (c) => {
   const input = CreateContentSchema.parse(await c.req.json());
+  if (c.get('appelant') === 'mcp') exigerFiche(input);
   const ts = now();
   const { id, stmt } = insertStatement(c.env.DB, input, ts);
   await stmt.run();
@@ -274,6 +283,7 @@ contents.post('/batch', async (c) => {
 contents.patch('/:id', async (c) => {
   const id = c.req.param('id');
   const input = UpdateContentSchema.parse(await c.req.json());
+  if (c.get('appelant') === 'mcp') exigerFiche(input);
   const ts = now();
 
   const update = buildUpdate(input, COLUMN_MAPS.content);
@@ -435,13 +445,80 @@ contents.get('/:id/generations', async (c) => {
 });
 
 /**
+ * Un brouillon écrit par le serveur MCP (SPEC §7, v2.34) : le seul usage du
+ * journal qui lui soit ouvert. Il passe ici plutôt que par PATCH pour rester
+ * une génération — datée, signée, annulable depuis l'éditeur.
+ *
+ * Il subit la vérification d'une rédaction de l'IA (`parseDraftResponse`) et
+ * doit être au format du contenu : un brouillon d'un autre format s'ouvrirait
+ * dans le mauvais onglet. La provenance est posée ICI, jamais reprise de la
+ * requête : le serveur MCP ne peut pas signer du nom d'un modèle du catalogue.
+ *
+ * L'éditeur enregistre une retouche à la main par PATCH, hors du journal. Le
+ * brouillon en place, s'il n'est pas la dernière production journalisée, y est
+ * donc versé d'abord (`enPlace`) : sans quoi le brouillon de Claude
+ * l'effacerait, et « annuler » ne ramènerait que la rédaction d'avant la
+ * retouche.
+ *
+ * 1 requête — le contenu et la dernière production qui vise son brouillon.
+ * `null` : contenu introuvable.
+ */
+type Generation = ReturnType<typeof CreateGenerationSchema.parse>;
+const brouillonDuMcp = async (
+  db: D1Database,
+  contentId: string,
+  input: Generation,
+): Promise<{ input: Generation; enPlace: string | null } | null> => {
+  if (input.kind !== 'draft' || input.target !== 'draft' || !input.apply) {
+    throw new Refus("Le serveur MCP n'écrit au journal que des brouillons, appliqués au contenu.", 403);
+  }
+  if (!input.instruction?.trim()) {
+    throw new Refus('Dire pourquoi ce brouillon : la raison est exigée du serveur MCP, elle apparaît dans le fil du contenu.', 400);
+  }
+  const row = await db.prepare(
+    `SELECT c.target_format, c.draft,
+            (SELECT g.payload FROM generations g WHERE g.content_id = c.id AND g.target = 'draft'
+              ORDER BY g.created_at DESC, g.rowid DESC LIMIT 1) AS dernier
+       FROM contents c WHERE c.id = ? AND c.deleted_at IS NULL`,
+  ).bind(contentId).first<{ target_format: string | null; draft: string | null; dernier: string | null }>();
+  if (!row) return null;
+  if (!row.target_format) {
+    throw new Refus("Le contenu n'a pas de format : le poser d'abord sur sa fiche, puis écrire le brouillon.", 409);
+  }
+
+  let charge: string;
+  try {
+    charge = parseDraftResponse(input.payload);
+  } catch (e: any) {
+    throw new Refus(`Brouillon refusé : ${e?.message ?? 'illisible'}`, 400);
+  }
+  const format = getFormatDef(JSON.parse(charge).format)?.key;
+  if (format !== row.target_format) {
+    throw new Refus(`Brouillon refusé : il est au format « ${format ?? JSON.parse(charge).format} », le contenu attend « ${row.target_format} ».`, 400);
+  }
+  return {
+    input: {
+      ...input, payload: charge, modelLabel: LIBELLE_MCP, modelId: null,
+      promptTokens: null, completionTokens: null, costUsd: null,
+    },
+    enPlace: row.draft && row.draft !== row.dernier ? row.draft : null,
+  };
+};
+
+/**
  * Journalise une production, et écrit la colonne visée si `apply`.
  * 1 batch de 2 écritures — les deux passent ou aucune : le contenu ne peut pas
  * porter une valeur dont la provenance manque.
  */
 contents.post('/:id/generations', async (c) => {
   const contentId = c.req.param('id');
-  const input = CreateGenerationSchema.parse(await c.req.json());
+  let input = CreateGenerationSchema.parse(await c.req.json());
+  let enPlace: string | null = null;
+  if (c.get('appelant') === 'mcp') {
+    const verifie = await brouillonDuMcp(c.env.DB, contentId, input);
+    if (!verifie) return c.json({ error: 'Contenu introuvable' }, 404);
+    ({ input, enPlace } = verifie);
+  }
   const ts = now();
   const id = newId();
 
@@ -457,6 +534,14 @@ contents.post('/:id/generations', async (c) => {
   );
 
   const statements = [insert];
+  if (enPlace) {
+    // Une milliseconde plus tôt : dans l'historique, la version en place précède celle qui la remplace.
+    statements.unshift(c.env.DB.prepare(
+      `INSERT INTO generations (id, content_id, kind, target, model_id, model_label, instruction, payload, created_at)
+       VALUES (?, ?, 'draft', 'draft', NULL, ?, ?, ?, ?)`
+    ).bind(newId(), contentId, LIBELLE_EN_PLACE,
+           `Mise au journal avant le brouillon de ${LIBELLE_MCP} : elle n'y figurait pas.`, enPlace, ts - 1));
+  }
   if (input.apply && input.target) {
     statements.push(
       c.env.DB.prepare(`UPDATE contents SET ${input.target} = ?, updated_at = ? WHERE id = ?`)

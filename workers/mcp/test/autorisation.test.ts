@@ -75,16 +75,18 @@ const demande = async (surcharges: Record<string, string | null> = {}) => {
   return `/authorize?${q}`;
 };
 
-const formulaire = (cookie: string, n: string, ecrire = false, corpus = false, gtm = false) => ({
+const formulaire = (cookie: string, n: string, ecrire = false, corpus = false, gtm = false, contenus = false) => ({
   method: 'POST',
   headers: { Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({ n, ...(ecrire ? { ecrire: '1' } : {}), ...(corpus ? { corpus: '1' } : {}), ...(gtm ? { gtm: '1' } : {}) }).toString(),
+  body: new URLSearchParams({
+    n, ...(ecrire ? { ecrire: '1' } : {}), ...(corpus ? { corpus: '1' } : {}), ...(gtm ? { gtm: '1' } : {}), ...(contenus ? { contenus: '1' } : {}),
+  }).toString(),
 });
 
 /** Le parcours du navigateur, du consentement au retour de Google. */
 const connecter = async (
   env: EnvFactice,
-  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string; ecrire?: boolean; corpus?: boolean; gtm?: boolean } = {},
+  options: { identite?: Record<string, unknown>; clientId?: string; retour?: string; ecrire?: boolean; corpus?: boolean; gtm?: boolean; contenus?: boolean } = {},
 ) => {
   const appels = simulerExterieur({ identite: options.identite });
   const consentement = await appeler(env, await demande({
@@ -96,7 +98,7 @@ const connecter = async (
   const html = await consentement.text();
   const n = /name="n" value="([^"]+)"/.exec(html)![1];
 
-  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n, options.ecrire, options.corpus, options.gtm));
+  const versGoogle = await appeler(env, '/authorize', formulaire(cookie, n, options.ecrire, options.corpus, options.gtm, options.contenus));
   const google = new URL(versGoogle.headers.get('Location')!);
   // Le bouton réécrit le cookie : il y range les scopes choisis (V8).
   const cookieChoisi = versGoogle.headers.get('Set-Cookie')?.split(';')[0] ?? cookie;
@@ -419,8 +421,8 @@ describe('parcours complet', () => {
 describe('V8 — l’écriture s’accorde sur la page de consentement, case cochée', () => {
   const ecrireCoche = (html: string) => /name="ecrire" value="1" checked/.test(html);
 
-  const jetonsApres = async (env: EnvFactice, ecrire: boolean, corpus = false, gtm = false) => {
-    const { retour } = await connecter(env, { ecrire, corpus, gtm });
+  const jetonsApres = async (env: EnvFactice, ecrire: boolean, corpus = false, gtm = false, contenus = false) => {
+    const { retour } = await connecter(env, { ecrire, corpus, gtm, contenus });
     const reponse = await echanger(env, { grant_type: 'authorization_code', code: codeDe(retour), code_verifier: VERIFICATEUR, client_id: CLIENT_CIMD, redirect_uri: CLAUDE });
     return await reponse.json() as { access_token: string; scope?: string };
   };
@@ -512,16 +514,47 @@ describe('V8 — l’écriture s’accorde sur la page de consentement, case coc
     expect(await corpusRefusePourScope(env2, gtm.access_token)).toBe(true);
   });
 
+  /** Un outil d'écriture des contenus refuse-t-il pour défaut de scope ? */
+  const contenusRefusePourScope = async (env: EnvFactice, jeton: string) => {
+    simulerFetch();
+    const appel = await appeler(env, '/mcp', requeteModerne(jeton, 'tools/call', { name: 'contenus_creer', arguments: { titre: 'Essai' } }));
+    const corps = await appel.json() as any;
+    // Accordée, l'écriture va jusqu'à la console simulée, qui ne rend rien d'utile : seul le refus pour défaut de scope compte ici.
+    return /L'écriture des contenus n'est pas accordée/.test(corps.result?.content?.[0]?.text ?? '');
+  };
+
+  it('la case des contenus est à part : cochée seulement si le client la demande, et elle seule ouvre leur écriture', async () => {
+    const env = creerEnv();
+    simulerExterieur();
+    const contenusCoche = (html: string) => /name="contenus" value="1" checked/.test(html);
+    expect(contenusCoche(await (await appeler(env, await demande({ scope: 'ads:lire ads:ecrire corpus:ecrire gtm:ecrire' }))).text())).toBe(false);
+    expect(contenusCoche(await (await appeler(env, await demande({ scope: 'ads:lire contenus:ecrire' }))).text())).toBe(true);
+
+    // Les trois autres cases : les contenus restent fermés.
+    const env1 = creerEnv();
+    const autres = await jetonsApres(env1, true, true, true);
+    expect(autres.scope).toBe('ads:lire ads:ecrire corpus:ecrire gtm:ecrire');
+    expect(await contenusRefusePourScope(env1, autres.access_token)).toBe(true);
+    // Les contenus seuls : ils s'ouvrent, et le reste reste fermé.
+    const env2 = creerEnv();
+    const contenus = await jetonsApres(env2, false, false, false, true);
+    expect(contenus.scope).toBe('ads:lire contenus:ecrire');
+    expect(await contenusRefusePourScope(env2, contenus.access_token)).toBe(false);
+    expect(await ecritureRefuseePourScope(env2, contenus.access_token)).toBe(true);
+    expect(await corpusRefusePourScope(env2, contenus.access_token)).toBe(true);
+    expect(await gtmRefusePourScope(env2, contenus.access_token)).toBe(true);
+  });
+
   it('sans la case du corpus, l’écriture du corpus est refusée', async () => {
     const env = creerEnv();
     const { access_token } = await jetonsApres(env, true, false);
     expect(await corpusRefusePourScope(env, access_token)).toBe(true);
   });
 
-  it('les quatre scopes sont annoncés, sans en exiger aucun au départ', async () => {
+  it('les cinq scopes sont annoncés, sans en exiger aucun au départ', async () => {
     const env = creerEnv();
     const serveur = await (await appeler(env, '/.well-known/oauth-authorization-server')).json() as any;
-    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire', 'corpus:ecrire', 'gtm:ecrire']);
+    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire', 'corpus:ecrire', 'gtm:ecrire', 'contenus:ecrire']);
     const ressource = await (await appeler(env, '/.well-known/oauth-protected-resource/mcp')).json() as any;
     expect(ressource.scopes_supported).toBeUndefined();
   });

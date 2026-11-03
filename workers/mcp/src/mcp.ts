@@ -44,7 +44,11 @@ const INSTRUCTIONS =
   "gtm_verifier_conversions (les conversions Google Ads face à leurs balises). Il s'y prépare, dans les mêmes deux temps, des " +
   "déclencheurs et des balises — gtm_declencheur_creer, gtm_conversion_creer, gtm_evenement_ga4_creer — et s'y modifie une balise " +
   "existante de trois façons — gtm_mettre_en_pause, gtm_declencheurs_ajouter, gtm_pages_vues_couper —, dans l'espace de travail " +
-  "« [Claude] », jamais en ligne : ce serveur ne publie rien, Florent publie dans Tag Manager.";
+  "« [Claude] », jamais en ligne : ce serveur ne publie rien, Florent publie dans Tag Manager. " +
+  "Les contenus de la console (gestion.luminose.fr) se lisent : contenus_lister, contenus_lire, series_lister. Ils s'écrivent " +
+  "DIRECTEMENT, sans aperçu ni jeton — c'est le seul domaine du serveur où il en va ainsi : contenus_creer (une idée), " +
+  "contenus_modifier (la fiche), contenus_brouillon_ecrire (le brouillon, signé « Claude (MCP) » et annulable dans l'éditeur), " +
+  "series_regrouper (des idées en série). Ne rien y écrire que Florent n'a pas demandé.";
 
 const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
 const META_CAPACITES = 'io.modelcontextprotocol/clientCapabilities';

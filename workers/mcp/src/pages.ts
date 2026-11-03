@@ -75,6 +75,8 @@ export const pageConsentement = (options: {
   corpusCoche: boolean;
   /** Et pour la case « Préparer des balises dans Tag Manager ». */
   gtmCoche: boolean;
+  /** Et pour la case « Modifier les contenus ». */
+  contenusCoche: boolean;
   jeton: string;
   cookie: string;
 }) => {
@@ -83,7 +85,7 @@ export const pageConsentement = (options: {
     ? `Client publié par <strong>${echapper(d.clientDomain)}</strong>.`
     : "Client préenregistré sur ce serveur.";
   const corps = `<h1>Connecter Claude à Google Ads</h1>
-<p><strong>${echapper(d.clientName)}</strong> demande l'accès au compte Google Ads, au conteneur Tag Manager du site et au corpus de Luminose.</p>
+<p><strong>${echapper(d.clientName)}</strong> demande l'accès au compte Google Ads, au conteneur Tag Manager du site, au corpus et aux contenus de Luminose.</p>
 <p>${provenance} Après la connexion Google, l'accès sera envoyé à <strong>${echapper(d.redirectHost)}</strong>.</p>
 ${d.redirectIsLoopback
     ? `<p class="alerte">Cette adresse de retour est locale. N'autorisez que si vous venez de lancer la connexion depuis Claude Code ou l'inspecteur MCP, sur cette machine.</p>\n`
@@ -96,6 +98,8 @@ ${d.redirectIsLoopback
 <label><input type="checkbox" name="corpus" value="1"${options.corpusCoche ? ' checked' : ''}> Modifier le corpus : corriger une fiche, ajouter une décision, par commit sur le dépôt, et lancer le déploiement qui les publie. Chaque écriture est montrée avant d'être faite.</label>
 <label><input type="checkbox" checked disabled> Lire le conteneur Tag Manager du site : balises, déclencheurs, variables.</label>
 <label><input type="checkbox" name="gtm" value="1"${options.gtmCoche ? ' checked' : ''}> Préparer des balises dans Tag Manager : créer des déclencheurs, des balises de conversion et d'événement GA4 ; mettre une balise de mesure en pause, lui ajouter un déclencheur, couper un envoi de page vue en double — dans un espace de travail « [Claude] ». Chaque écriture est montrée avant d'être faite, et rien n'est publié : la publication reste dans Tag Manager.</label>
+<label><input type="checkbox" checked disabled> Lire les contenus et les séries de la console.</label>
+<label><input type="checkbox" name="contenus" value="1"${options.contenusCoche ? ' checked' : ''}> Modifier les contenus : créer une idée, modifier la fiche d'un contenu, écrire son brouillon, regrouper des idées en série. Ces écritures partent directement ; un brouillon se signe « Claude (MCP) » et s'annule dans l'éditeur.</label>
 </fieldset>
 <p><button type="submit">Continuer avec Google</button></p>
 </form>

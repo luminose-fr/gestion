@@ -35,6 +35,8 @@ export const SCOPE_ECRITURE = 'ads:ecrire';
 export const SCOPE_CORPUS = 'corpus:ecrire';
 /** Préparer dans Tag Manager : une case à part, elle aussi (décision du 09/10/2026). */
 export const SCOPE_TAG_MANAGER = 'gtm:ecrire';
+/** Écrire dans les contenus de la console : une case à part (décision du 03/11/2026). */
+export const SCOPE_CONTENUS = 'contenus:ecrire';
 
 const DUREE_APERCU_MS = 10 * 60 * 1000;
 
@@ -145,9 +147,21 @@ export const exigerEcritureGtm = (contexte: Contexte): void => {
   }
 };
 
+/** V8 pour les contenus de la console. Vérifié avant toute autre chose. */
+export const exigerEcritureContenus = (contexte: Contexte): void => {
+  if (!contexte.scopes.includes(SCOPE_CONTENUS)) {
+    throw new Refus(
+      "L'écriture des contenus n'est pas accordée à cette connexion. Dans Claude, déconnecter puis reconnecter le connecteur, " +
+      "et cocher « Modifier les contenus » sur la page de consentement.",
+      403,
+    );
+  }
+};
+
 /** Chaque journal a son plafond, dans [vars] de wrangler.toml. */
 const PLAFONDS = {
   ads: 'ADS_ECRITURES_MAX_JOUR', corpus: 'CORPUS_ECRITURES_MAX_JOUR', gtm: 'GTM_ECRITURES_MAX_JOUR',
+  contenus: 'CONTENUS_ECRITURES_MAX_JOUR',
 } as const satisfies Record<Journal, keyof Env>;
 
 const plafondJour = (env: Env, journal: Journal): number => {

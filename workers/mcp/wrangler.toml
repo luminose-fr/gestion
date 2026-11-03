@@ -88,6 +88,13 @@ GTM_CONTENEUR = "GTM-KG7VNQL"
 # ni version ni publication).
 GTM_ECRITURES_MAX_JOUR = "20"
 
+# Les contenus de la console — décision du 03/11/2026 (workers/mcp/decisions/2026-11-03-contenus.md).
+# Lus et écrits par l'API de gestion.luminose.fr, avec le jeton du serveur (secret CONSOLE_JETON,
+# dont la console garde l'empreinte). Les écritures partent sans aperçu : ce plafond, sur 24 heures
+# glissantes, est leur seule borne de volume. Absent ou illisible, l'écriture est fermée ; la lecture continue.
+CONSOLE_URL = "https://gestion.luminose.fr"
+CONTENUS_ECRITURES_MAX_JOUR = "60"
+
 [observability]
 enabled = true
 

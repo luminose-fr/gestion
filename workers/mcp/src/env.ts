@@ -140,4 +140,23 @@ export type Env = {
    * plafond à lui. Absent ou illisible, l'écriture dans Tag Manager est fermée.
    */
   GTM_ECRITURES_MAX_JOUR?: string;
+
+  // ── Les contenus de la console (décision du 03/11/2026) ───────────────
+
+  /**
+   * Le jeton du serveur MCP auprès de l'API de la console — le sien, ni le
+   * secret de session ni une clé de sa base (SPEC §1.1, §7). La console n'en
+   * garde que l'empreinte (MCP_JETON_EMPREINTE), et ne l'accepte que sur les
+   * contenus et les séries. Absent, les outils des contenus le disent, et le
+   * reste du serveur continue. `node scripts/jeton-console.mjs` le fabrique.
+   */
+  CONSOLE_JETON?: string;
+  /** L'origine de la console. [vars] de wrangler.toml ; par défaut, https://gestion.luminose.fr. */
+  CONSOLE_URL?: string;
+  /**
+   * V9 pour les contenus — écritures permises sur 24 heures glissantes. Son
+   * plafond à lui. Absent ou illisible, l'écriture des contenus est fermée ; la
+   * lecture continue.
+   */
+  CONTENUS_ECRITURES_MAX_JOUR?: string;
 };

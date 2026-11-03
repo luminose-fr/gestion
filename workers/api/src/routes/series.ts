@@ -5,11 +5,12 @@
  * (SPEC §3.6) — c'est précisément ce que Notion ne permettait pas.
  */
 import { Hono } from 'hono';
-import { CreateSerieSchema, UpdateSerieSchema, SyncQuerySchema, DeleteSerieQuerySchema } from '@luminose/shared';
-import type { Env } from '../env';
+import { CreateSerieSchema, UpdateSerieSchema, SyncQuerySchema, DeleteSerieQuerySchema, RegrouperSchema } from '@luminose/shared';
+import type { Contexte } from '../env';
 import { now, newId, rowToSerie, rowToContent, buildUpdate, COLUMN_MAPS, toSql } from '../db';
+import { Refus } from '../refus';
 
-export const series = new Hono<{ Bindings: Env }>();
+export const series = new Hono<Contexte>();
 
 /** 1 requête. Mêmes règles de synchronisation que les contenus (SPEC §8). */
 series.get('/', async (c) => {
@@ -50,6 +51,66 @@ series.post('/', async (c) => {
 
   const row = await c.env.DB.prepare('SELECT * FROM series WHERE id = ?').bind(id).first();
   return c.json({ serie: rowToSerie(row) }, 201);
+});
+
+/**
+ * Regrouper des idées en une série (SPEC §3.3, v2.34) — une série sans source,
+ * dont les publications existent déjà. Le plan de série crée ses publications ;
+ * ici, elles étaient des idées éparses, et le regroupement les range dans
+ * l'ordre donné, qui est la progression (§2.9).
+ *
+ * Seulement des idées, et seulement des idées libres : une publication déjà
+ * engagée a été pensée seule, et une idée déjà rangée appartient à une autre
+ * progression — l'en sortir se décide dans la console. Les idées restent des
+ * idées : leur format, leur angle et leur objectif restent à décider.
+ *
+ * 5 requêtes : lire les idées ; créer la série et les y ranger, dans un batch —
+ * la série et ses idées existent ensemble ou pas du tout ; relire les deux.
+ */
+series.post('/regrouper', async (c) => {
+  const { titre, intention, contenus } = RegrouperSchema.parse(await c.req.json());
+  const ids = contenus.map((x) => x.id);
+  const marques = ids.map(() => '?').join(', ');
+
+  const { results } = await c.env.DB
+    .prepare(`SELECT id, title, status, serie_id FROM contents WHERE deleted_at IS NULL AND id IN (${marques})`)
+    .bind(...ids).all();
+  const lus = new Map((results as any[]).map((r) => [String(r.id), r]));
+
+  const manquants = ids.filter((id) => !lus.has(id));
+  if (manquants.length > 0) throw new Refus(`Contenu introuvable : ${manquants.join(', ')}.`, 404);
+  const engages = ids.map((id) => lus.get(id)).filter((r) => r.status !== 'Idée');
+  if (engages.length > 0) {
+    throw new Refus(`On ne regroupe que des idées : ${engages.map((r) => `« ${r.title} » (${r.status})`).join(', ')}.`, 409);
+  }
+  const ranges = ids.map((id) => lus.get(id)).filter((r) => r.serie_id);
+  if (ranges.length > 0) {
+    throw new Refus(`Déjà dans une série : ${ranges.map((r) => `« ${r.title} »`).join(', ')}. L'en détacher d'abord, dans la console.`, 409);
+  }
+
+  const ts = now();
+  const serieId = newId();
+  const angles = contenus.filter((x) => x.angle !== undefined);
+  // Les rangs sont des entiers écrits par ce code ; seuls les identifiants et les angles se lient.
+  const rangs = ids.map((_, i) => `WHEN ? THEN ${i + 1}`).join(' ');
+  const angle = angles.length > 0 ? `, angle = CASE id ${angles.map(() => 'WHEN ? THEN ?').join(' ')} ELSE angle END` : '';
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO series (id, titre, intention, statut, source_content_id, created_at, updated_at)
+       VALUES (?, ?, ?, 'en_cours', NULL, ?, ?)`
+    ).bind(serieId, titre, toSql(intention ?? null), ts, ts),
+    c.env.DB.prepare(
+      `UPDATE contents SET serie_id = ?, serie_position = CASE id ${rangs} END${angle}, updated_at = ?
+        WHERE id IN (${marques}) AND deleted_at IS NULL`
+    ).bind(serieId, ...ids, ...angles.flatMap((x) => [x.id, x.angle!]), ts, ...ids),
+  ]);
+
+  const serie = await c.env.DB.prepare('SELECT * FROM series WHERE id = ?').bind(serieId).first();
+  const { results: rangees } = await c.env.DB
+    .prepare('SELECT * FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY serie_position ASC')
+    .bind(serieId).all();
+  return c.json({ serie: rowToSerie(serie), contents: rangees.map(rowToContent) }, 201);
 });
 
 series.patch('/:id', async (c) => {

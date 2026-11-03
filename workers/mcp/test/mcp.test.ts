@@ -126,6 +126,8 @@ describe('époque moderne (2026-07-28)', () => {
         'gtm_declencheur_creer', 'gtm_conversion_creer', 'gtm_evenement_ga4_creer',
         'gtm_mettre_en_pause', 'gtm_declencheurs_ajouter', 'gtm_pages_vues_couper',
         'corpus_index', 'corpus_lire', 'corpus_contexte', 'corpus_modifier', 'corpus_decision_ajouter', 'corpus_deployer',
+        'contenus_lister', 'contenus_lire', 'series_lister', 'contenus_creer', 'contenus_modifier', 'contenus_brouillon_ecrire',
+        'series_regrouper',
       ]);
     // Destructeurs : les seuls outils qui lèvent une exclusion, donc peuvent rouvrir du trafic — ou retirent un élément d'une annonce.
     const retraits = ['ads_liste_negatifs_retirer', 'ads_liste_dissocier', 'ads_negatifs_retirer', 'ads_elements_dissocier'];
@@ -133,8 +135,8 @@ describe('époque moderne (2026-07-28)', () => {
       expect(outil.inputSchema.type).toBe('object');
       expect(outil.inputSchema.$schema).toBeUndefined();
       expect(outil.annotations.readOnlyHint, outil.name)
-        .toBe(['ads_lister_comptes', 'ads_requete', 'gtm_conteneur', 'gtm_lire', 'gtm_verifier_conversions', 'corpus_index', 'corpus_lire', 'corpus_contexte']
-          .includes(outil.name));
+        .toBe(['ads_lister_comptes', 'ads_requete', 'gtm_conteneur', 'gtm_lire', 'gtm_verifier_conversions', 'corpus_index', 'corpus_lire', 'corpus_contexte',
+          'contenus_lister', 'contenus_lire', 'series_lister'].includes(outil.name));
       expect(outil.annotations.destructiveHint, outil.name).toBe(retraits.includes(outil.name));
     }
     // Les info-bulles (06/10/2026) : le nom de l'interface française, et l'ancien, `accroches`, accepté pendant la transition.

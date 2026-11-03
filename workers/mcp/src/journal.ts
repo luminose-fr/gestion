@@ -3,10 +3,11 @@
  * endroit où le Worker parle à sa base. snake_case dedans, camelCase dehors
  * (CLAUDE.md).
  *
- * Trois journaux, une seule forme : `ads_ecritures` pour Google Ads,
+ * Quatre journaux, une seule forme : `ads_ecritures` pour Google Ads,
  * `corpus_ecritures` pour le dépôt (migration 0002), `gtm_ecritures` pour Tag
- * Manager (migration 0003). Seule la colonne qui nomme la cible diffère — le
- * compte, le dépôt, ou le conteneur.
+ * Manager (migration 0003), `contenus_ecritures` pour les contenus de la
+ * console (migration 0004). Seule la colonne qui nomme la cible diffère — le
+ * compte, le dépôt, le conteneur, ou le contenu.
  *
  * Trois requêtes par écriture, jamais plus : compter, ouvrir, clore.
  */
@@ -20,17 +21,19 @@ const JOURNAUX = {
   ads: { table: 'ads_ecritures', cible: 'compte' },
   corpus: { table: 'corpus_ecritures', cible: 'depot' },
   gtm: { table: 'gtm_ecritures', cible: 'conteneur' },
+  contenus: { table: 'contenus_ecritures', cible: 'contenu_vise' },
 } as const;
 
 export type Journal = keyof typeof JOURNAUX;
 
 export type Ouverture = {
   outil: string;
-  /** Le compte Google Ads, le dépôt, ou le conteneur Tag Manager. */
+  /** Le compte Google Ads, le dépôt, le conteneur Tag Manager, ou le contenu visé. */
   cible: string;
   auteur: string;
   contenu: unknown;
-  jetonEmpreinte: string;
+  /** `null` : une écriture sans aperçu, comme celles des contenus. */
+  jetonEmpreinte: string | null;
 };
 
 /** V9 : les écritures des 24 dernières heures, quelle que soit leur issue — une boucle qui échoue reste une boucle. */

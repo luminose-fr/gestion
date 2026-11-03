@@ -15,8 +15,9 @@
 import { Hono } from 'hono';
 import { ZodError } from 'zod';
 import { Refus } from './refus';
-import type { Env } from './env';
+import type { Contexte } from './env';
 import { createSessionToken, verifySessionToken, getSessionSecret } from './auth';
+import { routeOuverteAuMcp, verifierJetonMcp } from './acces-mcp';
 import { contents } from './routes/contents';
 import { series } from './routes/series';
 import { models } from './routes/models';
@@ -32,7 +33,7 @@ import { rdv } from './routes/rdv';
 import { transcription } from './routes/transcription';
 import { montage } from './routes/montage';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<Contexte>();
 
 // Aucun CORS : le front est servi sur la MÊME origine que cette API
 // (gestion.luminose.fr, route /api/* de wrangler.toml — SPEC §1.2). Il n'y a
@@ -56,10 +57,27 @@ app.post('/auth/login', async (c) => {
   return c.json({ success: true, sessionToken: await createSessionToken(c.env) });
 });
 
-/** Toute route hors /auth/login exige un jeton valide. */
+/**
+ * Toute route hors /auth/login exige un jeton valide : celui de la session, ou
+ * celui du serveur MCP — qui n'ouvre que sa liste fermée de routes (acces-mcp.ts).
+ * Les routes savent ensuite qui les appelle, et le serveur MCP n'y écrit que ce
+ * qui lui est accordé.
+ */
 const requireSession = async (c: any, next: () => Promise<void>) => {
+  const porteur = c.req.header('Authorization');
+  if (porteur?.startsWith('Bearer ')) {
+    const verdict = await verifierJetonMcp(porteur.slice('Bearer '.length).trim(), c.env);
+    if (!verdict.valide) return c.json({ error: `Non authentifié - ${verdict.erreur}` }, 401);
+    if (!routeOuverteAuMcp(c.req.method, new URL(c.req.url).pathname)) {
+      return c.json({ error: 'Route fermée au serveur MCP : il ne lit et n’écrit que les contenus et les séries.' }, 403);
+    }
+    c.set('appelant', 'mcp');
+    return next();
+  }
+
   const check = await verifySessionToken(c.req.header('X-Session-Token') ?? null, c.env);
   if (!check.valid) return c.json({ error: `Non authentifié - ${check.error}` }, 401);
+  c.set('appelant', 'console');
   await next();
 };
 

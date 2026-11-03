@@ -65,4 +65,19 @@ export type Env = {
    * de rendez-vous se tait, en disant ce qui lui manque.
    */
   CALENDLY_TOKEN?: string;
+
+  /**
+   * L'empreinte (SHA-256, hexadécimal) du jeton du serveur MCP — jamais le
+   * jeton lui-même, que seul le Worker MCP garde (acces-mcp.ts, SPEC §7).
+   *
+   * FACULTATIF, comme les jetons ci-dessus : absente, un porteur est refusé,
+   * et la console fonctionne à l'identique.
+   */
+  MCP_JETON_EMPREINTE?: string;
 };
+
+/** Qui appelle : la console, par son jeton de session, ou le serveur MCP, par le sien. */
+export type Appelant = 'console' | 'mcp';
+
+/** Le contexte Hono des routes qui distinguent leur appelant. */
+export type Contexte = { Bindings: Env; Variables: { appelant: Appelant } };

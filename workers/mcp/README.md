@@ -16,12 +16,18 @@ rien. Depuis le 11/10/2026, il y **modifie** aussi une balise existante, de troi
 la mettre en pause, lui ajouter un déclencheur, couper un `send_page_view` en double. Voir
 « Google Tag Manager », plus bas.
 
+Depuis le 03/11/2026, il lit et écrit **les contenus de la console** (gestion.luminose.fr) :
+créer une idée, modifier la fiche d'un contenu, écrire son brouillon, regrouper des idées en
+série — par l'API de la console, avec un jeton à lui. Ces écritures partent directement, sans
+aperçu. Voir « Les contenus de la console », plus bas.
+
 Adresse du connecteur : **`https://mcp.luminose.fr/mcp`** — avec `/mcp`, au caractère près.
 
 ```
 Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche B)──▶ API Google Ads v25
                                           ├─(jeton GitHub, couche C)──▶ dépôt luminose-fr/gestion
-                                          └─(2 refresh tokens, couche D)─▶ API Tag Manager v2 : lire ; créer et modifier dans « [Claude] »
+                                          ├─(2 refresh tokens, couche D)─▶ API Tag Manager v2 : lire ; créer et modifier dans « [Claude] »
+                                          └─(son jeton, couche E)────────▶ API de la console : contenus et séries
 ```
 
 - **Couche A** — Claude vers ce Worker, par
@@ -39,6 +45,9 @@ Claude ──(OAuth, couche A)──▶ workers/mcp ──(refresh token, couche
   scope `tagmanager.readonly` seul, pour lire ; l'autre, `tagmanager.edit.containers` seul,
   pour créer et modifier dans un espace de travail — ni version ni publication. Le serveur vérifie
   les scopes de chacun à chaque service ([src/gtm.ts](src/gtm.ts)).
+- **Couche E** — ce Worker vers l'API de la console. Un jeton à lui (`CONSOLE_JETON`), dont la
+  console ne garde que l'empreinte, et qu'elle n'accepte que sur les contenus et les séries
+  ([src/console.ts](src/console.ts)). Ni sa base, ni son secret de session (SPEC §1.1, §7).
 
 ### Qui fait quoi dans la couche A
 
@@ -520,6 +529,45 @@ et chacun a été vérifié en le cassant : son test échoue.
 Rien de neuf à poser : ni jeton, ni migration, ni case à cocher. Depuis la racine, sur la VM :
 `./scripts/deploy.sh mcp`, puis une **nouvelle** conversation Claude.
 
+## Les contenus de la console — lire, écrire directement
+
+Décision du 03/11/2026 : [decisions/2026-11-03-contenus.md](decisions/2026-11-03-contenus.md).
+
+| Outil | Ce qu'il fait |
+| :--- | :--- |
+| `contenus_lister` | la liste, du plus récemment modifié ; filtres statut, format, série, sans série, recherche |
+| `contenus_lire` | un contenu entier : fiche, notes, analyse, atelier, brouillon, gabarit du format, dernière relecture à froid, place dans sa série et angles des autres publications |
+| `series_lister` | les séries, leur intention, leur nombre de publications |
+| `contenus_creer` | une idée, avec sa fiche |
+| `contenus_modifier` | la fiche : titre, notes, statut, format, objectif, plateformes, date prévue, angle |
+| `contenus_brouillon_ecrire` | le brouillon, au journal des générations, signé « Claude (MCP) » et annulable dans l'éditeur |
+| `series_regrouper` | des idées libres en une série, dans l'ordre de la progression |
+
+**Le seul domaine du serveur où l'on écrit sans aperçu.** Florent l'a choisi : les contenus
+ne sont pas publics, et chaque écriture se rattrape — un brouillon par l'historique de
+l'éditeur, une fiche par le journal de ce serveur, qui garde son état d'avant.
+
+**La console garde ses règles.** Ce serveur ne les recopie pas : le jeton n'ouvre qu'une
+liste fermée de routes, la console n'accepte de lui que la fiche, vérifie le brouillon comme
+une rédaction de l'IA, le signe elle-même, et verse au journal une retouche à la main avant
+qu'elle soit remplacée. Ses refus reviennent en clair, avec la liste des valeurs qu'elle admet.
+
+| | Verrou | Où |
+| :--- | :--- | :--- |
+| C1 | le jeton n'ouvre que contenus et séries — ni suppression, ni réglages, IA, export, corpus, montage, atelier | [../api/src/acces-mcp.ts](../api/src/acces-mcp.ts) |
+| C2 · C3 · C4 | la fiche seule ; le brouillon au journal, vérifié, au format du contenu, signé par la console ; la retouche à la main versée d'abord | [../api/src/routes/contents.ts](../api/src/routes/contents.ts) |
+| C5 | ne regrouper que des idées libres, de deux à vingt, dans l'ordre | [../api/src/routes/series.ts](../api/src/routes/series.ts) |
+| C6 · V7 · V8 · V9 | la case « Modifier les contenus » (`contenus:ecrire`) ; journal `contenus_ecritures` écrit avant l'appel ; plafond `CONTENUS_ECRITURES_MAX_JOUR`, à part | [src/outils-contenus.ts](src/outils-contenus.ts), [src/journal.ts](src/journal.ts) |
+
+### Mise en place des contenus — ce que Florent fait
+
+1. `node workers/mcp/scripts/jeton-console.mjs` : il affiche le jeton, son empreinte, et les
+   deux commandes. Sur la VM : `CONSOLE_JETON` dans `workers/mcp`, `MCP_JETON_EMPREINTE` dans
+   `workers/api`.
+2. `./scripts/deploy.sh api`, puis `./scripts/deploy.sh mcp` — la migration 0004 part avec.
+3. Dans Claude : déconnecter puis reconnecter le connecteur, et cocher **« Modifier les
+   contenus »**. La lecture marche sans cette case.
+
 ## Mise en place — ce que Florent fait, dans cet ordre
 
 L'accès à l'API peut prendre du temps : commencer par l'étape 1.
@@ -614,7 +662,7 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `GOOGLE_ADS_LOGIN_CUSTOMER_ID` | secret, facultatif | le compte administrateur, s'il y en a un |
 | `COOKIE_SIGNING_KEY` | secret | signe le cookie de connexion (le cadrage l'appelait `COOKIE_ENCRYPTION_KEY` : il signe, il ne chiffre pas) |
 | `OAUTH_KV` | binding KV | l'état de la bibliothèque : grants, codes et jetons par empreinte, props chiffrées |
-| `DB` | binding D1 (`luminose-mcp`) | les journaux des écritures (V7) — Google Ads, corpus et Tag Manager —, qui comptent aussi les plafonds V9 |
+| `DB` | binding D1 (`luminose-mcp`) | les journaux des écritures (V7) — Google Ads, corpus, Tag Manager et contenus —, qui comptent aussi les plafonds V9 |
 | `ADS_APERCU_KEY` | secret | signe les jetons d'aperçu (V2). Absent : l'écriture est fermée, la lecture continue |
 | `ADS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 — 30 exécutions sur 24 heures. Absent ou illisible : l'écriture est fermée |
 | `ADS_BUDGET_MAX_JOUR`, `ADS_BUDGET_MAX_TOTAL`, `ADS_CPC_MAX` | `[vars]` de wrangler.toml | R3 — 15 €, 45 €, 2 € (relevés le 07/10/2026). `ADS_CPC_MAX` borne le CPC max du Search et le CPC cible de Demand Gen. Absents ou illisibles : la création est fermée |
@@ -628,7 +676,10 @@ secret vide. CIMD reste actif à côté : Claude Code continue de passer par là
 | `GTM_CONTENEUR` | `[vars]` de wrangler.toml | G2 — le seul conteneur lu, `GTM-…`. Vide : aucun contenu ne se lit ; les outils listent les conteneurs visibles |
 | `GTM_ECRITURE_REFRESH_TOKEN` | secret | G6 — refresh token, scope `tagmanager.edit.containers` seul (`scripts/jeton-google-ads.mjs gtm-ecriture`) : créer dans « [Claude] », ni version ni publication. Absent : l'écriture dans Tag Manager est fermée, la lecture continue |
 | `GTM_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 de Tag Manager — 20 créations sur 24 heures. Absent ou illisible : l'écriture dans Tag Manager est fermée |
-| `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne |
+| `CONSOLE_JETON` | secret | couche E — le jeton du serveur auprès de l'API de la console (`scripts/jeton-console.mjs`), qui n'en garde que l'empreinte (`MCP_JETON_EMPREINTE`, secret du Worker de la console). Absent : les contenus sont fermés, le reste continue |
+| `CONSOLE_URL` | `[vars]` de wrangler.toml | l'origine de la console — `https://gestion.luminose.fr` |
+| `CONTENUS_ECRITURES_MAX_JOUR` | `[vars]` de wrangler.toml | V9 des contenus — 60 écritures sur 24 heures, seule borne de volume d'écritures sans aperçu. Absent ou illisible : l'écriture des contenus est fermée, la lecture continue |
+| `global_fetch_strictly_public` | `compatibility_flags` | exigé pour CIMD : les documents des clients ne peuvent pas viser une adresse interne. Fait aussi sortir par Internet l'appel à la console, sur la même zone |
 
 Un secret absent ne fait pas tomber le Worker : l'outil ou la page concernée **nomme** le
 secret et la commande qui le pose.
@@ -650,6 +701,9 @@ vérifie sans rien appliquer.
   mettre `ADS_ECRITURES_MAX_JOUR` ou `CORPUS_ECRITURES_MAX_JOUR` à `"0"`. La lecture continue.
 - **Le corpus seulement** : supprimer le secret `GITHUB_TOKEN`, ou révoquer le jeton sur
   GitHub. Google Ads continue.
+- **Les contenus seulement** : supprimer `CONSOLE_JETON` ici, ou `MCP_JETON_EMPREINTE` dans le
+  Worker de la console — ce dernier coupe l'accès même si le jeton a fui. Pour l'écriture
+  seule : `CONTENUS_ECRITURES_MAX_JOUR` à `"0"`.
 - **L'accès à Google Ads** : révoquer le client sur myaccount.google.com/permissions.
 
 ## Écarts avec le cadrage du 30/09/2026

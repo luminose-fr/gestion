@@ -1,4 +1,4 @@
-# SPEC v2.33 — gestion.luminose.fr
+# SPEC v2.34 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -153,6 +153,13 @@
 > l'API Messages d'Anthropic : les crédits API mensuels de l'offre Max ne servent qu'aux
 > appels faits avec une clé de l'organisation Console liée, et OpenRouter les laissait
 > dormir. Il ne déclare aucun prix, et le produit n'en recalcule pas (§2.6, §5.3).
+> **v2.34 (03/11/2026)** : le serveur MCP dans les contenus. Florent : « que le MCP permette à
+> Claude d'agir sur les contenus — lire, ajouter, modifier », et « regrouper plusieurs idées en
+> une même série ». Il passe par l'API, avec un jeton dont la console ne garde que
+> l'empreinte, et qui n'ouvre que les contenus et les séries (§1.1, §7) ; il n'y écrit que la
+> fiche, le brouillon par le journal, et le regroupement. Un brouillon retouché à la main est
+> versé au journal avant d'être remplacé. Nouvelle route, ouverte aussi à la console :
+> regrouper des idées en série (§3.3). En chemin : un PATCH des plateformes les perdait.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -248,7 +255,8 @@ gestion.luminose.fr/
 │   └── mcp/                serveur MCP pour Claude, mcp.luminose.fr —
 │       │                   OAuth + Google Ads : lire, et préparer en pause ;
 │       │                   le corpus : lire main, écrire par commit ;
-│       │                   Tag Manager : lire, et préparer dans « [Claude] »
+│       │                   Tag Manager : lire, et préparer dans « [Claude] » ;
+│       │                   les contenus : par l'API de la console
 │       └── migrations/     journaux des écritures, base `luminose-mcp`
 └── scripts/
     └── deploy.sh
@@ -279,6 +287,11 @@ packages/{subtitles, psychedelics} ──▶ (rien)
   sans secret ni accès disque dans ce qu'il exporte, pour composer les profils du corpus
   avec le même `composer()` que la console et refuser ce qu'elle refuse d'écrire
   (`refusDeContenu`). Mise en place et écarts avec le cadrage : `workers/mcp/README.md`.
+- **Les contenus, le serveur MCP les joint par l'API — jamais par la base (v2.34).** Il y
+  présente un jeton à lui, dont la console ne garde que l'empreinte, et qui n'ouvre qu'une
+  liste fermée de routes (§7). Ce n'est ni un binding, ni un secret partagé, ni du code
+  commun : l'API reste la seule à appliquer les règles des contenus, et les clés de sa base
+  restent hors d'atteinte.
 
 ### 1.2 Une seule origine
 
@@ -546,7 +559,16 @@ GET    /api/series/:id              série + ses contenus (une seule requête, j
 POST   /api/series
 PATCH  /api/series/:id
 DELETE /api/series/:id?contenus=detacher|supprimer
+POST   /api/series/regrouper        des idées existantes en une série (v2.34)
 ```
+
+**Regrouper des idées — NORMATIF (v2.34).** Une série sans source, dont les publications
+existent déjà : des idées éparses, rangées dans l'ordre donné, qui EST la progression (§2.9),
+avec un angle chacune s'il est donné. Seulement des idées — statut `Idée` — et seulement des
+idées libres : une publication engagée a été pensée seule, une idée déjà rangée appartient à
+une autre progression, et l'en sortir se décide dans la console. Elles restent des idées :
+leur format, leur objectif, leur angle restent à décider. Deux à vingt idées ; la série et
+ses idées sont créées dans un batch, ensemble ou pas du tout. 5 requêtes.
 
 **Supprimer une série pose une question, et le défaut est le geste sûr — NORMATIF.**
 
@@ -1251,6 +1273,26 @@ Ce qui change : l'origine unique (§1.2) supprime CORS. `ALLOWED_ORIGINS` dispar
 Reste ouvert, non bloquant : comparaison des identifiants en temps constant, limitation de
 débit sur `/api/auth/login` (demanderait un binding KV), et à terme Cloudflare Access en
 remplacement complet du couple identifiant/mot de passe.
+
+**Le serveur MCP, appelant de l'API — NORMATIF (v2.34).** Il présente son propre jeton en
+`Authorization: Bearer` ; le Worker n'en garde que l'empreinte SHA-256
+(`MCP_JETON_EMPREINTE`), comparée en temps constant. Facultative : absente, un porteur est
+refusé (401) et la console fonctionne à l'identique. Le jeton n'ouvre qu'une liste fermée —
+contenus et séries en lecture, création d'un contenu, modification de sa fiche, brouillon par
+le journal des générations, regroupement d'idées (§3.3) — et rien d'autre (403) : ni
+suppression, ni réglages, IA, export, corpus, montage, atelier, ni retour à une génération.
+Sur ces routes, les règles se resserrent pour lui seul (`workers/api/src/acces-mcp.ts`) :
+
+- création et modification n'acceptent que la **fiche** — titre, notes, statut, format,
+  objectif, plateformes, date prévue, angle ;
+- un **brouillon** passe par `POST /contents/:id/generations` : vérifié comme une rédaction
+  de l'IA (`parseDraftResponse`), au format du contenu, avec une raison ; signé
+  « Claude (MCP) » par le Worker — jamais par la requête —, sans coût, annulable comme toute
+  génération (§2.6). Le brouillon en place, s'il n'est pas la dernière production
+  journalisée — une retouche à la main —, y est versé d'abord : il ne se perd pas ;
+- la lecture d'un contenu joint le gabarit de son format, que le Rédacteur reçoit.
+
+Décision : `workers/mcp/decisions/2026-11-03-contenus.md`.
 
 **Invariant** : aucune clé de fournisseur (Notion, 1min.ai, OpenAI, OpenRouter…)
 ne quitte le Worker. Elles peuvent désormais y ENTRER depuis l'administration et

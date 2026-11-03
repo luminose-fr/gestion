@@ -73,6 +73,24 @@ const serieWritable = {
 export const CreateSerieSchema = z.object(serieWritable).partial().required({ titre: true });
 export const UpdateSerieSchema = z.object(serieWritable).partial();
 
+/**
+ * Regrouper des idées en une série (SPEC §3.3, v2.34). L'ordre du tableau EST
+ * la progression, comme dans un plan de série (§6.2) ; `angle` porte la place
+ * de chaque idée dans la série, et reste celui qu'elle avait quand il manque.
+ *
+ * Vingt idées au plus : une série en compte rarement plus de dix, et la mise à
+ * jour tient en une requête dont D1 borne le nombre de paramètres.
+ */
+export const RegrouperSchema = z.object({
+  titre: serieWritable.titre,
+  intention: serieWritable.intention.optional(),
+  contenus: z.array(z.object({ id: z.string().min(1), angle: z.string().max(2000).optional() }))
+    .min(2, 'Une série regroupe au moins deux idées.')
+    .max(20, 'Vingt idées au plus dans un regroupement.')
+    .refine((c) => new Set(c.map((x) => x.id)).size === c.length, 'Une idée figure deux fois.'),
+});
+export type RegrouperInput = z.infer<typeof RegrouperSchema>;
+
 // ── Modèles IA ───────────────────────────────────────────────────────────
 
 const modelWritable = {
