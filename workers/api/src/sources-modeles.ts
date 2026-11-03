@@ -71,6 +71,28 @@ export const parMillion = (v: unknown): number | null => {
 const texte = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim() : null;
 
+/**
+ * Ce que la source dit de son refus, quand elle le dit en JSON
+ * (`{ error: { type, message } }` chez Anthropic et OpenRouter). Sans lui, un
+ * « 400 » ne laisse rien à corriger : le code nu a déjà coûté un aller-retour
+ * le 03/11/2026, sur la liste d'Anthropic. Un corps qui n'est pas du JSON — une
+ * page d'erreur HTML — ne s'affiche pas.
+ */
+export const motifDuRefus = async (res: Response): Promise<string> => {
+  try {
+    const data: any = await res.json();
+    const erreur = data?.error ?? data;
+    const message = typeof erreur?.message === 'string' ? erreur.message.trim()
+      : typeof erreur === 'string' ? erreur.trim() : '';
+    const nature = typeof erreur?.type === 'string' ? erreur.type : '';
+    const motif = [nature, message].filter(Boolean).join(' — ');
+    // Le point final vient de la phrase qui l'enveloppe.
+    return motif ? ` : ${motif.slice(0, 300).replace(/\.+$/, '')}` : '';
+  } catch {
+    return '';
+  }
+};
+
 const lireJson = async (res: Response, source: string): Promise<any> => {
   try {
     return await res.json();
@@ -92,7 +114,7 @@ export const listerOpenRouter = async (): Promise<ModeleSource[]> => {
   } catch {
     throw new SourceMuette('OpenRouter est injoignable.');
   }
-  if (!res.ok) throw new SourceMuette(`OpenRouter a refusé le catalogue (${res.status}).`);
+  if (!res.ok) throw new SourceMuette(`OpenRouter a refusé le catalogue (${res.status})${await motifDuRefus(res)}.`);
   const brut = await lireJson(res, 'OpenRouter');
 
   return ((brut?.data ?? []) as any[]).flatMap((m): ModeleSource[] => {
@@ -134,11 +156,11 @@ export const listerAnthropic = async (cle: string): Promise<ModeleSource[]> => {
     }
     if (res.status === 401 || res.status === 403) {
       throw new Refus(
-        `Anthropic refuse la clé posée (${res.status}). Vérifiez-la dans Réglages → Fournisseurs.`,
+        `Anthropic refuse la clé posée (${res.status})${await motifDuRefus(res)}. Vérifiez-la dans Réglages → Fournisseurs.`,
         409,
       );
     }
-    if (!res.ok) throw new SourceMuette(`Anthropic a refusé la liste des modèles (${res.status}).`);
+    if (!res.ok) throw new SourceMuette(`Anthropic a refusé la liste des modèles (${res.status})${await motifDuRefus(res)}.`);
     const brut = await lireJson(res, 'Anthropic');
     for (const m of (brut?.data ?? []) as any[]) {
       const id = texte(m?.id);
@@ -175,7 +197,7 @@ export const listerOneMin = async (cle: string | null): Promise<ModeleSource[]> 
   } catch {
     throw new SourceMuette('1min.ai est injoignable.');
   }
-  if (!res.ok) throw new SourceMuette(`1min.ai a refusé la liste des modèles (${res.status}).`);
+  if (!res.ok) throw new SourceMuette(`1min.ai a refusé la liste des modèles (${res.status})${await motifDuRefus(res)}.`);
   const brut = await lireJson(res, '1min.ai');
   const items: unknown[] = Array.isArray(brut) ? brut
     : Array.isArray(brut?.models) ? brut.models
