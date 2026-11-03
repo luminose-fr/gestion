@@ -357,7 +357,9 @@ const croiser = (
     const r = parNom.get(normaliserNomModele(m.id)) ?? null;
     return {
       id: m.id,
-      name: m.name,
+      // 1min.ai ne publie que des codes : le nom de la référence, sans son
+      // préfixe de fabricant (« Anthropic: »), se lit mieux et préremplit l'ajout.
+      name: m.name === m.id && r ? r.name.replace(/^[^:]+:\s*/, '') : m.name,
       contextLength: m.contextLength ?? r?.contextLength ?? 0,
       promptPrice: r?.promptPrice ?? null,
       completionPrice: r?.completionPrice ?? null,

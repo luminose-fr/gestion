@@ -1370,7 +1370,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                             <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main dark:text-dark-text">
                                                                 {m.completionPrice === 0 && m.promptPrice === 0
                                                                     ? 'gratuit'
-                                                                    : `${prix(m.promptPrice)} → ${prix(m.completionPrice)}`}
+                                                                    : m.completionPrice === null && m.promptPrice === null
+                                                                        ? '—'
+                                                                        : `${prix(m.promptPrice)} → ${prix(m.completionPrice)}`}
                                                             </td>
                                                             <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main dark:text-dark-text">
                                                                 {m.contextLength ? `${Math.round(m.contextLength / 1000)}k` : '—'}

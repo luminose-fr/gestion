@@ -412,7 +412,8 @@ describe('explorateur par adaptateur', () => {
     const data = await json(await call('/api/models/catalogue/onemin'));
     expect(data.source).toBe('onemin');
     expect(data.models.map((m: any) => m.id)).toEqual(['claude-fable-5', 'glm-5.2']);
-    expect(data.models[0]).toMatchObject({ name: 'claude-fable-5', reference: 'anthropic/claude-fable-5', selection: true });
+    // Sans nom publié, celui de la référence : « Claude Fable 5 » plutôt que son code.
+    expect(data.models[0]).toMatchObject({ name: 'Claude Fable 5', reference: 'anthropic/claude-fable-5', selection: true });
     // `z-ai/glm-5.2:free` est la seule variante de la référence : elle sert faute de mieux.
     expect(data.models[1]).toMatchObject({ name: 'GLM 5.2', reference: 'z-ai/glm-5.2:free' });
     expect(data.selection.sort()).toEqual(['claude-fable-5', 'glm-5.2']);
