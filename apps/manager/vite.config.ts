@@ -1,6 +1,24 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type ProxyOptions } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { origineVueParLeWorker } from './proxy-dev'
+
+const cible = process.env.VITE_API_TARGET ?? 'http://localhost:8787'
+
+// `changeOrigin` réécrit Host, pas Origin : sans la traduction ci-dessous, le
+// Worker voit une écriture venue de :7860 sur :8787 et la refuse (403
+// « Origine refusée »). Le pourquoi — et pourquoi pas côté Worker — est dans
+// proxy-dev.ts.
+const versLeWorker: ProxyOptions = {
+  target: cible,
+  changeOrigin: true,
+  configure: (proxy) => {
+    proxy.on('proxyReq', (proxyReq, req) => {
+      const origine = origineVueParLeWorker(req.headers.origin, req.headers.host, cible)
+      if (origine) proxyReq.setHeader('origin', origine)
+    })
+  },
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -22,14 +40,8 @@ export default defineConfig({
     // vers le Worker et revenait en 404 : page blanche, root vide, aucune
     // erreur parlante dans la console.
     proxy: {
-      '^/api/': {
-        target: process.env.VITE_API_TARGET ?? 'http://localhost:8787',
-        changeOrigin: true,
-      },
-      '^/auth/': {
-        target: process.env.VITE_API_TARGET ?? 'http://localhost:8787',
-        changeOrigin: true,
-      },
+      '^/api/': versLeWorker,
+      '^/auth/': versLeWorker,
     },
   },
   preview: {
