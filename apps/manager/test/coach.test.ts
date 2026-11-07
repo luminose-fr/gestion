@@ -57,6 +57,20 @@ describe('réponse du Coach', () => {
     expect(reply.quickReplies).toEqual([]);
   });
 
+  /**
+   * Le 07/11/2026 : des guillemets de citation non échappés dans le message
+   * (Claude Opus 5.5 via OpenRouter). L'Atelier affichait le JSON brut, sans
+   * réponses rapides.
+   */
+  it('lit une réponse dont le message cite des phrases entre guillemets droits', () => {
+    const brut = '{"message": "En thérapie, beaucoup arrivent avec "faites-moi aller mieux". Et c\'est normal.", ' +
+      '"quick_replies": ["Coiffeur OK", "Je préfère le distributeur"], "ready_for_editor": false}';
+    const reply = parseCoachReply(brut);
+    expect(reply.message).toBe('En thérapie, beaucoup arrivent avec "faites-moi aller mieux". Et c\'est normal.');
+    expect(reply.quickReplies).toEqual(['Coiffeur OK', 'Je préfère le distributeur']);
+    expect(reply.raw).toBe(brut);
+  });
+
   it('ignore un dernier bloc illisible et reprend le précédent', () => {
     const bancal = '{"message":"Version lisible","quick_replies":[],"ready_for_editor":false}\n\n{"message": "tronqué…';
     expect(parseCoachReply(bancal).message).toBe('Version lisible');
