@@ -69,7 +69,7 @@ exportRoute.get('/', async (c) => {
     })),
     // Les gestes de Florent (SPEC §13.6) : le seul endroit où « Bon à publier » est daté.
     gestes: rows(9).map((r) => ({
-      id: r.id, contentId: r.content_id, statut: r.statut, avant: r.avant, createdAt: r.created_at,
+      id: r.id, contentId: r.content_id, statut: r.statut, avant: r.avant, nature: r.nature, detail: r.detail, createdAt: r.created_at,
     })),
   };
 

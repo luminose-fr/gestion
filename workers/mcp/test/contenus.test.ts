@@ -91,6 +91,32 @@ const simulerConsole = (options: { refus?: { chemin: RegExp; statut: number; cor
         contents: [...etat.contenus.values()].filter((c) => c.serieId === m![1]).sort((x, y) => x.seriePosition - y.seriePosition),
       });
     }
+    // Le déplacement et la remise en ordre, réduits à ce qu'ils rendent : les séries renumérotées 1 à n.
+    const rangees = (sid: string) => [...etat.contenus.values()].filter((c) => c.serieId === sid).sort((x, y) => x.seriePosition - y.seriePosition);
+    const numeroter = (liste: Contenu[]) => liste.forEach((c, i) => { c.seriePosition = i + 1; });
+    const serieEt = (sid: string | null) => (sid ? { serie: etat.series.get(sid), contents: rangees(sid) } : null);
+    if ((m = /^\/api\/contents\/([^/]+)\/deplacer$/.exec(chemin))) {
+      const c = etat.contenus.get(m[1])!;
+      const de: string | null = c.serieId;
+      if (corps.angle !== undefined) c.angle = corps.angle;
+      const autres = corps.serieId ? rangees(corps.serieId).filter((x) => x.id !== c.id) : [];
+      c.serieId = corps.serieId;
+      c.seriePosition = null;
+      if (corps.serieId) {
+        autres.splice((corps.position ?? autres.length + 1) - 1, 0, c);
+        numeroter(autres);
+      }
+      if (de && de !== corps.serieId) numeroter(rangees(de));
+      return Response.json({
+        content: c, inchange: false,
+        geste: corps.serieId ? 'Déplacé de « Les pièges de l’anxiété » n° 2 vers « Dormir » n° 1.' : 'Sorti de la série « Les pièges de l’anxiété » (n° 1).',
+        depart: serieEt(de), arrivee: de === corps.serieId ? null : serieEt(corps.serieId),
+      });
+    }
+    if ((m = /^\/api\/series\/([^/]+)\/reordonner$/.exec(chemin))) {
+      corps.ids.forEach((id: string, i: number) => { etat.contenus.get(id)!.seriePosition = i + 1; });
+      return Response.json(serieEt(m[1]));
+    }
     return Response.json({ error: 'Not found' }, { status: 404 });
   });
   const versConsole = () => appels.filter((a) => a.url.startsWith(CONSOLE));
@@ -173,6 +199,7 @@ describe('NORMATIF — écrire dans les contenus : la case du consentement, le j
       ['contenus_creer', { titre: 'x' }], ['contenus_modifier', { id: 'a', titre: 'y' }],
       ['contenus_brouillon_ecrire', { id: 'c', brouillon: POST_COURT, raison: 'essai' }],
       ['series_regrouper', { titre: 'x', contenus: [{ id: 'a' }, { id: 'b' }] }],
+      ['contenus_deplacer', { id: 'c', serie: null }], ['series_reordonner', { id: 's1', ordre: ['c', 'd'] }],
     ] as const) {
       const { corps } = await appelerOutil(env, outil, args, ['ads:lire', 'ads:ecrire', 'corpus:ecrire', 'gtm:ecrire']);
       expect(texteDe(corps), outil).toMatch(/L'écriture des contenus n'est pas accordée/);
@@ -260,6 +287,89 @@ describe('NORMATIF — écrire dans les contenus : la case du consentement, le j
     expect(journal(env)[0]).toMatchObject({ outil: 'series_regrouper', contenu_vise: 'série', issue: 'ok', ressources: '["s2","b","a"]' });
   });
 
+  it('contenus_deplacer : la série, le rang et l’angle partent ; le journal garde la place d’avant ; les deux séries reviennent numérotées', async () => {
+    const env = creerEnv();
+    const { ecritures, etat } = simulerConsole();
+    etat.series.set('s2', { id: 's2', titre: 'Dormir', intention: null, statut: 'en_cours', sourceContentId: null, updatedAt: JOUR });
+    Object.assign(etat.contenus.get('b')!, { serieId: 's2', seriePosition: 1 });
+
+    const t = texteDe((await appelerOutil(env, 'contenus_deplacer', { id: 'c', serie: 's2', position: 1, angle: 'Le piège du sommeil' }, CONTENUS)).corps);
+    expect(ecritures()).toEqual([{ methode: 'POST', chemin: '/api/contents/c/deplacer', corps: { serieId: 's2', position: 1, angle: 'Le piège du sommeil' } }]);
+    expect(t).toBe([
+      'FAIT — écriture n° 1 du journal. « Le piège chinois » : Déplacé de « Les pièges de l’anxiété » n° 2 vers « Dormir » n° 1.',
+      'Angle : « Le piège » → « Le piège du sommeil »',
+      '',
+      'Série « Les pièges de l’anxiété », au départ — 1 publication :',
+      '1. « Ouvrir la série » — L’ouverture (Prêt) — id d',
+      '',
+      'Série « Dormir », à l’arrivée — 2 publications :',
+      '1. « Le piège chinois » — Le piège du sommeil (Brouillon) — id c',
+      '2. « Respirer avant de répondre » (Idée) — id b',
+      '',
+      'Un éditeur resté ouvert sur ce contenu dans la console réécrirait l’ancien angle : le rouvrir avant d’y retoucher.',
+    ].join('\n'));
+    expect(journal(env)[0]).toMatchObject({ outil: 'contenus_deplacer', contenu_vise: 'c', issue: 'ok', ressources: '["c","s1","s2"]' });
+    expect(JSON.parse(journal(env)[0].contenu).avant).toEqual({ serieId: 's1', seriePosition: 2, angle: 'Le piège' });
+  });
+
+  it('contenus_deplacer : sortir d’une série, sans position ; un contenu déjà sans série ne fait rien partir', async () => {
+    const env = creerEnv();
+    const { ecritures } = simulerConsole();
+    const t = texteDe((await appelerOutil(env, 'contenus_deplacer', { id: 'd', serie: null }, CONTENUS)).corps);
+    expect(ecritures()).toEqual([{ methode: 'POST', chemin: '/api/contents/d/deplacer', corps: { serieId: null } }]);
+    expect(t).toMatch(/\nSérie « Les pièges de l’anxiété », au départ — 1 publication :\n1\. « Le piège chinois »/);
+    expect(t).toMatch(/Le contenu n’appartient plus à aucune série\.$/);
+    expect(t).not.toMatch(/ancien angle/);
+
+    expect(texteDe((await appelerOutil(env, 'contenus_deplacer', { id: 'a', serie: null }, CONTENUS)).corps))
+      .toBe('RIEN À FAIRE — « La peur, une boussole » n’appartient à aucune série. Rien n\'est parti.');
+    expect(ecritures()).toHaveLength(1);
+    expect(journal(env)).toHaveLength(1);
+  });
+
+  it('contenus_deplacer : le refus d’un contenu publié revient en clair, et le journal le garde', async () => {
+    const env = creerEnv();
+    simulerConsole({ refus: { chemin: /\/deplacer$/, statut: 409, corps: { error: '« Ouvrir la série » est publié : sa série fait partie de l\'historique de publication, il ne se déplace plus.' } } });
+    const { corps } = await appelerOutil(env, 'contenus_deplacer', { id: 'd', serie: null }, CONTENUS);
+    expect(corps.result.isError).toBe(true);
+    expect(texteDe(corps)).toMatch(/^La console refuse : « Ouvrir la série » est publié : sa série fait partie de l'historique de publication/);
+    expect(journal(env).map((l) => l.issue)).toEqual(['erreur']);
+  });
+
+  it('series_reordonner : l’ordre complet part, la série revient numérotée, le journal garde l’ordre d’avant ; le même ordre ne part pas', async () => {
+    const env = creerEnv();
+    const { ecritures } = simulerConsole();
+    const t = texteDe((await appelerOutil(env, 'series_reordonner', { id: 's1', ordre: ['c', 'd'] }, CONTENUS)).corps);
+    expect(ecritures()).toEqual([{ methode: 'POST', chemin: '/api/series/s1/reordonner', corps: { ids: ['c', 'd'] } }]);
+    expect(t).toBe([
+      'FAIT — écriture n° 1 du journal.',
+      'Série « Les pièges de l’anxiété », remise en ordre — 2 publications :',
+      '1. « Le piège chinois » — Le piège (Brouillon) — id c',
+      '2. « Ouvrir la série » — L’ouverture (Prêt) — id d',
+    ].join('\n'));
+    expect(journal(env)[0]).toMatchObject({ outil: 'series_reordonner', contenu_vise: 's1', issue: 'ok', ressources: '["s1","c","d"]' });
+    expect(JSON.parse(journal(env)[0].contenu).avant).toEqual(['d', 'c']);
+
+    expect(texteDe((await appelerOutil(env, 'series_reordonner', { id: 's1', ordre: ['c', 'd'] }, CONTENUS)).corps))
+      .toBe('RIEN À FAIRE — « Les pièges de l’anxiété » est déjà dans cet ordre. Rien n\'est parti.');
+    expect(ecritures()).toHaveLength(1);
+  });
+
+  it('series_reordonner : une liste incomplète revient avec la liste attendue', async () => {
+    const env = creerEnv();
+    const attendue = 'L\'ordre doit nommer les 2 publications de « Les pièges de l’anxiété », chacune une fois — manque « Ouvrir la série ». ' +
+      'Liste attendue : 1. « Ouvrir la série » (d) ; 2. « Le piège chinois » (c).';
+    simulerConsole({ refus: { chemin: /\/reordonner$/, statut: 409, corps: { error: attendue } } });
+    const { corps } = await appelerOutil(env, 'series_reordonner', { id: 's1', ordre: ['c'] }, CONTENUS);
+    expect(texteDe(corps)).toBe(`La console refuse : ${attendue}`);
+  });
+
+  it('series_regrouper renvoie vers contenus_deplacer pour compléter une série existante', async () => {
+    const { OUTILS_CONTENUS } = await import('../src/outils-contenus');
+    const regrouper = OUTILS_CONTENUS.find((o) => o.name === 'series_regrouper')!;
+    expect(regrouper.description).toMatch(/Pour compléter une série qui existe déjà[^.]*: contenus_deplacer/);
+  });
+
   it('V9 — le plafond des contenus est le sien : atteint, ou illisible, rien ne part', async () => {
     const env = creerEnv({ CONTENUS_ECRITURES_MAX_JOUR: '1' });
     const { ecritures } = simulerConsole();
@@ -282,6 +392,9 @@ describe('NORMATIF — écrire dans les contenus : la case du consentement, le j
       ['contenus_modifier', { id: 'a', titre: 'Autre', brouillon: '{}' }], ['contenus_modifier', { id: 'a', titre: 'Autre', draft: '{}' }],
       ['contenus_creer', { titre: 'x', serieId: 's1' }], ['contenus_modifier', { id: 'a', date_prevue: '20/11/2026' }],
       ['series_regrouper', { titre: 'x', contenus: [{ id: 'a' }] }],
+      ['contenus_deplacer', { id: 'c' }], ['contenus_deplacer', { id: 'c', serie: '../settings' }],
+      ['contenus_deplacer', { id: 'c', serie: 's1', position: 0 }], ['contenus_deplacer', { id: 'c', serie: null, position: 1 }],
+      ['series_reordonner', { id: 's1', ordre: [] }], ['series_reordonner', { id: 's1', ordre: ['c', 'd'], titre: 'x' }],
     ] as const) {
       const { corps } = await appelerOutil(env, outil, args as Record<string, unknown>, CONTENUS);
       expect(corps.result.isError, `${outil} ${JSON.stringify(args)}`).toBe(true);

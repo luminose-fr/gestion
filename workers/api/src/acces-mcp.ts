@@ -10,7 +10,8 @@
  * en lecture, en création et en modification de fiche — jamais une suppression,
  * ni les réglages, l'IA, l'export ou le montage. Sur ces routes, il n'écrit que
  * ce que Florent a accordé le 03/11/2026 : la fiche d'un contenu, son brouillon
- * par le journal des générations, et le regroupement d'idées en série.
+ * par le journal des générations, et le regroupement d'idées en série — et, le
+ * 07/11/2026, le déplacement d'un contenu entre séries et l'ordre d'une série.
  *
  * FACULTATIF, comme les jetons de env.ts : sans empreinte posée, un porteur est
  * refusé et la console fonctionne à l'identique.
@@ -34,6 +35,8 @@ const ROUTES_MCP: [string, RegExp][] = [
   ['GET', /^\/api\/series$/],
   ['GET', /^\/api\/series\/[^/]+$/],
   ['POST', /^\/api\/series\/regrouper$/],
+  ['POST', /^\/api\/contents\/[^/]+\/deplacer$/],
+  ['POST', /^\/api\/series\/[^/]+\/reordonner$/],
 ];
 
 export const routeOuverteAuMcp = (methode: string, chemin: string): boolean =>
@@ -44,8 +47,9 @@ export const CHAMPS_FICHE = ['title', 'notes', 'status', 'targetFormat', 'object
 
 /**
  * Refuse tout champ hors de la fiche. Le brouillon passe par le journal des
- * générations, pour rester annulable ; la série, par le regroupement ; le
- * reste — analyse, slides, atelier — appartient aux actions de la console.
+ * générations, pour rester annulable ; la série, par le regroupement et le
+ * déplacement ; le reste — analyse, slides, atelier — appartient aux actions
+ * de la console.
  */
 export const exigerFiche = (entree: Record<string, unknown>): void => {
   const hors = Object.keys(entree).filter((k) => !(CHAMPS_FICHE as readonly string[]).includes(k));

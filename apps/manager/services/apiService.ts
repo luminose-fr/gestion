@@ -15,7 +15,9 @@ import type {
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
   RdvType, RdvCreneau, RdvConfirme, Transcription, MoteurTranscription,
   EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise, ResumeMontages, ExportNote, ResumeFils,
+  DeplacerContenuInput, ResultatDeplacement, SerieEtSesContenus,
 } from '@luminose/shared';
+import type { DetailDeplacement } from '@luminose/editorial';
 
 /**
  * `temoin` NOMME l'opération dans le bandeau d'activité. Sans lui, la requête
@@ -89,8 +91,18 @@ export interface CoutContenu {
 }
 
 /** Le détail porte la session Coach assemblée ; la liste ne l'a pas. */
-/** Un geste de Florent, daté (SPEC §13.6). */
-export interface GesteDate { statut: string; avant: string; le: number }
+/**
+ * Un geste de Florent, daté (SPEC §13.6) : un changement de statut, ou — v2.36 —
+ * de série, que `nature` distingue et dont `texte` porte la phrase.
+ */
+export interface GesteDate {
+  statut: string;
+  avant: string;
+  le: number;
+  nature?: 'statut' | 'deplacement';
+  detail?: DetailDeplacement | null;
+  texte?: string | null;
+}
 
 export const fetchContent = (id: string) =>
   api<{ content: Content; coachSession: CoachSession; cout?: CoutContenu; gestes?: GesteDate[] }>(`/contents/${id}`);
@@ -103,6 +115,14 @@ export const updateContent = (id: string, input: Partial<Content>) =>
 
 export const deleteContent = (id: string) =>
   api<{ deleted: boolean }>(`/contents/${id}`, { method: 'DELETE' });
+
+/**
+ * Changer un contenu de série, l'en sortir, ou le placer à un autre rang
+ * (SPEC §3.3, v2.36). Les deux séries se renumérotent côté Worker : la réponse
+ * les rend telles qu'elles sont après.
+ */
+export const deplacerContenu = (id: string, input: DeplacerContenuInput) =>
+  api<ResultatDeplacement>(`/contents/${id}/deplacer`, { method: 'POST', ...body(input) });
 
 /** Création en lot — le plan de série. Transactionnelle côté Worker. */
 export const createContentsBatch = (items: Partial<Content>[]) =>
@@ -127,6 +147,10 @@ export const createSerie = (input: Partial<Serie>) =>
 
 export const updateSerie = (id: string, input: Partial<Serie>) =>
   api<{ serie: Serie }>(`/series/${id}`, { method: 'PATCH', ...body(input) });
+
+/** L'ordre complet d'une série (SPEC §3.3, v2.36) : tous ses contenus, une fois chacun. */
+export const reordonnerSerie = (id: string, ids: string[]) =>
+  api<SerieEtSesContenus>(`/series/${id}/reordonner`, { method: 'POST', ...body({ ids }) });
 
 /**
  * `contenus` décide du sort des publications : détachées (défaut) ou supprimées

@@ -11,6 +11,7 @@ import { bodyJsonToText, montageDuBrouillon, parseBodyJson } from './formats';
 import { dureeEstimee } from './reelExplique';
 import { jourCourt, type Sorte } from './etape';
 import { carteDuBrief, carteLue, confronterLesCartes, horsImageDuBrief, type LigneConfrontee, type LigneDeCarte } from './metaphore';
+import { phraseDuDeplacement, type DetailDeplacement } from './series';
 
 /** Les voix du fil : les rôles de l'IA, Florent, et ce que fait le montage. */
 export type RoleDuFil =
@@ -20,7 +21,11 @@ export type RoleDuFil =
 /** Un fait daté du fil — la forme de `DernierDuFil`, plus le montage. */
 export interface FaitDuFil {
     source: 'coach' | 'journal' | 'geste' | 'montage';
-    /** Coach : `user` | `assistant`. Journal : la nature. Geste : le statut posé. Montage : `prise` | `transcription` | `export`. */
+    /**
+     * Coach : `user` | `assistant`. Journal : la nature. Geste : le statut posé, ou
+     * `deplacement` pour un changement de série — sa phrase est alors dans `texte`.
+     * Montage : `prise` | `transcription` | `export`.
+     */
     nature: string;
     texte: string | null;
     verdict?: string | null;
@@ -91,6 +96,7 @@ export function resumerLeFait(fait: FaitDuFil, sorte: Sorte): { role: RoleDuFil;
     }
 
     if (fait.source === 'geste') {
+        if (fait.nature === 'deplacement') return { role: 'Vous', texte: texte || 'Changé de série.' };
         const avant = fait.avant ?? '';
         if (fait.nature === 'Prêt') return { role: 'Vous', texte: estVideo(sorte) ? 'Prête à tourner.' : 'Bon à publier.' };
         if (fait.nature === 'Publié') return { role: 'Vous', texte: 'Publié.' };
@@ -157,7 +163,18 @@ export interface MessageCoachDuFil {
     createdAt: number;
 }
 
-export interface GesteDuFil { statut: string; avant: string; le: number }
+/**
+ * Un geste de Florent : un changement de statut, ou — v2.36 — de série. Un
+ * déplacement ne change pas le statut : `nature` le dit, `detail` dit d'où et
+ * vers où.
+ */
+export interface GesteDuFil {
+    statut: string;
+    avant: string;
+    le: number;
+    nature?: 'statut' | 'deplacement';
+    detail?: DetailDeplacement | null;
+}
 
 /** Ce que le contenu garde de l'analyse, quand le journal ne la porte pas (contenus d'avant le journal). */
 export interface AnalyseDuContenu {
@@ -330,6 +347,9 @@ function bulleDeRelecture(g: GenerationDuFil, voulue: LigneDeCarte[] = []): Bull
 }
 
 function bulleDeGeste(g: GesteDuFil, i: number, sorte: Sorte): BulleDuFil | null {
+    if (g.nature === 'deplacement') {
+        return { type: 'bulle', id: `geste-${i}`, role: 'Vous', de: 'vous', le: g.le, texte: phraseDuDeplacement(g.detail), ton: 'neutre' };
+    }
     if (g.statut === 'Brouillon' && g.avant === 'Idée') return null;
     const texte = g.statut === 'Publié' ? 'Marqué publié.' : resumerLeFait({ source: 'geste', nature: g.statut, texte: null, avant: g.avant, le: g.le }, sorte).texte;
     return { type: 'bulle', id: `geste-${i}`, role: 'Vous', de: 'vous', le: g.le, texte, ton: 'neutre' };

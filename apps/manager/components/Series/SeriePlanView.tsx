@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Plus, Trash2, Link2, Rows3, Wand2, CheckCircle2, AlertCircle,
-    ChevronDown, ChevronRight,
+    ChevronDown, ChevronRight, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import {
     ContentItem, Serie, SerieStatus, TargetFormat, Objectif,
@@ -32,6 +32,11 @@ interface SeriePlanViewProps {
     onCreateContents: (entries: PlanSeriesEntry[]) => Promise<void>;
     onOpenContent: (item: ContentItem) => void;
     /**
+     * L'ordre complet de la série (SPEC §3.3, v2.36). Sans lui, la liste ne se
+     * réordonne pas. L'erreur remonte ici, et s'affiche au-dessus de la liste.
+     */
+    onReordonner?: (ids: string[]) => Promise<void>;
+    /**
      * L'Éclateur (SPEC §6.2). `dejaPrevus` porte les angles déjà pris — les
      * contenus créés ET les lignes du tableau : régénérer ne doit pas
      * reproposer ce qui est déjà là.
@@ -51,7 +56,7 @@ const inputCls = CLASSES_CHAMP;
 
 export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     serie, contents, sourceContent, etapes, onUpdate, suppressionDemandee, onFermerSuppression, onDelete, onCreateContents, onOpenContent,
-    onGeneratePlan
+    onReordonner, onGeneratePlan
 }) => {
     /**
      * Le plan vit en mémoire jusqu'à la création en lot : tant que Florent
@@ -100,6 +105,51 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     const sansFormat = usableRows.length - creatableRows.length;
 
     const planOuvert = planForce ?? contents.length === 0;
+
+    /** Dans l'ordre de la progression : une série se relit comme elle a été pensée. */
+    const ordonnees = [...contents].sort((a, b) => (a.seriePosition ?? 9999) - (b.seriePosition ?? 9999));
+
+    /**
+     * Monter ou descendre une publication (SPEC §3.3, v2.36). Des flèches plutôt
+     * qu'un glisser-déposer : elles se prennent au clavier et au lecteur d'écran
+     * sans rien ajouter, et le dépôt n'a aucune bibliothèque de glisser-déposer.
+     * Chaque clic envoie l'ordre COMPLET, que le Worker exige.
+     */
+    const [ordreEnCours, setOrdreEnCours] = useState(false);
+    const [erreurOrdre, setErreurOrdre] = useState<string | null>(null);
+    const [annonce, setAnnonce] = useState('');
+    /** La flèche à refocaliser une fois la liste relue : sans ça, le focus tombe avec le bouton désactivé. */
+    const [aRefocaliser, setARefocaliser] = useState<{ id: string; sens: 'haut' | 'bas' } | null>(null);
+    const listeRef = useRef<HTMLUListElement>(null);
+
+    useEffect(() => {
+        if (!aRefocaliser || ordreEnCours) return;
+        const chercher = (sens: string) =>
+            listeRef.current?.querySelector<HTMLButtonElement>(`[data-fleche="${aRefocaliser.id}-${sens}"]:not(:disabled)`);
+        // En tête ou en queue, la flèche cliquée s'éteint : l'autre prend le focus.
+        (chercher(aRefocaliser.sens) ?? chercher(aRefocaliser.sens === 'haut' ? 'bas' : 'haut'))?.focus();
+        setARefocaliser(null);
+    }, [aRefocaliser, ordreEnCours, contents]);
+
+    const deplacer = async (index: number, sens: 'haut' | 'bas') => {
+        if (!onReordonner || ordreEnCours) return;
+        const cible = sens === 'haut' ? index - 1 : index + 1;
+        if (cible < 0 || cible >= ordonnees.length) return;
+        const ids = ordonnees.map(item => item.id);
+        [ids[index], ids[cible]] = [ids[cible], ids[index]];
+        const item = ordonnees[index];
+        setOrdreEnCours(true);
+        setErreurOrdre(null);
+        try {
+            await onReordonner(ids);
+            setAnnonce(`« ${item.title || 'Sans titre'} » passe au n° ${cible + 1}.`);
+        } catch (e: any) {
+            setErreurOrdre(e?.message || 'La série n’a pas pu être réordonnée.');
+        } finally {
+            setOrdreEnCours(false);
+            setARefocaliser({ id: item.id, sens });
+        }
+    };
 
     const patchRow = (index: number, patch: Partial<PlanSeriesEntry>) => {
         setRows(prev => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -435,20 +485,24 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 <div className="px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
                     <Etiquette forme="entete">Publications, dans l’ordre</Etiquette>
                 </div>
+                {erreurOrdre && (
+                    <div role="alert" className="flex items-center gap-2 px-4 py-2 text-xs text-erreur bg-erreur/10 border-b border-erreur/30">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        {erreurOrdre}
+                    </div>
+                )}
+                <p className="sr-only" aria-live="polite">{annonce}</p>
                 {contents.length === 0 ? (
                     <p className="px-4 py-8 text-center text-sm text-brand-main dark:text-dark-text">
                         Aucun contenu rattaché pour l'instant.
                     </p>
                 ) : (
-                    <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
-                        {/* Dans l'ordre de la progression : une série se relit comme elle a été pensée. */}
-                        {[...contents]
-                            .sort((a, b) => (a.seriePosition ?? 9999) - (b.seriePosition ?? 9999))
-                            .map((item, index) => (
-                            <li key={item.id}>
+                    <ul ref={listeRef} className="divide-y divide-brand-border dark:divide-dark-sec-border">
+                        {ordonnees.map((item, index) => (
+                            <li key={item.id} className="flex items-center hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors">
                                 <button
                                     onClick={() => onOpenContent(item)}
-                                    className="w-full min-h-[60px] grid grid-cols-[26px_minmax(0,1fr)_auto_200px_16px] items-center gap-4 px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors"
+                                    className="flex-1 min-w-0 min-h-[60px] grid grid-cols-[26px_minmax(0,1fr)_auto_200px_16px] items-center gap-4 px-5 py-2 text-left"
                                 >
                                     <span className="w-[26px] h-[26px] rounded-full border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-xs font-bold text-brand-main dark:text-dark-text">
                                         {item.seriePosition ?? index + 1}
@@ -464,6 +518,20 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                     </span>
                                     <ChevronRight className="w-4 h-4 text-brand-main dark:text-dark-text" />
                                 </button>
+                                {onReordonner && ordonnees.length > 1 && (
+                                    <span className="flex items-center gap-1 pr-4">
+                                        <Bouton taille="petit" data-fleche={`${item.id}-haut`}
+                                            aria-label={`Monter « ${item.title || 'Sans titre'} »`} title="Monter d’un rang"
+                                            disabled={index === 0 || ordreEnCours} onClick={() => void deplacer(index, 'haut')}>
+                                            <ArrowUp />
+                                        </Bouton>
+                                        <Bouton taille="petit" data-fleche={`${item.id}-bas`}
+                                            aria-label={`Descendre « ${item.title || 'Sans titre'} »`} title="Descendre d’un rang"
+                                            disabled={index === ordonnees.length - 1 || ordreEnCours} onClick={() => void deplacer(index, 'bas')}>
+                                            <ArrowDown />
+                                        </Bouton>
+                                    </span>
+                                )}
                             </li>
                         ))}
                     </ul>

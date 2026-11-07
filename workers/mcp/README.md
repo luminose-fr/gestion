@@ -542,6 +542,8 @@ Décision du 03/11/2026 : [decisions/2026-11-03-contenus.md](decisions/2026-11-0
 | `contenus_modifier` | la fiche : titre, notes, statut, format, objectif, plateformes, date prévue, angle |
 | `contenus_brouillon_ecrire` | le brouillon, au journal des générations, signé « Claude (MCP) » et annulable dans l'éditeur |
 | `series_regrouper` | des idées libres en une série, dans l'ordre de la progression |
+| `contenus_deplacer` | un contenu vers une autre série, à un autre rang de la sienne, ou hors série ; angle facultatif (07/11/2026, [décision](decisions/2026-11-07-deplacer.md)) |
+| `series_reordonner` | l'ordre complet d'une série (07/11/2026) |
 
 **Le seul domaine du serveur où l'on écrit sans aperçu.** Florent l'a choisi : les contenus
 ne sont pas publics, et chaque écriture se rattrape — un brouillon par l'historique de
@@ -557,6 +559,7 @@ qu'elle soit remplacée. Ses refus reviennent en clair, avec la liste des valeur
 | C1 | le jeton n'ouvre que contenus et séries — ni suppression, ni réglages, IA, export, corpus, montage, atelier | [../api/src/acces-mcp.ts](../api/src/acces-mcp.ts) |
 | C2 · C3 · C4 | la fiche seule ; le brouillon au journal, vérifié, au format du contenu, signé par la console ; la retouche à la main versée d'abord | [../api/src/routes/contents.ts](../api/src/routes/contents.ts) |
 | C5 | ne regrouper que des idées libres, de deux à vingt, dans l'ordre | [../api/src/routes/series.ts](../api/src/routes/series.ts) |
+| C7 | déplacer : jamais un contenu publié, rangs continus dans les deux séries, un geste au fil ; réordonner : la liste complète, ou la liste attendue en retour | [../api/src/routes/contents.ts](../api/src/routes/contents.ts), [../api/src/routes/series.ts](../api/src/routes/series.ts) |
 | C6 · V7 · V8 · V9 | la case « Modifier les contenus » (`contenus:ecrire`) ; journal `contenus_ecritures` écrit avant l'appel ; plafond `CONTENUS_ECRITURES_MAX_JOUR`, à part | [src/outils-contenus.ts](src/outils-contenus.ts), [src/journal.ts](src/journal.ts) |
 
 ### Mise en place des contenus — ce que Florent fait

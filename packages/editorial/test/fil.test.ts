@@ -44,6 +44,9 @@ describe('qui parle, et ce qu’il dit', () => {
     expect(resumerLeFait(fait({ source: 'geste', nature: 'Publié', avant: 'Prêt' }), 'ecrit').texte).toBe('Publié.');
     expect(resumerLeFait(fait({ source: 'geste', nature: 'Brouillon', avant: 'Prêt' }), 'ecrit').texte).toBe('Repassé en écriture.');
     expect(resumerLeFait(fait({ source: 'geste', nature: 'Brouillon', avant: 'Idée' }), 'ecrit').texte).toBe('Mis en chantier.');
+    // Un déplacement entre séries (v2.36) : sa phrase vient avec lui.
+    expect(resumerLeFait(fait({ source: 'geste', nature: 'deplacement', avant: 'Brouillon', texte: 'Sorti de la série « A » (n° 2).' }), 'ecrit'))
+      .toEqual({ role: 'Vous', texte: 'Sorti de la série « A » (n° 2).' });
   });
 
   it('le montage', () => {
@@ -97,6 +100,18 @@ describe('le fil entier (§13.10)', () => {
     expect((fil[1] as any).texte).toBe('Brief verrouillé : 2 interdits, 0 question ouverte.');
     expect((fil[2] as any).texte).toBe('Brouillon rédigé : 2 slides, 38 caractères.');
     expect((fil[3] as any).texte).toBe('Bon à publier.');
+  });
+
+  it('un déplacement entre séries se lit dans le fil, à sa date, de la voix de Florent', () => {
+    const fil = composerLeFil({
+      sorte: 'ecrit', atelierValide: false, generations: [], coach: [],
+      gestes: [
+        { statut: 'Brouillon', avant: 'Idée', le: 10 },
+        { statut: 'Brouillon', avant: 'Brouillon', le: 20, nature: 'deplacement',
+          detail: { de: { serieId: 'a', titre: 'Série A', rang: 4 }, vers: { serieId: 'b', titre: 'Série B', rang: 2 } } },
+      ],
+    });
+    expect(fil).toEqual([expect.objectContaining({ role: 'Vous', de: 'vous', le: 20, texte: 'Déplacé de « Série A » n° 4 vers « Série B » n° 2.' })]);
   });
 
   it('un atelier en cours reste déplié, sans le brief d’ouverture', () => {

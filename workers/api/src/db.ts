@@ -198,9 +198,14 @@ const CONTENT_COLUMNS: Record<string, string> = {
   notes: 'notes',
   draft: 'draft',
   slides: 'slides',
-  serieId: 'serie_id',
+  // `serieId` et `seriePosition` n'y sont plus (v2.36, SPEC §3.3) : un PATCH ne
+  // change ni la série ni le rang, `POST /contents/:id/deplacer` seul le fait.
+  // La console renvoie le contenu ENTIER à chaque enregistrement — frappe,
+  // rattrapage d'un échec, fermeture — : un éditeur resté ouvert pendant un
+  // déplacement réécrivait l'ancienne série et l'ancien rang, et la série
+  // gagnait un trou et un doublon. Ils sont ignorés en silence, puisque la
+  // console les envoie toujours ; le serveur MCP, lui, reste refusé (acces-mcp.ts).
   angle: 'angle',
-  seriePosition: 'serie_position',
   scheduledDate: 'scheduled_date',
 };
 

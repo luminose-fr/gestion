@@ -4,7 +4,7 @@ import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, isObject
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
 import {
-  AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection, familleDeAction,
+  AI_ACTIONS, VIDEO_DIRECTE, bodyJsonToText, buildSerieContextSection, familleDeAction, premierRangLibre,
   etapeCourante, dernierFait, resumerLeFait, momentDuFait, estEtape,
   type Etape, type EtapeCourante, type PlanSeriesEntry, type SerieSibling,
 } from '@luminose/editorial';
@@ -868,6 +868,8 @@ function App() {
    */
   const handleCreateSeriePlan = async (serieId: string, entries: PlanSeriesEntry[]): Promise<void> => {
       const ts = Date.now();
+      // Allonger une série existante : les nouvelles publications viennent APRÈS les siennes.
+      const premier = premierRangLibre(items.filter(i => i.serieId === serieId).map(i => i.seriePosition));
       const { items: created } = await Api.createContentsBatch(entries.map((entry, index) => ({
           title: entry.titre,
           // L'angle du plan est celui de CE contenu dans la série.
@@ -880,7 +882,7 @@ function App() {
           justification: entry.justification || null,
           serieId,
           // Le rang fait la progression : la série se relit dans cet ordre.
-          seriePosition: index + 1,
+          seriePosition: premier + index,
           // L'Éclateur EST l'Analyste de la série : il a décidé angle, format et
           // objectif en voyant l'ensemble. Les repasser un par un à l'Analyste
           // casserait l'équilibre qu'il vient de construire — ils arrivent donc
@@ -929,6 +931,51 @@ function App() {
       const etape = etapeDe(item).etape;
       if (item.serieId) updateSerieRoute(item.serieId, item.id, etape);
       else updateRoute('social', listeDuContenu(item), item.id, etape);
+  };
+
+  /**
+   * Ce qu'un déplacement ou une remise en ordre a changé (SPEC §3.3, v2.36) :
+   * la série, le rang et l'angle de chaque contenu touché, et rien d'autre. Une
+   * frappe pas encore enregistrée sur l'un d'eux ne doit pas être écrasée par la
+   * réponse du serveur.
+   */
+  const integrerLesRangs = (recus: ContentItem[]) => {
+      const parId = new Map(recus.map(c => [c.id, c]));
+      setItems(prev => {
+          const suivants = prev.map(i => {
+              const r = parId.get(i.id);
+              return r ? { ...i, serieId: r.serieId, seriePosition: r.seriePosition, angle: r.angle, updatedAt: r.updatedAt } : i;
+          });
+          void StorageService.setCachedContent(suivants).catch(console.error);
+          return suivants;
+      });
+  };
+
+  /**
+   * Changer un contenu de série, l'en sortir, ou le placer à un autre rang —
+   * depuis sa fiche. L'erreur remonte au formulaire, qui l'affiche à côté du
+   * bouton. Rend la phrase du geste laissé au fil.
+   */
+  const handleDeplacerContenu = async (
+      item: ContentItem,
+      cible: { serieId: string | null; position?: number; angle?: string | null },
+  ): Promise<string | null> => {
+      const r = await Api.deplacerContenu(item.id, cible);
+      integrerLesRangs([r.content, ...(r.depart?.contents ?? []), ...(r.arrivee?.contents ?? [])]);
+      // Ouvert depuis le plan d'une série qu'il vient de quitter : l'adresse le suit.
+      if (editingSerieId && editingItemId === item.id && r.content.serieId !== editingSerieId) {
+          if (r.content.serieId) updateSerieRoute(r.content.serieId, item.id, currentEditorStep);
+          else updateRoute('social', listeDuContenu(r.content), item.id, currentEditorStep);
+      }
+      // Le dernier fait du fil a changé : la liste le dira au retour.
+      void lireLesEtapes();
+      return r.geste;
+  };
+
+  /** L'ordre complet d'une série, depuis son plan. L'erreur remonte à l'écran du plan. */
+  const handleReordonnerSerie = async (serieId: string, ids: string[]): Promise<void> => {
+      const { contents } = await Api.reordonnerSerie(serieId, ids);
+      integrerLesRangs(contents);
   };
 
   // --- AI ANALYSIS FLOW (sans modale — modèle actif global) ---
@@ -1133,6 +1180,11 @@ function App() {
       .sort((a, b) => (a.seriePosition ?? 9999) - (b.seriePosition ?? 9999));
 
   const serieDuContenu = editingItem?.serieId ? series.find(s => s.id === editingItem.serieId) ?? null : null;
+  /** Les séries qu'un contenu peut rejoindre, avec leurs publications dans l'ordre (sa fiche). */
+  const seriesAuChoix = series.map(s => ({
+      id: s.id, titre: s.titre, terminee: s.statut === 'terminee',
+      publications: publicationsDe(s.id).map(p => ({ id: p.id, titre: p.title || 'Sans titre' })),
+  }));
   const panneauDeLaSerie = (serie: Serie, active: string | null) => (
       <PanneauSerie serie={serie} publications={publicationsDe(serie.id)} etapes={etapes} active={active}
           onPlan={() => updateSerieRoute(serie.id)} onOuvrir={handleOpenSerieContent} />
@@ -1381,6 +1433,8 @@ function App() {
                         activeStep={currentEditorStep ?? etapeDe(editingItem).etape}
                         onStepChange={handleStepChange}
                         panneauSerie={serieDuContenu ? panneauDeLaSerie(serieDuContenu, editingItem.id) : undefined}
+                        series={seriesAuChoix}
+                        onDeplacer={handleDeplacerContenu}
                         resumeFil={fils?.contenus[editingItem.id] ?? null}
                         resumeMontage={montages?.contenus[editingItem.id] ?? null}
                         onMontageChange={lireLesMontages}
@@ -1415,6 +1469,7 @@ function App() {
                             onDelete={async (mode) => { setSuppressionSerie(false); await handleDeleteSerie(editingSerie, mode); }}
                             onCreateContents={(entries) => handleCreateSeriePlan(editingSerie.id, entries)}
                             onOpenContent={handleOpenSerieContent}
+                            onReordonner={(ids) => handleReordonnerSerie(editingSerie.id, ids)}
                             onGeneratePlan={handleGenerateSeriePlan(editingSerie)}
                         />
                     </CadreContenu>

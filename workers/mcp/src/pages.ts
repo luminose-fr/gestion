@@ -99,7 +99,7 @@ ${d.redirectIsLoopback
 <label><input type="checkbox" checked disabled> Lire le conteneur Tag Manager du site : balises, déclencheurs, variables.</label>
 <label><input type="checkbox" name="gtm" value="1"${options.gtmCoche ? ' checked' : ''}> Préparer des balises dans Tag Manager : créer des déclencheurs, des balises de conversion et d'événement GA4 ; mettre une balise de mesure en pause, lui ajouter un déclencheur, couper un envoi de page vue en double — dans un espace de travail « [Claude] ». Chaque écriture est montrée avant d'être faite, et rien n'est publié : la publication reste dans Tag Manager.</label>
 <label><input type="checkbox" checked disabled> Lire les contenus et les séries de la console.</label>
-<label><input type="checkbox" name="contenus" value="1"${options.contenusCoche ? ' checked' : ''}> Modifier les contenus : créer une idée, modifier la fiche d'un contenu, écrire son brouillon, regrouper des idées en série. Ces écritures partent directement ; un brouillon se signe « Claude (MCP) » et s'annule dans l'éditeur.</label>
+<label><input type="checkbox" name="contenus" value="1"${options.contenusCoche ? ' checked' : ''}> Modifier les contenus : créer une idée, modifier la fiche d'un contenu, écrire son brouillon, regrouper des idées en série, déplacer un contenu d'une série à l'autre, réordonner une série. Ces écritures partent directement ; un brouillon se signe « Claude (MCP) » et s'annule dans l'éditeur.</label>
 </fieldset>
 <p><button type="submit">Continuer avec Google</button></p>
 </form>

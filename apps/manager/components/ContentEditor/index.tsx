@@ -25,6 +25,7 @@ import {
 import { CadreContenu, PiedContenu, SelecteurEtape } from '../Contenu/CadreContenu';
 import { Fil, type ZoneComposeur, type ZoneOuverture } from '../Contenu/Fil';
 import { EnteteMatiere, MatiereOuverture, MatiereVide, BlocPublier, type ActionMatiere } from '../Contenu/Matiere';
+import { ChoixSerie, type CibleDeplacement, type SerieAuChoix } from '../Contenu/ChoixSerie';
 import { CeQuiSeraPublie, LectureScript, LectureTournage, TrameCarrousel, VignettesSlides } from '../Contenu/Lecture';
 import { useAtelier } from '../Contenu/useAtelier';
 import { useEstMobile } from '../Contenu/useEstMobile';
@@ -67,6 +68,13 @@ interface ContentEditorProps {
   serieContext?: string;
   /** Le panneau Série, à gauche du fil, quand le contenu en a une. */
   panneauSerie?: React.ReactNode;
+  /**
+   * Changer de série, en sortir, changer de rang (SPEC §3.3, v2.36) — sur la
+   * fiche, à l'Ouverture. Rend la phrase du geste ; sans ces deux props, le
+   * bloc ne s'affiche pas.
+   */
+  series?: SerieAuChoix[];
+  onDeplacer?: (item: ContentItem, cible: CibleDeplacement) => Promise<string | null>;
   /** L'étape affichée, et le geste qui en change. */
   activeStep: Etape;
   onStepChange: (etape: Etape) => void;
@@ -90,7 +98,7 @@ export { bodyJsonToText } from '@luminose/editorial';
 
 const ContentEditor: React.FC<ContentEditorProps> = ({
     item, aiModels = [], activeModelId, modelFor, onClose, libelleRetour, onSave, onPending, onDelete, onDecline, serieContext,
-    panneauSerie, activeStep, onStepChange, resumeFil, resumeMontage, onMontageChange, onAnalyser, analyseEnCours,
+    panneauSerie, series, onDeplacer, activeStep, onStepChange, resumeFil, resumeMontage, onMontageChange, onAnalyser, analyseEnCours,
 }) => {
   const [editedItem, setEditedItem] = useState<ContentItem | null>(null);
 
@@ -1306,6 +1314,20 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                   onFormat={(f) => setEditedItem({ ...editedItem, targetFormat: (f || null) as any })}
                   verrouille={messagesCoach.length > 0 || aUnBrouillon}
                   vide={vide}
+                  serie={series && onDeplacer ? (
+                      <ChoixSerie
+                          contenu={{ id: editedItem.id, serieId: editedItem.serieId ?? null, angle: editedItem.angle ?? null, publie: editedItem.status === ContentStatus.PUBLISHED }}
+                          series={series}
+                          onDeplacer={async (cible) => {
+                              const phrase = await onDeplacer(editedItem, cible);
+                              // Le geste vient d'entrer au fil : il s'y lit sans rouvrir le contenu.
+                              Api.fetchContent(editedItem.id)
+                                  .then(({ gestes }) => { if (isMountedRef.current) setGestes(gestes ?? []); })
+                                  .catch((e) => console.warn('Gestes non relus :', e));
+                              return phrase;
+                          }}
+                      />
+                  ) : undefined}
               />
           );
           break;

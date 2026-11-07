@@ -216,7 +216,8 @@ describe('NORMATIF — regrouper des idées en série', () => {
     const engagee = await creer({ title: 'Engagée', status: 'Brouillon' });
     const rangee = await creer({ title: 'Rangée' });
     const autre = await json(await console_('/api/series', 'POST', { titre: 'Autre' }));
-    await console_(`/api/contents/${rangee.id}`, 'PATCH', { serieId: autre.serie.id });
+    // Depuis la v2.36, la série ne passe plus par le PATCH : le déplacement seul l'écrit.
+    await console_(`/api/contents/${rangee.id}/deplacer`, 'POST', { serieId: autre.serie.id });
 
     const cas: [string[], number, RegExp][] = [
       [[idee.id, engagee.id], 409, /On ne regroupe que des idées : « Engagée » \(Brouillon\)/],
@@ -242,5 +243,25 @@ describe('NORMATIF — regrouper des idées en série', () => {
   it('la console peut s’en servir aussi', async () => {
     const [a, b] = [await creer(), await creer()];
     expect((await console_('/api/series/regrouper', 'POST', { titre: 'x', contenus: [{ id: a.id }, { id: b.id }] })).status).toBe(201);
+  });
+});
+
+describe('NORMATIF — déplacer un contenu et réordonner une série (v2.36)', () => {
+  it('le jeton du serveur MCP ouvre les deux routes', async () => {
+    const [a, b] = [await creer({ title: 'A' }), await creer({ title: 'B' })];
+    const { serie } = await json(await console_('/api/series/regrouper', 'POST', { titre: 'x', contenus: [{ id: a.id }, { id: b.id }] }));
+    const reordonne = await mcp(`/api/series/${serie.id}/reordonner`, 'POST', { ids: [b.id, a.id] });
+    expect(reordonne.status).toBe(200);
+    expect((await json(reordonne)).contents.map((c: any) => [c.title, c.seriePosition])).toEqual([['B', 1], ['A', 2]]);
+    const sorti = await mcp(`/api/contents/${a.id}/deplacer`, 'POST', { serieId: null });
+    expect(sorti.status).toBe(200);
+    expect((await json(sorti)).content.serieId).toBeNull();
+  });
+
+  it('le PATCH du serveur MCP reste refusé sur la série et le rang', async () => {
+    const c = await creer();
+    for (const champs of [{ serieId: 's1' }, { seriePosition: 1 }]) {
+      expect((await mcp(`/api/contents/${c.id}`, 'PATCH', champs)).status).toBe(403);
+    }
   });
 });

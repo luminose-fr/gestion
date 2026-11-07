@@ -64,7 +64,8 @@ export const MatiereVide: React.FC<{ titre: string; texte: string }> = ({ titre,
 
 /**
  * L'ouverture : les notes et le format, modifiables jusqu'à l'ouverture de
- * l'atelier — ensuite, le Coach a calibré sa conversation sur ce format.
+ * l'atelier — ensuite, le Coach a calibré sa conversation sur ce format. Puis
+ * la série du contenu (v2.36), qui, elle, se change à toute étape.
  */
 export const MatiereOuverture: React.FC<{
     notes: string;
@@ -73,7 +74,9 @@ export const MatiereOuverture: React.FC<{
     onFormat: (format: string) => void;
     verrouille: boolean;
     vide: { titre: string; texte: string };
-}> = ({ notes, onNotes, format, onFormat, verrouille, vide }) => (
+    /** Le choix de la série (`ChoixSerie`), quand l'application le permet. */
+    serie?: React.ReactNode;
+}> = ({ notes, onNotes, format, onFormat, verrouille, vide, serie }) => (
     <div className="max-w-3xl space-y-4">
         <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5 space-y-4">
             <div>
@@ -99,6 +102,7 @@ export const MatiereOuverture: React.FC<{
                 </p>
             </div>
         </div>
+        {serie}
         <MatiereVide {...vide} />
     </div>
 );
