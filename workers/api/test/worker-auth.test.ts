@@ -189,6 +189,38 @@ describe('protection de la session navigateur', () => {
     }), ENV);
     expect(attaque.status).toBe(403);
   });
+  it('refuse une écriture marquée cross-site, même sans en-tête Origin', async () => {
+    const res = await worker.fetch(new Request('https://w.dev/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site' },
+      body: JSON.stringify({ username: ENV.AUTH_USERNAME, password: ENV.AUTH_PASSWORD }),
+    }), ENV);
+    expect(res.status).toBe(403);
+  });
+  /**
+   * Le développement local passe par le proxy de Vite, qui traduit l'origine
+   * de la page en celle du Worker (apps/manager/proxy-dev.ts). Ces deux cas
+   * fixent le partage des rôles : le Worker accepte sa PROPRE origine — c'est
+   * ce que le proxy lui présente — et refuse toujours celle du serveur Vite.
+   * Si le second tombe, c'est qu'on a élargi la liste côté Worker, contre le
+   * SPEC §1.2 (« plus d'origine de développement à déclarer »).
+   */
+  it('accepte une écriture venant de sa propre origine, en HTTP local comme ailleurs', async () => {
+    const res = await worker.fetch(new Request('http://localhost:8787/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:8787', 'Sec-Fetch-Site': 'same-origin' },
+      body: JSON.stringify({ username: ENV.AUTH_USERNAME, password: ENV.AUTH_PASSWORD }),
+    }), ENV);
+    expect(res.status).toBe(200);
+  });
+  it('refuse l’origine du serveur de développement : la traduction est l’affaire du proxy', async () => {
+    const res = await worker.fetch(new Request('http://localhost:8787/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:7860' },
+      body: JSON.stringify({ username: ENV.AUTH_USERNAME, password: ENV.AUTH_PASSWORD }),
+    }), ENV);
+    expect(res.status).toBe(403);
+  });
   it('échoue fermée quand les identifiants ne sont pas configurés', async () => {
     const res = await worker.fetch(new Request('https://w.dev/auth/login', { method: 'POST', body: '{}' }), { ...ENV, AUTH_USERNAME: undefined, AUTH_PASSWORD: undefined } as any);
     expect(res.status).toBe(503);
