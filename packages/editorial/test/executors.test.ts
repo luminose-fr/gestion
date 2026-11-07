@@ -15,6 +15,8 @@ import {
   appendSignatureSlide,
   parsePlanSeriesResponse,
   SLIDE_TITLE_MAX,
+  reparerGuillemets,
+  extractJsonArrayPayload,
 } from '../src/index';
 
 describe('extractJsonPayload', () => {
@@ -139,5 +141,53 @@ describe('deux blocs JSON dans une même réponse', () => {
   it('une accolade dans une chaîne ne coupe pas le bloc', () => {
     const avec = JSON.stringify({ format: 'Post Texte', corps: 'On garde {la structure} telle quelle' });
     expect(JSON.parse(parseDraftResponse(avec)).corps).toContain('{la structure}');
+  });
+});
+
+/**
+ * Le 07/11/2026, Claude Opus 5.5 via OpenRouter a cité des phrases entre
+ * guillemets droits, sans les échapper, dans le message du Coach. Ces extraits
+ * reprennent la forme exacte des deux réponses qui ne parsaient plus.
+ */
+describe('des guillemets de citation non échappés', () => {
+  const CONSOMMATION = '{"message": "**Promesse initiale (0-15 s) :** En thérapie, beaucoup de gens arrivent avec "faites-moi aller mieux". Et c\'est normal, hein !", ' +
+    '"quick_replies": ["Coiffeur OK", "La phrase que j\'entends en séance, c\'est…"], "ready_for_editor": false}';
+  const MIRACLE = '{\n  "message": "**Promesse :** « Il est 2 h du matin, et vous tapez "solution miracle anxiété" dans la barre de recherche. Ou "hypnose une séance". »",\n' +
+    '  "quick_replies": [\n    "Ça tient, creuse les trois raisons",\n    "La phrase entendue, c\'est plutôt…"\n  ],\n  "ready_for_editor": false\n}';
+
+  it('la réponse se relit : message entier, guillemets compris, et réponses rapides', () => {
+    for (const [brut, cite] of [[CONSOMMATION, '"faites-moi aller mieux"'], [MIRACLE, '"solution miracle anxiété"']]) {
+      expect(() => JSON.parse(brut)).toThrow();
+      const lu = JSON.parse(extractJsonPayload(brut, (v) => typeof v?.message === 'string'));
+      expect(lu.message).toContain(cite);
+      expect(lu.quick_replies).toHaveLength(2);
+      expect(lu.ready_for_editor).toBe(false);
+    }
+  });
+
+  it('une réponse valide est lue à l’identique : le secours ne joue qu’en cas d’échec', () => {
+    const valide = '{"message":"Il dit \\"stop\\", puis « non ».","quick_replies":["Oui"],"ready_for_editor":true}';
+    expect(extractJsonPayload(valide)).toBe(valide);
+    expect(reparerGuillemets(valide)).toBe(valide);
+  });
+
+  it('une citation suivie d’une virgule puis de prose reste du texte', () => {
+    const brut = '{"message": "Il répète "jamais", puis se tait.", "quick_replies": []}';
+    expect(JSON.parse(extractJsonPayload(brut)).message).toBe('Il répète "jamais", puis se tait.');
+  });
+
+  it('un retour à la ligne brut dans une chaîne est échappé lui aussi', () => {
+    const brut = '{"message": "Première ligne\nSeconde ligne", "quick_replies": []}';
+    expect(JSON.parse(extractJsonPayload(brut)).message).toBe('Première ligne\nSeconde ligne');
+  });
+
+  it('vaut aussi pour une réponse en tableau', () => {
+    const brut = '[{"titre": "Le "oui" qui coûte", "angle": "a"}]';
+    expect(JSON.parse(extractJsonArrayPayload(brut))[0].titre).toBe('Le "oui" qui coûte');
+  });
+
+  it('ce qui reste irréparable retombe sur l’empan brut, comme avant', () => {
+    const brut = 'Préambule {"message": "tronqué';
+    expect(extractJsonPayload(brut)).toBe('Préambule {"message": "tronqué');
   });
 });

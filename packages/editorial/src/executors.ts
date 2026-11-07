@@ -85,6 +85,76 @@ const dernierBlocValide = (
     return null;
 };
 
+/** Ce qui peut commencer une valeur JSON : une chaîne, un objet, un tableau, un nombre, un littéral. */
+const DEBUT_DE_VALEUR = /^(?:["{[\-0-9]|true\b|false\b|null\b)/;
+
+/**
+ * Le guillemet en `i` ferme-t-il la chaîne ? Oui s'il est suivi — espaces
+ * mis à part — de ce qui suit une valeur en JSON : `}`, `]`, la fin du texte,
+ * ou une virgule ou un deux-points suivis d'une valeur. De la prose après la
+ * virgule (`"mot", puis…`), et c'était un guillemet de citation.
+ */
+const fermeLaChaine = (texte: string, i: number): boolean => {
+    let k = i + 1;
+    while (k < texte.length && /\s/.test(texte[k])) k++;
+    if (k >= texte.length || texte[k] === '}' || texte[k] === ']') return true;
+    if (texte[k] !== ',' && texte[k] !== ':') return false;
+    k++;
+    while (k < texte.length && /\s/.test(texte[k])) k++;
+    return k >= texte.length || DEBUT_DE_VALEUR.test(texte.slice(k, k + 6));
+};
+
+/**
+ * Échappe, dans les chaînes d'une réponse, les guillemets droits qu'un modèle
+ * y a laissés en citant une phrase — et les retours à la ligne bruts, interdits
+ * eux aussi dans une chaîne JSON.
+ *
+ * Le 07/11/2026, Claude Opus 5.5 via OpenRouter a écrit dans le message du
+ * Coach `avec "faites-moi aller mieux"`, sans échapper les guillemets. Le JSON
+ * ne parsait plus, et l'Atelier affichait la réponse brute à la place du
+ * message, réponses rapides perdues. Le mode JSON demandé ne l'empêche pas.
+ *
+ * Ce n'est qu'un SECOURS : il ne sert que si aucun bloc ne parse tel quel, et
+ * ne peut donc pas changer la lecture d'une réponse valide. Un guillemet de
+ * citation suivi d'une virgule puis d'une valeur reste indiscernable d'une fin
+ * de chaîne : la réparation échoue alors, et l'on retombe sur l'empan brut
+ * comme avant.
+ */
+export const reparerGuillemets = (texte: string): string => {
+    let sortie = '';
+    let dansChaine = false;
+    let echappe = false;
+    for (let i = 0; i < texte.length; i++) {
+        const c = texte[i];
+        if (!dansChaine) {
+            if (c === '"') dansChaine = true;
+            sortie += c;
+        } else if (echappe) {
+            echappe = false;
+            sortie += c;
+        } else if (c === '\\') {
+            echappe = true;
+            sortie += c;
+        } else if (c === '"') {
+            if (fermeLaChaine(texte, i)) {
+                dansChaine = false;
+                sortie += c;
+            } else {
+                sortie += '\\"';
+            }
+        } else if (c === '\n') {
+            sortie += '\\n';
+        } else if (c === '\r') {
+            sortie += '\\r';
+        } else if (c === '\t') {
+            sortie += '\\t';
+        } else {
+            sortie += c;
+        }
+    }
+    return sortie;
+};
+
 /**
  * Extrait un objet JSON nettoyé depuis une réponse IA brute.
  *
@@ -97,6 +167,11 @@ export const extractJsonPayload = (responseText: string, convient?: (valeur: any
 
     const bloc = dernierBlocValide(blocsJson(cleaned, '{'), convient);
     if (bloc) return bloc;
+
+    // Des guillemets de citation non échappés ? On les échappe, et on relit.
+    const repare = reparerGuillemets(cleaned);
+    const blocRepare = dernierBlocValide(blocsJson(repare, '{'), convient);
+    if (blocRepare) return blocRepare;
 
     // Aucun bloc complet : on rend l'empan brut. Une réponse tronquée reste
     // ainsi diagnosticable par l'appelant, qui dira ce qui manque.
@@ -115,6 +190,9 @@ export const extractJsonArrayPayload = (responseText: string, convient?: (valeur
 
     const bloc = dernierBlocValide(blocsJson(cleaned, '['), convient);
     if (bloc) return bloc;
+
+    const blocRepare = dernierBlocValide(blocsJson(reparerGuillemets(cleaned), '['), convient);
+    if (blocRepare) return blocRepare;
 
     const first = cleaned.indexOf('[');
     const last = cleaned.lastIndexOf(']');
