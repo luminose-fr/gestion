@@ -106,6 +106,9 @@ describe('époque moderne (2026-07-28)', () => {
     expect(result.capabilities).toEqual({ tools: {} });
     expect(result._meta['io.modelcontextprotocol/serverInfo'].name).toBe('luminose-google-ads');
     expect(result.instructions).toMatch(/Claude prépare, Florent publie/);
+    // Les outils d'écriture des contenus y sont tous nommés, les deux du 07/11/2026 compris.
+    expect(result.instructions).toMatch(/contenus_deplacer \(changer un contenu de série/);
+    expect(result.instructions).toMatch(/series_reordonner \(l'ordre complet d'une série\)/);
   });
 
   it('tools/list publie les outils de lecture puis d’écriture, sans dialecte explicite', async () => {
@@ -127,7 +130,7 @@ describe('époque moderne (2026-07-28)', () => {
         'gtm_mettre_en_pause', 'gtm_declencheurs_ajouter', 'gtm_pages_vues_couper',
         'corpus_index', 'corpus_lire', 'corpus_contexte', 'corpus_modifier', 'corpus_decision_ajouter', 'corpus_deployer',
         'contenus_lister', 'contenus_lire', 'series_lister', 'contenus_creer', 'contenus_modifier', 'contenus_brouillon_ecrire',
-        'series_regrouper',
+        'series_regrouper', 'contenus_deplacer', 'series_reordonner',
       ]);
     // Destructeurs : les seuls outils qui lèvent une exclusion, donc peuvent rouvrir du trafic — ou retirent un élément d'une annonce.
     const retraits = ['ads_liste_negatifs_retirer', 'ads_liste_dissocier', 'ads_negatifs_retirer', 'ads_elements_dissocier'];

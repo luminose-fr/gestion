@@ -8,15 +8,20 @@
 import { Hono } from 'hono';
 import {
   CreateContentSchema, UpdateContentSchema, BatchCreateContentSchema,
-  AppendCoachMessageSchema, UpdateCoachSchema, CreateGenerationSchema,
+  AppendCoachMessageSchema, UpdateCoachSchema, CreateGenerationSchema, DeplacerContenuSchema,
   SyncQuerySchema, type CoachSession, type ResumeFil, type ResumeFils, type DernierDuFil,
+  type ResultatDeplacement, type SerieEtSesContenus,
 } from '@luminose/shared';
-import { getFormatDef, getFormatPromptTemplate, isTargetFormat, parseDraftResponse } from '@luminose/editorial';
+import {
+  getFormatDef, getFormatPromptTemplate, isTargetFormat, parseDraftResponse,
+  lireDetailDeplacement, phraseDuDeplacement, type DetailDeplacement,
+} from '@luminose/editorial';
 import type { Contexte } from '../env';
 import {
-  now, newId, rowToContent, rowToCoachMessage, rowToGeneration,
+  now, newId, rowToContent, rowToCoachMessage, rowToGeneration, rowToSerie,
   buildUpdate, COLUMN_MAPS, toSql,
 } from '../db';
+import { ORDRE_DANS_LA_SERIE, renumeroter, resserrerLaSerieDe } from '../rangs';
 import { LIBELLE_EN_PLACE, LIBELLE_MCP, exigerFiche } from '../acces-mcp';
 import { Refus } from '../refus';
 
@@ -103,8 +108,8 @@ contents.get('/fils', async (c) => {
                  FROM generations WHERE ${VIVANTS})
         WHERE rang = 1`),
     db.prepare(
-      `SELECT content_id, statut, avant, created_at FROM (
-         SELECT content_id, statut, avant, created_at, ${PLUS_RECENT} AS rang FROM gestes WHERE ${VIVANTS}
+      `SELECT content_id, statut, avant, nature, detail, created_at FROM (
+         SELECT content_id, statut, avant, nature, detail, created_at, ${PLUS_RECENT} AS rang FROM gestes WHERE ${VIVANTS}
        ) WHERE rang = 1`),
   ]);
 
@@ -134,7 +139,13 @@ contents.get('/fils', async (c) => {
     });
   }
   for (const r of lignes(gestes)) {
-    proposer(r.content_id, { source: 'geste', nature: r.statut, texte: null, verdict: null, avant: r.avant, le: r.created_at });
+    // Un déplacement n'a pas changé le statut : sa nature et sa phrase le disent (SPEC §13.6, v2.36).
+    const deplacement = r.nature === 'deplacement';
+    proposer(r.content_id, {
+      source: 'geste', nature: deplacement ? 'deplacement' : r.statut,
+      texte: deplacement ? phraseDuDeplacement(lireDetailDeplacement(r.detail)) : null,
+      verdict: null, avant: r.avant, le: r.created_at,
+    });
   }
 
   return c.json(resume);
@@ -189,7 +200,7 @@ contents.get('/:id', async (c) => {
   ).bind(id).first();
 
   const { results: gestes } = await c.env.DB
-    .prepare('SELECT statut, avant, created_at FROM gestes WHERE content_id = ? ORDER BY created_at ASC, rowid ASC')
+    .prepare('SELECT statut, avant, nature, detail, created_at FROM gestes WHERE content_id = ? ORDER BY created_at ASC, rowid ASC')
     .bind(id).all();
 
   return c.json({
@@ -200,7 +211,13 @@ contents.get('/:id', async (c) => {
     ...(c.get('appelant') === 'mcp' && isTargetFormat(content.targetFormat)
       ? { gabaritBrouillon: getFormatPromptTemplate(content.targetFormat) }
       : {}),
-    gestes: (gestes as any[]).map((g) => ({ statut: g.statut, avant: g.avant, le: g.created_at })),
+    gestes: (gestes as any[]).map((g) => {
+      // Un changement de statut garde la forme qu'il avait avant la v2.36.
+      if (g.nature !== 'deplacement') return { statut: g.statut, avant: g.avant, le: g.created_at };
+      // La phrase voyage avec le détail : le serveur MCP ne lit pas @luminose/editorial.
+      const detail = lireDetailDeplacement(g.detail);
+      return { statut: g.statut, avant: g.avant, le: g.created_at, nature: 'deplacement', detail, texte: phraseDuDeplacement(detail) };
+    }),
     cout: {
       appels: Number(cout?.appels ?? 0),
       tokensEntree: cout?.entree === null || cout?.entree === undefined ? null : Number(cout.entree),
@@ -280,6 +297,9 @@ contents.post('/batch', async (c) => {
  * que le geste s'écrit dans le même batch (SPEC §13.6). Il s'écrit ICI et non
  * dans l'écran : aucun bouton, présent ou à venir, ne peut l'oublier. Un statut
  * renvoyé tel quel n'est pas un geste : l'`INSERT` ne retient que ce qui change.
+ *
+ * La série et le rang n'y passent plus (v2.36) : `COLUMN_MAPS.content` les
+ * ignore. Voir `db.ts` — c'est `POST /:id/deplacer` qui les écrit.
  */
 contents.patch('/:id', async (c) => {
   const id = c.req.param('id');
@@ -322,15 +342,151 @@ contents.patch('/:id', async (c) => {
 /**
  * Suppression logique (SPEC §2.1). `updated_at` est bumpé pour que la
  * synchronisation incrémentale voie passer la suppression.
+ *
+ * 1 batch de 2 écritures : la suppression, et sa série qui se resserre — les
+ * rangs restent continus (v2.36) ; supprimer le n° 2 laissait un trou entre le
+ * 1 et le 3.
  */
 contents.delete('/:id', async (c) => {
   const ts = now();
-  const res = await c.env.DB
-    .prepare('UPDATE contents SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
-    .bind(ts, ts, c.req.param('id')).run();
+  const id = c.req.param('id');
+  const [res] = await c.env.DB.batch([
+    c.env.DB.prepare('UPDATE contents SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL').bind(ts, ts, id),
+    resserrerLaSerieDe(c.env.DB, id, ts),
+  ]);
 
   if (!res.meta.changes) return c.json({ error: 'Contenu introuvable' }, 404);
   return c.json({ deleted: true, deletedAt: ts });
+});
+
+// ── Déplacer un contenu entre séries (SPEC §3.3, v2.36) ──────────────────
+
+/**
+ * Vers une autre série, à un autre rang de la sienne, ou hors de toute série.
+ * Seuls changent sa série, son rang — et son angle s'il est donné : la fiche,
+ * les notes, le brouillon, l'analyse, l'atelier, les relectures et le fil
+ * restent ceux du contenu.
+ *
+ * Les rangs restent continus, 1 à n, dans la série quittée comme dans celle
+ * d'arrivée : les deux se renumérotent dans le même batch que le déplacement
+ * et que son geste. Tout passe, ou rien.
+ *
+ * Un contenu publié ne se déplace pas : sa série fait partie de l'historique
+ * de publication. Une série vidée reste : la supprimer se décide à part.
+ *
+ * Au plus 10 requêtes, quel que soit le nombre de publications : le contenu et
+ * sa série, la série visée, les publications des deux ; un batch d'écriture
+ * (le contenu, deux renumérotations, le geste) ; un batch de relecture.
+ */
+contents.post('/:id/deplacer', async (c) => {
+  const id = c.req.param('id');
+  const { serieId, position, angle } = DeplacerContenuSchema.parse(await c.req.json());
+  const db = c.env.DB;
+
+  const lu = await db.prepare(
+    `SELECT c.title, c.status, c.serie_id, c.angle, s.titre AS serie_titre
+       FROM contents c LEFT JOIN series s ON s.id = c.serie_id
+      WHERE c.id = ? AND c.deleted_at IS NULL`,
+  ).bind(id).first<{ title: string; status: string; serie_id: string | null; angle: string | null; serie_titre: string | null }>();
+  if (!lu) return c.json({ error: 'Contenu introuvable' }, 404);
+  if (lu.status === 'Publié') {
+    throw new Refus(`« ${lu.title || 'Sans titre'} » est publié : sa série fait partie de l'historique de publication, il ne se déplace plus.`, 409);
+  }
+
+  let cible: { titre: string } | null = null;
+  if (serieId !== null) {
+    cible = await db.prepare('SELECT titre FROM series WHERE id = ? AND deleted_at IS NULL').bind(serieId).first<{ titre: string }>();
+    if (!cible) throw new Refus(`Série introuvable : ${serieId}.`, 404);
+  }
+
+  // Les deux séries touchées, dans l'ordre où l'écran les montre.
+  const touchees = [...new Set([lu.serie_id, serieId].filter((x): x is string => !!x))];
+  const marques = touchees.map(() => '?').join(', ');
+  const { results: membres } = touchees.length
+    ? await db.prepare(`SELECT id, serie_id, serie_position FROM contents WHERE serie_id IN (${marques}) AND deleted_at IS NULL ORDER BY ${ORDRE_DANS_LA_SERIE}`)
+        .bind(...touchees).all<{ id: string; serie_id: string; serie_position: number | null }>()
+    : { results: [] as { id: string; serie_id: string; serie_position: number | null }[] };
+  const ordreDe = (sid: string) => membres.filter((m) => m.serie_id === sid).map((m) => m.id);
+
+  const depart = lu.serie_id ? ordreDe(lu.serie_id) : [];
+  // Le rang d'avant, tel que l'écran le montrait : celui posé, à défaut la place dans l'ordre.
+  const rangAvant = lu.serie_id
+    ? (membres.find((m) => m.id === id)?.serie_position ?? depart.indexOf(id) + 1)
+    : null;
+
+  const memeSerie = serieId === lu.serie_id;
+  const restants = serieId ? ordreDe(serieId).filter((x) => x !== id) : [];
+  const dernier = restants.length + 1;
+  // Sans position : en dernier dans une autre série ; dans la sienne, il reste où il est.
+  const rang = serieId ? (position ?? (memeSerie ? depart.indexOf(id) + 1 : dernier)) : null;
+  if (rang !== null && rang > dernier) {
+    throw new Refus(
+      `Position ${rang} impossible : sans ce contenu, « ${cible!.titre} » compte ${restants.length} publication${restants.length > 1 ? 's' : ''} — ` +
+      `la position va de 1 à ${dernier}.`, 400);
+  }
+  const arrivee = rang !== null ? [...restants.slice(0, rang - 1), id, ...restants.slice(rang - 1)] : [];
+
+  const deplace = !memeSerie || arrivee.join('\n') !== depart.join('\n');
+  const angleChange = angle !== undefined && (angle ?? null) !== (lu.angle ?? null);
+
+  const detail: DetailDeplacement = {
+    de: lu.serie_id ? { serieId: lu.serie_id, titre: lu.serie_titre ?? '', rang: rangAvant } : null,
+    vers: serieId ? { serieId, titre: cible!.titre, rang } : null,
+  };
+
+  if (deplace || angleChange) {
+    const ts = now();
+    const sets: string[] = [];
+    const params: (string | null)[] = [];
+    if (deplace) {
+      // Le rang d'arrivée est posé par la renumérotation, avec ceux des autres.
+      sets.push('serie_id = ?');
+      params.push(serieId);
+      if (serieId === null) sets.push('serie_position = NULL');
+    }
+    if (angleChange) {
+      sets.push('angle = ?');
+      params.push(angle ?? null);
+    }
+    const ecritures = [
+      db.prepare(`UPDATE contents SET ${sets.join(', ')}, updated_at = MAX(updated_at + 1, ?) WHERE id = ? AND deleted_at IS NULL`)
+        .bind(...params, ts, id),
+    ];
+    if (deplace) {
+      if (lu.serie_id && !memeSerie) ecritures.push(renumeroter(db, lu.serie_id, depart.filter((x) => x !== id), ts));
+      if (serieId) ecritures.push(renumeroter(db, serieId, arrivee, ts));
+      // Le statut n'a pas bougé : `statut` et `avant` le répètent (migration 0016).
+      ecritures.push(db.prepare(
+        `INSERT INTO gestes (id, content_id, statut, avant, nature, detail, created_at)
+         VALUES (?, ?, ?, ?, 'deplacement', ?, ?)`,
+      ).bind(newId(), id, lu.status, lu.status, JSON.stringify(detail), ts));
+    }
+    await db.batch(ecritures);
+  }
+
+  const lectures = await db.batch([
+    db.prepare('SELECT * FROM contents WHERE id = ?').bind(id),
+    ...(touchees.length
+      ? [
+          db.prepare(`SELECT * FROM series WHERE id IN (${marques})`).bind(...touchees),
+          db.prepare(`SELECT * FROM contents WHERE serie_id IN (${marques}) AND deleted_at IS NULL ORDER BY ${ORDRE_DANS_LA_SERIE}`).bind(...touchees),
+        ]
+      : []),
+  ]);
+  const lignes = (i: number) => (lectures[i]?.results ?? []) as any[];
+  const serieEt = (sid: string | null): SerieEtSesContenus | null => {
+    const serie = sid ? lignes(1).find((s) => s.id === sid) : null;
+    return serie ? { serie: rowToSerie(serie), contents: lignes(2).filter((r) => r.serie_id === sid).map(rowToContent) } : null;
+  };
+
+  const resultat: ResultatDeplacement = {
+    content: rowToContent(lignes(0)[0]),
+    inchange: !deplace && !angleChange,
+    geste: deplace ? phraseDuDeplacement(detail) : null,
+    depart: serieEt(lu.serie_id),
+    arrivee: memeSerie ? null : serieEt(serieId),
+  };
+  return c.json(resultat);
 });
 
 // ── Conversation Coach (SPEC §2.7) ───────────────────────────────────────

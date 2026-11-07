@@ -5,9 +5,11 @@
  * LIRE : les contenus et les séries, par l'API de gestion.luminose.fr (console.ts).
  *
  * ÉCRIRE, ce que Florent a accordé : créer une idée, modifier la fiche d'un
- * contenu, écrire son brouillon, regrouper des idées en série. Rien d'autre —
- * ni suppression, ni analyse, ni atelier, ni slides —, et la console le
- * revérifie de son côté : son jeton n'ouvre que ces routes et ces champs.
+ * contenu, écrire son brouillon, regrouper des idées en série — et, le
+ * 07/11/2026, déplacer un contenu d'une série à l'autre et réordonner une
+ * série. Rien d'autre — ni suppression, ni analyse, ni atelier, ni slides —,
+ * et la console le revérifie de son côté : son jeton n'ouvre que ces routes et
+ * ces champs.
  *
  * Ces écritures partent DIRECTEMENT, sans aperçu ni jeton, à la différence de
  * Google Ads, du corpus et de Tag Manager : les contenus ne sont pas publics,
@@ -47,11 +49,22 @@ type Serie = { id: string; titre: string; intention: string | null; statut: stri
 type Detail = {
   content: Contenu;
   coachSession: { status: string | null; brief: string | null; messages: unknown[] };
-  gestes: { statut: string; avant: string | null; le: number }[];
+  /** Un changement de statut, ou un déplacement entre séries (`nature`), dont `texte` porte la phrase. */
+  gestes: { statut: string; avant: string | null; le: number; nature?: string; texte?: string | null }[];
   cout: { appels: number; tokensEntree: number | null; tokensSortie: number | null; usd: number | null; appelsSansPrix: number };
   gabaritBrouillon?: string;
 };
 type Generation = { id: string; kind: string; modelLabel: string; instruction: string | null; payload: string; createdAt: number };
+/** Une série et ses contenus, dans l'ordre — ce que rendent la lecture, le déplacement et la remise en ordre. */
+type SerieEtContenus = { serie: Serie; contents: Contenu[] };
+type Deplacement = {
+  content: Contenu;
+  inchange: boolean;
+  /** La phrase du geste laissé au fil ; `null` quand seul l'angle a changé. */
+  geste: string | null;
+  depart: SerieEtContenus | null;
+  arrivee: SerieEtContenus | null;
+};
 
 // ── Dire en français ─────────────────────────────────────────────────────
 
@@ -234,7 +247,9 @@ const lire = outil({
     if (relecture) blocs.push('', `Dernière relecture à froid, le ${le(relecture.createdAt)} (${relecture.modelLabel}) :`, extrait(relecture.payload, 3000));
     blocs.push('', `Slides : ${c.slides ? 'produites' : 'aucune'}.`);
     if (detail.gestes.length) {
-      blocs.push(`Gestes : ${detail.gestes.slice(-5).map((g) => `${g.avant ?? '—'} → ${g.statut} le ${le(g.le)}`).join(' ; ')}.`);
+      blocs.push(`Gestes : ${detail.gestes.slice(-5).map((g) => (g.nature === 'deplacement'
+        ? `${(g.texte ?? 'changé de série').replace(/\.$/, '')} le ${le(g.le)}`
+        : `${g.avant ?? '—'} → ${g.statut} le ${le(g.le)}`)).join(' ; ')}.`);
     }
     return texte(couper(blocs.join('\n')));
   },
@@ -290,7 +305,8 @@ const modifier = outil({
   title: 'Contenus — modifier la fiche',
   description:
     'Modifie la fiche d’un contenu de la console : titre, notes, statut, format, objectif, plateformes, date prévue, angle. ' +
-    'Seuls les champs donnés changent ; null efface un champ facultatif. Le brouillon ne passe pas par ici : contenus_brouillon_ecrire.\n\n' +
+    'Seuls les champs donnés changent ; null efface un champ facultatif. Le brouillon ne passe pas par ici : contenus_brouillon_ecrire ; ' +
+    'la série et le rang non plus : contenus_deplacer.\n\n' +
     'L’écriture part directement, sans aperçu. Le journal de ce serveur garde la fiche d’avant ; un changement de statut laisse ' +
     'un geste dans le fil du contenu. Exige la case « Modifier les contenus » du consentement.',
   schema: z.object({ id: ID, titre: z.string().min(1).max(500).optional(), ...champsFiche }).strict(),
@@ -367,7 +383,8 @@ const regrouper = outil({
     'lui, l’idée garde le sien. De deux à vingt idées.\n\n' +
     'Seulement des idées (statut « Idée ») qui n’appartiennent à aucune série — contenus_lister avec statut « Idée » et sans_serie ' +
     'les trouve. Elles restent des idées : format, objectif et angle restent à décider. La série et ses idées existent ensemble ou ' +
-    'pas du tout. L’écriture part directement, sans aperçu. Exige la case « Modifier les contenus » du consentement.',
+    'pas du tout. Pour compléter une série qui existe déjà, ou y faire entrer un contenu engagé : contenus_deplacer, à la position ' +
+    'voulue. L’écriture part directement, sans aperçu. Exige la case « Modifier les contenus » du consentement.',
   schema: z.object({
     titre: z.string().min(1).max(500).describe('Le sujet de la série.'),
     intention: z.string().max(2000).optional().describe('Ce que la série doit produire chez le lecteur.'),
@@ -390,4 +407,105 @@ const regrouper = outil({
   },
 });
 
-export const OUTILS_CONTENUS = [lister, lire, listerSeries, creer, modifier, ecrireBrouillon, regrouper] as const;
+// ── contenus_deplacer ────────────────────────────────────────────────────
+
+/** Une série numérotée, telle que la console la rend après l'opération. */
+const numeroter = (s: SerieEtContenus, role: string): string[] => [
+  `Série « ${s.serie.titre} »${role} — ${s.contents.length} publication${s.contents.length > 1 ? 's' : ''} :`,
+  ...(s.contents.length
+    ? s.contents.map((c) => `${c.seriePosition ?? '·'}. « ${c.title || 'sans titre'} »${c.angle ? ` — ${extrait(c.angle, 160)}` : ''} (${c.status}) — id ${c.id}`)
+    : ['(vide — elle reste ; la supprimer se décide dans la console)']),
+];
+
+const deplacer = outil({
+  name: 'contenus_deplacer',
+  title: 'Contenus — changer de série',
+  description:
+    'Déplace un contenu de la console vers une autre série, à la position voulue (par défaut en dernier), le place à un autre rang ' +
+    'de sa propre série, ou l’en sort (serie = null). Seuls changent sa série et son rang — et son angle s’il est donné : l’angle ' +
+    'est relatif à la série ; absent, il reste tel quel ; null l’efface. Fiche, notes, brouillon, analyse, atelier, relectures et ' +
+    'fil restent ceux du contenu. Les rangs des deux séries restent continus ; une série vidée n’est pas supprimée.\n\n' +
+    'Idée, Brouillon ou Prêt : un contenu publié ne se déplace pas, sa série fait partie de l’historique de publication. Pour ' +
+    'remettre toute une série en ordre : series_reordonner.\n\n' +
+    'L’écriture part directement, sans aperçu, et laisse un geste dans le fil du contenu. Le journal de ce serveur garde la série, ' +
+    'le rang et l’angle d’avant. Exige la case « Modifier les contenus » du consentement.',
+  schema: z.object({
+    id: ID,
+    serie: ID.nullable().describe('La série d’arrivée (series_lister) ; la sienne pour changer de rang ; null pour l’en sortir.'),
+    position: z.number().int().min(1).max(200).optional()
+      .describe('Son rang dans la série d’arrivée, à partir de 1 ; par défaut, en dernier — dans sa propre série, il reste où il est.'),
+    angle: z.string().max(2000).nullable().optional()
+      .describe('Son angle dans la série d’arrivée ; absent, il reste tel quel ; null l’efface.'),
+  }).strict(),
+  annotations: ECRITURE,
+  async executer({ id, serie, position, angle }, env, contexte) {
+    exigerEcritureContenus(contexte);
+    if (serie === null && position !== undefined) {
+      throw new Refus('Sans série, pas de position : retirer position, ou donner la série d’arrivée.');
+    }
+    const chemin = `/api/contents/${encodeURIComponent(id)}`;
+    const avant = (await appelerConsole<Detail>(env, chemin)).content;
+    if (serie === null && !avant.serieId && angle === undefined) {
+      return texte(`RIEN À FAIRE — « ${avant.title} » n’appartient à aucune série. Rien n'est parti.`);
+    }
+
+    const corps = { serieId: serie, ...(position !== undefined ? { position } : {}), ...(angle !== undefined ? { angle } : {}) };
+    const { numero, resultat } = await ecrireDansLaConsole(env, contexte, {
+      outil: 'contenus_deplacer', cible: id,
+      contenu: { corps, avant: { serieId: avant.serieId, seriePosition: avant.seriePosition, angle: avant.angle } },
+      appel: () => appelerConsole<Deplacement>(env, `${chemin}/deplacer`, { methode: 'POST', corps }),
+      ressources: (r) => [...new Set([id, ...[r.depart, r.arrivee].flatMap((x) => (x ? [x.serie.id] : []))])],
+    });
+    const c = resultat.content;
+    if (resultat.inchange) {
+      return texte(`RIEN À FAIRE — écriture n° ${numero} du journal, close sans changement : « ${c.title} » est déjà à cette place, avec cet angle.`);
+    }
+    const angleChange = (avant.angle ?? null) !== (c.angle ?? null);
+    return texte(couper([
+      `FAIT — écriture n° ${numero} du journal. « ${c.title || 'sans titre'} » : ${resultat.geste ?? 'seul l’angle a changé.'}`,
+      ...(angleChange ? [`Angle : ${dire(avant.angle)} → ${dire(c.angle)}`] : []),
+      ...(resultat.depart ? ['', ...numeroter(resultat.depart, resultat.arrivee || !c.serieId ? ', au départ' : '')] : []),
+      ...(resultat.arrivee ? ['', ...numeroter(resultat.arrivee, ', à l’arrivée')] : []),
+      ...(!c.serieId ? ['', 'Le contenu n’appartient plus à aucune série.'] : []),
+      ...(angleChange
+        ? ['', 'Un éditeur resté ouvert sur ce contenu dans la console réécrirait l’ancien angle : le rouvrir avant d’y retoucher.']
+        : []),
+    ].join('\n')));
+  },
+});
+
+// ── series_reordonner ────────────────────────────────────────────────────
+
+const reordonner = outil({
+  name: 'series_reordonner',
+  title: 'Séries — réordonner',
+  description:
+    'Donne l’ordre complet d’une série de la console : chacun de ses contenus, une fois, dans l’ordre de la progression — la ' +
+    'première publication ouvre le sujet, les suivantes s’appuient sur ce qui précède. Ni ajout ni oubli : sinon, la console ' +
+    'refuse et rend la liste attendue, numérotée, avec les identifiants. Seuls les rangs changent ; aucun geste au fil des contenus.\n\n' +
+    'Pour faire entrer un contenu dans une série, l’en sortir ou n’en déplacer qu’un : contenus_deplacer. L’écriture part ' +
+    'directement, sans aperçu ; le journal de ce serveur garde l’ordre d’avant. Exige la case « Modifier les contenus » du consentement.',
+  schema: z.object({
+    id: ID.describe('La série (series_lister).'),
+    ordre: z.array(ID).min(1).max(200).describe('Les identifiants de TOUS ses contenus, dans le nouvel ordre.'),
+  }).strict(),
+  annotations: ECRITURE,
+  async executer({ id, ordre }, env, contexte) {
+    exigerEcritureContenus(contexte);
+    const chemin = `/api/series/${encodeURIComponent(id)}`;
+    const avant = await appelerConsole<SerieEtContenus>(env, chemin);
+    const ancien = avant.contents.map((c) => c.id);
+    if (ancien.length === ordre.length && ancien.every((x, i) => x === ordre[i])) {
+      return texte(`RIEN À FAIRE — « ${avant.serie.titre} » est déjà dans cet ordre. Rien n'est parti.`);
+    }
+    const corps = { ids: ordre };
+    const { numero, resultat } = await ecrireDansLaConsole(env, contexte, {
+      outil: 'series_reordonner', cible: id, contenu: { corps, avant: ancien },
+      appel: () => appelerConsole<SerieEtContenus>(env, `${chemin}/reordonner`, { methode: 'POST', corps }),
+      ressources: (r) => [r.serie.id, ...r.contents.map((c) => c.id)],
+    });
+    return texte(couper([`FAIT — écriture n° ${numero} du journal.`, ...numeroter(resultat, ', remise en ordre')].join('\n')));
+  },
+});
+
+export const OUTILS_CONTENUS = [lister, lire, listerSeries, creer, modifier, ecrireBrouillon, regrouper, deplacer, reordonner] as const;

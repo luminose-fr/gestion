@@ -43,6 +43,7 @@ import { ConfirmSuppressionSerie } from '../components/Series/ConfirmSuppression
 import ContentEditor from '../components/ContentEditor';
 import { Fil } from '../components/Contenu/Fil';
 import { SelecteurEtape } from '../components/Contenu/CadreContenu';
+import { ChoixSerie, type SerieAuChoix } from '../components/Contenu/ChoixSerie';
 import { BodyRenderer } from '../components/ContentEditor/renderers/BodyRenderer';
 import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
@@ -2816,5 +2817,105 @@ describe('la navigation de Contenus (SPEC §13)', () => {
     const mobile = render(<MobileSubTabs space="social" currentTab="ideas" currentSettingsSection="models"
       onNavigate={noop} onNavigateSettings={noop} counts={{ conversations: 25, ideas: 44, publies: 17 }} />);
     expect(mobile.container.textContent).toContain('Publiés');
+  });
+});
+
+/**
+ * Déplacer un contenu entre séries, et réordonner une série (SPEC §3.3, v2.36).
+ * Depuis la fiche — l'Ouverture — et depuis le plan de la série.
+ */
+describe('déplacer et réordonner (SPEC §3.3, v2.36)', () => {
+  const SERIES: SerieAuChoix[] = [
+    { id: 's1', titre: 'Série A', terminee: false, publications: [{ id: 'a1', titre: 'A1' }, { id: 'i1', titre: 'Le piège chinois' }, { id: 'a3', titre: 'A3' }] },
+    { id: 's2', titre: 'Série B', terminee: true, publications: [{ id: 'b1', titre: 'B1' }] },
+  ];
+  const DANS_A: ContentItem = { ...ITEM, serieId: 's1', seriePosition: 2, angle: 'Le piège' };
+  const valeur = (el: HTMLElement) => (el as HTMLSelectElement | HTMLTextAreaElement).value;
+
+  it('la fiche : vers une autre série, en tête, avec un nouvel angle — la phrase du geste répond', async () => {
+    const deplacer = vi.fn(async () => 'Déplacé de « Série A » n° 2 vers « Série B » n° 1.');
+    const { getByLabelText, getByText, findByRole } = render(
+      <ChoixSerie contenu={{ id: 'i1', serieId: 's1', angle: 'Le piège', publie: false }} series={SERIES} onDeplacer={deplacer} />);
+    expect(valeur(getByLabelText('Série'))).toBe('s1');
+    expect(valeur(getByLabelText('Position'))).toBe('2');
+    // Rien n'a changé : rien à faire.
+    expect((getByText('Enregistrer l’angle').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    expect(getByText('Série B (terminée)')).toBeTruthy();
+
+    fireEvent.change(getByLabelText('Série'), { target: { value: 's2' } });
+    // Une autre série l'accueille en dernier.
+    expect(valeur(getByLabelText('Position'))).toBe('2');
+    expect(getByText('n° 2 · en dernier')).toBeTruthy();
+    expect(getByText('n° 1 · avant « B1 »')).toBeTruthy();
+    fireEvent.change(getByLabelText('Position'), { target: { value: '1' } });
+    fireEvent.change(getByLabelText('Angle dans la série'), { target: { value: 'Le piège du sommeil' } });
+    fireEvent.click(getByText('Déplacer'));
+
+    await waitFor(() => expect(deplacer).toHaveBeenCalledWith({ serieId: 's2', position: 1, angle: 'Le piège du sommeil' }));
+    expect((await findByRole('status')).textContent).toContain('Déplacé de « Série A » n° 2 vers « Série B » n° 1.');
+  });
+
+  it('la fiche : sortir de la série garde l’angle ; un refus s’affiche à côté du bouton', async () => {
+    const deplacer = vi.fn(async () => { throw new Error('Erreur 409 — refusé'); });
+    const { getByLabelText, getByText, queryByLabelText, findByRole } = render(
+      <ChoixSerie contenu={{ id: 'i1', serieId: 's1', angle: 'Le piège', publie: false }} series={SERIES} onDeplacer={deplacer} />);
+    fireEvent.change(getByLabelText('Série'), { target: { value: '' } });
+    expect(queryByLabelText('Position')).toBeNull();
+    fireEvent.click(getByText('Sortir de la série'));
+    await waitFor(() => expect(deplacer).toHaveBeenCalledWith({ serieId: null }));
+    expect((await findByRole('alert')).textContent).toBe('Erreur 409 — refusé');
+  });
+
+  it('la fiche : un contenu publié ne se déplace pas, et le dit', () => {
+    const { getByLabelText, container, queryByText } = render(
+      <ChoixSerie contenu={{ id: 'i1', serieId: 's1', angle: null, publie: true }} series={SERIES} onDeplacer={vi.fn()} />);
+    expect((getByLabelText('Série') as HTMLSelectElement).disabled).toBe(true);
+    expect(container.textContent).toContain('Publié : sa série fait partie de l’historique de publication, il ne se déplace plus.');
+    expect(queryByText('Déplacer')).toBeNull();
+  });
+
+  it('l’Ouverture porte le choix de la série quand l’application le fournit — et pas autrement', async () => {
+    const deplacer = vi.fn(async () => 'Sorti de la série « Série A » (n° 2).');
+    const editeur = (over: Record<string, unknown> = {}) => (
+      <ContentEditor item={DANS_A} aiModels={MODELS} activeModelId="m1" modelFor={() => 'm1'}
+        onClose={noop} libelleRetour="Conversations" onSave={asyncNoop} onDelete={asyncNoop}
+        activeStep="ouverture" onStepChange={noop} {...over} />
+    );
+    const sans = render(editeur());
+    await sans.findByLabelText('Titre du contenu');
+    expect(sans.queryByLabelText('Série')).toBeNull();
+    sans.unmount();
+
+    const { findByLabelText, getByText } = render(editeur({ series: SERIES, onDeplacer: deplacer }));
+    fireEvent.change(await findByLabelText('Série'), { target: { value: '' } });
+    fireEvent.click(getByText('Sortir de la série'));
+    await waitFor(() => expect(deplacer).toHaveBeenCalledWith(expect.objectContaining({ id: 'i1' }), { serieId: null }));
+  });
+
+  const PUBS: ContentItem[] = ['A', 'B', 'C'].map((t, i) => ({ ...ITEM, id: `p${t}`, title: t, serieId: SERIE.id, seriePosition: i + 1 }));
+  const plan = (over: Record<string, unknown> = {}) => (
+    <SeriePlanView serie={SERIE} contents={PUBS} sourceContent={null} etapes={{}} suppressionDemandee={false}
+      onFermerSuppression={noop} onUpdate={asyncNoop} onDelete={asyncNoop} onCreateContents={asyncNoop}
+      onOpenContent={noop} onGeneratePlan={async () => []} {...over} />
+  );
+
+  it('le plan : monter ou descendre envoie l’ordre complet ; en tête et en queue, la flèche s’éteint', async () => {
+    const reordonner = vi.fn(async () => {});
+    const { getByLabelText } = render(plan({ onReordonner: reordonner }));
+    expect((getByLabelText('Monter « A »') as HTMLButtonElement).disabled).toBe(true);
+    expect((getByLabelText('Descendre « C »') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(getByLabelText('Descendre « A »'));
+    await waitFor(() => expect(reordonner).toHaveBeenCalledWith(['pB', 'pA', 'pC']));
+    fireEvent.click(getByLabelText('Monter « C »'));
+    await waitFor(() => expect(reordonner).toHaveBeenLastCalledWith(['pA', 'pC', 'pB']));
+  });
+
+  it('le plan : un refus s’affiche au-dessus de la liste ; sans réordonnancement, pas de flèches', async () => {
+    const { getByLabelText, findByRole, unmount } = render(plan({ onReordonner: async () => { throw new Error('Erreur 409 — liste incomplète'); } }));
+    fireEvent.click(getByLabelText('Descendre « B »'));
+    expect((await findByRole('alert')).textContent).toContain('Erreur 409 — liste incomplète');
+    unmount();
+    const { queryByLabelText } = render(plan());
+    expect(queryByLabelText('Monter « B »')).toBeNull();
   });
 });

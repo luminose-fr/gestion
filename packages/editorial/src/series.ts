@@ -227,3 +227,66 @@ export const buildPlanSeriesPayload = (input: {
     })),
     nombre_souhaite: input.nombreSouhaite,
 });
+
+/**
+ * Le rang de la première publication ajoutée à une série (SPEC §2.9, v2.36) :
+ * à la suite de celles qui y sont déjà. Le plan numérotait ses lignes à partir
+ * de 1 même pour allonger une série existante — « Générer une publication de
+ * plus » donnait un second n° 1. Un rang manquant, ou plus grand que le compte
+ * (un trou d'avant la v2.36), ne fait pas reculer le départ.
+ */
+export const premierRangLibre = (rangs: Array<number | null | undefined>): number =>
+    Math.max(rangs.length, ...rangs.map(r => r ?? 0)) + 1;
+
+// ── Le déplacement d'un contenu entre séries (SPEC §13.6, v2.36) ──────────
+
+/**
+ * Une place dans une série, telle qu'elle était au moment du geste. Le titre
+ * est figé : renommer ou supprimer la série plus tard ne réécrit pas le fil.
+ * `rang` vaut `null` pour un contenu qui n'avait pas encore de place.
+ */
+export interface PlaceDansUneSerie {
+    serieId: string;
+    titre: string;
+    rang: number | null;
+}
+
+/** D'où et vers où ; `null` : sans série. */
+export interface DetailDeplacement {
+    de: PlaceDansUneSerie | null;
+    vers: PlaceDansUneSerie | null;
+}
+
+const place = (p: PlaceDansUneSerie): string => `« ${p.titre} »${p.rang ? ` n° ${p.rang}` : ''}`;
+
+/**
+ * Le geste en une phrase, pour le fil et pour le serveur MCP — la même partout.
+ * Le Worker la compose aussi : le serveur MCP ne lit pas ce paquet.
+ */
+export const phraseDuDeplacement = (d: DetailDeplacement | null | undefined): string => {
+    const { de = null, vers = null } = d ?? {};
+    if (de && vers && de.serieId === vers.serieId) {
+        return de.rang && vers.rang
+            ? `Déplacé du n° ${de.rang} au n° ${vers.rang} dans « ${vers.titre} ».`
+            : `Déplacé dans « ${vers.titre} »${vers.rang ? `, au n° ${vers.rang}` : ''}.`;
+    }
+    if (de && vers) return `Déplacé de ${place(de)} vers ${place(vers)}.`;
+    if (de) return `Sorti de la série « ${de.titre} »${de.rang ? ` (n° ${de.rang})` : ''}.`;
+    if (vers) return `Rangé dans ${place(vers)}.`;
+    return 'Changé de série.';
+};
+
+/** Le détail d'un geste tel que la base le garde — du JSON, peut-être abîmé. */
+export const lireDetailDeplacement = (texte: unknown): DetailDeplacement | null => {
+    if (typeof texte !== 'string') return null;
+    const valide = (p: any): PlaceDansUneSerie | null =>
+        p && typeof p === 'object' && typeof p.serieId === 'string' && typeof p.titre === 'string'
+            ? { serieId: p.serieId, titre: p.titre, rang: typeof p.rang === 'number' ? p.rang : null }
+            : null;
+    try {
+        const lu = JSON.parse(texte);
+        return lu && typeof lu === 'object' ? { de: valide(lu.de), vers: valide(lu.vers) } : null;
+    } catch {
+        return null;
+    }
+};

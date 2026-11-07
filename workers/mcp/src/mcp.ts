@@ -48,7 +48,8 @@ const INSTRUCTIONS =
   "Les contenus de la console (gestion.luminose.fr) se lisent : contenus_lister, contenus_lire, series_lister. Ils s'écrivent " +
   "DIRECTEMENT, sans aperçu ni jeton — c'est le seul domaine du serveur où il en va ainsi : contenus_creer (une idée), " +
   "contenus_modifier (la fiche), contenus_brouillon_ecrire (le brouillon, signé « Claude (MCP) » et annulable dans l'éditeur), " +
-  "series_regrouper (des idées en série). Ne rien y écrire que Florent n'a pas demandé.";
+  "series_regrouper (des idées en série), contenus_deplacer (changer un contenu de série, l'en sortir, ou le placer à un autre " +
+  "rang), series_reordonner (l'ordre complet d'une série). Ne rien y écrire que Florent n'a pas demandé.";
 
 const META_VERSION = 'io.modelcontextprotocol/protocolVersion';
 const META_CAPACITES = 'io.modelcontextprotocol/clientCapabilities';

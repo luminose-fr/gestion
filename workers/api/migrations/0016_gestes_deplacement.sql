@@ -1,0 +1,23 @@
+-- Un contenu change de série : le geste se date comme un changement de statut
+-- (SPEC §13.6, v2.36).
+--
+-- Déplacer un contenu, le sortir de sa série, le placer à un autre rang : le
+-- fil doit pouvoir dire « Déplacé de « A » n° 4 vers « B » n° 2 », à sa date.
+-- `generations` est réservé à ce que l'IA produit (§2.6) ; le geste de Florent
+-- va donc là où vont déjà les siens.
+--
+-- `gestes` ne connaissait que des changements de statut, et `statut` et
+-- `avant` y sont obligatoires. Plutôt qu'une table de plus pour une ligne de
+-- fil, deux colonnes :
+--   - `nature` dit ce que le geste a changé. 'statut' pour toutes les lignes
+--     d'avant, qui n'étaient que cela ;
+--   - `detail`, du JSON, dit d'où et vers où : `{ de, vers }`, chacun
+--     `{ serieId, titre, rang }` ou `null` (sans série). Les TITRES y sont
+--     figés au moment du geste, comme `generations.model_label` : renommer ou
+--     supprimer une série plus tard ne réécrit pas l'histoire.
+--
+-- Pour un déplacement, `statut` et `avant` valent tous deux le statut du
+-- contenu : il n'a pas changé, et ce qui lit ces colonnes comme un changement
+-- de statut n'y voit rien passer.
+ALTER TABLE gestes ADD COLUMN nature TEXT NOT NULL DEFAULT 'statut';
+ALTER TABLE gestes ADD COLUMN detail TEXT;

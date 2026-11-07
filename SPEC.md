@@ -1,4 +1,4 @@
-# SPEC v2.35 — gestion.luminose.fr
+# SPEC v2.36 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -169,6 +169,16 @@
 > adaptateur attend (§5.6). Une veille quotidienne signale les versions plus récentes des
 > modèles utilisés (§5.7). Réglages → Affichage disparaît : ses options ne pilotaient plus
 > rien depuis le fil (§13).
+> **v2.36 (07/11/2026)** : déplacer et réordonner. Une fois un contenu dans une série, rien ne
+> permettait de l'en sortir, de le changer de série ni de remettre une série en ordre ; il le
+> fallait pour fusionner deux séries qui se recouvrent. Trois gestes, dans la console et par le
+> serveur MCP : déplacer un contenu — vers une autre série, à un autre rang de la sienne, ou
+> hors de toute série —, et réordonner une série (§3.3). Les rangs restent continus, 1 à n
+> (§2.9) ; un contenu publié ne se déplace pas ; le déplacement laisse un geste daté dans le
+> fil (§13.6, migration 0016). Le `PATCH` d'un contenu n'écrit plus ni sa série ni son rang :
+> un éditeur resté ouvert les réécrivait (§3.2). En chemin, deux trous dans la numérotation se
+> referment : allonger une série depuis son plan repartait du n° 1 (§6.3), supprimer une
+> publication laissait un trou (§3.2) ; la migration 0017 remet en ordre les séries existantes.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -507,8 +517,15 @@ porte l'angle propre de ce contenu au sein de sa série.
 (1, 2, 3…). Ce n'est pas un confort d'affichage : la première publication ouvre le sujet
 pour un inconnu, les suivantes s'appuient sur ce qui précède sans le réinstaller, la
 dernière peut proposer quelque chose. Sans rang, une série n'est qu'un ensemble, et
-chaque contenu réécrit l'introduction des autres. Le rang est `NULL` pour un contenu
-rattaché à la main : il ferme la marche plutôt que de bloquer l'écriture.
+chaque contenu réécrit l'introduction des autres.
+
+**Les rangs sont continus — NORMATIF (v2.36).** 1 à n, sans trou ni doublon. Déplacer un
+contenu et réordonner une série (§3.3) renumérotent chaque série qu'ils touchent, dans
+l'ordre où l'écran la montre (`rangs.ts`, `ORDRE_DANS_LA_SERIE`) : par rang, un contenu
+sans rang en fin, puis par date de création. Supprimer une publication resserre sa série
+(§3.2) ; allonger une série depuis son plan numérote à la suite (§6.3). La migration 0017 a
+remis en ordre, dans ce même ordre, les séries d'avant la v2.36 : trous, doublons et rangs
+`NULL` d'un contenu rattaché à la main.
 
 ## 3. API (Worker, Hono) — NORMATIF
 
@@ -537,6 +554,18 @@ lus qu'à l'ouverture d'un contenu. C'est ce qui garde la liste à une seule req
 
 `postCourt` n'existe plus en base : il est calculé à la lecture depuis `draft` (§2.8).
 Le Worker ne le renvoie pas — c'est `packages/editorial` qui le produit, côté client.
+
+**Le `PATCH` ne déplace pas — NORMATIF (v2.36).** `serieId` et `seriePosition` y sont
+ignorés en silence ; seul `POST /api/contents/:id/deplacer` les écrit (§3.3). La console
+renvoie le contenu ENTIER à chaque enregistrement — une frappe, le rattrapage d'un échec, la
+fermeture de l'éditeur : un éditeur resté ouvert pendant un déplacement réécrivait l'ancienne
+série et l'ancien rang, et la série y gagnait un trou et un doublon. En silence, parce que la
+console les envoie toujours ; le serveur MCP, lui, reste refusé (§7). La création — un plan
+de série, `POST /api/contents/batch` — les pose toujours.
+
+**Supprimer un contenu resserre sa série (v2.36).** La suppression et la renumérotation de
+ce qui reste partent dans le même batch, en 2 écritures : supprimer le n° 2 laissait un trou
+entre le 1 et le 3.
 
 ### 3.2.1 Conversation Coach (§2.7)
 
@@ -569,6 +598,8 @@ POST   /api/series
 PATCH  /api/series/:id
 DELETE /api/series/:id?contenus=detacher|supprimer
 POST   /api/series/regrouper        des idées existantes en une série (v2.34)
+POST   /api/series/:id/reordonner   l'ordre complet d'une série (v2.36)
+POST   /api/contents/:id/deplacer   un contenu vers une autre série, un autre rang, ou hors série (v2.36)
 ```
 
 **Regrouper des idées — NORMATIF (v2.34).** Une série sans source, dont les publications
@@ -578,6 +609,33 @@ idées libres : une publication engagée a été pensée seule, une idée déjà
 une autre progression, et l'en sortir se décide dans la console. Elles restent des idées :
 leur format, leur objectif, leur angle restent à décider. Deux à vingt idées ; la série et
 ses idées sont créées dans un batch, ensemble ou pas du tout. 5 requêtes.
+
+**Déplacer un contenu — NORMATIF (v2.36).** `{ serieId | null, position?, angle? }` : vers
+une autre série, à la position donnée — en dernier par défaut —, à un autre rang de la
+sienne — il y reste à sa place par défaut —, ou hors de toute série (`null`). Seuls changent
+sa série, son rang, et son angle s'il est donné : l'angle est relatif à la série ; absent, il
+reste tel quel ; `null` l'efface. La fiche, les notes, le brouillon, l'analyse, l'atelier,
+les relectures et le fil restent ceux du contenu.
+
+- Un contenu **publié** ne se déplace pas (409) : sa série fait partie de l'historique de
+  publication. Dans sa série, son rang suit les autres : les rangs restent continus.
+- La série quittée et celle d'arrivée se renumérotent dans le **même batch** que le
+  déplacement et que son geste (§13.6) : tout passe, ou rien. Une série vidée reste.
+- Série introuvable (404), position hors de 1 à n + 1 (400, avec la plage) ; rien ne change
+  — ni place, ni angle — : rien n'est écrit (`inchange`). Seul l'angle change : il s'écrit,
+  sans geste.
+- La réponse rend le contenu, la phrase du geste, et les deux séries telles qu'elles sont
+  après. Au plus 10 requêtes, quel que soit le nombre de publications.
+
+**Réordonner une série — NORMATIF (v2.36).** `{ ids }` : l'ordre COMPLET de ses contenus.
+Une liste qui en oublie, en ajoute ou en double est refusée (409) avec la liste attendue,
+numérotée, identifiants compris. Aucun geste : aucun contenu ne change de série. 4 requêtes ;
+le nouvel ordre s'écrit en une (`json_each` : un seul paramètre, quelle que soit la longueur
+de la liste).
+
+Dans la console, la fiche — l'Ouverture — porte le choix de la série, de la position et de
+l'angle ; le plan d'une série monte et descend chaque publication par des flèches, qui se
+prennent au clavier et au lecteur d'écran.
 
 **Supprimer une série pose une question, et le défaut est le geste sûr — NORMATIF.**
 
@@ -1368,6 +1426,10 @@ reste rien à faire à cette étape : c'était un passage obligé sans travail �
 
 Elles arrivent donc dans « En cours », prêtes pour l'Atelier, avec `analyzed_at` posé.
 
+**Allonger une série numérote à la suite (v2.36).** Les nouvelles publications prennent les
+rangs qui suivent celles de la série (`premierRangLibre`, `series.ts`). Le plan numérotait ses
+lignes à partir de 1 : « Générer une publication de plus » donnait un second n° 1.
+
 ### 6.4 L'anti-répétition — NORMATIF
 
 C'est la raison d'être de la fonctionnalité. Un contenu appartenant à une série est
@@ -1414,7 +1476,8 @@ de `apps/manager/public/_headers`. Aucun CORS n’est ajouté.
 (`MCP_JETON_EMPREINTE`), comparée en temps constant. Facultative : absente, un porteur est
 refusé (401) et la console fonctionne à l'identique. Le jeton n'ouvre qu'une liste fermée —
 contenus et séries en lecture, création d'un contenu, modification de sa fiche, brouillon par
-le journal des générations, regroupement d'idées (§3.3) — et rien d'autre (403) : ni
+le journal des générations, regroupement d'idées, et depuis la v2.36 déplacement d'un contenu
+et remise en ordre d'une série (§3.3) — et rien d'autre (403) : ni
 suppression, ni réglages, IA, export, corpus, montage, atelier, ni retour à une génération.
 Sur ces routes, les règles se resserrent pour lui seul (`workers/api/src/acces-mcp.ts`) :
 
@@ -2780,6 +2843,14 @@ statut posé, celui d'avant, l'instant. C'est le Worker qui l'écrit, dans le m�
 le `PATCH` qui change le statut : aucun bouton ne peut l'oublier, et un statut renvoyé tel
 quel n'est pas un geste. Pas dans `generations` : le journal est réservé à ce que l'IA
 produit (§2.6). L'export de la base (§9.4) emporte les gestes.
+
+**Un déplacement entre séries est un geste aussi (v2.36, migration 0016).** `nature` vaut
+`deplacement` (et `statut` pour tous les autres) ; `detail` dit d'où et vers où — série,
+titre, rang —, les titres figés au moment du geste : renommer ou supprimer la série plus tard
+ne réécrit pas le fil. `statut` et `avant` y répètent le statut, qui n'a pas changé. Le fil
+le dit en une phrase (`phraseDuDeplacement`, `series.ts`) : « Déplacé de « A » n° 4 vers
+« B » n° 2. », « Sorti de la série « A » (n° 4). », « Rangé dans « B » n° 2. », « Déplacé du
+n° 4 au n° 2 dans « A ». » Réordonner une série n'en laisse pas.
 
 ### 13.7 Le fil
 

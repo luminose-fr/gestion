@@ -5,10 +5,11 @@
  * (SPEC §3.6) — c'est précisément ce que Notion ne permettait pas.
  */
 import { Hono } from 'hono';
-import { CreateSerieSchema, UpdateSerieSchema, SyncQuerySchema, DeleteSerieQuerySchema, RegrouperSchema } from '@luminose/shared';
+import { CreateSerieSchema, UpdateSerieSchema, SyncQuerySchema, DeleteSerieQuerySchema, RegrouperSchema, ReordonnerSerieSchema } from '@luminose/shared';
 import type { Contexte } from '../env';
 import { now, newId, rowToSerie, rowToContent, buildUpdate, COLUMN_MAPS, toSql } from '../db';
 import { Refus } from '../refus';
+import { ORDRE_DANS_LA_SERIE, renumeroter } from '../rangs';
 
 export const series = new Hono<Contexte>();
 
@@ -33,7 +34,8 @@ series.get('/:id', async (c) => {
   const { results } = await c.env.DB
     // La série se lit dans l'ordre de sa progression ; une publication sans
     // rang (rattachée à la main) ferme la marche plutôt que de s'intercaler.
-    .prepare('SELECT * FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY serie_position IS NULL, serie_position ASC, created_at ASC')
+    // Le même ordre que celui que le déplacement renumérote (rangs.ts).
+    .prepare(`SELECT * FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY ${ORDRE_DANS_LA_SERIE}`)
     .bind(id).all();
 
   return c.json({ serie: rowToSerie(row), contents: results.map(rowToContent) });
@@ -112,6 +114,59 @@ series.post('/regrouper', async (c) => {
     .prepare('SELECT * FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY serie_position ASC')
     .bind(serieId).all();
   return c.json({ serie: rowToSerie(serie), contents: rangees.map(rowToContent) }, 201);
+});
+
+/**
+ * Réordonner une série (SPEC §3.3, v2.36) : l'ordre COMPLET de ses contenus.
+ *
+ * Complet, parce qu'un ordre partiel laisserait deviner où vont les autres :
+ * la liste doit nommer chaque publication de la série une fois, et rien
+ * d'autre. Sinon, le refus rend la liste attendue — numérotée, avec les
+ * identifiants — : c'est ce qu'il faut pour réessayer.
+ *
+ * Aucun geste : aucun contenu ne change de série, et dix lignes au fil pour
+ * une série remise en ordre seraient du bruit. Un contenu publié y garde sa
+ * série ; son rang suit l'ordre donné.
+ *
+ * 4 requêtes : la série, ses publications ; le nouvel ordre, en UNE écriture
+ * (rangs.ts) ; la relecture.
+ */
+series.post('/:id/reordonner', async (c) => {
+  const id = c.req.param('id');
+  const { ids } = ReordonnerSerieSchema.parse(await c.req.json());
+
+  const serie = await c.env.DB.prepare('SELECT * FROM series WHERE id = ? AND deleted_at IS NULL').bind(id).first();
+  if (!serie) return c.json({ error: 'Série introuvable' }, 404);
+
+  const { results } = await c.env.DB
+    .prepare(`SELECT id, title FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY ${ORDRE_DANS_LA_SERIE}`)
+    .bind(id).all<{ id: string; title: string }>();
+  const connus = new Set(results.map((r) => r.id));
+  const oublies = results.filter((r) => !ids.includes(r.id));
+  const etrangers = ids.filter((x) => !connus.has(x));
+  const doublons = [...new Set(ids.filter((x, i) => ids.indexOf(x) !== i))];
+
+  if (oublies.length || etrangers.length || doublons.length) {
+    const nom = (t: string) => `« ${t || 'Sans titre'} »`;
+    const ecarts = [
+      oublies.length ? `manque ${oublies.map((r) => nom(r.title)).join(', ')}` : null,
+      etrangers.length ? `hors de la série : ${etrangers.join(', ')}` : null,
+      doublons.length ? `en double : ${doublons.join(', ')}` : null,
+    ].filter(Boolean).join(' ; ');
+    const attendue = results.length
+      ? results.map((r, i) => `${i + 1}. ${nom(r.title)} (${r.id})`).join(' ; ')
+      : 'aucune publication';
+    throw new Refus(
+      `L'ordre doit nommer ${results.length > 1 ? `les ${results.length} publications` : results.length === 1 ? 'la publication' : 'les publications'} ` +
+      `de « ${(serie as any).titre} », chacune une fois — ${ecarts}. Liste attendue : ${attendue}.`, 409);
+  }
+
+  await renumeroter(c.env.DB, id, ids, now()).run();
+
+  const { results: rangees } = await c.env.DB
+    .prepare(`SELECT * FROM contents WHERE serie_id = ? AND deleted_at IS NULL ORDER BY ${ORDRE_DANS_LA_SERIE}`)
+    .bind(id).all();
+  return c.json({ serie: rowToSerie(serie), contents: rangees.map(rowToContent) });
 });
 
 series.patch('/:id', async (c) => {

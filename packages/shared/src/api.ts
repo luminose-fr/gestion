@@ -11,6 +11,7 @@ import {
   CONTENT_STATUSES, PLATFORMS, VERDICTS, SERIE_STATUSES,
   GENERATION_KINDS, GENERATION_TARGETS, COACH_ROLES, COACH_STATUSES, MODEL_SORTIES,
 } from './entities';
+import type { Content, Serie } from './entities';
 import {
   TARGET_FORMAT_VALUES, OBJECTIF_VALUES, PROFONDEUR_VALUES,
 } from '@luminose/editorial';
@@ -90,6 +91,50 @@ export const RegrouperSchema = z.object({
     .refine((c) => new Set(c.map((x) => x.id)).size === c.length, 'Une idée figure deux fois.'),
 });
 export type RegrouperInput = z.infer<typeof RegrouperSchema>;
+
+/**
+ * Déplacer un contenu (SPEC §3.3, v2.36) : vers une autre série, à un autre
+ * rang de la sienne, ou hors de toute série (`serieId: null`). `position` vaut
+ * par défaut « en dernier ». `angle` absent : l'angle reste tel quel ; `null`
+ * l'efface — il est relatif à la série, et ne vaut peut-être plus ailleurs.
+ */
+export const DeplacerContenuSchema = z.object({
+  serieId: z.string().min(1).nullable(),
+  position: z.number().int().positive().optional(),
+  angle: z.string().max(2000).nullable().optional(),
+}).refine((d) => d.serieId !== null || d.position === undefined, {
+  message: 'Sans série, pas de position.', path: ['position'],
+});
+export type DeplacerContenuInput = z.infer<typeof DeplacerContenuSchema>;
+
+/**
+ * Réordonner une série (SPEC §3.3, v2.36) : l'ordre COMPLET de ses contenus.
+ * Que la liste soit exactement celle de la série — sans oubli, sans ajout, sans
+ * doublon — se vérifie dans la route, qui rend alors la liste attendue.
+ */
+export const ReordonnerSerieSchema = z.object({
+  ids: z.array(z.string().min(1).max(100)).min(1).max(200),
+});
+export type ReordonnerSerieInput = z.infer<typeof ReordonnerSerieSchema>;
+
+/** Une série et ses contenus, dans l'ordre de la progression — numérotés 1 à n. */
+export interface SerieEtSesContenus {
+  serie: Serie;
+  contents: Content[];
+}
+
+/** Ce que rend un déplacement : le contenu, et les deux séries telles qu'elles sont après. */
+export interface ResultatDeplacement {
+  content: Content;
+  /** Ni la série, ni le rang, ni l'angle ne changeaient : rien n'est écrit. */
+  inchange: boolean;
+  /** La phrase du geste laissé au fil ; `null` quand seul l'angle a changé. */
+  geste: string | null;
+  /** La série quittée (ou la même, pour un changement de rang) ; `null` : il n'en avait pas. */
+  depart: SerieEtSesContenus | null;
+  /** La série d'arrivée quand elle diffère du départ ; `null` : sorti, ou resté dans la sienne. */
+  arrivee: SerieEtSesContenus | null;
+}
 
 // ── Modèles IA ───────────────────────────────────────────────────────────
 

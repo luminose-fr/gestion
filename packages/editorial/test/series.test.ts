@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildSerieContextSection, buildPlanSeriesPayload, normalizePlanEntry,
   isPlanEntryUsable, isPlanEntryCreatable, emptyPlanEntry, SERIE_SOURCE_MAX,
+  phraseDuDeplacement, lireDetailDeplacement, premierRangLibre,
 } from '../src/series';
 import { parsePlanSeriesResponse } from '../src/executors';
 import { TargetFormat, Objectif } from '../src/domain';
@@ -192,5 +193,45 @@ describe('parsing du plan', () => {
   it('refuse un plan vide — mieux vaut une erreur qu’un tableau muet', () => {
     expect(() => parsePlanSeriesResponse('[]')).toThrow(/exploitable/i);
     expect(() => parsePlanSeriesResponse('')).toThrow();
+  });
+});
+
+// ── Le déplacement d'un contenu entre séries (SPEC §13.6, v2.36) ──────────
+
+
+describe('le geste du déplacement, en une phrase', () => {
+  const A = { serieId: 'a', titre: 'Série A', rang: 4 };
+  const B = { serieId: 'b', titre: 'Série B', rang: 2 };
+
+  it('d’une série à l’autre, hors d’une série, dans une série, à un autre rang', () => {
+    expect(phraseDuDeplacement({ de: A, vers: B })).toBe('Déplacé de « Série A » n° 4 vers « Série B » n° 2.');
+    expect(phraseDuDeplacement({ de: A, vers: null })).toBe('Sorti de la série « Série A » (n° 4).');
+    expect(phraseDuDeplacement({ de: null, vers: B })).toBe('Rangé dans « Série B » n° 2.');
+    expect(phraseDuDeplacement({ de: A, vers: { ...A, rang: 1 } })).toBe('Déplacé du n° 4 au n° 1 dans « Série A ».');
+  });
+
+  it('un rang inconnu se tait plutôt que d’inventer', () => {
+    expect(phraseDuDeplacement({ de: { ...A, rang: null }, vers: B })).toBe('Déplacé de « Série A » vers « Série B » n° 2.');
+    expect(phraseDuDeplacement({ de: { ...A, rang: null }, vers: null })).toBe('Sorti de la série « Série A ».');
+    expect(phraseDuDeplacement(null)).toBe('Changé de série.');
+  });
+
+  it('le détail se relit de la base, et un JSON abîmé ne casse rien', () => {
+    expect(lireDetailDeplacement(JSON.stringify({ de: A, vers: null }))).toEqual({ de: A, vers: null });
+    expect(lireDetailDeplacement('{ abîmé')).toBeNull();
+    expect(lireDetailDeplacement(null)).toBeNull();
+    expect(lireDetailDeplacement(JSON.stringify({ de: { titre: 'sans id' }, vers: B }))).toEqual({ de: null, vers: B });
+  });
+});
+
+describe('allonger une série : à la suite de ses publications', () => {
+  it('une série vide commence au n° 1 ; une série de trois, au n° 4', () => {
+    expect(premierRangLibre([])).toBe(1);
+    expect(premierRangLibre([1, 2, 3])).toBe(4);
+  });
+
+  it('un trou ou un contenu sans rang ne fait pas reculer le départ', () => {
+    expect(premierRangLibre([1, 5])).toBe(6);
+    expect(premierRangLibre([1, null, 2])).toBe(4);
   });
 });

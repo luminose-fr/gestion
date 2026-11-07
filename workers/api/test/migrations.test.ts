@@ -56,3 +56,40 @@ describe('0009 — la date d’analyse effacée par le tiroir d’une idée', ()
         expect(date(db, 'sans-trace')).toBeNull();
     });
 });
+
+describe('0016 — les gestes d’avant le déplacement entre séries', () => {
+    it('restent des changements de statut, sans détail', () => {
+        const { db, appliquer } = baseAvant('0016');
+        db.prepare(`INSERT INTO contents (id, title, status, created_at, updated_at) VALUES ('c', 'c', 'Prêt', 1, 1)`).run();
+        db.prepare(`INSERT INTO gestes (id, content_id, statut, avant, created_at) VALUES ('g', 'c', 'Prêt', 'Brouillon', 2)`).run();
+        appliquer();
+        expect(db.prepare('SELECT statut, avant, nature, detail FROM gestes').all())
+            .toEqual([{ statut: 'Prêt', avant: 'Brouillon', nature: 'statut', detail: null }]);
+    });
+});
+
+describe('0017 — les séries existantes remises en ordre, 1 à n', () => {
+    it('comble un trou, départage un doublon, range un contenu sans rang en fin — sans toucher au reste', () => {
+        const { db, appliquer } = baseAvant('0017');
+        db.prepare(`INSERT INTO series (id, titre, created_at, updated_at) VALUES ('s', 'S', 1, 1), ('t', 'T', 1, 1)`).run();
+        const contenu = (id: string, serie: string | null, rang: number | null, creeLe: number, supprime: number | null = null) =>
+            db.prepare(`INSERT INTO contents (id, title, status, serie_id, serie_position, created_at, updated_at, deleted_at)
+                        VALUES (?, ?, 'Brouillon', ?, ?, ?, 10, ?)`).run(id, id, serie, rang, creeLe, supprime);
+        contenu('un', 's', 1, 1);
+        contenu('trois', 's', 3, 2);
+        contenu('trois-bis', 's', 3, 3);
+        contenu('sans-rang', 's', null, 4);
+        contenu('supprime', 's', 2, 5, 99);
+        contenu('t1', 't', 1, 6);
+        contenu('t2', 't', 2, 7);
+        contenu('libre', null, null, 8);
+        appliquer();
+        const ligne = (id: string) => db.prepare('SELECT serie_position AS rang, updated_at AS le FROM contents WHERE id = ?').get(id) as any;
+        expect(['un', 'trois', 'trois-bis', 'sans-rang'].map((id) => ligne(id).rang)).toEqual([1, 2, 3, 4]);
+        // Seules les lignes renumérotées avancent : la synchronisation incrémentale les verra passer.
+        expect(ligne('un').le).toBe(10);
+        expect(ligne('trois').le).toBeGreaterThan(10);
+        expect([ligne('supprime').rang, ligne('t1').rang, ligne('t2').rang, ligne('libre').rang]).toEqual([2, 1, 2, null]);
+        expect([ligne('t1').le, ligne('t2').le, ligne('libre').le]).toEqual([10, 10, 10]);
+    });
+});
