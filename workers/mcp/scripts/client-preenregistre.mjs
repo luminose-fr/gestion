@@ -33,11 +33,11 @@ globalThis.Cloudflare = { compatibilityFlags: { global_fetch_strictly_public: tr
 
 const { getOAuthApi } = await import('@cloudflare/workers-oauth-provider');
 
-// La ressource s'écrit à un seul endroit, src/index.ts : on l'y lit.
-const RESSOURCE = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
+// La ressource s'écrit à un seul endroit, src/options.ts : on l'y lit.
+const RESSOURCE = readFileSync(new URL('../src/options.ts', import.meta.url), 'utf8')
   .match(/export const RESSOURCE = '([^']+)'/)?.[1];
 if (!RESSOURCE) {
-  console.error('RESSOURCE introuvable dans src/index.ts.');
+  console.error('RESSOURCE introuvable dans src/options.ts.');
   process.exit(1);
 }
 

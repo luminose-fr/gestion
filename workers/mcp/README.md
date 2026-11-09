@@ -723,12 +723,28 @@ secret et la commande qui le pose.
 
 ## En local
 
-`npm run dev:mcp` (depuis la VM) sert les métadonnées et la page `/`, mais le parcours
-OAuth ne va pas au bout : la bibliothèque lie chaque jeton à `https://mcp.luminose.fr/mcp`,
-et refuse de le servir ailleurs. Tout ce qui s'y joue est couvert par les tests
+`npm run dev:mcp`, depuis la VM, après avoir copié `.dev.vars.example` en `.dev.vars`. Le
+Worker écoute sur le port 8788 ; son état local (KV, D1) va dans `.wrangler/`, ignoré par
+git. Il sert la page `/` et les métadonnées du serveur d'autorisation
+(`/.well-known/oauth-authorization-server`), mais le parcours OAuth ne va pas au bout : la
+bibliothèque lie chaque jeton à `https://mcp.luminose.fr/mcp`, et ne sert les métadonnées de
+la ressource (`/.well-known/oauth-protected-resource/mcp`) que sur cette origine — en local,
+404. Tout ce qui s'y joue est couvert par les tests
 ([test/autorisation.test.ts](test/autorisation.test.ts)) ; le reste s'essaie en production.
 La lecture y est sans risque ; l'écriture commence toujours par un aperçu, que Google
 vérifie sans rien appliquer.
+
+`/authorize` répond 503 tant que `COOKIE_SIGNING_KEY` est vide. Pour un essai, une clé
+jetable passe en ligne de commande et l'emporte sur `.dev.vars`, sans y toucher :
+
+```
+cd workers/mcp && npx wrangler dev --var COOKIE_SIGNING_KEY:$(openssl rand -base64 32)
+```
+
+`src/index.ts` n'exporte que le handler par défaut : workerd prend chaque export nommé du
+module principal pour un point d'entrée, et refuse de démarrer s'il n'en est pas un. Ce
+qu'un test ou un script doit lire vit dans [src/options.ts](src/options.ts) ;
+[test/point-entree.test.ts](test/point-entree.test.ts) y veille.
 
 ## Couper l'accès
 
@@ -761,7 +777,7 @@ vérifie sans rien appliquer.
 1. **Pas de compte administrateur (MCC).** Le compte Luminose, `5272252272`, est visible en
    accès direct : `GOOGLE_ADS_LOGIN_CUSTOMER_ID` est inutile.
 2. **`mcp.luminose.fr`** est en service. Changer de nom demanderait de modifier `RESSOURCE`
-   dans [src/index.ts](src/index.ts), `routes` dans wrangler.toml, et l'URL de retour du
+   dans [src/options.ts](src/options.ts), `routes` dans wrangler.toml, et l'URL de retour du
    client Google.
 3. **Claude entre par CIMD.** Vérifié dans KV : le grant porte un `clientId` en
    `https://claude.ai/…`, et aucun client n'est préenregistré. Le repli n'a pas servi ; il
