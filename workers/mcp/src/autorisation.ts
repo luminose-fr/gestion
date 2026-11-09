@@ -24,7 +24,8 @@ import {
   type AuthRequest, type ConsentDescription,
 } from '@cloudflare/workers-oauth-provider';
 import { aleatoire, depuisBase64url, empreinte, signer, verifier } from './crypto';
-import { SCOPE_CONTENUS, SCOPE_CORPUS, SCOPE_ECRITURE, SCOPE_LECTURE, SCOPE_TAG_MANAGER } from './ecriture';
+import { DOMAINES, ORDRE_DOMAINES } from './domaines';
+import { SCOPE_LECTURE } from './ecriture';
 import { page, pageConsentement } from './pages';
 import { Refus } from './refus';
 import type { Env } from './env';
@@ -113,10 +114,7 @@ const afficherConsentement = async (requete: Request, env: Env): Promise<Respons
   const connexion: Connexion = { r: demande, v: aleatoire(), n: aleatoire(16), e: Date.now() + DUREE_CONNEXION * 1000 };
   return pageConsentement({
     description,
-    ecrireCoche: demande.scope.includes(SCOPE_ECRITURE),
-    corpusCoche: demande.scope.includes(SCOPE_CORPUS),
-    gtmCoche: demande.scope.includes(SCOPE_TAG_MANAGER),
-    contenusCoche: demande.scope.includes(SCOPE_CONTENUS),
+    demandes: demande.scope,
     jeton: connexion.n,
     cookie: cookie(await signer('connexion', connexion, secret), DUREE_CONNEXION),
   });
@@ -133,15 +131,15 @@ const partirVersGoogle = async (requete: Request, env: Env): Promise<Response> =
 
   // V8 : l'écriture s'accorde ici, case cochée — jamais par effet de bord. Le
   // choix voyage dans le cookie, signé à nouveau, jusqu'au retour de Google.
-  // Une case par scope : écrire dans Google Ads n'emporte ni le corpus, ni Tag Manager, ni les contenus, et inversement.
+  // Une case par domaine (domaines.ts) : écrire dans Google Ads n'emporte ni le corpus, ni Tag Manager, ni les contenus, et inversement.
   const choisie: Connexion = {
     ...connexion,
     s: [
       SCOPE_LECTURE,
-      ...(formulaire.get('ecrire') === '1' ? [SCOPE_ECRITURE] : []),
-      ...(formulaire.get('corpus') === '1' ? [SCOPE_CORPUS] : []),
-      ...(formulaire.get('gtm') === '1' ? [SCOPE_TAG_MANAGER] : []),
-      ...(formulaire.get('contenus') === '1' ? [SCOPE_CONTENUS] : []),
+      ...ORDRE_DOMAINES.flatMap((cle) => {
+        const { champ, scope } = DOMAINES[cle].ecriture;
+        return formulaire.get(champ) === '1' ? [scope] : [];
+      }),
     ],
   };
   const secret = exiger(env.COOKIE_SIGNING_KEY, 'COOKIE_SIGNING_KEY');
@@ -255,7 +253,7 @@ export const gestionnaireParDefaut = {
         case '/callback':
           return requete.method === 'GET' ? await retourGoogle(requete, env) : new Response(null, { status: 405, headers: { Allow: 'GET' } });
         case '/':
-          return new Response("Serveur MCP Luminose — Google Ads, lecture seule.\nPoint d'entrée : /mcp\n", {
+          return new Response("Serveur MCP Luminose — Google Ads, Tag Manager, corpus et console.\nPoint d'entrée : /mcp\n", {
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
           });
         default:

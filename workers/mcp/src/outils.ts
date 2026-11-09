@@ -34,6 +34,7 @@ import { OUTILS_GTM_ECRITURE } from './outils-gtm-ecriture';
 import { OUTILS_GTM_MODIFICATION } from './outils-gtm-modification';
 import { OUTILS_CORPUS } from './outils-corpus';
 import { OUTILS_CONTENUS } from './outils-contenus';
+import { DOMAINES, ORDRE_DOMAINES, type CleDomaine } from './domaines';
 import type { Contexte } from './ecriture';
 import type { Env } from './env';
 
@@ -54,7 +55,8 @@ type LigneCompte = {
 
 const listerComptes = outil({
   name: 'ads_lister_comptes',
-  title: 'Comptes Google Ads',
+  domaine: 'ads',
+  title: 'Lister les comptes',
   description:
     "Liste les comptes Google Ads visibles par le compte Google de Luminose : identifiant, nom, devise, fuseau horaire, " +
     "et si ads_requete accepte de l'interroger (champ `autorise`). Lecture seule.\n\n" +
@@ -132,7 +134,8 @@ export const mettreEnForme = (compte: string, reponse: ReponseRecherche): string
 
 const requeteGaql = outil({
   name: 'ads_requete',
-  title: 'Requête GAQL (lecture seule)',
+  domaine: 'ads',
+  title: 'Lire (GAQL)',
   description: [
     "Exécute une requête GAQL (Google Ads Query Language) en LECTURE sur le compte Google Ads de Luminose et renvoie les lignes en JSON. " +
     "Seules les requêtes SELECT sont acceptées : ce serveur ne peut rien modifier.",
@@ -190,17 +193,44 @@ const requeteGaql = outil({
 
 // ── Registre ─────────────────────────────────────────────────────────────
 
-const OUTILS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_REACTIVER, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_ELEMENTS, ...OUTILS_DEMAND_GEN, ...OUTILS_GTM, ...OUTILS_GTM_ECRITURE, ...OUTILS_GTM_MODIFICATION, ...OUTILS_CORPUS, ...OUTILS_CONTENUS] as const;
+const TOUS = [listerComptes, requeteGaql, ...OUTILS_ECRITURE, ...OUTILS_REACTIVER, ...OUTILS_CREATION, ...OUTILS_LISTES, ...OUTILS_ELEMENTS, ...OUTILS_DEMAND_GEN, ...OUTILS_GTM, ...OUTILS_GTM_ECRITURE, ...OUTILS_GTM_MODIFICATION, ...OUTILS_CORPUS, ...OUTILS_CONTENUS] as const;
+
+/**
+ * Par domaine (domaines.ts), la lecture avant l'écriture, et dans l'ordre des
+ * fichiers à l'intérieur — le tri est stable. L'ordre ne dépend donc plus de
+ * celui des imports ci-dessus : un fichier d'outils ajouté en bas de liste se
+ * range quand même avec son domaine.
+ */
+const OUTILS = [...TOUS].sort((a, b) =>
+  ORDRE_DOMAINES.indexOf(a.domaine) - ORDRE_DOMAINES.indexOf(b.domaine) ||
+  Number(b.annotations.readOnlyHint) - Number(a.annotations.readOnlyHint));
+
+/** « Google Ads — Lire (GAQL) » : ce que l'app affiche, et seul endroit où elle voit le domaine. */
+export const titreComplet = (o: { domaine: CleDomaine; title: string }) => `${DOMAINES[o.domaine].nom} — ${o.title}`;
 
 /**
  * Ce que `tools/list` publie. L'ordre est stable : le client peut le mettre en
- * cache. Les outils d'écriture y figurent même sans le scope `ads:ecrire` : ils
- * refusent alors à l'appel, en disant comment l'obtenir — un outil absent ne
- * s'explique pas.
+ * cache (la spécification 2026-07-28 le demande). Les outils d'écriture y
+ * figurent même sans le scope `ads:ecrire` : ils refusent alors à l'appel, en
+ * disant comment l'obtenir — un outil absent ne s'explique pas.
+ *
+ * Le titre va aussi dans `annotations.title` : c'est le seul champ que
+ * connaissent les clients en 2025-03-26, avant l'arrivée de `title`.
  */
-export const definitionsOutils = () => OUTILS.map(({ name, title, description, schema, annotations }) => {
-  const { $schema: _dialecte, ...inputSchema } = z.toJSONSchema(schema) as Record<string, unknown>;
-  return { name, title, description, inputSchema, annotations };
+export const definitionsOutils = () => OUTILS.map((o) => {
+  const { $schema: _dialecte, ...inputSchema } = z.toJSONSchema(o.schema) as Record<string, unknown>;
+  const title = titreComplet(o);
+  return { name: o.name, title, description: o.description, inputSchema, annotations: { title, ...o.annotations } };
+});
+
+/** Pour la page de consentement : les titres courts, domaine par domaine, lecture et écriture à part. */
+export const outilsParDomaine = () => ORDRE_DOMAINES.map((cle) => {
+  const siens = OUTILS.filter((o) => o.domaine === cle);
+  return {
+    cle,
+    lecture: siens.filter((o) => o.annotations.readOnlyHint).map((o) => o.title),
+    ecriture: siens.filter((o) => !o.annotations.readOnlyHint).map((o) => o.title),
+  };
 });
 
 export const trouverOutil = (nom: unknown) => OUTILS.find((o) => o.name === nom);

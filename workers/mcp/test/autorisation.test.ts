@@ -533,7 +533,7 @@ describe('V8 — l’écriture s’accorde sur la page de consentement, case coc
     // Les trois autres cases : les contenus restent fermés.
     const env1 = creerEnv();
     const autres = await jetonsApres(env1, true, true, true);
-    expect(autres.scope).toBe('ads:lire ads:ecrire corpus:ecrire gtm:ecrire');
+    expect(autres.scope).toBe('ads:lire ads:ecrire gtm:ecrire corpus:ecrire');
     expect(await contenusRefusePourScope(env1, autres.access_token)).toBe(true);
     // Les contenus seuls : ils s'ouvrent, et le reste reste fermé.
     const env2 = creerEnv();
@@ -554,7 +554,7 @@ describe('V8 — l’écriture s’accorde sur la page de consentement, case coc
   it('les cinq scopes sont annoncés, sans en exiger aucun au départ', async () => {
     const env = creerEnv();
     const serveur = await (await appeler(env, '/.well-known/oauth-authorization-server')).json() as any;
-    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire', 'corpus:ecrire', 'gtm:ecrire', 'contenus:ecrire']);
+    expect(serveur.scopes_supported).toEqual(['ads:lire', 'ads:ecrire', 'gtm:ecrire', 'corpus:ecrire', 'contenus:ecrire']);
     const ressource = await (await appeler(env, '/.well-known/oauth-protected-resource/mcp')).json() as any;
     expect(ressource.scopes_supported).toBeUndefined();
   });

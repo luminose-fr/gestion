@@ -206,7 +206,8 @@ const trouverEspace = async (env: Env, c: Awaited<ReturnType<typeof conteneurGtm
 
 const conteneur = outil({
   name: 'gtm_conteneur',
-  title: 'Google Tag Manager — vue d’ensemble',
+  domaine: 'gtm',
+  title: 'Vue d’ensemble du conteneur',
   description: [
     'Le conteneur Google Tag Manager du site (GTM_CONTENEUR du serveur), en LECTURE seule : sa version en ligne — ce que le site ' +
     'exécute —, le nombre de balises par type, de déclencheurs et de variables, et ses espaces de travail avec ce qu’ils changent ' +
@@ -253,7 +254,8 @@ const conteneur = outil({
 
 const lire = outil({
   name: 'gtm_lire',
-  title: 'Google Tag Manager — balises, déclencheurs, variables',
+  domaine: 'gtm',
+  title: 'Lire balises, déclencheurs et variables',
   description: [
     'Le contenu du conteneur Google Tag Manager du site, en LECTURE seule : chaque balise avec son numéro, son type, ses déclencheurs ' +
     '(conditions comprises), ses paramètres, son état ; chaque déclencheur avec son numéro et les balises qu’il fait partir ; chaque variable. ' +
@@ -340,7 +342,8 @@ const etatBalise = (b: Balise, index: Map<string, Declencheur>): string =>
 
 const verifier = outil({
   name: 'gtm_verifier_conversions',
-  title: 'Conversions Google Ads ↔ balises Tag Manager',
+  domaine: 'gtm',
+  title: 'Vérifier les conversions Google Ads face aux balises',
   description: [
     'Compare, en LECTURE seule, les conversions Google Ads actives du compte Luminose aux balises de conversion du conteneur ' +
     'Google Tag Manager du site : pour chaque conversion mesurée sur le site, la balise qui porte son identifiant et son libellé ' +

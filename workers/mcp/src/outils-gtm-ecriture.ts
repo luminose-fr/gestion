@@ -19,12 +19,10 @@ import { connexionPour, rechercher } from './google-ads';
 import { ESPACE_CLAUDE, contenuEspace, versionEnLigne, type Balise, type Conteneur, type Contenu, type Declencheur, type Espace, type Parametre } from './gtm';
 import { DECLENCHEURS_INTEGRES, ENVOI, balisesDeConversion, blocBalise, indexDeclencheurs, param, resoudre, resumeDeclencheur } from './outils-gtm';
 import { JETON } from './outils-ecriture';
-import { outil, texte } from './outil';
+import { ECRITURE, outil, texte } from './outil';
 import { marquer } from './regles';
 import { Refus } from './refus';
 import type { Env } from './env';
-
-export const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
 const DEUX_TEMPS =
   'Deux temps, toujours. 1) Appeler SANS jeton : rien ne part, l’outil rend un aperçu — ce qui serait créé, paramètre par ' +
@@ -121,7 +119,8 @@ const condition = (variable: string, operateur: Operateur, valeur: string, negat
 
 const declencheurCreer = outil({
   name: 'gtm_declencheur_creer',
-  title: 'Tag Manager — créer un déclencheur',
+  domaine: 'gtm',
+  title: 'Créer un déclencheur',
   description: [
     'Crée un déclencheur dans l’espace de travail « [Claude] » du conteneur Google Tag Manager du site : une vue de page, un ' +
     'événement poussé dans la couche de données, ou un clic sur un élément — les trois formes que le conteneur emploie. ' +
@@ -242,7 +241,8 @@ const lireConversion = async (env: Env, id: string): Promise<Conversion> => {
 
 const conversionCreer = outil({
   name: 'gtm_conversion_creer',
-  title: 'Tag Manager — créer une balise de conversion Google Ads',
+  domaine: 'gtm',
+  title: 'Créer une balise de conversion Google Ads',
   description: [
     'Crée, dans l’espace de travail « [Claude] » du conteneur Google Tag Manager du site, la balise d’une conversion Google Ads ' +
     'mesurée sur une page du site (type WEBPAGE) : son identifiant AW- et son libellé sont LUS dans Google Ads par le serveur, ' +
@@ -363,7 +363,8 @@ const mesureGa4 = (contenu: Contenu): string => {
 
 const evenementGa4Creer = outil({
   name: 'gtm_evenement_ga4_creer',
-  title: 'Tag Manager — créer une balise d’événement GA4',
+  domaine: 'gtm',
+  title: 'Créer une balise d’événement GA4',
   description: [
     'Crée, dans l’espace de travail « [Claude] » du conteneur Google Tag Manager du site, une balise qui envoie un événement à ' +
     'Google Analytics 4 sur les déclencheurs donnés, avec ses paramètres. L’identifiant de mesure (G-…) est LU dans la balise ' +

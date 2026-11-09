@@ -28,7 +28,8 @@ export const VERSION_MODERNE = '2026-07-28';
 export const VERSIONS_HERITEES = ['2025-11-25', '2025-06-18', '2025-03-26'];
 export const VERSIONS = [VERSION_MODERNE, ...VERSIONS_HERITEES];
 
-const SERVEUR = { name: 'luminose-google-ads', title: 'Luminose — Google Ads, Tag Manager et corpus', version: '1.4.0' };
+// `name` ne change pas : c'est l'identifiant sous lequel les clients ont enregistré le serveur.
+const SERVEUR = { name: 'luminose-google-ads', title: 'Luminose — Google Ads, Tag Manager, corpus et console', version: '1.5.0' };
 
 const INSTRUCTIONS =
   "Le compte Google Ads de Luminose. Lire : ads_requete exécute du GAQL sur le compte Luminose par défaut ; " +

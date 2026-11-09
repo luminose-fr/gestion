@@ -18,7 +18,8 @@
  */
 import { OAuthError, OAuthProvider, type OAuthProviderOptions } from '@cloudflare/workers-oauth-provider';
 import { adresseAutorisee, gestionnaireParDefaut, type Props } from './autorisation';
-import { SCOPE_CONTENUS, SCOPE_CORPUS, SCOPE_ECRITURE, SCOPE_LECTURE, SCOPE_TAG_MANAGER } from './ecriture';
+import { DOMAINES, ORDRE_DOMAINES } from './domaines';
+import { SCOPE_LECTURE } from './ecriture';
 import { traiterMcp } from './mcp';
 import type { Env } from './env';
 
@@ -78,12 +79,12 @@ export const OPTIONS: OAuthProviderOptions<Env> = {
   defaultHandler: gestionnaireParDefaut,
   authorizeEndpoint: '/authorize',
   tokenEndpoint: '/token',
-  resourceMetadata: { resource: RESSOURCE, resource_name: 'Luminose — Google Ads' },
+  resourceMetadata: { resource: RESSOURCE, resource_name: 'Luminose — Google Ads, Tag Manager, corpus et console' },
   // V8 : écrire est un scope à part. Pas de `requiredScopes` : c'est la page de
   // consentement qui choisit, case cochée par Florent. Un client qui ne demande
   // rien ne restreint donc rien au rafraîchissement — un scope demandé à ce
   // moment-là rétrécirait le grant à ce scope.
-  scopesSupported: [SCOPE_LECTURE, SCOPE_ECRITURE, SCOPE_CORPUS, SCOPE_TAG_MANAGER, SCOPE_CONTENUS],
+  scopesSupported: [SCOPE_LECTURE, ...ORDRE_DOMAINES.map((cle) => DOMAINES[cle].ecriture.scope)],
   // Exige aussi `global_fetch_strictly_public` dans wrangler.toml : sans le
   // drapeau, la bibliothèque n'annonce pas CIMD et Claude ne peut plus entrer.
   clientIdMetadataDocumentEnabled: true,

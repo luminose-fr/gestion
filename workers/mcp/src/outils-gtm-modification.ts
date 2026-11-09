@@ -17,10 +17,10 @@ import {
   ESPACE_CLAUDE, TYPES_AJOUT, TYPES_PAUSE, baliseEspace, couperPagesVues, modifications, normaliserBalise, noter, pagesVues, versionEnLigne,
   type Balise, type Conteneur, type Contenu, type Espace, type NatureModification, type Parametre,
 } from './gtm';
-import { ECRITURE, ID, avertirToutesLesPages, exigerDeclencheurs, lireContenu, ou } from './outils-gtm-ecriture';
+import { ID, avertirToutesLesPages, exigerDeclencheurs, lireContenu, ou } from './outils-gtm-ecriture';
 import { balisesDeConversion, blocBalise, indexDeclencheurs, nomDeclencheur, param, resoudre } from './outils-gtm';
 import { JETON } from './outils-ecriture';
-import { outil, texte } from './outil';
+import { ECRITURE, idempotent, outil, texte } from './outil';
 import { MARQUE } from './regles';
 import { Refus } from './refus';
 import type { Env } from './env';
@@ -131,7 +131,8 @@ const seuleDeSaConversion = (b: Balise, contenu: Contenu): string[] => {
 
 const mettreEnPause = outil({
   name: 'gtm_mettre_en_pause',
-  title: 'Tag Manager — mettre une balise en pause',
+  domaine: 'gtm',
+  title: 'Mettre une balise en pause',
   description: [
     'Met en pause, dans l’espace de travail « [Claude] » du conteneur Google Tag Manager du site, une balise existante : en pause, ' +
     'elle ne part plus, et n’est pas supprimée. Une balise de mesure seulement — conversion Google Ads (awct), appel (awcc), ' +
@@ -146,7 +147,7 @@ const mettreEnPause = outil({
     DANS_L_ESPACE,
   ].join('\n'),
   schema: z.object({ balise: BALISE, raison: RAISON, jeton: JETON }).strict(),
-  annotations: ECRITURE,
+  annotations: idempotent(ECRITURE),
   async executer({ balise, raison, jeton }, env, contexte) {
     return texte(await ecrireGtm(env, contexte, {
       outil: 'gtm_mettre_en_pause',
@@ -177,7 +178,8 @@ const mettreEnPause = outil({
 
 const declencheursAjouter = outil({
   name: 'gtm_declencheurs_ajouter',
-  title: 'Tag Manager — ajouter des déclencheurs à une balise',
+  domaine: 'gtm',
+  title: 'Ajouter des déclencheurs à une balise',
   description: [
     'Ajoute un à cinq déclencheurs à une balise existante — conversion Google Ads (awct) ou événement GA4 (gaawe), les types que ' +
     'ce serveur crée —, dans l’espace de travail « [Claude] » du conteneur Google Tag Manager du site. Elle continue de partir sur ' +
@@ -198,7 +200,7 @@ const declencheursAjouter = outil({
     raison: RAISON,
     jeton: JETON,
   }).strict(),
-  annotations: ECRITURE,
+  annotations: idempotent(ECRITURE),
   async executer({ balise, declencheurs, raison, jeton }, env, contexte) {
     const demandes = [...new Set(declencheurs)];
     return texte(await ecrireGtm(env, contexte, {
@@ -256,7 +258,8 @@ const mesureDe = (b: Balise, contenu: Contenu) => resoudre(param(b.parameter, 't
 
 const pagesVuesCouper = outil({
   name: 'gtm_pages_vues_couper',
-  title: 'Tag Manager — couper l’envoi de page vue d’une balise Google',
+  domaine: 'gtm',
+  title: 'Couper l’envoi de page vue d’une balise Google',
   description: [
     'Coupe l’envoi de page vue d’une balise Google (googtag) vers GA4 — send_page_view à false dans sa table de configuration —, ' +
     'dans l’espace de travail « [Claude] » du conteneur Google Tag Manager du site. Pour deux balises Google qui envoient chacune ' +
@@ -272,7 +275,7 @@ const pagesVuesCouper = outil({
     DANS_L_ESPACE,
   ].join('\n'),
   schema: z.object({ balise: BALISE, raison: RAISON, jeton: JETON }).strict(),
-  annotations: ECRITURE,
+  annotations: idempotent(ECRITURE),
   async executer({ balise, raison, jeton }, env, contexte) {
     return texte(await ecrireGtm(env, contexte, {
       outil: 'gtm_pages_vues_couper',

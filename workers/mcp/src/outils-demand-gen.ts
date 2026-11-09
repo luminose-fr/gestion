@@ -21,7 +21,7 @@ import {
   type Bouton, type FormatImage, type Operation,
 } from './google-ads';
 import { longueur } from './insertion';
-import { outil, texte } from './outil';
+import { ECRITURE, outil, texte } from './outil';
 import { DEUX_TEMPS, JETON, lignes, premiereLigne } from './outils-ecriture';
 import { MARQUE, examinerAnnonce, marquer, urlAdmise } from './regles';
 import { Refus } from './refus';
@@ -29,7 +29,6 @@ import type { Env } from './env';
 
 const ID = z.string().regex(/^\d{1,20}$/, 'identifiant numérique');
 const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date AAAA-MM-JJ');
-const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
 const MARQUE_ET_PAUSE =
   `Tout ce qui est créé naît EN PAUSE et porte la marque ${MARQUE} (dans le nom, ou en libellé pour les annonces). ` +
@@ -75,6 +74,7 @@ const exigerObjectif = async (env: Env, compte: string, cle: string) => {
 
 const campagneCreer = outil({
   name: 'ads_dg_campagne_creer',
+  domaine: 'ads',
   title: 'Créer une campagne Demand Gen (en pause)',
   description: [
     'Crée une campagne Demand Gen EN PAUSE, avec un budget TOTAL — jamais partagé — sur des dates de début et de fin ' +
@@ -219,6 +219,7 @@ type LigneLieu = { geoTargetConstant?: { resourceName?: string; canonicalName?: 
 
 const groupeCreer = outil({
   name: 'ads_dg_groupe_creer',
+  domaine: 'ads',
   title: "Créer un groupe d'annonces Demand Gen (en pause)",
   description: [
     "Crée un groupe d'annonces EN PAUSE dans une campagne Demand Gen, avec sa zone, sa langue et ses canaux. La zone est un " +
@@ -306,6 +307,7 @@ const IMAGES = z.array(ID).min(1).max(LIMITES_DG.imagesMax);
 
 const annonceCreer = outil({
   name: 'ads_dg_annonce_creer',
+  domaine: 'ads',
   title: 'Créer une annonce Demand Gen multi-élément (en pause)',
   description: [
     `Crée une annonce Demand Gen multi-élément EN PAUSE dans un groupe Demand Gen : 1 à ${LIMITES_DG.titresMax} titres de ` +

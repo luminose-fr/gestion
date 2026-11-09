@@ -20,7 +20,7 @@ import { euros } from './argent';
 import { dateFr, decaler, heureDe, jourDe } from './dates';
 import { compteEcriture, ecrire, exigerEcriture } from './ecriture';
 import { TYPES_ELEMENTS, examinerPause, type ServiceEcriture } from './google-ads';
-import { outil, texte } from './outil';
+import { DESTRUCTIF, idempotent, outil, texte } from './outil';
 import { DEUX_TEMPS, JETON, exigerSearch, lignes, premiereLigne } from './outils-ecriture';
 import { MARQUE } from './regles';
 import { Refus } from './refus';
@@ -180,6 +180,7 @@ const RESTE = 'Toute autre réactivation — ce qui est né en pause, ce qui a �
 
 const reactiver = outil({
   name: 'ads_reactiver',
+  domaine: 'ads',
   title: 'Annuler une pause faite par ce serveur (pas une activation)',
   description: [
     'ANNULE UNE MISE EN PAUSE faite par CE serveur avec ads_mettre_en_pause : remet en ENABLED un groupe d\'annonces, une annonce, ' +
@@ -206,7 +207,7 @@ const reactiver = outil({
     identifiant: z.string().max(70).describe('Voir la description de l’outil pour la forme selon le type.'),
     jeton: JETON,
   }).strict(),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: idempotent(DESTRUCTIF),
   async executer({ type, identifiant, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);

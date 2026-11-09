@@ -60,6 +60,40 @@ voyage dans un cookie signé (`__Host-mcp-connexion`, dix minutes) pendant l'all
 Google ; la première écriture est le grant de `completeAuthorization()`. Un test le vérifie
 sur toutes les requêtes non authentifiées.
 
+## Les domaines — une déclaration, deux interfaces
+
+Chaque outil appartient à un des quatre domaines de [src/domaines.ts](src/domaines.ts) :
+**Google Ads**, **Tag Manager**, **Corpus**, **Console**. C'est la seule déclaration ; deux
+interfaces en dérivent (09/11/2026) :
+
+- **la page de consentement** — un groupe par domaine, la lecture (toujours accordée) puis
+  l'écriture (sa case, son scope), chacune avec la liste repliable de ses outils, tirée du
+  registre ;
+- **`tools/list`** — le titre de chaque outil commence par le nom de son domaine
+  (« Google Ads — Lire (GAQL) »), en `title` et en `annotations.title` ; les outils sont
+  rangés par domaine, la lecture d'abord.
+
+L'app Claude ne range les outils qu'en deux tas, « Lecture uniquement » et « Lecture et
+écriture », d'après `readOnlyHint` : la spécification MCP n'a ni catégorie ni groupe, et
+l'ordre de `tools/list` n'y a pas de sens. Le domaine ne s'y voit que par le préfixe du titre.
+
+**Les annotations** vivent dans [src/outil.ts](src/outil.ts) : `LECTURE`, `ECRITURE`,
+`DESTRUCTIF`, et `idempotent()`. Est **destructif** (décision du 09/11/2026) ce qui peut
+effacer un texte ou une valeur, lever une exclusion, retirer un élément, ou rouvrir une
+dépense : `ads_reactiver`, les trois retraits de mots-clés et de listes, `ads_elements_dissocier`,
+`corpus_modifier`, `contenus_modifier`, `contenus_brouillon_ecrire`. Claude demande
+confirmation à chaque appel de ceux-là. Un outil en deux temps est une écriture dès son
+aperçu : c'est le même outil qui exécute quand on lui rend le jeton.
+
+[test/domaines.test.ts](test/domaines.test.ts) ne croit pas les annotations sur parole : il
+appelle chaque outil avec la seule lecture. Celui qui refuse faute de scope est une écriture
+(`readOnlyHint: false`), et sa case — celle de son domaine, pas une autre — doit l'ouvrir ;
+celui qui passe est une lecture (`readOnlyHint: true`).
+
+**Ajouter un domaine** : une entrée dans `DOMAINES`, son scope dans
+[src/ecriture.ts](src/ecriture.ts) avec sa fonction `exiger…`, dont le refus cite le `libelle`
+de la case au mot près. La page, les scopes annoncés et le POST du consentement suivent seuls.
+
 ## Les outils
 
 | Outil | Appel Google Ads | Retour |

@@ -14,7 +14,7 @@ import { compteEcriture, ecrire, exigerEcriture, trouverLibelle, type Preparatio
 import {
   ErreurAds, limitesArgent, muter, violationsDeRegle, type Operation, type Violation,
 } from './google-ads';
-import { outil, texte } from './outil';
+import { ECRITURE, outil, texte } from './outil';
 import { CORRESPONDANCES, DEUX_TEMPS, JETON, exigerSearch, lignes, normaliserMotsCles, premiereLigne } from './outils-ecriture';
 import { MARQUE, examinerAnnonce, examinerRendus, marquer, textesParDefaut, urlAdmise, type Rendu, type TextesAnnonce } from './regles';
 import { LIMITES_ANNONCE, aInsertion, analyser, longueur, texteParDefaut } from './insertion';
@@ -23,8 +23,6 @@ import { enMicros, engagement, euros } from './argent';
 import type { Env } from './env';
 
 const ID = z.string().regex(/^\d{1,20}$/, 'identifiant numérique');
-
-const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
 const MARQUE_ET_PAUSE =
   `Tout ce qui est créé naît EN PAUSE et porte la marque ${MARQUE} (dans le nom, ou en libellé pour les annonces et mots-clés). ` +
@@ -178,6 +176,7 @@ const ciblageModele = async (env: Env, compte: string, campagne: string) => {
 
 const campagneCreer = outil({
   name: 'ads_campagne_creer',
+  domaine: 'ads',
   title: 'Créer une campagne Search (en pause)',
   description: [
     "Crée une campagne Search EN PAUSE, avec son budget. Le ciblage (langue, zone) est recopié de la campagne modèle du compte : " +
@@ -281,6 +280,7 @@ const campagneCreer = outil({
 
 const groupeCreer = outil({
   name: 'ads_groupe_creer',
+  domaine: 'ads',
   title: "Créer un groupe d'annonces (en pause)",
   description: [
     "Crée un groupe d'annonces Search EN PAUSE dans une campagne Search, nouvelle ou existante.",
@@ -322,6 +322,7 @@ const groupeCreer = outil({
 
 const annonceCreer = outil({
   name: 'ads_annonce_creer',
+  domaine: 'ads',
   title: 'Créer une annonce responsive (en pause)',
   description: [
     'Crée une annonce responsive du Search EN PAUSE dans un groupe d’annonces : 3 à 15 titres de 30 caractères au plus, ' +
@@ -515,7 +516,8 @@ const appliquerExceptions = (operations: Operation[], liste: { texte: string }[]
 
 const motsClesAjouter = outil({
   name: 'ads_mots_cles_ajouter',
-  title: "Ajouter des mots-clés (en pause)",
+  domaine: 'ads',
+  title: 'Ajouter des mots-clés (en pause)',
   description: [
     "Ajoute des mots-clés EN PAUSE à un groupe d'annonces Search. 50 au plus par appel. " +
     'Correspondance : EXACT, PHRASE, BROAD. Pour EXCLURE des recherches, c’est ads_negatifs_ajouter.',

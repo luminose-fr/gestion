@@ -31,15 +31,13 @@ import {
   type Operation, type TypeElement,
 } from './google-ads';
 import { longueur } from './insertion';
-import { outil, texte } from './outil';
+import { DESTRUCTIF, ECRITURE, outil, texte } from './outil';
 import { DEUX_TEMPS, JETON, exigerSearch, lignes, premiereLigne } from './outils-ecriture';
 import { examinerAnnonce, urlAdmise } from './regles';
 import { Refus } from './refus';
 import type { Env } from './env';
 
 const ID = z.string().regex(/^\d{1,20}$/, 'identifiant numérique');
-const AJOUT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
-const RETRAIT = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false };
 
 type TypePrix = keyof typeof TYPES_PRIX;
 type Qualificatif = keyof typeof QUALIFICATIFS_PRIX;
@@ -352,6 +350,7 @@ const TEXTE_COURT = z.string().min(1).max(100);
 
 const elementsCreer = outil({
   name: 'ads_elements_creer',
+  domaine: 'ads',
   title: "Créer des éléments d'annonce",
   description: [
     "Crée des éléments d'annonce Search et les associe à une campagne OU à un groupe d'annonces :",
@@ -404,7 +403,7 @@ const elementsCreer = outil({
     }).strict()).min(1).max(5).optional(),
     jeton: JETON,
   }).strict(),
-  annotations: AJOUT,
+  annotations: ECRITURE,
   async executer({ campagne, groupe, liens_annexes, info_bulles, accroches, extraits, prix, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -562,6 +561,7 @@ const lienDe = (compte: string, cible: Cible) => (cible.niveau === 'campagne'
 
 const elementsAssocier = outil({
   name: 'ads_elements_associer',
+  domaine: 'ads',
   title: "Associer un élément d'annonce existant",
   description: [
     "Associe à une campagne OU à un groupe d'annonces Search un élément qui existe déjà dans le compte — lien annexe, info-bulle, " +
@@ -578,7 +578,7 @@ const elementsAssocier = outil({
     "'STRUCTURED_SNIPPET', 'PRICE').",
   ].join('\n'),
   schema: z.object({ asset: ID.describe("L'élément (asset.id)."), ...CIBLE, jeton: JETON }).strict(),
-  annotations: AJOUT,
+  annotations: ECRITURE,
   async executer({ asset, campagne, groupe, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -621,6 +621,7 @@ const elementsAssocier = outil({
 
 const elementsDissocier = outil({
   name: 'ads_elements_dissocier',
+  domaine: 'ads',
   title: "Dissocier un élément d'annonce",
   description: [
     "Retire l'association d'un élément d'annonce — lien annexe, info-bulle, extrait structuré, élément de prix — à une campagne " +
@@ -632,7 +633,7 @@ const elementsDissocier = outil({
     'reprendront la main.',
   ].join('\n'),
   schema: z.object({ asset: ID.describe("L'élément (asset.id)."), ...CIBLE, jeton: JETON }).strict(),
-  annotations: RETRAIT,
+  annotations: DESTRUCTIF,
   async executer({ asset, campagne, groupe, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
