@@ -842,6 +842,25 @@ describe('le fil (SPEC §13.10)', () => {
   });
 
   /**
+   * Le 09/11/2026, le composeur était un champ d'une ligne : impossible d'aller
+   * à la ligne dans une réponse au Coach. Entrée envoie, Maj+Entrée non, et le
+   * retour à la ligne arrive tel quel.
+   */
+  it('le composeur va à la ligne avec Maj+Entrée et envoie avec Entrée', () => {
+    const envoyes: string[] = [];
+    const { getByLabelText } = render(<Fil elements={[]} zone={{
+      type: 'composeur', destinataire: 'coach', onEnvoyer: (t) => envoyes.push(t),
+    }} />);
+    const champ = getByLabelText('Message au Coach');
+    expect(champ.tagName).toBe('TEXTAREA');
+    fireEvent.change(champ, { target: { value: 'Le sac.\nEn slide 2.' } });
+    fireEvent.keyDown(champ, { key: 'Enter', shiftKey: true });
+    expect(envoyes).toEqual([]);
+    fireEvent.keyDown(champ, { key: 'Enter' });
+    expect(envoyes).toEqual(['Le sac.\nEn slide 2.']);
+  });
+
+  /**
    * La carte de la métaphore (28/10/2026) : le Coach la pose en tableau, le
    * brief la garde, le Lecteur froid en dresse une à l'aveugle. Sans rendu,
    * le tableau du Coach s'affichait en barres verticales.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { MessageCircle, Send } from 'lucide-react';
 import { jourCourt, type BriefDuFil, type BulleDuFil, type ElementDuFil, type LigneConfrontee, type RoleDuFil } from '@luminose/editorial';
 import { Bouton, Champ, Etiquette, Markdown, Tableau } from '../ui';
@@ -163,12 +163,33 @@ const Attente: React.FC<{ role: RoleDuFil }> = ({ role }) => (
     </div>
 );
 
+/**
+ * Le composeur est une zone multiligne : une réponse au Coach se construit
+ * souvent en plusieurs temps, et un champ d'une ligne ne savait pas aller à la
+ * ligne. Entrée envoie, comme dans toute messagerie ; Maj+Entrée va à la ligne.
+ * La zone grandit avec son texte jusqu'à sept lignes environ, puis défile.
+ */
 const Composeur: React.FC<{ zone: ZoneComposeur }> = ({ zone }) => {
     const [texte, setTexte] = useState('');
+    const zoneTexte = useRef<HTMLTextAreaElement>(null);
+    useLayoutEffect(() => {
+        const el = zoneTexte.current;
+        if (!el) return;
+        // Remettre à `auto` d'abord : sans cela, la zone ne rapetisse jamais
+        // quand on efface. La bordure s'ajoute, `scrollHeight` ne la compte pas.
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+    }, [texte]);
     const envoyer = () => {
         if (!texte.trim() || zone.desactive) return;
         zone.onEnvoyer(texte.trim());
         setTexte('');
+    };
+    const touche = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        // `isComposing` : l'Entrée qui valide un accent composé ne doit pas envoyer.
+        if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+        e.preventDefault();
+        envoyer();
     };
     return (
         <div className="space-y-2">
@@ -203,16 +224,22 @@ const Composeur: React.FC<{ zone: ZoneComposeur }> = ({ zone }) => {
                     ))}
                 </div>
             )}
-            <form onSubmit={(e) => { e.preventDefault(); envoyer(); }} className="flex items-center gap-2">
+            {/* `leading-6` et `min-h-11` : une ligne fait 44 px, comme le champ grand qu'elle remplace.
+                `items-end` et `mb-0.5` : le bouton (40 px) reste centré sur la dernière ligne quand la zone grandit. */}
+            <form onSubmit={(e) => { e.preventDefault(); envoyer(); }} className="flex items-end gap-2">
                 <Champ
-                    taille="grand"
+                    multiligne
+                    ref={zoneTexte}
+                    rows={1}
+                    className="leading-6 min-h-11 max-h-48 resize-none overflow-y-auto"
                     value={texte}
-                    onChange={(e) => setTexte((e.target as HTMLInputElement).value)}
+                    onChange={(e) => setTexte(e.target.value)}
+                    onKeyDown={touche}
                     disabled={zone.desactive}
                     aria-label={zone.destinataire === 'coach' ? 'Message au Coach' : 'Ajustement pour le Rédacteur'}
                     placeholder={zone.destinataire === 'coach' ? 'Votre réponse au Coach…' : 'Ce que le Rédacteur doit changer, et rien d’autre…'}
                 />
-                <Bouton type="submit" taille="grand" intention="principale" disabled={!texte.trim() || zone.desactive}>
+                <Bouton type="submit" taille="grand" intention="principale" className="mb-0.5" disabled={!texte.trim() || zone.desactive}>
                     <Send /> Envoyer
                 </Bouton>
             </form>
