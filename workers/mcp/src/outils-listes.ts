@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { compteEcriture, ecrire, exigerEcriture, type Preparation, type Temps } from './ecriture';
 import { LIMITES_LISTES, type Operation } from './google-ads';
 import { bloque, cleMotCle, type MotCle } from './negatifs';
-import { outil, texte } from './outil';
+import { DESTRUCTIF, ECRITURE, outil, texte } from './outil';
 import { CORRESPONDANCES, DEUX_TEMPS, JETON, exigerSearch, lignes, normaliserMotsCles, premiereLigne } from './outils-ecriture';
 import { MARQUE, marquer } from './regles';
 import { Refus } from './refus';
@@ -35,10 +35,6 @@ const MOTS_CLES = z.array(z.object({
   texte: z.string().min(1).max(80).describe('Le texte exclu, sans crochets ni guillemets.'),
   correspondance: z.enum(['EXACT', 'PHRASE', 'BROAD']),
 }).strict()).min(1).max(50);
-
-const AJOUT = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
-/** Un retrait d'exclusion rouvre du trafic : le client peut demander une confirmation de plus. */
-const RETRAIT = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false };
 
 const QUAND_UNE_LISTE =
   "Liste ou négatif de campagne ? Une liste partagée, pour une exclusion qui vaut pour PLUSIEURS campagnes (gratuit, emploi, " +
@@ -172,6 +168,7 @@ type Resolus = { r: (string | null)[] };
 
 const listeCreer = outil({
   name: 'ads_liste_negatifs_creer',
+  domaine: 'ads',
   title: 'Créer une liste de mots-clés à exclure',
   description: [
     `Crée une liste partagée de mots-clés à exclure, nommée « ${MARQUE} … » par le serveur, avec, au choix, ses premiers mots-clés ` +
@@ -190,7 +187,7 @@ const listeCreer = outil({
     mots_cles: MOTS_CLES.optional().describe('Les premiers mots-clés de la liste, 50 au plus.'),
     jeton: JETON,
   }).strict(),
-  annotations: AJOUT,
+  annotations: ECRITURE,
   async executer({ nom, mots_cles, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -237,6 +234,7 @@ const listeCreer = outil({
 
 const listeAjouter = outil({
   name: 'ads_liste_negatifs_ajouter',
+  domaine: 'ads',
   title: 'Ajouter des mots-clés à une liste à exclure',
   description: [
     "Ajoute des mots-clés à une liste partagée de mots-clés à exclure : les recherches qui y correspondent ne déclencheront plus " +
@@ -256,7 +254,7 @@ const listeAjouter = outil({
     mots_cles: MOTS_CLES,
     jeton: JETON,
   }).strict(),
-  annotations: AJOUT,
+  annotations: ECRITURE,
   async executer({ liste, mots_cles, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -341,6 +339,7 @@ const listeAjouter = outil({
 
 const listeRetirer = outil({
   name: 'ads_liste_negatifs_retirer',
+  domaine: 'ads',
   title: "Retirer des mots-clés d'une liste à exclure",
   description: [
     "Retire des mots-clés d'une liste partagée de mots-clés à exclure, désignés par leur texte et leur correspondance : le serveur " +
@@ -358,7 +357,7 @@ const listeRetirer = outil({
     mots_cles: MOTS_CLES,
     jeton: JETON,
   }).strict(),
-  annotations: RETRAIT,
+  annotations: DESTRUCTIF,
   async executer({ liste, mots_cles, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -417,6 +416,7 @@ const listeRetirer = outil({
 
 const listeAssocier = outil({
   name: 'ads_liste_associer',
+  domaine: 'ads',
   title: 'Associer une liste à exclure à une campagne',
   description: [
     "Associe une liste partagée de mots-clés à exclure à une campagne Search : la campagne exclut aussitôt tous les mots-clés de la " +
@@ -433,7 +433,7 @@ const listeAssocier = outil({
     campagne: ID.describe('Identifiant de la campagne (campaign.id).'),
     jeton: JETON,
   }).strict(),
-  annotations: AJOUT,
+  annotations: ECRITURE,
   async executer({ liste, campagne, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -476,6 +476,7 @@ const listeAssocier = outil({
 
 const listeDissocier = outil({
   name: 'ads_liste_dissocier',
+  domaine: 'ads',
   title: "Dissocier une liste à exclure d'une campagne",
   description: [
     "Dissocie une liste partagée de mots-clés à exclure d'une campagne Search : la campagne cesse d'exclure les mots-clés de la " +
@@ -490,7 +491,7 @@ const listeDissocier = outil({
     campagne: ID.describe('Identifiant de la campagne (campaign.id).'),
     jeton: JETON,
   }).strict(),
-  annotations: RETRAIT,
+  annotations: DESTRUCTIF,
   async executer({ liste, campagne, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -548,6 +549,7 @@ const exclusParListes = async (env: Env, compte: string, campagne: string): Prom
 
 const negatifsRetirer = outil({
   name: 'ads_negatifs_retirer',
+  domaine: 'ads',
   title: 'Retirer des mots-clés négatifs de campagne',
   description: [
     "Retire des mots-clés NÉGATIFS d'une campagne Search, désignés par leur texte et leur correspondance : le serveur retrouve " +
@@ -566,7 +568,7 @@ const negatifsRetirer = outil({
     mots_cles: MOTS_CLES,
     jeton: JETON,
   }).strict(),
-  annotations: RETRAIT,
+  annotations: DESTRUCTIF,
   async executer({ campagne, mots_cles, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);

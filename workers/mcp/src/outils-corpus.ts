@@ -20,11 +20,9 @@ import { diffLignes } from './diff';
 import { exigerEcritureCorpus, type Temps } from './ecriture';
 import { ecrireCorpus, type PlanCorpus } from './ecriture-corpus';
 import { BLOCS, dernierDeploiement, derniersCommitsCorpus, ecritureAdmise, lireCorpus, type Commit, type Fiche } from './github';
-import { LECTURE, outil, texte } from './outil';
+import { DESTRUCTIF, ECRITURE, LECTURE, outil, texte } from './outil';
 import { JETON } from './outils-ecriture';
 import { Refus } from './refus';
-
-const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
 const DEUX_TEMPS =
   'Deux temps, toujours. 1) Appeler SANS jeton : rien ne part, l’outil rend un aperçu — le diff exact — et un jeton. ' +
@@ -57,7 +55,8 @@ const fermerBloc = (lignes: string[]) => ['```diff', ...lignes, '```'];
 
 const index = outil({
   name: 'corpus_index',
-  title: 'Corpus — les fiches',
+  domaine: 'corpus',
+  title: 'Lister les fiches',
   description: [
     "Liste les fiches du corpus de Luminose — sa source de vérité : identité, offres et leur statut, voix, canaux, stratégie, " +
     'matière réutilisable — telles que la branche main du dépôt les porte : chemin, titre, type, statut, dates de revue. Lecture seule.',
@@ -92,7 +91,8 @@ const index = outil({
 
 const lire = outil({
   name: 'corpus_lire',
-  title: 'Corpus — lire des fiches',
+  domaine: 'corpus',
+  title: 'Lire des fiches',
   description: [
     'Rend le texte exact de fiches du corpus, frontmatter compris, tel que la branche main du dépôt le porte — c’est ce texte que ' +
     'corpus_modifier remplace. 10 fiches au plus par appel ; les chemins se lisent dans corpus_index (ex. socle/offres/le-seuil). Lecture seule.',
@@ -123,7 +123,8 @@ const lire = outil({
 
 const contexte = outil({
   name: 'corpus_contexte',
-  title: 'Corpus — un profil composé',
+  domaine: 'corpus',
+  title: 'Lire un profil composé',
   description: [
     'Compose le corpus de Luminose en un texte à suivre, par le même composeur que la console : en-tête (ce qui fait autorité, ' +
     'et ce qui n’arbitre pas les demandes de Florent), tableau des offres dérivé des statuts, hiérarchie des règles, puis les fiches. Lecture seule.',
@@ -171,7 +172,8 @@ const remplacer = (texteInitial: string, remplacements: Remplacement[]): string 
 
 const modifier = outil({
   name: 'corpus_modifier',
-  title: 'Corpus — modifier une fiche',
+  domaine: 'corpus',
+  title: 'Modifier une fiche',
   description: [
     'Modifie une fiche EXISTANTE du corpus, par un commit sur main. Deux façons : `remplacements` — des passages exacts à remplacer, ' +
     'chacun présent une fois dans la fiche (le plus sûr pour une correction) — ou `contenu` — la fiche entière, frontmatter compris. ' +
@@ -196,7 +198,7 @@ const modifier = outil({
     message: z.string().min(1).max(200).optional().describe('Le message du commit. Par défaut : « Corpus : <chemin> ».'),
     jeton: JETON,
   }).strict(),
-  annotations: ECRITURE,
+  annotations: DESTRUCTIF,
   async executer({ chemin, remplacements, contenu, message, jeton }, env, ctx) {
     exigerEcritureCorpus(ctx);
     if ((remplacements === undefined) === (contenu === undefined)) {
@@ -261,7 +263,8 @@ const DECISION = /^\d{4}-\d{2}-[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const decisionAjouter = outil({
   name: 'corpus_decision_ajouter',
-  title: 'Corpus — ajouter une décision',
+  domaine: 'corpus',
+  title: 'Ajouter une décision',
   description: [
     'Ajoute une décision datée dans strategie/decisions/, par un commit sur main : le POURQUOI d’un changement, et ce qui la ' +
     'réactiverait. Le serveur écrit le frontmatter (type: decision, statut: active, decide_le du jour, expose: prive) et le titre ; ' +
@@ -348,7 +351,8 @@ const ETATS: Record<string, string> = { queued: 'en attente', in_progress: 'en c
 
 const deployer = outil({
   name: 'corpus_deployer',
-  title: 'Corpus — publier (déployer la console)',
+  domaine: 'corpus',
+  title: 'Publier (déployer la console)',
   description: [
     'Lance le workflow « Déploiement Cloudflare » du dépôt, cible api, sur main : c’est ce qui publie un commit du corpus dans la ' +
     'console (gestion.luminose.fr) et ses profils. Le workflow joue d’abord les tests et le typecheck, bloquants, puis embarque le ' +

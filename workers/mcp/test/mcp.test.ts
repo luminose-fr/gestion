@@ -132,8 +132,12 @@ describe('époque moderne (2026-07-28)', () => {
         'contenus_lister', 'contenus_lire', 'series_lister', 'contenus_creer', 'contenus_modifier', 'contenus_brouillon_ecrire',
         'series_regrouper', 'contenus_deplacer', 'series_reordonner',
       ]);
-    // Destructeurs : les seuls outils qui lèvent une exclusion, donc peuvent rouvrir du trafic — ou retirent un élément d'une annonce.
-    const retraits = ['ads_liste_negatifs_retirer', 'ads_liste_dissocier', 'ads_negatifs_retirer', 'ads_elements_dissocier'];
+    // Destructeurs (décision du 09/11/2026) : ce qui lève une exclusion ou retire un élément d'une annonce, ce qui rouvre une
+    // dépense, et ce qui peut effacer un texte ou une valeur. Claude demande à chaque appel.
+    const retraits = [
+      'ads_reactiver', 'ads_liste_negatifs_retirer', 'ads_liste_dissocier', 'ads_negatifs_retirer', 'ads_elements_dissocier',
+      'corpus_modifier', 'contenus_modifier', 'contenus_brouillon_ecrire',
+    ];
     for (const outil of result.tools) {
       expect(outil.inputSchema.type).toBe('object');
       expect(outil.inputSchema.$schema).toBeUndefined();

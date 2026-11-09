@@ -12,7 +12,7 @@
 import { z } from 'zod';
 import { compteEcriture, ecrire, exigerEcriture } from './ecriture';
 import { TYPES_ELEMENTS, connexionPour, rechercher, type Operation, type ServiceEcriture } from './google-ads';
-import { outil, texte } from './outil';
+import { ECRITURE, idempotent, outil, texte } from './outil';
 import { Refus } from './refus';
 import type { Env } from './env';
 
@@ -73,6 +73,7 @@ type LigneCampagne = { campaign?: { id?: string; name?: string; status?: string;
 
 const negatifsAjouter = outil({
   name: 'ads_negatifs_ajouter',
+  domaine: 'ads',
   title: 'Exclure des recherches (mots-clés négatifs)',
   description: [
     "Ajoute des mots-clés NÉGATIFS à une campagne Search : les recherches qui y correspondent ne déclencheront plus d'annonce. " +
@@ -99,7 +100,7 @@ const negatifsAjouter = outil({
     }).strict()).min(1).max(50),
     jeton: JETON,
   }).strict(),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: ECRITURE,
   async executer({ campagne, mots_cles, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);
@@ -223,6 +224,7 @@ const ENTITES: Record<string, { service: ServiceEcriture; forme: RegExp; exemple
 
 const mettreEnPause = outil({
   name: 'ads_mettre_en_pause',
+  domaine: 'ads',
   title: 'Mettre en pause',
   description: [
     "Met en pause une campagne, un groupe d'annonces, une annonce, un mot-clé ou l'association d'un élément d'annonce du Search. " +
@@ -241,7 +243,7 @@ const mettreEnPause = outil({
     identifiant: z.string().max(70).describe('Voir la description de l’outil pour la forme selon le type.'),
     jeton: JETON,
   }).strict(),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: idempotent(ECRITURE),
   async executer({ type, identifiant, jeton }, env, contexte) {
     exigerEcriture(contexte);
     const compte = compteEcriture(env);

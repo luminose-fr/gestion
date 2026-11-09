@@ -3,6 +3,8 @@
  * dit pourquoi une connexion s'arrête. Pas de script, pas de ressource externe.
  */
 import type { ConsentDescription } from '@cloudflare/workers-oauth-provider';
+import { DOMAINES, type CleDomaine } from './domaines';
+import { outilsParDomaine } from './outils';
 
 const echapper = (texte: string) =>
   texte.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -32,16 +34,24 @@ const gabarit = (titre: string, corps: string) => `<!doctype html>
   :root { color-scheme: light dark; --fond: #fafaf9; --texte: #1c1917; --doux: #57534e; --bord: #e7e5e4; --alerte: #b45309; --bouton: #1c1917; --sur-bouton: #fafaf9; }
   @media (prefers-color-scheme: dark) { :root { --fond: #1c1917; --texte: #f5f5f4; --doux: #a8a29e; --bord: #44403c; --alerte: #fcd34d; --bouton: #f5f5f4; --sur-bouton: #1c1917; } }
   body { margin: 0; background: var(--fond); color: var(--texte); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
-  main { max-width: 28rem; margin: 4rem auto; padding: 0 1rem; }
+  main { max-width: 32rem; margin: 4rem auto; padding: 0 1rem; }
   h1 { font-size: 1.25rem; margin: 0 0 1rem; }
   p { margin: 0 0 1rem; }
   .doux { color: var(--doux); font-size: 0.875rem; }
   .alerte { color: var(--alerte); border: 1px solid var(--alerte); border-radius: 8px; padding: 0.75rem; font-size: 0.875rem; }
   button { font: inherit; font-weight: 600; background: var(--bouton); color: var(--sur-bouton); border: 0; border-radius: 8px; padding: 0.75rem 1.25rem; cursor: pointer; }
   code { font-size: 0.875em; }
-  fieldset { border: 1px solid var(--bord); border-radius: 8px; padding: 0.75rem; margin: 0 0 1rem; }
+  fieldset { border: 1px solid var(--bord); border-radius: 8px; padding: 0 1rem; margin: 0 0 1rem; }
+  legend { font-weight: 600; padding: 0 0.25rem; }
+  .acces { padding: 0.75rem 0; }
+  .acces + .acces { border-top: 1px solid var(--bord); }
+  .sur-titre { margin: 0 0 0.5rem; color: var(--doux); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
   label { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.875rem; }
-  label + label { margin-top: 0.5rem; }
+  /* Une case de 1rem et un écart de 0.5rem : la liste des outils s'aligne sur le texte, à 1.5rem. */
+  input[type="checkbox"] { flex: none; width: 1rem; height: 1rem; margin: 0.125rem 0 0; }
+  details { margin: 0.5rem 0 0 1.5rem; color: var(--doux); font-size: 0.875rem; }
+  summary { cursor: pointer; }
+  details ul { margin: 0.25rem 0 0; padding-left: 1rem; }
 </style>
 </head>
 <body><main>
@@ -67,16 +77,42 @@ export const page = (statut: number, titre: string, message: string, entetes: Re
  * c'est une boucle locale — n'importe quel programme de la machine peut
  * écouter un port, quel que soit le nom annoncé.
  */
+/** La liste repliable des outils qu'une case ouvre : tirée du registre, elle ne peut pas mentir. */
+const listeOutils = (titres: readonly string[]) =>
+  `<details><summary>${titres.length} outil${titres.length > 1 ? 's' : ''}</summary><ul>${
+    titres.map((t) => `<li>${echapper(t)}</li>`).join('')}</ul></details>`;
+
+/**
+ * Un groupe par domaine (domaines.ts), et dans chacun la lecture, puis
+ * l'écriture. La lecture n'a pas de case active : elle est la condition de la
+ * connexion, pas un choix.
+ */
+const groupe = (cle: CleDomaine, outils: { lecture: string[]; ecriture: string[] }, demandes: readonly string[]) => {
+  const d = DOMAINES[cle];
+  const coche = demandes.includes(d.ecriture.scope) ? ' checked' : '';
+  return `<fieldset>
+<legend>${echapper(d.intitule)}</legend>
+<div class="acces">
+<p class="sur-titre">Lecture — toujours accordée</p>
+<label><input type="checkbox" checked disabled> <span>${echapper(d.lecture)}</span></label>
+${listeOutils(outils.lecture)}
+</div>
+<div class="acces">
+<p class="sur-titre">Écriture — à cocher</p>
+<label><input type="checkbox" name="${d.ecriture.champ}" value="1"${coche}> <span><strong>${echapper(d.ecriture.libelle)}</strong> : ${echapper(d.ecriture.detail)}</span></label>
+${listeOutils(outils.ecriture)}
+</div>
+</fieldset>`;
+};
+
 export const pageConsentement = (options: {
   description: ConsentDescription;
-  /** La case « écrire » arrive cochée si le client l'a demandée — jamais sinon. */
-  ecrireCoche: boolean;
-  /** Même règle pour la case « Modifier le corpus ». */
-  corpusCoche: boolean;
-  /** Et pour la case « Préparer des balises dans Tag Manager ». */
-  gtmCoche: boolean;
-  /** Et pour la case « Modifier les contenus ». */
-  contenusCoche: boolean;
+  /**
+   * Les scopes que le client demande : la case d'écriture d'un domaine arrive
+   * cochée s'il l'a demandée — jamais sinon. Chaque case reste à part :
+   * écrire dans Google Ads n'emporte ni le corpus, ni Tag Manager, ni la console.
+   */
+  demandes: readonly string[];
   jeton: string;
   cookie: string;
 }) => {
@@ -84,28 +120,19 @@ export const pageConsentement = (options: {
   const provenance = d.clientDomain
     ? `Client publié par <strong>${echapper(d.clientDomain)}</strong>.`
     : "Client préenregistré sur ce serveur.";
-  const corps = `<h1>Connecter Claude à Google Ads</h1>
-<p><strong>${echapper(d.clientName)}</strong> demande l'accès au compte Google Ads, au conteneur Tag Manager du site, au corpus et aux contenus de Luminose.</p>
+  const corps = `<h1>Connecter Claude à Luminose</h1>
+<p><strong>${echapper(d.clientName)}</strong> demande l'accès à Luminose, domaine par domaine. La lecture est accordée partout ; chaque écriture se coche à part.</p>
 <p>${provenance} Après la connexion Google, l'accès sera envoyé à <strong>${echapper(d.redirectHost)}</strong>.</p>
 ${d.redirectIsLoopback
     ? `<p class="alerte">Cette adresse de retour est locale. N'autorisez que si vous venez de lancer la connexion depuis Claude Code ou l'inspecteur MCP, sur cette machine.</p>\n`
     : ''}<form method="post" action="/authorize">
 <input type="hidden" name="n" value="${echapper(options.jeton)}">
-<fieldset>
-<label><input type="checkbox" checked disabled> Lire le compte : campagnes, coûts, clics, conversions, termes de recherche.</label>
-<label><input type="checkbox" name="ecrire" value="1"${options.ecrireCoche ? ' checked' : ''}> Préparer des modifications : exclure des recherches, mettre en pause. Chaque écriture est montrée avant d'être faite, et rien ne s'active : l'activation reste dans Google Ads.</label>
-<label><input type="checkbox" checked disabled> Lire le corpus de Luminose, tel que le dépôt le porte.</label>
-<label><input type="checkbox" name="corpus" value="1"${options.corpusCoche ? ' checked' : ''}> Modifier le corpus : corriger une fiche, ajouter une décision, par commit sur le dépôt, et lancer le déploiement qui les publie. Chaque écriture est montrée avant d'être faite.</label>
-<label><input type="checkbox" checked disabled> Lire le conteneur Tag Manager du site : balises, déclencheurs, variables.</label>
-<label><input type="checkbox" name="gtm" value="1"${options.gtmCoche ? ' checked' : ''}> Préparer des balises dans Tag Manager : créer des déclencheurs, des balises de conversion et d'événement GA4 ; mettre une balise de mesure en pause, lui ajouter un déclencheur, couper un envoi de page vue en double — dans un espace de travail « [Claude] ». Chaque écriture est montrée avant d'être faite, et rien n'est publié : la publication reste dans Tag Manager.</label>
-<label><input type="checkbox" checked disabled> Lire les contenus et les séries de la console.</label>
-<label><input type="checkbox" name="contenus" value="1"${options.contenusCoche ? ' checked' : ''}> Modifier les contenus : créer une idée, modifier la fiche d'un contenu, écrire son brouillon, regrouper des idées en série, déplacer un contenu d'une série à l'autre, réordonner une série. Ces écritures partent directement ; un brouillon se signe « Claude (MCP) » et s'annule dans l'éditeur.</label>
-</fieldset>
+${outilsParDomaine().map((g) => groupe(g.cle, g, options.demandes)).join('\n')}
 <p><button type="submit">Continuer avec Google</button></p>
 </form>
 <p class="doux">Seule l'adresse autorisée peut aller au bout. Si vous n'avez pas lancé cette connexion, fermez cet onglet.</p>`;
 
-  return new Response(gabarit('Connecter Claude à Google Ads', corps), {
+  return new Response(gabarit('Connecter Claude à Luminose', corps), {
     status: 200,
     headers: { ...SECURITE, 'Set-Cookie': options.cookie },
   });

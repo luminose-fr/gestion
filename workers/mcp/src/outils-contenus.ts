@@ -28,11 +28,9 @@ import { appelerConsole } from './console';
 import { dateFr, jourDe } from './dates';
 import { exigerEcritureContenus, ouvrirEcriture, type Contexte } from './ecriture';
 import { clore } from './journal';
-import { LECTURE, outil, texte } from './outil';
+import { DESTRUCTIF, ECRITURE, LECTURE, idempotent, outil, texte } from './outil';
 import { Refus } from './refus';
 import type { Env } from './env';
-
-const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
 
 /** La plus longue réponse rendue : au-delà, le texte est coupé, et le dit. */
 const MAX_CARACTERES = 50_000;
@@ -142,7 +140,8 @@ const series = async (env: Env) => new Map((await appelerConsole<{ items: Serie[
 
 const lister = outil({
   name: 'contenus_lister',
-  title: 'Contenus — la liste',
+  domaine: 'console',
+  title: 'Lister les contenus',
   description:
     'Liste les contenus de la console (gestion.luminose.fr), du plus récemment modifié au plus ancien : titre, statut, format, ' +
     'objectif, série et rang, date prévue, début des notes, identifiant. Lecture seule.\n\n' +
@@ -185,7 +184,8 @@ const lister = outil({
 
 const lire = outil({
   name: 'contenus_lire',
-  title: 'Contenus — un contenu entier',
+  domaine: 'console',
+  title: 'Lire un contenu entier',
   description:
     'Lit un contenu de la console : sa fiche, ses notes, son analyse, l’état de son atelier, son brouillon tel que l’éditeur le lit ' +
     '(du JSON propre à son format), la dernière relecture à froid, et sa place dans sa série avec les angles des autres publications ' +
@@ -261,7 +261,8 @@ const lire = outil({
 
 const listerSeries = outil({
   name: 'series_lister',
-  title: 'Séries — la liste',
+  domaine: 'console',
+  title: 'Lister les séries',
   description: 'Liste les séries de la console : titre, intention, statut, nombre de publications, identifiant. Lecture seule. ' +
     'contenus_lister avec serie = identifiant en donne les publications.',
   schema: z.object({}).strict(),
@@ -280,7 +281,8 @@ const listerSeries = outil({
 
 const creer = outil({
   name: 'contenus_creer',
-  title: 'Contenus — créer une idée',
+  domaine: 'console',
+  title: 'Créer une idée',
   description:
     'Crée un contenu dans la console — par défaut une idée (statut « Idée »), avec sa fiche : titre, notes, format, objectif, ' +
     'plateformes, date prévue, angle. Le brouillon s’écrit ensuite avec contenus_brouillon_ecrire.\n\n' +
@@ -304,7 +306,8 @@ const creer = outil({
 
 const modifier = outil({
   name: 'contenus_modifier',
-  title: 'Contenus — modifier la fiche',
+  domaine: 'console',
+  title: 'Modifier la fiche d’un contenu',
   description:
     'Modifie la fiche d’un contenu de la console : titre, notes, statut, format, objectif, plateformes, date prévue, angle. ' +
     'Seuls les champs donnés changent ; null efface un champ facultatif. Le brouillon ne passe pas par ici : contenus_brouillon_ecrire ; ' +
@@ -312,7 +315,7 @@ const modifier = outil({
     'L’écriture part directement, sans aperçu. Le journal de ce serveur garde la fiche d’avant ; un changement de statut laisse ' +
     'un geste dans le fil du contenu. Exige la case « Modifier les contenus » du consentement.',
   schema: z.object({ id: ID, titre: z.string().min(1).max(500).optional(), ...champsFiche }).strict(),
-  annotations: ECRITURE,
+  annotations: idempotent(DESTRUCTIF),
   async executer({ id, ...args }, env, contexte) {
     exigerEcritureContenus(contexte);
     const corps = versConsole(args);
@@ -341,7 +344,8 @@ const modifier = outil({
 
 const ecrireBrouillon = outil({
   name: 'contenus_brouillon_ecrire',
-  title: 'Contenus — écrire le brouillon',
+  domaine: 'console',
+  title: 'Écrire le brouillon d’un contenu',
   description:
     'Écrit le brouillon d’un contenu de la console, à la place du Rédacteur : le JSON propre à son format — celui que ' +
     'contenus_lire montre, ou son gabarit quand il n’y a pas encore de brouillon. La console le vérifie comme ce qu’écrit son ' +
@@ -355,7 +359,7 @@ const ecrireBrouillon = outil({
       .describe('Le brouillon : un objet JSON, ou son texte. Son champ `format` nomme le format, comme dans le gabarit.'),
     raison: z.string().min(3).max(500).describe('Ce qui a changé et pourquoi, en une phrase : elle apparaît dans le fil du contenu.'),
   }).strict(),
-  annotations: ECRITURE,
+  annotations: DESTRUCTIF,
   async executer({ id, brouillon, raison }, env, contexte) {
     exigerEcritureContenus(contexte);
     const charge = typeof brouillon === 'string' ? brouillon : JSON.stringify(brouillon);
@@ -378,7 +382,8 @@ const ecrireBrouillon = outil({
 
 const regrouper = outil({
   name: 'series_regrouper',
-  title: 'Séries — regrouper des idées',
+  domaine: 'console',
+  title: 'Regrouper des idées en série',
   description:
     'Crée une série dans la console et y range des idées existantes, dans l’ordre donné — l’ordre EST la progression : la première ' +
     'ouvre le sujet, les suivantes s’appuient sur ce qui précède. Un angle par idée, facultatif, dit sa place dans la série ; sans ' +
@@ -421,7 +426,8 @@ const numeroter = (s: SerieEtContenus, role: string): string[] => [
 
 const deplacer = outil({
   name: 'contenus_deplacer',
-  title: 'Contenus — changer de série',
+  domaine: 'console',
+  title: 'Changer un contenu de série ou de rang',
   description:
     'Déplace un contenu de la console vers une autre série, à la position voulue (par défaut en dernier), le place à un autre rang ' +
     'de sa propre série, ou l’en sort (serie = null). Seuls changent sa série et son rang — et son angle s’il est donné : l’angle ' +
@@ -439,7 +445,7 @@ const deplacer = outil({
     angle: z.string().max(2000).nullable().optional()
       .describe('Son angle dans la série d’arrivée ; absent, il reste tel quel ; null l’efface.'),
   }).strict(),
-  annotations: ECRITURE,
+  annotations: idempotent(ECRITURE),
   async executer({ id, serie, position, angle }, env, contexte) {
     exigerEcritureContenus(contexte);
     if (serie === null && position !== undefined) {
@@ -480,7 +486,8 @@ const deplacer = outil({
 
 const reordonner = outil({
   name: 'series_reordonner',
-  title: 'Séries — réordonner',
+  domaine: 'console',
+  title: 'Réordonner une série',
   description:
     'Donne l’ordre complet d’une série de la console : chacun de ses contenus, une fois, dans l’ordre de la progression — la ' +
     'première publication ouvre le sujet, les suivantes s’appuient sur ce qui précède. Ni ajout ni oubli : sinon, la console ' +
@@ -491,7 +498,7 @@ const reordonner = outil({
     id: ID.describe('La série (series_lister).'),
     ordre: z.array(ID).min(1).max(200).describe('Les identifiants de TOUS ses contenus, dans le nouvel ordre.'),
   }).strict(),
-  annotations: ECRITURE,
+  annotations: idempotent(ECRITURE),
   async executer({ id, ordre }, env, contexte) {
     exigerEcritureContenus(contexte);
     const chemin = `/api/series/${encodeURIComponent(id)}`;
