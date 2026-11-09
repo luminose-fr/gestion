@@ -339,7 +339,7 @@ TA POSTURE :
 CE QUE TU REÇOIS :
 • Titre / idée brute
 • Notes de Florent
-• Format cible (Post Texte, Carrousel, Article, Script Reel/Youtube, Reel expliqué, Newsletter, Prompt Image)
+• Format cible (Post Texte, Article, Script Reel, Reel expliqué, Script Youtube, Carrousel, Prompt Image, Newsletter)
 • Angle stratégique (du Stratège)
 • Métaphore suggérée
 • Objectif du post (Notoriété, Recadrage de croyance, Confiance / Preuve, Éducation pratique, Trafic contenu long, Conversion séance, Promotion événement)
@@ -756,16 +756,16 @@ CHAQUE PUBLICATION TIENT DEBOUT SEULE :
 Aucune entrée ne dépend de la lecture d'une autre. Pas d'« épisode 2/5 », pas de « comme je le disais la semaine dernière ». Les réseaux ne servent pas les publications dans l'ordre, et un inconnu tombe toujours au milieu.
 
 LE FORMAT SUIT LA MATIÈRE :
-Formats disponibles (reprends la valeur EXACTE) :
-• Post Texte (Court)
-• Article (Long/SEO)
-• Script Vidéo (Reel/Short)
-• Reel expliqué (scènes animées)
-• Script Vidéo (Youtube)
-• Carrousel (Slide par Slide)
-• Prompt Image
-• Newsletter
-Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Un mécanisme à montrer en parlant — un contraste, des étapes, un chiffre, une absurdité — se joue en Reel expliqué. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
+Formats disponibles, chacun avec ce qu'il sert — reprends la valeur EXACTE, celle qui précède le tiret :
+• Post Texte (Court) — un texte court (8 à 12 lignes) et une image fixe, pour LinkedIn et Facebook. Une idée reçue à bousculer, une objection à lever : une seule bascule.
+• Article (Long/SEO) — 1 500 à 2 500 mots pour le blog, trouvés par Google. Une démonstration longue, un sujet dense qui se déplie en sections.
+• Script Vidéo (Reel/Short) — moins de 60 secondes, entièrement face caméra, porté par une seule image dite. Un moment incarné, une phrase qui reste en tête ; rien à montrer que le visage.
+• Reel expliqué (scènes animées) — une prise face caméra entrecoupée de scènes animées courtes (pédagogie ou humour), 45 à 90 secondes. Pour un propos qui a un mécanisme à montrer : un avant/après, un niveau qui monte, un contraste. Réutilisable en publicité grâce à sa seconde accroche.
+• Script Vidéo (Youtube) — une vidéo longue et narrative, en métaphores filées et anecdotes de cabinet. Un sujet qui se raconte en plusieurs points.
+• Carrousel (Slide par Slide) — 5 à 10 slides pour Instagram et LinkedIn. Une mécanique à expliquer étape par étape.
+• Prompt Image — une image seule et sa légende. Une métaphore assez forte pour tenir sans texte.
+• Newsletter — 300 à 500 mots aux abonnés, sur un ton personnel. Une proposition concrète (date, lieu), une annonce, l'offre recadrée.
+Ne mets pas un sujet dense dans une vidéo courte, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
 
 LES 7 OBJECTIFS DE PUBLICATION (tu en choisis exactement UN par idée — c'est lui qui dictera le CTA) :
 • Notoriété (Découverte) — L'idée parle de Florent lui-même : son parcours, sa vision du métier, une opinion assumée, sa façon d'être thérapeute. Le lecteur doit retenir QUI il est.
@@ -883,7 +883,12 @@ ATTENTION :
 
 Le registre des formats est la **seule autorité** sur le routage : où atterrir
 après la rédaction, et qui a droit à la relecture à froid. Chaque format porte sa
-propre grille de production, injectée dans le prompt du Rédacteur.
+propre grille de production, injectée dans le prompt du Rédacteur, et **une ligne
+d'usage** qui résume cette grille : c'est elle que lisent ceux qui CHOISISSENT un
+format — l'Éclateur (§5.7) et le serveur MCP. Le 09/11/2026, aucune série n'avait
+jamais proposé de Reel expliqué : il figurait dans la liste sous son seul nom, quand
+les autres formats étaient décrits à la main à côté. Un format ajouté au registre
+arrive désormais décrit partout où l'on choisit.
 
 | Format | Clé courte | Onglet d'atterrissage | Relecture à froid |
 | :--- | :--- | :--- | :---: |

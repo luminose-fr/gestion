@@ -23,6 +23,7 @@
  * revient avec la liste de celles qu'elle admet.
  */
 import { z } from 'zod';
+import { LISTE_DES_FORMATS } from '@luminose/editorial';
 import { appelerConsole } from './console';
 import { dateFr, jourDe } from './dates';
 import { exigerEcritureContenus, ouvrirEcriture, type Contexte } from './ecriture';
@@ -94,9 +95,10 @@ const champsFiche = {
   notes: z.string().max(20_000).optional()
     .describe('La matière du contenu : ce qu’il doit dire, d’où il vient. Remplace les notes en place.'),
   statut: z.enum(STATUTS).optional(),
+  // La liste vient du registre des formats, avec ce qui fait choisir chacun :
+  // c'est elle que lit Claude quand il propose un format, comme l'Éclateur.
   format: z.string().max(80).nullable().optional()
-    .describe('Valeur exacte de la console : Post Texte (Court), Article (Long/SEO), Script Vidéo (Reel/Short), Reel expliqué (scènes animées), ' +
-      'Script Vidéo (Youtube), Carrousel (Slide par Slide), Prompt Image, Newsletter. null l’efface.'),
+    .describe(`Valeur exacte de la console — celle qui précède le tiret —, à choisir sur ce que la matière demande :\n${LISTE_DES_FORMATS}\nnull l’efface.`),
   objectif: z.string().max(80).nullable().optional().describe('Valeur exacte de la console ; une valeur inconnue revient avec la liste admise. null l’efface.'),
   plateformes: z.array(z.string().max(40)).max(10).optional()
     .describe('Facebook, Instagram, LinkedIn, Google My Business, Youtube, Blog, Newsletter. Remplace la liste en place.'),

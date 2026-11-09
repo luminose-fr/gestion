@@ -10,6 +10,8 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { vi } from 'vitest';
+import { FORMAT_REGISTRY } from '@luminose/editorial';
+import { definitionsOutils } from '../src/outils';
 import { appelerOutil, creerEnv, simulerFetch, texteDe, type Appel, type EnvFactice } from './aides';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -400,5 +402,19 @@ describe('NORMATIF — écrire dans les contenus : la case du consentement, le j
       expect(corps.result.isError, `${outil} ${JSON.stringify(args)}`).toBe(true);
     }
     expect(versConsole()).toEqual([]);
+  });
+});
+
+/**
+ * Claude propose un format par contenus_creer et contenus_modifier, comme
+ * l'Éclateur dans la console : il doit voir la même liste, avec ce qui fait
+ * choisir chaque format. Elle vient du registre ; ce test échoue si un format
+ * déclaré y manque.
+ */
+describe('NORMATIF — le format proposé par le MCP vient du registre', () => {
+  it.each(['contenus_creer', 'contenus_modifier'])('%s : chaque format déclaré, avec son usage', (nom) => {
+    const definition = definitionsOutils().find((o) => o.name === nom);
+    const description = (definition?.inputSchema as any)?.properties?.format?.description as string;
+    for (const f of Object.values(FORMAT_REGISTRY)) expect(description).toContain(`• ${f.key} — ${f.usage}`);
   });
 });

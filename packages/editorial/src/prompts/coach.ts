@@ -13,7 +13,17 @@
 
 import { IDENTITE } from '../config';
 import { VOICE_RULES } from '../voice';
+import { VALID_SHORT_KEYS } from '../formats';
 
+/**
+ * La liste des formats que le Coach peut recevoir vient du registre.
+ *
+ * Les puces « CALIBRÉ AU FORMAT », elles, restent écrites ici, volontairement :
+ * elles ne décrivent pas le format, elles disent comment le Coach ouvre la
+ * discussion pour lui — sa méthode, pas le gabarit. Un format ajouté au
+ * registre doit donc y recevoir sa puce à la main ; un test (formats.test.ts)
+ * échoue tant qu'il n'en a pas.
+ */
 export const COACH_PERSONA = `
 TON IDENTITÉ :
 Tu es le Coach éditorial de ${IDENTITE} (Luminose). Tu es son sparring-partner : tu l'aides à faire émerger la direction juste d'un contenu en discutant avec lui, de façon itérative, jusqu'à ce qu'il dise "go".
@@ -27,7 +37,7 @@ TA POSTURE :
 CE QUE TU REÇOIS :
 • Titre / idée brute
 • Notes de Florent
-• Format cible (Post Texte, Carrousel, Article, Script Reel/Youtube, Reel expliqué, Newsletter, Prompt Image)
+• Format cible (${VALID_SHORT_KEYS.join(', ')})
 • Angle stratégique (du Stratège)
 • Métaphore suggérée
 • Objectif du post (Notoriété, Recadrage de croyance, Confiance / Preuve, Éducation pratique, Trafic contenu long, Conversion séance, Promotion événement)

@@ -23,6 +23,17 @@ export interface FormatDefinition {
     key: TargetFormat;
     /** Clé courte utilisée dans les JSON IA (ex: "Post Texte", "Carrousel") */
     shortKey: string;
+    /**
+     * À quoi sert ce format, en une ligne : ce qu'un prompt qui fait CHOISIR un
+     * format (l'Éclateur, le serveur MCP) dit de lui. Elle résume le gabarit
+     * ci-dessous et doit bouger avec lui.
+     *
+     * Obligatoire, pour une raison vécue : le Reel expliqué, arrivé le
+     * 02/10/2026, figurait bien dans la liste de l'Éclateur, mais sous son seul
+     * nom, à côté de formats décrits à la main — et aucune série ne l'a jamais
+     * proposé. Un format qu'on ne sait pas décrire ne sera pas choisi.
+     */
+    usage: string;
     /** Étape de l'éditeur où atterrir juste après la rédaction */
     editorTab: EditorTab;
     /** Ce format bénéficie-t-il de la relecture à froid ? */
@@ -130,6 +141,7 @@ const legendeToMarkdown = (legende: any): string => {
 const POST_TEXTE: FormatDefinition = {
     key: TargetFormat.POST_TEXTE_COURT,
     shortKey: 'Post Texte',
+    usage: 'un texte court (8 à 12 lignes) et une image fixe, pour LinkedIn et Facebook. Une idée reçue à bousculer, une objection à lever : une seule bascule.',
     editorTab: 'postcourt',
     supportsColdRead: true,
     promptTemplate: `
@@ -168,6 +180,7 @@ Ton : Direct, oralisé, percutant. On entend la voix. Fluide — le texte doit s
 const ARTICLE: FormatDefinition = {
     key: TargetFormat.ARTICLE_LONG_SEO,
     shortKey: 'Article',
+    usage: '1 500 à 2 500 mots pour le blog, trouvés par Google. Une démonstration longue, un sujet dense qui se déplie en sections.',
     editorTab: 'brouillon',
     supportsColdRead: false,
     promptTemplate: `
@@ -251,6 +264,7 @@ Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix 
 const SCRIPT_REEL: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_REEL_SHORT,
     shortKey: 'Script Reel',
+    usage: 'moins de 60 secondes, entièrement face caméra, porté par une seule image dite. Un moment incarné, une phrase qui reste en tête ; rien à montrer que le visage.',
     editorTab: 'script',
     supportsColdRead: true,
     promptTemplate: `
@@ -315,6 +329,8 @@ Le bloc "legende" est OBLIGATOIRE : c'est la description publiée sous la vidéo
 const REEL_EXPLIQUE: FormatDefinition = {
     key: TargetFormat.REEL_EXPLIQUE,
     shortKey: 'Reel expliqué',
+    // Les durées sont celles que le gabarit impose : une seule source.
+    usage: `une prise face caméra entrecoupée de scènes animées courtes (pédagogie ou humour), ${LIMITES_REEL.dureeMinSecondes} à ${LIMITES_REEL.dureeMaxSecondes} secondes. Pour un propos qui a un mécanisme à montrer : un avant/après, un niveau qui monte, un contraste. Réutilisable en publicité grâce à sa seconde accroche.`,
     editorTab: 'script',
     supportsColdRead: true,
     promptTemplate: `
@@ -401,6 +417,7 @@ Ces limites sont vérifiées automatiquement après ta génération : un dépass
 const SCRIPT_YOUTUBE: FormatDefinition = {
     key: TargetFormat.SCRIPT_VIDEO_YOUTUBE,
     shortKey: 'Script Youtube',
+    usage: 'une vidéo longue et narrative, en métaphores filées et anecdotes de cabinet. Un sujet qui se raconte en plusieurs points.',
     editorTab: 'script',
     supportsColdRead: false,
     promptTemplate: `
@@ -445,6 +462,7 @@ Ton : Narratif, profond, utilisant des métaphores filées. Plus long, plus cont
 const CARROUSEL: FormatDefinition = {
     key: TargetFormat.CARROUSEL_SLIDE,
     shortKey: 'Carrousel',
+    usage: '5 à 10 slides pour Instagram et LinkedIn. Une mécanique à expliquer étape par étape.',
     editorTab: 'brouillon',
     supportsColdRead: true,
     rendu: 'slides',
@@ -555,6 +573,7 @@ RÈGLES STRICTES :
 const NEWSLETTER: FormatDefinition = {
     key: TargetFormat.NEWSLETTER,
     shortKey: 'Newsletter',
+    usage: '300 à 500 mots aux abonnés, sur un ton personnel. Une proposition concrète (date, lieu), une annonce, l\'offre recadrée.',
     editorTab: 'brouillon',
     supportsColdRead: false,
     promptTemplate: `
@@ -598,6 +617,7 @@ Ne PAS inclure de salutation (Bonjour) ni de signature (Chaleureusement, Florent
 const PROMPT_IMAGE: FormatDefinition = {
     key: TargetFormat.PROMPT_IMAGE,
     shortKey: 'Prompt Image',
+    usage: 'une image seule et sa légende. Une métaphore assez forte pour tenir sans texte.',
     editorTab: 'brouillon',
     supportsColdRead: false,
     promptTemplate: `
@@ -855,3 +875,12 @@ export function getFormatPromptTemplate(format: TargetFormat | null | undefined)
  * Liste des shortKeys valides (pour valider les réponses IA)
  */
 export const VALID_SHORT_KEYS = Object.values(FORMAT_REGISTRY).map(d => d.shortKey);
+
+/**
+ * La liste des formats telle que la lit un prompt qui fait CHOISIR un format :
+ * la valeur exacte, puis son usage. L'Éclateur et le serveur MCP la reçoivent
+ * mot pour mot — un format ajouté au registre y entre de lui-même, décrit.
+ */
+export const LISTE_DES_FORMATS = Object.values(FORMAT_REGISTRY)
+    .map(def => `• ${def.key} — ${def.usage}`)
+    .join('\n');

@@ -14,6 +14,8 @@ import {
 } from '../src/series';
 import { parsePlanSeriesResponse } from '../src/executors';
 import { TargetFormat, Objectif } from '../src/domain';
+import { AI_ACTIONS } from '../src/actions';
+import { FORMAT_REGISTRY } from '../src/formats';
 
 const SERIE = {
   titre: 'La respiration holotropique, sans folklore',
@@ -234,4 +236,25 @@ describe('allonger une série : à la suite de ses publications', () => {
     expect(premierRangLibre([1, 5])).toBe(6);
     expect(premierRangLibre([1, null, 2])).toBe(4);
   });
+});
+
+/**
+ * Le 09/11/2026 : aucune série n'avait jamais proposé de Reel expliqué. Il
+ * figurait dans la liste de l'Éclateur, mais sous son seul nom, quand d'autres
+ * formats étaient décrits à la main. Ce test échoue dès qu'un format déclaré
+ * n'est pas proposé AVEC ce qui le fait choisir — ou qu'on ne saurait pas le
+ * relire dans la réponse.
+ */
+describe('NORMATIF — chaque format déclaré est proposé aux séries', () => {
+  const PLAN = AI_ACTIONS.PLAN_SERIES.getSystemInstruction();
+
+  it.each(Object.values(FORMAT_REGISTRY).map(def => [def.key, def] as const))(
+    '« %s » : proposé à l’Éclateur avec son usage, et relu dans son plan',
+    (_key, def) => {
+      expect(def.usage.trim().length).toBeGreaterThan(20);
+      expect(PLAN).toContain(`• ${def.key} — ${def.usage}`);
+      expect(normalizePlanEntry({ titre: 'Une publication', format: def.key }).format).toBe(def.key);
+      expect(normalizePlanEntry({ titre: 'Une publication', format: def.shortKey }).format).toBe(def.key);
+    },
+  );
 });
