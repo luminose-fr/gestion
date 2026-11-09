@@ -3,7 +3,8 @@
  */
 import { vi } from 'vitest';
 import { getOAuthApi } from '@cloudflare/workers-oauth-provider';
-import worker, { OPTIONS } from '../src/index';
+import worker from '../src/index';
+import { OPTIONS } from '../src/options';
 import { empreinte } from '../src/crypto';
 import { oublierJetonAds } from '../src/google-ads';
 import { D1Test } from './d1';

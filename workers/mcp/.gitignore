@@ -1,0 +1,2 @@
+# État local de `wrangler dev` (D1, KV, cache) : propre à la machine qui le lance.
+.wrangler/
