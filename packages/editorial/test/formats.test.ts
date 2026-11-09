@@ -21,6 +21,7 @@ import {
   parseBodyJson,
   VALID_SHORT_KEYS,
   resoudreFormat,
+  COACH_PERSONA,
 } from '../src/index';
 
 const ALL_FORMATS = Object.values(TargetFormat);
@@ -198,5 +199,26 @@ describe('résoudre un format écrit à la main', () => {
             expect(resoudreFormat(def.key)).toBe(def.key);
             expect(resoudreFormat(def.shortKey)).toBe(def.key);
         }
+    });
+});
+
+/**
+ * Le Coach reçoit un format déjà choisi : sa liste vient du registre, mais ses
+ * puces « CALIBRÉ AU FORMAT » sont écrites à la main (prompts/coach.ts dit
+ * pourquoi). Un format ajouté sans sa puce arriverait au Coach sans méthode.
+ */
+describe('le Coach connaît chaque format du registre', () => {
+    const calibrage = COACH_PERSONA
+        .split('COMMENT TU PROPOSES — CALIBRÉ AU FORMAT :')[1]
+        .split('Aux tours suivants')[0];
+    // « • Article / Newsletter : … » couvre deux formats.
+    const formatsCalibres = calibrage.split('\n')
+        .filter(ligne => ligne.startsWith('• '))
+        .flatMap(ligne => ligne.slice(2).split(' :')[0].split(' / ').map(nom => nom.trim()));
+    const listeRecue = COACH_PERSONA.split('\n').find(ligne => ligne.startsWith('• Format cible ('));
+
+    it.each(VALID_SHORT_KEYS.map(cle => [cle]))('« %s » : dans la liste qu’il reçoit, et avec sa puce', (cle) => {
+        expect(listeRecue).toContain(cle);
+        expect(formatsCalibres).toContain(cle);
     });
 });

@@ -20,6 +20,7 @@
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^1.2.1",
     "@luminose/corpus": "*",
+    "@luminose/editorial": "^2.0.0",
     "zod": "^4.6.7"
   }
 }

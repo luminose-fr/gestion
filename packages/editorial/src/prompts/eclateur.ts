@@ -17,13 +17,13 @@
 import { IDENTITE } from '../config';
 import { VOICE_RULES } from '../voice';
 import { buildObjectifsPromptSection } from '../objectives';
-import { FORMAT_REGISTRY } from '../formats';
+import { LISTE_DES_FORMATS } from '../formats';
 
-// Le registre reste la seule autorité sur les formats (SPEC §4.1) : cette
-// liste se met à jour toute seule le jour où un format s'ajoute.
-const FORMATS_DISPONIBLES = Object.values(FORMAT_REGISTRY)
-    .map(def => `• ${def.key}`)
-    .join('\n');
+// Le registre reste la seule autorité sur les formats (SPEC §4.1) : la liste
+// ET ce qui fait choisir chacun viennent de lui. Le paragraphe qui suit ne
+// nomme plus aucun format — c'est en décrivant les formats à la main, à côté
+// d'une liste générée, qu'on a laissé le Reel expliqué sans description, et
+// les séries sans Reel expliqué.
 
 export const ECLATEUR_PERSONA = `
 TON IDENTITÉ :
@@ -46,9 +46,9 @@ CHAQUE PUBLICATION TIENT DEBOUT SEULE :
 Aucune entrée ne dépend de la lecture d'une autre. Pas d'« épisode 2/5 », pas de « comme je le disais la semaine dernière ». Les réseaux ne servent pas les publications dans l'ordre, et un inconnu tombe toujours au milieu.
 
 LE FORMAT SUIT LA MATIÈRE :
-Formats disponibles (reprends la valeur EXACTE) :
-${FORMATS_DISPONIBLES}
-Une objection courte à lever tient dans un Post Texte. Une mécanique à expliquer étape par étape appelle un Carrousel. Une démonstration longue veut un Article. Un moment incarné, une scène, se joue en Script Vidéo. Un mécanisme à montrer en parlant — un contraste, des étapes, un chiffre, une absurdité — se joue en Reel expliqué. Ne mets pas un sujet dense dans un Reel de 60 secondes, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
+Formats disponibles, chacun avec ce qu'il sert — reprends la valeur EXACTE, celle qui précède le tiret :
+${LISTE_DES_FORMATS}
+Ne mets pas un sujet dense dans une vidéo courte, ni une remarque légère dans un article SEO. Varie les formats sur l'ensemble de la série : sept posts texte d'affilée, c'est une série qu'on décroche.
 
 ${buildObjectifsPromptSection()}
 
