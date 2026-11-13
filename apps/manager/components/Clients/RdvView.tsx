@@ -145,6 +145,13 @@ const RdvView: React.FC = () => {
 
   const [creneaux, setCreneaux] = useState<RdvCreneau[] | null>(null);
   const [chargement, setChargement] = useState(false);
+  /**
+   * Le créneau retenu, pas encore posé. Un clic sur une heure ne crée plus
+   * rien : il la désigne, et c'est la barre de confirmation qui pose. Au
+   * téléphone, on clique en écoutant ; un mauvais jour se rattrape ici, alors
+   * qu'un rendez-vous posé part déjà en e-mail chez l'invité.
+   */
+  const [choisi, setChoisi] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [confirme, setConfirme] = useState<RdvConfirme | null>(null);
@@ -175,6 +182,11 @@ const RdvView: React.FC = () => {
 
   useEffect(() => { setLieuTexte(lieu?.texte ?? ''); }, [lieuKind]);
 
+  // Changer de type ou de règle redessine la grille : l'heure retenue n'y a
+  // peut-être plus sa place, et la confirmer serait poser un autre rendez-vous
+  // que celui qu'on voit.
+  useEffect(() => { setChoisi(null); }, [typeUri, libre]);
+
   useEffect(() => {
     if (!typeUri) { setCreneaux(null); return; }
     let abandonne = false;
@@ -196,7 +208,12 @@ const RdvView: React.FC = () => {
   const recharger = () => {
     if (!typeUri) return;
     fetchRdvCreneaux(typeUri, JOURS, libre)
-      .then((x) => setCreneaux(x.creneaux))
+      .then((x) => {
+        setCreneaux(x.creneaux);
+        // Le créneau retenu a pu être pris entre-temps : on ne laisse pas
+        // confirmer une heure qui n'est plus proposée.
+        setChoisi((c) => (c && x.creneaux.some((k) => new Date(k.debut).toISOString() === c) ? c : null));
+      })
       .catch(() => { /* l'erreur affichée est déjà la bonne */ });
   };
 
@@ -219,6 +236,7 @@ const RdvView: React.FC = () => {
         })),
       });
       setConfirme(r.rdv);
+      setChoisi(null);
     } catch (e: any) {
       setErreur(e?.message ?? 'La création a échoué.');
       // Un créneau peut avoir été pris entre l'affichage et le clic : on
@@ -505,13 +523,16 @@ const RdvView: React.FC = () => {
                         <div className="flex flex-wrap gap-1.5">
                           {groupe.heures.map((h) => {
                             const iso = h.toISOString();
+                            const retenu = choisi === iso;
                             return (
                               <Bouton
                                 key={iso}
-                                onClick={() => poser(iso)}
+                                onClick={() => setChoisi(retenu ? null : iso)}
+                                intention={retenu ? 'principale' : 'secondaire'}
+                                aria-pressed={retenu}
                                 disabled={!pret || envoi !== null}
                                 title={pret ? undefined : 'Renseignez le nom, l’e-mail, le lieu et le formulaire.'}>
-                                {envoi === iso ? 'Création…' : HEURE.format(h)}
+                                {HEURE.format(h)}
                               </Bouton>
                             );
                           })}
@@ -522,6 +543,46 @@ const RdvView: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {choisi && type && (
+              /*
+                Collée au bas de l'écran : trois mois de créneaux défilent, et
+                la confirmation doit rester sous la main quel que soit le jour
+                choisi. Elle répète ce qui part chez Calendly — qui, quand, quoi,
+                et si les rappels SMS partiront — parce que c'est la dernière
+                occasion de l'entendre avant que l'invité reçoive l'e-mail.
+              */
+              <div
+                role="region"
+                aria-label="Confirmer le rendez-vous"
+                className="sticky bottom-0 mt-4 -mx-4 md:-mx-5 -mb-4 md:-mb-5 px-4 md:px-5 py-3 bg-white dark:bg-dark-surface border-t border-brand-border dark:border-dark-sec-border rounded-b-xl flex flex-wrap items-center gap-3"
+              >
+                {/* Pleine largeur sur un téléphone, sinon le récapitulatif s'écrase à un mot par ligne. */}
+                <div className="min-w-0 basis-full md:basis-0 md:flex-1">
+                  <p className="text-sm font-semibold text-brand-main dark:text-white first-letter:uppercase">
+                    {JOUR.format(new Date(choisi))} à {HEURE.format(new Date(choisi))}
+                  </p>
+                  <p className="text-xs text-brand-main dark:text-dark-text">
+                    {type.nom} · {type.duree} min · {nom.trim() || 'invité sans nom'}
+                    {' · '}
+                    {telephone.trim() ? <>rappels SMS au {telephone.trim()}</> : <>sans rappel SMS</>}
+                  </p>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <Bouton intention="discrete" onClick={() => setChoisi(null)} disabled={envoi !== null}>
+                    Changer
+                  </Bouton>
+                  <Bouton
+                    intention="principale"
+                    onClick={() => poser(choisi)}
+                    disabled={!pret || envoi !== null}
+                    title={pret ? undefined : 'Renseignez le nom, l’e-mail, le lieu et le formulaire.'}>
+                    <Check className="w-4 h-4" />
+                    {envoi ? 'Création…' : 'Poser le rendez-vous'}
+                  </Bouton>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
