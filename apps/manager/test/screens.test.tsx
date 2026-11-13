@@ -1039,6 +1039,44 @@ describe('prise de rendez-vous', () => {
     const coches = [...container.querySelectorAll('input[name="q-1"]')] as HTMLInputElement[];
     expect(coches.some((c) => c.checked)).toBe(true);
   });
+
+  /**
+   * Le clic sur une heure posait le rendez-vous sur-le-champ — et l'e-mail
+   * partait chez l'invité avant qu'on ait pu entendre « non, plutôt jeudi ».
+   * Il ne fait plus que retenir l'heure ; seule la barre de confirmation pose.
+   */
+  it('retient l’heure cliquée et ne pose le rendez-vous qu’à la confirmation', async () => {
+    const avant = window.location.search;
+    window.history.replaceState({}, '', '/?nom=Marie%20Durand&email=marie@exemple.fr');
+    const debut = '2026-12-01T09:00:00.000Z';
+    vi.spyOn(Api, 'fetchRdvTypes').mockResolvedValue({ types: [TYPE_B] } as any);
+    vi.spyOn(Api, 'fetchRdvSelection').mockResolvedValue({ types: [] } as any);
+    vi.spyOn(Api, 'fetchRdvCreneaux').mockResolvedValue({ creneaux: [{ debut }], depuis: '', jusqua: '', libre: false } as any);
+    const creer = vi.spyOn(Api, 'creerRdv').mockResolvedValue({
+      rdv: { nom: 'Marie Durand', debut, telephone: null, lieu: null, annulation: null, report: null },
+    } as any);
+
+    const { container, getByText } = render(<RdvView />);
+    await waitFor(() => expect(container.querySelector('input[type="radio"]')).not.toBeNull());
+    fireEvent.click(container.querySelector('input[type="radio"]')!);
+
+    const heure = await waitFor(() => {
+      const b = container.querySelector('button[aria-pressed]');
+      expect(b).not.toBeNull();
+      return b as HTMLButtonElement;
+    });
+    fireEvent.click(heure);
+    expect(creer).not.toHaveBeenCalled();
+    expect(heure.getAttribute('aria-pressed')).toBe('true');
+    expect(container.textContent).toContain('sans rappel SMS');
+
+    fireEvent.click(getByText('Poser le rendez-vous'));
+    await waitFor(() => expect(container.textContent).toContain('Rendez-vous posé'));
+    expect(creer).toHaveBeenCalledTimes(1);
+    expect(creer.mock.calls[0][0].debut).toBe(debut);
+
+    window.history.replaceState({}, '', `/${avant}`);
+  });
 });
 
 describe('les listes de Contenus (SPEC §13)', () => {
