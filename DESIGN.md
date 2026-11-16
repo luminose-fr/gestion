@@ -260,7 +260,7 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | `LoginPage`, champ du mot de passe | `pr-11` | la place du bouton qui affiche le mot de passe (`right-3`, 28 px) : à `pr-8`, le texte passerait dessous |
 | `LoginPage`, logo | `shadow-brand-main/30` et le dégradé | l'identité : c'est le logo, pas un bouton |
 | `components/Video/SceneLuminose.tsx` et `ReelComposition.tsx` (le cadre du Reel expliqué) | pixels du cadre 1080 × 1920 en styles en ligne, palette de `voix/direction-artistique.md`, capitales, ombres portées | c'est l'image de la vidéo publiée, réduite à l'affichage : ses échelles sont celles du cadre vertical, pas celles de l'interface (SPEC §12, 02/10/2026). Le reste du dossier — le panneau de montage — est de l'interface, et suit les échelles |
-| `ContentEditor/renderers/` | sur-titres et pastilles en capitales écrits à la main **dans l'aperçu des slides** | l'aperçu reproduit le visuel publié, pas l'interface (arbitré le 23/09/2026). Les en-têtes d'interface, eux, passent par `Etiquette` — dans `SlidesRenderer`, « Ajuster… » et « Prompt Dzine » y sont passés le 23/09/2026 |
+| `ContentEditor/renderers/` | sur-titres et pastilles en capitales écrits à la main **dans l'aperçu des slides** | l'aperçu reproduit le visuel publié, pas l'interface (arbitré le 23/09/2026). Les en-têtes d'interface, eux, passent par `Etiquette` — dans `SlidesRenderer`, « Ajuster… » et l'en-tête du prompt d'image y sont passés le 23/09/2026 |
 
 ### Les exceptions de la refonte « le fil » (27/10/2026, SPEC §13)
 

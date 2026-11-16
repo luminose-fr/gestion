@@ -1,4 +1,4 @@
-# SPEC v2.36 — gestion.luminose.fr
+# SPEC v2.37 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -179,6 +179,13 @@
 > un éditeur resté ouvert les réécrivait (§3.2). En chemin, deux trous dans la numérotation se
 > referment : allonger une série depuis son plan repartait du n° 1 (§6.3), supprimer une
 > publication laissait un trou (§3.2) ; la migration 0017 remet en ordre les séries existantes.
+> **v2.37 (16/11/2026)** : le prompt d'image ne nomme plus d'outil. Florent a quitté Dzine : il
+> génère ses visuels dans ChatGPT, ou dans la console avec un modèle d'Illustrer. Le champ
+> `prompt_dzine` du Post Texte et des slides devient `prompt_image`, l'action « Prompts
+> d'image » devient `ADJUST_IMAGE_PROMPTS` (migration 0018), et chaque prompt se suffit à
+> lui-même. Les brouillons d'avant se relisent (§2.5). Illustrer part directement du prompt :
+> celui d'un Post Texte à la Publication, celui de chaque slide illustrée, envoyé tel quel,
+> sans étalon, aux proportions que le registre donne au format (§3.4, §12.3, §13.9).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -374,7 +381,13 @@ pour choisir entre elles. Aucun contenu ne remplit les deux.
 Une seule colonne, et la notion de `storageField` disparaît du produit.
 
 `contents.slides` est conservée à part : ce n'est **pas** une dérivation du brouillon mais
-un enrichissement (les `prompt_dzine` de l'Artiste), ajustable indépendamment.
+un enrichissement (les `prompt_image` de l'Artiste), ajustable indépendamment.
+
+Le prompt d'image — des slides comme du Post Texte — s'appelait `prompt_dzine` avant la
+v2.37, du nom de l'outil d'alors. Un brouillon qui porte encore l'ancien nom se lit
+(`lirePromptImage`, `packages/editorial/src/promptImage.ts`), et le nom se corrige quand le
+JSON repart vers un modèle ou vers la base. Pas de migration des données : le journal ne se
+réécrit pas (§2.6), et restaurer une version d'avant ramènerait l'ancien nom.
 
 ### 2.6 Les productions IA sont un journal — NORMATIF
 
@@ -687,7 +700,8 @@ replié, et une action qui s'écarte de sa famille se dit sous elle, avec de quo
 ramener.
 
 Une cinquième famille, `illustrer`, ne porte aucune action du flux : elle désigne le
-modèle d'image par défaut de l'illustration (§12.3). **Un réglage de texte ne désigne
+modèle d'image par défaut de l'illustration d'un Reel (§12.3), et du visuel d'un post ou
+d'une slide depuis son prompt d'image (v2.37, §13.9). **Un réglage de texte ne désigne
 qu'un modèle de texte, celui d'Illustrer qu'un modèle d'image** — le Worker refuse le
 reste en 409, et le menu ne le propose pas.
 
@@ -1833,6 +1847,18 @@ Le prix est au jeton : 120 $ le million de jetons d'image produits pour Nano Ban
 60 $ pour Nano Banana 2, 30 $ pour GPT Image 2 (catalogue OpenRouter, 29/10/2026), soit de
 l'ordre de 0,05 à 0,25 $ l'image. Le coût exact de chaque appel s'affiche à côté de l'image.
 
+**Depuis le prompt d'un brouillon** (v2.37). La même route dessine le visuel d'un Post Texte
+ou d'une slide de carrousel, depuis son `prompt_image`. Le prompt part **tel quel** : c'est
+celui que Florent colle dans ChatGPT, et deux chemins qui ne reçoivent pas le même prompt ne
+rendraient pas la même image. **Sans référence** : les réseaux n'ont pas de charte
+(`direction-artistique.md` §4), et l'étalon reste un choix fait pour le Reel. Aux
+**proportions du format**, que porte le registre (`FormatDefinition.image` : 1:1 ou 4:5 pour
+le Post Texte, 1:1 pour le carrousel). `IllustrationRequestSchema` rend donc `references`
+facultatif et ajoute `proportions` et `format` — ce dernier pour la mesure seulement ;
+absents, la demande est celle du Reel, à l'identique. L'image se montre avec le modèle et
+le coût, se **télécharge** — un post se publie hors de l'application —, se refait ou se
+laisse : rien n'est rangé.
+
 **Les brouillons d'avant la v2.26 se lisent encore.** Leurs scènes avaient un titre et des
 cartes empilées — `type` (carte, pastille, liaison), `taille`, `detail`, et un visuel
 décrit carte par carte (`{ nature, description }`) que Florent déposait. Ils s'affichent
@@ -2945,15 +2971,19 @@ retouche directe d'un écrit existait, et rien ne disparaît sans décision.
 
 Le corps de la matière : à l'Ouverture, les notes et le format (le format se fige à
 l'ouverture de l'atelier) ; au Brouillon, le texte (une carte par slide pour un carrousel,
-avec sa longueur sur 140) ; aux Slides, leurs vignettes puis les prompts d'illustration ;
+avec sa longueur sur 140) ; aux Slides, leurs vignettes puis les prompts d'image, chacun
+avec « Copier » et « Illustrer » (v2.37) ;
 au Script, une carte par séquence et son minutage estimé ; au **Tournage, le script en
 grand avec ce qui sera à l'écran** — Florent ne lit pas en filmant, il s'approprie le
-texte avant ; à la Publication, ce qui sera publié et le bloc « Publier » (plateformes,
+texte avant ; à la Publication, ce qui sera publié — pour un Post Texte, le texte et le
+prompt d'image à copier, et « Illustrer » (v2.37) — et le bloc « Publier » (plateformes,
 date, « Marquer publié », « Repasser en écriture », « Décliner en série »).
 
 « Bon à publier » mène à la Publication, « Marquer prête à tourner » au Tournage.
 **Le sélecteur de modèle n'est pas dans le cadre** : il reste sur les listes, et chaque
-action garde son modèle réglé (Réglages → Modèles IA).
+action garde son modèle réglé (Réglages → Modèles IA). Le menu des modèles d'image fait
+exception, comme au studio (§12.3) : Illustrer se choisit au moment de générer, le réglage
+de la famille donnant le défaut.
 
 ### 13.10 Le fil (F4)
 

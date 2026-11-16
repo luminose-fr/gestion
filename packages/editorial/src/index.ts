@@ -34,6 +34,8 @@ export * from './selection';
 export * from './directe';
 // … et l'illustration de la métaphore, générée dans le style du site (SPEC §12.3)
 export * from './illustration';
+// … et le prompt d'image d'un post ou d'une slide, qui part tel quel vers un modèle d'image (SPEC v2.37)
+export * from './promptImage';
 
 // Où en est un contenu : l'étape, calculée, jamais stockée (SPEC §13)
 export * from './etape';

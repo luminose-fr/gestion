@@ -15,8 +15,17 @@
  */
 import type { IllustrationReel } from './reelExplique';
 
+/**
+ * Les proportions qu'un modèle d'image sait rendre et que l'application lui
+ * demande : celles du Reel, et celles des visuels des réseaux, qu'Illustrer
+ * dessine aussi depuis le prompt d'un brouillon (SPEC v2.37). La frontière de
+ * l'API n'en accepte pas d'autre.
+ */
+export const PROPORTIONS_IMAGE = ['1:1', '4:5', '3:4'] as const;
+export type ProportionsImage = (typeof PROPORTIONS_IMAGE)[number];
+
 /** Vertical, pour un écran qui l'est : l'image se recadre ensuite sur ses zones. */
-export const FORMAT_ILLUSTRATION = '3:4';
+export const FORMAT_ILLUSTRATION: ProportionsImage = '3:4';
 
 /**
  * Le prompt d'une illustration. Avec `depuis`, c'est l'autre état de la même

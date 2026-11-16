@@ -532,7 +532,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const TOUR_UTILISATEUR = {
       ADJUST_CONTENT: 'Applique l’ajustement demandé.',
       GENERATE_CARROUSEL_SLIDES: 'Produis les slides.',
-      ADJUST_DZINE_PROMPTS: 'Ajuste les prompts d’image.',
+      ADJUST_IMAGE_PROMPTS: 'Ajuste les prompts d’image.',
   } as const;
 
   /**
@@ -784,7 +784,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
    * d'ajustement automatique et ciblée est demandée au Rédacteur.
    *
    * `sanitize` dépend du champ visé : la trame passe par `parseDraftResponse`,
-   * les slides par `sanitizeSlidesResponse`, qui protège `prompt_dzine`.
+   * les slides par `sanitizeSlidesResponse`, qui protège `prompt_image`.
    */
   const enforceCarrouselConstraints = async (
       content: string,
@@ -1064,7 +1064,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       }
   };
 
-  // --- ADJUSTMENT DES PROMPTS DZINE (Slides) ---
+  // --- AJUSTEMENT DES PROMPTS D'IMAGE (Slides) ---
 
   const launchPromptsAdjustment = (instruction: string, slideNumero: number | null) => {
       if (!instruction.trim()) return;
@@ -1075,19 +1075,19 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
       if (!isMountedRef.current || !editedItem?.slides) return;
       setIsGenerating(true);
       try {
-          const actionConfig = AI_ACTIONS.ADJUST_DZINE_PROMPTS;
+          const actionConfig = AI_ACTIONS.ADJUST_IMAGE_PROMPTS;
           const systemInstruction = actionConfig.getSystemInstruction(
               editedItem.slides,
               instruction,
               slideNumero
           );
 
-          const modelePrompts = modelFor('ADJUST_DZINE_PROMPTS');
+          const modelePrompts = modelFor('ADJUST_IMAGE_PROMPTS');
           const { text: responseText, usage } = await callAI(
-              'ADJUST_DZINE_PROMPTS',
+              'ADJUST_IMAGE_PROMPTS',
               modelePrompts,
               systemInstruction,
-              TOUR_UTILISATEUR.ADJUST_DZINE_PROMPTS,
+              TOUR_UTILISATEUR.ADJUST_IMAGE_PROMPTS,
               actionConfig.generationConfig
           );
 
@@ -1161,6 +1161,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
   const relectureCourante = entree.relecture && (entree.brouillonLe === null || entree.relecture.le >= entree.brouillonLe) ? entree.relecture : null;
   const pointsRelecture = relectureCourante && relectureCourante.verdict !== 'Publiable' ? Math.max(relectureCourante.points, 1) : 0;
   const controles = video && aUnBrouillon ? (getFormatDef(editedItem.targetFormat)?.controler?.(parseBodyJson(editedItem.draft!)) ?? []) : [];
+  // L'image que le format publie, s'il en a une : les slides s'illustrent alors depuis leur prompt (SPEC v2.37).
+  const imageDuFormat = getFormatDef(editedItem.targetFormat)?.image;
   const occupe = isGenerating || atelier.enCours || isSaving;
   const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 
@@ -1356,7 +1358,8 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                       <p className="text-xs text-alerte">Le brouillon a changé depuis la production de ces slides : elles ne le reflètent plus. « Reproduire les slides » les refait.</p>
                   )}
                   <VignettesSlides slides={editedItem.slides || ''} />
-                  <SlidesRenderer slidesRaw={editedItem.slides || ''} onAdjustPrompts={launchPromptsAdjustment} isAdjusting={isGenerating} />
+                  <SlidesRenderer slidesRaw={editedItem.slides || ''} onAdjustPrompts={launchPromptsAdjustment} isAdjusting={isGenerating}
+                      illustrer={imageDuFormat && editedItem.targetFormat ? { proportions: imageDuFormat.proportions, format: editedItem.targetFormat } : undefined} />
               </div>
           );
           break;

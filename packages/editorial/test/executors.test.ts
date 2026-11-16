@@ -71,7 +71,7 @@ describe('sanitizeSlidesResponse', () => {
     format: 'Carrousel',
     direction_globale: 'à supprimer',
     slides: [
-      { numero: 1, titre: 'A', texte: 'a', indication_typo: 'à supprimer', note_composition: 'à supprimer', prompt_dzine: null },
+      { numero: 1, titre: 'A', texte: 'a', indication_typo: 'à supprimer', note_composition: 'à supprimer', prompt_image: null },
     ],
   });
 
@@ -89,6 +89,21 @@ describe('sanitizeSlidesResponse', () => {
 
   it('lève plutôt que de renvoyer du contenu illisible', () => {
     expect(() => sanitizeSlidesResponse('pas du json')).toThrow();
+  });
+
+  // Le champ s'appelait autrement avant le 16/11/2026 (promptImage.ts) : une slide recopiée telle quelle ne le ramène pas en base.
+  it('range le prompt d’image sous son nom actuel, à sa place', () => {
+    const ancienne = JSON.stringify({
+      format: 'Carrousel',
+      slides: [
+        { numero: 1, type: 'TYPO', titre: 'A', prompt_dzine: null },
+        { numero: 2, type: 'ILLUSTRÉE', titre: 'B', prompt_dzine: 'A lighthouse at dusk.', intention_visuelle: 'Un phare.' },
+      ],
+    });
+    const out = JSON.parse(sanitizeSlidesResponse(ancienne));
+    expect(out.slides[0]).toEqual({ numero: 1, type: 'TYPO', titre: 'A', prompt_image: null });
+    expect(Object.keys(out.slides[1])).toEqual(['numero', 'type', 'titre', 'prompt_image', 'intention_visuelle']);
+    expect(out.slides[1].prompt_image).toBe('A lighthouse at dusk.');
   });
 });
 

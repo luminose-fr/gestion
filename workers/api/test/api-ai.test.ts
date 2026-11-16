@@ -472,4 +472,31 @@ describe('POST /api/ai/image', () => {
     const res = await call('/api/ai/image', { ...demande(), references: ['https://ailleurs.example/image.jpg'] });
     expect(res.status).toBe(400);
   });
+
+  /**
+   * Le visuel d'un post ou d'une slide, depuis son prompt d'image (v2.37) : le
+   * prompt part tel quel, comme il partirait dans ChatGPT — sans étalon, les
+   * réseaux n'ont pas de charte —, aux proportions que le registre donne au format.
+   */
+  it('illustre un prompt de brouillon tel quel : sans référence, aux proportions demandées, mesuré sous son format', async () => {
+    (env as any).OPENROUTER_API_KEY = 'cle-openrouter';
+    repondre({
+      choices: [{ message: { content: '', images: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,iVBOR' } }] } }],
+      usage: { prompt_tokens: 90, completion_tokens: 1120, cost: 0.134 },
+    });
+    const prompt = 'A lighthouse at dusk, its beam cutting through thick fog over a calm sea.';
+    const res = await call('/api/ai/image', { modelId: 'image-nano-banana-pro', prompt, proportions: '4:5', format: 'Post Texte (Court)' });
+    expect(res.status).toBe(200);
+    expect((await json(res)).image).toBe('data:image/png;base64,iVBOR');
+    expect(outbound[0].body.image_config).toEqual({ aspect_ratio: '4:5' });
+    expect(outbound[0].body.messages[0].content).toEqual([{ type: 'text', text: prompt }]);
+    const [m] = (env.DB as any).query('SELECT action, format FROM mesures_ia');
+    expect(m).toMatchObject({ action: 'ILLUSTRATION', format: 'Post Texte (Court)' });
+  });
+
+  it('refuse à la frontière des proportions qu’aucun format ne demande', async () => {
+    (env as any).OPENROUTER_API_KEY = 'cle-openrouter';
+    const res = await call('/api/ai/image', { ...demande(), proportions: '21:9' });
+    expect(res.status).toBe(400);
+  });
 });

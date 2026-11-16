@@ -8,6 +8,7 @@
 import { TargetFormat, isTargetFormat } from './domain';
 import { parseBodyJson, VALID_SHORT_KEYS, FORMAT_REGISTRY } from './formats';
 import { PlanSeriesEntry, normalizePlanEntry, isPlanEntryUsable } from './series';
+import { renommerPromptsImage } from './promptImage';
 
 // ── Extraction JSON ──
 
@@ -265,7 +266,9 @@ export const parseAIResponse = (responseText: string, key: string): string => {
 
 /**
  * Nettoie la réponse IA des slides carrousel avant stockage.
- * Supprime les blocs de DA globaux et les notes de mise en page par slide.
+ * Supprime les blocs de DA globaux et les notes de mise en page par slide, et
+ * range le prompt d'image sous son nom actuel : une slide d'avant le
+ * 16/11/2026 recopiée telle quelle ne doit pas ramener l'ancien en base.
  */
 export const sanitizeSlidesResponse = (responseText: string): string => {
     const cleaned = extractJsonPayload(responseText);
@@ -282,7 +285,7 @@ export const sanitizeSlidesResponse = (responseText: string): string => {
         throw new Error("Format de réponse slides invalide (objet JSON attendu).");
     }
 
-    const { direction_globale, ...rest } = data;
+    const { direction_globale, ...rest } = renommerPromptsImage(data);
     const sanitizedSlides = Array.isArray(rest.slides)
         ? rest.slides.map((slide: any) => {
             if (!slide || typeof slide !== 'object' || Array.isArray(slide)) return slide;

@@ -67,7 +67,7 @@ describe('l\'Artiste reçoit la direction artistique — NORMATIF', () => {
    * empêche le retour en arrière silencieux : retirer la feuille sans retirer
    * ce test fait échouer la suite.
    */
-  it.each(['GENERATE_CARROUSEL_SLIDES', 'ADJUST_DZINE_PROMPTS'])(
+  it.each(['GENERATE_CARROUSEL_SLIDES', 'ADJUST_IMAGE_PROMPTS'])(
     '%s reçoit la fiche de direction artistique',
     (action) => {
       expect(feuillePour(action)).toEqual(['voix/direction-artistique']);
@@ -75,7 +75,7 @@ describe('l\'Artiste reçoit la direction artistique — NORMATIF', () => {
   );
 
   it('et rien d\'autre : l\'Artiste ne touche pas au texte', () => {
-    for (const action of ['GENERATE_CARROUSEL_SLIDES', 'ADJUST_DZINE_PROMPTS']) {
+    for (const action of ['GENERATE_CARROUSEL_SLIDES', 'ADJUST_IMAGE_PROMPTS']) {
       const chemins = feuillePour(action) ?? [];
       // Ni socle, ni voix au complet : il traduit des intentions visuelles,
       // il n'écrit pas et ne propose aucune offre.

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Check, Copy, Wand2, X, Send } from 'lucide-react';
+import { lirePromptImage, type ProportionsImage } from '@luminose/editorial';
 import { EnCours } from '../../Feedback';
 import { copyTextToClipboard, CarrouselLegende } from './shared';
 import { Bouton, Champ, Etiquette } from '../../ui';
+import { BoutonIllustrer, ChoixModeleImage, ResultatIllustration, useIllustration, useModeleImage, type ModeleImage } from './Illustrer';
 
 interface SlidesRendererProps {
     slidesRaw: string;
@@ -10,7 +12,78 @@ interface SlidesRendererProps {
     onAdjustPrompts?: (instruction: string, slideNumero: number | null) => void;
     /** Désactive les boutons "Ajuster" pendant un appel IA en cours. */
     isAdjusting?: boolean;
+    /**
+     * Si fourni, chaque slide illustrée s'illustre depuis son prompt (SPEC
+     * v2.37), aux proportions que le registre donne au carrousel. `format` est
+     * celui du contenu, pour la mesure.
+     */
+    illustrer?: { proportions: readonly ProportionsImage[]; format: string };
 }
+
+/**
+ * Le prompt d'image d'une slide illustrée : il se copie pour ChatGPT, s'ajuste
+ * par l'Artiste, ou s'illustre ici. Un composant à part pour que chaque slide
+ * garde sa propre proposition d'image.
+ */
+const CartePromptSlide: React.FC<{
+    numero: number;
+    prompt: string;
+    onAjuster?: () => void;
+    isAdjusting?: boolean;
+    copie: boolean;
+    onCopier: () => void;
+    illustrer?: { proportions: readonly ProportionsImage[]; format: string; modele: ModeleImage | null };
+}> = ({ numero, prompt, onAjuster, isAdjusting, copie, onCopier, illustrer }) => {
+    const illustration = useIllustration({
+        prompt,
+        proportions: illustrer?.proportions[0] ?? '1:1',
+        format: illustrer?.format ?? '',
+        modele: illustrer?.modele ?? null,
+    });
+    return (
+        <div className="w-full xl:flex-1 min-w-0">
+            <div className="h-full rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                        <Etiquette forme="entete">Prompt d’image</Etiquette>
+                        <p className="mt-1 text-xs text-brand-main dark:text-dark-text">
+                            Slide illustrée
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {onAjuster && (
+                            <Bouton
+                                onClick={onAjuster}
+                                disabled={isAdjusting}
+                                taille="petit"
+                                title={`Ajuster le prompt de la slide ${numero}`}>
+                                <Wand2 className="h-3.5 w-3.5" />
+                                Ajuster
+                            </Bouton>
+                        )}
+                        <Bouton taille="petit" intention={copie ? 'principale' : 'secondaire'} ton={copie ? 'succes' : 'neutre'}
+                            data-confirme={copie || undefined} aria-live="polite" onClick={onCopier}
+                        >
+                            {copie ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copie ? 'Copié' : 'Copier'}
+                        </Bouton>
+                        {illustrer && <BoutonIllustrer illustration={illustration} modele={illustrer.modele} />}
+                    </div>
+                </div>
+                <div className="mt-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white/80 dark:bg-dark-surface/50 p-4">
+                    <p className="font-sans text-sm leading-[1.6] text-brand-main dark:text-dark-text whitespace-pre-wrap">
+                        {prompt}
+                    </p>
+                </div>
+                {illustrer && (
+                    <div className="mt-4">
+                        <ResultatIllustration illustration={illustration} nomFichier={`visuel-slide-${numero}`} alt={`Le visuel proposé pour la slide ${numero}`} />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const parseSlidesJson = (raw: string): { slides: any[]; legende?: any } | null => {
     try {
@@ -24,12 +97,15 @@ const parseSlidesJson = (raw: string): { slides: any[]; legende?: any } | null =
 
 /**
  * Rendu structuré des slides carrousel.
- * Affiche chaque slide avec son texte et son prompt Dzine.
- * Permet l'ajustement des prompts via IA, en global ou pour une slide précise.
+ * Affiche chaque slide avec son texte et son prompt d'image.
+ * Permet l'ajustement des prompts via IA, en global ou pour une slide précise,
+ * et l'illustration de chaque slide depuis son prompt.
  */
-export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdjustPrompts, isAdjusting }) => {
+export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdjustPrompts, isAdjusting, illustrer }) => {
     const parsed = parseSlidesJson(slidesRaw);
     const [copiedSlide, setCopiedSlide] = useState<number | null>(null);
+    // Un seul modèle pour toutes les slides, comme pour les illustrations d'un Reel : la série reste homogène.
+    const choixModele = useModeleImage();
 
     // ── Form d'ajustement (état local) ──
     const [adjustTarget, setAdjustTarget] = useState<number | 'all' | null>(null);
@@ -73,16 +149,20 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
         <div className="p-6 space-y-6">
 
             {/* ── Toolbar : bouton global "Ajuster les prompts" ── */}
-            {canAdjust && (
-                <div className="flex justify-end">
-                    <Bouton
-                        onClick={() => { setAdjustTarget('all'); setAdjustText(''); }}
-                        disabled={isAdjusting}
-                        taille="petit"
-                        title="Ajuster tous les prompts d'image en une seule passe IA">
-                        <Wand2 className="w-3.5 h-3.5" />
-                        Ajuster tous les prompts
-                    </Bouton>
+            {(canAdjust || illustrer) && (
+                <div className="flex flex-wrap items-end gap-3">
+                    {illustrer && <ChoixModeleImage id="modele-visuels-slides" choix={choixModele} />}
+                    {canAdjust && (
+                        <Bouton
+                            onClick={() => { setAdjustTarget('all'); setAdjustText(''); }}
+                            disabled={isAdjusting}
+                            taille="petit"
+                            className="ml-auto"
+                            title="Ajuster tous les prompts d'image en une seule passe IA">
+                            <Wand2 className="w-3.5 h-3.5" />
+                            Ajuster tous les prompts
+                        </Bouton>
+                    )}
                 </div>
             )}
 
@@ -203,42 +283,16 @@ export const SlidesRenderer: React.FC<SlidesRendererProps> = ({ slidesRaw, onAdj
                             </div>
                         </div>
 
-                        {slide.type === 'ILLUSTRÉE' && slide.prompt_dzine ? (
-                            <div className="w-full xl:flex-1 min-w-0">
-                                <div className="h-full rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5">
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div>
-                                            <Etiquette forme="entete">Prompt Dzine</Etiquette>
-                                            <p className="mt-1 text-xs text-brand-main dark:text-dark-text">
-                                                Slide illustrée
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            {canAdjust && (
-                                                <Bouton
-                                                    onClick={() => { setAdjustTarget(slide.numero); setAdjustText(''); }}
-                                                    disabled={isAdjusting}
-                                                    taille="petit"
-                                                    title={`Ajuster le prompt de la slide ${slide.numero}`}>
-                                                    <Wand2 className="h-3.5 w-3.5" />
-                                                    Ajuster
-                                                </Bouton>
-                                            )}
-                                            <Bouton taille="petit" intention={copiedSlide === slide.numero ? 'principale' : 'secondaire'} ton={copiedSlide === slide.numero ? 'succes' : 'neutre'}
-                                    data-confirme={copiedSlide === slide.numero || undefined} aria-live="polite" onClick={() => handleCopyPrompt(slide.numero, slide.prompt_dzine)}
-                                >
-                                                {copiedSlide === slide.numero ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                                                {copiedSlide === slide.numero ? 'Copié' : 'Copier'}
-                                            </Bouton>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white/80 dark:bg-dark-surface/50 p-4">
-                                        <p className="font-sans text-sm leading-[1.6] text-brand-main dark:text-dark-text whitespace-pre-wrap">
-                                            {slide.prompt_dzine}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                        {slide.type === 'ILLUSTRÉE' && lirePromptImage(slide) ? (
+                            <CartePromptSlide
+                                numero={slide.numero}
+                                prompt={lirePromptImage(slide)}
+                                onAjuster={canAdjust ? () => { setAdjustTarget(slide.numero); setAdjustText(''); } : undefined}
+                                isAdjusting={isAdjusting}
+                                copie={copiedSlide === slide.numero}
+                                onCopier={() => handleCopyPrompt(slide.numero, lirePromptImage(slide))}
+                                illustrer={illustrer && { ...illustrer, modele: choixModele.modele }}
+                            />
                         ) : (
                             <div className="hidden xl:block xl:flex-1" />
                         )}

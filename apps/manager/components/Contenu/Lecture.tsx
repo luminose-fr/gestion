@@ -1,13 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import {
-    horlogeEstimee, minuterReel, montageDuBrouillon, parseBodyJson, texteAffiche, ecranEnClair,
-    SIGNATURE_SLIDE, SLIDE_TEXT_MAX, type ReelExplique,
+    getFormatDef, horlogeEstimee, minuterReel, montageDuBrouillon, parseBodyJson, texteAffiche, ecranEnClair,
+    SIGNATURE_SLIDE, SLIDE_TEXT_MAX, type ProportionsImage, type ReelExplique,
 } from '@luminose/editorial';
 import { Bouton, Etiquette } from '../ui';
 import {
-    CarrouselLegende, buildPostCourtText, copyTextToClipboard, getPostCourtDzinePrompt, getPostCourtSuggestedVisual,
+    CarrouselLegende, buildPostCourtText, copyTextToClipboard, getPostCourtImagePrompt, getPostCourtSuggestedVisual,
 } from '../ContentEditor/renderers/shared';
+import {
+    BoutonIllustrer, ChoixModeleImage, ChoixProportions, ResultatIllustration, useIllustration, useModeleImage,
+} from '../ContentEditor/renderers/Illustrer';
 import { BodyRenderer } from '../ContentEditor/renderers/BodyRenderer';
 
 /**
@@ -162,11 +165,34 @@ export const VignettesSlides: React.FC<{ slides: string; petites?: boolean }> = 
 
 // ── Ce qui sera publié ───────────────────────────────────────────────
 
-const CopiePostCourt: React.FC<{ draft: string }> = ({ draft }) => {
+/**
+ * Le visuel du post, depuis son prompt (SPEC v2.37) : le prompt se copie pour
+ * ChatGPT, ou s'illustre ici avec un modèle d'Illustrer, aux proportions que le
+ * registre donne au format.
+ */
+const IllustrerPost: React.FC<{ prompt: string; format: string; proportions: readonly ProportionsImage[] }> = ({ prompt, format, proportions }) => {
+    const choix = useModeleImage();
+    const [cadre, setCadre] = useState<ProportionsImage>(proportions[0]);
+    const illustration = useIllustration({ prompt, proportions: cadre, format, modele: choix.modele });
+    return (
+        <div className="space-y-3 pt-2">
+            <div className="flex flex-wrap items-end gap-2">
+                <ChoixModeleImage id="modele-visuel-post" choix={choix} />
+                <ChoixProportions proportions={proportions} valeur={cadre} onChange={setCadre} />
+                {choix.modeles.length > 0 && <BoutonIllustrer illustration={illustration} modele={choix.modele} taille="normal" />}
+            </div>
+            <ResultatIllustration illustration={illustration} nomFichier={`visuel-post-${cadre.replace(':', 'x')}`} alt="Le visuel proposé pour le post" />
+        </div>
+    );
+};
+
+const CopiePostCourt: React.FC<{ draft: string; format: string | null }> = ({ draft, format }) => {
     const [copie, setCopie] = useState<'texte' | 'prompt' | null>(null);
     const texte = buildPostCourtText(draft);
-    const prompt = getPostCourtDzinePrompt(draft);
+    const prompt = getPostCourtImagePrompt(draft);
     const visuel = getPostCourtSuggestedVisual(draft);
+    // Le registre dit si l'image de ce format s'illustre depuis son prompt, et à quelles proportions (règle n°3).
+    const image = getFormatDef(format)?.image;
     const copier = async (quoi: 'texte' | 'prompt', valeur: string) => {
         if (!(await copyTextToClipboard(valeur))) return;
         setCopie(quoi);
@@ -188,12 +214,13 @@ const CopiePostCourt: React.FC<{ draft: string }> = ({ draft }) => {
             {prompt && (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                        <Etiquette forme="entete">Prompt Dzine</Etiquette>
+                        <Etiquette forme="entete">Prompt d’image</Etiquette>
                         <Bouton data-confirme={copie === 'prompt' || undefined} aria-live="polite" taille="petit" onClick={() => copier('prompt', prompt)}>
                             {copie === 'prompt' ? <><Check /> Copié</> : <><Copy /> Copier</>}
                         </Bouton>
                     </div>
                     <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap select-text">{prompt}</p>
+                    {image && format && <IllustrerPost prompt={prompt} format={format} proportions={image.proportions} />}
                 </div>
             )}
             {visuel && (
@@ -242,6 +269,6 @@ export const CeQuiSeraPublie: React.FC<{
         );
     }
     if (!draft) return <p className="text-sm text-brand-main dark:text-dark-text">Pas de contenu rédigé.</p>;
-    if (copiable) return <CopiePostCourt draft={draft} />;
+    if (copiable) return <CopiePostCourt draft={draft} format={format} />;
     return <BodyRenderer body={draft} datePublication={datePublication ?? undefined} />;
 };

@@ -106,9 +106,9 @@ function rejouer(id: string): { prompt: string; exemple: string | null } {
                 exemple: 'Métaphore et contenu du carrousel fictifs.',
             };
 
-        case 'ADJUST_DZINE_PROMPTS':
+        case 'ADJUST_IMAGE_PROMPTS':
             return {
-                prompt: AI_ACTIONS.ADJUST_DZINE_PROMPTS.getSystemInstruction(
+                prompt: AI_ACTIONS.ADJUST_IMAGE_PROMPTS.getSystemInstruction(
                     EXTRAIT,
                     'Plus de lumière rasante.',
                     null,
@@ -166,7 +166,7 @@ const ICONES: Record<string, React.ComponentType<{ className?: string }>> = {
     ADJUST_CONTENT: Wand2,
     COLD_READ: Glasses,
     GENERATE_CARROUSEL_SLIDES: Images,
-    ADJUST_DZINE_PROMPTS: Palette,
+    ADJUST_IMAGE_PROMPTS: Palette,
     PLAN_SERIES: Layers,
 };
 
