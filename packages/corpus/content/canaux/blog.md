@@ -1,7 +1,7 @@
 ---
 type: instruction
 statut: actif
-revu: 2026-09
+revu: 2026-11
 expose: prive
 ---
 
@@ -20,8 +20,13 @@ métaphores concrètes. Les règles de voix transverses s'appliquent intégralem
 
 ## FrontMatter Jekyll — NORMATIF
 
-Champs requis : `layout` (`colonne` ou `default`) · `title` · `image_name` ·
+Champs requis : `layout` (`colonne` ou `default`) · `title` · `image_name` · `image` ·
 `section: blog` · `category` · `tag` · `description` · `summary`.
+
+`image` vaut `/images/blog/<slug>.jpg` — la même image que `image_name`, sous le nom que lit
+`jekyll-seo-tag` : c'est elle qui donne l'aperçu du lien sur Facebook et LinkedIn, et
+l'image de l'article pour les moteurs. `image_name` ne sert qu'aux gabarits du site.
+Depuis le 16/11/2026 ; les articles d'avant ne l'ont pas.
 
 **Encadrer une valeur de guillemets `"` dès qu'elle contient des deux-points.**
 
@@ -55,6 +60,13 @@ Reprendre l'une d'elles. N'en créer une nouvelle que si aucune ne convient.
 | Résumé en 2 colonnes avec image | `summary-container` |
 | Sections d'explication ou d'étapes | `<div class="light-bg">` |
 | Appel à l'action final | `<div class="highlight">` + `<h2 class="subtitle">` + `{% bouton_rendez_vous is-white %}` |
+| Questions fréquentes, après l'appel à l'action | `<h2>Questions fréquentes</h2>`, une `<h3>` par question, puis le bloc `<script type="application/ld+json">` de type `FAQPage` qui les reprend |
+
+**Les questions fréquentes** (depuis le 16/11/2026) : 3 à 5 questions que les gens posent
+vraiment, dans leurs mots ; des réponses de 40 à 80 mots qui se comprennent sans l'article,
+sans métaphore ni promesse de résultat. C'est le passage le plus facile à citer pour un
+moteur de réponse (ChatGPT, Perplexity, les AI Overviews de Google). Les données
+structurées reprennent le texte visible, et rien d'autre.
 
 ## Visuels
 
