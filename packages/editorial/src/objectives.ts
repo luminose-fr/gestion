@@ -12,7 +12,7 @@
  */
 
 import { Objectif, isObjectif } from './domain';
-import { SITE_URL } from './config';
+import { SITE_URL, NOM, TITRE, LIEU, BREATHWORK } from './config';
 
 export interface ObjectifDefinition {
     key: Objectif;
@@ -29,7 +29,11 @@ export const OBJECTIF_REGISTRY: Record<Objectif, ObjectifDefinition> = {
         key: Objectif.NOTORIETE,
         etape: 'Découverte',
         quand: "L'idée parle de Florent lui-même : son parcours, sa vision du métier, une opinion assumée, sa façon d'être thérapeute. Le lecteur doit retenir QUI il est.",
-        ctaRules: `Pas de vente. Le CTA installe l'identité et invite à rester : une phrase qui dit qui est Florent (psychopraticien, hypnose et respiration holotropique, Villefranche-de-Lauragais) + une invitation à suivre le compte ou à découvrir ${SITE_URL}. Direction : "Je suis Florent Jaouali, psychopraticien. J'écris chaque semaine sur ce qui se joue en cabinet."`,
+        // Les noms viennent de config.ts, copie unique du corpus : ce CTA est la
+        // phrase où Florent se présente, et c'est la même présentation, mot pour
+        // mot, qui lui permet d'être reconnu d'un contenu à l'autre — par un
+        // lecteur comme par un moteur de réponse (décision du 16/11/2026).
+        ctaRules: `Pas de vente. Le CTA installe l'identité et invite à rester : une phrase qui dit qui est Florent, avec les noms exacts — ${TITRE}, à ${LIEU} ; s'il nomme ses pratiques, l'hypnose et le ${BREATHWORK} — + une invitation à suivre le compte ou à découvrir ${SITE_URL}. Direction : "Je suis ${NOM}, ${TITRE}. J'écris chaque semaine sur ce qui se joue en cabinet."`,
     },
 
     [Objectif.RECADRAGE]: {
@@ -64,7 +68,7 @@ export const OBJECTIF_REGISTRY: Record<Objectif, ObjectifDefinition> = {
         key: Objectif.CONVERSION,
         etape: 'Décision',
         quand: "L'idée invite explicitement à entamer un travail : prendre rendez-vous, demander un premier échange. Rare (environ 1 post sur 8-10) mais totalement assumé : pas de détour, pas de honte à proposer son travail.",
-        ctaRules: `Le CTA est direct et concret : à qui il s'adresse (le lecteur qui s'est reconnu dans le post), le pas exact suivant (prendre rendez-vous, écrire pour un premier échange), où (cabinet à Villefranche-de-Lauragais / visio), et le lien ${SITE_URL}. Une seule action demandée. Pas de « si vous voulez, éventuellement » — la clarté est une forme de respect.`,
+        ctaRules: `Le CTA est direct et concret : à qui il s'adresse (le lecteur qui s'est reconnu dans le post), le pas exact suivant (prendre rendez-vous, écrire pour un premier échange), où (cabinet à ${LIEU} / visio), et le lien ${SITE_URL}. Une seule action demandée. Pas de « si vous voulez, éventuellement » — la clarté est une forme de respect.`,
     },
 
     [Objectif.EVENEMENT]: {

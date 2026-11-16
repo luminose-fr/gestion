@@ -987,6 +987,59 @@ plus souvent une scène réaliste qui montre la métaphore, sans que ce soit une
 grille dit au Rédacteur de ne **pas** leur appliquer l'étalon des pages du site — c'est la
 seule consigne de style qu'il reçoit pour elles.
 
+### Être cité par les moteurs de réponse
+
+Décision du 16/11/2026 : les contenus doivent pouvoir être compris, repris et **cités**
+par ChatGPT, Perplexity, Gemini et les AI Overviews de Google. Ces moteurs citent une
+page publiée : sur huit formats, **l'article** est le seul que la console écrit pour
+luminose.fr, et **YouTube** le seul autre qu'ils lisent (titre, description,
+transcription). Les posts, carrousels et Reels sont peu explorés et rarement cités ; la
+newsletter n'est pas indexée. Ces formats-là ne changent pas : leurs règles de voix
+(accroche, une seule bascule, « montrer sans dire ») font déjà le travail utile — le
+sujet nommé tôt dans les mots du lecteur, l'ancrage cabinet qui dit qui parle — et une
+FAQ ou une définition plaquées les casseraient.
+
+**Dans la grille de l'article** :
+
+- une **réponse directe** ouvre l'introduction — deux ou trois phrases, sans la
+  métaphore, vraies lues seules : ce sont elles qu'un moteur cite. La métaphore arrive
+  juste après ;
+- au moins **deux titres de section en question**, dans les mots qu'on taperait ;
+- les **faits sourcés dans la phrase** (auteur, année) : un moteur cite une phrase, pas
+  la bibliographie ;
+- une **FAQ** de trois à cinq questions, réponses de 40 à 80 mots, sans métaphore ni
+  promesse de résultat ;
+- les **noms exacts** : « Grof® Breathwork (respiration holotropique) » à la première
+  mention, l'hypnose comme outil, jamais « hypnothérapeute » pour Florent. Florent ne se
+  présente pas dans le texte : le bandeau auteur du site le fait sous chaque article.
+
+**Dans le fichier composé par le code** : la FAQ en section visible après l'encadré
+final, avec son bloc de données structurées `FAQPage` (texte sans balisage, échappé
+contre `</script>` et contre le Liquid) ; et le champ `image:` dans le front matter,
+que lit `jekyll-seo-tag` pour `og:image` et pour l'image du `BlogPosting` — aucun
+article n'en avait. Google n'affiche plus d'extrait FAQ pour un site comme celui-ci
+depuis 2023 : le bloc sert la lecture des moteurs, pas l'affichage.
+
+**Les avertissements du livrable** comptent ce qui se compte, sans appel au modèle :
+FAQ absente ou hors gabarit, question sans point d'interrogation, moins de deux titres
+en question, « hypnothérapeute », les mots de la guérison, le breathwork nommé sans sa
+forme exacte. Ce sont des points à **relire**, pas des interdits — « guérison » peut
+être une issue possible hors annonces, et l'article n'a toujours pas de relecture à
+froid (décision du 26/08/2026).
+
+**Dans la grille YouTube** : un titre (le sujet tapé, puis l'image), une description
+dont les deux premières phrases répondent sans métaphore, et des chapitres sans
+minutage. La ligne qui dit qui parle — « Florent Jaouali, psychopraticien
+transpersonnel — Luminose, à Villefranche-de-Lauragais et en visio » — et l'adresse du
+site sont ajoutées par le code, comme l'adresse des posts d'article.
+
+**Dans la règle CTA Notoriété** (§7), la phrase où Florent se présente reprend les noms
+exacts. Ils viennent tous de `config.ts`, copie unique du corpus côté code : la même
+présentation mot pour mot, c'est ce qui permet d'être reconnu d'un contenu à l'autre.
+
+Ce qui a été **écarté** : toute promesse de résultat, tout chiffre d'efficacité sans
+source, les superlatifs, les mots-clés empilés, Florent qui se présente dans chaque post.
+
 ---
 
 ## 7. Les objectifs, et le CTA qu'ils commandent
@@ -1001,7 +1054,7 @@ Rédacteur.
 
 **Quand le choisir** — L'idée parle de Florent lui-même : son parcours, sa vision du métier, une opinion assumée, sa façon d'être thérapeute. Le lecteur doit retenir QUI il est.
 
-**Règles de CTA** — Pas de vente. Le CTA installe l'identité et invite à rester : une phrase qui dit qui est Florent (psychopraticien, hypnose et respiration holotropique, Villefranche-de-Lauragais) + une invitation à suivre le compte ou à découvrir https://www.luminose.fr. Direction : "Je suis Florent Jaouali, psychopraticien. J'écris chaque semaine sur ce qui se joue en cabinet."
+**Règles de CTA** — Pas de vente. Le CTA installe l'identité et invite à rester : une phrase qui dit qui est Florent, avec les noms exacts — psychopraticien transpersonnel, à Villefranche-de-Lauragais ; s'il nomme ses pratiques, l'hypnose et le Grof® Breathwork (respiration holotropique) — + une invitation à suivre le compte ou à découvrir https://www.luminose.fr. Direction : "Je suis Florent Jaouali, psychopraticien transpersonnel. J'écris chaque semaine sur ce qui se joue en cabinet."
 
 ### Recadrage de croyance
 

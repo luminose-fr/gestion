@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pencil } from 'lucide-react';
-import { getFormatDef } from '@luminose/editorial';
+import { getFormatDef, lireFaq, descriptionVideo } from '@luminose/editorial';
 import { TargetFormat } from '../../../types';
 import { parseBodyJson, t, Block, BlockPre, CarrouselLegende } from './shared';
 import { Livrable } from './Livrable';
@@ -84,6 +84,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
         const references: string[] = Array.isArray(data.references) ? data.references.map(t).filter(Boolean) : [];
         const cta = data.cta && typeof data.cta === 'object' ? data.cta : null;
         const sections: any[] = Array.isArray(data.sections) ? data.sections.filter(Boolean) : [];
+        const faq = lireFaq(data);
         const illustrationsApres = (n: number) => (livrable?.illustrations ?? []).filter(i => i.apresSection === n);
         return (
             <div>
@@ -117,6 +118,17 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                             {t(cta.chute) && <p className="mt-3 font-bold"><LigneLegere source={t(cta.chute)} /></p>}
                         </Block>
                     ) : data.cta && <Block label="CTA" color="border-green-400">{t(data.cta)}</Block>}
+                    {/* Après l'encadré, comme dans le fichier du site. */}
+                    {faq.length > 0 && (
+                        <Block label="Questions fréquentes" color="border-brand-border">
+                            {faq.map((q, i) => (
+                                <div key={i} className={i > 0 ? 'mt-3' : ''}>
+                                    <p className="font-bold"><LigneLegere source={q.question} /></p>
+                                    <TexteLeger source={q.reponse} className="mt-1" />
+                                </div>
+                            ))}
+                        </Block>
+                    )}
                     {references.length > 0 && (
                         <Block label="Références — à vérifier avant publication" color="border-brand-border">
                             <ul className="list-disc pl-4 space-y-1">
@@ -148,6 +160,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
 
     if (isYoutube) return (
         <div className="p-6 space-y-4">
+            {t(data.titre_video) && <h2 className="text-lg font-bold text-brand-main dark:text-white">{t(data.titre_video)}</h2>}
             {data.intro && <Block label="Intro" color="border-pink-400">{t(data.intro)}</Block>}
             {(data.developpement || []).map((s: any, i: number) => (
                 <div key={i} className="space-y-2">
@@ -156,6 +169,15 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                 </div>
             ))}
             {data.conclusion && <Block label="Conclusion" color="border-purple-400">{t(data.conclusion)}</Block>}
+            {/* À coller sous la vidéo : la ligne qui dit qui parle est ajoutée par le code. */}
+            {descriptionVideo(data) && <BlockPre label="Description" color="border-blue-400">{descriptionVideo(data)}</BlockPre>}
+            {Array.isArray(data.chapitres) && data.chapitres.map(t).filter(Boolean).length > 0 && (
+                <Block label="Chapitres" color="border-brand-border">
+                    <ul className="list-disc pl-4 space-y-1">
+                        {data.chapitres.map(t).filter(Boolean).map((c: string, i: number) => <li key={i}>{c}</li>)}
+                    </ul>
+                </Block>
+            )}
         </div>
     );
 
