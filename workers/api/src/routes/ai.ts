@@ -207,12 +207,13 @@ ai.post('/test', async (c) => {
 });
 
 /**
- * Génère l'illustration d'un Reel (SPEC §12.3, v2.28). Le modèle est un modèle
+ * Génère l'illustration d'un Reel (SPEC §12.3, v2.28), ou le visuel d'un post
+ * ou d'une slide depuis son prompt d'image (v2.37). Le modèle est un modèle
  * d'image du catalogue (migration 0014), réglé comme les autres ; il passe par
  * OpenRouter, le seul adaptateur qui sache rendre une image, et la clé ne
- * quitte pas le Worker. L'image revient au navigateur, qui la montre ; elle ne
- * se range dans R2 que si Florent la garde — un essai écarté ne coûte pas de
- * place.
+ * quitte pas le Worker. L'image revient au navigateur, qui la montre ; celle
+ * d'un Reel ne se range dans R2 que si Florent la garde — un essai écarté ne
+ * coûte pas de place —, celle d'un post se télécharge et ne se range pas.
  *
  * 2 requêtes D1 (le modèle, la clé), plus la mesure, écrite sans qu'on l'attende.
  */
@@ -237,7 +238,7 @@ ai.post('/image', async (c) => {
     );
   }
 
-  const mesure = { action: 'ILLUSTRATION', format: 'Reel expliqué' };
+  const mesure = { action: 'ILLUSTRATION', format: input.format ?? 'Reel expliqué' };
   const model = { id: ligne.id, name: ligne.name, provider: 'openrouter' };
   const depart = Date.now();
   const echec = (message: string) => {
@@ -262,7 +263,7 @@ ai.post('/image', async (c) => {
             ...input.references.map(url => ({ type: 'image_url', image_url: { url } })),
           ],
         }],
-        image_config: { aspect_ratio: FORMAT_ILLUSTRATION },
+        image_config: { aspect_ratio: input.proportions ?? FORMAT_ILLUSTRATION },
         usage: { include: true },
       }),
     });

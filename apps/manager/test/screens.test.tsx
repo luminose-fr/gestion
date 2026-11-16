@@ -49,7 +49,8 @@ import { SceneLuminose } from '../components/Video/SceneLuminose';
 import PanneauMontage from '../components/Video/PanneauMontage';
 import { VisuelsAFournir } from '../components/Video/VisuelsAFournir';
 import { AvantDExporter } from '../components/Video/AvantDExporter';
-import { LectureScript } from '../components/Contenu/Lecture';
+import { CeQuiSeraPublie, LectureScript } from '../components/Contenu/Lecture';
+import { SlidesRenderer } from '../components/ContentEditor/renderers/SlidesRenderer';
 import { Studio } from '../components/Contenu/Studio';
 import { DepotPrise } from '../components/Video/DepotPrise';
 import { MontageTexte } from '../components/Video/MontageTexte';
@@ -2974,5 +2975,110 @@ describe('déplacer et réordonner (SPEC §3.3, v2.36)', () => {
     unmount();
     const { queryByLabelText } = render(plan());
     expect(queryByLabelText('Monter « B »')).toBeNull();
+  });
+});
+
+/**
+ * Le visuel d'un post ou d'une slide, depuis son prompt d'image (SPEC v2.37) :
+ * le prompt se copie pour ChatGPT, ou s'illustre ici tel quel — sans étalon,
+ * aux proportions du format. Un brouillon d'avant le 16/11/2026, qui portait le
+ * prompt sous l'ancien nom, se relit sans rien casser.
+ */
+describe('le prompt d’image et Illustrer (v2.37)', () => {
+  const ANCIEN = 'prompt_dzine';
+  const IMAGES: AIModel[] = [
+    { ...MODELS[0], id: 'image-gpt-image-2', name: 'GPT Image 2', apiCode: 'openai/gpt-image-2', provider: 'openrouter', sortie: 'image', isDefault: false },
+    { ...MODELS[0], id: 'image-nano-banana-pro', name: 'Nano Banana Pro', apiCode: 'google/gemini-3-pro-image', provider: 'openrouter', sortie: 'image', isDefault: false },
+  ];
+  const PROMPT = 'A lighthouse at dusk, its beam cutting through thick fog over a calm sea, muted violet tones.';
+  const appels: Array<{ url: string; corps: any }> = [];
+  const demandeImage = () => appels.find(a => a.url.endsWith('/api/ai/image'))?.corps;
+  const boutonsIllustrer = (c: HTMLElement) => Array.from(c.querySelectorAll('button')).filter(b => b.textContent?.trim() === 'Illustrer');
+
+  beforeEach(() => {
+    appels.length = 0;
+    vi.stubGlobal('fetch', async (url: string, init?: any) => {
+      appels.push({ url: String(url), corps: init?.body ? JSON.parse(init.body) : null });
+      return new Response(JSON.stringify({ image: 'data:image/png;base64,iVBORw0KGgo=', modelLabel: 'Nano Banana Pro', usage: { entree: 1, sortie: 1, coutUsd: 0.134 } }), { status: 200 });
+    });
+  });
+  // Le catalogue est un registre du module : le laisser rempli fuirait dans les tests suivants.
+  afterEach(() => { enregistrerCatalogue([], null); vi.unstubAllGlobals(); });
+
+  it('le Post Texte : le prompt se copie, ou s’illustre tel quel, aux proportions choisies', async () => {
+    enregistrerCatalogue(IMAGES, 'image-nano-banana-pro');
+    const draft = JSON.stringify({ format: 'Post Texte', accroche: 'Une accroche.', corps: 'Un corps.', prompt_image: PROMPT });
+    const { container, getByRole, findByText } = render(<CeQuiSeraPublie sorte="ecrit" draft={draft} slides={null} format="Post Texte (Court)" copiable />);
+    expect(container.textContent).toContain('Prompt d’image');
+    expect(container.textContent).toContain(PROMPT);
+    expect((container.querySelector('#modele-visuel-post') as HTMLSelectElement).value).toBe('image-nano-banana-pro');
+    fireEvent.click(getByRole('radio', { name: '4:5' }));
+    fireEvent.click(boutonsIllustrer(container)[0]);
+    await findByText(/Nano Banana Pro · 4:5/);
+    expect(demandeImage()).toEqual({
+      modelId: 'image-nano-banana-pro', prompt: PROMPT, references: [], proportions: '4:5', format: 'Post Texte (Court)',
+    });
+    expect(container.textContent).toContain('Télécharger');
+    fireEvent.click(getByRole('button', { name: 'Laisser' }));
+    expect(container.textContent).not.toContain('Télécharger');
+  });
+
+  it('un Post Texte d’avant se relit ; sans modèle d’image, on dit où en ajouter un', () => {
+    const draft = JSON.stringify({ format: 'Post Texte', accroche: 'Une accroche.', [ANCIEN]: PROMPT });
+    const { container } = render(<CeQuiSeraPublie sorte="ecrit" draft={draft} slides={null} format="Post Texte (Court)" copiable />);
+    expect(container.textContent).toContain(PROMPT);
+    expect(container.textContent).toContain('Aucun modèle d’image au catalogue');
+    expect(boutonsIllustrer(container)).toHaveLength(0);
+  });
+
+  it('les slides : chacune s’illustre depuis son prompt, en carré, avec le modèle choisi pour toutes', async () => {
+    enregistrerCatalogue(IMAGES, 'image-nano-banana-pro');
+    const slides = JSON.stringify({ format: 'Carrousel', slides: [
+      { numero: 1, type: 'TYPO', titre: 'Accroche', texte: 'a', prompt_image: null },
+      { numero: 2, type: 'ILLUSTRÉE', titre: 'Le phare', texte: 'b', prompt_image: PROMPT },
+      { numero: 3, type: 'ILLUSTRÉE', titre: 'La brume', texte: 'c', [ANCIEN]: 'An old foggy harbour at dawn, a single boat waiting, soft pastel light.' },
+    ] });
+    const { container, findByText } = render(
+      <SlidesRenderer slidesRaw={slides} onAdjustPrompts={noop} illustrer={{ proportions: ['1:1'], format: 'Carrousel (Slide par Slide)' }} />,
+    );
+    // La slide d'avant se relit, et s'illustre comme les autres.
+    expect(container.textContent).toContain('An old foggy harbour');
+    expect(boutonsIllustrer(container)).toHaveLength(2);
+    // Un seul choix de proportions : rien à choisir.
+    expect(container.querySelector('[role="radiogroup"]')).toBeNull();
+    fireEvent.change(container.querySelector('#modele-visuels-slides')!, { target: { value: 'image-gpt-image-2' } });
+    fireEvent.click(boutonsIllustrer(container)[0]);
+    await findByText(/Nano Banana Pro · 1:1/);
+    expect(demandeImage()).toEqual({
+      modelId: 'image-gpt-image-2', prompt: PROMPT, references: [], proportions: '1:1', format: 'Carrousel (Slide par Slide)',
+    });
+  });
+
+  it('l’éditeur, à l’étape Slides, donne au carrousel ses proportions et son format', async () => {
+    enregistrerCatalogue(IMAGES, 'image-nano-banana-pro');
+    const item: ContentItem = {
+      ...ITEM, targetFormat: 'Carrousel (Slide par Slide)' as any,
+      draft: JSON.stringify({ format: 'Carrousel', slides: [{ numero: 2, type: 'ILLUSTRÉE', titre: 'Le phare', texte: 'b', intention_visuelle: 'Un phare.' }] }),
+      slides: JSON.stringify({ format: 'Carrousel', slides: [{ numero: 2, type: 'ILLUSTRÉE', titre: 'Le phare', texte: 'b', prompt_image: PROMPT }] }),
+    };
+    const { container, findByText } = render(
+      <ContentEditor item={item} aiModels={MODELS} activeModelId="m1" modelFor={() => 'm1'}
+        onClose={noop} libelleRetour="Conversations" onSave={asyncNoop} onDelete={asyncNoop}
+        activeStep={'slides' as any} onStepChange={noop} />,
+    );
+    await findByText(PROMPT);
+    fireEvent.click(boutonsIllustrer(container)[0]);
+    await findByText(/Nano Banana Pro · 1:1/);
+    expect(demandeImage()).toMatchObject({ prompt: PROMPT, references: [], proportions: '1:1', format: 'Carrousel (Slide par Slide)' });
+  });
+
+  it('sans illustration demandée, ni bouton ni menu ; des slides illisibles se montrent brutes', () => {
+    enregistrerCatalogue(IMAGES, 'image-nano-banana-pro');
+    const { container } = render(<SlidesRenderer slidesRaw={JSON.stringify({ slides: [{ numero: 2, type: 'ILLUSTRÉE', titre: 't', prompt_image: PROMPT }] })} />);
+    expect(container.textContent).toContain(PROMPT);
+    expect(boutonsIllustrer(container)).toHaveLength(0);
+    expect(container.querySelector('#modele-visuels-slides')).toBeNull();
+    cleanup();
+    expect(render(<SlidesRenderer slidesRaw="pas du json" />).container.textContent).toContain('pas du json');
   });
 });

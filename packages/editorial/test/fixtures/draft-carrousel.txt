@@ -150,7 +150,7 @@ FORMAT JSON ATTENDU :
       "type": "ILLUSTRÉE",
       "titre": "Légende courte (≤ 6 mots)",
       "texte": "Une phrase qui accompagne l'image. ≤ 25 mots.",
-      "intention_visuelle": "Description FR de ce que l'image doit montrer concrètement (la métaphore visualisée, pas un concept abstrait). 2-3 phrases, en français. Sera traduite en prompt Dzine par le Directeur Artistique."
+      "intention_visuelle": "Description FR de ce que l'image doit montrer concrètement (la métaphore visualisée, pas un concept abstrait). 2-3 phrases, en français. Sera traduite en prompt d'image par le Directeur Artistique."
     }
     // ... autres slides selon la logique du propos
   ]

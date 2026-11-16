@@ -13,6 +13,7 @@ import { TargetFormat } from './domain';
 import { SITE_URL } from './config';
 import { composerArticleJekyll, type LivrableArticle } from './jekyll';
 import { LIMITES_REEL, MOTS_PAR_MINUTE, estReelExplique, reelToMarkdown, reelToPlainText, verifierReelExplique, type ReelExplique } from './reelExplique';
+import type { ProportionsImage } from './illustration';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -115,6 +116,18 @@ export interface FormatDefinition {
      * quelque chose ? » sans jamais nommer l'article (règle n°3 du CLAUDE.md).
      */
     livrable?: (data: any, options: { date: string }) => LivrableArticle | null;
+    /**
+     * L'image que publie le format, quand son brouillon (ou ses slides) en porte
+     * le prompt — `prompt_image`, lu par `lirePromptImage`. Présent, l'écran
+     * propose de l'illustrer depuis ce prompt, aux proportions dites ici, la
+     * première par défaut (SPEC v2.37). Absent : pas de prompt d'image, rien à
+     * illustrer.
+     *
+     * Les proportions vivent ici et non dans l'écran pour la raison de
+     * `rendu` : savoir qu'un post se publie en 1:1 ou 4:5, c'est du routage
+     * par format (règle n°3 du CLAUDE.md).
+     */
+    image?: { proportions: readonly ProportionsImage[] };
 }
 
 // ── Helpers internes ─────────────────────────────────────────────────
@@ -144,6 +157,8 @@ const POST_TEXTE: FormatDefinition = {
     usage: 'un texte court (8 à 12 lignes) et une image fixe, pour LinkedIn et Facebook. Une idée reçue à bousculer, une objection à lever : une seule bascule.',
     editorTab: 'postcourt',
     supportsColdRead: true,
+    // « format 1:1 ou 4:5 », dit la grille du visuel : les deux se proposent, le carré d'abord.
+    image: { proportions: ['1:1', '4:5'] },
     promptTemplate: `
 GRILLE DE PRODUCTION — Post "Punchline" (Texte + Image fixe) — LinkedIn, Facebook
 Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un visuel fort et un texte court qui bouscule une idée reçue.
@@ -154,7 +169,7 @@ Le format idéal pour LinkedIn et Facebook. Il repose sur un contraste entre un 
   "cta": "OBLIGATOIRE, jamais vide. Aligné sur les règles CTA de l'objectif (fournies plus haut) : une seule action, le lecteur sait à qui ça s'adresse et quel est le pas concret suivant. Tisse naturellement le lien ${SITE_URL} dans la phrase (ex : 'On en parle en consultation ? → ${SITE_URL}'). Reprends l'URL EXACTEMENT, sans la modifier ni l'abréger. JAMAIS d'emoji.",
   "hashtags": ["OBLIGATOIRE : 5 à 10 hashtags pertinents (string commençant par #, sans espace), mêlant thérapie/psychologie et la niche du sujet. Pas de # générique creux (#motivation, #life)."],
   "visuel": "Description de l'image suggérée (format 1:1 ou 4:5). Préfère une scène avec un personnage plutôt qu'un détail abstrait isolé. L'accroche à incruster sur l'image gagne à reprendre la métaphore centrale du texte plutôt qu'un concept détaché.",
-  "prompt_dzine": "Prompt détaillé en anglais, prêt à coller dans Dzine. 50-80 mots. Composition épurée, éclairage dramatique, mood émotionnel et introspectif. Évite les références à des peintres classiques (pas de 'Caravaggio', 'Rembrandt'...). Pas de texte à générer dans l'image. Cohérent avec le visuel suggéré."
+  "prompt_image": "Prompt détaillé en anglais pour un modèle de génération d'image. Il se suffit à lui-même : il part tel quel, sans le texte du post ni le visuel suggéré. 50-80 mots. Composition épurée, éclairage dramatique, mood émotionnel et introspectif. Évite les références à des peintres classiques (pas de 'Caravaggio', 'Rembrandt'...). Pas de texte à générer dans l'image. Cohérent avec le visuel suggéré."
 }
 Ton : Direct, oralisé, percutant. On entend la voix. Fluide — le texte doit se lire d'une traite, sans qu'on ait envie de sauter un paragraphe.
     `.trim(),
@@ -466,6 +481,8 @@ const CARROUSEL: FormatDefinition = {
     editorTab: 'brouillon',
     supportsColdRead: true,
     rendu: 'slides',
+    // Le prompt est dans les slides, une image par slide illustrée — carrée, comme la slide (« tout doit tenir sur une slide 1:1 »).
+    image: { proportions: ['1:1'] },
     promptTemplate: `
 GRILLE DE PRODUCTION — Carrousel — Instagram, LinkedIn
 Format pédagogique. Ta production alimente directement la trame finale : zéro champ à réécrire après coup, tout est calibré pour le montage des slides dans Sketch (format 1:1 Instagram).
@@ -527,7 +544,7 @@ FORMAT JSON ATTENDU :
       "type": "ILLUSTRÉE",
       "titre": "Légende courte (≤ 6 mots)",
       "texte": "Une phrase qui accompagne l'image. ≤ 25 mots.",
-      "intention_visuelle": "Description FR de ce que l'image doit montrer concrètement (la métaphore visualisée, pas un concept abstrait). 2-3 phrases, en français. Sera traduite en prompt Dzine par le Directeur Artistique."
+      "intention_visuelle": "Description FR de ce que l'image doit montrer concrètement (la métaphore visualisée, pas un concept abstrait). 2-3 phrases, en français. Sera traduite en prompt d'image par le Directeur Artistique."
     }
     // ... autres slides selon la logique du propos
   ]

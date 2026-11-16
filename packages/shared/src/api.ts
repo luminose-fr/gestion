@@ -13,7 +13,7 @@ import {
 } from './entities';
 import type { Content, Serie } from './entities';
 import {
-  TARGET_FORMAT_VALUES, OBJECTIF_VALUES, PROFONDEUR_VALUES,
+  TARGET_FORMAT_VALUES, OBJECTIF_VALUES, PROFONDEUR_VALUES, PROPORTIONS_IMAGE,
 } from '@luminose/editorial';
 
 const enumOf = (values: readonly string[]) => z.enum(values as [string, ...string[]]);
@@ -240,6 +240,11 @@ export type ChatRequestInput = z.infer<typeof ChatRequestSchema>;
  * `promptIllustration`, comme le front compose déjà ceux du texte —, avec ses
  * images de référence : l'étalon du site, et pour l'autre état d'une scène, sa
  * première illustration. Le modèle est vérifié contre la liste du Worker.
+ *
+ * Depuis la v2.37, le prompt peut aussi être celui d'un brouillon — le visuel
+ * d'un Post Texte, d'une slide de carrousel —, envoyé tel quel : sans
+ * référence, puisque les réseaux n'ont pas de charte (`direction-artistique.md`
+ * §4), et aux proportions que le registre donne au format.
  */
 export const IllustrationRequestSchema = z.object({
   /** Un modèle d'image du catalogue (migration 0014) — plus un code écrit en dur. */
@@ -249,7 +254,14 @@ export const IllustrationRequestSchema = z.object({
     z.string()
       .max(15_000_000, 'Image de référence de plus de 11 Mo.')
       .regex(/^data:image\/(png|jpeg|webp);base64,/, 'Une image de référence est une URL de données PNG, JPEG ou WebP.'),
-  ).min(1).max(3),
+  ).max(3).default([]),
+  /** Absentes : le 3:4 vertical du Reel, celui d'avant la v2.37. */
+  proportions: z.enum(PROPORTIONS_IMAGE).optional(),
+  /**
+   * Le format du contenu illustré, pour la mesure seulement, comme `format` sur
+   * `/chat`. Absent : le Reel expliqué, le seul qu'on illustrait avant la v2.37.
+   */
+  format: z.string().trim().max(80).optional(),
 });
 export type IllustrationRequest = z.infer<typeof IllustrationRequestSchema>;
 

@@ -96,7 +96,7 @@ export const FEUILLE_PAR_ACTION: Record<string, string[] | null> = {
      * copie clandestine.
      */
     GENERATE_CARROUSEL_SLIDES: ['voix/direction-artistique'],
-    ADJUST_DZINE_PROMPTS: ['voix/direction-artistique'],
+    ADJUST_IMAGE_PROMPTS: ['voix/direction-artistique'],
 
     /** Flux remplacé par le Coach, aucun écran ne le déclenche. */
     GENERATE_INTERVIEW: null,

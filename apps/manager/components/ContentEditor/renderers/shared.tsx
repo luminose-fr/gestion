@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { lirePromptImage } from '@luminose/editorial';
 import { Profondeur, TargetFormat } from '../../../types';
 import { Bouton } from '../../ui';
 
@@ -204,8 +205,8 @@ export const CarrouselLegende: React.FC<{ legende?: LegendeCarrousel | null }> =
     );
 };
 
-/** Extrait le prompt Dzine d'un Post Texte structuré. */
-export const getPostCourtDzinePrompt = (body: string): string => {
+/** Extrait le prompt d'image d'un Post Texte structuré, sous son nom actuel ou celui d'avant le 16/11/2026. */
+export const getPostCourtImagePrompt = (body: string): string => {
     if (!body) return "";
     try {
         const lastBrace = body.lastIndexOf('}');
@@ -214,7 +215,7 @@ export const getPostCourtDzinePrompt = (body: string): string => {
         const fmt = data.format;
         const isPostTexte = fmt === TargetFormat.POST_TEXTE_COURT || fmt === "Post Texte";
         if (!isPostTexte) return "";
-        return t(data.prompt_dzine);
+        return lirePromptImage(data);
     } catch {
         return "";
     }

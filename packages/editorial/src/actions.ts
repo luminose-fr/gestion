@@ -14,6 +14,7 @@
 import { buildSystemPrompt } from "./prompts";
 import { getFormatPromptTemplate } from "./formats";
 import { getObjectifCtaRules } from "./objectives";
+import { renommerPromptsImageJson } from "./promptImage";
 
 // Tous les modèles passent désormais par l'API 1min.AI (plus de modèle interne Gemini).
 
@@ -45,7 +46,7 @@ export const AI_ACTION_CATALOG = [
       pourChoisir: 'Entrée courte, sortie courte, appelée à chaque rédaction.' },
     { id: 'GENERATE_CARROUSEL_SLIDES', persona: 'Artiste',       label: 'Slides du carrousel',      attendu: 'recopie',
       pourChoisir: 'Recopie tout le carrousel : le coût est dans les jetons produits, pas reçus.' },
-    { id: 'ADJUST_DZINE_PROMPTS',      persona: 'Artiste',       label: 'Prompts d’image',          attendu: 'recopie',
+    { id: 'ADJUST_IMAGE_PROMPTS',      persona: 'Artiste',       label: 'Prompts d’image',          attendu: 'recopie',
       pourChoisir: 'Même recopie, en plus court — et les slides TYPO doivent rester à null.' },
     { id: 'PLAN_SERIES',               persona: 'Éclateur',      label: 'Plan de série',            attendu: 'synthèse',
       pourChoisir: 'Doit diverger : un modèle faible rend cinq reformulations de la même idée.' },
@@ -90,7 +91,7 @@ export const ATTENDU_FAMILLES: Record<string, { titre: string; demande: string; 
     },
     illustrer: {
         titre: 'Illustrer',
-        demande: 'Dessiner l’image d’une métaphore dans le style du site, d’après l’étalon joint : aucun texte, des silhouettes, une scène qu’on recadre.',
+        demande: 'Dessiner une image, sans texte : l’illustration d’un Reel dans le style du site, d’après l’étalon joint ; le visuel d’un post ou d’une slide, d’après son prompt d’image.',
         choix: 'Un modèle d’image — il n’écrit pas. Il se change ici, ou au moment de générer, sans toucher aux autres familles.',
     },
 };
@@ -229,7 +230,10 @@ export const AI_ACTIONS = {
         getSystemInstruction: (currentContent?: string, adjustmentRequest?: string, formatTemplate?: string, objectifCta?: string) =>
             buildSystemPrompt({
                 action: 'ADJUST_CONTENT',
-                currentContent,
+                // Un Post Texte d'avant le 16/11/2026 porte encore l'ancien nom du
+                // prompt d'image (promptImage.ts) ; la grille demande `prompt_image` :
+                // il part sous ce nom-là.
+                currentContent: currentContent === undefined ? undefined : renommerPromptsImageJson(currentContent),
                 adjustmentRequest,
                 formatTemplate: formatTemplate || undefined,
                 objectifCta: objectifCta || undefined,
@@ -249,19 +253,21 @@ export const AI_ACTIONS = {
             buildSystemPrompt({ action: 'PLAN_SERIES' }),
     },
 
-    ADJUST_DZINE_PROMPTS: {
+    ADJUST_IMAGE_PROMPTS: {
         generationConfig: {
             responseMimeType: "application/json" as const
         },
         /**
-         * @param slidesJson - JSON courant du carrousel (avec prompts_dzine déjà générés)
+         * @param slidesJson - JSON courant du carrousel, ses prompts d'image déjà générés
          * @param promptInstruction - L'instruction d'ajustement de Florent (FR)
          * @param slideNumero - Cible : numéro de slide à ajuster, ou null pour toutes
          */
         getSystemInstruction: (slidesJson: string, promptInstruction: string, slideNumero: number | null) =>
             buildSystemPrompt({
-                action: 'ADJUST_DZINE_PROMPTS',
-                slidesJson,
+                action: 'ADJUST_IMAGE_PROMPTS',
+                // Des slides d'avant le 16/11/2026 portent encore l'ancien nom du prompt
+                // d'image : les règles parlent de `prompt_image`, le JSON doit parler comme elles.
+                slidesJson: renommerPromptsImageJson(slidesJson),
                 promptInstruction,
                 promptTarget: slideNumero === null
                     ? 'TOUTES les slides illustrées (slide_numero: null)'

@@ -149,10 +149,10 @@ describe('prompts composés', () => {
     ).toMatchFileSnapshot(fixture('carrousel-slides'));
   });
 
-  it('ADJUST_DZINE_PROMPTS', async () => {
+  it('ADJUST_IMAGE_PROMPTS', async () => {
     await expect(
-      AI_ACTIONS.ADJUST_DZINE_PROMPTS.getSystemInstruction('{"slides":[]}', 'Plus sombre', 3)
-    ).toMatchFileSnapshot(fixture('adjust-dzine-prompts'));
+      AI_ACTIONS.ADJUST_IMAGE_PROMPTS.getSystemInstruction('{"slides":[]}', 'Plus sombre', 3)
+    ).toMatchFileSnapshot(fixture('adjust-image-prompts'));
   });
 
   // L'illustration de la métaphore (v2.28) : ce que reçoit le modèle d'image, l'étalon du site joint.

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pencil } from 'lucide-react';
-import { getFormatDef } from '@luminose/editorial';
+import { getFormatDef, lirePromptImage } from '@luminose/editorial';
 import { TargetFormat } from '../../../types';
 import { parseBodyJson, t, Block, BlockPre, CarrouselLegende } from './shared';
 import { Livrable } from './Livrable';
@@ -73,7 +73,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                 </Block>
             )}
             {data.visuel && <Block label="Visuel suggéré" color="border-amber-400">{t(data.visuel)}</Block>}
-            {data.prompt_dzine && <Block label="Prompt Dzine" color="border-violet-400">{t(data.prompt_dzine)}</Block>}
+            {lirePromptImage(data) && <Block label="Prompt d’image" color="border-violet-400">{lirePromptImage(data)}</Block>}
         </div>
     );
 

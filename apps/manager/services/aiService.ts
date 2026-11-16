@@ -10,7 +10,7 @@
  */
 import { WORKER_URL } from '../constants';
 import { getSessionToken } from '../auth';
-import { AI_ACTION_CATALOG } from '@luminose/editorial';
+import { AI_ACTION_CATALOG, type ProportionsImage } from '@luminose/editorial';
 import * as Activite from './activityService';
 import type { ChatMessage, UsageIA } from '@luminose/shared';
 
@@ -178,12 +178,21 @@ export const generateContent = async (request: GenerateRequest): Promise<Reponse
  * Génère l'illustration d'un Reel (SPEC §12.3, v2.28). Le prompt arrive composé
  * (`promptIllustration`), avec ses images de référence ; l'image revient en URL
  * de données, à montrer avant de la garder.
+ *
+ * Ou le visuel d'un post ou d'une slide (v2.37) : son prompt d'image tel quel,
+ * sans référence, aux proportions que le registre donne au format.
  */
-export const genererIllustration = async (demande: { modelId: string; libelle: string; prompt: string; references: string[] }) => {
+export const genererIllustration = async (demande: {
+  modelId: string; libelle: string; prompt: string; references: string[];
+  proportions?: ProportionsImage;
+  /** Le format du contenu, pour la mesure ; absent, le Reel expliqué. */
+  format?: string;
+}) => {
   const suivi = Activite.ouvrir({ nature: 'ia', label: 'Illustration', modele: demande.libelle, cle: `ia:Illustration:${demande.modelId}` });
   try {
     const reponse = await post<{ image: string; modelLabel: string; usage?: UsageIA }>('/ai/image', {
       modelId: demande.modelId, prompt: demande.prompt, references: demande.references,
+      proportions: demande.proportions, format: demande.format,
     });
     suivi.fermer(true);
     return { image: reponse.image, modelLabel: reponse.modelLabel, usage: reponse.usage ?? USAGE_INCONNU };

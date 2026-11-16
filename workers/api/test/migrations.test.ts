@@ -93,3 +93,38 @@ describe('0017 — les séries existantes remises en ordre, 1 à n', () => {
         expect([ligne('t1').le, ligne('t2').le, ligne('libre').le]).toEqual([10, 10, 10]);
     });
 });
+
+describe('0018 — l’action « Prompts d’image » sous son nouvel identifiant', () => {
+    const ANCIEN = 'ADJUST_DZINE_PROMPTS';
+    const NOUVEAU = 'ADJUST_IMAGE_PROMPTS';
+    const reglage = (db: DatabaseSync, cle: string, valeur: string) =>
+        db.prepare('INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, 1)').run(cle, valeur);
+    const reglages = (db: DatabaseSync) =>
+        db.prepare("SELECT key, value FROM app_settings WHERE key LIKE 'action_model:%' ORDER BY key").all();
+    const mesure = (db: DatabaseSync, id: string, action: string) =>
+        db.prepare(`INSERT INTO mesures_ia (id, action, model_label, provider, duree_ms, feuille_car, ok, created_at)
+                    VALUES (?, ?, 'Modèle', 'openrouter', 10, 0, 1, 1)`).run(id, action);
+
+    it('garde le modèle réglé pour l’action, et ses mesures dans la même série', () => {
+        const { db, appliquer } = baseAvant('0018');
+        reglage(db, `action_model:${ANCIEN}`, 'modele-artiste');
+        reglage(db, 'action_model:DRAFT_CONTENT', 'modele-voix');
+        mesure(db, 'm1', ANCIEN);
+        mesure(db, 'm2', 'COLD_READ');
+        appliquer();
+        expect(reglages(db)).toEqual([
+            { key: `action_model:${NOUVEAU}`, value: 'modele-artiste' },
+            { key: 'action_model:DRAFT_CONTENT', value: 'modele-voix' },
+        ]);
+        expect(db.prepare('SELECT id, action FROM mesures_ia ORDER BY id').all())
+            .toEqual([{ id: 'm1', action: NOUVEAU }, { id: 'm2', action: 'COLD_READ' }]);
+    });
+
+    it('un réglage déjà posé sous le nouveau nom l’emporte, sans faire échouer la migration', () => {
+        const { db, appliquer } = baseAvant('0018');
+        reglage(db, `action_model:${ANCIEN}`, 'ancien');
+        reglage(db, `action_model:${NOUVEAU}`, 'nouveau');
+        appliquer();
+        expect(reglages(db)).toEqual([{ key: `action_model:${NOUVEAU}`, value: 'nouveau' }]);
+    });
+});

@@ -28,7 +28,7 @@ export type AIAction =
     | 'ADJUST_CONTENT'
     | 'COLD_READ'
     | 'GENERATE_CARROUSEL_SLIDES'
-    | 'ADJUST_DZINE_PROMPTS'
+    | 'ADJUST_IMAGE_PROMPTS'
     | 'PLAN_SERIES';
 
 // ── Personas (base fixe) ─────────────────────────────────────────────
@@ -42,7 +42,7 @@ const PERSONA_PROMPTS: Record<string, string> = {
     ADJUST_CONTENT: REDACTEUR_PERSONA,
     COLD_READ: LECTEUR_FROID_PERSONA,
     GENERATE_CARROUSEL_SLIDES: ARTISTE_PERSONA,
-    ADJUST_DZINE_PROMPTS: ARTISTE_PERSONA,
+    ADJUST_IMAGE_PROMPTS: ARTISTE_PERSONA,
     PLAN_SERIES: ECLATEUR_PERSONA,
 };
 
@@ -200,9 +200,9 @@ Retourne le JSON complet modifié, dans le même format exact que l'original.
 %%CARROUSEL_PARAMS%%
 
 RÈGLES DE SORTIE (FORMAT JSON STRICT) :
-Tu reçois le JSON brouillon complet du carrousel (cf. "Contenu carrousel" ci-dessus). Tu dois produire EXACTEMENT le même JSON, augmenté d'un champ "prompt_dzine" sur chaque slide :
-- "prompt_dzine" est une string en anglais (50-80 mots) pour les slides de type "ILLUSTRÉE".
-- "prompt_dzine" est null pour les slides de type "TYPO".
+Tu reçois le JSON brouillon complet du carrousel (cf. "Contenu carrousel" ci-dessus). Tu dois produire EXACTEMENT le même JSON, augmenté d'un champ "prompt_image" sur chaque slide :
+- "prompt_image" est une string en anglais (50-80 mots) pour les slides de type "ILLUSTRÉE".
+- "prompt_image" est null pour les slides de type "TYPO".
 
 Tu ne touches à AUCUN autre champ : "numero", "role", "type", "titre", "texte", "intention_visuelle" sont recopiés à l'identique. Le bloc racine "legende" (texte, cta, hashtags) est RECOPIÉ À L'IDENTIQUE — tu ne le réécris pas, tu ne le supprimes pas. Tu ne supprimes ni n'ajoutes de slide.
 
@@ -218,7 +218,7 @@ FORMAT DE SORTIE (STRICT) :
       "titre": "…",
       "texte": "…",
       "intention_visuelle": null,
-      "prompt_dzine": null
+      "prompt_image": null
     },
     {
       "numero": 3,
@@ -227,7 +227,7 @@ FORMAT DE SORTIE (STRICT) :
       "titre": "…",
       "texte": "…",
       "intention_visuelle": "Description FR reçue (recopiée telle quelle)",
-      "prompt_dzine": "English prompt, 50-80 words, ready for Dzine."
+      "prompt_image": "English prompt, 50-80 words, self-contained."
     }
   ]
 }
@@ -265,13 +265,13 @@ DISCIPLINE DE SORTIE :
 - Les valeurs de "format" et "objectif" sont recopiées à l'identique depuis les listes fournies. Une valeur approchée est une valeur fausse.
 - Les six champs sont obligatoires et non vides.
     `.trim(),
-    ADJUST_DZINE_PROMPTS: `
+    ADJUST_IMAGE_PROMPTS: `
 Tu reçois :
-1. Le JSON complet d'un carrousel — les prompts Dzine en anglais y sont déjà présents sur les slides ILLUSTRÉE.
+1. Le JSON complet d'un carrousel — les prompts d'image en anglais y sont déjà présents sur les slides ILLUSTRÉE.
 2. Une instruction d'ajustement en français de Florent (esthétique, style, palette, format, etc.).
 3. Une cible :
-   - "slide_numero" est un nombre → tu ajustes UNIQUEMENT le prompt_dzine de cette slide.
-   - "slide_numero" est null → tu ajustes TOUS les prompts_dzine des slides illustrées du carrousel.
+   - "slide_numero" est un nombre → tu ajustes UNIQUEMENT le prompt_image de cette slide.
+   - "slide_numero" est null → tu ajustes TOUS les prompt_image des slides illustrées du carrousel.
 
 CIBLE COURANTE :
 %%PROMPT_TARGET%%
@@ -283,13 +283,13 @@ JSON COURANT DU CARROUSEL :
 %%SLIDES_JSON%%
 
 RÈGLES STRICTES :
-- Tu modifies UNIQUEMENT le(s) champ(s) "prompt_dzine" ciblé(s) par la cible.
-- Pour les slides type="TYPO", "prompt_dzine" reste null (jamais d'image).
+- Tu modifies UNIQUEMENT le(s) champ(s) "prompt_image" ciblé(s) par la cible.
+- Pour les slides type="TYPO", "prompt_image" reste null (jamais d'image).
 - Tous les autres champs (numero, role, type, titre, texte, intention_visuelle) sont RECOPIÉS À L'IDENTIQUE.
 - Le bloc racine "legende" (texte, cta, hashtags), s'il est présent, est RECOPIÉ À L'IDENTIQUE.
 - Le nombre de slides reste identique. Aucune slide ajoutée ni supprimée.
-- Les prompts ajustés restent en anglais, 50-80 mots, prêts pour Dzine.
-- Les autres prompts_dzine (non ciblés) ne changent pas — recopie-les à l'identique.
+- Les prompts ajustés restent en anglais, 50-80 mots, et chacun se suffit à lui-même.
+- Les autres prompt_image (non ciblés) ne changent pas — recopie-les à l'identique.
 
 Retourne UNIQUEMENT le JSON complet modifié, dans le même format exact que l'original. Zéro texte avant, zéro texte après, zéro bloc markdown.
     `.trim(),
@@ -332,11 +332,11 @@ interface BuildOptions {
     currentContent?: string;
     /** Demande d'ajustement — injectée dans %%ADJUSTMENT_REQUEST%% pour ADJUST_CONTENT */
     adjustmentRequest?: string;
-    /** JSON courant des slides — injecté dans %%SLIDES_JSON%% pour ADJUST_DZINE_PROMPTS */
+    /** JSON courant des slides — injecté dans %%SLIDES_JSON%% pour ADJUST_IMAGE_PROMPTS */
     slidesJson?: string;
     /** Cible humaine de l'ajustement (slide N ou tous) — injectée dans %%PROMPT_TARGET%% */
     promptTarget?: string;
-    /** Instruction Florent — injectée dans %%PROMPT_INSTRUCTION%% pour ADJUST_DZINE_PROMPTS */
+    /** Instruction Florent — injectée dans %%PROMPT_INSTRUCTION%% pour ADJUST_IMAGE_PROMPTS */
     promptInstruction?: string;
 }
 
@@ -403,7 +403,7 @@ export function buildSystemPrompt(options: BuildOptions): string {
             .replace('%%ADJUSTMENT_REQUEST%%', adjustmentRequest || '');
         return `${adjustPersona}${contextSection}\n\n---\n${outputRules}`;
     }
-    if (action === 'ADJUST_DZINE_PROMPTS') {
+    if (action === 'ADJUST_IMAGE_PROMPTS') {
         outputRules = outputRules
             .replace('%%PROMPT_TARGET%%', promptTarget || 'Toutes les slides illustrées (slide_numero: null)')
             .replace('%%PROMPT_INSTRUCTION%%', promptInstruction || '')
