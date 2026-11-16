@@ -34,8 +34,16 @@ export interface Atelier {
     pretPourLeRedacteur: boolean;
 }
 
-/** « Go », seul : valider la direction plutôt que l'envoyer au Coach. */
-export const estUnGo = (texte: string) => /^go\s*!?\.?$/i.test(texte.trim());
+/**
+ * « Go » : valider la direction plutôt que l'envoyer au Coach. Seul, ou dans
+ * la formule que le Coach propose lui-même en réponse rapide (« Go, passe à
+ * l'Éditeur », prompts/coach.ts). Le 16/11/2026, cette formule cliquée est
+ * partie au Coach comme un message ordinaire : la conversation a continué et
+ * rien n'est passé au Rédacteur. Un « go » suivi d'autre chose — « go, mais
+ * change l'accroche » — reste un message : il porte une consigne.
+ */
+export const estUnGo = (texte: string) =>
+    /^go\s*[!.,]?\s*(?:(?:on\s+)?pass(?:e|ons)\s+(?:à\s+l['’]\s*éditeur|au\s+rédacteur)\s*[!.]?)?$/iu.test(texte.trim());
 
 export function useAtelier({
     item, session, modelId, aiModels, contexteSerie, onMessage, onValider,
@@ -104,7 +112,9 @@ export function useAtelier({
         rappel,
         repondre: () => setRappel(null),
         passerSansRepondre: passerLaMain,
-        reponsesRapides: (dernier?.quickReplies ?? []).slice(0, 2),
-        pretPourLeRedacteur: !!dernier?.readyForEditor,
+        // Le « Go » du Coach est retiré : l'écran pose déjà le sien, qui valide.
+        // Deux boutons au même libellé dont un seul passe la main, c'est un piège.
+        reponsesRapides: (dernier?.quickReplies ?? []).filter(r => !estUnGo(r)).slice(0, 2),
+        pretPourLeRedacteur: !!dernier?.readyForEditor || (dernier?.quickReplies ?? []).some(estUnGo),
     };
 }
