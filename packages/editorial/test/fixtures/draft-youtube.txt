@@ -93,6 +93,9 @@ RÈGLES DE SORTIE (FIXE) :
 GRILLE DE PRODUCTION — Script Vidéo (Youtube)
 {
   "format": "Script Youtube",
+  "titre_video": "Le titre sur YouTube, qui sert aussi dans Google : le sujet dans les mots qu'on taperait ou qu'on demanderait à un assistant, PUIS l'image (ex : 'Hypnose : perd-on le contrôle ? Le pilote reste aux commandes'). 70 caractères max.",
+  "description": "Le texte publié sous la vidéo. Les deux premières phrases répondent directement, en clair et SANS la métaphore, à la question que pose la vidéo : c'est ce qui s'affiche avant « Plus », et ce qu'un moteur de réponse reprend. Puis 2 à 4 phrases sur ce que la vidéo apporte. Ni présentation de Florent ni lien : l'application ajoute la ligne qui dit qui parle et l'adresse du site. Aucune promesse de résultat.",
+  "chapitres": ["4 à 7 titres de chapitres, dans l'ordre de la vidéo : ce que le spectateur trouve à cet endroit, en question quand c'est celle qu'il se pose. Sans minutage : il se pose au montage."],
   "intro": "Hook + Promesse claire. Pourquoi rester jusqu'au bout.",
   "developpement": [
     {

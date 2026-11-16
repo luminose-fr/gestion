@@ -10,8 +10,8 @@
  */
 
 import { TargetFormat } from './domain';
-import { SITE_URL } from './config';
-import { composerArticleJekyll, type LivrableArticle } from './jekyll';
+import { SITE_URL, TITRE, BREATHWORK, SIGNATURE_VIDEO } from './config';
+import { composerArticleJekyll, lireFaq, LIMITES_FAQ, type LivrableArticle } from './jekyll';
 import { LIMITES_REEL, MOTS_PAR_MINUTE, estReelExplique, reelToMarkdown, reelToPlainText, verifierReelExplique, type ReelExplique } from './reelExplique';
 import type { ProportionsImage } from './illustration';
 
@@ -209,11 +209,11 @@ L'application compose elle-même le fichier du site à partir de ce JSON : front
   "tag": "'exclusif' (article de fond, mis en avant sur le blog) ou 'basique' (fiche sur un trouble précis, rangée sous « L'hypnose vous aide pour… »). Par défaut : 'exclusif'.",
   "meta_description": "140 à 160 caractères. Le sujet au début, puis la promesse concrète de l'article. Pas de métaphore opaque : c'est la phrase que Google affiche sous le titre.",
   "resume": ["Encadré « En résumé », affiché à côté de l'image et sur la carte du blog : EXACTEMENT 2 paragraphes courts. Le 1er nomme le problème dans les mots du lecteur et pose la métaphore ; le 2e dit ce que l'article lui apporte. **Gras** sur l'expression clé."],
-  "introduction": "4 à 6 paragraphes courts. Le sujet réel est nommé dans les 3 premières lignes, la métaphore centrale est posée avant la fin de l'introduction.",
+  "introduction": "4 à 6 paragraphes courts. RÉPONSE DIRECTE (OBLIGATOIRE) : le premier paragraphe répond en 2 ou 3 phrases, en clair et SANS la métaphore, à la question que le lecteur se pose en arrivant — celle que le titre annonce. Des phrases qui restent vraies et compréhensibles lues seules, hors de l'article : ce sont elles qu'un moteur de réponse cite. La métaphore centrale arrive juste après, et est posée avant la fin de l'introduction.",
   "sections": [
     {
-      "sous_titre_h2": "Titre qui fait avancer la métaphore ET dit de quoi parle la section : un lecteur qui ne lit que les titres doit suivre l'article.",
-      "contenu": "5 à 7 sections, 1 500 à 2 500 mots au total. Paragraphes courts ; puces ouvertes par leur idée en **gras**. Alterner rigueur nommée (auteurs, concepts, dates) et scènes concrètes. ANCRAGE PRATIQUE : au moins une section raccroche le propos à ce que tu vois en séance ('En séance, à Villefranche-de-Lauragais…', 'dans ma pratique…'). LIENS INTERNES : [texte](post:AAAA-MM-JJ-slug) vers un article du blog, [texte](/page.html) vers une page du site — UNIQUEMENT des adresses listées dans la fiche canal Blog, jamais inventées. Quand le sujet touche au soin (trauma, dépression, addiction…), un paragraphe renvoie le diagnostic à un professionnel de santé."
+      "sous_titre_h2": "Titre qui fait avancer la métaphore ET dit de quoi parle la section : un lecteur qui ne lit que les titres doit suivre l'article. Au moins DEUX titres de section sont la question qu'un lecteur taperait dans Google ou poserait à un assistant, dans ses mots, avec un point d'interrogation (ex : 'Stress aigu ou stress chronique : comment faire la différence ?') ; la métaphore garde sa place dans les autres.",
+      "contenu": "5 à 7 sections, 1 500 à 2 500 mots au total. Paragraphes courts ; puces ouvertes par leur idée en **gras**. Alterner rigueur nommée (auteurs, concepts, dates) et scènes concrètes. FAITS SOURCÉS : un chiffre, une étude ou un concept emprunté porte son auteur et son année DANS LA PHRASE ('Selye décrit dès 1956…') — un moteur cite une phrase, pas la bibliographie. Aucun chiffre dont tu n'es pas certain. ANCRAGE PRATIQUE : au moins une section raccroche le propos à ce que tu vois en séance ('En séance, à Villefranche-de-Lauragais…', 'dans ma pratique…'). LIENS INTERNES : [texte](post:AAAA-MM-JJ-slug) vers un article du blog, [texte](/page.html) vers une page du site — UNIQUEMENT des adresses listées dans la fiche canal Blog, jamais inventées. Quand le sujet touche au soin (trauma, dépression, addiction…), un paragraphe renvoie le diagnostic à un professionnel de santé."
     }
   ],
   "conclusion": "1 à 2 paragraphes qui ferment la dernière section : l'angle de rupture, pas un résumé plat.",
@@ -222,6 +222,12 @@ L'application compose elle-même le fichier du site à partir de ce JSON : front
     "texte": "2 paragraphes alignés sur les règles CTA de l'objectif : à qui ça s'adresse, le pas concret suivant. Le bouton de prise de rendez-vous est ajouté par l'application : ne l'écris pas.",
     "chute": "Une phrase courte qui referme la métaphore. Elle sera mise en gras."
   },
+  "faq": [
+    {
+      "question": "${LIMITES_FAQ.questionsMin} à ${LIMITES_FAQ.questionsMax} questions que les gens posent vraiment sur ce sujet à Google ou à un assistant, dans leurs mots, jamais dans la métaphore (ex : 'Est-ce qu'on perd le contrôle sous hypnose ?'). Une seule question par entrée, avec son point d'interrogation.",
+      "reponse": "${LIMITES_FAQ.motsMin} à ${LIMITES_FAQ.motsMax} mots, compréhensibles sans avoir lu l'article : la réponse d'abord, la nuance ensuite. Sans métaphore, au vouvoiement, sans recopier une phrase du corps, et appuyée sur ce que l'article établit. AUCUNE promesse de résultat : « peut aider à », « favorise », jamais « guérit » ni « soigne ». Une question qui demanderait un fait que tu n'as pas (tarif, nombre de séances, durée d'un accompagnement) : choisis-en une autre."
+    }
+  ],
   "references": ["3 à 8 références effectivement mobilisées dans l'article, au format 'Nom, I. (année). *Titre*. Éditeur.' UNIQUEMENT des références dont tu es certain — auteur, année, titre, éditeur. Une référence douteuse est pire que pas de référence : dans le doute, ne la mets pas."],
   "illustrations": [
     {
@@ -238,6 +244,8 @@ L'application compose elle-même le fichier du site à partir de ce JSON : front
   }
 }
 Le post_reseaux suit TOUJOURS la logique « Trafic contenu long », quel que soit l'objectif : les règles CTA de l'objectif gouvernent l'encadré final de l'article, pas le post. L'image principale sert aussi de visuel au post.
+ÊTRE CITÉ : l'article est le seul contenu que les moteurs de réponse (Google et ses AI Overviews, ChatGPT, Perplexity, Gemini) reprennent en citant luminose.fr. Ils citent une phrase qui tient seule, une réponse, un fait sourcé — jamais une image. D'où la réponse directe en tête de l'introduction, les titres en question, les faits sourcés dans la phrase et les questions fréquentes. Rien de cela ne remplace la voix ni la métaphore : ça leur ouvre une porte.
+NOMS EXACTS, d'un article à l'autre : « ${BREATHWORK} » à sa première mention. L'hypnose est un outil (« j'utilise l'hypnose », « une séance d'hypnose ») : jamais « hypnothérapeute » pour désigner Florent, qui est ${TITRE}. Ne présente pas Florent dans le texte : sous chaque article, le bandeau auteur du site le fait.
 Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix face auquel le lecteur est mis) et l'oralité de Florent.
     `.trim(),
     toPlainText: (data: any): string => {
@@ -269,6 +277,8 @@ Ton : Expert, posé, pédagogique, mais garde la radicalité du seuil (le choix 
             const encadre = [t(data.cta.titre), t(data.cta.texte), t(data.cta.chute)].filter(Boolean);
             if (encadre.length) out.push(`**CTA**\n${encadre.join('\n\n')}`);
         } else if (data.cta) out.push(`**CTA**\n${t(data.cta)}`);
+        const faq = lireFaq(data);
+        if (faq.length) out.push(`## Questions fréquentes\n${faq.map(q => `### ${q.question}\n${q.reponse}`).join('\n\n')}`);
         const refs = Array.isArray(data.references) ? data.references.map(t).filter(Boolean) : [];
         if (refs.length) out.push(`## Références\n${refs.map((r: string) => `- ${r}`).join('\n')}`);
         return out.join('\n\n');
@@ -439,6 +449,9 @@ const SCRIPT_YOUTUBE: FormatDefinition = {
 GRILLE DE PRODUCTION — Script Vidéo (Youtube)
 {
   "format": "Script Youtube",
+  "titre_video": "Le titre sur YouTube, qui sert aussi dans Google : le sujet dans les mots qu'on taperait ou qu'on demanderait à un assistant, PUIS l'image (ex : 'Hypnose : perd-on le contrôle ? Le pilote reste aux commandes'). 70 caractères max.",
+  "description": "Le texte publié sous la vidéo. Les deux premières phrases répondent directement, en clair et SANS la métaphore, à la question que pose la vidéo : c'est ce qui s'affiche avant « Plus », et ce qu'un moteur de réponse reprend. Puis 2 à 4 phrases sur ce que la vidéo apporte. Ni présentation de Florent ni lien : l'application ajoute la ligne qui dit qui parle et l'adresse du site. Aucune promesse de résultat.",
+  "chapitres": ["4 à 7 titres de chapitres, dans l'ordre de la vidéo : ce que le spectateur trouve à cet endroit, en question quand c'est celle qu'il se pose. Sans minutage : il se pose au montage."],
   "intro": "Hook + Promesse claire. Pourquoi rester jusqu'au bout.",
   "developpement": [
     {
@@ -461,6 +474,7 @@ Ton : Narratif, profond, utilisant des métaphores filées. Plus long, plus cont
     },
     toMarkdown: (data: any): string => {
         const out: string[] = [];
+        if (t(data.titre_video)) out.push(`# ${t(data.titre_video)}`);
         if (data.intro) out.push(`**Intro**\n${t(data.intro)}`);
         const dev = Array.isArray(data.developpement) ? data.developpement : [];
         dev.forEach((section: any, idx: number) => {
@@ -470,8 +484,22 @@ Ton : Narratif, profond, utilisant des métaphores filées. Plus long, plus cont
             if (contenu) out.push(contenu);
         });
         if (data.conclusion) out.push(`**Conclusion**\n${t(data.conclusion)}`);
+        const description = descriptionVideo(data);
+        if (description) out.push(`**Description**\n${description}`);
+        const chapitres = Array.isArray(data.chapitres) ? data.chapitres.map(t).filter(Boolean) : [];
+        if (chapitres.length) out.push(`**Chapitres**\n${chapitres.map((c: string) => `- ${c}`).join('\n')}`);
         return out.join('\n\n');
     }
+};
+
+/**
+ * La description à coller sous la vidéo : le texte du modèle, puis la ligne qui
+ * dit qui parle, que le code ajoute. Les scripts rédigés avant cette grille
+ * n'ont pas de description : chaîne vide, et l'écran n'affiche rien.
+ */
+export const descriptionVideo = (data: any): string => {
+    const texte = t(data?.description);
+    return texte ? `${texte}\n\n${SIGNATURE_VIDEO}` : '';
 };
 
 const CARROUSEL: FormatDefinition = {

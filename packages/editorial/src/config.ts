@@ -26,6 +26,31 @@ export const TITRE = "psychopraticien transpersonnel";
 export const IDENTITE = `${NOM}, ${TITRE}`;
 
 /**
+ * Le lieu du cabinet, tel que les CTA et la signature d'une vidéo le disent.
+ * `socle/identite.md` en est propriétaire.
+ */
+export const LIEU = "Villefranche-de-Lauragais";
+
+/**
+ * Le nom exact du breathwork, que `socle/parcours-formations.md` fixe : « La forme
+ * exacte compte — c'est une pratique sous marque. »
+ *
+ * Il compte aussi pour les moteurs de réponse (ChatGPT, Perplexity, les AI
+ * Overviews de Google) : ils rapprochent les contenus par les noms. Trois façons
+ * de nommer la pratique d'un article à l'autre, c'est trois pratiques — et
+ * aucune assez présente pour qu'on l'associe à Florent.
+ */
+export const BREATHWORK = "Grof® Breathwork (respiration holotropique)";
+
+/**
+ * La ligne qui signe la description d'une vidéo YouTube, ajoutée par le code et
+ * jamais par le modèle — même raison que l'adresse des posts d'article : une
+ * adresse recopiée par un modèle finit un jour avec une lettre en moins. C'est
+ * elle qui dit QUI parle à un moteur qui lit la page de la vidéo.
+ */
+export const SIGNATURE_VIDEO = `${NOM}, ${TITRE} — Luminose, à ${LIEU} et en visio.\n→ ${SITE_URL}`;
+
+/**
  * Slide ajoutée en fin de carrousel **par le code**, jamais générée par l'IA.
  * C'est ce qui garantit zéro dérive sur la signature.
  */

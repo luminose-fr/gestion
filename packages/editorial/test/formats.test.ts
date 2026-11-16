@@ -22,6 +22,14 @@ import {
   VALID_SHORT_KEYS,
   resoudreFormat,
   COACH_PERSONA,
+  descriptionVideo,
+  getObjectifCtaRules,
+  Objectif,
+  SIGNATURE_VIDEO,
+  BREATHWORK,
+  TITRE,
+  NOM,
+  LIEU,
 } from '../src/index';
 
 const ALL_FORMATS = Object.values(TargetFormat);
@@ -221,4 +229,51 @@ describe('le Coach connaît chaque format du registre', () => {
         expect(listeRecue).toContain(cle);
         expect(formatsCalibres).toContain(cle);
     });
+});
+
+/**
+ * Être cité par les moteurs de réponse (décision du 16/11/2026) : l'article et
+ * la vidéo YouTube sont les deux formats qu'un moteur lit et reprend. Ce qui doit
+ * être exact — la signature, l'adresse, les noms — vient du code.
+ */
+describe('les formats que lisent les moteurs de réponse', () => {
+  it('YouTube : la description reçoit la ligne qui dit qui parle, ajoutée par le code', () => {
+    const def = getFormatDef(TargetFormat.SCRIPT_VIDEO_YOUTUBE)!;
+    const md = def.toMarkdown({
+      format: 'Script Youtube',
+      titre_video: 'Hypnose : perd-on le contrôle ?',
+      description: 'Non : sous hypnose, vous restez conscient.',
+      chapitres: ['Que ressent-on ?', ' ', 'Pourquoi ça fait peur'],
+      intro: 'Bonjour.',
+    });
+    expect(md.startsWith('# Hypnose : perd-on le contrôle ?')).toBe(true);
+    expect(md).toContain(`**Description**\nNon : sous hypnose, vous restez conscient.\n\n${SIGNATURE_VIDEO}`);
+    expect(md).toContain('**Chapitres**\n- Que ressent-on ?\n- Pourquoi ça fait peur');
+    expect(SIGNATURE_VIDEO).toContain('https://www.luminose.fr');
+    expect(SIGNATURE_VIDEO).toContain('psychopraticien transpersonnel');
+  });
+
+  it('YouTube : un script d’avant la grille n’a ni description ni signature', () => {
+    expect(descriptionVideo({ format: 'Script Youtube', intro: 'Bonjour.' })).toBe('');
+  });
+
+  it('l’article : la FAQ figure dans le texte lisible, avant les références', () => {
+    const md = getFormatDef(TargetFormat.ARTICLE_LONG_SEO)!.toMarkdown({
+      format: 'Article', titre_h1: 'T', introduction: 'I',
+      faq: [{ question: 'Est-ce utile ?', reponse: 'Oui.' }, { question: 'Vide', reponse: '' }],
+      references: ['Selye, H. (1956).'],
+    });
+    expect(md).toContain('## Questions fréquentes\n### Est-ce utile ?\nOui.\n\n## Références');
+    expect(md).not.toContain('Vide');
+  });
+
+  it('les grilles nomment la pratique et le titre par les constantes, jamais à la main', () => {
+    const article = getFormatPromptTemplate(TargetFormat.ARTICLE_LONG_SEO);
+    expect(article).toContain(BREATHWORK);
+    expect(article).toContain(TITRE);
+    const notoriete = getObjectifCtaRules(Objectif.NOTORIETE);
+    expect(notoriete).toContain(BREATHWORK);
+    expect(notoriete).toContain(`Je suis ${NOM}, ${TITRE}.`);
+    expect(notoriete).toContain(LIEU);
+  });
 });

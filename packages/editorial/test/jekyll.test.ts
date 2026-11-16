@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { composerArticleJekyll, slugifier, typographier, enBlocsHtml } from '../src/jekyll';
 import { getFormatDef } from '../src/formats';
+import { BREATHWORK } from '../src/config';
 
 const ARTICLE = {
   format: 'Article',
@@ -25,7 +26,7 @@ const ARTICLE = {
   introduction: '« Je suis stressé. » Vous l\'avez dit cette semaine.\n\nEt pourtant, personne ne sait ce que vous venez de dire.',
   sections: [
     { sous_titre_h2: 'Le courant normal : le stress qui vous garde en vie', contenu: 'Première surprise : le stress n\'est pas une panne.\n\nVoir l\'[anxiété](post:2023-01-26-troubles-anxieux-hypnose).' },
-    { sous_titre_h2: 'La théorie polyvagale', contenu: 'Trois circuits :\n- **Le circuit ventral** : la maison habitée.\n- **Le circuit dorsal** : la coupure.' },
+    { sous_titre_h2: 'La théorie polyvagale : que se passe-t-il dans le corps ?', contenu: 'Trois circuits :\n- **Le circuit ventral** : la maison habitée.\n- **Le circuit dorsal** : la coupure.' },
     { sous_titre_h2: 'On répare comment ?', contenu: 'On lit les plans, puis la [méditation](/meditation.html).' },
   ],
   conclusion: 'L\'ordre a son importance.',
@@ -34,6 +35,20 @@ const ARTICLE = {
     texte: 'Une surtension passagère ?\n\nJe vous propose un premier échange offert.',
     chute: 'Trouver la panne, c\'est déjà le début de la réparation.',
   },
+  faq: [
+    {
+      question: 'Quelle est la différence entre stress aigu et stress chronique ?',
+      reponse: 'Le stress aigu est une réaction brève à un danger ou à une exigence précise : le corps mobilise son énergie, puis revient au calme une fois la situation passée. Le stress chronique, lui, dure des semaines ou des mois sans retour au calme. C\'est cette absence de récupération, plus que l\'intensité, qui finit par user le corps et le moral.',
+    },
+    {
+      question: 'Le stress est-il toujours mauvais ?',
+      reponse: 'Non. Selye distinguait dès 1956 un stress qui mobilise et un stress qui épuise. Une dose de stress aide à se concentrer, à réagir vite, à donner le meilleur de soi face à un examen ou une échéance. Il devient un problème quand il ne redescend plus, ou quand il se déclenche sans danger réel.',
+    },
+    {
+      question: 'Quand consulter pour du stress ?',
+      reponse: 'Quand le stress ne redescend plus, qu\'il abîme le sommeil, l\'appétit ou les relations, ou qu\'il se déclenche sans raison apparente. Un premier rendez-vous avec votre médecin permet d\'écarter une cause physique. Un accompagnement en séance peut ensuite aider à comprendre ce qui entretient la tension et à retrouver un rythme plus vivable.',
+    },
+  ],
   references: ['Selye, H. (1956). *The Stress of Life*. McGraw-Hill.', 'Laborit, H. (1979). *L\'Inhibition de l\'action*. Masson.'],
   illustrations: [
     { emplacement: 'banniere', fichier: 'peu-importe', alt: 'Un tableau électrique', prompt: 'Nouvelle image indépendante… Format carré 1:1.' },
@@ -54,12 +69,13 @@ describe('le fichier', () => {
   });
 
   it('écrit le front matter de la fiche canal Blog, valeurs à deux-points entre guillemets', () => {
-    const debut = livrer().fichier.contenu.split('\n').slice(0, 13).join('\n');
+    const debut = livrer().fichier.contenu.split('\n').slice(0, 14).join('\n');
     expect(debut).toBe([
       '---',
       'layout: colonne',
       'title: "Le stress : visite guidée de votre installation électrique intérieure"',
       'image_name: stress-installation-electrique',
+      'image: /images/blog/stress-installation-electrique.jpg',
       'section: blog',
       'category: stress',
       'tag: exclusif',
@@ -95,6 +111,10 @@ describe('le fichier', () => {
       '        <h2 class="subtitle">Alors, c\'est quoi, votre stress&nbsp;?</h2>',
       '        <p><strong>Trouver la panne, c\'est déjà le début de la réparation.</strong></p>',
       '        <p class="has-text-centered">{% bouton_rendez_vous is-white %}</p>',
+      '      <h2>Questions fréquentes</h2>',
+      '      <h3>Quelle est la différence entre stress aigu et stress chronique&nbsp;?</h3>',
+      '      <script type="application/ld+json">',
+      '      </script>',
       '      <h2>Références pour aller plus loin</h2>',
       '      {% include liens-partage.html %}',
       '    {% include bandeaux/bandeau-auteur.html %}',
@@ -135,6 +155,91 @@ describe('le fichier', () => {
 
   it('n’a aucun avertissement quand la grille est remplie', () => {
     expect(livrer().avertissements).toEqual([]);
+  });
+});
+
+describe('ce qui rend l’article citable (16/11/2026)', () => {
+  /** Le bloc FAQPage tel que le site le servira, relu comme un moteur le lirait. */
+  const jsonLd = (contenu: string) => {
+    const bloc = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(contenu);
+    expect(bloc, 'bloc JSON-LD introuvable').not.toBeNull();
+    return JSON.parse(bloc![1]);
+  };
+
+  it('déclare la FAQ en données structurées, en texte sans balisage', () => {
+    const faq = jsonLd(livrer({
+      ...ARTICLE,
+      faq: [{ question: 'Le **stress** est-il utile ?', reponse: 'Oui, voir la [méditation](/meditation.html) et *Selye*.' }],
+    }).fichier.contenu);
+    expect(faq).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [{
+        '@type': 'Question',
+        name: 'Le stress est-il utile ?',
+        acceptedAnswer: { '@type': 'Answer', text: 'Oui, voir la méditation et Selye.' },
+      }],
+    });
+  });
+
+  it('ne laisse passer ni une balise qui fermerait le script, ni du Liquid qui casserait le build', () => {
+    const { contenu } = livrer({
+      ...ARTICLE,
+      faq: [{ question: 'Et </script> ?', reponse: 'Écrire {{ page.title }} ou {% include x %} reste du texte.' }],
+    }).fichier;
+    const bloc = contenu.slice(contenu.indexOf('<script type="application/ld+json">'));
+    const json = bloc.slice(bloc.indexOf('>') + 1, bloc.indexOf('</script>'));
+    expect(json).not.toMatch(/\{\{|\{%|<\/?script/);
+    expect(jsonLd(contenu).mainEntity[0]).toMatchObject({
+      name: 'Et </script> ?',
+      acceptedAnswer: { text: 'Écrire {{ page.title }} ou {% include x %} reste du texte.' },
+    });
+  });
+
+  it('place la FAQ après l’encadré final et avant les références', () => {
+    const { contenu } = livrer().fichier;
+    const faq = contenu.indexOf('<h2>Questions fréquentes</h2>');
+    expect(faq).toBeGreaterThan(contenu.indexOf('{% bouton_rendez_vous is-white %}'));
+    expect(faq).toBeLessThan(contenu.indexOf('<h2>Références pour aller plus loin</h2>'));
+  });
+
+  it('n’écrit ni section ni bloc quand l’article n’a pas de FAQ — et le dit', () => {
+    const livrable = livrer({ ...ARTICLE, faq: [] });
+    expect(livrable.fichier.contenu).not.toContain('Questions fréquentes');
+    expect(livrable.fichier.contenu).not.toContain('application/ld+json');
+    expect(livrable.avertissements.join(' ')).toContain('Pas de questions fréquentes');
+  });
+
+  it('signale une FAQ hors gabarit : trop courte, question sans « ? », réponse trop longue', () => {
+    const longue = Array(120).fill('mot').join(' ');
+    const { avertissements } = livrer({ ...ARTICLE, faq: [{ question: 'Une affirmation', reponse: longue }] });
+    expect(avertissements).toEqual([
+      '1 question(s) fréquente(s) — la grille en demande 3 à 5.',
+      'Question fréquente n°1 sans point d’interrogation.',
+      'Réponse n°1 : 120 mots — la grille en demande 40 à 80, pour qu’elle se cite seule.',
+    ]);
+  });
+
+  it('signale des titres de section qui ne posent aucune question', () => {
+    const sections = ARTICLE.sections.map((s, i) => ({ ...s, sous_titre_h2: `Le circuit n°${i + 1}` }));
+    expect(livrer({ ...ARTICLE, sections }).avertissements).toContain('0 titre(s) de section en question — la grille en demande au moins deux.');
+  });
+
+  it('signale « hypnothérapeute » : l’hypnose est un outil, pas le titre de Florent', () => {
+    const { avertissements } = livrer({ ...ARTICLE, conclusion: 'En tant qu’hypnothérapeute, je vois ça souvent.' });
+    expect(avertissements.join(' ')).toContain('« hypnothérapeute » apparaît');
+  });
+
+  it('signale les mots de la guérison, pour relecture — mais pas « soignant »', () => {
+    const { avertissements } = livrer({ ...ARTICLE, conclusion: 'L’hypnose guérit. La guérison vient. Parlez-en à un soignant.' });
+    expect(avertissements).toContain('« guérit », « guérison » — à relire : aucun résultat ne doit être promis (cadre déontologique).');
+  });
+
+  it('signale le breathwork nommé sans sa forme exacte, et se tait quand elle y est', () => {
+    const sans = livrer({ ...ARTICLE, conclusion: 'La respiration holotropique aussi.' });
+    expect(sans.avertissements.join(' ')).toContain(`« ${BREATHWORK} » à la première mention`);
+    const avec = livrer({ ...ARTICLE, conclusion: `Le ${BREATHWORK} aussi. La respiration holotropique, donc.` });
+    expect(avec.avertissements).toEqual([]);
   });
 });
 

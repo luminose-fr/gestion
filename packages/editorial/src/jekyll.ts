@@ -23,9 +23,33 @@
  * compare la structure à cet article avec.
  */
 
-import { SITE_URL } from './config';
+import { SITE_URL, TITRE, BREATHWORK } from './config';
 
 // ── Ce que produit le module ─────────────────────────────────────────
+
+/**
+ * Les questions fréquentes de l'article (décision du 16/11/2026, optimisation
+ * pour les moteurs de réponse). La grille du Rédacteur les cite et les
+ * avertissements les comptent : une seule source pour les deux.
+ *
+ * Pourquoi une FAQ : ChatGPT, Perplexity ou les AI Overviews de Google citent une
+ * réponse qui tient seule, rarement un paragraphe pris dans une métaphore filée.
+ * Les questions fréquentes sont ce passage-là, dans les mots de ceux qui
+ * cherchent. Leurs données structurées (FAQPage) ne donnent plus d'extrait
+ * enrichi dans Google pour un site comme celui-ci depuis 2023 : elles servent la
+ * lecture des moteurs, pas l'affichage.
+ */
+export const LIMITES_FAQ = {
+    questionsMin: 3,
+    questionsMax: 5,
+    motsMin: 40,
+    motsMax: 80,
+} as const;
+
+export interface QuestionFrequente {
+    question: string;
+    reponse: string;
+}
 
 export interface IllustrationArticle {
     /** `null` pour l'image principale, sinon le numéro de section (1 = la première) après laquelle elle s'insère. */
@@ -233,6 +257,109 @@ const lireIllustrations = (data: any, slug: string, titre: string): Illustration
     return lues;
 };
 
+/** Les questions fréquentes du JSON, sans les entrées à moitié vides. Un article d'avant la grille n'en a pas : []. */
+export const lireFaq = (data: any): QuestionFrequente[] =>
+    (Array.isArray(data?.faq) ? data.faq : [])
+        .map((q: any): QuestionFrequente => ({ question: texte(q?.question), reponse: texte(q?.reponse) }))
+        .filter((q: QuestionFrequente) => q.question && q.reponse);
+
+/** Le balisage léger retiré : les données structurées veulent du texte, pas des étoiles. */
+const texteBrut = (s: string): string =>
+    s.replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1').replace(/\s+/g, ' ').trim();
+
+/**
+ * Le bloc FAQPage de schema.org, au même endroit que la FAQ qu'il décrit — Google
+ * exige que le contenu balisé soit visible sur la page.
+ *
+ * Deux échappements, et chacun a sa panne : `<` et `>` en `\u003c` / `\u003e`, sans
+ * quoi un « </script> » dans une réponse fermerait le bloc ; `{{` et `{%` cassés,
+ * sans quoi Jekyll y verrait du Liquid et le build du site tomberait. Les deux ne
+ * peuvent apparaître que dans une chaîne JSON, où l'échappement \u est permis.
+ */
+const jsonLdFaq = (faq: QuestionFrequente[], indentation: string): string => {
+    const json = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faq.map(q => ({
+            '@type': 'Question',
+            name: texteBrut(q.question),
+            acceptedAnswer: { '@type': 'Answer', text: texteBrut(q.reponse) },
+        })),
+    }, null, 2)
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e')
+        .replace(/\{(?=[{%])/g, '\\u007b');
+    return [
+        `${indentation}<script type="application/ld+json">`,
+        ...json.split('\n').map(l => `${indentation}${l}`),
+        `${indentation}</script>`,
+    ].join('\n');
+};
+
+const compterMots = (s: string): number => s.split(/\s+/).filter(m => /[\p{L}\p{N}]/u.test(m)).length;
+
+/**
+ * Ce qui se vérifie sans appel au modèle pour qu'un article soit citable, et cité
+ * sous les bons noms (décision du 16/11/2026).
+ *
+ * Ce sont des avertissements, pas une correction automatique : l'article n'a pas
+ * de relecture à froid (décision du 26/08/2026, `formats.ts`) et une passe de
+ * correction se paierait au prix de 2 000 mots régénérés. Florent les lit sur
+ * l'écran du livrable, avant de publier.
+ *
+ * Les mots surveillés le sont pour être RELUS, pas interdits : « guérison » peut
+ * être une issue possible hors annonces (`socle/cadre-deontologique.md`), et
+ * « hypnothérapeute » peut désigner quelqu'un d'autre que Florent.
+ */
+const verifierCitabilite = (data: any, sections: any[], faq: QuestionFrequente[]): string[] => {
+    const avertissements: string[] = [];
+
+    if (faq.length === 0) {
+        avertissements.push('Pas de questions fréquentes — c’est le passage le plus facile à citer pour un moteur de réponse.');
+    } else {
+        if (faq.length < LIMITES_FAQ.questionsMin || faq.length > LIMITES_FAQ.questionsMax) {
+            avertissements.push(`${faq.length} question(s) fréquente(s) — la grille en demande ${LIMITES_FAQ.questionsMin} à ${LIMITES_FAQ.questionsMax}.`);
+        }
+        faq.forEach((q, i) => {
+            if (!q.question.endsWith('?')) avertissements.push(`Question fréquente n°${i + 1} sans point d’interrogation.`);
+            // Une marge de part et d'autre : l'avertissement signale ce qui est
+            // nettement hors gabarit, pas un décompte au mot près.
+            const mots = compterMots(q.reponse);
+            if (mots < LIMITES_FAQ.motsMin - 10 || mots > LIMITES_FAQ.motsMax + 20) {
+                avertissements.push(`Réponse n°${i + 1} : ${mots} mots — la grille en demande ${LIMITES_FAQ.motsMin} à ${LIMITES_FAQ.motsMax}, pour qu’elle se cite seule.`);
+            }
+        });
+    }
+
+    const enQuestion = sections.filter(s => texte(s.sous_titre_h2 || s.titre).endsWith('?')).length;
+    if (sections.length >= 2 && enQuestion < 2) {
+        avertissements.push(`${enQuestion} titre(s) de section en question — la grille en demande au moins deux.`);
+    }
+
+    // Tout ce que le site publie de l'article, plus le post qui l'annonce.
+    const cta = data.cta && typeof data.cta === 'object' ? [data.cta.titre, data.cta.texte, data.cta.chute] : [data.cta];
+    const tout = [
+        data.titre_h1, data.meta_description, ...paragraphesDe(data.resume), data.introduction,
+        ...sections.flatMap(s => [s.sous_titre_h2 || s.titre, s.contenu]),
+        data.conclusion, ...cta, ...faq.flatMap(q => [q.question, q.reponse]), data.post_reseaux?.texte,
+    ].map(texte).join('\n');
+
+    if (/hypnoth[ée]rapeute/i.test(tout)) {
+        avertissements.push(`« hypnothérapeute » apparaît — à relire : Florent est ${TITRE}, l’hypnose est un outil, pas un titre.`);
+    }
+
+    const promesses = [...new Set((tout.match(/(?<![\p{L}])(?:gu[ée]ri\p{L}*|soign(?!ant)\p{L}*)/giu) ?? []).map(m => m.toLowerCase()))];
+    if (promesses.length) {
+        avertissements.push(`${promesses.map(m => `« ${m} »`).join(', ')} — à relire : aucun résultat ne doit être promis (cadre déontologique).`);
+    }
+
+    if (/holotropique|breathwork/i.test(tout) && !/Grof®/.test(tout)) {
+        avertissements.push(`La pratique est nommée sans sa forme exacte — « ${BREATHWORK} » à la première mention.`);
+    }
+
+    return avertissements;
+};
+
 const lireHashtags = (v: unknown): string[] =>
     (Array.isArray(v) ? v : texte(v).split(/\s+/))
         .map(texte)
@@ -305,12 +432,20 @@ export function composerArticleJekyll(data: any, options: { date: string }): Liv
         avertissements.push('Pas de prompt pour l’image principale — il faudra quand même déposer /images/blog/' + slug + '.jpg.');
     }
 
+    const faq = lireFaq(data);
+    avertissements.push(...verifierCitabilite(data, sections, faq));
+
     // ── Front matter ──
     const frontMatter = [
         '---',
         'layout: colonne',
         `title: ${yamlCite(titre)}`,
         `image_name: ${slug}`,
+        // `image_name` ne sert qu'aux gabarits du site. `image` est le champ que
+        // lit jekyll-seo-tag : og:image pour l'aperçu du lien sur Facebook et
+        // LinkedIn, et l'image du BlogPosting que lisent les moteurs. Sans lui,
+        // aucun article n'en avait.
+        `image: /images/blog/${slug}.jpg`,
         'section: blog',
         `category: ${categorie}`,
         `tag: ${tag}`,
@@ -366,6 +501,19 @@ export function composerArticleJekyll(data: any, options: { date: string }): Liv
     encadre.push(`${I}  <p class="has-text-centered">{% bouton_rendez_vous is-white %}</p>`);
     encadre.push(`${I}</div>`);
     corps.push(encadre.join('\n'));
+
+    // ── Questions fréquentes ──
+    // Après l'encadré : la conclusion garde son élan jusqu'au bouton, et celui
+    // qui descend plus bas cherche une réponse précise.
+    if (faq.length) {
+        corps.push([
+            `${I}<h2>Questions fréquentes</h2>`,
+            // L'insécable devant le « ? » final, comme au titre de l'encadré : seul
+            // en début de ligne sur mobile, il ferait une question bancale.
+            ...faq.flatMap(q => [`${I}<h3>${enLigne(q.question)}</h3>`, ...enBlocsHtml(q.reponse, I)]),
+            jsonLdFaq(faq, I),
+        ].join('\n'));
+    }
 
     // ── Références ──
     const references = paragraphesDe(Array.isArray(data.references) ? data.references : texte(data.references).split('\n'))
