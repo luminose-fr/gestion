@@ -13,7 +13,10 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const MIGRATIONS = join(import.meta.dirname, '..', '..', 'migrations');
+/** Les migrations de la base éditoriale (`DB`). */
+export const MIGRATIONS = join(import.meta.dirname, '..', '..', 'migrations');
+/** Les migrations de la base des clients (`CLIENTS`, SPEC §14.4) : numérotées à part. */
+export const MIGRATIONS_CLIENTS = join(import.meta.dirname, '..', '..', 'migrations-clients');
 
 type Row = Record<string, unknown>;
 
@@ -51,12 +54,20 @@ class Stmt {
 export class TestD1 {
   private db = new DatabaseSync(':memory:');
 
-  constructor() {
+  /**
+   * Une base par dossier de migrations : l'éditoriale par défaut, celle des
+   * clients pour `CLIENTS`. Deux bases distinctes, comme en production — une
+   * requête qui joindrait l'une à l'autre échouerait ici aussi.
+   *
+   * Ce que `node:sqlite` ne prouve pas — les clés étrangères et l'index partiel
+   * tels que D1 les applique — se constate en recette (essai/contraintes.ts).
+   */
+  constructor(dossier: string = MIGRATIONS) {
     // Les clés étrangères ne sont PAS actives par défaut en SQLite : sans ça,
     // les ON DELETE CASCADE des migrations ne seraient jamais exercés.
     this.db.exec('PRAGMA foreign_keys = ON');
-    for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
-      this.db.exec(readFileSync(join(MIGRATIONS, file), 'utf8'));
+    for (const file of readdirSync(dossier).filter((f) => f.endsWith('.sql')).sort()) {
+      this.db.exec(readFileSync(join(dossier, file), 'utf8'));
     }
   }
 
@@ -84,8 +95,14 @@ export class TestD1 {
   }
 }
 
-export const makeEnv = () => ({
+/**
+ * Un environnement de test. **Sans `CLIENTS` par défaut** : c'est l'état de la
+ * production jusqu'à la phase S4, et toute la suite d'avant doit y passer
+ * (§14.2, règle 2). Un test qui a besoin de la base des clients la demande.
+ */
+export const makeEnv = (options: { clients?: boolean } = {}) => ({
   DB: new TestD1() as unknown as D1Database,
+  ...(options.clients ? { CLIENTS: new TestD1(MIGRATIONS_CLIENTS) as unknown as D1Database } : {}),
   SESSION_SECRET: 'secret-de-test',
   AUTH_USERNAME: 'florent',
   AUTH_PASSWORD: 'mot-de-passe',
