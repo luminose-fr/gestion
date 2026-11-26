@@ -7,4 +7,4 @@
  * créneaux, la fenêtre de réservation et la liste d'attente viendront ici, et
  * nulle part ailleurs.
  */
-export { normaliserEmail, normaliserNom, nomRecherche, cleClient } from './client';
+export { normaliserEmail, normaliserNom, nomRecherche, cleClient } from './client.ts';

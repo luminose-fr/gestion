@@ -22,6 +22,8 @@ npm run dev:mcp        # Worker MCP sur :8788 (workers/mcp/README.md)
 npm test               # vitest, tous les workspaces
 npm run typecheck      # tsc --noEmit, tous les workspaces
 npm run deploy         # ./scripts/deploy.sh
+./scripts/deploy.sh --env recette           # la recette (SPEC §14.8)
+npm run essai -w workers/api -- --local      # jeu d'essai des clients (ou --recette)
 ```
 
 Aucune CI n'exécute les tests. `npm test` et `npm run typecheck` **avant chaque push**.
