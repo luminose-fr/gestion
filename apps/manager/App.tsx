@@ -39,6 +39,7 @@ import { PubliesView, type VuePublies } from './components/Contenus/PubliesView'
 import { REDIRECTIONS, estListe, libelleDeListe, listeDuContenu, type ListeContenus } from './components/Contenus/listes';
 import { PanneauSerie, AvancementSerie } from './components/Contenu/Serie';
 import { CadreContenu, PiedContenu } from './components/Contenu/CadreContenu';
+import { BandeauEnvironnement } from './components/BandeauEnvironnement';
 
 const SettingsSpace = lazy(() => import('./components/Settings/SettingsSpace'));
 const CorpusSpace = lazy(() => import('./components/Corpus/CorpusSpace'));
@@ -145,6 +146,7 @@ const adresseRemplacee = (): string | null => {
 
 function App() {
   const [authenticated, setAuthenticated] = useState(false);
+  const [nomEnvironnement, setNomEnvironnement] = useState<Api.NomEnvironnement | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -403,6 +405,18 @@ function App() {
   useEffect(() => {
     void isAuthenticated().then(setAuthenticated).finally(() => setCheckingAuth(false));
   }, []);
+
+  // Où l'on est (SPEC §14.8) : lu une fois la session ouverte, pour le bandeau.
+  // Un échec laisse le nom vide — pas de bandeau, comme en production : la
+  // console ne doit pas se bloquer sur une information d'affichage.
+  useEffect(() => {
+    if (!authenticated) return;
+    let vivant = true;
+    Api.fetchEnvironnement()
+      .then(e => { if (vivant) setNomEnvironnement(e?.nom ?? null); })
+      .catch(() => {});
+    return () => { vivant = false; };
+  }, [authenticated]);
 
   // Les pastilles du panneau Corpus. Rechargées à chaque changement de section :
   // capturer puis revenir sur l'état doit faire bouger le compteur, sinon la
@@ -1191,7 +1205,10 @@ function App() {
   );
 
   return (
-    <div className="flex h-screen bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans transition-colors duration-200 overflow-hidden border-t border-brand-border dark:border-dark-sec-border">
+    <div className="flex flex-col h-screen">
+    {/* Au-dessus de tout, barre latérale comprise : il ne s'efface jamais (SPEC §14.8). */}
+    <BandeauEnvironnement nom={nomEnvironnement} />
+    <div className="flex flex-1 min-h-0 bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans transition-colors duration-200 overflow-hidden border-t border-brand-border dark:border-dark-sec-border">
 
       <Sidebar
           currentSpace={currentSpace}
@@ -1550,6 +1567,7 @@ function App() {
         </Suspense>
       </div>
 
+    </div>
     </div>
   );
 }

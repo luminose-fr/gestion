@@ -33,6 +33,8 @@ import { LoginPage } from '../components/LoginPage';
 import CalendarView from '../components/CalendarView';
 import PsychedelicsCalculator from '../components/PsychedelicsCalculator';
 import RdvView from '../components/Clients/RdvView';
+import { BandeauEnvironnement } from '../components/BandeauEnvironnement';
+import { BaseClients } from '../components/Settings/BaseClients';
 import { ConversationsView } from '../components/Contenus/ConversationsView';
 import { IdeesView } from '../components/Contenus/IdeesView';
 import { PubliesView } from '../components/Contenus/PubliesView';
@@ -913,6 +915,67 @@ describe('le fil (SPEC §13.10)', () => {
     fireEvent.click(getByText('Passer au Rédacteur sans répondre'));
     fireEvent.click(getByText('Répondre d’abord'));
     expect([passe, repondu]).toEqual([1, 1]);
+  });
+});
+
+/**
+ * Le bandeau d'environnement a un retour anticipé — rien en production —, et
+ * la ligne « Base des clients » trois états lus. Tous se montent (SPEC §14.8).
+ */
+describe('où l’on est (SPEC §14.8)', () => {
+  it('le bandeau : rien en production ni avant lecture ; « Recette » et « Local » sinon', () => {
+    for (const nom of ['production', null] as const) {
+      const { container } = render(<BandeauEnvironnement nom={nom} />);
+      expect(container.innerHTML).toBe('');
+      cleanup();
+    }
+    const recette = render(<BandeauEnvironnement nom="recette" />);
+    expect(recette.container.textContent).toContain('Recette');
+    expect(recette.container.textContent).toContain('données fictives');
+    cleanup();
+    expect(render(<BandeauEnvironnement nom="local" />).container.textContent).toContain('Local');
+  });
+
+  /** Une réponse par route : la ligne n'en appelle que deux. */
+  const repondre = (environnement: unknown, etat?: unknown) => {
+    const appels: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      appels.push(String(url));
+      if (String(url).endsWith('/api/environnement')) return new Response(JSON.stringify(environnement), { status: 200 });
+      if (String(url).endsWith('/api/clients/etat')) return new Response(JSON.stringify(etat), { status: 200 });
+      return new Response('{}', { status: 200 });
+    });
+    return appels;
+  };
+
+  it('Réglages : « Non reliée » sans liaison — et sans provoquer le 409', async () => {
+    const appels = repondre({ nom: 'production', clientsReliee: false });
+    const { findByText, container } = render(<BaseClients />);
+    await findByText('Non reliée');
+    expect(container.textContent).not.toContain('données fictives');
+    expect(appels.some(a => a.endsWith('/api/clients/etat'))).toBe(false);
+  });
+
+  it('Réglages : « Reliée », les trois effectifs, et « données fictives » hors production', async () => {
+    repondre({ nom: 'recette', clientsReliee: true }, { fiches: 8, seances: 12, evenements: 3 });
+    const { findByText, container } = render(<BaseClients />);
+    await findByText('Reliée');
+    expect(container.textContent).toContain('8 fiches · 12 séances · 3 évènements');
+    expect(container.textContent).toContain('données fictives');
+  });
+
+  it('Réglages : reliée en production, sans la mention des données fictives', async () => {
+    repondre({ nom: 'production', clientsReliee: true }, { fiches: 1, seances: 0, evenements: 0 });
+    const { findByText, container } = render(<BaseClients />);
+    await findByText('Reliée');
+    expect(container.textContent).toContain('1 fiche · 0 séance · 0 évènement');
+    expect(container.textContent).not.toContain('données fictives');
+  });
+
+  it('Réglages : une erreur se dit, sans casser la section', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: 'Erreur interne' }), { status: 500 }));
+    const { findByText } = render(<BaseClients />);
+    await findByText(/Erreur 500/);
   });
 });
 

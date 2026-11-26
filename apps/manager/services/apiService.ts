@@ -543,6 +543,28 @@ export const fetchMesures = () =>
 export const fetchQuotas = () =>
   api<QuotasReponse>('/quotas', {}, { label: 'Lecture des quotas', cle: 'api:quotas' });
 
+// ── Où l'on est, et la base des clients (SPEC §14.8) ──────────────────────
+
+export type NomEnvironnement = 'production' | 'recette' | 'local';
+
+/** Le bandeau de la console et la ligne d'état de Réglages. Aucune donnée de personne. */
+export interface Environnement {
+  nom: NomEnvironnement;
+  clientsReliee: boolean;
+}
+
+/** Trois effectifs, sans rien de ce qu'ils comptent. */
+export interface EtatBaseClients {
+  fiches: number;
+  seances: number;
+  evenements: number;
+}
+
+export const fetchEnvironnement = () => api<Environnement>('/environnement');
+
+/** 409 quand la base n'est pas reliée : ne l'appeler qu'après `fetchEnvironnement`. */
+export const fetchEtatBaseClients = () => api<EtatBaseClients>('/clients/etat');
+
 // ── Écriture du corpus : on commite dans Git, on n'écrit pas le bundle ────
 
 export interface SourceCorpus {

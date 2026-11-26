@@ -13,6 +13,7 @@ import {
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { AIModel, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
+import { BaseClients } from './BaseClients';
 import * as Api from '../../services/apiService';
 import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
@@ -2036,6 +2037,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 Et ce n'est pas ici que se lit la dépense : les modèles se facturent à part, dans Mesures.
                             </p>
                         </div>
+
+                        {/* L'état des liaisons de cet environnement : la base des clients (SPEC §14.8). */}
+                        <BaseClients />
 
                         {quotasErreur && (
                             <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
