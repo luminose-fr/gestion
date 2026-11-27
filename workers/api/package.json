@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@luminose/ai": "^2.0.0",
+    "@luminose/contrat": "*",
     "@luminose/corpus": "*",
     "@luminose/editorial": "^2.0.0",
     "@luminose/pratique": "*",

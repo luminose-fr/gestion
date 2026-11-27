@@ -1,0 +1,16 @@
+{
+  "cle": "c7e2a4b6d8f0123456789abcdef01234",
+  "contexte": "journee_externe",
+  "version": "complet",
+  "version_formulaire": "2026-12",
+  "evenement": "essai-evenement-ailleurs",
+  "identite": { "prenom": "Ève", "nom": "Dupont-Lévêque", "email": "eve.dupont@example.org", "telephone": null },
+  "coordonnees": { "civilite": "Mme", "date_naissance": "1979-09-30" },
+  "reponses": [
+    { "cle": "sante.maladie-cardio", "libelle": "Maladies cardio-vasculaires (texte d'essai)", "reponse": "oui" }
+  ],
+  "informations": "Texte libre d'essai.",
+  "declaration": true,
+  "accord": { "accepte": true, "version": 1 },
+  "site_web": ""
+}
