@@ -3222,3 +3222,90 @@ describe('le prompt d’image et Illustrer (v2.37)', () => {
     expect(render(<SlidesRenderer slidesRaw="pas du json" />).container.textContent).toContain('pas du json');
   });
 });
+
+// ─── La console des clients (SPEC §15.4 ; navigation du 27/11/2026) ─────────
+
+import { FichesView } from '../components/Clients/FichesView';
+import { NouvelleFicheView } from '../components/Clients/NouvelleFicheView';
+import { FicheView } from '../components/Clients/FicheView';
+import { SeanceView, NotesDeSeance } from '../components/Clients/SeanceView';
+import { PlanningView } from '../components/Clients/PlanningView';
+import { PoserRendezVous } from '../components/Clients/PoserRendezVous';
+import { ChoixFiche } from '../components/Clients/ChoixFiche';
+import { EspaceClients, EspaceSeances } from '../components/Clients/Espaces';
+import * as ClientsService from '../services/clientsService';
+import { routesChargees, routesNonReliees } from './helpers/clients';
+
+const NON_RELIEE_TEXTE = 'La base des clients n’est pas reliée à cet environnement.';
+
+describe('la console des clients — chaque écran chargé, vide, base non reliée', () => {
+  beforeEach(() => { window.location.hash = ''; });
+
+  const ECRANS: Array<[string, () => React.ReactElement, string]> = [
+    ['Fiches', () => <FichesView />, 'Émilie Martin'],
+    ['Nouvelle fiche', () => <NouvelleFicheView />, 'Nouvelle fiche'],
+    ['Une fiche', () => <FicheView id="fiche-1" />, 'Identité et coordonnées'],
+    ['Une séance', () => <SeanceView id="seance-1" />, 'Histoire du rendez-vous'],
+    ['Semaine', () => <PlanningView vue="semaine" date="2027-01-11" />, 'Émilie Martin'],
+    ['Mois', () => <PlanningView vue="mois" date="2027-01-01" />, 'Émilie'],
+  ];
+
+  it.each(ECRANS)('%s : chargé', async (_, ecranRendu, attendu) => {
+    routesChargees();
+    const { container } = render(ecranRendu());
+    await waitFor(() => expect(container.textContent).toContain(attendu));
+  });
+
+  it.each(ECRANS.filter(([nom]) => nom !== 'Nouvelle fiche'))('%s : base non reliée', async (_, ecranRendu) => {
+    routesNonReliees();
+    const { container } = render(ecranRendu());
+    await waitFor(() => expect(container.textContent).toContain(NON_RELIEE_TEXTE));
+  });
+
+  it('Fiches et Semaine : vides', async () => {
+    routesChargees();
+    vi.spyOn(ClientsService, 'rechercherFiches').mockResolvedValue({ fiches: [], page: 0, suite: false });
+    vi.spyOn(ClientsService, 'seancesDeLaPeriode').mockResolvedValue({ seances: [] });
+    const fiches = render(<FichesView />);
+    await waitFor(() => expect(fiches.container.textContent).toContain('Aucune fiche'));
+    cleanup();
+    const semaine = render(<PlanningView vue="semaine" date="2027-01-11" />);
+    await waitFor(() => expect(semaine.container.textContent).toContain('Aucune séance cette semaine'));
+  });
+
+  it('un refus de la route s’affiche tel qu’elle l’écrit', async () => {
+    routesChargees();
+    vi.spyOn(ClientsService, 'lireFiche').mockRejectedValue(new ClientsService.ErreurClients('Cette fiche n’existe pas.', 404));
+    const { container } = render(<FicheView id="absente" />);
+    await waitFor(() => expect(container.textContent).toContain('Cette fiche n’existe pas.'));
+  });
+
+  it('les composants à retour anticipé, dans leurs deux états', async () => {
+    routesChargees();
+    // ChoixFiche : une fiche choisie, puis aucune.
+    const choisie = render(<ChoixFiche id="t" label="Personne" valeur={{ id: 'fiche-1', prenom: 'Émilie', nom: 'Martin' }} onChange={() => {}} />);
+    expect(choisie.container.textContent).toContain('Émilie Martin');
+    cleanup();
+    const vide = render(<ChoixFiche id="t" label="Personne" valeur={null} onChange={() => {}} />);
+    expect(vide.container.querySelector('input')).not.toBeNull();
+    cleanup();
+    // NotesDeSeance et SeanceView : en lecture, puis lues.
+    const notes = render(<NotesDeSeance id="seance-1" />);
+    expect(notes.container.textContent).toContain('Lecture des notes');
+    await waitFor(() => expect(notes.container.textContent).toContain('Réponse SMS'));
+    cleanup();
+    const fenetre = render(<PoserRendezVous fiche={{ id: 'fiche-1', prenom: 'Émilie', nom: 'Martin' }} onFermer={() => {}} onPose={() => {}} />);
+    await waitFor(() => expect(fenetre.container.textContent).toContain('aucun message ne part'));
+  });
+
+  it('les espaces lisent leur adresse', async () => {
+    routesChargees();
+    window.location.hash = '#clients/fiche-1';
+    const fiche = render(<EspaceClients />);
+    await waitFor(() => expect(fiche.container.textContent).toContain('Identité et coordonnées'));
+    cleanup();
+    window.location.hash = '#seances/seance-1';
+    const seance = render(<EspaceSeances />);
+    await waitFor(() => expect(seance.container.textContent).toContain('Histoire du rendez-vous'));
+  });
+});
