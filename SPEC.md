@@ -3240,8 +3240,9 @@ données de santé, envoyées par des gens qu'elle ne peut pas authentifier.
    `questionnaires`, `seances_notes`, `seances_reponses`, `clients_confiance`, `clients_notes`.
    Dans le code (`workers/*/src`, `packages/*`, `apps/*`), seul
    `workers/api/src/clients/sensible.ts` écrit leurs noms ; un test parcourt ces sources et échoue
-   si un autre fichier en nomme une. Les migrations, les tests, le jeu d'essai et cette
-   spécification sont hors du contrôle. Ces données ne sortent par aucun autre chemin : ni la
+   si un autre fichier en nomme une. Les migrations, les tests, le jeu d'essai, l'outil d'import
+   (`workers/api/import/`, hors de `src` : il écrit ces tables, sur le poste, dans une base
+   locale — §14.9.1) et cette spécification sont hors du contrôle. Ces données ne sortent par aucun autre chemin : ni la
    porte de service, ni le serveur MCP, ni l'IA, ni l'export général, ni les journaux, ni le
    stockage du navigateur.
 4. **La porte publique n'apprend rien sur personne, et ne change rien à une fiche.** À parcours
@@ -3580,6 +3581,39 @@ et une clé d'unicité. **Ni adresse, ni numéro, ni texte.**
   par client, places libres par évènement — comparées à celles de Notion, et la liste de ce qui
   demande un regard : fiches de trois mots ou plus, séances sans type reconnu, fiches de même clé.
 - Les correspondances sont en Annexe D.
+
+#### 14.9.1 L'outil
+
+`workers/api/import/`, lancé par Florent sur son poste : `npm run import -w workers/api -- <commande>`.
+Quatre temps, puis de quoi voir le résultat.
+
+| Temps | Commande | Ce qu'il fait |
+| :--- | :--- | :--- |
+| Exporter | `exporter` | lit les quatre bases par l'API de Notion (clé `NOTION_API_KEY` du poste, identifiants des bases dans `config.json` du dossier privé — modèle : `import/config.modele.json`) et écrit **un** fichier : pour chaque base, son schéma et toutes ses pages, propriétés brutes ; pour les Clients et les Séances, le corps de chaque page, blocs datés. Pagination complète, limite de débit respectée ; une erreur arrête tout, **sans fichier partiel** |
+| Lire et transformer | `preparer` | confronte le schéma exporté aux propriétés attendues (inventaire, §1) et **s'arrête** sur une propriété absente ou d'un type illisible, en la nommant ; puis transforme, en fonction pure, l'export en lignes et en **rapport de ce qui demande un regard** ; écrit le fichier SQL et le rapport |
+| Écrire et appliquer | `appliquer` | applique le SQL à la base **locale** du dossier privé, migrations comprises — tout ou rien |
+| Vérifier | `verifier` | compare l'export et la base ligne par ligne et champ par champ (§9.3), et les valeurs recalculées à celles de Notion ; affiche les écarts par identifiant et nom de champ, **jamais leur valeur** |
+| Voir | `voir` | l'API locale sur cette base (`wrangler dev`), pour ouvrir la console sur ses vraies données sans qu'elles passent par le dossier du dépôt |
+
+**Les garde-fous.**
+
+- **Un dossier privé, un seul**, pour tout ce que l'outil produit : export, SQL, rapport, fichiers
+  temporaires, et la base locale elle-même (`--persist-to`). Par défaut `~/.luminose-import`,
+  créé en droits `700`. Le chemin est résolu dans sa forme réelle, liens symboliques suivis, et
+  **tout dossier situé dans un arbre git est refusé** — le dépôt comme un autre ; chaque sortie
+  est revérifiée. `.gitignore` ne protège de rien : c'est le refus du chemin qui protège.
+- **Le mode local est écrit en dur** (`import/appliquer.ts`) : aucune option, aucune variable ne
+  vise une base distante ; `--remote` et `--env` sont refusés. Le nom et l'identifiant d'une base
+  sont les mêmes en local et à distance : ils ne protègent de rien. La télémétrie de wrangler est
+  coupée : aucun appel réseau pendant l'application.
+- **Tout, ou rien** : `wrangler d1 execute --local --file` joue le fichier en une transaction ;
+  une erreur au milieu laisse la base d'avant (testé, sur la VM).
+- La clé de Notion n'est ni affichée, ni journalisée, ni écrite. Les messages d'erreur ne
+  recopient ni une valeur lue, ni la sortie de wrangler.
+- `detruire --oui` efface le dossier privé.
+
+**Les règles de reprise** — ce que le modèle (§6) ne dit pas ; elles sont en Annexe D.
+
 
 ### 14.10 Ce qui se teste
 
@@ -4329,3 +4363,52 @@ Tout est repris ; « Adresse complète » et « Clients reçus » se calculent.
 Les anciens questionnaires : une ligne `questionnaires` ★ par PDF de Drive (client, date,
 lien ; `source = 'import_drive'`), sans en lire le contenu ; les cas douteux reviennent à
 Florent.
+
+### Les règles de reprise (phase S3)
+
+Ce que la correspondance ne dit pas, et que l'outil applique (`workers/api/import/`). Ce qu'il
+ne sait pas traduire, il ne le devine jamais : la ligne est reprise sans la valeur quand la
+colonne l'accepte, et le cas est listé dans le rapport, par identifiant.
+
+**Partout.**
+- L'identifiant d'une ligne est celui de sa page Notion. Une ligne sans page — une note, une
+  personne de confiance, un paiement, une inscription, un ancien questionnaire — a un
+  identifiant **dérivé** des siens (`note-<fiche>`, `paiement-<séance>`,
+  `inscription-<évènement>-<fiche>`, `drive-<fichier>`) : deux imports donnent les mêmes.
+- Les relations sont validées avant d'écrire : vers une page absente de l'export, la ligne est
+  reprise sans le lien ; une relation « un seul » qui en porte plusieurs : aucun lien choisi.
+  Les deux cas sont listés.
+- `created_at`, `updated_at` : ceux de la page. Une date sans heure, là où le modèle veut
+  `AAAA-MM-JJ`, reste un texte.
+- **Insertion ou mise à jour, jamais `INSERT OR REPLACE`** — il retirerait la ligne et, par les
+  clés étrangères, tout ce qui en dépend. La cible du conflit se définit table par table d'après
+  les index uniques ; une mise à jour ne touche que les colonnes que Notion pilote. Le prix d'un
+  évènement, la référence d'une inscription, le type attribué à la main ne sont jamais remis à
+  vide. Les lignes de référence (types, horaires, réglages) ne sont pas touchées.
+- Une ligne importée puis absente de l'export suivant n'est pas retirée : elle est listée.
+
+**Clients.** « Nom » : le premier mot en prénom, le reste en nom ; trois mots ou plus, listé.
+Nom de recherche et clé par `packages/pratique`. « France - FR » → `FR`. Origine reprise telle
+quelle. Les trois liens s'écrivent après toutes les fiches. Une personne de confiance seulement
+si l'un de ses cinq champs est rempli. Le corps de la page, en texte brut, devient la note de
+la fiche. **Un ancien questionnaire** : un lien Drive dont le paragraphe contient
+« questionnaire » — une ligne `questionnaires` par fichier Drive (`source = 'import_drive'`, la
+date du bloc, aucune réponse, contexte `seance` par défaut) ; les autres liens Drive ne créent
+rien et sont listés. Aucun PDF n'est ouvert.
+
+**Séances.** Le type, par le libellé entre parenthèses du titre, selon une table de
+correspondance versionnée (`import/correspondance.ts`) ; un libellé inconnu : sans type, listé
+avec son nombre. Sans fin : la durée du type, sinon 60 minutes, listé. Origine `import`,
+`agenda_etat = 'ecrit'`, révision 0, aucun mouvement. Le corps est découpé selon la trame
+(Séance, Travail personnel, Idées pour la suite, Réponse SMS) quand ses titres y sont, et
+toujours gardé entier. Un paiement par référence Stancer, en centimes ; deux séances de même
+référence : aucun paiement, listées ; payée sans Stancer : pas de ligne, comptée. **Un statut
+vide : la séance n'est pas reprise**, et listée ; un état de paiement vide : « à payer », listé.
+**Deux séances prévues, à venir, qui se chevauchent — marge comprise — arrêtent l'import avant
+toute écriture**, désignées par leurs identifiants : cela se corrige dans Notion. Passées, elles
+sont reprises : c'est de l'histoire.
+
+**Évènements.** Le prix reste vide, et chaque évènement à venir est listé « prix à saisir ».
+Une inscription par personne, `confirmee`, origine `import` ; sa référence publique est tirée
+au hasard à la première insertion et gardée ensuite. Une inscription prise dans gestion pour la
+même fiche l'emporte.
