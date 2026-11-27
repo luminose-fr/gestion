@@ -149,7 +149,7 @@ export type Resolue = {
   ratelimits: { name: string; namespaceId: string; limit: number; period: number }[];
   /** Les clés de liaison que la section déclare, quelles qu'elles soient. */
   liaisons: string[];
-  observabilite: { enabled: boolean; headSamplingRate: number | null };
+  observabilite: { enabled: boolean; headSamplingRate: number | null; journauxDInvocation: boolean; traces: boolean };
 };
 
 const HERITEES = ['routes', 'triggers', 'workers_dev', 'preview_urls', 'observability'] as const;
@@ -173,6 +173,8 @@ export const resoudre = (source: string, environnement: string | null): Resolue 
     ? { pattern: r, customDomain: false }
     : { pattern: String((r as Table).pattern), customDomain: (r as Table).custom_domain === true }));
   const observabilite = (valeur('observability') ?? {}) as Table;
+  const journaux = (observabilite.logs ?? {}) as Table;
+  const traces = (observabilite.traces ?? {}) as Table;
   return {
     environnement,
     name,
@@ -204,6 +206,9 @@ export const resoudre = (source: string, environnement: string | null): Resolue 
     observabilite: {
       enabled: observabilite.enabled === true,
       headSamplingRate: typeof observabilite.head_sampling_rate === 'number' ? observabilite.head_sampling_rate : null,
+      // Non déclarés, wrangler les active avec l'observabilité.
+      journauxDInvocation: observabilite.enabled === true && journaux.invocation_logs !== false,
+      traces: traces.enabled === true,
     },
   };
 };
@@ -321,6 +326,11 @@ export const ecartsPorteRecette = (source: string): string[] => {
   }
   for (const l of r.ratelimits) {
     if (!(l.limit > 0) || ![10, 60].includes(l.period)) ecarts.push(`${l.name} : limite ${l.limit} sur ${l.period} s — une limite positive, sur 10 ou 60 secondes`);
+  }
+  // Règle 7 : un journal d'invocation garde l'adresse IP et la géolocalisation de l'appelant (§14.3).
+  for (const [nom, o] of [['racine', racine.observabilite], ['recette', r.observabilite]] as const) {
+    if (o.journauxDInvocation) ecarts.push(`${nom} : invocation_logs doit valoir false (observability.logs) — ils gardent l’adresse IP`);
+    if (o.traces) ecarts.push(`${nom} : observability.traces doit rester désactivé — les traces portent les mêmes attributs`);
   }
   const autres = r.liaisons.filter((l) => l !== 'services' && l !== 'ratelimits');
   if (autres.length > 0) ecarts.push(`liaisons interdites à la porte (ni base, ni KV, ni secret — §14.3) : ${autres.join(', ')}`);

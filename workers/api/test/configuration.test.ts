@@ -145,7 +145,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     expect(racine.crons).toEqual([]);
     expect(racine.liaisons).toEqual([]);
     expect(racine.vars).toEqual({});
-    expect(racine.observabilite.enabled).toBe(false);
+    expect(racine.observabilite).toEqual({ enabled: false, headSamplingRate: null, journauxDInvocation: false, traces: false });
   });
 
   it('la recette déclare tout ce qui s’hérite, et une seule liaison : l’entrée Essai de gestion de recette', () => {
@@ -171,8 +171,8 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
       { name: 'LIMITE_QUESTIONNAIRES', namespaceId: '2611', limit: 10, period: 60 },
       { name: 'LIMITE_LIENS', namespaceId: '2612', limit: 30, period: 60 },
     ]);
-    // Le temps de l'essai : tout est relevé (§14.3).
-    expect(r.observabilite).toEqual({ enabled: true, headSamplingRate: 1 });
+    // Les codes de la porte, sans journal d'invocation ni traces (§14.3, règle 7).
+    expect(r.observabilite).toEqual({ enabled: true, headSamplingRate: 1, journauxDInvocation: false, traces: false });
   });
 
   it('le fichier du dépôt est une porte de recette conforme', () => {
@@ -212,6 +212,14 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     expect(ecartsPorteRecette(PORTE.replace('ORIGINE_SITE = "https://essai-recette.luminose.fr"', 'ORIGINE_SITE = "*"')).join('\n')).toMatch(/ORIGINE_SITE/);
     const sansLimite = PORTE.replace(/\[\[env\.recette\.ratelimits\]\]\nname = "LIMITE_LIENS"[\s\S]*$/, '');
     expect(ecartsPorteRecette(sansLimite).join('\n')).toMatch(/limiteurs/);
+  });
+
+  it('NORMATIF — règle 7 : des journaux d’invocation, ou des traces, sont refusés', () => {
+    const avecJournaux = PORTE.replace('[env.recette.observability.logs]\nenabled = true\ninvocation_logs = false\n', '');
+    expect(resoudre(avecJournaux, 'recette').observabilite.journauxDInvocation).toBe(true);
+    expect(ecartsPorteRecette(avecJournaux)).toEqual(['recette : invocation_logs doit valoir false (observability.logs) — ils gardent l’adresse IP']);
+    const avecTraces = PORTE.replace('[env.recette.observability.traces]\nenabled = false', '[env.recette.observability.traces]\nenabled = true');
+    expect(ecartsPorteRecette(avecTraces).join('\n')).toMatch(/recette : observability.traces/);
   });
 
   it('un déclencheur hérité ou déclaré : refusé', () => {

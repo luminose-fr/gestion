@@ -32,10 +32,23 @@ workers_dev = false
 preview_urls = false
 routes = []
 
-# Pas d'observabilité tant que l'essai n'a pas dit ce que Workers Logs garde
-# d'une invocation (en-têtes, adresse IP) : à trancher au §14.3 avant la
-# production.
+# L'OBSERVABILITÉ SANS LES JOURNAUX D'INVOCATION (SPEC §14.3, relevé du
+# 27/11/2026). Un journal d'invocation garde l'URL complète, TOUS les en-têtes
+# de la requête — l'adresse IP en clair, deux fois (cf-connecting-ip,
+# x-real-ip) — et l'objet `cf` : ville, code postal, latitude, longitude, ASN.
+# C'est la règle 7 qui tombe. On ne garde que les `console.*` de la porte, qui
+# ne sont que des codes fixes ; ni traces, qui portent les mêmes attributs.
+#
+# La racine n'est déployée par rien, mais `observability` s'hérite : elle
+# déclare le même refus, pour qu'un environnement qui l'oublierait n'hérite
+# pas d'une observabilité complète.
 [observability]
+enabled = false
+
+[observability.logs]
+invocation_logs = false
+
+[observability.traces]
 enabled = false
 
 # ─── Recette : api-recette.luminose.fr ───────────────────────────────────────
@@ -65,11 +78,20 @@ ORIGINE_PORTE = "https://api-recette.luminose.fr"
 [env.recette.triggers]
 crons = []
 
-# L'essai à blanc : tout est relevé, le temps de l'essai (§14.3) — temps de
-# calcul, sous-requêtes, et ce que l'invocation garde.
+# Les codes de panne de la porte, et rien d'autre : pas de journal
+# d'invocation (voir la racine). Qu'il ne garde plus l'adresse IP se constate
+# au premier déploiement en recette (SPEC §14.3) : ce réglage est celui que
+# wrangler documente, pas encore une preuve.
 [env.recette.observability]
 enabled = true
 head_sampling_rate = 1
+
+[env.recette.observability.logs]
+enabled = true
+invocation_logs = false
+
+[env.recette.observability.traces]
+enabled = false
 
 # L'entrée d'essai de gestion (workers/api/src/index.ts, classe `Essai`). Seul
 # un Worker qui déclare cette liaison l'atteint : elle n'a pas d'adresse.
