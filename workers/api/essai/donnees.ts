@@ -4,7 +4,7 @@
  * Aucune personne réelle : des adresses en `@example.org`, des téléphones de la
  * plage `+33 6 39 98 …`, des textes qui disent qu'ils sont d'essai. Ce fichier
  * est hors du contrôle de la règle 3 (§14.2) : il nomme les tables sensibles,
- * pour y poser deux lignes manifestement factices.
+ * pour y poser quelques lignes manifestement factices.
  *
  * **Rejouable** : chaque ligne a un identifiant fixe, préfixé `essai-`, et
  * s'écrit par `INSERT … ON CONFLICT(id) DO UPDATE` — jamais un `DELETE`, dont
@@ -49,7 +49,9 @@ const GABARITS: Record<CleType, { duree: number; marge: number; montant: number;
 export const EFFECTIFS = {
   professionnels: 1,
   // Les identités de la tâche 3 : une mère et son enfant à la même adresse,
-  // deux fiches de même clé (« à rapprocher »), une fiche sans adresse.
+  // deux fiches de même clé (« à rapprocher »), une fiche sans adresse. Et,
+  // pour la console : une fiche venue par un professionnel, une fiche qui en a
+  // recommandé une autre (la mère, pour son enfant), un couple.
   clients: 8,
   // Une à venir par type (6) ; cinq passées pour une fiche, dont une annulée ;
   // une sans client, qui garde l'identité reçue.
@@ -60,11 +62,12 @@ export const EFFECTIFS = {
   evenements: 3,
   inscriptions: 6,
   paiements: 2,
-  // Les tables sensibles : seulement deux lignes manifestement factices.
+  // Les tables sensibles : quelques lignes, manifestement factices.
   seances_notes: 1,
   questionnaires: 1,
-  clients_confiance: 0,
-  clients_notes: 0,
+  // La console (phase C1) : une note de fiche et une personne de confiance, factices.
+  clients_confiance: 1,
+  clients_notes: 1,
   seances_reponses: 0,
   // Phase S2a : de quoi recevoir un questionnaire et composer son accusé de
   // réception. Factices l'un et l'autre, et hors des migrations : les vrais
@@ -293,6 +296,13 @@ export const jeuDEssai = (dateReference: string): JeuDEssai => {
     objet: 'Accusé de réception d’essai', corps: 'Texte d’essai — accusé de réception, {{prenom}}.', deleted_at: null, ...t,
   }];
 
+  // La console (phase C1) : de quoi remplir les cartes d'une fiche.
+  const notesFiche: Ligne[] = [{ id: 'essai-note-fiche', client_id: 'essai-client-emilie', texte: 'Texte d’essai — note de fiche', ...t }];
+  const confiance: Ligne[] = [{
+    id: 'essai-confiance', client_id: 'essai-client-emilie', civilite: 'M.', prenom: 'Personne', nom: 'D’essai',
+    telephone: '+33 6 39 98 00 60', email: 'confiance@example.org', mis_a_jour_le: maintenant, questionnaire_id: null, ...t,
+  }];
+
   // Dans l'ordre des renvois : ce qui est désigné avant ce qui désigne.
   return [
     { table: 'textes_versions', lignes: textes },
@@ -306,6 +316,8 @@ export const jeuDEssai = (dateReference: string): JeuDEssai => {
     { table: 'paiements', lignes: paiements },
     { table: 'seances_notes', lignes: notes },
     { table: 'questionnaires', lignes: questionnaires },
+    { table: 'clients_notes', lignes: notesFiche },
+    { table: 'clients_confiance', lignes: confiance },
   ];
 };
 
@@ -334,5 +346,8 @@ export const enSql = (jeu: JeuDEssai): string => {
     }
   }
   instructions.push(`UPDATE seances SET questionnaire_id = 'essai-questionnaire' WHERE id = 'essai-seance-avenir-breathwork';`);
+  // Un couple, lié des deux côtés : chacune des deux fiches désigne l'autre, d'où la fin du fichier.
+  instructions.push(`UPDATE clients SET couple_client_id = 'essai-client-oenone' WHERE id = 'essai-client-jeanluc';`);
+  instructions.push(`UPDATE clients SET couple_client_id = 'essai-client-jeanluc' WHERE id = 'essai-client-oenone';`);
   return `-- Jeu d'essai de la base des clients — identités fictives (SPEC §14.8).\n${instructions.join('\n')}\n`;
 };

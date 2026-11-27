@@ -1,0 +1,149 @@
+# Les routes de la console des clients (SPEC §15.3), sur le jeu d'essai — en LOCAL.
+#
+# Prérequis, sur la VM : `npm run dev:api` (wrangler dev sur :8787, migrations
+# appliquées), puis `npm run essai -w workers/api -- --local`. Identités fictives
+# seulement : les identifiants `essai-…` sont ceux de essai/donnees.ts.
+#
+# Format « REST Client » (VS Code) ou `httpyac`. Chaque requête se lance seule ;
+# la connexion d'abord, qui pose le cookie de session. Les écritures portent
+# l'en-tête Origin de l'adresse appelée : c'est celle qu'accepte l'environnement
+# local (§14.8).
+
+@api = http://localhost:8787
+@origine = http://localhost:8787
+
+### Connexion — les identifiants de .dev.vars
+POST {{api}}/auth/login
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "username": "{{$dotenv AUTH_USERNAME}}", "password": "{{$dotenv AUTH_PASSWORD}}" }
+
+### ── Les fiches ────────────────────────────────────────────────────────────
+
+### La liste — la recherche part dans le corps, jamais dans l'adresse
+POST {{api}}/api/clients/recherche
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "q": "emilie", "page": 0 }
+
+### Les fiches semblables : deux fiches de même clé, et une sans adresse qui ne doit PAS sortir
+POST {{api}}/api/clients/semblables
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "prenom": "Émilie", "nom": "Martin", "email": "emilie.martin@example.org" }
+
+### Une fiche : liens, séances numérotées, inscriptions, liste des questionnaires
+GET {{api}}/api/clients/essai-client-emilie
+
+### Le couple, des deux côtés
+GET {{api}}/api/clients/essai-client-jeanluc
+
+### Créer une fiche
+POST {{api}}/api/clients
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "prenom": "Zoé", "nom": "D’essai", "email": "zoe.essai@example.org", "origine": "Internet" }
+
+### Refusé : un identifiant Stancer ne s'écrit pas d'ici
+POST {{api}}/api/clients
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "prenom": "Zoé", "stancerCustomerId": "cus_essai" }
+
+### Modifier une fiche
+PATCH {{api}}/api/clients/essai-client-eve
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "profession": "Texte d’essai" }
+
+### La note de la fiche, et sa version
+GET {{api}}/api/clients/essai-client-emilie/notes
+
+### Écrire la note — remplacer la version par celle lue juste au-dessus ; une version périmée donne 409
+PUT {{api}}/api/clients/essai-client-emilie/notes
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "texte": "Texte d’essai — modifié", "version": 0 }
+
+### La personne de confiance
+GET {{api}}/api/clients/essai-client-emilie/confiance
+
+### ── Les séances ───────────────────────────────────────────────────────────
+
+### La période : à adapter aux dates du jeu d'essai (la semaine qui suit la date de chargement)
+GET {{api}}/api/seances?du=2026-12-01&au=2027-01-31
+
+### Une séance, ses mouvements
+GET {{api}}/api/seances/essai-seance-passee-3
+
+### Les notes d'une séance
+GET {{api}}/api/seances/essai-seance-passee-1/notes
+
+### Poser un rendez-vous (séance, 90 minutes) — à reposer : la seconde fois, 409
+POST {{api}}/api/seances
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "clientId": "essai-client-eve", "typeSeanceId": "4e7e5b6f-2217-4567-b227-14f2ecbc33b9", "debut": "2027-03-01T10:00:00+01:00" }
+
+### Annuler — deux fois : la seconde répond « fait: false »
+POST {{api}}/api/seances/essai-seance-avenir-distance/annuler
+Origin: {{origine}}
+
+### Remettre à « prévue »
+POST {{api}}/api/seances/essai-seance-avenir-distance/prevoir
+Origin: {{origine}}
+
+### Changer le paiement
+PATCH {{api}}/api/seances/essai-seance-avenir-seance
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "etatPaiement": "payee" }
+
+### ── Les évènements ────────────────────────────────────────────────────────
+
+### Tous, avec leurs places
+GET {{api}}/api/evenements
+
+### Un évènement et ses inscrits
+GET {{api}}/api/evenements/essai-evenement-une-place
+
+### Inscrire une personne à la journée complète : 409
+POST {{api}}/api/evenements/essai-evenement-complet/inscriptions
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "clientId": "essai-client-oenone" }
+
+### Supprimer un évènement qui a des inscrits : 409
+DELETE {{api}}/api/evenements/essai-evenement-une-place
+Origin: {{origine}}
+
+### Annuler une inscription
+PATCH {{api}}/api/inscriptions/essai-inscription-confirmee
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "statut": "annulee" }
+
+### ── Les professionnels, la réservation ────────────────────────────────────
+
+GET {{api}}/api/professionnels
+
+###
+GET {{api}}/api/reservation
+
+### Un réglage
+PATCH {{api}}/api/reservation/reglages
+Content-Type: application/json
+Origin: {{origine}}
+
+{ "liste_attente_personnes_max": 8 }

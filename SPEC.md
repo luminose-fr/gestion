@@ -1531,6 +1531,13 @@ La connexion compare des condensats de longueur fixe et limite chaque adresse ha
 Les réponses privées portent `Cache-Control: no-store` ; Pages sert la CSP
 de `apps/manager/public/_headers`. Aucun CORS n’est ajouté.
 
+**Les routes de la base des clients (v3.0, chapitres 14 et 15).** `/api/clients`, `/api/seances`,
+`/api/evenements`, `/api/inscriptions`, `/api/professionnels` et `/api/reservation` exigent la
+session de la console ; le serveur MCP y reçoit 403, liaison `CLIENTS` présente ou non ; sans
+liaison, 409. Une recherche de personne part dans le corps d'un `POST`, jamais dans une adresse
+(§15.2, règle 3). Un refus de validation ne nomme que des champs connus du schéma ; une panne ne
+journalise qu'un code d'incident fixe, jamais l'exception (§14.2, règle 7).
+
 **Le serveur MCP, appelant de l'API — NORMATIF (v2.34).** Il présente son propre jeton en
 `Authorization: Bearer` ; le Worker n'en garde que l'empreinte SHA-256
 (`MCP_JETON_EMPREINTE`), comparée en temps constant. Facultative : absente, un porteur est
@@ -3771,6 +3778,225 @@ Travel) et les sauvegardes le gardent jusqu'à leur terme : la durée réelle es
 l'écran d'effacement la dit. Une restauration ramènerait une personne effacée : la trace des
 effacements garde donc les identifiants retirés — pas les identités —, et tout effacement
 postérieur à la sauvegarde est rejoué avant de rouvrir la base.
+
+## 15. La console des clients — NORMATIF
+
+> **v0.1, proposition** — en attente de la relecture de Florent. Les routes du §15.3 sont
+> livrées par la phase C1 ; les écrans du §15.4 viendront avec la phase C2.
+
+### 15.1 Ce qu'elle remplace
+
+Les vues de Notion, dans l'usage qu'en a Florent. Sur le Mac : saisir la fiche d'une personne
+pendant l'entretien de 20 minutes ; écrire ses notes après une séance ; changer le statut d'une
+séance et de son paiement ; consulter une fiche ; voir la semaine et le mois ; plus rarement,
+saisir un évènement. Sur l'iPhone : consulter une fiche, compléter un texte oublié.
+
+Elle vit dans l'espace « Clients » de la console, à côté de l'écran Calendly du §3.8, qui reste
+en service jusqu'à la bascule.
+
+**Ce que cette console ne fait pas encore**, et que ses écrans disent là où cela compte :
+- elle n'écrit rien dans l'agenda Google : une séance posée ici garde `agenda_etat = 'a_ecrire'` ;
+- elle n'envoie aucun message : ni confirmation, ni rappel ;
+- elle ne publie pas un évènement sur le site ;
+- elle n'efface personne (phase S4).
+
+Ces quatre points arrivent avec la réservation et les phases suivantes. Jusque-là, la console ne
+sert qu'en local et en recette, sur des données fictives.
+
+### 15.2 Les règles — NORMATIF
+
+1. **Une route valide, appelle, rend.** Toute lecture et toute écriture de la base des clients
+   vit dans `workers/api/src/clients/` ; les routes n'écrivent pas de SQL.
+2. **Un écran, un nombre fixe de requêtes** (§3.6) : la liste des fiches en une instruction ; une
+   fiche et tout ce qu'elle montre en une lecture groupée ; la semaine en une instruction. Jamais
+   une requête par ligne.
+3. **Rien de personnel dans une adresse** (§14.2, règle 7). Une recherche de personne part dans
+   le corps d'une requête `POST`, jamais dans une adresse. Les identifiants (UUID) et les dates
+   peuvent y figurer.
+4. **Les données sensibles ont leurs routes**, et leur contenu ne voyage dans aucune autre
+   réponse : notes de fiche, personne de confiance, notes de séance, réponses à la réservation,
+   réponses d'un questionnaire. Aucune liste ne les porte ; une fiche ne dit d'un questionnaire
+   que ce qui sert à le retrouver et à savoir s'il attend un geste — sa date, sa version, s'il
+   est relu, s'il est à revoir. Rien d'autre, et la réponse est testée sur ses clés exactes.
+5. **Rien de la base des clients n'est gardé par le navigateur** : ni `localStorage`, ni
+   `sessionStorage`, ni IndexedDB, ni cache de service. Toutes les routes de ce chapitre
+   répondent `Cache-Control: no-store`. Un test parcourt le code du front et le vérifie.
+6. **L'agenda ne se modifie que par ses décisions** (§14.4). Poser, déplacer, remettre une séance
+   à « prévue » passent par l'écriture unique ; un chevauchement est refusé, **y compris à
+   Florent**. Lui seul passe outre la fenêtre et les horaires, pas l'agenda. Annuler écrit le
+   statut et le mouvement dans le même lot.
+7. **Une note ne s'écrase pas en silence.** Écrire une note envoie la version lue — la date de
+   sa dernière écriture, ou « aucune » pour une note qui n'existe pas encore ; si la note a
+   changé entre-temps (le Mac et l'iPhone ouverts sur la même séance), la route refuse (409,
+   « Cette note a été modifiée ailleurs. Rechargez-la avant d'enregistrer. ») et l'écran garde le
+   texte saisi. Chaque écriture avance cette date strictement, même dans la même milliseconde ;
+   de deux premières écritures simultanées, une seule aboutit.
+8. **Pas de suppression de personne.** Aucune route ne retire une fiche, une séance, une
+   inscription ni un questionnaire : l'effacement est une action à part (phase S4). Les tables
+   sans personne — professionnels, types de séance, horaires, évènements sans inscrit — ont la
+   suppression logique.
+9. **Deux fiches peuvent partager une clé, et c'est Florent qui tranche** (§14.4). Créer une
+   fiche n'est jamais refusé pour cette raison ; l'écran montre les fiches semblables avant.
+10. Session de la console sur toutes les routes ; **toute écriture — recherches en `POST`
+    comprises — n'est acceptée que de l'origine de l'environnement** (§14.5) ; 403 pour le jeton
+    du serveur MCP ; 409 sans liaison `CLIENTS` (§14.2).
+11. **Ce qui change l'intervalle d'une séance prévue passe par la décision d'agenda** : son
+    début, mais aussi sa durée et son type — la marge d'un type compte dans ce qu'elle occupe.
+12. **Une place ne se reprend que par sa décision** : toute inscription qui revient à un statut
+    occupant une place, d'où qu'elle vienne — annulée, déconseillée, expirée, retenue par carte
+    échue —, repasse par l'écriture unique de la dernière place.
+13. **Une séance ou une inscription sans fiche se voit quand même** (« à rapprocher »), avec le
+    prénom et le nom reçus — pas l'adresse ni le téléphone. Une séance sans type montre son
+    libellé d'origine. Une séance qui bloque l'agenda ne disparaît jamais d'une liste.
+
+### 15.3 Les routes
+
+Toutes sous la session de la console. Les montants sont en centimes ; une date avec heure voyage
+avec son décalage (`2026-12-17T09:30:00+01:00`) et se convertit par `packages/pratique`. **Toute
+ligne rendue porte son identifiant** : c'est par lui que l'écran ouvre une fiche, une séance, un
+évènement.
+
+**Les fiches**
+
+| Route | Ce qu'elle fait |
+| :--- | :--- |
+| `POST /api/clients/recherche` `{ q, page }` | la liste, 50 par page, par ordre alphabétique : nom, ville, nombre de séances non annulées, dernière séance passée, prochaine séance prévue. `q` vide : tout. `q` se cherche, sans accents, dans le nom et le prénom, et dans l'adresse e-mail. **Une instruction.** |
+| `POST /api/clients/semblables` `{ prenom, nom, email }` | les fiches de même clé, de même adresse e-mail, ou de même prénom et nom (sans accents) : identifiant, prénom, nom, ville. **Une valeur vide ne se compare à rien** : sans adresse saisie, les fiches sans adresse ne sont pas « semblables ». Pour l'écran de création. |
+| `POST /api/clients` | crée une fiche. Prénom obligatoire. Calcule `nom_recherche` et `cle_client` (`packages/pratique`). |
+| `GET /api/clients/:id` | la fiche : identité, coordonnées, provenance, les trois liens avec le nom de la fiche ou du professionnel lié, « a recommandé » ; ses séances (numéro calculé, date, type, statut, paiement, montant) ; ses inscriptions ; la liste de ses questionnaires (date, version, relu, à revoir — règle 4). **Une lecture groupée.** |
+| `PATCH /api/clients/:id` | modifie les champs ci-dessous ; recalcule nom de recherche et clé. Le lien « couple » s'écrit des deux côtés, et se défait des deux côtés, dans le même lot. |
+| `GET`, `PUT /api/clients/:id/notes` | la note de la fiche (règles 4 et 7). |
+| `GET`, `PUT /api/clients/:id/confiance` | la personne de confiance (règle 4). |
+
+**Ce qu'une création ou une modification de fiche accepte**, et rien d'autre : civilité, prénom,
+nom, e-mail, téléphone, date de naissance, profession, adresse, code postal, ville, pays,
+origine, mot-clé Google Ads, venu par un professionnel, venu par une personne, couple. **Jamais** :
+la clé, le nom de recherche, le clic d'annonce et sa date, les identifiants Stancer et Qonto, les
+traces d'envoi vers Brevo et la comptabilité — un envoi qui en porte un est refusé.
+
+**Les séances**
+
+| Route | Ce qu'elle fait |
+| :--- | :--- |
+| `GET /api/seances?du=&au=` | les séances de la période (62 jours au plus), tous statuts, **avec ou sans fiche, avec ou sans type** (règle 13) : heure, durée, type, statut, paiement, mode, et le prénom et le nom de la personne. **Une instruction.** |
+| `GET /api/seances/:id` | la séance, sa personne, son type, ses mouvements. |
+| `GET`, `PUT /api/seances/:id/notes` | la trame : demande, objectif, séance, travail personnel, idées pour la suite, réponse SMS ; en lecture seule, les réponses données à la réservation et la copie brute reprise de Notion (règles 4 et 7). |
+| `POST /api/seances` | pose un rendez-vous : personne, type, début, et — facultatifs — durée, mode, montant. Durée, marge, montant et état de paiement viennent du type par défaut. Origine `console`. Refus 409 si l'intervalle chevauche une séance prévue. |
+| `POST /api/seances/:id/deplacer` `{ debut, revision }` | déplace ; la révision attendue protège d'un double geste. |
+| `POST /api/seances/:id/annuler` | prévue → annulée, avec son mouvement. |
+| `POST /api/seances/:id/prevoir` | remet à « prévue » une séance annulée, réalisée ou marquée absente : par la décision d'agenda. |
+| `PATCH /api/seances/:id` | statut (`realisee`, `absent`), état de paiement, montant, mode, liste d'attente ; type et durée — **par la décision d'agenda quand la séance est prévue** (règle 11) : refus 409 si le nouvel intervalle, marge comprise, en chevauche un autre. Jamais le début, jamais `prevue`. |
+
+**Les évènements**
+
+| Route | Ce qu'elle fait |
+| :--- | :--- |
+| `GET /api/evenements` | tous, avec les places occupées et libres, calculées à l'instant (§14.4). **Une instruction.** |
+| `GET /api/evenements/:id` | l'évènement et ses inscriptions : personne, statut, mode de paiement, retenue. |
+| `POST /api/evenements`, `PATCH /api/evenements/:id` | nom, type, début, fin, ville, places, **prix** (`prixCentimes`), questionnaire demandé, adresse d'inscription extérieure, et les contenus HTML, non interprétés. `publie` ne se modifie pas ici. **Les places ne descendent pas sous le nombre de places occupées** : la condition est dans l'écriture ; refus 409. |
+| `DELETE /api/evenements/:id` | suppression logique, refusée s'il a une inscription — condition portée par l'écriture elle-même, pas par une lecture avant. |
+| `POST /api/evenements/:id/inscriptions` `{ clientId }` | inscrit une personne, `confirmee`, origine `console` : par la décision de la dernière place, qui exige aussi un évènement non supprimé. Refus 409 si la journée est complète, ou si la personne y est déjà. |
+| `PATCH /api/inscriptions/:id` `{ statut }` | `annulee`, `deconseillee` : une mise à jour. `confirmee` : par la décision de la dernière place quand l'inscription n'occupe pas de place à cet instant (règle 12) ; refus 409 si la journée est complète. |
+
+**Les professionnels**
+
+`GET /api/professionnels` (tous, avec le nombre de fiches qui les désignent, en une
+instruction), `POST`, `PATCH`, `DELETE` (logique ; les fiches qui le désignaient gardent leur
+lien jusqu'à ce que Florent le change).
+
+**Les réglages de la réservation**
+
+| Route | Ce qu'elle fait |
+| :--- | :--- |
+| `GET /api/reservation` | les types, la semaine type, les dates d'exception à venir, les réglages. **Une lecture groupée.** |
+| `PATCH /api/reservation/types/:id` | durée, marge, pas, lieu, montant, fenêtre, réservable en ligne, actif, ordre. La clé d'un type ne change pas. |
+| `PUT /api/reservation/semaine` | remplace la semaine type, en un lot. Plages sans chevauchement, début avant fin. |
+| `PUT`, `DELETE /api/reservation/dates/:date` | les plages d'une date, ou sa fermeture (liste vide) ; retirer l'exception rend la date à la semaine type. |
+| `PATCH /api/reservation/reglages` | les valeurs de `reglages`, par clé connue. |
+
+### 15.4 Les écrans
+
+L'espace « Clients » reçoit quatre onglets — **Semaine** (celui qui s'ouvre), **Fiches**,
+**Évènements**, **Professionnels** — et garde l'onglet Calendly existant. Réglages reçoit une
+section « Réservation ». Composants, échelles et gabarits de `DESIGN.md` ; aucun composant
+nouveau sans y être écrit. Chaque écran se tient sur un téléphone (une colonne) comme sur un
+ordinateur, en clair et en sombre.
+
+L'adresse dit où l'on est, par des identifiants seulement : `#clients/semaine`,
+`#clients/fiches`, `#clients/fiches/<id>`, `#clients/seances/<id>`, `#clients/evenements/<id>`,
+`#clients/professionnels`.
+
+**Semaine.** La semaine en cours, du lundi au dimanche, jour par jour ; pour chaque séance :
+l'heure, la personne, le type, et deux pastilles — statut et paiement. Précédente, suivante,
+aujourd'hui. Un contrôle « Semaine · Mois » ; le mois est une grille qui montre, par jour,
+l'heure et le prénom. Toucher une séance l'ouvre. L'action principale de l'écran : **Poser un
+rendez-vous**. Sur téléphone, la semaine est une liste de jours.
+
+**Fiches.** Un champ de recherche, large, qui a le focus à l'ouverture ; la liste se met à jour
+pendant la frappe. Chaque ligne : nom, ville, nombre de séances, dernière ou prochaine séance.
+« Afficher la suite » au bas de la page. L'action principale : **Nouvelle fiche**.
+
+**Nouvelle fiche** — l'écran de l'entretien de 20 minutes : il doit se remplir sans quitter le
+clavier. Prénom, nom, e-mail, téléphone d'abord ; puis civilité, date de naissance, profession,
+adresse, origine, « venu par ». Dès que le prénom, le nom ou l'e-mail sont saisis, l'écran
+montre les **fiches semblables**, chacune avec « Ouvrir cette fiche » : c'est là que se décide
+de ne pas créer un doublon. Enregistrer ouvre la fiche créée.
+
+**Une fiche.** En tête, le nom, l'âge, le téléphone et l'e-mail (touchables : appeler, écrire).
+Des cartes : *Identité et coordonnées*, *Provenance et liens* (origine, mot-clé, venu par un
+professionnel ou par une personne, couple, « a recommandé »), *Personne de confiance*, *Notes*.
+Chaque carte s'ouvre en lecture ; « Modifier » la passe en saisie, avec Enregistrer et Annuler.
+Puis les **séances**, de la plus récente à la plus ancienne (numéro, date, type, statut,
+paiement), avec **Poser un rendez-vous** ; les inscriptions ; les questionnaires (date, version,
+relu ou non). Sur ordinateur : les cartes à gauche, les séances à droite.
+
+**Une séance.** En tête : la date et l'heure, le type, la personne (qui ouvre sa fiche), le
+statut et le paiement, modifiables sur place, le montant. Actions : Déplacer, Annuler, Remettre
+à « prévue ». Puis **les notes**, dans l'ordre de la trame : Demande, Objectif, Séance, Travail
+personnel, Idées pour la suite, Réponse SMS — cette dernière avec « Copier ». Un seul bouton
+Enregistrer pour la trame ; l'écran dit quand un texte n'est pas enregistré, et le signale avant
+de le laisser quitter. Dessous, en lecture : les réponses données à la réservation, l'histoire
+du rendez-vous, et, repliée, la copie brute reprise de Notion.
+
+**Poser un rendez-vous** — une fenêtre. La personne (déjà choisie depuis une fiche ; sinon la
+même recherche que l'écran Fiches), le type, la date, l'heure, et — repliés — la durée, le mode,
+le montant. Sous la date choisie, les séances déjà prévues ce jour-là. Un chevauchement est
+refusé, et le message le dit. La fenêtre rappelle que le rendez-vous n'est pas écrit dans
+l'agenda Google et qu'aucun message ne part.
+
+**Évènements.** À venir, puis passés : nom, date, ville, places libres sur places totales.
+Un évènement : ses champs (le prix en euros à l'écran, en centimes en base), ses contenus HTML en
+zones de texte, et ses inscrits — personne, statut, mode de paiement —, avec **Inscrire une
+personne** et le changement de statut.
+
+**Professionnels.** Un tableau : nom, catégories, ville, téléphone, connu, nombre de personnes
+reçues. Un filtre de texte, appliqué sur place. Une fenêtre pour créer et modifier, tous les
+champs du modèle, courriers compris.
+
+**Réglages → Réservation.** Les types (une ligne par type, modifiable), la semaine type (les
+plages de chaque jour), les dates d'exception à venir (ouvrir une date, la fermer, la rendre à
+la semaine type), et les réglages — rappels, retenues, liste d'attente — avec leur unité.
+
+**Partout.** Sans liaison `CLIENTS`, chaque écran dit : « La base des clients n'est pas reliée à
+cet environnement. » Un refus s'affiche tel que la route l'écrit (`error`). Une panne passe par
+`ErreurEcran`. Les pastilles de statut et de paiement portent un sens par les tokens de
+`DESIGN.md` et **toujours leur libellé** : jamais la couleur seule.
+
+### 15.5 Ce qui se teste
+
+| Cible | Nature |
+| :--- | :--- |
+| Chaque famille de routes | session exigée ; une écriture venue d'une autre origine, session valable : refusée, base intacte ; 403 pour le jeton du serveur MCP ; 409 sans `CLIENTS` ; refus de validation sans valeur recopiée, **y compris quand la valeur est le nom d'un champ inconnu** ; une panne ne journalise qu'un code d'incident ; `no-store` sur les réussites comme sur les refus |
+| Règle 2 | le nombre d'instructions de la liste, de la fiche et de la semaine est compté, et ne dépend pas du volume |
+| Règle 3 | aucune route de ce chapitre ne lit un nom, une adresse ou un téléphone dans son adresse |
+| Règle 4 | la fiche, la liste et la semaine ne portent le contenu d'aucune table sensible ; valeurs repères à l'appui |
+| Règle 5 | le front n'écrit rien de ces routes dans le stockage du navigateur ; `Cache-Control: no-store` |
+| Règles 6 et 11 | poser, déplacer, remettre à « prévue » sur une heure prise : refusé, rien d'écrit ; annuler écrit le mouvement ; changer le type d'une séance prévue quand seule la marge du nouveau type chevauche : refusé |
+| Règle 7 | une note écrite depuis une version périmée est refusée, et la note en base est intacte ; deux premières écritures simultanées : une seule aboutit |
+| Règle 12 | la dernière place demandée deux fois en même temps, par une inscription et par le retour d'une annulée : une seule l'obtient ; places abaissées sous l'occupation : refusé ; suppression d'un évènement pendant une inscription : l'une des deux échoue |
+| Règle 13 | une séance sans fiche et une séance sans type figurent dans la semaine ; l'adresse et le téléphone reçus n'y figurent pas |
+| Règle 8 | aucune route `DELETE` sur les fiches, les séances, les inscriptions, les questionnaires |
+| Écrans | chaque composant à retour anticipé monté dans ses deux états (`screens.test.tsx`) ; chaque écran vu dans le navigateur, téléphone et ordinateur, clair et sombre |
 
 ---
 
