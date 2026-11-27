@@ -3693,6 +3693,27 @@ forme canonique (clés triées, `cle` retirée), sous une sous-clé de `PORTES_S
 celle qui signe les liens ; le passage planifié tourne toutes les cinq minutes, en recette
 seulement (`src/declencheurs.ts`).
 
+#### 14.6.2 Les choix de la phase S2b — confirmés par Florent le 27/11/2026
+
+1. **Le lien d'une séance qui a déjà son questionnaire reste valable** à l'ouverture ; le second
+   envoi est enregistré à part, avec l'alerte `second_questionnaire`. Une personne peut corriger
+   son envoi.
+2. **L'échéance d'un lien de questionnaire est le début de la séance.** Le lien ne sert que dans
+   les cas rares du contrat — un rendez-vous posé par Florent, un questionnaire en retard — : le
+   parcours de réservation enchaîne sur le questionnaire avec la `reference` qu'il a reçue.
+3. **La page d'essai est servie par la porte de recette**, sur `essai-recette.luminose.fr`.
+4. **Limites de fréquence de départ** : 10 envois de questionnaire et 30 vérifications de lien par
+   minute et par adresse (hachée).
+5. **La porte n'est pas déployée en production dans cette phase** ; `api.luminose.fr` attend la
+   phase où `CLIENTS` y sera posée.
+6. **Lien invalide à l'ouverture : pas de formulaire**, seulement le message et le moyen de
+   joindre Florent.
+7. **Règle 3** : l'adresse du contrat `POST /v1/questionnaires` porte le nom d'une table sensible
+   sans la désigner ; le test l'admet précédé de `/v1/`, et là seulement.
+8. **Les journaux d'invocation de gestion seront coupés eux aussi**, comme ceux de la porte : ils
+   gardent l'adresse IP et la géolocalisation de qui appelle la console. À faire en S4, avec
+   l'inspection des journaux, et à vérifier par l'API Workers Observability.
+
 ### 14.7 Le temps
 
 - En base, un instant est en millisecondes UTC (§2.2). Un horaire est une heure de Paris.
