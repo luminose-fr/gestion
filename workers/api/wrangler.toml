@@ -41,6 +41,13 @@ routes = [
 [observability]
 enabled = true
 
+# Où l'on est (SPEC §14.8) : l'origine acceptée pour une écriture n'est que
+# celle de cet environnement, et la console n'affiche aucun bandeau.
+# La racine EST la production. Elle ne déclare pas la base des clients
+# (`CLIENTS`) : la liaison n'y sera posée qu'après la phase S4 (§14.2, règle 2).
+[vars]
+ENVIRONNEMENT = "production"
+
 # Workers AI — la transcription mot à mot des prises vidéo (SPEC §12.5).
 # Une liaison, pas une clé : rien à poser dans Réglages. Facultative : sans
 # elle, seule la route /api/transcription se tait, en disant quoi ajouter ici.
@@ -67,3 +74,90 @@ database_id = "e9327701-3b46-4f85-9e3f-513df1488118"
 # qui portent un modèle du catalogue ; ce qu'il trouve s'affiche dans Réglages.
 [triggers]
 crons = ["17 5 * * *"]
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Les environnements (SPEC §14.8). Tout ce qui suit reste APRÈS la racine : en
+# TOML, une clé écrite sous un en-tête appartient à cette section.
+#
+# CE QUI S'HÉRITE, ET CE QUI NE S'HÉRITE PAS — c'est le piège de wrangler :
+#   - `vars` et toutes les liaisons (D1, R2, AI) ne s'héritent PAS : chaque
+#     environnement redéclare ce qu'il utilise ;
+#   - `routes`, `triggers` et `workers_dev` s'héritent : un environnement qui ne
+#     les déclare pas viserait les routes et le déclencheur de la PRODUCTION.
+#     Ils sont donc écrits, même vides.
+# La résolution est vérifiée par la suite de tests (test/configuration.test.ts)
+# et, avant tout effet, par scripts/deploy.sh --env recette.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ─── Recette : gestion-recette.luminose.fr ───────────────────────────────────
+# Durable, ses propres bases, des données fictives (§14.2, règle 10).
+# Ni Workers AI ni R2 : ces liaisons sont facultatives, et la recette s'en passe.
+# Ses secrets sont les siens : wrangler secret put … --env recette.
+[env.recette]
+name = "gestion-luminose-worker-recette"
+workers_dev = false
+routes = [
+  { pattern = "gestion-recette.luminose.fr/api/*", zone_name = "luminose.fr" },
+  { pattern = "gestion-recette.luminose.fr/auth/*", zone_name = "luminose.fr" }
+]
+
+[env.recette.vars]
+ENVIRONNEMENT = "recette"
+
+# Aucun déclencheur : le plan gratuit en donne cinq par compte, recette comprise
+# (§14.7), et la veille des modèles n'a rien à faire en recette.
+[env.recette.triggers]
+crons = []
+
+# npx wrangler d1 create luminose-gestion-recette --location weur
+[[env.recette.d1_databases]]
+binding = "DB"
+database_name = "luminose-gestion-recette"
+database_id = "0c3f8ba2-d2c6-42cd-8970-267f0be3b46a"
+migrations_dir = "migrations"
+
+# npx wrangler d1 create luminose-clients-recette --jurisdiction=eu
+# La juridiction ne se choisit qu'à la création : la vérifier dans le tableau
+# de bord avant d'aller plus loin (§14.4).
+[[env.recette.d1_databases]]
+binding = "CLIENTS"
+database_name = "luminose-clients-recette"
+database_id = "2c197564-b3f5-422c-81d9-1cc82040cb44"
+migrations_dir = "migrations-clients"
+
+# ─── Local : le poste de développement (npm run dev:api) ─────────────────────
+# La racine ne déclare pas `CLIENTS` : le développement passe donc par cet
+# environnement, qui la déclare (§14.8). Il ne se déploie jamais — deploy.sh le
+# refuse — et n'a ni route, ni workers.dev, ni déclencheur.
+#
+# Les identifiants sont FICTIFS, et c'est voulu : une commande lancée par erreur
+# avec `--env local --remote` ne trouve aucune base, au lieu de trouver celle de
+# la production. Ils ne servent qu'à nommer les fichiers de .wrangler/state.
+[env.local]
+workers_dev = false
+routes = []
+
+[env.local.vars]
+ENVIRONNEMENT = "local"
+
+[env.local.triggers]
+crons = []
+
+[env.local.ai]
+binding = "AI"
+
+[[env.local.r2_buckets]]
+binding = "MONTAGE"
+bucket_name = "luminose-montage"
+
+[[env.local.d1_databases]]
+binding = "DB"
+database_name = "luminose-gestion-local"
+database_id = "00000000-0000-4000-8000-000000000001"
+migrations_dir = "migrations"
+
+[[env.local.d1_databases]]
+binding = "CLIENTS"
+database_name = "luminose-clients-local"
+database_id = "00000000-0000-4000-8000-000000000002"
+migrations_dir = "migrations-clients"

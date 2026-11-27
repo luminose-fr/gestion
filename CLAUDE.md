@@ -22,6 +22,8 @@ npm run dev:mcp        # Worker MCP sur :8788 (workers/mcp/README.md)
 npm test               # vitest, tous les workspaces
 npm run typecheck      # tsc --noEmit, tous les workspaces
 npm run deploy         # ./scripts/deploy.sh
+./scripts/deploy.sh --env recette           # la recette (SPEC §14.8)
+npm run essai -w workers/api -- --local      # jeu d'essai des clients (ou --recette)
 ```
 
 Aucune CI n'exécute les tests. `npm test` et `npm run typecheck` **avant chaque push**.
@@ -52,12 +54,30 @@ Aucune CI n'exécute les tests. `npm test` et `npm run typecheck` **avant chaque
    [FLUX-EDITORIAL.md](FLUX-EDITORIAL.md), qui cite les personas mot pour mot — un test
    compare les deux, un document qui ment est pire que pas de document.
 
+## La base des clients
+
+Depuis la v3.0 de la SPEC, gestion porte aussi les personnes accompagnées : une seconde base,
+`luminose-clients` (liaison `CLIENTS`, **facultative** — absente en production jusqu'à la
+phase S4). Ses dix règles sont au [§14.2](SPEC.md) ; elles font foi. Trois gestes sont
+interdits à toute session :
+
+1. **Importer `workers/api/src/clients/` depuis un module éditorial** — IA, corpus, export,
+   montage, accès du serveur MCP, `packages/{editorial,ai,corpus}`. Seul `clients/base.ts`
+   lit `env.CLIENTS`. Un test suit les imports.
+2. **Nommer une table sensible hors de `clients/sensible.ts`** — `questionnaires`,
+   `seances_notes`, `seances_reponses`, `clients_confiance`, `clients_notes`, dans
+   `workers/*/src`, `packages/*` ou `apps/*`. Un test parcourt ces sources.
+3. **Lancer le jeu d'essai ou un import ailleurs qu'en local ou en recette.** La commande
+   vérifie sa cible ; ne pas la contourner, et ne jamais poser de données réelles en recette.
+
 ## Conventions de code
 
 - **Zod à la frontière.** Toute entrée d'API est validée avant d'atteindre la logique.
   À l'intérieur, on fait confiance aux types.
-- **`snake_case` en base, `camelCase` en TypeScript.** La conversion a lieu dans
-  `workers/api/src/db.ts`, à un seul endroit — jamais dispersée dans les routes.
+- **`snake_case` en base, `camelCase` en TypeScript.** La conversion a **un point
+  d'entrée par base** : `workers/api/src/db.ts` pour l'éditoriale,
+  `workers/api/src/clients/db.ts` pour celle des clients — jamais dispersée dans les
+  routes, et `db.ts` ne connaît pas la base des clients.
 - **Pas de N+1.** Le plan gratuit plafonne à 50 requêtes D1 par invocation. Une route
   doit pouvoir énoncer son nombre de requêtes, borné, indépendant du volume.
 - **Les charges JSON restent du TEXT.** `body`, `slides`, `script_video`,

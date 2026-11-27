@@ -2,6 +2,26 @@ export type Env = {
   DB: D1Database;
 
   /**
+   * La base des clients, `luminose-clients` (SPEC §14.4) : les personnes, les
+   * séances, les évènements. Une base à part, qui ne connaît pas `DB`.
+   *
+   * FACULTATIVE, comme les liaisons ci-dessous, et c'est ce qui tient la règle
+   * du chantier : absente, toute route des clients répond 409 et le reste de
+   * l'application fonctionne à l'identique (§14.2, règle 2). En production,
+   * elle n'est posée qu'après les protections de la phase S4.
+   *
+   * Seul `src/clients/base.ts` la lit (règle 1) ; un test le vérifie.
+   */
+  CLIENTS?: D1Database;
+
+  /**
+   * Où l'on est : `[vars]` de wrangler.toml (SPEC §14.8). Fixe l'origine
+   * acceptée pour une écriture (environnement.ts) et le bandeau de la console.
+   * Absente — un déploiement d'avant la v3.0 —, l'origine reste celle d'avant.
+   */
+  ENVIRONNEMENT?: 'production' | 'recette' | 'local';
+
+  /**
    * Workers AI — la transcription mot à mot des prises vidéo (SPEC §12.5).
    *
    * FACULTATIF, comme les jetons ci-dessous : absente, seule la transcription

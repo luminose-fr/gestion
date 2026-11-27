@@ -9,6 +9,8 @@
  *   /api/corpus   le corpus, EN LECTURE SEULE — embarqué au déploiement, 0 requête D1
  *   /api/inbox    les captures — le SEUL store en écriture de la console
  *   /api/rdv      prise de rendez-vous Calendly pour un invité (§SMS sans confirmation)
+ *   /api/environnement  où l'on est, et si la base des clients est reliée (§14.8)
+ *   /api/clients  la base des clients — liaison CLIENTS facultative (§14)
  *
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
  */
@@ -34,6 +36,9 @@ import { transcription } from './routes/transcription';
 import { montage } from './routes/montage';
 import { veille } from './routes/veille';
 import { lancerVeille } from './veille';
+import { originesAcceptees } from './environnement';
+import { environnement } from './routes/environnement';
+import { clients } from './routes/clients';
 
 const app = new Hono<Contexte>();
 
@@ -50,8 +55,10 @@ app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff');
   if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
     const origin = c.req.header('Origin');
+    // L'origine acceptée est celle de l'environnement, et elle seule (SPEC §14.5) :
+    // la recette n'accepte pas la page de production, ni l'inverse.
     if (c.req.header('Sec-Fetch-Site') === 'cross-site' ||
-        (origin && origin !== new URL(c.req.url).origin && origin !== 'https://gestion.luminose.fr')) {
+        (origin && !originesAcceptees(c.env, c.req.url).includes(origin))) {
       return c.json({ error: 'Origine refusée' }, 403);
     }
   }
@@ -156,6 +163,9 @@ app.route('/api/quotas', quotas);
 app.route('/api/rdv', rdv);
 app.route('/api/transcription', transcription);
 app.route('/api/montage', montage);
+app.route('/api/environnement', environnement);
+// La base des clients (SPEC §14) : 409 tant que la liaison CLIENTS est absente.
+app.route('/api/clients', clients);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

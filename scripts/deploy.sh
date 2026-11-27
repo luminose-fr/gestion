@@ -17,6 +17,16 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #   SKIP_TESTS=1 ./scripts/deploy.sh # sans la suite de tests (à éviter)
 #   DRY_RUN=1 npm run deploy         # joue les tests, affiche le reste sans l'exécuter
 #
+#   ./scripts/deploy.sh --env recette        # la RECETTE : api et app (SPEC §14.8)
+#   ./scripts/deploy.sh --env recette api    # la recette, Worker seulement
+#   DRY_RUN=1 ./scripts/deploy.sh --env recette
+#
+# Sans `--env`, c'est la PRODUCTION, et son chemin est celui d'avant la v3.0 :
+# mêmes vérifications, mêmes commandes. La recette a le sien, plus bas, qui
+# résout et vérifie sa cible AVANT tout effet — compte, bases, Worker, projet
+# Pages, domaine — et ne nomme aucune ressource de la production. `--env local`
+# n'existe pas : le poste local ne se déploie pas.
+#
 # Prérequis, une seule fois par machine :
 #   npx wrangler login
 #   npx wrangler d1 create luminose-gestion --location weur
@@ -56,8 +66,21 @@ PAGES_BRANCH="${PAGES_BRANCH:-main}"   # branche de PRODUCTION du projet Pages
 D1_BINDING="${D1_BINDING:-DB}"
 R2_BUCKET="${R2_BUCKET:-luminose-montage}"
 
-# ─── Cibles ──────────────────────────────────────────────────────────────────
-TARGETS=("$@")
+# ─── Environnement et cibles ─────────────────────────────────────────────────
+# `--env <nom>` peut se placer n'importe où ; le reste, ce sont les cibles.
+ENVIRONNEMENT="production"
+TARGETS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --env) ENVIRONNEMENT="${2:-}"; shift; [ $# -gt 0 ] && shift ;;
+    --env=*) ENVIRONNEMENT="${1#--env=}"; shift ;;
+    *) TARGETS+=("$1"); shift ;;
+  esac
+done
+case "$ENVIRONNEMENT" in
+  production|recette) ;;
+  *) printf '\033[1;33m⚠ Environnement « %s » inconnu : production (par défaut) ou recette.\033[0m\n' "$ENVIRONNEMENT"; exit 1 ;;
+esac
 [ ${#TARGETS[@]} -eq 0 ] && TARGETS=(api app)
 has() { printf '%s\n' "${TARGETS[@]}" | grep -qx "$1"; }
 
@@ -77,6 +100,142 @@ need_dir() {
     return 1
   fi
 }
+
+# ═════════════════════════════════════════════════════════════════════════════
+# LA RECETTE (SPEC §14.8) — gestion-recette.luminose.fr
+#
+# Un chemin à part, qui s'arrête avant celui de la production : rien de ce qui
+# suit ce bloc ne s'exécute pour elle. Il ne crée rien — ni base, ni bucket, ni
+# projet Pages : une ressource absente arrête le script, avec la commande qui
+# la crée. Ses bases et ses secrets sont les siens ; elle n'a ni R2, ni Workers
+# AI, ni déclencheur, ni adresse workers.dev.
+# ═════════════════════════════════════════════════════════════════════════════
+if [ "$ENVIRONNEMENT" = "recette" ]; then
+  for cible in "${TARGETS[@]}"; do
+    case "$cible" in
+      api|app) ;;
+      mcp) warn "La cible « mcp » n'existe pas en recette : le serveur MCP n'a qu'un environnement."; exit 1 ;;
+      *) warn "Cible « $cible » inconnue (api, app)."; exit 1 ;;
+    esac
+  done
+
+  # 1. La cible, lue dans wrangler.toml tel que wrangler le résoudra : nom du
+  #    Worker, routes, déclencheurs, bases (workers/api/scripts/configuration.ts).
+  #    Aucun appel réseau.
+  step "Cible de la recette (wrangler.toml, section [env.recette])"
+  ECARTS_FICHIER="$(mktemp)"
+  CIBLE_OK=1
+  CIBLE_SORTIE="$(node workers/api/scripts/cible.ts recette 2>"$ECARTS_FICHIER")" || CIBLE_OK=0
+  eval "$CIBLE_SORTIE"
+  printf '   Worker %s\n' "$CIBLE_WORKER"
+  printf '   Bases %s (%s) et %s (%s)\n' "$CIBLE_DB_NOM" "$CIBLE_DB_ID" "$CIBLE_CLIENTS_NOM" "$CIBLE_CLIENTS_ID"
+  printf '   Pages %s (branche de production %s) · https://%s\n' "$CIBLE_PAGES_PROJET" "$CIBLE_PAGES_BRANCHE" "$CIBLE_DOMAINE"
+  if [ "$CIBLE_OK" = 1 ]; then
+    ok "Cible conforme"
+  else
+    while IFS= read -r ecart; do warn "$ecart"; done <"$ECARTS_FICHIER"
+    if [ "${DRY_RUN:-0}" = "1" ]; then
+      warn "Répétition : la suite s'affiche, mais un vrai déploiement s'arrêterait ici."
+    else
+      warn "Corriger workers/api/wrangler.toml, section [env.recette]. Rien n'a été lancé."
+      rm -f "$ECARTS_FICHIER"
+      exit 1
+    fi
+  fi
+  rm -f "$ECARTS_FICHIER"
+
+  # 2. Le compte : les DEUX bases de la recette doivent y être visibles, chacune
+  #    sous son nom — c'est aussi ce qui prouve qu'on n'est pas sur un autre
+  #    compte. 3. Le projet Pages et son domaine : `pages deploy` créerait le
+  #    projet s'il manquait, et le domaine se rattache à la main.
+  step "Compte Cloudflare, bases et projet Pages de la recette"
+  if [ "${DRY_RUN:-0}" = "1" ]; then
+    printf '   \033[2m$ npx wrangler d1 list --json   # %s = %s, %s = %s\033[0m\n' "$CIBLE_DB_ID" "$CIBLE_DB_NOM" "$CIBLE_CLIENTS_ID" "$CIBLE_CLIENTS_NOM"
+    printf '   \033[2m$ npx wrangler pages project list | grep %s | grep %s\033[0m\n' "$CIBLE_PAGES_PROJET" "$CIBLE_DOMAINE"
+  else
+    BASES="$( cd workers/api && npx wrangler d1 list --json 2>/dev/null )" || BASES=""
+    for paire in "$CIBLE_DB_ID:$CIBLE_DB_NOM" "$CIBLE_CLIENTS_ID:$CIBLE_CLIENTS_NOM"; do
+      id="${paire%%:*}"; nom="${paire#*:}"
+      # L'identifiant et le nom sur la MÊME entrée : un identifiant recopié
+      # d'une autre base ne passe pas.
+      if ! printf '%s' "$BASES" | node -e '
+        const [id, nom] = process.argv.slice(1);
+        let bases = [];
+        try { bases = JSON.parse(require("node:fs").readFileSync(0, "utf8")); } catch {}
+        process.exit(bases.some((b) => b.uuid === id && b.name === nom) ? 0 : 1);' "$id" "$nom"; then
+        warn "Base ${nom} (${id}) introuvable sur ce compte."
+        ( cd workers/api && npx wrangler whoami 2>/dev/null | grep -E 'associated with|[0-9a-f]{32}' ) || true
+        warn "  Sur la VM : source ~/.cf-luminose, puis npx wrangler d1 list"
+        warn "Arrêt avant toute écriture : rien n'a changé."
+        exit 1
+      fi
+    done
+    ok "Compte de Luminose : ${CIBLE_DB_NOM} et ${CIBLE_CLIENTS_NOM} visibles"
+    # `grep` sans `-q`, pour la raison donnée au bucket R2 de la production.
+    if ! ( cd apps/manager && npx wrangler pages project list 2>/dev/null ) | grep -w "$CIBLE_PAGES_PROJET" | grep -F "$CIBLE_DOMAINE" >/dev/null; then
+      warn "Projet Pages ${CIBLE_PAGES_PROJET} absent, ou sans le domaine ${CIBLE_DOMAINE}."
+      warn "  npx wrangler pages project create ${CIBLE_PAGES_PROJET} --production-branch ${CIBLE_PAGES_BRANCHE}"
+      warn "  puis, dans le tableau de bord : ${CIBLE_PAGES_PROJET} → Domaines personnalisés → ${CIBLE_DOMAINE}"
+      warn "Arrêt avant toute écriture : rien n'a changé."
+      exit 1
+    fi
+    ok "Projet Pages ${CIBLE_PAGES_PROJET}, domaine ${CIBLE_DOMAINE}"
+  fi
+
+  if [ -n "$(git status --porcelain)" ]; then
+    warn "Arbre de travail non propre — on déploie du code non commité."
+  fi
+
+  if [ "${SKIP_TESTS:-0}" != "1" ]; then
+    step "Tests et typecheck (bloquants)"
+    npm test
+    npm run typecheck
+    ok "Suite verte"
+  else
+    warn "SKIP_TESTS=1 : suite de tests ignorée"
+  fi
+
+  if has api; then
+    step "Corpus -> module embarqué"
+    run npm run embarquer
+    ok "Corpus à jour dans le bundle du Worker"
+
+    # Les deux bases, AVANT le Worker : un Worker neuf qui lit une table absente échoue.
+    step "Migrations D1 distantes de la recette (${CIBLE_DB_NOM}, ${CIBLE_CLIENTS_NOM})"
+    (
+      cd workers/api
+      run npx wrangler d1 migrations apply DB --env recette --remote
+      run npx wrangler d1 migrations apply CLIENTS --env recette --remote
+    )
+    ok "Bases de recette à jour"
+
+    step "Worker ${CIBLE_WORKER}"
+    ( cd workers/api && run npx wrangler deploy --env recette )
+    ok "Worker déployé (routes ${CIBLE_DOMAINE}/api/* et /auth/*)"
+  fi
+
+  if has app; then
+    # Sur la branche de PRODUCTION du projet de recette, quelle que soit la
+    # branche git d'où l'on déploie : c'est elle que sert le domaine. Une autre
+    # branche ne publierait qu'un aperçu, que personne n'ouvre.
+    step "Front → Pages ${CIBLE_PAGES_PROJET} (production : ${CIBLE_PAGES_BRANCHE})"
+    (
+      cd apps/manager
+      run npm run build
+      run npx wrangler pages deploy dist --project-name "$CIBLE_PAGES_PROJET" --branch "$CIBLE_PAGES_BRANCHE"
+    )
+    ok "Front en ligne : https://${CIBLE_DOMAINE}"
+  fi
+
+  step "Vérifications suggérées"
+  printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" https://%s/api/contents   # attendu : 401\n' "$CIBLE_DOMAINE"
+  printf '  - Se connecter avec les identifiants de RECETTE : le bandeau « Recette » s’affiche\n'
+  printf '  - Réglages : « Base des clients : reliée — données fictives »\n'
+  printf '  - Jeu d’essai : npm run essai -w workers/api -- --recette\n'
+  printf '  - Contraintes : npm run essai:contraintes -w workers/api\n'
+  ok "Recette : terminé"
+  exit 0
+fi
 
 # ─── Le Worker MCP est-il prêt à partir ? ────────────────────────────────────
 # Vérifié AVANT les tests. Le 01/10/2026, l'avertissement tombait après deux
@@ -182,6 +341,12 @@ if has api && need_dir workers/api api; then
     cd workers/api
     # Idempotent : wrangler ne rejoue que les migrations non appliquées.
     run npx wrangler d1 migrations apply "$D1_BINDING" --remote
+    # La base des clients (SPEC §14.4) : seulement le jour où la racine déclare
+    # sa liaison — après la phase S4. Jusque-là, la production n'en a pas, et
+    # ce chemin reste celui d'avant. Les sections [env.*] ne comptent pas.
+    if awk '/^\[/ { section = $0 } section !~ /^\[\[?env\./ && /^binding = "CLIENTS"/ { trouve = 1 } END { exit !trouve }' wrangler.toml; then
+      run npx wrangler d1 migrations apply CLIENTS --remote
+    fi
   )
   ok "Base à jour"
 

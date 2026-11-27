@@ -1,4 +1,4 @@
-# SPEC v2.37 — gestion.luminose.fr
+# SPEC v3.0 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -186,6 +186,15 @@
 > lui-même. Les brouillons d'avant se relisent (§2.5). Illustrer part directement du prompt :
 > celui d'un Post Texte à la Publication, celui de chaque slide illustrée, envoyé tel quel,
 > sans étalon, aux proportions que le registre donne au format (§3.4, §12.3, §13.9).
+> **v3.0 (27/11/2026)** : les clients, les séances et la réservation (§14). Florent, les 25 et
+> 26/11/2026 : la base des clients quitte Notion, la réservation quitte Calendly, et les deux
+> arrivent ici. Gestion devient aussi le registre des personnes accompagnées et l'agenda où l'on
+> réserve ; le « ni un agenda, ni un CRM » du §3.8 est levé. La moitié éditoriale ne change pas :
+> les deux moitiés partagent une console et une session, jamais une base ni du code métier. Une
+> seconde base, `luminose-clients`, créée en juridiction européenne et reliée par une liaison
+> facultative (`CLIENTS`) ; un paquet pur, `packages/pratique` ; un environnement de recette
+> durable (§14.8). Phase S1 du socle : le chapitre, le schéma (Annexe C), les deux décisions qui
+> ne se prennent qu'une fois, la recette et son jeu d'essai — la production reste sans liaison.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -206,6 +215,10 @@ l'IA comme copilote à chaque étape.
 encodée dans les prompts.** Sept personas, des règles de voix transverses, une grille de
 production par format, sept objectifs qui dictent le CTA. Toute décision d'architecture
 qui met cette méthode en danger est une mauvaise décision, quelle que soit son élégance.
+
+Depuis la v3.0, le produit a deux moitiés : les contenus, et les personnes accompagnées —
+clients, séances, réservation, évènements. Elles partagent la console, jamais une base ni du
+code métier (§14).
 
 ### 0.2 Pourquoi cette migration
 
@@ -261,7 +274,9 @@ qui ferait passer ce qu'il range au-delà de 10 Go (§12.4.2).
 
 ## 1. Architecture cible — NORMATIF
 
-Monorepo npm workspaces. Quatre moteurs purs, deux Workers, un front.
+Monorepo npm workspaces. Des moteurs purs — `editorial` pour les contenus, `pratique` pour
+les clients (§14) —, deux Workers aujourd'hui et un troisième, la porte, en phase S2 (§14.3),
+un front.
 
 ```
 gestion.luminose.fr/
@@ -273,11 +288,19 @@ gestion.luminose.fr/
 │   │                       parsing des réponses IA. Zéro dépendance.
 │   ├── ai/                 abstraction fournisseur (port + adaptateurs)
 │   ├── subtitles/          .srt → .fcpxml
-│   └── psychedelics/       calcul de doses
+│   ├── psychedelics/       calcul de doses
+│   ├── pratique/           LES RÈGLES DE LA PRATIQUE : la clé d'un client, les
+│   │                       créneaux, la liste d'attente. Zéro dépendance (§14.3).
+│   └── contrat/            le contrat /v1 en schémas zod (phase S2, §14.3)
 ├── workers/
 │   ├── api/                Hono + D1 + auth
-│   │   ├── migrations/     NNNN_description.sql
-│   │   └── src/routes/
+│   │   ├── migrations/     NNNN_description.sql — la base `luminose-gestion`
+│   │   ├── migrations-clients/  NNNN_description.sql — la base `luminose-clients` (§14.4)
+│   │   └── src/
+│   │       ├── routes/
+│   │       └── clients/    l'accès à la base des clients, et lui seul (§14.2)
+│   ├── porte/              la porte publique et la porte de service,
+│   │                       api.luminose.fr (phase S2, §14.5)
 │   └── mcp/                serveur MCP pour Claude, mcp.luminose.fr —
 │       │                   OAuth + Google Ads : lire, et préparer en pause ;
 │       │                   le corpus : lire main, écrire par commit ;
@@ -297,7 +320,14 @@ workers/mcp   ──▶ packages/corpus
 packages/ai   ──▶ packages/shared
 packages/editorial ──▶ (rien)
 packages/{subtitles, psychedelics} ──▶ (rien)
+workers/api    ──▶ packages/{pratique, contrat}      (v3.0, §14.3)
+workers/porte  ──▶ packages/contrat
+packages/contrat  ──▶ zod, et rien d'autre
+packages/pratique ──▶ (rien)
 ```
+
+Depuis la v3.0 : `workers/porte` n'a ni base ni secret, et n'importe rien de `workers/api` ;
+dans `workers/api`, aucun module éditorial n'importe `src/clients/` (§14.2, règle 1).
 
 - `packages/editorial`, `subtitles`, `psychedelics` : **zéro dépendance runtime**, zéro
   React, zéro `fetch`, zéro API Workers. Fonctions pures, testables sans réseau ni DOM.
@@ -331,6 +361,10 @@ pas un détail de configuration.
 `mcp.luminose.fr` est hors de ce périmètre : aucun front ne l'appelle. Il ouvre CORS sur
 ses seuls points d'entrée OAuth et `/mcp`, pour l'inspecteur MCP qui tourne dans un
 navigateur. Sans cookie, et derrière un jeton porteur, c'est sans conséquence.
+
+La console garde son origine unique en v3.0. La porte publique (`api.luminose.fr`, §14.5)
+est une autre origine, pour un autre public — les pages du site —, avec sa propre politique
+CORS ; elle n'ouvre rien de la console.
 
 ---
 
@@ -547,8 +581,9 @@ remis en ordre, dans ce même ordre, les séries d'avant la v2.36 : trous, doubl
 - Base : `/api`. Toutes les routes exigent un jeton de session valide (§7), sauf
   `POST /api/auth/login`.
 - Entrées validées par **zod** à la frontière. Une entrée invalide → `400` avec le détail.
-- Sorties en `camelCase` ; la base est en `snake_case`. La conversion a lieu dans
-  `workers/api/src/db.ts`, à un seul endroit.
+- Sorties en `camelCase` ; la base est en `snake_case`. La conversion a **un point d'entrée
+  par base** (v3.0, §14.4) : `workers/api/src/db.ts` pour l'éditoriale,
+  `workers/api/src/clients/db.ts` pour celle des clients — et nulle part ailleurs.
 - Erreurs : `{ error: string, detail?: unknown }`, statut HTTP signifiant.
 
 ### 3.2 Contenus
@@ -864,6 +899,10 @@ Maximum **50 requêtes D1 par invocation**. Conséquences normatives :
   du volume de données.
 
 ### 3.8 Prise de rendez-vous Calendly — NORMATIF
+
+> **v3.0** : la réservation arrive dans gestion (§14). Cet écran reste en service, tel quel,
+> jusqu'à la bascule ; il disparaît alors, avec `CALENDLY_TOKEN`. Le « ni un agenda, ni un
+> CRM » ci-dessous valait pour lui : il ne vaut plus pour gestion.
 
 `GET /api/rdv/types` · `GET|PUT /api/rdv/selection` · `GET /api/rdv/creneaux` · `POST
 /api/rdv`. **Une requête D1, et seulement sur `/selection`** : le reste ne parle qu'à
@@ -1506,6 +1545,10 @@ Sur ces routes, les règles se resserrent pour lui seul (`workers/api/src/acces-
 
 Décision : `workers/mcp/decisions/2026-11-03-contenus.md`.
 
+**La base des clients (v3.0)** a ses propres portes et ses propres règles d'accès (§14.5). La
+liste fermée du serveur MCP ne change pas : aucune route des clients n'y entre, et son refus
+(403) tombe avant tout examen de la liaison `CLIENTS`.
+
 **Invariant** : aucune clé de fournisseur (Notion, 1min.ai, OpenAI, OpenRouter…)
 ne quitte le Worker. Elles peuvent désormais y ENTRER depuis l'administration et
 être stockées en base (§5.5) — la direction est à sens unique, et c'est elle que
@@ -1605,6 +1648,8 @@ valeur D1, et affiché zéro écart. Ce script fait partie du livrable de la pha
   téléchargeable, lignes supprimées comprises. Time Travel (7 jours en gratuit) ne
   suffit pas comme unique filet. Les captures de l’Inbox et les mesures IA sont incluses.
   Les fichiers binaires R2 restent exclus et l’écran le précise. **Les clés des fournisseurs en sont exclues** (§5.5).
+  **L'export général ne porte aucune table de la base des clients** (v3.0, §14.2) : il ne lit
+  que `DB`. Celle des clients se sauvegarde et s'exporte seule, chiffrée (phase S4, §14.11).
 
 ---
 
@@ -1624,6 +1669,7 @@ chaque écran.
 | `workers/api` | une suite par route : validation zod, codes de statut, suppression logique, budget de requêtes |
 | Migration | comparaison Notion ↔ D1 champ par champ (§9.3) |
 | `packages/{subtitles, psychedelics}` | tests de calcul purs |
+| La base des clients (v3.0) | le tableau du §14.10 : `packages/pratique`, migrations, décisions, règles 1 à 8, serveur MCP, export |
 
 ### 10.3 Règle de montage
 
@@ -3162,6 +3208,424 @@ simulée ; leurs critères de sortie demandent maintenant l'usage réel.
 
 ---
 
+## 14. Les clients, les séances et la réservation (v3.0) — NORMATIF
+
+### 14.1 Ce qui change de nature
+
+Jusqu'à la v2.37, gestion gère des contenus, et le §3.8 dit de son écran de rendez-vous : « ni un
+agenda, ni un CRM ». Florent, les 25 et 26/11/2026 : la base des clients quitte Notion, la
+réservation quitte Calendly, et les deux arrivent ici. Gestion devient aussi le registre des
+personnes accompagnées et l'agenda où l'on réserve.
+
+Ce qui ne change pas : la moitié éditoriale — son modèle, ses routes, ses règles, ses prompts. Les
+deux moitiés partagent une console et une session ; elles ne partagent ni base, ni code métier.
+
+Trois appelants nouveaux, que la console ne connaissait pas : **le site** (des inconnus, sans
+session), **Make** (une machine, qui exécute), et **l'agenda Google** (lu et écrit par gestion).
+Tout ce chapitre découle de là : ce qui était une application privée reçoit maintenant des
+données de santé, envoyées par des gens qu'elle ne peut pas authentifier.
+
+### 14.2 Les dix règles — NORMATIF
+
+1. **Deux bases, qui ne se connaissent pas.** `DB` porte l'éditorial, `CLIENTS` les personnes.
+   Aucune requête ne joint les deux. Seul `workers/api/src/clients/` touche à `env.CLIENTS`, et
+   aucun module éditorial — IA, corpus, export, montage, accès du serveur MCP — ne l'importe, même
+   indirectement. Un test le vérifie.
+2. **La liaison `CLIENTS` est facultative.** Absente, toute route des clients répond par un
+   `Refus` (409, « La base des clients n'est pas reliée à cet environnement. ») et le reste de
+   l'application fonctionne à l'identique. C'est ce qui tient la règle du chantier — aucune donnée
+   réelle en ligne avant les protections de la phase S4 : en production, la liaison n'est posée
+   qu'à ce moment-là.
+3. **Les données sensibles ont leurs tables, et un seul module les nomme.** Sont sensibles :
+   `questionnaires`, `seances_notes`, `seances_reponses`, `clients_confiance`, `clients_notes`.
+   Dans le code (`workers/*/src`, `packages/*`, `apps/*`), seul
+   `workers/api/src/clients/sensible.ts` écrit leurs noms ; un test parcourt ces sources et échoue
+   si un autre fichier en nomme une. Les migrations, les tests, le jeu d'essai et cette
+   spécification sont hors du contrôle. Ces données ne sortent par aucun autre chemin : ni la
+   porte de service, ni le serveur MCP, ni l'IA, ni l'export général, ni les journaux, ni le
+   stockage du navigateur.
+4. **La porte publique n'apprend rien sur personne, et ne change rien à une fiche.** À parcours
+   égal, elle répond la même chose — même corps, même statut, mêmes en-têtes — que la personne
+   soit connue ou non, en double ou non, attendue ou non ; ce qui dépend de qui elle est se traite
+   après la réponse. Elle donne les créneaux libres et dit qu'une journée est complète ; rien
+   d'autre. Une identité déclarée n'est pas une preuve : elle ne donne le droit ni de lire, ni de
+   modifier une fiche existante, ni de déplacer un rendez-vous (§14.4).
+5. **Toute écriture venue d'une porte porte une clé, et se rejoue sans doublon.** Un double clic,
+   un réseau coupé, une relance de Make : le même effet et le même reçu, rien en double (§14.6).
+6. **Ce qui ne doit arriver qu'une fois se décide dans une seule instruction SQL, et tout ce qui
+   en dépend réussit ou échoue avec elle.** Un créneau, la dernière place d'une journée, un
+   créneau libéré, un paiement confirmé : jamais une lecture suivie d'une écriture. Une
+   instruction conditionnelle qui n'écrit rien n'est pas une erreur pour la base : les écritures
+   qui la suivent portent donc la même condition, dans le même lot. **Une décision refusée ne
+   laisse ni fiche, ni mouvement, ni ordre** (§14.4).
+7. **Rien de personnel dans les journaux ni dans les adresses.** Une erreur du domaine porte un
+   code, jamais une valeur, et se journalise par un code d'incident fixe — pas l'exception
+   entière. Le corps d'une requête n'est jamais journalisé ; un refus de validation rend les noms
+   des champs, pas ce qui a été reçu ; un `Refus` ne journalise rien. Aucune route ne prend un
+   nom, une adresse e-mail, un téléphone ni un jeton dans son adresse. Garder la base en Europe ne
+   suffit pas : le calcul et les journaux de la plateforme n'y sont pas tenus.
+8. **Un effacement est réel.** Les tables qui portent des personnes n'ont pas de `deleted_at`
+   (écart au §2.1) : effacer une personne retire ses lignes, y compris celles qui ne lui sont pas
+   encore rattachées. Seuls ses paiements restent, détachés d'elle : ce sont des pièces
+   comptables.
+9. **Gestion décide, Make exécute.** Gestion enregistre, puis inscrit ce qu'il reste à faire
+   dehors — un e-mail, un SMS, une facture, une conversion — dans la table `ordres`. Make le fait
+   et le confirme. Make ne lit aucune fiche et ne choisit rien.
+10. **Deux environnements, durables.** La recette reste en place : mêmes Workers, ses propres
+    bases, des données fictives, des messages détournés vers Florent. Rien n'atteint la production
+    sans y être passé.
+
+### 14.3 L'architecture
+
+Ce qui s'ajoute à l'arbre du §1 :
+
+```
+├── packages/
+│   ├── pratique/           LES RÈGLES DE LA PRATIQUE : qui est le même client, quels
+│   │                       créneaux sont libres, qui prévenir d'un créneau libéré.
+│   │                       Zéro dépendance, comme `editorial`.
+│   └── contrat/            le contrat /v1 en schémas zod, avec ses exemples (phase S2)
+├── workers/
+│   ├── api/
+│   │   ├── migrations-clients/   NNNN_description.sql — la base `luminose-clients`
+│   │   └── src/clients/          l'accès à cette base, et lui seul
+│   └── porte/              la porte publique et la porte de service, api.luminose.fr (S2)
+```
+
+Règles de dépendance, en plus de celles du §1.1 :
+
+```
+workers/api    ──▶ packages/{pratique, contrat}
+workers/porte  ──▶ packages/contrat
+packages/contrat  ──▶ zod, et rien d'autre
+packages/pratique ──▶ (rien)
+```
+
+- **`packages/pratique`** est à ce domaine ce que `editorial` est aux contenus : des fonctions
+  pures, testables sans réseau ni base. La clé d'un client, le calcul des créneaux, la fenêtre de
+  réservation, les règles de la liste d'attente y vivent — et nulle part ailleurs.
+- **`workers/porte` n'a ni base, ni secret.** Il reçoit, borne, valide, et appelle gestion par
+  une liaison de service. Il ne peut que ce que ces entrées lui ouvrent : un défaut dans le code
+  le plus exposé du dépôt n'atteint ni une table, ni une clé.
+- **Gestion ouvre à la porte des entrées nommées, sans adresse.** Ce sont des classes
+  `WorkerEntrypoint` exportées par `workers/api` (`PortePublique`, `PorteService`) : seul un
+  Worker qui déclare la liaison les atteint. Pas de routes HTTP « internes » : une route interne
+  est une route qu'un jour quelqu'un expose. **Une entrée ne vaut pas une authentification** :
+  c'est gestion qui vérifie le jeton de Make et la signature de Stripe.
+- **Les schémas du contrat sont appliqués deux fois**, par la porte puis par l'entrée de gestion.
+  La porte protège gestion du bruit ; gestion ne fait confiance à personne (« zod à la
+  frontière » : une liaison de service est une frontière).
+- L'interface TypeScript des entrées vit dans `packages/contrat` : la porte n'importe rien de
+  `workers/api`.
+
+La phase S2 commence par un essai à blanc de ce montage — deux Workers, deux liaisons, une
+méthode — avant d'y poser quoi que ce soit : qu'aucune adresse ne mène aux entrées, et ce qu'un
+parcours complet consomme de temps de calcul et de sous-requêtes sur le plan gratuit.
+
+### 14.4 La base `luminose-clients`
+
+**Créée en Europe, et tenue d'y rester** : `wrangler d1 create luminose-clients
+--jurisdiction=eu`. Une juridiction se fixe à la création et ne se change plus ; `--location weur`,
+utilisé pour `luminose-gestion`, n'est qu'une préférence et ne garantit rien. La base de recette
+est créée de la même façon. Les fichiers (PDF des questionnaires) iront dans un espace R2 créé lui
+aussi en juridiction `eu`. La juridiction tient les données au repos ; elle ne dit rien du calcul
+ni des journaux (règle 7).
+
+Ses migrations vivent dans `workers/api/migrations-clients/`, numérotées à part
+(`migrations_dir` de la liaison). Son schéma est en Annexe C.
+
+**Une table arrive avec la phase qui s'en sert**, pas avant : une migration ne se modifie plus
+une fois appliquée, et une table dessinée sans son usage est une table à refaire.
+
+Jusqu'à la phase S4, cette base ne porte que des données fictives. Si le modèle doit être revu
+d'ici là, Florent peut décider de la supprimer et de la recréer, migrations récrites (décision du
+26/11). Dès qu'elle existe en production, la règle vaut pour elle sans exception.
+
+| Phase | Tables |
+| :--- | :--- |
+| S1 | `types_seance`, `horaires`, `horaires_dates`, `reglages`, `textes_versions`, `professionnels`, `clients`, `clients_confiance` ★, `clients_notes` ★, `seances`, `seances_mouvements`, `seances_notes` ★, `seances_reponses` ★, `evenements`, `inscriptions`, `questionnaires` ★, `paiements` |
+| S2 | `commandes`, `ordres`, `alertes`, `messages_modeles` |
+| S4 | `effacements` |
+| Réservation | `creneaux_liberes` |
+
+**Conventions.** Celles du §2, avec quatre écarts :
+
+| Écart | Règle | Pourquoi |
+| :--- | :--- | :--- |
+| Effacement | Pas de `deleted_at` sur les tables qui portent des personnes ; les autres (types de séance, horaires, professionnels, évènements, modèles de messages) gardent la suppression logique | règle 8 |
+| Dates sans heure | une date de naissance, une ouverture datée : `AAAA-MM-JJ` en texte ; une heure d'horaire : `HH:MM`, heure de Paris | un instant en millisecondes n'a pas de sens pour « le 12 avril » |
+| Montants | en centimes, entiers, toujours | Notion rangeait des euros |
+| Choix | en minuscules sans accent dans la base (`a_payer`), le libellé à l'écran | une valeur qu'on compare ne doit pas dépendre d'une majuscule |
+
+La conversion `snake_case` ↔ `camelCase` a **un point d'entrée par base** : `db.ts` pour
+l'éditorial, `clients/db.ts` pour celle-ci. `db.ts` ne doit pas connaître cette base (règle 1).
+
+**Les clés étrangères sont appliquées** (D1 les active d'office). L'Annexe C donne, relation par
+relation, ce que devient la ligne quand son propriétaire est effacé : retirée, ou détachée.
+
+#### Ce qui ne se décide qu'une fois (règle 6)
+
+Chaque décision est une instruction conditionnelle ; le nombre de lignes qu'elle écrit dit son
+issue. Les écritures qui en dépendent partent dans le même lot (`db.batch`, une transaction) et
+portent la condition qui les y lie — par exemple l'existence de la ligne qui vient d'être écrite.
+
+```sql
+-- Entrer dans l'agenda : n'écrit que si rien ne chevauche.
+-- `occupe_jusqua` = début + durée + marge. Bornes : [debut, occupe_jusqua[.
+INSERT INTO seances (id, client_id, type_seance_id, debut, occupe_jusqua, statut, …)
+SELECT :id, :client_id, :type_seance_id, :debut, :occupe_jusqua, 'prevue', …
+WHERE NOT EXISTS (
+  SELECT 1 FROM seances
+  WHERE statut = 'prevue' AND debut < :occupe_jusqua AND occupe_jusqua > :debut
+);
+-- 0 ligne écrite → « creneau_pris ». Le mouvement « créée » et les ordres qui suivent,
+-- dans le même lot, ne s'écrivent que si la séance :id existe.
+```
+
+- **Un créneau.** La même condition vaut pour toute entrée dans le statut `prevue` — une
+  réservation, un rendez-vous posé par Florent, une séance annulée qu'on rétablit — et pour tout
+  déplacement, la séance déplacée étant exclue de la comparaison et sa borne recalculée.
+- **La dernière place.** L'inscription ne s'écrit que si le nombre de places occupées est
+  inférieur aux places de l'évènement. Occupe une place, **à l'instant de la décision** : une
+  inscription `payee` ou `confirmee` ; une `retenue` par virement ; une `retenue` par carte dont
+  le délai n'est pas passé. Une retenue par carte échue ne compte plus, que la tâche planifiée
+  l'ait déjà marquée ou non.
+- **Un créneau libéré.** Un seul lot vérifie le lien (valable, non échu), que la séance de la
+  personne est toujours prévue et n'a pas bougé depuis l'envoi, que tout l'intervalle visé est
+  libre, marge comprise ; puis prend le créneau (`… WHERE pris_par IS NULL`), déplace la séance,
+  écrit le mouvement et libère l'ancien intervalle. Tout, ou rien.
+- **Un paiement confirmé.** C'est le passage d'une tentative attendue de `cree` à `reussi`, et
+  non une insertion : il ne se fait que si le prestataire, la référence, le montant, la devise et
+  l'environnement (réel ou test) sont ceux de la tentative. La seconde confirmation n'écrit rien.
+  Un paiement arrivé après que la place a été rendue est enregistré et signalé ; il ne reprend
+  pas la place.
+
+L'agenda Google, lui, est hors de la base. Il est relu juste avant d'écrire ; si cette lecture
+échoue, rien n'est réservé. La séance garde l'état de son écriture dans l'agenda (`a_ecrire`,
+`ecrit`, `echec`) : une panne entre les deux se reprend, sur le même rendez-vous, et la
+confirmation ne part qu'une fois l'agenda écrit. Un contrôle de nuit compare les deux et lève une
+alerte. L'écriture unique garantit qu'il n'y a jamais deux séances de gestion sur la même heure ;
+elle ne peut pas garantir l'agenda.
+
+#### Désigner un client
+
+Par sa clé seulement (`packages/pratique`) : l'adresse e-mail normalisée, et les mots du prénom et
+du nom, sans accents, en minuscules, triés. Jamais par le nom seul.
+
+| Ce que la base contient | Ce qui se passe |
+| :--- | :--- |
+| pas d'adresse e-mail dans l'envoi, donc pas de clé | impossible depuis le site, où l'adresse est obligatoire ; depuis la console, Florent choisit la fiche |
+| aucune fiche de cette clé | la fiche est créée **dans le lot de la décision**, par une écriture qui n'aboutit que si aucune fiche de cette clé n'existe : deux envois simultanés ne créent pas deux fiches |
+| une fiche | la séance ou l'inscription lui est rattachée |
+| plusieurs fiches | rien n'est rattaché : la ligne garde l'identité reçue, reste « à rapprocher », et une alerte est levée |
+
+La clé n'est donc pas unique en base : deux fiches peuvent la partager, et c'est Florent qui
+tranche. Une séance comme une inscription peuvent exister sans client, avec l'identité telle
+qu'elle a été envoyée (`identite_recue`) ; leurs messages partent alors vers cette identité.
+
+**La porte publique ne modifie jamais une fiche existante.** Elle peut remplir un champ vide.
+Quand ce qu'elle reçoit diffère de la fiche — un autre téléphone, une autre adresse —, la fiche
+ne bouge pas : l'écart est gardé sur la ligne reçue et montré à Florent, qui décide. Sans cette
+règle, connaître le nom et l'adresse e-mail d'une personne suffirait à détourner ses rappels.
+
+### 14.5 Les trois portes
+
+| | Adresse | Qui | Ce qu'elle ouvre |
+| :--- | :--- | :--- | :--- |
+| **Publique** | `api.luminose.fr/v1/…` | les pages du site | les créneaux libres ; des commandes : réserver, envoyer un questionnaire, s'inscrire, payer |
+| **De service** | `api.luminose.fr/service/v1/…` | Make ; Stripe | confirmer un ordre ; annoncer un paiement abouti — et rien d'autre |
+| **Console** | `gestion.luminose.fr/api/…` | Florent | tout, derrière sa session (§7) |
+
+**La porte publique.** La console reste de même origine (§1.2) ; la porte publique et le serveur
+MCP ont chacun leur politique CORS. Ici, `Access-Control-Allow-Origin` vaut l'origine exacte du
+site de cet environnement, sans cookie ni identifiant. **L'origine écarte les autres sites ; elle
+n'authentifie personne** : un script hors navigateur l'écrit comme il veut.
+
+Avant d'appeler gestion, la porte vérifie l'origine, la méthode, le type et la taille de l'envoi,
+un champ piège, et une limite de fréquence par adresse hachée (liaison `ratelimits`). Cette
+limite est approchée et comptée par centre de données : elle écarte le bruit, elle ne borne rien.
+**Les vraies bornes sont dans gestion**, et ce sont des réglages : un nombre de commandes
+acceptées par jour et par sorte ; un nombre d'e-mails et de SMS déclenchables par jour ; un nombre
+de places retenues par virement en même temps sur une journée — la retenue la plus longue, donc
+la plus coûteuse à l'abus. Au-delà, la commande est refusée (`trop_de_demandes`) ou l'ordre
+retenu, et une alerte est levée.
+
+Ses réponses n'ont que trois formes : réussite, refus avec un motif d'une liste fermée (les deux
+en 200), panne (5xx). Une base non reliée est une panne. La page qui reçoit une panne affiche le
+téléphone de Florent.
+
+**Un interrupteur** la coupe sans rien déployer : un réglage de la base, que la console change, y
+compris depuis un téléphone. Coupée, toute commande reçoit le refus `ferme`.
+
+**Les liens envoyés aux personnes** — remplir un questionnaire, prendre un créneau libéré, payer
+une séance — portent un jeton signé par gestion : l'usage, l'objet, une échéance, une version.
+Rien n'en est rangé : le jeton se recalcule quand un message doit le porter, et se révoque en
+changeant la version de l'objet. Un jeton n'ouvre que son usage, sur son objet. Le voir ne le
+consomme pas ; c'est l'état de l'objet — créneau pris, séance payée — qui dit s'il sert encore.
+Il voyage après le `#` de l'adresse, et dans le corps des requêtes : jamais dans une adresse
+appelée, jamais dans un journal.
+
+**La porte de service.** Make présente un jeton en `Authorization: Bearer` ; gestion n'en garde
+que l'empreinte (`SERVICE_JETON_EMPREINTE`), comme pour le serveur MCP (§7). Facultative : absente,
+tout porteur est refusé. Le jeton n'ouvre que la confirmation d'un ordre. Make ne s'adresse
+jamais à `gestion.luminose.fr`.
+
+Stripe y annonce les paiements aboutis (`/service/v1/stripe`). Pas de jeton : l'annonce est
+signée. La porte transmet le corps tel qu'il est arrivé, borné en taille, sans le lire ni le
+valider — la signature porte sur ces octets-là — et gestion la vérifie avant tout décodage, avec
+sa fraîcheur, puis écarte une annonce déjà traitée. Le secret de signature reste dans gestion.
+
+**La console.** Ses routes des clients vivent sous `/api/clients`, `/api/seances`,
+`/api/evenements`, `/api/reservation` et suivantes, avec la session du §7. `gestion.luminose.fr`
+reste fermée à tout autre domaine. L'origine acceptée pour une écriture est celle de
+l'environnement, et elle seule.
+
+**Le serveur MCP n'atteint rien de tout cela.** Sa liste fermée (§7) ne s'allonge pas, et son
+refus (403) tombe avant tout examen de la liaison ; un test le vérifie sur chaque famille de
+routes des clients.
+
+### 14.6 Les commandes et les ordres
+
+**`commandes`** — ce qu'une porte a reçu : la porte, la clé fournie par l'appelant, la sorte,
+l'objet créé, l'empreinte de l'envoi, et **le reçu** : la réponse minimale rendue, refus compris.
+Le couple (porte, clé) est unique.
+
+- Une clé déjà vue rend le même reçu. Avec une autre empreinte, elle est refusée.
+- L'empreinte est calculée avec un secret de gestion : celle d'un questionnaire ne doit pas
+  permettre d'en deviner les réponses.
+- Le reçu ne porte ni identité ni réponse : une référence, des dates, un montant. Il est gardé
+  trente jours (un réglage), puis purgé ; il part aussi avec l'effacement de son objet.
+- Un rejeu rend ce qui a été répondu ; il ne rouvre pas un droit échu ou révoqué. L'état du
+  moment — un paiement a-t-il abouti ? — se lit par une autre requête.
+
+**`ordres`** — ce que gestion demande à Make. Une sorte, l'objet concerné, une échéance, un état
+et une clé d'unicité. **Ni adresse, ni numéro, ni texte.**
+
+- **Une clé par effet.** Celle d'un rappel porte la séance, le canal et la **révision** de la
+  séance, qui avance à chaque déplacement : un rendez-vous déplacé a de nouveaux rappels, et ceux
+  de l'ancienne date sont annulés tant qu'ils ne sont pas partis.
+- **Le message est composé au départ**, depuis le modèle et la fiche du moment. Juste avant de le
+  remettre à Make, gestion revérifie que l'ordre a encore lieu d'être : la séance est toujours
+  prévue, à cette révision ; le questionnaire n'est pas arrivé entre-temps ; il y a un
+  destinataire. Un ordre déjà remis ne se reprend pas : il reste tracé.
+- **États** : `prevu` → `confie_a_make` → `fait` ou `echec` ; `annule`. Un ordre confié et non
+  confirmé est représenté après un délai, un nombre borné de fois, puis passe en `echec` et lève
+  une alerte.
+- **Make ne refait pas ce qu'il a fait.** Il garde le résultat de chaque ordre sous son
+  identifiant et le renvoie quand le même ordre lui revient : une confirmation perdue ne donne pas
+  un second SMS. Une confirmation identique est sans effet ; une confirmation contraire lève une
+  alerte. Après une réponse incertaine d'un prestataire de paiement, on vérifie chez lui avant de
+  redemander.
+- Un ordre part vers le webhook Make de sa sorte, avec un secret en en-tête. **Chaque webhook est
+  facultatif** : sans adresse configurée, l'ordre reste `prevu`, visible dans la console, et rien
+  d'autre ne casse.
+- **En recette, tout message est détourné** vers l'adresse et le numéro de Florent
+  (`DETOURNEMENT_EMAIL`, `DETOURNEMENT_SMS`). Sans eux, la recette n'envoie rien : un oubli de
+  configuration ne doit pas pouvoir écrire à une vraie personne.
+
+### 14.7 Le temps
+
+- En base, un instant est en millisecondes UTC (§2.2). Un horaire est une heure de Paris.
+- **Un délai est une durée écoulée**, en heures : la fenêtre de réservation, les rappels, les
+  seuils de la liste d'attente. « Dans 21 jours » vaut 504 heures à partir de maintenant, pas
+  « à partir du 21ᵉ jour à minuit ».
+- Le calcul des créneaux vit dans `packages/pratique`, sans base ni réseau : horaires du jour −
+  séances prévues et leur marge − plages occupées de l'agenda, dans la fenêtre du type, par pas
+  du type. **La même fonction sert à afficher et à réserver**, avec un quart d'heure de tolérance
+  à la réservation sur le début de la fenêtre : un créneau affiché ne doit pas être refusé parce
+  que la personne a mis trois minutes à remplir le formulaire. Elle est testée sur les deux
+  changements d'heure de l'année.
+- Dans le contrat, une date voyage avec son décalage (`2026-12-17T09:30:00+01:00`).
+- **Les tâches planifiées se partagent les déclencheurs.** Le plan gratuit en donne cinq par
+  compte, recette comprise : un déclencheur porte plusieurs tâches — relever les ordres échus,
+  libérer les places dont la retenue est passée, comparer gestion et l'agenda. Partager un
+  déclencheur ne réduit pas le travail : chaque passage traite un nombre borné d'ordres et laisse
+  le reste au suivant.
+
+### 14.8 Les environnements
+
+| | Production | Recette |
+| :--- | :--- | :--- |
+| Console | `gestion.luminose.fr` | `gestion-recette.luminose.fr` |
+| Portes | `api.luminose.fr` | `api-recette.luminose.fr` |
+| Bases | `luminose-gestion`, `luminose-clients` | `luminose-gestion-recette`, `luminose-clients-recette` |
+| Données | réelles, après la phase S4 | fictives, toujours |
+| Messages | aux personnes | détournés vers Florent |
+| Make, paiements | réels | scénarios et clés de test |
+| Agenda Google | celui de Florent | un agenda de test |
+
+- Un environnement est une section `[env.recette]` de chaque `wrangler.toml`. Les liaisons et les
+  variables ne s'héritent pas de la racine ; **`routes`, `triggers` et `workers_dev` s'héritent** :
+  la recette les déclare donc tous, explicitement, faute de quoi elle viserait les adresses de la
+  production.
+- `scripts/deploy.sh` reçoit l'environnement en paramètre et **vérifie sa cible avant tout
+  effet** : le compte, les bases attendues, le Worker, le projet Pages et son domaine. La
+  production reste la cible par défaut, et son chemin ne change pas.
+- Le poste de développement a lui aussi sa déclaration explicite de `CLIENTS` : la racine de la
+  configuration n'en porte pas.
+- La recette a ses propres secrets et ses propres identifiants de connexion.
+- **La console dit où l'on est** : un bandeau « Recette » permanent. Rien dans les messages du
+  contrat ne dit « test » ; c'est l'adresse appelée qui le dit.
+- Le jeu d'essai (identités fictives) se charge par une commande, qui vérifie la base qu'elle va
+  écrire et refuse toute autre cible que le poste local ou la recette.
+
+### 14.9 L'import de Notion
+
+- **Rejouable** : une ligne reprise garde l'identifiant de sa page Notion (§2.4). Deux imports de
+  suite donnent la même base.
+- **Local tant que la phase S4 n'est pas finie** : l'outil lit Notion et produit un fichier SQL,
+  appliqué à la base locale du poste. Ce fichier contient des données réelles : il n'entre jamais
+  dans le dépôt.
+- **Vérifié champ par champ** (§9.3), avec en plus les valeurs recalculées — nombre de séances
+  par client, places libres par évènement — comparées à celles de Notion, et la liste de ce qui
+  demande un regard : fiches de trois mots ou plus, séances sans type reconnu, fiches de même clé.
+- Les correspondances sont en Annexe D.
+
+### 14.10 Ce qui se teste
+
+| Cible | Nature |
+| :--- | :--- |
+| `packages/pratique` | la clé d'un client sur les noms du jeu d'essai, avec la clé attendue écrite en toutes lettres ; plus tard, les créneaux aux changements d'heure |
+| Migrations des clients | appliquées sur une base vide, clés étrangères actives ; puis, **sur la base de recette elle-même**, une violation de clé étrangère et un conflit d'index partiel provoqués à la main |
+| Règle 6 | chaque décision jouée deux fois : une seule aboutit ; **un refus à zéro ligne ne laisse rien** — ni fiche, ni mouvement, ni ordre ; une erreur au milieu d'un lot l'annule en entier |
+| Règle 1 | aucun module éditorial n'importe `src/clients/` ; `env.CLIENTS` n'apparaît que là |
+| Règle 2 | sans `CLIENTS`, toute la suite d'avant passe ; les routes des clients répondent 409 |
+| Règle 3 | les noms des tables sensibles n'apparaissent, dans le code, que dans `sensible.ts` |
+| Règle 4 | chaque commande publique, personne connue contre inconnue, doublon, suivi sans complet : même corps, même statut, mêmes en-têtes, et des délais comparables sur une série d'essais ; aucune fiche existante modifiée |
+| Règle 5 | chaque commande envoyée deux fois : un seul objet, le même reçu ; la même clé avec un autre contenu : refus |
+| Règle 7 | des valeurs repères envoyées sur les chemins de réussite, de refus et de panne ne se retrouvent ni dans les journaux, ni dans une réponse qui n'a pas à les porter, ni dans l'export |
+| Règle 8 | après un effacement, plus aucune ligne ne mène à la personne, hors ses paiements détachés ; une autre personne, ses séances et ses questionnaires sont intacts |
+| Serveur MCP | refusé (403) sur chaque famille de routes des clients, liaison présente ou non |
+| Export général | ne contient aucune table de la base des clients |
+
+Ce que la suite de tests ne peut pas voir — la concurrence réelle, les quotas, les liaisons de
+service, le routage de Pages, une signature reçue à travers la porte — se constate en recette, et
+chaque phase dit quoi.
+
+### 14.11 Phasage du socle — NORMATIF
+
+Une branche par étape ; aucune ne laisse l'application cassée. Chaque étape se reçoit en trois
+temps : la branche testée ; la recette déployée et vérifiée par Florent ; la production
+contrôlée après son déploiement.
+
+| # | Étape | Critère de sortie |
+| :--- | :--- | :--- |
+| **S1** | **La base et la recette** — ce chapitre ; le schéma des tables de la phase ; la liaison facultative ; `packages/pratique` (clé d'un client) ; les deux décisions de l'agenda et de la dernière place ; l'environnement de recette et son jeu d'essai | La console de recette s'ouvre sur son adresse, base reliée en juridiction européenne, jeu d'essai chargé ; la production, redéployée, est inchangée et dit « non reliée » |
+| **S2** | **Les portes** — l'essai à blanc du §14.3 ; `workers/porte`, les entrées nommées, `packages/contrat`, commandes rejouables, bornes, interrupteur, porte de service, ordres ; un premier parcours de bout en bout : le questionnaire | Un questionnaire fictif envoyé deux fois depuis une page de recette : une ligne, un accusé de réception, détourné ; le temps de calcul et les sous-requêtes d'un parcours relevés |
+| **S3** | **L'import** — outil, vérification, liste de ce qui demande un regard | Deux imports de suite sur les vraies bases, en local : zéro écart inexpliqué |
+| **S4** | **Les protections** — second facteur à la connexion ; sauvegarde chiffrée de la base et des fichiers, restauration essayée ; effacement d'une personne, lignes non rattachées et fichiers compris ; inspection des journaux, de l'export et du stockage du navigateur | Une restauration et un effacement faits en recette ; alors seulement, la liaison `CLIENTS` est posée en production |
+
+La réservation, les écrans de la console et les autres parcours viennent ensuite, chacun avec son
+chapitre et son brief.
+
+**Ce qu'un effacement ne peut pas.** La base l'applique aussitôt, mais l'historique de D1 (Time
+Travel) et les sauvegardes le gardent jusqu'à leur terme : la durée réelle est relevée en S4, et
+l'écran d'effacement la dit. Une restauration ramènerait une personne effacée : la trace des
+effacements garde donc les identifiants retirés — pas les identités —, et tout effacement
+postérieur à la sauvegarde est rejoué avant de rouvrir la base.
+
+---
+
 ## Annexe A — Schéma D1
 
 ```sql
@@ -3335,3 +3799,533 @@ Après « Marquer publié », « Annuler le marquage » rétablit le statut ET l
 d’avant. Cette action n’est proposée qu’après une sauvegarde réussie et reste
 disponible dans le contenu ouvert, sans compte à rebours. Le mouvement respecte
 la préférence système de réduction des animations (DESIGN.md).
+
+## Annexe C — Schéma de `luminose-clients` (v3.0)
+
+Les tables de la phase S1 (§14.4), d'après le modèle de données du 26/11/2026. **Le fichier
+`workers/api/migrations-clients/0001_schema.sql` fait foi** ; ce qui suit en est la copie au
+moment de la v3.0, comme l'Annexe A pour l'éditoriale. Les données de départ — six types de
+séance, la semaine type, les réglages — sont dans `0002_reference.sql`.
+
+Rappel des écarts au §2 (§14.4) : pas de `deleted_at` sur les tables qui portent des
+personnes ; dates sans heure en `AAAA-MM-JJ`, heures d'horaire en `HH:MM` (heure de Paris) ;
+montants en centimes ; choix en minuscules sans accent, contraints par `CHECK` quand la liste
+est fermée (`clients.origine` reste libre : sa liste bouge).
+
+```sql
+-- 0001_schema.sql (migrations-clients)
+
+-- ─── La réservation : types, horaires, réglages ─────────────────────────────
+
+CREATE TABLE types_seance (
+  id                      TEXT PRIMARY KEY,
+  cle                     TEXT NOT NULL,
+  libelle                 TEXT NOT NULL,
+  nature                  TEXT NOT NULL CHECK (nature IN ('rencontre', 'seance')),
+  duree_min               INTEGER NOT NULL CHECK (duree_min > 0),
+  -- Le temps bloqué après la séance : un quart d'heure pour le breathwork.
+  marge_apres_min         INTEGER NOT NULL DEFAULT 0 CHECK (marge_apres_min >= 0),
+  -- L'écart entre deux débuts proposés : un entretien de 20 minutes se propose
+  -- toutes les 30 minutes.
+  pas_min                 INTEGER NOT NULL CHECK (pas_min > 0),
+  lieu                    TEXT NOT NULL CHECK (lieu IN ('sur_place', 'visio', 'visio_ou_appel')),
+  montant_centimes        INTEGER NOT NULL DEFAULT 0 CHECK (montant_centimes >= 0),
+  etat_paiement_defaut    TEXT NOT NULL
+                          CHECK (etat_paiement_defaut IN ('a_payer', 'attente_especes', 'payee', 'offerte', 'annulee')),
+  questionnaire_requis    INTEGER NOT NULL DEFAULT 0 CHECK (questionnaire_requis IN (0, 1)),
+  conditions_annulation   INTEGER NOT NULL DEFAULT 0 CHECK (conditions_annulation IN (0, 1)),
+  liste_attente_proposee  INTEGER NOT NULL DEFAULT 0 CHECK (liste_attente_proposee IN (0, 1)),
+  -- La fenêtre proposée en ligne, en heures écoulées (§14.7) : 504 h = 21 jours.
+  fenetre_debut_h         INTEGER NOT NULL CHECK (fenetre_debut_h >= 0),
+  fenetre_fin_h           INTEGER NOT NULL CHECK (fenetre_fin_h > fenetre_debut_h),
+  -- JSON : les questions posées à la réservation. Vide jusqu'à la réservation.
+  questions               TEXT NOT NULL DEFAULT '[]',
+  reservable_en_ligne     INTEGER NOT NULL DEFAULT 1 CHECK (reservable_en_ligne IN (0, 1)),
+  actif                   INTEGER NOT NULL DEFAULT 1 CHECK (actif IN (0, 1)),
+  ordre                   INTEGER NOT NULL DEFAULT 0,
+  created_at              INTEGER NOT NULL,
+  updated_at              INTEGER NOT NULL,
+  deleted_at              INTEGER
+);
+CREATE UNIQUE INDEX idx_types_seance_cle ON types_seance(cle);
+
+-- La semaine type, un seul horaire pour tous les types (modèle §9, point 5).
+CREATE TABLE horaires (
+  id          TEXT PRIMARY KEY,
+  jour        INTEGER NOT NULL CHECK (jour BETWEEN 1 AND 7),   -- 1 = lundi … 7 = dimanche
+  debut       TEXT NOT NULL CHECK (debut GLOB '[0-2][0-9]:[0-5][0-9]'),
+  fin         TEXT NOT NULL CHECK (fin GLOB '[0-2][0-9]:[0-5][0-9]'),
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  deleted_at  INTEGER,
+  CHECK (debut < fin)
+);
+
+-- Les exceptions datées : une ligne par plage. Une date présente remplace la
+-- semaine type ce jour-là ; une ligne sans plage (debut et fin vides) ferme la
+-- journée.
+CREATE TABLE horaires_dates (
+  id          TEXT PRIMARY KEY,
+  date        TEXT NOT NULL CHECK (date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'),
+  debut       TEXT CHECK (debut GLOB '[0-2][0-9]:[0-5][0-9]'),
+  fin         TEXT CHECK (fin GLOB '[0-2][0-9]:[0-5][0-9]'),
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  deleted_at  INTEGER,
+  CHECK ((debut IS NULL AND fin IS NULL) OR (debut IS NOT NULL AND fin IS NOT NULL AND debut < fin))
+);
+CREATE INDEX idx_horaires_dates_date ON horaires_dates(date);
+
+-- Ce qui se règle sans toucher au code. Une valeur entière : une durée en
+-- heures (le suffixe `_h` de la clé le dit) ou un nombre.
+CREATE TABLE reglages (
+  cle         TEXT PRIMARY KEY,
+  valeur      INTEGER NOT NULL,
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+
+-- Les textes qu'une personne accepte. Une modification crée une version ; la
+-- séance ou le questionnaire garde la version acceptée.
+CREATE TABLE textes_versions (
+  id              TEXT PRIMARY KEY,
+  cle             TEXT NOT NULL,           -- conditions_annulation | accord_conservation
+  version         INTEGER NOT NULL CHECK (version >= 1),
+  texte           TEXT NOT NULL,
+  en_vigueur_le   INTEGER NOT NULL,
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_textes_versions_cle ON textes_versions(cle, version);
+
+-- ─── Références ─────────────────────────────────────────────────────────────
+
+CREATE TABLE professionnels (
+  id              TEXT PRIMARY KEY,
+  nom             TEXT NOT NULL,
+  categories      TEXT NOT NULL DEFAULT '[]',   -- JSON : liste
+  specialisation  TEXT,
+  adresse         TEXT,
+  code_postal     TEXT,
+  ville           TEXT,
+  telephone       TEXT,
+  email           TEXT,
+  site_web        TEXT,
+  note            TEXT,
+  connu           INTEGER NOT NULL DEFAULT 0 CHECK (connu IN (0, 1)),
+  courriers       TEXT NOT NULL DEFAULT '[]',   -- JSON : « Mai 2023 »…
+  created_at      INTEGER NOT NULL,
+  updated_at      INTEGER NOT NULL,
+  deleted_at      INTEGER
+);
+
+-- ─── Les personnes ──────────────────────────────────────────────────────────
+
+CREATE TABLE clients (
+  id                    TEXT PRIMARY KEY,
+  civilite              TEXT,                    -- Mme | M.
+  prenom                TEXT NOT NULL,
+  nom                   TEXT NOT NULL DEFAULT '',
+  -- Sans accents, en minuscules : la recherche et l'ordre alphabétique.
+  nom_recherche         TEXT NOT NULL,
+  -- La clé d'un client (packages/pratique). Indexée, PAS unique : deux fiches
+  -- peuvent la partager, et c'est le cas « à rapprocher » (§14.4). Vide pour
+  -- une fiche sans adresse, qui ne se rattache jamais d'elle-même.
+  cle_client            TEXT,
+  email                 TEXT,
+  telephone             TEXT,
+  date_naissance        TEXT CHECK (date_naissance GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'),
+  profession            TEXT,
+  adresse               TEXT,
+  code_postal           TEXT,
+  ville                 TEXT,
+  pays                  TEXT,                    -- code : FR
+  -- Texte libre : la liste des origines bouge.
+  origine               TEXT,
+  mot_cle_google_ads    TEXT,
+  clic_annonce          TEXT,
+  clic_date             INTEGER,
+  via_professionnel_id  TEXT REFERENCES professionnels(id) ON DELETE SET NULL,
+  via_client_id         TEXT REFERENCES clients(id) ON DELETE SET NULL,
+  couple_client_id      TEXT REFERENCES clients(id) ON DELETE SET NULL,
+  stancer_customer_id   TEXT,
+  qonto_client_id       TEXT,
+  brevo_ajoute_le       INTEGER,
+  compta_wlu_ajoute_le  INTEGER,
+  created_at            INTEGER NOT NULL,
+  updated_at            INTEGER NOT NULL
+);
+CREATE INDEX idx_clients_cle ON clients(cle_client);
+CREATE INDEX idx_clients_nom_recherche ON clients(nom_recherche);
+CREATE INDEX idx_clients_via_professionnel ON clients(via_professionnel_id);
+CREATE INDEX idx_clients_via_client ON clients(via_client_id);
+CREATE INDEX idx_clients_couple ON clients(couple_client_id);
+
+-- ★ La personne de confiance : une par fiche.
+CREATE TABLE clients_confiance (
+  id                TEXT PRIMARY KEY,
+  client_id         TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  civilite          TEXT,
+  prenom            TEXT,
+  nom               TEXT,
+  telephone         TEXT,
+  email             TEXT,
+  mis_a_jour_le     INTEGER,
+  questionnaire_id  TEXT REFERENCES questionnaires(id) ON DELETE SET NULL,
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_clients_confiance_client ON clients_confiance(client_id);
+CREATE INDEX idx_clients_confiance_questionnaire ON clients_confiance(questionnaire_id);
+
+-- ★ Le texte libre de la fiche : un par fiche.
+CREATE TABLE clients_notes (
+  id          TEXT PRIMARY KEY,
+  client_id   TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  texte       TEXT NOT NULL DEFAULT '',
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_clients_notes_client ON clients_notes(client_id);
+
+-- ─── Les séances ────────────────────────────────────────────────────────────
+
+CREATE TABLE seances (
+  id                      TEXT PRIMARY KEY,
+  -- Vide tant que la séance est « à rapprocher » : elle garde alors l'identité
+  -- reçue. Aucune cascade ne l'atteint.
+  client_id               TEXT REFERENCES clients(id) ON DELETE CASCADE,
+  -- Vide sur une séance ancienne dont le type n'est pas reconnu.
+  type_seance_id          TEXT REFERENCES types_seance(id),
+  -- JSON : prénom, nom, e-mail et téléphone tels qu'envoyés.
+  identite_recue          TEXT,
+  debut                   INTEGER NOT NULL,
+  duree_min               INTEGER NOT NULL CHECK (duree_min > 0),
+  -- début + durée + marge du type : écrit à la création et à chaque
+  -- déplacement, par l'instruction même qui décide (clients/decisions.ts).
+  -- L'intervalle occupé est [debut, occupe_jusqua[.
+  occupe_jusqua           INTEGER NOT NULL CHECK (occupe_jusqua > debut),
+  -- Avance à chaque déplacement : c'est elle qui distinguera les rappels de
+  -- l'ancienne date de ceux de la nouvelle.
+  revision                INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
+  statut                  TEXT NOT NULL CHECK (statut IN ('prevue', 'realisee', 'annulee', 'absent')),
+  etat_paiement           TEXT NOT NULL
+                          CHECK (etat_paiement IN ('a_payer', 'attente_especes', 'payee', 'offerte', 'annulee')),
+  montant_centimes        INTEGER NOT NULL DEFAULT 0 CHECK (montant_centimes >= 0),
+  mode                    TEXT CHECK (mode IN ('sur_place', 'visio', 'appel')),
+  visio_url               TEXT,
+  agenda_evenement_id     TEXT,
+  agenda_etat             TEXT NOT NULL DEFAULT 'a_ecrire' CHECK (agenda_etat IN ('a_ecrire', 'ecrit', 'echec')),
+  -- La changer révoque les liens déjà envoyés pour cette séance (§14.5).
+  liens_version           INTEGER NOT NULL DEFAULT 1 CHECK (liens_version >= 1),
+  liste_attente           INTEGER NOT NULL DEFAULT 0 CHECK (liste_attente IN (0, 1)),
+  conditions_acceptees_le INTEGER,
+  conditions_version      INTEGER,
+  questionnaire_id        TEXT REFERENCES questionnaires(id) ON DELETE SET NULL,
+  origine                 TEXT NOT NULL CHECK (origine IN ('site', 'console', 'import')),
+  clic_annonce            TEXT,
+  provenance              TEXT,                    -- JSON : source, campagne, mot-clé
+  conversion_importee_le  INTEGER,
+  conversion_retiree_le   INTEGER,
+  libelle_importe         TEXT,
+  created_at              INTEGER NOT NULL,
+  updated_at              INTEGER NOT NULL
+);
+CREATE INDEX idx_seances_debut ON seances(debut);
+CREATE INDEX idx_seances_client_debut ON seances(client_id, debut);
+CREATE INDEX idx_seances_type ON seances(type_seance_id);
+CREATE INDEX idx_seances_questionnaire ON seances(questionnaire_id);
+
+-- L'histoire d'un rendez-vous : créé, déplacé, annulé, rétabli ; par qui.
+CREATE TABLE seances_mouvements (
+  id             TEXT PRIMARY KEY,
+  seance_id      TEXT NOT NULL REFERENCES seances(id) ON DELETE CASCADE,
+  nature         TEXT NOT NULL CHECK (nature IN ('creee', 'deplacee', 'annulee', 'retablie')),
+  -- florent : depuis la console ; personne : la personne elle-même (une
+  -- réservation, un créneau libéré pris) ; import : la reprise de Notion.
+  par            TEXT NOT NULL CHECK (par IN ('florent', 'personne', 'import')),
+  ancien_debut   INTEGER,
+  nouveau_debut  INTEGER,
+  -- La révision de la séance après le mouvement.
+  revision       INTEGER NOT NULL,
+  created_at     INTEGER NOT NULL,
+  updated_at     INTEGER NOT NULL
+);
+CREATE INDEX idx_seances_mouvements_seance ON seances_mouvements(seance_id, created_at);
+
+-- ★ La trame des notes d'une séance : une par séance.
+CREATE TABLE seances_notes (
+  id                 TEXT PRIMARY KEY,
+  seance_id          TEXT NOT NULL REFERENCES seances(id) ON DELETE CASCADE,
+  demande            TEXT,
+  objectif           TEXT,
+  seance             TEXT,
+  travail_personnel  TEXT,
+  idees_suite        TEXT,
+  reponse_sms        TEXT,
+  -- La copie brute de la page Notion d'origine, gardée entière.
+  import_notion      TEXT,
+  created_at         INTEGER NOT NULL,
+  updated_at         INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_seances_notes_seance ON seances_notes(seance_id);
+
+-- ★ Les réponses aux questions posées à la réservation.
+CREATE TABLE seances_reponses (
+  id          TEXT PRIMARY KEY,
+  seance_id   TEXT NOT NULL REFERENCES seances(id) ON DELETE CASCADE,
+  rang        INTEGER NOT NULL,
+  question    TEXT NOT NULL,
+  reponse     TEXT NOT NULL DEFAULT '',
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_seances_reponses_rang ON seances_reponses(seance_id, rang);
+
+-- ─── Les évènements ─────────────────────────────────────────────────────────
+
+CREATE TABLE evenements (
+  id                      TEXT PRIMARY KEY,         -- page Notion pour les anciens, UUID ensuite
+  nom                     TEXT NOT NULL,
+  type                    TEXT,                     -- meditation | hypnose | respiration-holotropique
+  debut                   INTEGER NOT NULL,
+  fin                     INTEGER,
+  ville                   TEXT,
+  places_totales          INTEGER CHECK (places_totales >= 0),
+  prix_centimes           INTEGER CHECK (prix_centimes >= 0),
+  questionnaire_requis    INTEGER NOT NULL DEFAULT 0 CHECK (questionnaire_requis IN (0, 1)),
+  -- Renseignée : l'inscription se fait ailleurs ; vide : sur le site.
+  url_inscription         TEXT,
+  publie                  INTEGER NOT NULL DEFAULT 0 CHECK (publie IN (0, 1)),
+  publie_le               INTEGER,
+  publication_empreinte   TEXT,
+  meta_description        TEXT,
+  html_permalink          TEXT,
+  html_programme          TEXT,
+  html_prix               TEXT,
+  html_lieu_adresse       TEXT,
+  html_lieu_instructions  TEXT,
+  created_at              INTEGER NOT NULL,
+  updated_at              INTEGER NOT NULL,
+  deleted_at              INTEGER
+);
+CREATE INDEX idx_evenements_debut ON evenements(debut);
+
+CREATE TABLE inscriptions (
+  id                TEXT PRIMARY KEY,
+  -- Un évènement n'est jamais retiré pour de bon (suppression logique) : le
+  -- lien est restreint, il ne se vide pas.
+  evenement_id      TEXT NOT NULL REFERENCES evenements(id),
+  -- Vide tant que l'inscription est « à rapprocher ». Aucune cascade ne l'atteint.
+  client_id         TEXT REFERENCES clients(id) ON DELETE CASCADE,
+  statut            TEXT NOT NULL
+                    CHECK (statut IN ('retenue', 'payee', 'confirmee', 'expiree', 'annulee', 'deconseillee')),
+  retenue_jusqua    INTEGER,
+  mode_paiement     TEXT CHECK (mode_paiement IN ('carte', 'virement')),
+  montant_centimes  INTEGER CHECK (montant_centimes >= 0),
+  code_promo        TEXT,
+  questionnaire_id  TEXT REFERENCES questionnaires(id) ON DELETE SET NULL,
+  -- Tirée au hasard, sans signification : c'est elle que la page de paiement
+  -- présente pour suivre une inscription.
+  reference         TEXT NOT NULL,
+  identite_recue    TEXT,                           -- JSON, comme sur une séance
+  liens_version     INTEGER NOT NULL DEFAULT 1 CHECK (liens_version >= 1),
+  provenance        TEXT,
+  origine           TEXT NOT NULL CHECK (origine IN ('site', 'console', 'import')),
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL,
+  -- Une retenue sans mode ni échéance échapperait au compte des places : la
+  -- dernière place (§14.4) ne sait la compter que par l'un ou par l'autre.
+  CHECK (statut <> 'retenue' OR (mode_paiement IS NOT NULL AND retenue_jusqua IS NOT NULL))
+);
+CREATE UNIQUE INDEX idx_inscriptions_reference ON inscriptions(reference);
+CREATE INDEX idx_inscriptions_evenement_statut ON inscriptions(evenement_id, statut);
+CREATE INDEX idx_inscriptions_client ON inscriptions(client_id);
+-- Une fiche n'a qu'une inscription vivante par évènement. Deux inscriptions
+-- encore « à rapprocher » peuvent venir de la même personne : l'index ne les
+-- voit pas, l'alerte de rapprochement les montre ensemble.
+CREATE UNIQUE INDEX idx_inscriptions_vivante
+  ON inscriptions(evenement_id, client_id)
+  WHERE client_id IS NOT NULL AND statut IN ('retenue', 'payee', 'confirmee');
+
+-- ─── Les questionnaires ★ ───────────────────────────────────────────────────
+
+CREATE TABLE questionnaires (
+  id                      TEXT PRIMARY KEY,
+  -- La clé de la commande qui l'a porté : reçu deux fois, il ne crée qu'une
+  -- ligne. Vide pour un ancien questionnaire repris de Drive.
+  envoi_id                TEXT,
+  contexte                TEXT NOT NULL CHECK (contexte IN ('seance', 'decouverte', 'groupe', 'journee_externe')),
+  version                 TEXT CHECK (version IN ('complet', 'suivi')),
+  version_formulaire      TEXT,                     -- « 2026-12 »
+  -- Vide tant que le questionnaire est « à rapprocher ». Aucune cascade ne l'atteint.
+  client_id               TEXT REFERENCES clients(id) ON DELETE CASCADE,
+  seance_id               TEXT REFERENCES seances(id) ON DELETE SET NULL,
+  inscription_id          TEXT REFERENCES inscriptions(id) ON DELETE SET NULL,
+  evenement_id            TEXT REFERENCES evenements(id),
+  identite                TEXT,                     -- JSON, tels qu'envoyés
+  coordonnees             TEXT,
+  confiance               TEXT,
+  -- Copie figée : pour chaque question, son libellé tel qu'affiché et la réponse.
+  reponses                TEXT,
+  nb_oui                  INTEGER,
+  autorisation_parentale  TEXT NOT NULL DEFAULT 'sans_objet'
+                          CHECK (autorisation_parentale IN ('sans_objet', 'a_obtenir', 'recue')),
+  declaration             INTEGER CHECK (declaration IN (0, 1)),
+  accord_conservation     INTEGER CHECK (accord_conservation IN (0, 1)),
+  accord_texte            TEXT,
+  accord_le               INTEGER,
+  rattachement            TEXT NOT NULL DEFAULT 'fait' CHECK (rattachement IN ('fait', 'a_rapprocher')),
+  a_revoir                INTEGER NOT NULL DEFAULT 0 CHECK (a_revoir IN (0, 1)),
+  relu_le                 INTEGER,
+  pdf_cle                 TEXT,
+  pdf_le                  INTEGER,
+  source                  TEXT NOT NULL DEFAULT 'site' CHECK (source IN ('site', 'import_drive')),
+  drive_url               TEXT,
+  created_at              INTEGER NOT NULL,
+  updated_at              INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_questionnaires_envoi ON questionnaires(envoi_id);
+CREATE INDEX idx_questionnaires_client ON questionnaires(client_id);
+CREATE INDEX idx_questionnaires_seance ON questionnaires(seance_id);
+CREATE INDEX idx_questionnaires_inscription ON questionnaires(inscription_id);
+CREATE INDEX idx_questionnaires_evenement ON questionnaires(evenement_id);
+
+-- ─── Les paiements ──────────────────────────────────────────────────────────
+
+-- Une ligne par tentative. Ce sont des pièces comptables : effacer une
+-- personne les détache (seance_id, inscription_id remis à vide), ne les retire pas.
+CREATE TABLE paiements (
+  id                TEXT PRIMARY KEY,
+  seance_id         TEXT REFERENCES seances(id) ON DELETE SET NULL,
+  inscription_id    TEXT REFERENCES inscriptions(id) ON DELETE SET NULL,
+  prestataire       TEXT NOT NULL CHECK (prestataire IN ('stancer', 'stripe', 'virement', 'especes')),
+  reference         TEXT NOT NULL,
+  montant_centimes  INTEGER NOT NULL CHECK (montant_centimes >= 0),
+  devise            TEXT NOT NULL DEFAULT 'EUR',
+  statut            TEXT NOT NULL CHECK (statut IN ('cree', 'reussi', 'echoue', 'rembourse')),
+  -- Un paiement de test (clés de test du prestataire) : jamais confondu avec un réel.
+  test              INTEGER NOT NULL DEFAULT 0 CHECK (test IN (0, 1)),
+  facture_qonto_id  TEXT,
+  reussi_le         INTEGER,
+  rembourse_le      INTEGER,
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_paiements_reference ON paiements(prestataire, reference);
+CREATE INDEX idx_paiements_seance ON paiements(seance_id);
+CREATE INDEX idx_paiements_inscription ON paiements(inscription_id);
+```
+
+### La matrice d'effacement — NORMATIF
+
+Pour chaque relation : qui possède la ligne, si le lien peut être vide, et ce que devient la
+ligne quand son propriétaire est effacé. **Retirée** : `ON DELETE CASCADE`. **Détachée** :
+`ON DELETE SET NULL`, la ligne reste. **Restreinte** : aucune clause — le propriétaire
+n'est jamais retiré pour de bon (suppression logique), une suppression réelle serait refusée.
+
+| Ligne | Lien | Propriétaire | Vide possible | À l'effacement du propriétaire |
+| :--- | :--- | :--- | :---: | :--- |
+| `clients_confiance` ★ | `client_id` | `clients` | non | **retirée** |
+| `clients_confiance` ★ | `questionnaire_id` | `questionnaires` | oui | détachée |
+| `clients_notes` ★ | `client_id` | `clients` | non | **retirée** |
+| `clients` | `via_professionnel_id` | `professionnels` | oui | détachée |
+| `clients` | `via_client_id` | `clients` (l'autre fiche) | oui | détachée |
+| `clients` | `couple_client_id` | `clients` (l'autre fiche) | oui | détachée |
+| `seances` | `client_id` | `clients` | oui — « à rapprocher » | **retirée** |
+| `seances` | `type_seance_id` | `types_seance` | oui — séance ancienne | restreinte |
+| `seances` | `questionnaire_id` | `questionnaires` | oui | détachée |
+| `seances_mouvements` | `seance_id` | `seances` | non | **retirée** |
+| `seances_notes` ★ | `seance_id` | `seances` | non | **retirée** |
+| `seances_reponses` ★ | `seance_id` | `seances` | non | **retirée** |
+| `inscriptions` | `evenement_id` | `evenements` | non | restreinte |
+| `inscriptions` | `client_id` | `clients` | oui — « à rapprocher » | **retirée** |
+| `inscriptions` | `questionnaire_id` | `questionnaires` | oui | détachée |
+| `questionnaires` ★ | `client_id` | `clients` | oui — « à rapprocher » | **retirée** |
+| `questionnaires` ★ | `seance_id` | `seances` | oui | détachée |
+| `questionnaires` ★ | `inscription_id` | `inscriptions` | oui | détachée |
+| `questionnaires` ★ | `evenement_id` | `evenements` | oui | restreinte |
+| `paiements` | `seance_id` | `seances` | oui | **détachée** — pièce comptable |
+| `paiements` | `inscription_id` | `inscriptions` | oui | **détachée** — pièce comptable |
+
+Effacer un client retire donc, en cascade : ses séances et, avec elles, leurs mouvements,
+leurs notes et leurs réponses ; sa personne de confiance ; ses notes de fiche ; ses
+questionnaires ; ses inscriptions. Ses paiements restent, `seance_id` et `inscription_id`
+remis à vide (règle 8). Les fiches qui le désignaient (`via_client_id`, `couple_client_id`)
+perdent ce lien et rien d'autre.
+
+**Ce qu'aucune cascade n'atteint** : une séance, une inscription ou un questionnaire **sans
+client** (`client_id` vide, « à rapprocher »), même s'il porte l'identité de la personne
+effacée (`identite_recue`, `identite`), ou s'il ne lui est relié que par une séance ou une
+inscription retirée — il en est alors détaché, pas retiré. La règle 8 exige qu'il parte
+aussi : c'est l'effacement de la phase S4 qui le cherche et le retire, avec sa trace.
+
+## Annexe D — Correspondance Notion et Calendly → `luminose-clients` (v3.0)
+
+D'après le §6 du modèle de données. L'import est rejouable : une ligne reprise garde
+l'identifiant de sa page Notion (§14.9).
+
+### Calendly
+
+| Calendly | Gestion |
+| :--- | :--- |
+| Les six types ouverts par le site : durée, marge, pas, lieu, questions | `types_seance` |
+| Leurs notes internes (montant, état de paiement) | `types_seance` |
+| L'horaire « Séances individuelles » et ses ouvertures datées à venir | `horaires`, `horaires_dates` |
+| Les rendez-vous à venir | déjà dans Notion : repris avec les séances ; l'identifiant de leur rendez-vous dans l'agenda Google, que Calendly garde, permet de les y rattacher |
+
+### Clients (33 propriétés)
+
+| Notion | Gestion |
+| :--- | :--- |
+| Nom | `prenom` (premier mot) et `nom` (le reste) — les fiches de trois mots ou plus sont listées pour vérification |
+| Genre, Date de naissance, Email, Phone, Profession | `clients` (`civilite`, `date_naissance`, `email`, `telephone`, `profession`) |
+| Adresse, Code postal, Ville, Pays | `clients` (« France - FR » → `FR`) |
+| Origine, Google Ads Keyword | `clients.origine`, `clients.mot_cle_google_ads` |
+| Via professionnel, Via client, Couple | `via_professionnel_id`, `via_client_id`, `couple_client_id` ; « A recommandé » se calcule |
+| Séances, Evènements | `seances.client_id` ; `inscriptions` (statut `confirmee`, origine `import`) |
+| Personne de confiance (5 propriétés) | `clients_confiance` ★ |
+| stancer_customer_id, qonto_client_id | `clients` |
+| Corps de la page | `clients_notes` ★ |
+| Nombre de séances, Dernière séance, Âge | calculés, non repris |
+| Prise de rendez-vous, Paiement stage respiration, Créer dans Stancer et Qonto | des gestes de la console, pas des données |
+| Mot de passe (SHA-256) | **non repris** : aucun script ne s'en sert |
+
+`nom_recherche` et `cle_client` se calculent à l'import (`packages/pratique`).
+
+### Séances (15 propriétés)
+
+| Notion | Gestion |
+| :--- | :--- |
+| Name | `libelle_importe` ; le type est déduit du nom entre parenthèses quand il correspond à un type connu |
+| Date | `debut` et `duree_min` ; `occupe_jusqua` se calcule |
+| Clients, Statut, État paiement | `seances` |
+| Demande, Objectif, corps de la page | `seances_notes` ★ ; le corps est découpé selon la trame quand ses titres y sont, et toujours gardé entier dans `import_notion` |
+| gclid | `clic_annonce` |
+| stancer_payment_intent_id, stancer_payment_intent_amount, qonto_client_invoice_id | une ligne de `paiements` ; le montant passe d'euros en centimes |
+| recevoir_notification_disponibilite | `liste_attente` |
+| calendly_uri, calendly_cancel_uri, calendly_reschedule_uri | **non repris** : sans objet une fois Calendly quitté |
+
+Pour les séances à venir, l'import inscrit aussi les rappels (phase S2 et suivantes) ; leur
+rendez-vous de l'agenda Google existe déjà, créé par Calendly, et leur est rattaché.
+
+### Évènements (18 propriétés)
+
+| Notion | Gestion |
+| :--- | :--- |
+| Nom, Date, Type d'évènement, Ville, Places totales | `evenements` |
+| Clients | `inscriptions` |
+| Publié sur le site, Questionnaire de santé, URL Inscription, Meta description, cinq contenus HTML | `evenements` |
+| Places libres | calculé |
+| cle | **non repris** |
+| — | `prix_centimes`, à renseigner à la main pour les évènements à venir |
+
+### Professionnels (15 propriétés)
+
+Tout est repris ; « Adresse complète » et « Clients reçus » se calculent.
+
+### Hors Notion
+
+Les anciens questionnaires : une ligne `questionnaires` ★ par PDF de Drive (client, date,
+lien ; `source = 'import_drive'`), sans en lire le contenu ; les cas douteux reviennent à
+Florent.
