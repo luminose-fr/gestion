@@ -2,7 +2,7 @@
  * Une fiche (SPEC §15.4). En tête, le nom, l'âge, le téléphone et l'e-mail,
  * qu'on touche pour appeler ou écrire. Des cartes, chacune en lecture ;
  * « Modifier » la passe en saisie, avec Enregistrer et Annuler. Puis les
- * séances, les inscriptions et les questionnaires. Sur ordinateur, les cartes à
+ * séances, les inscriptions, et chaque questionnaire reçu. Sur ordinateur, les cartes à
  * gauche, les séances à droite.
  *
  * Une carte modifiée et non enregistrée se signale avant de quitter l'écran ;
