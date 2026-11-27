@@ -18,8 +18,9 @@
 import { cleClient, nomRecherche, normaliserEmail, instantDeParis } from '@luminose/pratique';
 import {
   LIBELLES_TYPES, TYPES, DUREE_PAR_DEFAUT_MIN, CIVILITES, STATUTS_SEANCE, ETATS_PAIEMENT, TYPES_EVENEMENT,
-  codePays, MOTIF_QUESTIONNAIRE, TITRES_TRAME,
+  codePays, MOTIF_QUESTIONNAIRE,
 } from './correspondance.ts';
+import { texteDesNotes } from '../src/clients/notes.ts';
 import {
   verifierSchemas, lecteur, finDeDate, blocsAPlat, texteDuBloc, liensDuBloc, corpsEnTexte,
   type Export, type Page, type Bloc, type Valeur,
@@ -93,28 +94,25 @@ export const fichierDrive = (url: string): string | null => {
   return /\/d\/([\w-]{10,})/.exec(url)?.[1] ?? /[?&]id=([\w-]{10,})/.exec(url)?.[1] ?? null;
 };
 
-/** Le texte d'une trame, découpé selon ses titres — ou rien si aucun titre n'y est. */
-export const decouperTrame = (blocs: Bloc[] = []): Record<'seance' | 'travailPersonnel' | 'ideesSuite' | 'reponseSms', string | null> => {
-  const sections: Record<string, string[]> = {};
-  let courante: string | null = null;
-  for (const bloc of blocs) {
-    const titre = sansAccents(texteDuBloc(bloc)).trim().replace(/\s*:$/, '');
-    const cle = TITRES_TRAME[titre];
-    const estTitre = cle && (bloc.type.startsWith('heading') || bloc.type === 'callout' || bloc.type === 'paragraph');
-    if (estTitre) {
-      courante = cle;
-      sections[cle] ??= [];
-      // L'encadré « Idées pour la suite » porte son texte dans ses enfants.
-      for (const enfant of blocsAPlat(bloc.children)) sections[cle].push(texteDuBloc(enfant));
-      continue;
-    }
-    if (courante) for (const b of blocsAPlat([bloc])) sections[courante].push(texteDuBloc(b));
+/**
+ * Le corps d'une page, en Markdown : un bloc par ligne, dans l'ordre, ses
+ * titres et ses listes gardés. Les notes d'une séance tiennent en un seul texte
+ * (src/clients/notes.ts) : le corps y passe entier, sans découpage.
+ */
+export const corpsEnMarkdown = (blocs: Bloc[] = []): string | null => {
+  const lignes: string[] = [];
+  for (const bloc of blocsAPlat(blocs)) {
+    const t = texteDuBloc(bloc);
+    if (bloc.type === 'heading_1') lignes.push('', `# ${t}`);
+    // L'encadré « Idées pour la suite » du modèle de Notion porte son texte dans ses enfants : un titre.
+    else if (bloc.type === 'heading_2' || bloc.type === 'heading_3' || (bloc.type === 'callout' && bloc.children?.length)) lignes.push('', `## ${t}`);
+    else if (bloc.type === 'bulleted_list_item' || bloc.type === 'to_do') lignes.push(`- ${t}`);
+    else if (bloc.type === 'numbered_list_item') lignes.push(`1. ${t}`);
+    else if (bloc.type === 'quote') lignes.push(`> ${t}`);
+    else lignes.push(t);
   }
-  const rendre = (cle: string) => {
-    const t = sections[cle]?.join('\n').trim();
-    return t ? t : null;
-  };
-  return { seance: rendre('seance'), travailPersonnel: rendre('travailPersonnel'), ideesSuite: rendre('ideesSuite'), reponseSms: rendre('reponseSms') };
+  const md = lignes.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return md || null;
 };
 
 const vide = (): Rapport => Object.fromEntries(Object.keys(RUBRIQUES).map((r) => [r, []])) as unknown as Rapport;
@@ -270,16 +268,14 @@ export const transformer = (exp: Export, maintenant: number): Transformation => 
       clic_annonce: ls(p, 'gclid') as string | null, liste_attente: ls(p, 'recevoir_notification_disponibilite') ? 1 : 0,
       libelle_importe: titre || null, ...horodatage(p),
     });
-    const trame = decouperTrame(p.blocs);
-    const notes = {
-      demande: ls(p, 'Demande') as string | null, objectif: ls(p, 'Objectif') as string | null, ...trame,
-      import_notion: corpsEnTexte(p.blocs).trim() ? corpsEnTexte(p.blocs) : null,
-    };
-    if (Object.values(notes).some((v) => v !== null)) {
+    const texte = texteDesNotes({
+      demande: ls(p, 'Demande') as string | null, objectif: ls(p, 'Objectif') as string | null, seance: corpsEnMarkdown(p.blocs),
+    });
+    const importNotion = corpsEnTexte(p.blocs).trim() ? corpsEnTexte(p.blocs) : null;
+    if (texte !== null || importNotion !== null) {
       lignes.seances_notes.push({
-        id: `notes-${p.id}`, seance_id: p.id, demande: notes.demande, objectif: notes.objectif, seance: notes.seance,
-        travail_personnel: notes.travailPersonnel, idees_suite: notes.ideesSuite, reponse_sms: notes.reponseSms,
-        import_notion: notes.import_notion, ...horodatage(p),
+        id: `notes-${p.id}`, seance_id: p.id, demande: null, objectif: null, seance: texte,
+        travail_personnel: null, idees_suite: null, reponse_sms: null, import_notion: importNotion, ...horodatage(p),
       });
     }
     const reference = ls(p, 'stancer_payment_intent_id') as string | null;

@@ -10,7 +10,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { TestD1, MIGRATIONS_CLIENTS } from './helpers/d1';
 import { exportFictif, MAINTENANT, p, bloc } from '../import/essai/export-fictif';
-import { transformer, Chevauchement, rapportEnTexte, TABLES, decouperTrame, type Transformation } from '../import/transformer';
+import { transformer, Chevauchement, rapportEnTexte, TABLES, corpsEnMarkdown, type Transformation } from '../import/transformer';
 import { SchemaInvalide, type Export } from '../import/lire';
 import { enSql, disparues, lignesImportees } from '../import/ecrire';
 import { comparer } from '../import/verifier';
@@ -156,18 +156,28 @@ describe('Transformer — les séances', () => {
     expect(t.rapport.payeesSansStancer).toEqual(['s-4']);
   });
 
-  it('le corps découpé selon la trame quand ses titres y sont, et toujours gardé entier', () => {
+  it('le corps → les notes de la séance : un seul texte, entier, titres gardés, et sa copie brute', () => {
     const t = t0();
     expect(ligne(t, 'seances_notes', 'notes-s-1')).toMatchObject({
-      demande: 'Texte d’essai — demande', seance: 'Texte d’essai — séance', travail_personnel: 'Texte d’essai — travail',
-      idees_suite: 'Texte d’essai — idées', reponse_sms: 'Texte d’essai — SMS',
+      demande: null, objectif: null, travail_personnel: null, idees_suite: null, reponse_sms: null,
+      seance: [
+        '## Demande', '', 'Texte d’essai — demande', '',
+        '## Séance', 'Texte d’essai — séance', '',
+        '## Travail personnel', 'Texte d’essai — travail', '',
+        '## Idées pour la suite', 'Texte d’essai — idées', '',
+        '## Réponse SMS', 'Texte d’essai — SMS',
+      ].join('\n'),
     });
     expect(String(ligne(t, 'seances_notes', 'notes-s-1')!.import_notion)).toContain('Réponse SMS\nTexte d’essai — SMS');
-    expect(ligne(t, 'seances_notes', 'notes-s-2')).toMatchObject({ seance: null, travail_personnel: null, import_notion: 'Texte d’essai sans trame' });
+    expect(ligne(t, 'seances_notes', 'notes-s-2')).toMatchObject({ seance: 'Texte d’essai sans trame', import_notion: 'Texte d’essai sans trame' });
   });
 
-  it('un titre de trame en simple paragraphe, accents et deux-points ignorés', () => {
-    expect(decouperTrame([bloc('a', 'paragraph', 'Idees pour la suite :'), bloc('b', 'paragraph', 'Texte d’essai')]).ideesSuite).toBe('Texte d’essai');
+  it('le corps en Markdown : titres, listes, citations ; vide → rien', () => {
+    expect(corpsEnMarkdown([
+      bloc('a', 'heading_1', 'Un'), bloc('b', 'bulleted_list_item', 'point'), bloc('c', 'numbered_list_item', 'étape'),
+      bloc('d', 'quote', 'citation'), bloc('e', 'heading_3', 'Trois'), bloc('f', 'paragraph', 'texte'),
+    ])).toBe('# Un\n- point\n1. étape\n> citation\n\n## Trois\ntexte');
+    expect(corpsEnMarkdown([])).toBeNull();
   });
 
   it('deux séances passées qui se chevauchent : reprises telles quelles', () => {

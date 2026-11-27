@@ -1,92 +1,164 @@
 /**
  * Une séance (SPEC §15.4). En tête : la date et l'heure, le type, la personne
  * (qui ouvre sa fiche), le statut et le paiement modifiables sur place, le
- * montant. Actions : Déplacer, Annuler, Remettre à « prévue ». Puis les notes,
- * dans l'ordre de la trame, avec un seul bouton Enregistrer ; l'écran dit quand
- * un texte n'est pas enregistré, et le signale avant de le laisser quitter.
+ * montant. Actions : Déplacer, Annuler, Remettre à « prévue ». Puis les notes :
+ * un seul texte Markdown, pré-rempli de quelques titres, enregistré pendant la
+ * frappe (retour de Florent du 27/11/2026, qui remplace la trame en six champs).
  * Dessous, en lecture : les réponses à la réservation, l'histoire du
  * rendez-vous, et, repliée, la copie brute reprise de Notion.
  *
  * Le statut passe par la décision qui lui revient : annuler et remettre à
  * « prévue » ont leurs routes ; réalisée et absent, une simple modification.
  */
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Copy, MoveRight } from 'lucide-react';
 import { Bouton, Carte, Champ, Etiquette, TitreSection, ecran } from '../ui';
 import { ConfirmModal } from '../CommonModals';
 import * as Clients from '../../services/clientsService';
 import { ErreurClients } from '../../services/clientsService';
-import type { EtatPaiement, NotesSeance, StatutSeance, TrameSeance } from '../../types-clients';
+import type { EtatPaiement, NotesSeance, StatutSeance } from '../../types-clients';
+import { RichTextarea } from '../RichTextarea';
+import { MarkdownToolbar } from '../MarkdownToolbar';
 import {
   aller, Avis, centimesDepuis, CLASSES_SELECT, euros, EtatLecture, heure, isoDepuis, jourDe, jourEnLettres, messageDe,
   MODES, nomComplet, PAIEMENTS, STATUTS, useGardeSaisie, useLecture,
 } from './commun';
 
-const TRAME: { champ: keyof TrameSeance; libelle: string; lignes: number }[] = [
-  { champ: 'demande', libelle: 'Demande', lignes: 3 },
-  { champ: 'objectif', libelle: 'Objectif', lignes: 3 },
-  { champ: 'seance', libelle: 'Séance', lignes: 8 },
-  { champ: 'travailPersonnel', libelle: 'Travail personnel', lignes: 4 },
-  { champ: 'ideesSuite', libelle: 'Idées pour la suite', lignes: 4 },
-  { champ: 'reponseSms', libelle: 'Réponse SMS', lignes: 4 },
-];
+/**
+ * Le modèle d'une note neuve : les titres de l'ancien modèle de page de Notion,
+ * que Florent garde ou efface. Rien n'est enregistré tant qu'il n'a rien tapé.
+ */
+export const MODELE_NOTES = '## Séance\n\n\n## Travail personnel\n\n\n## Idées pour la suite\n\n\n## Réponse SMS\n\n';
 
-const TRAME_VIDE: TrameSeance = { demande: null, objectif: null, seance: null, travailPersonnel: null, ideesSuite: null, reponseSms: null };
-const trameDe = (n: NotesSeance): TrameSeance => ({
-  demande: n.demande, objectif: n.objectif, seance: n.seance, travailPersonnel: n.travailPersonnel, ideesSuite: n.ideesSuite, reponseSms: n.reponseSms,
-});
+/** Le délai entre la dernière frappe et l'enregistrement. */
+export const DELAI_ENREGISTREMENT_MS = 1200;
+
+/** Le texte sous le titre « Réponse SMS », jusqu'au titre suivant ; vide s'il n'y en a pas. */
+export const reponseSmsDe = (texte: string): string => {
+  const m = /^#{1,3}\s*R[ée]ponse SMS\s*$/im.exec(texte);
+  if (!m) return '';
+  const suite = texte.slice(m.index + m[0].length);
+  const fin = suite.search(/^#{1,3}\s/m);
+  return (fin < 0 ? suite : suite.slice(0, fin)).trim();
+};
 
 const NATURES: Record<string, string> = { creee: 'Créée', deplacee: 'Déplacée', annulee: 'Annulée', retablie: 'Remise à « prévue »' };
 const PAR: Record<string, string> = { florent: 'par Florent', personne: 'par la personne', import: 'à l’import' };
 
-/** Les notes : la trame, un seul Enregistrer, et la version lue qui part avec le texte (règle 7). */
+type EtatNotes = 'a-jour' | 'en-attente' | 'enregistrement' | 'echec' | 'conflit';
+
+/**
+ * Les notes : un seul texte Markdown, enregistré pendant la frappe, un court
+ * délai après la dernière touche. La version lue part avec chaque écriture
+ * (règle 7) : si la note a changé ailleurs, le 409 arrête l'enregistrement et
+ * le texte saisi reste à l'écran. En quittant l'écran, ce qui attend part tout
+ * de suite ; l'avertissement ne vient que si un enregistrement est en cours,
+ * attend encore, ou a échoué.
+ */
 export const NotesDeSeance: React.FC<{ id: string }> = ({ id }) => {
   const lecture = useLecture(() => Clients.lireNotesSeance(id), [id]);
-  const [trame, setTrame] = useState<TrameSeance>(TRAME_VIDE);
-  const [version, setVersion] = useState<number | null>(null);
-  const [lue, setLue] = useState<TrameSeance>(TRAME_VIDE);
+  const [texte, setTexte] = useState('');
+  const [etat, setEtat] = useState<EtatNotes>('a-jour');
   const [refus, setRefus] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
   const [copie, setCopie] = useState(false);
+
+  // Ce que l'enregistrement lit au moment où il part : le texte courant, la
+  // version, et s'il faut repartir parce qu'on a tapé pendant le précédent.
+  const courant = useRef({ texte: '', version: null as number | null, enregistre: '', enVol: false, aRefaire: false, arrete: false });
+  const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const monte = useRef(true);
 
   // Les notes lues deviennent la saisie DANS le rendu qui les reçoit, pas dans un effet :
   // un effet passerait après une première frappe, et l'effacerait.
   const [luesDe, setLuesDe] = useState<NotesSeance | null>(null);
   if (lecture.phase === 'prete' && luesDe !== lecture.donnees) {
-    setLuesDe(lecture.donnees);
-    setTrame(trameDe(lecture.donnees));
-    setLue(trameDe(lecture.donnees));
-    setVersion(lecture.donnees.version);
+    const n = lecture.donnees;
+    const initial = n.texte ?? (n.version === null ? MODELE_NOTES : '');
+    setLuesDe(n);
+    setTexte(initial);
+    setEtat('a-jour');
+    setRefus(null);
+    courant.current = { texte: initial, version: n.version, enregistre: n.texte ?? initial, enVol: false, aRefaire: false, arrete: false };
   }
 
-  const modifiee = TRAME.some(({ champ }) => (trame[champ] ?? '') !== (lue[champ] ?? ''));
-  useGardeSaisie(modifiee);
+  const enregistrer = useCallback(async () => {
+    const c = courant.current;
+    if (minuteur.current) { clearTimeout(minuteur.current); minuteur.current = null; }
+    if (c.arrete) return;
+    if (c.enVol) { c.aRefaire = true; return; }
+    if (c.texte === c.enregistre) { if (monte.current) setEtat('a-jour'); return; }
+    const envoye = c.texte;
+    c.enVol = true;
+    if (monte.current) { setEtat('enregistrement'); setRefus(null); }
+    try {
+      const r = await Clients.ecrireNotesSeance(id, envoye.trim() ? envoye : null, c.version);
+      c.version = r.version;
+      c.enregistre = envoye;
+      c.enVol = false;
+      if (c.aRefaire || c.texte !== envoye) { c.aRefaire = false; void enregistrer(); return; }
+      if (monte.current) setEtat('a-jour');
+    } catch (e) {
+      c.enVol = false;
+      c.aRefaire = false;
+      const conflit = e instanceof ErreurClients && e.statut === 409;
+      // Un 409 dit que la note a changé ailleurs : on n'écrase rien, on s'arrête.
+      if (conflit) c.arrete = true;
+      if (monte.current) {
+        setEtat(conflit ? 'conflit' : 'echec');
+        setRefus(e instanceof ErreurClients ? e.message : messageDe(e));
+      }
+    }
+  }, [id]);
+
+  const saisir = (valeur: string) => {
+    setTexte(valeur);
+    courant.current.texte = valeur;
+    if (courant.current.arrete) return;
+    setEtat((e) => (e === 'enregistrement' ? e : 'en-attente'));
+    if (minuteur.current) clearTimeout(minuteur.current);
+    minuteur.current = setTimeout(() => { void enregistrer(); }, DELAI_ENREGISTREMENT_MS);
+  };
+
+  // En quittant l'écran (une autre adresse de la console) : ce qui attend part tout de suite.
+  // `monte` repasse à vrai à chaque montage : le mode strict de React démonte et remonte une fois.
+  useEffect(() => {
+    monte.current = true;
+    return () => {
+      monte.current = false;
+      if (minuteur.current) void enregistrer();
+    };
+  }, [enregistrer]);
+
+  // L'onglet qui passe à l'arrière-plan (téléphone verrouillé, autre application) : idem.
+  useEffect(() => {
+    const cache = () => { if (document.visibilityState === 'hidden' && minuteur.current) void enregistrer(); };
+    document.addEventListener('visibilitychange', cache);
+    return () => document.removeEventListener('visibilitychange', cache);
+  }, [enregistrer]);
+
+  useGardeSaisie(etat === 'en-attente' || etat === 'enregistrement' || etat === 'echec' || etat === 'conflit', {
+    // Pour une autre adresse de la console, seul un échec retient : ce qui attend part au démontage.
+    adresse: etat === 'echec' || etat === 'conflit',
+  });
 
   if (lecture.phase !== 'prete') return <EtatLecture lecture={lecture} titre="Lecture des notes" />;
   const notes = lecture.donnees;
-
-  const enregistrer = async () => {
-    setEnCours(true);
-    setRefus(null);
-    try {
-      const propre = Object.fromEntries(TRAME.map(({ champ }) => [champ, trame[champ]?.trim() ? trame[champ] : null])) as TrameSeance;
-      const r = await Clients.ecrireNotesSeance(id, propre, version);
-      setVersion(r.version);
-      setLue(trame);
-    } catch (e) {
-      // Un 409 dit que la note a changé ailleurs : le texte saisi reste à l'écran.
-      setRefus(e instanceof ErreurClients ? e.message : messageDe(e));
-    } finally {
-      setEnCours(false);
-    }
-  };
+  const sms = reponseSmsDe(texte);
 
   const copier = async () => {
     try {
-      await navigator.clipboard.writeText(trame.reponseSms ?? '');
+      await navigator.clipboard.writeText(sms);
       setCopie(true);
       setTimeout(() => setCopie(false), 1500);
     } catch { /* le presse-papiers peut être refusé : le texte reste sélectionnable */ }
+  };
+
+  const ETATS: Record<EtatNotes, React.ReactNode> = {
+    'a-jour': notes.version !== null || texte !== (notes.texte ?? MODELE_NOTES) ? 'Enregistré' : undefined,
+    'en-attente': 'Modifications en attente…',
+    enregistrement: 'Enregistrement…',
+    echec: <span className="text-alerte">Pas enregistré.</span>,
+    conflit: <span className="text-alerte">Pas enregistré : la note a changé ailleurs.</span>,
   };
 
   return (
@@ -95,27 +167,20 @@ export const NotesDeSeance: React.FC<{ id: string }> = ({ id }) => {
         <TitreSection
           as="h3"
           titre="Notes"
-          sousTitre={modifiee ? <span className="text-alerte">Un texte n’est pas enregistré.</span> : undefined}
-          action={<Bouton taille="petit" intention="principale" onClick={enregistrer} disabled={enCours || !modifiee}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</Bouton>}
+          sousTitre={<span aria-live="polite">{ETATS[etat]}</span>}
+          action={sms ? <Bouton taille="petit" intention="secondaire" onClick={copier}><Copy /> {copie ? 'Copiée' : 'Copier la réponse SMS'}</Bouton> : undefined}
         />
-        {TRAME.map(({ champ, libelle, lignes }, i) => (
-          <div key={champ}>
-            <Champ
-              multiligne id={`notes-${champ}`} label={libelle} rows={lignes} autoFocus={i === 0}
-              value={trame[champ] ?? ''}
-              onChange={(e) => setTrame((t) => ({ ...t, [champ]: (e.target as HTMLTextAreaElement).value }))}
-            />
-            {champ === 'reponseSms' && (
-              <div className="mt-1 flex justify-end">
-                <Bouton taille="petit" intention="secondaire" onClick={copier} disabled={!trame.reponseSms}><Copy /> {copie ? 'Copiée' : 'Copier'}</Bouton>
-              </div>
-            )}
-          </div>
-        ))}
-        {refus && <Avis ton="erreur">{refus}</Avis>}
-        <div className="flex justify-end">
-          <Bouton intention="principale" onClick={enregistrer} disabled={enCours || !modifiee}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</Bouton>
+        <div className="rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-bg focus-within:border-brand-main dark:focus-within:border-dark-text">
+          <MarkdownToolbar className="rounded-t-lg" />
+          <RichTextarea id="notes-seance" ariaLabel="Notes de la séance" value={texte} onChange={saisir} className="w-full min-h-[320px] p-3 text-sm md:text-sm" placeholder="Les notes de la séance…" />
         </div>
+        {refus && (
+          <Avis ton="erreur">
+            {refus}{' '}
+            {etat === 'echec' && <Bouton taille="petit" intention="secondaire" onClick={() => { void enregistrer(); }}>Réessayer</Bouton>}
+            {etat === 'conflit' && <span>Copiez votre texte avant de recharger la page, pour ne pas le perdre.</span>}
+          </Avis>
+        )}
       </Carte>
 
       {notes.reponses.length > 0 && (

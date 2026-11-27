@@ -131,17 +131,71 @@ describe('la console des clients', () => {
     expect(modifier).not.toHaveBeenCalled();
   });
 
-  it('écrire une note, refus 409 : le texte saisi est toujours là', async () => {
+  // Les notes d'une séance : un seul texte, enregistré pendant la frappe.
+  const taper = (editeur: HTMLElement, texte: string) => {
+    editeur.textContent = texte;
+    fireEvent.input(editeur);
+  };
+  const ATTENTE = { timeout: 4000 };
+
+  it('une note : enregistrée seule après la frappe, avec la version lue', async () => {
     routesChargees();
-    vi.spyOn(ClientsService, 'ecrireNotesSeance').mockRejectedValue(
+    const ecrire = vi.spyOn(ClientsService, 'ecrireNotesSeance').mockResolvedValue({ version: 1795777200001 });
+    const vue = render(<NotesDeSeance id="seance-1" />);
+    await waitFor(() => expect(vue.getByRole('textbox', { name: 'Notes de la séance' })).toBeTruthy());
+    taper(vue.getByRole('textbox', { name: 'Notes de la séance' }), 'Texte d’essai — saisi');
+    expect(vue.container.textContent).toContain('Modifications en attente');
+    expect(ecrire).not.toHaveBeenCalled();
+    await waitFor(() => expect(ecrire).toHaveBeenCalledWith('seance-1', 'Texte d’essai — saisi', 1795777200000), ATTENTE);
+    await waitFor(() => expect(vue.container.textContent).toContain('Enregistré'), ATTENTE);
+    expect(ecrire).toHaveBeenCalledTimes(1);
+  });
+
+  it('une note neuve : le modèle de titres, rien d’enregistré sans frappe', async () => {
+    routesChargees();
+    vi.spyOn(ClientsService, 'lireNotesSeance').mockResolvedValue({ texte: null, version: null, importNotion: null, reponses: [] });
+    const ecrire = vi.spyOn(ClientsService, 'ecrireNotesSeance').mockResolvedValue({ version: 1 });
+    const vue = render(<NotesDeSeance id="seance-1" />);
+    await waitFor(() => expect(vue.container.textContent).toContain('Travail personnel'));
+    expect(vue.container.textContent).toContain('Idées pour la suite');
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(ecrire).not.toHaveBeenCalled();
+  });
+
+  it('quitter l’écran pendant le délai : la note part tout de suite', async () => {
+    routesChargees();
+    const ecrire = vi.spyOn(ClientsService, 'ecrireNotesSeance').mockResolvedValue({ version: 2 });
+    const vue = render(<NotesDeSeance id="seance-1" />);
+    await waitFor(() => expect(vue.getByRole('textbox', { name: 'Notes de la séance' })).toBeTruthy());
+    taper(vue.getByRole('textbox', { name: 'Notes de la séance' }), 'Texte d’essai — avant de partir');
+    vue.unmount();
+    expect(ecrire).toHaveBeenCalledWith('seance-1', 'Texte d’essai — avant de partir', 1795777200000);
+  });
+
+  it('une note, refus 409 : l’enregistrement s’arrête, le texte saisi reste, l’onglet est gardé', async () => {
+    routesChargees();
+    const ecrire = vi.spyOn(ClientsService, 'ecrireNotesSeance').mockRejectedValue(
       new ClientsService.ErreurClients("Cette note a été modifiée ailleurs. Rechargez-la avant d'enregistrer.", 409));
     const vue = render(<NotesDeSeance id="seance-1" />);
-    await waitFor(() => expect(vue.getByLabelText('Séance')).toBeTruthy());
-    fireEvent.change(vue.getByLabelText('Séance'), { target: { value: 'Texte d’essai — à ne pas perdre' } });
-    expect(vue.container.textContent).toContain('Un texte n’est pas enregistré');
-    fireEvent.click(vue.getAllByText('Enregistrer')[0]);
-    await waitFor(() => expect(vue.container.textContent).toContain('Cette note a été modifiée ailleurs'));
-    expect((vue.getByLabelText('Séance') as HTMLTextAreaElement).value).toBe('Texte d’essai — à ne pas perdre');
+    await waitFor(() => expect(vue.getByRole('textbox', { name: 'Notes de la séance' })).toBeTruthy());
+    const editeur = vue.getByRole('textbox', { name: 'Notes de la séance' });
+    taper(editeur, 'Texte d’essai — à ne pas perdre');
+    await waitFor(() => expect(vue.container.textContent).toContain('Cette note a été modifiée ailleurs'), ATTENTE);
+    expect(vue.container.textContent).toContain('la note a changé ailleurs');
+    expect(editeur.textContent).toBe('Texte d’essai — à ne pas perdre');
+    const avant = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(avant);
+    expect(avant.defaultPrevented).toBe(true);
+    // Arrêté : une nouvelle frappe ne réécrit pas par-dessus la note d'ailleurs.
+    taper(editeur, 'Texte d’essai — encore');
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(ecrire).toHaveBeenCalledTimes(1);
+  });
+
+  it('la réponse SMS se lit sous son titre', async () => {
+    const { reponseSmsDe } = await import('../components/Clients/SeanceView');
+    expect(reponseSmsDe('## Séance\n\nA\n\n## Réponse SMS\n\nÀ bientôt\n\n## Autre\nB')).toBe('À bientôt');
+    expect(reponseSmsDe('## Séance\n\nA')).toBe('');
   });
 
   it('changer un statut : réalisée passe par une modification, annulée par sa décision', async () => {
@@ -189,13 +243,22 @@ describe('NORMATIF — rien de la base des clients dans le navigateur (§15.2, r
 });
 
 import { EvenementView } from '../components/Clients/EvenementsView';
-import { routesChargeesC2b } from './helpers/clients';
+import { routesChargeesC2b, EVENEMENT } from './helpers/clients';
 
 describe('la console des clients — évènements', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('inscrire une personne à une journée complète : le refus s’affiche tel que la route l’écrit', async () => {
+  it('une journée complète : « Inscrire une personne » grisé, avec le motif', async () => {
     routesChargeesC2b();
+    const vue = render(<EvenementView id="ev-1" />);
+    await waitFor(() => expect(vue.container.textContent).toContain('Complet : les 2 places sont prises'));
+    expect((vue.getByText('Inscrire une personne').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    expect(vue.queryByLabelText('Inscrire une personne')).toBeNull();
+  });
+
+  it('la dernière place prise ailleurs entre-temps : le refus s’affiche tel que la route l’écrit', async () => {
+    routesChargeesC2b();
+    vi.spyOn(ClientsService, 'lireEvenement').mockResolvedValue({ ...EVENEMENT, placesOccupees: 1, placesLibres: 1 });
     vi.spyOn(ClientsService, 'rechercherFiches').mockResolvedValue({ fiches: [{ id: 'fiche-2', prenom: 'Ève', nom: 'Dupont', ville: null, nbSeances: 0, derniereSeance: null, prochaineSeance: null }], page: 0, suite: false });
     const inscrire = vi.spyOn(ClientsService, 'inscrire').mockRejectedValue(new ClientsService.ErreurClients('Cette journée est complète.', 409));
     const vue = render(<EvenementView id="ev-1" />);

@@ -5,6 +5,9 @@ interface RichTextareaProps {
     onChange: (newValue: string) => void;
     className?: string;
     placeholder?: string;
+    /** Pour une étiquette (`<label htmlFor>`) et les lecteurs d'écran. */
+    id?: string;
+    ariaLabel?: string;
 }
 
 // --- PARSERS LÉGERS ---
@@ -135,7 +138,7 @@ const htmlToMarkdown = (element: HTMLElement): string => {
     return md.replace(/\n{3,}/g, '\n\n');
 };
 
-export const RichTextarea = ({ value, onChange, className = "", placeholder }: RichTextareaProps) => {
+export const RichTextarea = ({ value, onChange, className = "", placeholder, id, ariaLabel }: RichTextareaProps) => {
     const editorRef = useRef<HTMLDivElement>(null);
 
     // Initialisation et sync externe
@@ -163,6 +166,10 @@ export const RichTextarea = ({ value, onChange, className = "", placeholder }: R
     return (
         <div 
             ref={editorRef}
+            id={id}
+            role="textbox"
+            aria-multiline="true"
+            aria-label={ariaLabel}
             contentEditable
             onInput={handleInput}
             className={`

@@ -66,10 +66,10 @@ seances.get('/:id', async (c) => {
 
 // ─── Les notes (règles 4 et 7) ──────────────────────────────────────────────
 
-const champNote = z.string().max(50_000).nullable();
+// Un seul texte Markdown (clients/notes.ts) ; vide, il s'enregistre comme rien.
 const EcritureNotes = z.strictObject({
-  demande: champNote, objectif: champNote, seance: champNote, travailPersonnel: champNote, ideesSuite: champNote,
-  reponseSms: champNote, version: z.number().int().nonnegative().nullable(),
+  texte: z.string().max(100_000).nullable(),
+  version: z.number().int().nonnegative().nullable(),
 });
 
 seances.get('/:id/notes', async (c) => {
@@ -82,8 +82,8 @@ seances.get('/:id/notes', async (c) => {
 seances.put('/:id/notes', async (c) => {
   const db = baseClients(c.env);
   const id = c.req.param('id');
-  const { version, ...trame } = await corps(c, EcritureNotes);
-  const issue = await ecrireNotesSeance(db, id, trame, version, Date.now(), newId());
+  const { texte, version } = await corps(c, EcritureNotes);
+  const issue = await ecrireNotesSeance(db, id, texte?.trim() ? texte : null, version, Date.now(), newId());
   if (issue.ecrite) return c.json({ version: issue.version });
   if (!(await etatSeance(db, id))) throw new Refus(SEANCE_INTROUVABLE, 404);
   throw new Refus(MESSAGE_NOTE_MODIFIEE, 409);

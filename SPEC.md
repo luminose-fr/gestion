@@ -3983,7 +3983,7 @@ traces d'envoi vers Brevo et la comptabilité — un envoi qui en porte un est r
 | :--- | :--- |
 | `GET /api/seances?du=&au=` | les séances de la période (62 jours au plus), tous statuts, **avec ou sans fiche, avec ou sans type** (règle 13) : heure, durée, type, statut, paiement, mode, et le prénom et le nom de la personne. **Une instruction.** |
 | `GET /api/seances/:id` | la séance, sa personne, son type, ses mouvements. |
-| `GET`, `PUT /api/seances/:id/notes` | la trame : demande, objectif, séance, travail personnel, idées pour la suite, réponse SMS ; en lecture seule, les réponses données à la réservation et la copie brute reprise de Notion (règles 4 et 7). |
+| `GET`, `PUT /api/seances/:id/notes` | les notes, **un seul texte Markdown** (`texte`, avec `version`) ; en lecture seule, les réponses données à la réservation et la copie brute reprise de Notion (règles 4 et 7). Voir l'écart du 27/11/2026 au §15.4. |
 | `POST /api/seances` | pose un rendez-vous : personne, type, début, et — facultatifs — durée, mode, montant. Durée, marge, montant et état de paiement viennent du type par défaut. Origine `console`. Refus 409 si l'intervalle chevauche une séance prévue. |
 | `POST /api/seances/:id/deplacer` `{ debut, revision }` | déplace ; la révision attendue protège d'un double geste. |
 | `POST /api/seances/:id/annuler` | prévue → annulée, avec son mouvement. |
@@ -4066,11 +4066,28 @@ relu ou non). Sur ordinateur : les cartes à gauche, les séances à droite.
 
 **Une séance.** En tête : la date et l'heure, le type, la personne (qui ouvre sa fiche), le
 statut et le paiement, modifiables sur place, le montant. Actions : Déplacer, Annuler, Remettre
-à « prévue ». Puis **les notes**, dans l'ordre de la trame : Demande, Objectif, Séance, Travail
-personnel, Idées pour la suite, Réponse SMS — cette dernière avec « Copier ». Un seul bouton
-Enregistrer pour la trame ; l'écran dit quand un texte n'est pas enregistré, et le signale avant
-de le laisser quitter. Dessous, en lecture : les réponses données à la réservation, l'histoire
-du rendez-vous, et, repliée, la copie brute reprise de Notion.
+à « prévue ». Puis **les notes** : un seul texte Markdown, dans un éditeur simple (gras,
+italique, titres, listes), pré-rempli à la création des titres Séance, Travail personnel, Idées
+pour la suite, Réponse SMS, que Florent garde ou efface ; « Copier la réponse SMS » copie le
+texte sous ce titre. Il s'enregistre seul, un court délai après la dernière frappe, avec la
+version lue ; un 409 arrête l'enregistrement sans rien écraser, et le texte saisi reste.
+Quitter l'écran envoie ce qui attend ; l'onglet n'est retenu que si un enregistrement attend,
+est en cours ou a échoué. Dessous, en lecture : les réponses données à la réservation,
+l'histoire du rendez-vous, et, repliée, la copie brute reprise de Notion.
+
+> **Écart du 27/11/2026 (retour de Florent sur la recette de C2).** La trame en six champs et son
+> bouton Enregistrer sont remplacés par ce texte unique, enregistré pendant la frappe. **Sans
+> migration** : le texte vit dans la colonne `seance` de `seances_notes`, et chaque écriture vide
+> les cinq autres colonnes ; une note écrite avant se lit en un seul texte, chaque colonne non
+> vide sous son titre (`workers/api/src/clients/notes.ts`), et la prochaine écriture l'enregistre
+> ainsi. Les colonnes restent au schéma, inutilisées ; les retirer serait une migration à part.
+> À l'import (§14.11), le corps n'est plus découpé.
+>
+> Le même jour : dans un évènement complet, « Inscrire une personne » est grisé et dit pourquoi ;
+> Réglages → Réservation est refait — un type se lit en une ligne et s'ouvre à « Modifier », la
+> fenêtre de réservation se règle en jours (les routes gardent les heures), les réglages sont
+> groupés par usage et les garde-fous techniques repliés. Une revue d'ensemble de l'interface
+> viendra avec l'Expert UX.
 
 **Poser un rendez-vous** — une fenêtre. La personne (déjà choisie depuis une fiche ; sinon la
 même recherche que l'écran Fiches), le type, la date, l'heure, et — repliés — la durée, le mode,
@@ -4926,7 +4943,7 @@ l'identifiant de sa page Notion (§14.9).
 | Name | `libelle_importe` ; le type est déduit du nom entre parenthèses quand il correspond à un type connu |
 | Date | `debut` et `duree_min` ; `occupe_jusqua` se calcule |
 | Clients, Statut, État paiement | `seances` |
-| Demande, Objectif, corps de la page | `seances_notes` ★ ; le corps est découpé selon la trame quand ses titres y sont, et toujours gardé entier dans `import_notion` |
+| Demande, Objectif, corps de la page | `seances_notes` ★ : un seul texte Markdown (la demande et l'objectif sous leur titre, puis le corps entier, ses titres gardés), dans la colonne `seance` ; la copie brute dans `import_notion` (écart du 27/11/2026, §15.4) |
 | gclid | `clic_annonce` |
 | stancer_payment_intent_id, stancer_payment_intent_amount, qonto_client_invoice_id | une ligne de `paiements` ; le montant passe d'euros en centimes |
 | recevoir_notification_disponibilite | `liste_attente` |
@@ -4991,9 +5008,9 @@ rien et sont listés. Aucun PDF n'est ouvert.
 **Séances.** Le type, par le libellé entre parenthèses du titre, selon une table de
 correspondance versionnée (`import/correspondance.ts`) ; un libellé inconnu : sans type, listé
 avec son nombre. Sans fin : la durée du type, sinon 60 minutes, listé. Origine `import`,
-`agenda_etat = 'ecrit'`, révision 0, aucun mouvement. Le corps est découpé selon la trame
-(Séance, Travail personnel, Idées pour la suite, Réponse SMS) quand ses titres y sont, et
-toujours gardé entier. Un paiement par référence Stancer, en centimes ; deux séances de même
+`agenda_etat = 'ecrit'`, révision 0, aucun mouvement. Le corps devient les notes de la séance,
+un seul texte Markdown, entier, ses titres gardés, précédé de la demande et de l'objectif ; et
+il est gardé tel quel en copie brute (écart du 27/11/2026, §15.4). Un paiement par référence Stancer, en centimes ; deux séances de même
 référence : aucun paiement, listées ; payée sans Stancer : pas de ligne, comptée. **Un statut
 vide : la séance n'est pas reprise**, et listée ; un état de paiement vide : « à payer », listé.
 **Deux séances prévues, à venir, qui se chevauchent — marge comprise — arrêtent l'import avant

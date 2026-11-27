@@ -30,7 +30,7 @@ export const SEANCE_DETAILLEE: SeanceDetaillee = {
 };
 
 export const NOTES: NotesSeance = {
-  demande: 'Texte d’essai', objectif: null, seance: null, travailPersonnel: null, ideesSuite: null, reponseSms: 'Texte d’essai — SMS',
+  texte: '## Séance\n\nTexte d’essai\n\n## Réponse SMS\n\nTexte d’essai — SMS',
   version: 1795777200000, importNotion: null, reponses: [],
 };
 

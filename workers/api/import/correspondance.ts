@@ -61,14 +61,6 @@ export const codePays = (valeur: string): string | null => /\s-\s([A-Z]{2})$/.ex
  */
 export const MOTIF_QUESTIONNAIRE = /questionnaire/i;
 
-/** Les titres de la trame d'une séance, tels que le modèle de page de Notion les porte. */
-export const TITRES_TRAME: Record<string, 'seance' | 'travailPersonnel' | 'ideesSuite' | 'reponseSms'> = {
-  'seance': 'seance',
-  'travail personnel': 'travailPersonnel',
-  'idees pour la suite': 'ideesSuite',
-  'reponse sms': 'reponseSms',
-};
-
 // ─── Les propriétés attendues de chaque base (inventaire, §1) ───────────────
 
 /** Ce que la transformation fait d'une propriété : la nature de la valeur lue. */
