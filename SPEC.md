@@ -4004,8 +4004,14 @@ signé et échu en dix minutes, qui l'authentifie.
 **Plus tard, sans priorité** (demandes de Florent du 27/11/2026, notées ici pour ne pas les
 perdre) :
 
-1. **Les SMS de rappel** (`message.sms`), et un webhook Make pour les e-mails en recette (aucun
-   n'y est configuré : les ordres y restent `prevu`, visibles).
+1. **Les SMS de rappel** (`message.sms`).
+
+**Les e-mails partent en recette** (27/11/2026, accord de Florent) : un scénario Make de recette
+(« Recette gestion : message.email -> Gmail (détourné vers Florent) ») reçoit l'ordre sur son
+webhook, l'envoie par le Gmail de florent@luminose.fr — **un filtre n'envoie qu'à
+florent@luminose.fr**, en plus du détournement de gestion —, puis confirme l'ordre à la porte de
+service avec le jeton de service. Le webhook n'a pas de clé d'API (l'outil qui l'a créé ne sait
+pas en poser) : `x-make-apikey` n'y est pas vérifié ; à poser à la main avant la production.
 2. **La newsletter sans reCAPTCHA** : faire passer l'inscription à la newsletter Brevo du site par
    la porte publique, qui a déjà sa limite de fréquence et son champ piège, et retirer reCAPTCHA
    de la page (une origine de service de moins, aussi pour la recette).
