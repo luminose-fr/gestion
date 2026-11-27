@@ -3961,15 +3961,32 @@ l'agenda Google**, qui viendra comme étape à part — il faut relier son compt
   écrit (contrat §3.1, point 3). La séance le dit dans la console (`a_ecrire`).
 - La porte de recette admet le site de recette à côté de la page d'essai (§14.5, écart v3.3).
 
-**Écart au contrat §3.1, point 1** : l'agenda Google n'est pas relu avant d'écrire. En recette,
-avec des données fictives, c'est sans conséquence ; la phase de l'agenda le rétablit avant toute
-mise en production.
+**L'agenda Google** (choix de Florent du 27/11/2026 : « brancher Google d'abord » ; compte Google
+Workspace luminose.fr ; l'agenda principal seul pour les indisponibilités ; écrire dans l'agenda
+principal ; un lien Meet pour la visio). Florent crée un client OAuth « Interne » dans Google
+Cloud et le pose dans Réglages → Agenda Google (`/api/agenda`), puis autorise gestion chez Google
+une fois. L'identifiant, le secret et le jeton de renouvellement vivent dans `app_settings` sous
+le préfixe des clés (§5.5) : aucune route ne les relit, l'export les exclut. Le retour de Google
+(`GET /api/agenda/retour`) est hors session — le cookie est `SameSite=Strict` — et c'est son état,
+signé et échu en dix minutes, qui l'authentifie.
+
+- **Relié**, l'agenda est lu sur la période des créneaux, et **relu sur l'intervalle juste avant
+  de réserver** ; une lecture qui échoue est une panne, rien n'est réservé (contrat §3.1, point 1).
+- La séance s'écrit **après la réponse** (`waitUntil`), avec `conferenceData` pour un lien Meet en
+  visio, l'identifiant de la séance en `requestId` et en propriété privée ; l'évènement et le lien
+  sont notés sur la séance (`agenda_etat = 'ecrit'`). Une écriture manquée passe en `echec`, et le
+  passage planifié la reprend, cinq au plus par passage. En recette, le titre commence par
+  « [Recette] » : l'agenda est le vrai.
+- **Non relié**, gestion fait sans lui, comme avant : la séance garde `a_ecrire`. Écart toléré en
+  recette seulement ; la production exigera l'agenda relié.
+- Ce qui reste : un rendez-vous posé par Florent dans la console ne s'écrit pas encore dans
+  l'agenda ; un déplacement ou une annulation ne l'y reportent pas encore.
 
 **Plus tard, sans priorité** (demandes de Florent du 27/11/2026, notées ici pour ne pas les
 perdre) :
 
-1. **L'agenda Google** : lu pour les créneaux, relu avant d'écrire, la séance écrite avec son lien
-   de visio ; puis la confirmation et les rappels.
+1. **La confirmation et les rappels**, maintenant que l'agenda s'écrit ; et l'agenda tenu à jour
+   des rendez-vous posés, déplacés ou annulés dans la console.
 2. **La newsletter sans reCAPTCHA** : faire passer l'inscription à la newsletter Brevo du site par
    la porte publique, qui a déjà sa limite de fréquence et son champ piège, et retirer reCAPTCHA
    de la page (une origine de service de moins, aussi pour la recette).

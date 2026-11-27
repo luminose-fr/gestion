@@ -10,6 +10,8 @@ import { envPortes, executer, ficheEssai, seanceEssai, nouvelleCle, envoiComplet
 import { PortePublique, PorteService } from '../src/index';
 import porte from '../../porte/src/index';
 import { verifierJeton } from '../src/clients/jetons';
+import { TestD1 as BaseDeTest, MIGRATIONS } from './helpers/d1';
+import { reprendreLesAgendas } from '../src/clients/portes/reservation';
 
 const SITE = 'https://recette.luminose.fr';
 const LUNDI_ISO = '2027-01-11T09:30:00+01:00';
@@ -194,5 +196,87 @@ describe('réserver — POST /v1/reservation', () => {
     vi.setSystemTime(LUNDI_9H30 - 504 * HEURE + 10 * MINUTE);
     expect((await lire('/v1/reservation/creneaux?type=seance&du=2027-01-11&au=2027-01-11')).corps.creneaux).not.toContain(LUNDI_ISO);
     expect((await envoyer('/v1/reservation', reservation())).corps.ok).toBe(true);
+  });
+});
+
+describe('l’agenda Google relié (§14.12)', () => {
+  type Appel = { url: string; corps: any };
+  let appels: Appel[];
+  let occupe: { start: string; end: string }[];
+  let panneLecture: boolean;
+  let panneEcriture: boolean;
+
+  beforeEach(() => {
+    const db = new BaseDeTest(MIGRATIONS);
+    for (const [k, v] of [
+      ['provider_key:google_agenda_client_id', 'client-essai.apps.googleusercontent.com'],
+      ['provider_key:google_agenda_client_secret', 'secret-essai-0123456789'],
+      ['provider_key:google_agenda_renouvellement', 'renouvellement-essai'],
+    ]) db.query('INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, 0)', k, v);
+    env.DB = db;
+    env.ENVIRONNEMENT = 'recette';
+    appels = []; occupe = []; panneLecture = false; panneEcriture = false;
+    vi.stubGlobal('fetch', async (entree: string, init: RequestInit) => {
+      const url = String(entree);
+      const corps = typeof init?.body === 'string' ? JSON.parse(init.body) : String(init?.body ?? '');
+      appels.push({ url, corps });
+      if (url.startsWith('https://oauth2.googleapis.com/token')) return Response.json({ access_token: 'acces-essai' });
+      if (url.endsWith('/freeBusy')) {
+        return panneLecture ? new Response('', { status: 500 }) : Response.json({ calendars: { primary: { busy: occupe } } });
+      }
+      if (url.includes('/calendars/primary/events')) {
+        return panneEcriture ? new Response('', { status: 503 }) : Response.json({ id: 'evenement-essai', hangoutLink: corps.conferenceData ? 'https://meet.google.com/abc-defg-hij' : undefined });
+      }
+      return new Response('', { status: 404 });
+    });
+  });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('une plage occupée de l’agenda retire les créneaux qu’elle chevauche', async () => {
+    occupe = [{ start: '2027-01-11T12:00:00Z', end: '2027-01-11T13:00:00Z' }]; // 13:00–14:00 à Paris
+    const r = await lire('/v1/reservation/creneaux?type=seance&du=2027-01-11&au=2027-01-11');
+    expect(r.corps.creneaux).not.toContain('2027-01-11T13:00:00+01:00');
+    expect(r.corps.creneaux).toContain(LUNDI_ISO);
+  });
+
+  it('réserver sur une plage occupée de l’agenda : creneau_pris, rien d’écrit', async () => {
+    occupe = [{ start: '2027-01-11T08:00:00Z', end: '2027-01-11T09:00:00Z' }];
+    expect((await envoyer('/v1/reservation', reservation())).corps).toEqual({ ok: false, motif: 'creneau_pris' });
+    expect(compter(base, 'seances')).toBe(0);
+  });
+
+  it('un agenda illisible : une panne, et rien n’est réservé', async () => {
+    panneLecture = true;
+    const r = await envoyer('/v1/reservation', reservation());
+    expect(r.statut).toBeGreaterThanOrEqual(500);
+    expect(compter(base, 'seances')).toBe(0);
+    expect((await lire('/v1/reservation/creneaux?type=seance&du=2027-01-11&au=2027-01-11')).statut).toBeGreaterThanOrEqual(500);
+  });
+
+  it('réservée : la séance s’écrit dans l’agenda principal, avec un lien Meet en visio, et le note', async () => {
+    const r = await envoyer('/v1/reservation', reservation({ type: 'seance_distance' }));
+    expect(r.corps.ok).toBe(true);
+    const ecriture = appels.find((a) => a.url.includes('/calendars/primary/events'))!;
+    expect(ecriture.url).toContain('conferenceDataVersion=1');
+    expect(ecriture.corps.summary).toBe('[Recette] Séance à distance — Émilie Martin');
+    expect(ecriture.corps.conferenceData.createRequest.conferenceSolutionKey.type).toBe('hangoutsMeet');
+    expect(base.query("SELECT agenda_etat, agenda_evenement_id, visio_url FROM seances WHERE origine = 'site'")[0])
+      .toEqual({ agenda_etat: 'ecrit', agenda_evenement_id: 'evenement-essai', visio_url: 'https://meet.google.com/abc-defg-hij' });
+  });
+
+  it('l’écriture échoue : la réservation tient, la séance est « echec », et le passage la reprend', async () => {
+    panneEcriture = true;
+    expect((await envoyer('/v1/reservation', reservation())).corps.ok).toBe(true);
+    expect(base.query("SELECT agenda_etat FROM seances WHERE origine = 'site'")[0].agenda_etat).toBe('echec');
+    panneEcriture = false;
+    vi.setSystemTime(MAINTENANT + HEURE);
+    expect(await reprendreLesAgendas(env)).toBe(1);
+    expect(base.query("SELECT agenda_etat FROM seances WHERE origine = 'site'")[0].agenda_etat).toBe('ecrit');
+  });
+
+  it('rien de Google dans les réponses de la porte', async () => {
+    const r = await envoyer('/v1/reservation', reservation());
+    const texte = JSON.stringify(r.corps);
+    for (const repere of ['acces-essai', 'renouvellement-essai', 'secret-essai', 'evenement-essai', 'meet.google']) expect(texte).not.toContain(repere);
   });
 });

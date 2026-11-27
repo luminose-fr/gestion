@@ -37,6 +37,13 @@ export type Env = {
    */
   MONTAGE?: R2Bucket;
 
+  /**
+   * Le client OAuth de l'agenda Google, en REPLI (§14.12) : il se pose d'ordinaire depuis
+   * Réglages → Agenda Google, et vit alors dans app_settings. Facultatifs.
+   */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+
   /** Clé de signature des jetons de session. Repli sur AUTH_PASSWORD (SPEC §7). */
   SESSION_SECRET?: string;
   AUTH_USERNAME: string;
