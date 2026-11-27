@@ -192,6 +192,7 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
 
   if (lecture.phase !== 'prete' || !initiale) return <div className={ecran('liste')}><EtatLecture lecture={lecture} /></div>;
   const e = lecture.donnees;
+  const complet = e.placesTotales !== null && e.placesLibres !== null && e.placesLibres <= 0;
 
   const inscrire = async () => {
     if (!personne) return;
@@ -264,10 +265,20 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
               ))}
             </ul>
           )}
-          <div className="space-y-2">
-            <ChoixFiche id="inscrire-personne" label="Inscrire une personne" valeur={personne} onChange={setPersonne} />
-            {personne && <div className="flex justify-end"><Bouton taille="petit" intention="principale" onClick={inscrire}><UserPlus /> Inscrire</Bouton></div>}
-          </div>
+          {complet ? (
+            // Complet : l'inscription est grisée et dit pourquoi, au lieu d'attendre le refus de la route.
+            <div className="space-y-1">
+              <Bouton taille="petit" intention="secondaire" disabled aria-describedby="inscrire-complet"><UserPlus /> Inscrire une personne</Bouton>
+              <p id="inscrire-complet" className="text-xs text-brand-main dark:text-dark-text">
+                Complet : {e.placesTotales === 1 ? 'la place est prise' : `les ${e.placesTotales} places sont prises`}. Une place se libère quand un inscrit passe à « annulée ».
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <ChoixFiche id="inscrire-personne" label="Inscrire une personne" valeur={personne} onChange={setPersonne} />
+              {personne && <div className="flex justify-end"><Bouton taille="petit" intention="principale" onClick={inscrire}><UserPlus /> Inscrire</Bouton></div>}
+            </div>
+          )}
           {refusInscription && <Avis ton="erreur">{refusInscription}</Avis>}
         </Carte>
       </div>

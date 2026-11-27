@@ -243,13 +243,22 @@ describe('NORMATIF — rien de la base des clients dans le navigateur (§15.2, r
 });
 
 import { EvenementView } from '../components/Clients/EvenementsView';
-import { routesChargeesC2b } from './helpers/clients';
+import { routesChargeesC2b, EVENEMENT } from './helpers/clients';
 
 describe('la console des clients — évènements', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('inscrire une personne à une journée complète : le refus s’affiche tel que la route l’écrit', async () => {
+  it('une journée complète : « Inscrire une personne » grisé, avec le motif', async () => {
     routesChargeesC2b();
+    const vue = render(<EvenementView id="ev-1" />);
+    await waitFor(() => expect(vue.container.textContent).toContain('Complet : les 2 places sont prises'));
+    expect((vue.getByText('Inscrire une personne').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    expect(vue.queryByLabelText('Inscrire une personne')).toBeNull();
+  });
+
+  it('la dernière place prise ailleurs entre-temps : le refus s’affiche tel que la route l’écrit', async () => {
+    routesChargeesC2b();
+    vi.spyOn(ClientsService, 'lireEvenement').mockResolvedValue({ ...EVENEMENT, placesOccupees: 1, placesLibres: 1 });
     vi.spyOn(ClientsService, 'rechercherFiches').mockResolvedValue({ fiches: [{ id: 'fiche-2', prenom: 'Ève', nom: 'Dupont', ville: null, nbSeances: 0, derniereSeance: null, prochaineSeance: null }], page: 0, suite: false });
     const inscrire = vi.spyOn(ClientsService, 'inscrire').mockRejectedValue(new ClientsService.ErreurClients('Cette journée est complète.', 409));
     const vue = render(<EvenementView id="ev-1" />);
