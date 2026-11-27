@@ -271,7 +271,10 @@ export const ecartsRecette = (source: string): string[] => {
 export const PORTE_RECETTE = {
   worker: 'luminose-porte-recette',
   domaine: 'api-recette.luminose.fr',
+  /** La page d'essai (§14.5), servie par la porte de recette sur une origine à elle. */
+  domaineEssai: 'essai-recette.luminose.fr',
   origineSite: 'https://essai-recette.luminose.fr',
+  originePorte: 'https://api-recette.luminose.fr',
   /**
    * Les seules liaisons de service de la porte : des entrées nommées de
    * gestion DE RECETTE. `Essai` se retire au dernier commit de la phase S2b.
@@ -303,12 +306,13 @@ export const ecartsPorteRecette = (source: string): string[] => {
   if (r.workersDev) ecarts.push('workers_dev doit valoir false : la porte n’a pas d’adresse workers.dev');
   if (r.previewUrls) ecarts.push('preview_urls doit valoir false : une adresse d’aperçu mènerait à la porte hors de son domaine');
   if (r.crons.length > 0) ecarts.push(`déclencheurs planifiés hérités ou déclarés (${r.crons.join(', ')}) : crons = [] attendu`);
-  const routesAttendues: Route[] = [{ pattern: PORTE_RECETTE.domaine, customDomain: true }];
+  const routesAttendues: Route[] = [PORTE_RECETTE.domaine, PORTE_RECETTE.domaineEssai].map((pattern) => ({ pattern, customDomain: true }));
   if (JSON.stringify(r.routesDetaillees) !== JSON.stringify(routesAttendues)) {
-    ecarts.push(`routes ${JSON.stringify(r.routesDetaillees)}, attendue ${PORTE_RECETTE.domaine} en domaine personnalisé (custom_domain = true)`);
+    ecarts.push(`routes ${JSON.stringify(r.routesDetaillees)}, attendues ${PORTE_RECETTE.domaine} et ${PORTE_RECETTE.domaineEssai} en domaines personnalisés (custom_domain = true)`);
   }
   if (r.vars.ENVIRONNEMENT !== 'recette') ecarts.push('vars.ENVIRONNEMENT doit valoir "recette"');
   if (r.vars.ORIGINE_SITE !== PORTE_RECETTE.origineSite) ecarts.push(`vars.ORIGINE_SITE doit valoir "${PORTE_RECETTE.origineSite}"`);
+  if (r.vars.ORIGINE_PORTE !== PORTE_RECETTE.originePorte) ecarts.push(`vars.ORIGINE_PORTE doit valoir "${PORTE_RECETTE.originePorte}"`);
   const limiteurs = r.ratelimits.map((l) => l.name).sort();
   if (JSON.stringify(limiteurs) !== JSON.stringify(PORTE_RECETTE.limiteurs)) {
     ecarts.push(`limiteurs [${limiteurs.join(', ')}], attendus [${PORTE_RECETTE.limiteurs.join(', ')}]`);

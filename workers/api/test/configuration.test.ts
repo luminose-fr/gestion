@@ -151,9 +151,14 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     expect(r.name).toBe('luminose-porte-recette');
     expect(r.workersDev).toBe(false);
     expect(r.previewUrls).toBe(false);
-    expect(r.routesDetaillees).toEqual([{ pattern: 'api-recette.luminose.fr', customDomain: true }]);
+    expect(r.routesDetaillees).toEqual([
+      { pattern: 'api-recette.luminose.fr', customDomain: true },
+      { pattern: 'essai-recette.luminose.fr', customDomain: true },
+    ]);
     expect(r.crons).toEqual([]);
-    expect(r.vars).toEqual({ ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://essai-recette.luminose.fr' });
+    expect(r.vars).toEqual({
+      ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://essai-recette.luminose.fr', ORIGINE_PORTE: 'https://api-recette.luminose.fr',
+    });
     expect(r.liaisons).toEqual(['services', 'ratelimits']);
     expect(r.services).toEqual([
       { binding: 'GESTION_ESSAI', service: 'gestion-luminose-worker-recette', entrypoint: 'Essai' },
@@ -192,7 +197,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
   });
 
   it('une route qui n’est pas un domaine personnalisé, ou une autre adresse : refusée', () => {
-    expect(ecartsPorteRecette(PORTE.replace('custom_domain = true', 'zone_name = "luminose.fr"')).join('\n')).toMatch(/domaine personnalisé/);
+    expect(ecartsPorteRecette(PORTE.replace('custom_domain = true', 'zone_name = "luminose.fr"')).join('\n')).toMatch(/domaines personnalisés/);
     expect(ecartsPorteRecette(PORTE.replace('pattern = "api-recette.luminose.fr"', 'pattern = "api.luminose.fr"')).join('\n')).toMatch(/routes/);
   });
 

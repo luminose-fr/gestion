@@ -46,7 +46,11 @@ preview_urls = false
 # `custom_domain` : wrangler crée l'enregistrement DNS et le certificat au
 # premier déploiement. Le nom ne doit porter aucun enregistrement DNS avant.
 routes = [
-  { pattern = "api-recette.luminose.fr", custom_domain = true }
+  { pattern = "api-recette.luminose.fr", custom_domain = true },
+  # La page d'essai (§14.5) : il n'existe pas de site de recette, et elle en tient
+  # lieu, sur une origine distincte de la porte pour que CORS soit réellement
+  # essayé. Le code ne la sert qu'en recette ; la racine n'a pas cette route.
+  { pattern = "essai-recette.luminose.fr", custom_domain = true }
 ]
 
 [env.recette.vars]
@@ -55,6 +59,8 @@ ENVIRONNEMENT = "recette"
 # Access-Control-Allow-Origin : la page d'essai, qui tient lieu de site de
 # recette. Jamais `*`, jamais l'origine reçue recopiée.
 ORIGINE_SITE = "https://essai-recette.luminose.fr"
+# Ce que la page d'essai appelle.
+ORIGINE_PORTE = "https://api-recette.luminose.fr"
 
 [env.recette.triggers]
 crons = []

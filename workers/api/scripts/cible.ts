@@ -30,6 +30,7 @@ if (worker === 'porte') {
   const valeurs: Record<string, string> = {
     CIBLE_PORTE_WORKER: r.name,
     CIBLE_PORTE_DOMAINE: PORTE_RECETTE.domaine,
+    CIBLE_PORTE_ESSAI: PORTE_RECETTE.domaineEssai,
     CIBLE_PORTE_SERVICES: r.services.map((s) => `${s.binding} → ${s.service}#${s.entrypoint ?? ''}`).join(', '),
   };
   for (const [cle, v] of Object.entries(valeurs)) console.log(`${cle}=${citer(v)}`);
