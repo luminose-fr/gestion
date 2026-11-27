@@ -39,6 +39,8 @@ import { lancerVeille } from './veille';
 import { originesAcceptees } from './environnement';
 import { environnement } from './routes/environnement';
 import { clients } from './routes/clients';
+import { DECLENCHEURS } from './declencheurs';
+import { passer } from './clients/passage';
 
 const app = new Hono<Contexte>();
 
@@ -197,13 +199,22 @@ app.onError((err, c) => {
 });
 
 /**
- * Le Worker : l'application, et le passage planifié de la veille des modèles
- * (`[triggers]` dans wrangler.toml, SPEC §5.7). `waitUntil` : le passage lit
- * trois sources lentes, et la plateforme ne doit pas couper avant l'écriture.
+ * Le Worker : l'application, et ses passages planifiés (`[triggers]` dans
+ * wrangler.toml), distingués par leur expression, nommée dans
+ * declencheurs.ts : le passage des portes (§14.6), qui ne fait rien sans la
+ * base des clients, et la veille des modèles (SPEC §5.7). `waitUntil` : la
+ * veille lit trois sources lentes, et la plateforme ne doit pas couper avant
+ * l'écriture.
+ *
+ * Toute autre expression lance la veille, comme avant la phase S2a : la
+ * production ne déclare qu'elle, et un déclencheur ajouté sans être nommé ici
+ * ne doit pas taire la veille en silence (un test vérifie que wrangler.toml
+ * ne déclare que des expressions nommées).
  */
 export default {
   fetch: app.fetch,
-  scheduled: (_evenement: ScheduledController, env: Env, ctx: ExecutionContext) => {
-    ctx.waitUntil(lancerVeille(env).then(() => undefined));
+  scheduled: (evenement: ScheduledController, env: Env, ctx: ExecutionContext) => {
+    if (evenement.cron === DECLENCHEURS.passage) ctx.waitUntil(passer(env, Date.now()).then(() => undefined));
+    else ctx.waitUntil(lancerVeille(env).then(() => undefined));
   },
 };

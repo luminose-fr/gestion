@@ -156,16 +156,20 @@ export const rattachementALaSeance = (db: D1Database, q: Pick<QuestionnaireRecu,
 /** Ce que l'accusé de réception sait du destinataire : l'identité envoyée. */
 export type DestinataireQuestionnaire = { prenom: string; nom: string; email: string | null };
 
+/** L'identité envoyée avec un questionnaire : une instruction, pour qu'une lecture groupée la porte. */
+export const lireIdentite = (db: D1Database, id: string) =>
+  db.prepare('SELECT identite FROM questionnaires WHERE id = ?1').bind(id);
+
 /**
- * Le destinataire d'un accusé de réception : l'identité envoyée avec le
- * questionnaire — pas la fiche, qui peut ne pas exister (« à rapprocher »).
- * `null` : le questionnaire n'existe plus (effacé).
+ * Le destinataire d'un accusé de réception, depuis la ligne lue : l'identité
+ * envoyée avec le questionnaire — pas la fiche, qui peut ne pas exister (« à
+ * rapprocher »). `null` : le questionnaire n'existe plus (effacé) ;
+ * `destinataire: null` : il existe, mais personne à qui écrire.
  */
-export const destinataireDuQuestionnaire = async (db: D1Database, id: string): Promise<{ destinataire: DestinataireQuestionnaire | null } | null> => {
-  const ligne = await db.prepare('SELECT identite FROM questionnaires WHERE id = ?1').bind(id).first<{ identite: string | null }>();
+export const destinataireDepuis = (ligne: { identite?: unknown } | null | undefined): { destinataire: DestinataireQuestionnaire | null } | null => {
   if (!ligne) return null;
   try {
-    const i = JSON.parse(ligne.identite ?? 'null') as Record<string, unknown> | null;
+    const i = JSON.parse(typeof ligne.identite === 'string' ? ligne.identite : 'null') as Record<string, unknown> | null;
     if (!i || typeof i.prenom !== 'string') return { destinataire: null };
     return {
       destinataire: {

@@ -22,6 +22,8 @@
  * dans la CI.
  */
 
+import { DECLENCHEURS } from '../src/declencheurs.ts';
+
 type Valeur = string | number | boolean | Valeur[] | { [cle: string]: Valeur };
 type Table = { [cle: string]: Valeur };
 
@@ -193,7 +195,11 @@ export const ecartsRecette = (source: string): string[] => {
   if (r.name !== RECETTE.worker) ecarts.push(`Worker « ${r.name} », attendu « ${RECETTE.worker} »`);
   if (r.name === prod.name) ecarts.push('le Worker de recette porte le nom de celui de la production');
   if (r.workersDev) ecarts.push('workers_dev doit valoir false : la recette n’a pas d’adresse workers.dev');
-  if (r.crons.length > 0) ecarts.push(`déclencheurs planifiés hérités ou déclarés (${r.crons.join(', ')}) : crons = [] attendu`);
+  // Le passage des portes, et lui seul : un déclencheur hérité de la racine
+  // lancerait la veille des modèles en recette (§14.7).
+  if (JSON.stringify(r.crons) !== JSON.stringify([DECLENCHEURS.passage])) {
+    ecarts.push(`déclencheurs planifiés hérités ou déclarés (${r.crons.join(', ') || 'aucun'}) : crons = ["${DECLENCHEURS.passage}"] attendu`);
+  }
   const routesAttendues = [`${RECETTE.domaine}/api/*`, `${RECETTE.domaine}/auth/*`];
   if (JSON.stringify([...r.routes].sort()) !== JSON.stringify(routesAttendues.sort())) {
     ecarts.push(`routes ${JSON.stringify(r.routes)}, attendues ${JSON.stringify(routesAttendues)}`);

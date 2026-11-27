@@ -105,6 +105,35 @@ export type Env = {
    * moitié. Le reste de la console fonctionne à l'identique.
    */
   PORTES_SECRET?: string;
+
+  /**
+   * L'empreinte (SHA-256, hexadécimal) du jeton que Make présente sur la porte
+   * de service — jamais le jeton lui-même, comme `MCP_JETON_EMPREINTE`
+   * (SPEC §14.5). Le jeton n'ouvre que la confirmation d'un ordre.
+   *
+   * FACULTATIF : absente, tout porteur est refusé.
+   */
+  SERVICE_JETON_EMPREINTE?: string;
+
+  /**
+   * Le secret que gestion présente à Make, en en-tête, à chaque remise d'un
+   * ordre (SPEC §14.6), et l'adresse du webhook Make des ordres `message.email`.
+   *
+   * FACULTATIFS l'un et l'autre, comme chaque webhook : sans eux, un ordre reste
+   * `prevu`, visible dans la console, et rien d'autre ne casse. L'adresse d'un
+   * webhook vaut un droit d'envoi : elle n'est ni journalisée ni rangée.
+   */
+  MAKE_SECRET?: string;
+  MAKE_WEBHOOK_MESSAGE_EMAIL?: string;
+
+  /**
+   * Hors production, l'adresse vers laquelle tout e-mail est détourné
+   * (SPEC §14.6). C'est `ENVIRONNEMENT === 'production'`, et lui seul, qui
+   * autorise un vrai destinataire : ailleurs, sans une adresse de détournement
+   * valide et unique, rien ne part — un oubli de configuration ne doit pas
+   * pouvoir écrire à une vraie personne.
+   */
+  DETOURNEMENT_EMAIL?: string;
 };
 
 /** Qui appelle : la console, par son jeton de session, ou le serveur MCP, par le sien. */

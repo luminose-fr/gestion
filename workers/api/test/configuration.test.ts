@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resoudre, ecartsRecette, lireToml } from '../scripts/configuration';
+import { DECLENCHEURS } from '../src/declencheurs';
 
 const SOURCE = readFileSync(join(import.meta.dirname, '..', 'wrangler.toml'), 'utf8');
 /**
@@ -48,11 +49,11 @@ describe('la production — la racine', () => {
 });
 
 describe('NORMATIF — la recette', () => {
-  it('déclare elle-même ce qui s’hérite : son nom, ses routes, aucun déclencheur, pas de workers.dev', () => {
+  it('déclare elle-même ce qui s’hérite : son nom, ses routes, le seul passage des portes, pas de workers.dev', () => {
     const r = resoudre(SOURCE, 'recette');
     expect(r.name).toBe('gestion-luminose-worker-recette');
     expect(r.routes).toEqual(['gestion-recette.luminose.fr/api/*', 'gestion-recette.luminose.fr/auth/*']);
-    expect(r.crons).toEqual([]);
+    expect(r.crons).toEqual([DECLENCHEURS.passage]);
     expect(r.workersDev).toBe(false);
     expect(r.vars).toEqual({ ENVIRONNEMENT: 'recette' });
   });
@@ -90,7 +91,7 @@ describe('NORMATIF — la recette', () => {
   it('une section qui oublie ses routes et son déclencheur hériterait de ceux de la production — refusée', () => {
     const oublieuse = completee()
       .replace(/routes = \[\n  \{ pattern = "gestion-recette[\s\S]*?\n\]\n/, '')
-      .replace('[env.recette.triggers]\ncrons = []\n', '')
+      .replace(`[env.recette.triggers]\ncrons = ["${DECLENCHEURS.passage}"]\n`, '')
       .replace('[env.recette]\nname = "gestion-luminose-worker-recette"\nworkers_dev = false\n', '[env.recette]\nname = "gestion-luminose-worker-recette"\n');
     const r = resoudre(oublieuse, 'recette');
     expect(r.routes).toEqual(['gestion.luminose.fr/api/*', 'gestion.luminose.fr/auth/*']);

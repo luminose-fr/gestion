@@ -34,6 +34,11 @@ class Stmt {
    * une seule transaction. `node:sqlite`, lui, sépare `run` et `all`.
    */
   async run() {
+    return this.executer();
+  }
+
+  /** Synchrone : un batch se joue d'un seul tenant, sans qu'un autre s'y glisse. */
+  executer() {
     const stmt = this.db.prepare(this.sql);
     if (/^\s*SELECT/i.test(this.sql)) {
       return { success: true, results: stmt.all(...(this.params as any[])) as Row[], meta: { changes: 0, last_row_id: 0 } };
@@ -75,12 +80,17 @@ export class TestD1 {
     return new Stmt(this.db, sql);
   }
 
-  /** D1 exécute un batch dans une transaction implicite : tout ou rien. */
+  /**
+   * D1 exécute un batch dans une transaction implicite : tout ou rien, et
+   * sans entrelacement — deux batchs simultanés se jouent l'un après l'autre.
+   * D'où une exécution synchrone : un `await` entre deux instructions
+   * laisserait un second batch ouvrir sa transaction dans la première.
+   */
   async batch(statements: Stmt[]) {
     this.db.exec('BEGIN');
     try {
       const results = [];
-      for (const s of statements) results.push(await s.run());
+      for (const s of statements) results.push(s.executer());
       this.db.exec('COMMIT');
       return results;
     } catch (err) {
