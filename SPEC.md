@@ -3979,6 +3979,9 @@ perdre) :
    d'abord** : la règle 1 (§14.2) interdit aux modules d'IA de lire la base des clients ; un
    enregistrement de séance est une donnée de santé. Il faudra un chemin à part — fournisseur,
    juridiction, conservation du fichier — décidé par Florent avant d'écrire une ligne.
+   **Accepté par Florent le 27/11/2026** : l'e-mail de confirmation de l'entretien portera une
+   phrase disant que l'entretien peut être enregistré pour sa prise de notes, puis effacé (à
+   écrire avec les modèles de la phase des e-mails).
 
 ## 15. La console des clients — NORMATIF
 
