@@ -14,11 +14,16 @@ import { join } from 'node:path';
 import { resoudre, ecartsRecette, lireToml } from '../scripts/configuration';
 
 const SOURCE = readFileSync(join(import.meta.dirname, '..', 'wrangler.toml'), 'utf8');
+/**
+ * Le fichier tel qu'avant le report des identifiants de recette : les tests
+ * ne doivent pas dépendre de ce que Florent y a écrit depuis.
+ */
+const VIERGE = SOURCE.replace(/(\[\[env\.recette\.d1_databases\]\][\s\S]*?database_id = )"[^"]*"/g, '$1"A_REMPLACER"');
 const ID_A = '11111111-2222-4333-8444-555555555555';
 const ID_B = '66666666-7777-4888-9999-aaaaaaaaaaaa';
 
 /** La recette telle que Florent la complétera, ses deux identifiants reportés. */
-const completee = (source = SOURCE) => {
+const completee = (source = VIERGE) => {
   let n = 0;
   return source.replace(/database_id = "A_REMPLACER"/g, () => `database_id = "${n++ === 0 ? ID_A : ID_B}"`);
 };
@@ -62,8 +67,12 @@ describe('NORMATIF — la recette', () => {
     expect(r.ai).toBe(false);
   });
 
+  it('le fichier du dépôt est une recette conforme', () => {
+    expect(ecartsRecette(SOURCE)).toEqual([]);
+  });
+
   it('tant que les identifiants ne sont pas reportés, la cible est refusée — et dit pourquoi', () => {
-    const ecarts = ecartsRecette(SOURCE);
+    const ecarts = ecartsRecette(VIERGE);
     expect(ecarts).toHaveLength(2);
     expect(ecarts.join('\n')).toMatch(/DB : database_id « A_REMPLACER »/);
     expect(ecarts.join('\n')).toMatch(/wrangler d1 create luminose-clients-recette/);

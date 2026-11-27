@@ -130,6 +130,8 @@ describe('NORMATIF — rejouable', () => {
 
 describe('NORMATIF — la commande ne vise que la base locale ou la recette', () => {
   const SOURCE = readFileSync(join(import.meta.dirname, '..', 'wrangler.toml'), 'utf8');
+  /** Avant le report des identifiants de recette : indépendant de ce que le dépôt porte aujourd'hui. */
+  const VIERGE = SOURCE.replace(/(\[\[env\.recette\.d1_databases\]\][\s\S]*?database_id = )"[^"]*"/g, '$1"A_REMPLACER"');
 
   it('exige une cible, et une seule', () => {
     expect(() => lireCible([])).toThrow(/--local ou --recette/);
@@ -143,12 +145,12 @@ describe('NORMATIF — la commande ne vise que la base locale ou la recette', ()
   });
 
   it('en recette, refusée tant que ses identifiants ne sont pas reportés', () => {
-    expect(() => baseVisee(SOURCE, 'recette')).toThrow(/A_REMPLACER/);
+    expect(() => baseVisee(VIERGE, 'recette')).toThrow(/A_REMPLACER/);
   });
 
   it('en recette, luminose-clients-recette une fois complétée — et jamais une base de la production', () => {
     let n = 0;
-    const completee = SOURCE.replace(/database_id = "A_REMPLACER"/g, () => `database_id = "1111111${n++}-2222-4333-8444-555555555555"`);
+    const completee = VIERGE.replace(/database_id = "A_REMPLACER"/g, () => `database_id = "1111111${n++}-2222-4333-8444-555555555555"`);
     expect(baseVisee(completee, 'recette')).toEqual({ nom: 'luminose-clients-recette', id: '11111111-2222-4333-8444-555555555555' });
     const copiee = completee.replace('11111111-2222-4333-8444-555555555555', 'e9327701-3b46-4f85-9e3f-513df1488118');
     expect(() => baseVisee(copiee, 'recette')).toThrow(/production/);
