@@ -11,7 +11,7 @@ import { PortePublique, PorteService } from '../src/index';
 import porte from '../../porte/src/index';
 import { verifierJeton } from '../src/clients/jetons';
 import { TestD1 as BaseDeTest, MIGRATIONS } from './helpers/d1';
-import { reprendreLesAgendas } from '../src/clients/portes/reservation';
+import { reprendreLesAgendas } from '../src/clients/agenda-seances';
 
 const SITE = 'https://recette.luminose.fr';
 const LUNDI_ISO = '2027-01-11T09:30:00+01:00';

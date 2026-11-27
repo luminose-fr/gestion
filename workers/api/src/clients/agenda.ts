@@ -134,6 +134,10 @@ export const estRelie = (c: Configuration) => !!(c.clientId && c.clientSecret &&
 /** Un accès à l'agenda, pour une invocation : le jeton est demandé une fois. */
 export type Agenda = {
   occupe: (debut: number, fin: number) => Promise<{ debut: number; fin: number }[]>;
+  /** Mettre à jour un évènement déjà écrit ; `null` s'il n'existe plus dans l'agenda d'écriture. */
+  modifier: (evenementId: string, r: RendezVous, creerVisio: boolean) => Promise<{ visioUrl: string | null } | null>;
+  /** Retirer un évènement ; un évènement déjà absent est retiré. */
+  retirer: (evenementId: string) => Promise<void>;
   /** Les agendas du compte : identifiant, nom, principal ou non, et si gestion peut y écrire. */
   liste: () => Promise<{ id: string; nom: string; principal: boolean; ecriture: boolean }[]>;
   ecrire: (r: RendezVous) => Promise<{ evenementId: string; visioUrl: string | null }>;
@@ -183,6 +187,34 @@ export const ouvrirAgenda = async (env: Env): Promise<Agenda | null> => {
         id: a.id, nom: a.summaryOverride ?? a.summary ?? a.id, principal: !!a.primary,
         ecriture: a.accessRole === 'owner' || a.accessRole === 'writer',
       }));
+    },
+    modifier: async (evenementId, rv, creerVisio) => {
+      const corps: Record<string, unknown> = {
+        summary: rv.titre,
+        description: rv.description,
+        start: { dateTime: new Date(rv.debut).toISOString(), timeZone: 'Europe/Paris' },
+        end: { dateTime: new Date(rv.fin).toISOString(), timeZone: 'Europe/Paris' },
+      };
+      if (creerVisio) {
+        // Une nouvelle demande à chaque passage en visio : l'identifiant de la séance suffirait la
+        // première fois, mais Google le refuserait pour une seconde conférence.
+        corps.conferenceData = { createRequest: { requestId: `${rv.seanceId}-${rv.debut}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } };
+      }
+      const r = await appeler(`${CALENDRIER}/calendars/${encodeURIComponent(c.ecriture)}/events/${encodeURIComponent(evenementId)}?conferenceDataVersion=1&sendUpdates=none`, {
+        method: 'PATCH', headers: await entetes(), body: JSON.stringify(corps),
+      });
+      if (r.status === 404 || r.status === 410) return null;
+      if (!r.ok) throw new Error(`agenda.modification_${r.status}`);
+      const j = await r.json() as { hangoutLink?: string; status?: string };
+      // Un évènement supprimé à la main reste lisible, « cancelled » : il n'existe plus.
+      if (j.status === 'cancelled') return null;
+      return { visioUrl: j.hangoutLink ?? null };
+    },
+    retirer: async (evenementId) => {
+      const r = await appeler(`${CALENDRIER}/calendars/${encodeURIComponent(c.ecriture)}/events/${encodeURIComponent(evenementId)}?sendUpdates=none`, {
+        method: 'DELETE', headers: await entetes(),
+      });
+      if (!r.ok && r.status !== 404 && r.status !== 410) throw new Error(`agenda.retrait_${r.status}`);
     },
     ecrire: async (rv) => {
       const evenement: Record<string, unknown> = {

@@ -14,7 +14,7 @@ import { releverLesOrdres, type Bilan } from './ordres';
 import { purgerLesCommandes } from './commandes';
 import { questionnairesAReprendre } from './sensible';
 import { completerLaFiche } from './portes/publique';
-import { reprendreLesAgendas } from './portes/reservation';
+import { reprendreLesAgendas } from './agenda-seances';
 
 /** Combien de fiches un passage reprend au plus : un lot chacune. */
 const FICHES_PAR_PASSAGE = 5;

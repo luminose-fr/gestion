@@ -3981,14 +3981,17 @@ signé et échu en dix minutes, qui l'authentifie.
   « [Recette] » : l'agenda est le vrai.
 - **Non relié**, gestion fait sans lui, comme avant : la séance garde `a_ecrire`. Écart toléré en
   recette seulement ; la production exigera l'agenda relié.
-- Ce qui reste : un rendez-vous posé par Florent dans la console ne s'écrit pas encore dans
-  l'agenda ; un déplacement ou une annulation ne l'y reportent pas encore.
+- **L'agenda suit aussi la console** (`clients/agenda-seances.ts`) : une seule fonction rend
+  l'agenda conforme à la séance, quelle qu'en soit la cause — réservation, rendez-vous posé,
+  déplacé, annulé (l'évènement est retiré), remis à « prévue », type, durée ou mode changés (un
+  lien Meet est créé au passage en visio). Un évènement supprimé à la main est réécrit à la
+  synchronisation suivante. Elle part après la réponse ; manquée, la séance passe en `echec` et le
+  passage planifié la reprend. Une séance réalisée ou absente garde son évènement.
 
 **Plus tard, sans priorité** (demandes de Florent du 27/11/2026, notées ici pour ne pas les
 perdre) :
 
-1. **La confirmation et les rappels**, maintenant que l'agenda s'écrit ; et l'agenda tenu à jour
-   des rendez-vous posés, déplacés ou annulés dans la console.
+1. **La confirmation et les rappels**, maintenant que l'agenda s'écrit.
 2. **La newsletter sans reCAPTCHA** : faire passer l'inscription à la newsletter Brevo du site par
    la porte publique, qui a déjà sa limite de fréquence et son champ piège, et retirer reCAPTCHA
    de la page (une origine de service de moins, aussi pour la recette).

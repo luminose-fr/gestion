@@ -35,7 +35,8 @@ import { decisionCommande, empreinteDe, lireCommande, reponseAuRejeu, commandeEx
 import { lotCreation } from '../decisions';
 import { identite as identiteDeFiche } from '../fiches';
 import { ouvrirAlerte, alerteBorne } from '../alertes';
-import { ouvrirAgenda, type Agenda } from '../agenda';
+import { ouvrirAgenda } from '../agenda';
+import { synchroniserAgenda } from '../agenda-seances';
 
 const MINUTE = 60_000;
 const JOUR = 24 * 3_600_000;
@@ -232,7 +233,7 @@ export const reserver = async (env: Env, envoi: unknown, maintenant: number): Pr
       suite: async () => {
         const n = await db.prepare('SELECT client_id FROM seances WHERE id = ?1').bind(seanceId).first<{ client_id: string | null }>();
         if (n && n.client_id === null) await ouvrirAlerte(db, { sorte: 'a_rapprocher', objetType: 'seance', objetId: seanceId }, Date.now()).run();
-        if (agenda) await ecrireDansLAgenda(env, db, agenda, seanceId);
+        if (agenda) await synchroniserAgenda(env, db, agenda, seanceId);
       },
     };
   }
@@ -249,68 +250,3 @@ export const reserver = async (env: Env, envoi: unknown, maintenant: number): Pr
 };
 
 export type { Recu };
-
-// ─── Écrire la séance dans l'agenda ─────────────────────────────────────────
-
-const LIBELLES_MODE: Record<string, string> = { sur_place: 'sur place', visio: 'en visio', appel: 'par téléphone' };
-
-/**
- * Écrit une séance prévue dans l'agenda, et le note sur elle : `ecrit`, avec
- * l'identifiant de l'évènement et le lien Meet ; ou `echec`, que le passage
- * planifié reprendra. Ne lève pas : la réponse est déjà partie.
- *
- * Le titre porte le type et le nom tel que la fiche ou l'envoi le donne ; en
- * recette, il commence par « [Recette] » — l'agenda est le vrai.
- */
-export const ecrireDansLAgenda = async (env: Env, db: D1Database, agenda: Agenda, seanceId: string): Promise<boolean> => {
-  const s = await db.prepare(`
-    SELECT s.id, s.debut, s.duree_min, s.mode, s.statut, s.agenda_etat, s.identite_recue, t.libelle AS type,
-      c.prenom, c.nom, c.telephone
-    FROM seances s LEFT JOIN types_seance t ON t.id = s.type_seance_id LEFT JOIN clients c ON c.id = s.client_id
-    WHERE s.id = ?1`).bind(seanceId).first<Record<string, string | number | null>>();
-  if (!s || s.statut !== 'prevue' || s.agenda_etat === 'ecrit') return false;
-  let recue: { prenom?: string; nom?: string; telephone?: string } = {};
-  try { recue = JSON.parse(String(s.identite_recue ?? '{}')); } catch { /* sans identité reçue */ }
-  const nom = [s.prenom ?? recue.prenom, s.nom ?? recue.nom].filter(Boolean).join(' ') || 'Personne à rapprocher';
-  const recette = env.ENVIRONNEMENT === 'recette';
-  const adresseConsole = recette ? 'https://gestion-recette.luminose.fr' : 'https://gestion.luminose.fr';
-  const debut = Number(s.debut);
-  try {
-    const { evenementId, visioUrl } = await agenda.ecrire({
-      seanceId,
-      titre: `${recette ? '[Recette] ' : ''}${s.type ?? 'Séance'} — ${nom}`,
-      description: [
-        `Réservée sur le site, ${LIBELLES_MODE[String(s.mode)] ?? ''}`.trim(),
-        (s.telephone ?? recue.telephone) ? `Téléphone : ${s.telephone ?? recue.telephone}` : null,
-        `Dans gestion : ${adresseConsole}/#seances/${encodeURIComponent(seanceId)}`,
-      ].filter(Boolean).join('\n'),
-      debut,
-      fin: debut + Number(s.duree_min) * MINUTE,
-      visio: s.mode === 'visio',
-    });
-    await db.prepare(`UPDATE seances SET agenda_etat = 'ecrit', agenda_evenement_id = ?2, visio_url = COALESCE(?3, visio_url), updated_at = ?4
-      WHERE id = ?1`).bind(seanceId, evenementId, visioUrl, Date.now()).run();
-    return true;
-  } catch (erreur) {
-    console.error(erreur instanceof Error && erreur.message.startsWith('agenda.') ? erreur.message : 'agenda.ecriture');
-    await db.prepare(`UPDATE seances SET agenda_etat = 'echec', updated_at = ?2 WHERE id = ?1 AND agenda_etat <> 'ecrit'`)
-      .bind(seanceId, Date.now()).run();
-    return false;
-  }
-};
-
-/**
- * Le passage planifié : les séances du site dont l'écriture a échoué, quelques-unes
- * à la fois (§14.7). Agenda non relié : rien.
- */
-export const reprendreLesAgendas = async (env: Env, limite = 5): Promise<number> => {
-  const agenda = await ouvrirAgenda(env);
-  if (!agenda) return 0;
-  const db = exigerLaBase(env);
-  const { results } = await db.prepare(`
-    SELECT id FROM seances WHERE origine = 'site' AND statut = 'prevue' AND agenda_etat = 'echec' AND debut > ?1
-    ORDER BY debut LIMIT ?2`).bind(Date.now(), limite).all<{ id: string }>();
-  let ecrites = 0;
-  for (const { id } of results) if (await ecrireDansLAgenda(env, db, agenda, id)) ecrites += 1;
-  return ecrites;
-};
