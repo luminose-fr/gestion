@@ -25,11 +25,12 @@
  *     `siRetablissable`). Rien ne s'intercale entre les deux dans la
  *     transaction : ils voient la même base, et concluent pareil.
  *
- * Aucune route ne les appelle encore : la réservation et la porte publique
- * viennent en phase S2. Les instructions utilisent des paramètres numérotés
+ * La console (phase C1) les appelle ; la réservation et la porte publique
+ * viendront ensuite. Les instructions utilisent des paramètres numérotés
  * (`?1`) : D1 ne connaît pas les paramètres nommés.
  */
 import { newId } from '../db';
+import type { Seance } from './db';
 
 /** Qui fait le mouvement : Florent depuis la console, la personne elle-même, ou l'import. */
 export type Auteur = 'florent' | 'personne' | 'import';
@@ -167,11 +168,15 @@ export const lotDeplacement = (db: D1Database, d: Deplacement, auteur: Auteur, m
 export const deplacerSeance = (db: D1Database, d: Deplacement, auteur: Auteur, maintenant: number): Promise<Issue> =>
   jouer(db, lotDeplacement(db, d, auteur, maintenant));
 
-// ─── Entrer dans l'agenda : rétablir une séance annulée ─────────────────────
+// ─── Entrer dans l'agenda : remettre une séance à « prévue » ────────────────
 
-/** La séance ?1 est annulée, et son intervalle est libre — une autre a pu le reprendre. */
+/**
+ * La séance ?1 est annulée, réalisée ou marquée absente, et son intervalle est
+ * libre — une autre a pu le reprendre. Toute entrée dans le statut `prevue`
+ * passe par la même condition (§14.4), d'où qu'elle vienne.
+ */
 const siRetablissable = (x: string) => `
-  ${x}.id = ?1 AND ${x}.statut = 'annulee'
+  ${x}.id = ?1 AND ${x}.statut IN ('annulee', 'realisee', 'absent')
   AND ${libre(`${x}.debut`, `${x}.occupe_jusqua`, `${x}.id`)}`;
 
 export const lotRetablissement = (db: D1Database, seanceId: string, auteur: Auteur, maintenant: number): Lot => ({
@@ -192,6 +197,85 @@ export const lotRetablissement = (db: D1Database, seanceId: string, auteur: Aute
 export const retablirSeance = (db: D1Database, seanceId: string, auteur: Auteur, maintenant: number): Promise<Issue> =>
   jouer(db, lotRetablissement(db, seanceId, auteur, maintenant));
 
+// ─── Sortir de l'agenda : annuler une séance prévue ─────────────────────────
+
+/**
+ * Prévue → annulée, et son mouvement, dans un lot. Sortir de l'agenda ne se
+ * dispute à personne : la seule condition est que la séance soit encore
+ * prévue. Annulée deux fois, la seconde ne trouve plus rien — un seul
+ * mouvement. Le rendez-vous de l'agenda Google est à retirer : `a_ecrire`.
+ */
+const siAnnulable = (x: string) => `${x}.id = ?1 AND ${x}.statut = 'prevue'`;
+
+export const lotAnnulation = (db: D1Database, seanceId: string, auteur: Auteur, maintenant: number): Lot => ({
+  instructions: [
+    db.prepare(`
+      INSERT INTO seances_mouvements (id, seance_id, nature, par, ancien_debut, nouveau_debut, revision, created_at, updated_at)
+      SELECT ?3, s.id, 'annulee', ?4, s.debut, NULL, s.revision, ?2, ?2 FROM seances s WHERE ${siAnnulable('s')}`)
+      .bind(seanceId, maintenant, newId(), auteur),
+    db.prepare(`UPDATE seances SET statut = 'annulee', agenda_etat = 'a_ecrire', updated_at = ?2 WHERE ${siAnnulable('seances')}`)
+      .bind(seanceId, maintenant),
+  ],
+  decision: 1,
+  // Sans objet : une annulation sans effet n'est pas un créneau pris. L'appelant lit `faite`.
+  refus: 'creneau_pris',
+});
+
+export const annulerSeance = (db: D1Database, seanceId: string, auteur: Auteur, maintenant: number): Promise<Issue> =>
+  jouer(db, lotAnnulation(db, seanceId, auteur, maintenant));
+
+// ─── Changer ce qu'une séance occupe, sur place ─────────────────────────────
+
+export type ChangementSeance = {
+  seanceId: string;
+  /** Les champs simples : statut (`realisee`, `absent`), paiement, montant, mode, liste d'attente. */
+  champs: Partial<{
+    statut: 'realisee' | 'absent';
+    etatPaiement: Seance['etatPaiement'];
+    montantCentimes: number;
+    mode: Seance['mode'];
+    listeAttente: boolean;
+  }>;
+  /** Ce qui change l'intervalle : le type, la durée. */
+  typeSeanceId?: string | null;
+  dureeMin?: number;
+};
+
+/**
+ * Une seule instruction (règle 11 du chapitre 15). Si le type ou la durée
+ * change, la borne est recalculée — même début, nouvelle durée, marge du
+ * NOUVEAU type — et, sur une séance prévue, l'écriture n'a lieu que si le
+ * nouvel intervalle est libre, elle-même exclue : c'est la décision de
+ * déplacement, sur place. Une séance qui n'est pas prévue ne bloque rien :
+ * simple mise à jour, borne recalculée. Les autres champs voyagent dans la
+ * même instruction : refusée, rien n'est écrit.
+ */
+export const changerSeance = async (db: D1Database, ch: ChangementSeance, maintenant: number): Promise<Issue> => {
+  const sets: string[] = [];
+  const valeurs: unknown[] = [ch.seanceId, maintenant];
+  const param = (v: unknown) => { valeurs.push(v); return `?${valeurs.length}`; };
+  const colonnes: Record<keyof ChangementSeance['champs'], string> = {
+    statut: 'statut', etatPaiement: 'etat_paiement', montantCentimes: 'montant_centimes', mode: 'mode', listeAttente: 'liste_attente',
+  };
+  for (const [cle, colonne] of Object.entries(colonnes) as [keyof ChangementSeance['champs'], string][]) {
+    const v = ch.champs[cle];
+    if (v !== undefined) sets.push(`${colonne} = ${param(typeof v === 'boolean' ? (v ? 1 : 0) : v)}`);
+  }
+  const intervalle = ch.typeSeanceId !== undefined || ch.dureeMin !== undefined;
+  let condition = '';
+  if (intervalle) {
+    const type = ch.typeSeanceId !== undefined ? param(ch.typeSeanceId) : 'seances.type_seance_id';
+    const duree = ch.dureeMin !== undefined ? param(ch.dureeMin) : 'seances.duree_min';
+    const fin = `seances.debut + (${duree} + ${marge(type)}) * ${MINUTE}`;
+    sets.push(`type_seance_id = ${type}`, `duree_min = ${duree}`, `occupe_jusqua = ${fin}`, `agenda_etat = 'a_ecrire'`);
+    condition = ` AND (seances.statut <> 'prevue' OR ${libre('seances.debut', fin, 'seances.id')})`;
+  }
+  if (sets.length === 0) return { faite: true };
+  const r = await db.prepare(`UPDATE seances SET ${sets.join(', ')}, updated_at = ?2 WHERE seances.id = ?1${condition}`)
+    .bind(...valeurs).run();
+  return r.meta.changes === 1 ? { faite: true } : { faite: false, motif: 'creneau_pris' };
+};
+
 // ─── Prendre une place ──────────────────────────────────────────────────────
 
 /**
@@ -202,14 +286,19 @@ export const retablirSeance = (db: D1Database, seanceId: string, auteur: Auteur,
  * marquée expirée ou non : l'instant est un paramètre (?1), jamais l'horloge de
  * la base, pour que la règle se teste.
  */
-const PLACES_OCCUPEES = `(
+export const occupeUnePlace = (i: string, maintenant: string) => `(
+    ${i}.statut IN ('payee', 'confirmee')
+    OR (${i}.statut = 'retenue' AND ${i}.mode_paiement = 'virement')
+    OR (${i}.statut = 'retenue' AND ${i}.mode_paiement = 'carte' AND ${i}.retenue_jusqua > ${maintenant})
+  )`;
+
+/** Le nombre de places occupées de l'évènement `e`, à l'instant `maintenant` (une expression SQL). */
+export const placesOccupees = (e: string, maintenant: string) => `(
   SELECT COUNT(*) FROM inscriptions i
-  WHERE i.evenement_id = e.id AND (
-    i.statut IN ('payee', 'confirmee')
-    OR (i.statut = 'retenue' AND i.mode_paiement = 'virement')
-    OR (i.statut = 'retenue' AND i.mode_paiement = 'carte' AND i.retenue_jusqua > ?1)
-  )
+  WHERE i.evenement_id = ${e}.id AND ${occupeUnePlace('i', maintenant)}
 )`;
+
+const PLACES_OCCUPEES = placesOccupees('e', '?1');
 
 export type NouvelleInscription = {
   id: string;
@@ -280,3 +369,50 @@ export const prendrePlace = (
   maintenant: number,
   paiement?: TentativePaiement,
 ): Promise<Issue> => jouer(db, lotInscription(db, ins, maintenant, paiement));
+
+// ─── Reprendre une place : une inscription qui revient ──────────────────────
+
+/**
+ * Remettre une inscription à « confirmée » (règle 12 du chapitre 15). Si elle
+ * occupe déjà une place à cet instant — payée, confirmée, retenue par virement,
+ * retenue par carte dans son délai —, elle la garde : simple changement de
+ * statut. Sinon — annulée, déconseillée, expirée, retenue par carte échue —,
+ * elle doit la reprendre, et c'est la décision de la dernière place : l'écriture
+ * n'a lieu que si l'évènement n'est pas supprimé, a un nombre de places, et en a
+ * une de libre. Une seule instruction. L'index des inscriptions vivantes refuse
+ * qu'une fiche y revienne si elle y a déjà une autre inscription vivante : à
+ * l'appelant de le rendre en refus.
+ */
+export const confirmerInscription = async (db: D1Database, inscriptionId: string, maintenant: number): Promise<Issue> => {
+  const r = await db.prepare(`
+    UPDATE inscriptions SET statut = 'confirmee', updated_at = ?1
+    WHERE id = ?2 AND (
+      ${occupeUnePlace('inscriptions', '?1')}
+      OR EXISTS (
+        SELECT 1 FROM evenements e
+        WHERE e.id = inscriptions.evenement_id AND e.deleted_at IS NULL AND e.places_totales IS NOT NULL
+          AND ${PLACES_OCCUPEES} < e.places_totales
+      )
+    )`).bind(maintenant, inscriptionId).run();
+  return r.meta.changes === 1 ? { faite: true } : { faite: false, motif: 'complet' };
+};
+
+// ─── Les places et la vie d'un évènement ────────────────────────────────────
+
+/**
+ * Les places ne descendent pas sous l'occupation : la condition est DANS
+ * l'écriture, comptée à l'instant de la décision — pas dans une lecture
+ * d'avant, qu'une inscription concurrente rendrait fausse.
+ */
+export const conditionPlaces = (parametrePlaces: string, parametreMaintenant: string) =>
+  `(${parametrePlaces} IS NULL OR ${parametrePlaces} >= ${placesOccupees('evenements', parametreMaintenant)})`;
+
+/** Suppression logique, refusée s'il a une inscription, quelle qu'elle soit — dans la même instruction. */
+export const supprimerEvenement = async (db: D1Database, evenementId: string, maintenant: number): Promise<boolean> => {
+  const r = await db.prepare(`
+    UPDATE evenements SET deleted_at = ?2, updated_at = ?2
+    WHERE id = ?1 AND deleted_at IS NULL
+      AND NOT EXISTS (SELECT 1 FROM inscriptions i WHERE i.evenement_id = evenements.id)`)
+    .bind(evenementId, maintenant).run();
+  return r.meta.changes === 1;
+};
