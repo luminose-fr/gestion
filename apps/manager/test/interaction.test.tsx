@@ -187,3 +187,24 @@ describe('NORMATIF — rien de la base des clients dans le navigateur (§15.2, r
     expect(fautifs).toEqual([]);
   });
 });
+
+import { EvenementView } from '../components/Clients/EvenementsView';
+import { routesChargeesC2b } from './helpers/clients';
+
+describe('la console des clients — évènements', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('inscrire une personne à une journée complète : le refus s’affiche tel que la route l’écrit', async () => {
+    routesChargeesC2b();
+    vi.spyOn(ClientsService, 'rechercherFiches').mockResolvedValue({ fiches: [{ id: 'fiche-2', prenom: 'Ève', nom: 'Dupont', ville: null, nbSeances: 0, derniereSeance: null, prochaineSeance: null }], page: 0, suite: false });
+    const inscrire = vi.spyOn(ClientsService, 'inscrire').mockRejectedValue(new ClientsService.ErreurClients('Cette journée est complète.', 409));
+    const vue = render(<EvenementView id="ev-1" />);
+    await waitFor(() => expect(vue.getByLabelText('Inscrire une personne')).toBeTruthy());
+    fireEvent.change(vue.getByLabelText('Inscrire une personne'), { target: { value: 'Ève' } });
+    await waitFor(() => expect(vue.getByText('Ève Dupont')).toBeTruthy());
+    fireEvent.click(vue.getByText('Ève Dupont'));
+    fireEvent.click(vue.getByText('Inscrire'));
+    await waitFor(() => expect(vue.container.textContent).toContain('Cette journée est complète.'));
+    expect(inscrire).toHaveBeenCalledWith('ev-1', 'fiche-2');
+  });
+});

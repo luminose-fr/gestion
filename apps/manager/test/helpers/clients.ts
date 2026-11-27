@@ -65,3 +65,28 @@ export const routesNonReliees = () => {
     vi.spyOn(Clients, nom).mockRejectedValue(NON_RELIEE);
   }
 };
+
+import type { EvenementDetaille, Professionnel } from '../../types-clients';
+
+export const EVENEMENT: EvenementDetaille = {
+  id: 'ev-1', nom: 'Journée d’essai — complète', type: 'respiration-holotropique', debut: '2027-01-16T10:00:00+01:00', fin: '2027-01-16T17:00:00+01:00',
+  ville: 'Ville d’essai', placesTotales: 2, placesOccupees: 2, placesLibres: 0, prixCentimes: 9000, questionnaireRequis: true,
+  urlInscription: null, publie: false, metaDescription: null, htmlPermalink: null, htmlProgramme: null, htmlPrix: null,
+  htmlLieuAdresse: null, htmlLieuInstructions: null,
+  inscriptions: [{ id: 'ins-1', statut: 'confirmee', modePaiement: null, retenueJusqua: null, montantCentimes: 9000, origine: 'console', le: '2026-11-01T10:00:00+01:00', personne: { clientId: 'fiche-1', prenom: 'Émilie', nom: 'Martin' } }],
+};
+
+export const PROFESSIONNEL: Professionnel = {
+  id: 'pro-1', nom: 'Cabinet d’essai', categories: ['Médecin généraliste'], specialisation: null, adresse: null, codePostal: null,
+  ville: 'Ville d’essai', telephone: '+33 6 39 98 00 90', email: 'cabinet@example.org', siteWeb: null, note: null, connu: true,
+  courriers: ['Mai 2025'], personnesRecues: 1, modifieLe: '2026-11-01T10:00:00+01:00',
+};
+
+export const routesChargeesC2b = () => {
+  routesChargees();
+  const { inscriptions: _, metaDescription: __, htmlPermalink: ___, htmlProgramme: ____, htmlPrix: _____, htmlLieuAdresse: ______, htmlLieuInstructions: _______, ...liste } = EVENEMENT;
+  vi.spyOn(Clients, 'listeEvenements').mockResolvedValue({ evenements: [liste] });
+  vi.spyOn(Clients, 'lireEvenement').mockResolvedValue(EVENEMENT);
+  vi.spyOn(Clients, 'listeProfessionnels').mockResolvedValue({ professionnels: [PROFESSIONNEL] });
+  vi.spyOn(Clients, 'lireReservation').mockResolvedValue({ ...RESERVATION, semaine: [{ id: 'h1', jour: 1, debut: '09:30', fin: '11:30' }], reglages: { liste_attente_personnes_max: 8 } });
+};
