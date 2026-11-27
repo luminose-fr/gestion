@@ -10,7 +10,12 @@
  *   /api/inbox    les captures — le SEUL store en écriture de la console
  *   /api/rdv      prise de rendez-vous Calendly pour un invité (§SMS sans confirmation)
  *   /api/environnement  où l'on est, et si la base des clients est reliée (§14.8)
- *   /api/clients  la base des clients — liaison CLIENTS facultative (§14)
+ *   /api/clients  la base des clients — liaison CLIENTS facultative (§14) : les fiches,
+ *                 leurs notes, leur personne de confiance (§15.3)
+ *   /api/seances  les séances, leurs notes, l'agenda par ses décisions (§15.3)
+ *   /api/evenements, /api/inscriptions  les journées et leurs places (§15.3)
+ *   /api/professionnels  les professionnels (§15.3)
+ *   /api/reservation  types, semaine type, dates d'exception, réglages (§15.3)
  *
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
  */
@@ -39,6 +44,10 @@ import { lancerVeille } from './veille';
 import { originesAcceptees } from './environnement';
 import { environnement } from './routes/environnement';
 import { clients } from './routes/clients';
+import { seances } from './routes/seances';
+import { evenements, inscriptions } from './routes/evenements';
+import { professionnels } from './routes/professionnels';
+import { reservation } from './routes/reservation';
 
 const app = new Hono<Contexte>();
 
@@ -166,6 +175,14 @@ app.route('/api/montage', montage);
 app.route('/api/environnement', environnement);
 // La base des clients (SPEC §14) : 409 tant que la liaison CLIENTS est absente.
 app.route('/api/clients', clients);
+// La console des clients (SPEC §15.3) : chaque famille a son gestionnaire
+// d'erreurs (routes/clients-commun.ts), qui ne recopie ni un champ inconnu ni
+// le message d'une panne.
+app.route('/api/seances', seances);
+app.route('/api/evenements', evenements);
+app.route('/api/inscriptions', inscriptions);
+app.route('/api/professionnels', professionnels);
+app.route('/api/reservation', reservation);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 
