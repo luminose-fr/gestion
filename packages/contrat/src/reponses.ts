@@ -36,6 +36,14 @@ export type Refus = { ok: false; motif: Motif; champs?: string[] };
 export const reponse = z.union([reussite, refus]);
 export type Reponse = Reussite | Refus;
 
+/**
+ * Une réponse qui ne porte rien d'autre que son issue : celle d'un
+ * questionnaire et d'une vérification de lien. La porte re-sérialise ce que
+ * gestion rend depuis ce schéma ; un champ de plus est une panne, pas un corps
+ * à relayer — règle 4 : à parcours égal, la même réponse.
+ */
+export const reponseSansDonnee = z.union([z.strictObject({ ok: z.literal(true) }), refus]);
+
 export const OK: Reussite = { ok: true };
 
 export const refuser = (motif: Exclude<Motif, 'invalide'>): Refus => ({ ok: false, motif });

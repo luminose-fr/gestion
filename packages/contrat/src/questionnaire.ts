@@ -8,7 +8,7 @@
  * il est rempli, sans nommer de champ (`champPiegeRempli`).
  */
 import { z } from 'zod';
-import { LONGUEURS, cle, identite, coordonnees, confiance } from './briques.ts';
+import { LONGUEURS, cle, reference, identite, coordonnees, confiance } from './briques.ts';
 
 export const CONTEXTES = ['seance', 'decouverte', 'groupe', 'journee_externe'] as const;
 export const VERSIONS = ['complet', 'suivi'] as const;
@@ -26,7 +26,7 @@ export const questionnaire = z
     version: z.enum(VERSIONS),
     version_formulaire: z.string().regex(new RegExp(`^[A-Za-z0-9._-]{1,${LONGUEURS.version_formulaire}}$`)),
     // Le jeton du lien, tel que la page l'a lu après le `#` (contrat §2).
-    reference: z.string().regex(new RegExp(`^[A-Za-z0-9._-]{1,${LONGUEURS.reference}}$`)).optional(),
+    reference: reference.optional(),
     // Une journée chez un organisateur : l'identifiant de l'évènement.
     evenement: z.string().regex(new RegExp(`^[A-Za-z0-9_-]{1,${LONGUEURS.evenement}}$`)).optional(),
     identite,
@@ -59,3 +59,12 @@ export const champPiegeRempli = (envoi: unknown): boolean => {
   const valeur = (envoi as Record<string, unknown>).site_web;
   return valeur !== undefined && valeur !== null && valeur !== '';
 };
+
+/**
+ * Vérifier le lien d'un questionnaire à l'ouverture de la page (SPEC §14.5,
+ * §14.6.1, point 1 — décision du 27/11/2026). Une lecture, pas une commande :
+ * pas de clé. La réponse ne dit rien de la séance : `{ ok: true }`, ou le refus
+ * `lien_invalide`.
+ */
+export const lienQuestionnaire = z.strictObject({ reference });
+export type LienQuestionnaire = z.infer<typeof lienQuestionnaire>;

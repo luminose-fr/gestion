@@ -1054,6 +1054,68 @@ describe('la porte publique, dans Réglages (SPEC §14.5)', () => {
     expect(non.container.textContent).not.toContain('Porte publique');
     expect(appels.some((a) => a.url.endsWith('/api/portes'))).toBe(false);
   });
+
+  /*
+   * Le lien d'essai (phase S2b) : hors production seulement. Monté dans ses
+   * états — absent, vide, lien fabriqué, révoqué, refusé.
+   */
+  const LIEN = 'https://essai-recette.luminose.fr/#r=abc.def';
+  const brancherLiens = (refus?: string) => {
+    const appels = brancher();
+    const repondre = vi.mocked(globalThis.fetch);
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
+      if (String(url).includes('/lien-questionnaire') || String(url).includes('/revoquer-liens')) {
+        appels.push({ url: String(url), methode: init.method ?? 'GET' });
+        if (refus) return new Response(JSON.stringify({ error: refus }), { status: 409 });
+        return new Response(JSON.stringify(String(url).includes('/lien-questionnaire') ? { lien: LIEN } : { revoques: true }), { status: 200 });
+      }
+      return repondre(url, init);
+    });
+    return appels;
+  };
+
+  it('en production : pas de lien d’essai', async () => {
+    brancher();
+    const { findByText, container } = render(<PortePublique environnement="production" />);
+    await findByText('Ouverte');
+    expect(container.textContent).not.toContain('Identifiant de séance');
+    expect(container.querySelector('[data-lien-essai]')).toBeNull();
+  });
+
+  it('sans environnement dit : comme la production, pas de lien d’essai', async () => {
+    brancher();
+    const { findByText, container } = render(<PortePublique />);
+    await findByText('Ouverte');
+    expect(container.querySelector('[data-lien-essai]')).toBeNull();
+  });
+
+  it('en recette : un identifiant, « Lien d’essai » affiche le lien et « Ouvrir » ; « Révoquer » le dit', async () => {
+    const appels = brancherLiens();
+    const ouvrir = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { findByText, getByText, getByLabelText, container } = render(<PortePublique environnement="recette" />);
+    await findByText('Ouverte');
+    expect(container.querySelector('[data-lien-essai="vide"]')).not.toBeNull();
+    expect((getByText('Lien d’essai').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(getByLabelText('Identifiant de séance'), { target: { value: 'essai-seance-01' } });
+    fireEvent.click(getByText('Lien d’essai'));
+    await findByText(LIEN);
+    fireEvent.click(getByText('Ouvrir'));
+    expect(ouvrir).toHaveBeenCalledWith(LIEN, '_blank', 'noopener,noreferrer');
+    fireEvent.click(getByText('Révoquer'));
+    await findByText(/Liens révoqués/);
+    expect(appels.filter((a) => a.methode === 'POST').map((a) => a.url.replace(/^.*\/api/, ''))).toEqual([
+      '/seances/essai-seance-01/lien-questionnaire', '/seances/essai-seance-01/revoquer-liens',
+    ]);
+  });
+
+  it('un refus de l’API se dit, sans casser la carte', async () => {
+    brancherLiens('Le secret des portes n’est pas posé dans cet environnement.');
+    const { findByText, getByText, getByLabelText } = render(<PortePublique environnement="local" />);
+    await findByText('Ouverte');
+    fireEvent.change(getByLabelText('Identifiant de séance'), { target: { value: 's1' } });
+    fireEvent.click(getByText('Lien d’essai'));
+    await findByText('Le secret des portes n’est pas posé dans cet environnement.');
+  });
 });
 
 describe('écrans autonomes', () => {

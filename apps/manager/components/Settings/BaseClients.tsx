@@ -79,7 +79,7 @@ export const BaseClients: React.FC = () => {
 
       {/* Les portes n'existent que là où la base est reliée : ailleurs, la route
           répondrait 409, et l'écran n'a pas à provoquer un refus. */}
-      {reliee && <PortePublique />}
+      {reliee && <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'} />}
 
       {etat.phase === 'lue' && !reliee && (
         <p className="mt-2 text-xs text-brand-main dark:text-dark-text">

@@ -18,7 +18,7 @@
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { jeuDEssai, enSql, aujourdhui, EFFECTIFS } from './donnees.ts';
+import { jeuDEssai, enSql, aujourdhui, EFFECTIFS, seancesQuiAttendentUnQuestionnaire } from './donnees.ts';
 import { lireCible, baseVisee, lireConfiguration, verifierSurLeCompte, wrangler, optionsCible } from './cible.ts';
 
 const args = process.argv.slice(2);
@@ -31,7 +31,8 @@ try {
   if (cible === 'recette') verifierSurLeCompte(base);
   console.log(`Base visée : ${base.nom} (${base.id}), ${cible === 'local' ? 'sur ce poste' : 'distante'}.`);
 
-  const sql = enSql(jeuDEssai(date));
+  const jeu = jeuDEssai(date);
+  const sql = enSql(jeu);
   const dossier = mkdtempSync(join(tmpdir(), 'essai-clients-'));
   const fichier = join(dossier, 'essai.sql');
   writeFileSync(fichier, sql);
@@ -44,6 +45,9 @@ try {
 
   console.log(`Jeu d'essai chargé, date de référence ${date}.`);
   for (const [table, n] of Object.entries(EFFECTIFS)) if (n > 0) console.log(`  ${table.padEnd(20)} ${n}`);
+  // De quoi essayer la page d'essai (phase S2b) : Réglages → Porte publique → Lien d'essai.
+  console.log('Séances qui attendent un questionnaire (Réglages → Porte publique → Lien d’essai) :');
+  for (const id of seancesQuiAttendentUnQuestionnaire(jeu)) console.log(`  ${id}`);
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);

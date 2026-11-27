@@ -1,4 +1,4 @@
-# SPEC v3.1 — gestion.luminose.fr
+# SPEC v3.2 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -202,6 +202,13 @@
 > adresse nouvelle. **S2b** — l'essai à blanc, `workers/porte`, les entrées nommées et la recette.
 > Quatre tables (`0003_portes.sql`, Annexe C), et les précisions que la phase apporte au contrat
 > (§14.6.1), à faire confirmer par Florent.
+> **v3.2 (27/11/2026)** : les portes (phase S2b). Florent, le 27/11, sur la précision 1 du
+> §14.6.1 : **le lien d'un questionnaire se vérifie à l'ouverture de la page**. Lien inconnu,
+> échu ou révoqué, séance annulée : la page le dit tout de suite, avant toute saisie ; un lien
+> qui expire pendant la saisie n'empêche pas l'envoi, qui reste enregistré « à rapprocher ». La
+> route de vérification (`POST /v1/questionnaires/lien`) et la page d'essai de la recette, sur
+> une origine à elle (`essai-recette.luminose.fr`), arrivent au §14.5 ; le critère de sortie de
+> S2b s'en complète (§14.11).
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -3337,6 +3344,34 @@ La phase S2b commence par un essai à blanc de ce montage — deux Workers, deux
 méthode — avant d'y poser quoi que ce soit : qu'aucune adresse ne mène aux entrées, et ce qu'un
 parcours complet consomme de temps de calcul et de sous-requêtes sur le plan gratuit.
 
+**Ce que l'essai à blanc a montré** (recette, 27/11/2026, v3.2). Une entrée `Essai`, une méthode
+`ping`, appelée par `POST https://api-recette.luminose.fr/v1/essai` :
+
+- **Il traverse.** La porte : statut 200, 1 ms de temps de calcul, 133 ms de durée — démarrage à
+  froid et réseau compris. Gestion : une invocation `jsrpc` (`Essai`, `ping`, un appel), 0 ms de
+  calcul, 4 ms de durée. Le coût d'une liaison de service est négligeable devant la limite du plan
+  gratuit (10 ms de calcul par invocation) ; la durée vient de la porte, pas de la liaison.
+- **Aucune adresse ne mène aux entrées.** L'invocation de gestion ne porte ni URL ni en-tête : elle
+  n'est atteinte que par la liaison. Les deux Workers sont déployés sans adresse `workers.dev` ni
+  adresse d'aperçu déclarée (`workers_dev = false` pour les deux, `preview_urls = false` pour la porte, vérifiés par `deploy.sh`).
+- **Des robots d'analyse trouvent un domaine neuf en quelques minutes** (`/.env`, `/.git/config`,
+  `/graphql`, le port 8443…) : tous ont reçu 404, sans atteindre gestion, en 0 ms de calcul.
+- **Les sous-requêtes** (onglet Metrics ; les exports de Workers Logs ne les portent pas) : 1 pour
+  la porte — l'appel par la liaison de service compte comme une sous-requête —, 0 pour gestion.
+  Une commande publique coûte donc une sous-requête à la porte, loin de la limite du plan gratuit
+  (50 par invocation) ; celles d'un parcours complet se relèvent à la réception B.
+- **Un journal d'invocation garde tout de la requête** : l'URL complète, tous les en-têtes —
+  l'adresse IP en clair, deux fois (`cf-connecting-ip`, `x-real-ip`), le navigateur, la langue —
+  et l'objet `cf` : pays, région, ville, code postal, latitude, longitude, opérateur. C'est la
+  règle 7 qui tombe. **La porte n'a donc pas de journal d'invocation**, ni de traces, qui portent
+  les mêmes attributs, ni en recette ni à la racine (`observability.logs.invocation_logs = false`) :
+  elle ne garde que ses `console.*`, qui sont des codes fixes. `scripts/deploy.sh` refuse une
+  configuration de la porte qui les rouvrirait. Que ce réglage efface bien l'adresse se constate au
+  déploiement suivant de la recette, avant tout déploiement en production. Gestion, lui, n'est
+  atteint par les portes que par ses entrées : ses invocations `jsrpc` ne portent pas la requête.
+
+L'entrée `Essai` et sa liaison ont été retirées une fois ces relevés faits.
+
 ### 14.4 La base `luminose-clients`
 
 **Créée en Europe, et tenue d'y rester** : `wrangler d1 create luminose-clients
@@ -3480,6 +3515,29 @@ consomme pas ; c'est l'état de l'objet — créneau pris, séance payée — qu
 Il voyage après le `#` de l'adresse, et dans le corps des requêtes : jamais dans une adresse
 appelée, jamais dans un journal.
 
+**Vérifier un lien de questionnaire** (v3.2, §14.6.1, point 1). `POST /v1/questionnaires/lien`
+`{ "reference": "…" }` rend `{ "ok": true }`, ou le refus `lien_invalide` ; `ferme` porte
+coupée ; `invalide` (`reference`) pour une forme fausse ou trop longue. Rien d'autre n'est rendu :
+ni prénom, ni date, ni type de séance. C'est une **lecture**, pas une commande : ni clé, ni ligne
+dans `commandes`, ni compte dans les bornes du jour ; rien n'est écrit. Tous les cas prennent le
+même chemin — une lecture groupée unique, faite aussi quand le jeton est faux, sur un identifiant
+témoin : lien faux, échu, révoqué ou séance annulée donnent le même `lien_invalide`, après le même
+nombre d'instructions (règle 4). Une séance qui a déjà son questionnaire garde un lien valable :
+l'ouvrir ne le consomme pas, et le second envoi est enregistré à part, avec une alerte (§14.6.1,
+point 3).
+
+**La page d'essai de la recette.** Il n'existe pas de site de recette. Une page d'essai en tient
+lieu, sur une origine **distincte** de celle de la porte, pour que CORS soit réellement essayé :
+`essai-recette.luminose.fr`, servie par le Worker de la porte de recette (seconde route, domaine
+personnalisé) — `GET /` rend la page, toute autre adresse 404 ; le code ne la sert qu'en recette,
+et la racine de la configuration n'a pas cette route. L'origine du site de la recette
+(`ORIGINE_SITE`) est donc `https://essai-recette.luminose.fr`. La page lit le jeton après le `#`,
+le retire aussitôt de l'adresse et de l'historique, et ne le garde qu'en mémoire — rien dans le
+stockage du navigateur ; elle vérifie le lien à l'ouverture, envoie un questionnaire fictif, et
+peut rejouer le même envoi avec la même clé (règle 5). Les liens d'essai se fabriquent depuis la
+console de recette (Réglages → Porte publique), qui sait aussi les révoquer ; la production n'a
+ni la page, ni ces boutons.
+
 **La porte de service.** Make présente un jeton en `Authorization: Bearer` ; gestion n'en garde
 que l'empreinte (`SERVICE_JETON_EMPREINTE`), comme pour le serveur MCP (§7). Facultative : absente,
 tout porteur est refusé. Le jeton n'ouvre que la confirmation d'un ordre. Make ne s'adresse
@@ -3541,14 +3599,25 @@ et une clé d'unicité. **Ni adresse, ni numéro, ni texte.**
 #### 14.6.1 Précisions de la phase S2a
 
 Ce que la phase S2a apporte au contrat (`contrat-v1`, §2, §3.2, §4). **À faire confirmer par
-Florent** ; la première écarte une règle générale du contrat et se tranche avant les autres.
+Florent** ; la première, qui écartait une règle générale du contrat, est tranchée (27/11/2026).
 
-1. **Un questionnaire n'est jamais refusé pour son lien.** Le contrat (§2) donne `lien_invalide`
-   à un lien inconnu ou expiré ; pour un questionnaire, on écarte cette règle : référence absente,
-   fausse, échue ou révoquée, il est enregistré « à rapprocher », et la réponse est la même
-   (`{ "ok": true }`). L'autre lecture ferait perdre ses réponses de santé à une personne pour un
-   lien périmé. Si Florent préfère le refus, c'est une branche à changer
-   (`clients/portes/publique.ts`), pas une structure.
+1. **Le lien d'un questionnaire se vérifie à l'ouverture de la page ; l'envoi n'est jamais
+   refusé pour son lien.** *Décision de Florent, 27/11/2026 (v3.2)* : le lien est celui qui ouvre
+   la page du questionnaire, et c'est là que son expiration se traite.
+   - **À l'ouverture**, la page envoie la référence à la porte (`POST /v1/questionnaires/lien`,
+     §14.5). Lien valable : le formulaire s'affiche. Lien inconnu, échu ou révoqué, séance
+     annulée : `lien_invalide`, et la page le dit **tout de suite**, avant toute saisie, avec le
+     moyen de joindre Florent ; elle n'affiche pas le formulaire.
+   - **Si le lien expire pendant la saisie**, le questionnaire envoyé est quand même enregistré,
+     « à rapprocher », avec `{ "ok": true }`. Les réponses de santé d'une personne ne se perdent
+     pas pour un lien échu en cours de route.
+   - Un envoi **sans référence** (lien nu, contrat §3.2) reste possible, et reste « à rapprocher ».
+
+   `lien_invalide` existe donc pour un questionnaire, mais **à l'ouverture seulement** :
+   `POST /v1/questionnaires` ne le rend jamais — référence absente, fausse, échue ou révoquée, la
+   réponse est la même (`{ "ok": true }`). La vérification et le rattachement de l'envoi
+   appliquent **le même prédicat**, écrit une fois (`clients/portes/publique.ts`) : sans quoi la
+   page dirait « valable » à un lien que l'envoi traiterait « à rapprocher ».
 2. **Sans jeton valable, aucun rattachement** — ni à une séance, ni à une fiche. L'identité
    déclarée ne désigne personne (§14.4).
 3. **Le premier questionnaire rattaché à une séance le reste.** Un second envoi pour la même
@@ -3800,7 +3869,7 @@ contrôlée après son déploiement.
 | :--- | :--- | :--- |
 | **S1** | **La base et la recette** — ce chapitre ; le schéma des tables de la phase ; la liaison facultative ; `packages/pratique` (clé d'un client) ; les deux décisions de l'agenda et de la dernière place ; l'environnement de recette et son jeu d'essai | La console de recette s'ouvre sur son adresse, base reliée en juridiction européenne, jeu d'essai chargé ; la production, redéployée, est inchangée et dit « non reliée » |
 | **S2a** | **Ce que gestion fait d'une commande** — `packages/contrat`, commandes rejouables, jetons des liens, bornes, interrupteur, ordres et confirmations, passage planifié ; le premier parcours, recevoir un questionnaire, par une fonction qui ne sait rien du transport (§14.6.1). Aucun Worker ni aucune adresse nouvelle | La suite et le typecheck verts, la suite d'avant inchangée ; en local, avec le jeu d'essai, un questionnaire fictif envoyé deux fois par le script d'essai (`npm run essai:questionnaire`) : une ligne, un ordre `prevu` ; Réglages montre les compteurs ; porte coupée : `ferme` ; `DRY_RUN=1` sur la production affiche les mêmes commandes qu'avant |
-| **S2b** | **Les portes** — l'essai à blanc du §14.3 ; `workers/porte`, les entrées nommées (`WorkerEntrypoint`), CORS, la limite de fréquence, la porte de service, le déploiement en recette et sa page d'essai | Un questionnaire fictif envoyé deux fois depuis une page de recette : une ligne, un accusé de réception, détourné ; le temps de calcul et les sous-requêtes d'un parcours relevés |
+| **S2b** | **Les portes** — l'essai à blanc du §14.3 ; `workers/porte`, les entrées nommées (`WorkerEntrypoint`), CORS, la limite de fréquence, la porte de service, la vérification d'un lien à l'ouverture (§14.6.1), le déploiement en recette et sa page d'essai | Un questionnaire fictif envoyé deux fois depuis une page de recette : une ligne, un accusé de réception, détourné ; un lien révoqué dit « plus valable » dès l'ouverture, sans formulaire, et une page ouverte avant la révocation, envoyée après, est enregistrée « à rapprocher » ; le temps de calcul et les sous-requêtes d'un parcours relevés |
 | **S3** | **L'import** — outil, vérification, liste de ce qui demande un regard | Deux imports de suite sur les vraies bases, en local : zéro écart inexpliqué |
 | **S4** | **Les protections** — second facteur à la connexion ; sauvegarde chiffrée de la base et des fichiers, restauration essayée ; effacement d'une personne, lignes non rattachées et fichiers compris ; inspection des journaux, de l'export et du stockage du navigateur | Une restauration et un effacement faits en recette ; alors seulement, la liaison `CLIENTS` est posée en production |
 

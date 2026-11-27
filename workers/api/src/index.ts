@@ -48,6 +48,8 @@ import { clients } from './routes/clients';
 import { portes } from './routes/portes';
 import { DECLENCHEURS } from './declencheurs';
 import { passer } from './clients/passage';
+// Les entrées nommées de la porte (SPEC §14.3) : sans adresse, atteintes par la seule liaison de service.
+export { PortePublique, PorteService } from './clients/portes/entrees';
 import { seances } from './routes/seances';
 import { evenements, inscriptions } from './routes/evenements';
 import { professionnels } from './routes/professionnels';

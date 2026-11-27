@@ -580,6 +580,18 @@ export const fetchEtatDesPortes = () => api<EtatDesPortes>('/portes');
 export const poserInterrupteurDesPortes = (ouverte: boolean) =>
   api<EtatDesPortes>('/portes/interrupteur', { method: 'PUT', ...body({ ouverte }) });
 
+/**
+ * Le lien de questionnaire d'une séance (SPEC §14.5) : fabriqué à la demande,
+ * rangé nulle part. Hors production seulement dans la phase S2b — la carte
+ * « Porte publique » s'en sert pour essayer la page d'essai.
+ */
+export const fabriquerLienQuestionnaire = (seanceId: string) =>
+  api<{ lien: string }>(`/seances/${encodeURIComponent(seanceId)}/lien-questionnaire`, { method: 'POST' });
+
+/** Révoquer tous les liens déjà envoyés pour une séance. */
+export const revoquerLiensSeance = (seanceId: string) =>
+  api<{ revoques: true }>(`/seances/${encodeURIComponent(seanceId)}/revoquer-liens`, { method: 'POST' });
+
 // ── Écriture du corpus : on commite dans Git, on n'écrit pas le bundle ────
 
 export interface SourceCorpus {

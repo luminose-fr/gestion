@@ -7,18 +7,19 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   questionnaire, confirmation, messageEmail, reponse, valider, champPiegeRempli, LONGUEURS, MOTIFS,
+  lienQuestionnaire, reponseSansDonnee,
   dateAvecDecalage, dateSansHeure, cle,
 } from '../src/index.ts';
 
 const EXEMPLES = join(import.meta.dirname, '..', 'exemples');
 const exemple = (nom: string) => JSON.parse(readFileSync(join(EXEMPLES, nom), 'utf8'));
-const SCHEMAS = { questionnaire, confirmation, 'message-email': messageEmail, reponse } as const;
+const SCHEMAS = { questionnaire, confirmation, 'message-email': messageEmail, reponse, 'lien-questionnaire': lienQuestionnaire } as const;
 
 describe('les exemples du contrat sont des fixtures', () => {
   const fichiers = readdirSync(EXEMPLES).filter((f) => f.endsWith('.json'));
 
   it('chaque exemple a son schéma', () => {
-    expect(fichiers.length).toBeGreaterThanOrEqual(8);
+    expect(fichiers.length).toBeGreaterThanOrEqual(9);
     for (const f of fichiers) expect(Object.keys(SCHEMAS).some((s) => f.startsWith(s)), f).toBe(true);
   });
 
@@ -127,5 +128,28 @@ describe('Make (contrat §4)', () => {
   it('les refus de la porte : la liste fermée', () => {
     expect(MOTIFS).toEqual(['creneau_pris', 'hors_fenetre', 'journee_complete', 'code_invalide', 'lien_invalide', 'invalide', 'trop_de_demandes', 'ferme']);
     expect(reponse.safeParse({ ok: false, motif: 'perdu' }).success).toBe(false);
+  });
+});
+
+describe('vérifier un lien de questionnaire (SPEC §14.5)', () => {
+  it('la référence, et rien d’autre', () => {
+    expect(valider(lienQuestionnaire, { reference: 'abc.def' }).valide).toBe(true);
+    const r = valider(lienQuestionnaire, { reference: 'abc', [REPERE]: 1 });
+    expect(r.valide || r.refus).toEqual({ ok: false, motif: 'invalide', champs: ['champ_inconnu'] });
+  });
+
+  it('une forme fausse ou trop longue se dit `reference`, sans sa valeur', () => {
+    for (const reference of [`${REPERE} x`, 'a'.repeat(LONGUEURS.reference + 1), '', 12]) {
+      const r = valider(lienQuestionnaire, { reference });
+      expect(r.valide || r.refus).toEqual({ ok: false, motif: 'invalide', champs: ['reference'] });
+    }
+    const vide = valider(lienQuestionnaire, {});
+    expect(vide.valide || vide.refus).toEqual({ ok: false, motif: 'invalide', champs: ['reference'] });
+  });
+
+  it('sa réponse ne porte que son issue', () => {
+    expect(reponseSansDonnee.safeParse({ ok: true }).success).toBe(true);
+    expect(reponseSansDonnee.safeParse({ ok: false, motif: 'lien_invalide' }).success).toBe(true);
+    expect(reponseSansDonnee.safeParse({ ok: true, prenom: REPERE }).success).toBe(false);
   });
 });

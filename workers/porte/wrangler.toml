@@ -1,0 +1,118 @@
+# Worker de la porte — la porte publique et la porte de service (SPEC §14.3, §14.5).
+#
+# UN WORKER À PART, sans base, sans secret, sans KV : il reçoit, borne, valide,
+# et appelle gestion par une liaison de service. Il ne peut que ce que les
+# entrées nommées de gestion lui ouvrent : un défaut dans le code le plus exposé
+# du dépôt n'atteint ni une table, ni une clé.
+#
+# CE QUI S'HÉRITE (SPEC §14.8, même piège que workers/api/wrangler.toml) :
+# `routes`, `triggers`, `workers_dev`, `preview_urls` et `observability`
+# s'héritent de la racine ; `vars` et les liaisons, non. La recette déclare donc
+# tout, même vide. La résolution est vérifiée par
+# workers/api/test/configuration.test.ts et, avant tout effet, par
+# ./scripts/deploy.sh --env recette porte.
+
+name = "luminose-porte"
+main = "src/index.ts"
+compatibility_date = "2026-01-31"
+
+# LA RACINE N'EST DÉPLOYÉE PAR RIEN dans cette phase : sans la base des clients
+# en production, toute commande y serait une panne, et api.luminose.fr n'existe
+# pas encore. Elle n'a ni adresse, ni déclencheur, ni liaison ; elle existe pour
+# que la recette ait de quoi hériter EXPLICITEMENT. scripts/deploy.sh refuse la
+# cible « porte » sans --env recette.
+#
+# ATTENTION TOML : ces clés restent AVANT tout en-tête de table — placées après
+# [vars] ou [observability], elles appartiendraient à cette table.
+workers_dev = false
+preview_urls = false
+routes = []
+
+# L'OBSERVABILITÉ SANS LES JOURNAUX D'INVOCATION (SPEC §14.3, relevé du
+# 27/11/2026). Un journal d'invocation garde l'URL complète, TOUS les en-têtes
+# de la requête — l'adresse IP en clair, deux fois (cf-connecting-ip,
+# x-real-ip) — et l'objet `cf` : ville, code postal, latitude, longitude, ASN.
+# C'est la règle 7 qui tombe. On ne garde que les `console.*` de la porte, qui
+# ne sont que des codes fixes ; ni traces, qui portent les mêmes attributs.
+#
+# La racine n'est déployée par rien, mais `observability` s'hérite : elle
+# déclare le même refus, pour qu'un environnement qui l'oublierait n'hérite
+# pas d'une observabilité complète.
+[observability]
+enabled = false
+
+[observability.logs]
+invocation_logs = false
+
+[observability.traces]
+enabled = false
+
+# ─── Recette : api-recette.luminose.fr ───────────────────────────────────────
+[env.recette]
+name = "luminose-porte-recette"
+workers_dev = false
+preview_urls = false
+# `custom_domain` : wrangler crée l'enregistrement DNS et le certificat au
+# premier déploiement. Le nom ne doit porter aucun enregistrement DNS avant.
+routes = [
+  { pattern = "api-recette.luminose.fr", custom_domain = true },
+  # La page d'essai (§14.5) : il n'existe pas de site de recette, et elle en tient
+  # lieu, sur une origine distincte de la porte pour que CORS soit réellement
+  # essayé. Le code ne la sert qu'en recette ; la racine n'a pas cette route.
+  { pattern = "essai-recette.luminose.fr", custom_domain = true }
+]
+
+[env.recette.vars]
+ENVIRONNEMENT = "recette"
+# La seule origine admise sur la porte publique (§14.5), et celle que rend
+# Access-Control-Allow-Origin : la page d'essai, qui tient lieu de site de
+# recette. Jamais `*`, jamais l'origine reçue recopiée.
+ORIGINE_SITE = "https://essai-recette.luminose.fr"
+# Ce que la page d'essai appelle.
+ORIGINE_PORTE = "https://api-recette.luminose.fr"
+
+[env.recette.triggers]
+crons = []
+
+# Les codes de panne de la porte, et rien d'autre : pas de journal
+# d'invocation (voir la racine). Qu'il ne garde plus l'adresse IP se constate
+# au premier déploiement en recette (SPEC §14.3) : ce réglage est celui que
+# wrangler documente, pas encore une preuve.
+[env.recette.observability]
+enabled = true
+head_sampling_rate = 1
+
+[env.recette.observability.logs]
+enabled = true
+invocation_logs = false
+
+[env.recette.observability.traces]
+enabled = false
+
+# Les entrées nommées des portes (workers/api/src/clients/portes/entrees.ts).
+# Seul un Worker qui déclare ces liaisons les atteint : elles n'ont pas
+# d'adresse. Gestion se déploie AVANT la porte : une entrée doit exister quand
+# on la lie.
+[[env.recette.services]]
+binding = "GESTION_PUBLIQUE"
+service = "gestion-luminose-worker-recette"
+entrypoint = "PortePublique"
+
+[[env.recette.services]]
+binding = "GESTION_SERVICE"
+service = "gestion-luminose-worker-recette"
+entrypoint = "PorteService"
+
+# La limite de fréquence (§14.5) : approchée, comptée par centre de données. Elle
+# écarte le bruit ; les vraies bornes sont dans gestion. Valeurs de départ —
+# choix du brief, à confirmer. `namespace_id` est propre au compte : la
+# production aura les siens.
+[[env.recette.ratelimits]]
+name = "LIMITE_QUESTIONNAIRES"
+namespace_id = "2611"
+simple = { limit = 10, period = 60 }
+
+[[env.recette.ratelimits]]
+name = "LIMITE_LIENS"
+namespace_id = "2612"
+simple = { limit = 30, period = 60 }

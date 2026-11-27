@@ -67,3 +67,21 @@ export const gabaritType = async (db: D1Database, id: string): Promise<GabaritTy
     etatPaiementDefaut: String(t.etat_paiement_defaut), lieu: String(t.lieu),
   } : null;
 };
+
+// ─── Les liens d'une séance (SPEC §14.5) ────────────────────────────────────
+
+/**
+ * Ce que signe le lien de questionnaire d'une séance : son début (l'échéance —
+ * choix du brief S2b, à confirmer) et sa version des liens. Une instruction ;
+ * une séance annulée n'a pas de lien.
+ */
+export const seancePourUnLien = (db: D1Database, id: string) =>
+  db.prepare("SELECT debut, liens_version FROM seances WHERE id = ?1 AND statut <> 'annulee'")
+    .bind(id).first<{ debut: number; liens_version: number }>();
+
+/** Révoquer tous les liens déjà envoyés pour une séance : avancer sa version. Une instruction. */
+export const revoquerLesLiens = async (db: D1Database, id: string, maintenant: number): Promise<boolean> => {
+  const r = await db.prepare('UPDATE seances SET liens_version = liens_version + 1, updated_at = ?2 WHERE id = ?1')
+    .bind(id, maintenant).run();
+  return r.meta.changes === 1;
+};

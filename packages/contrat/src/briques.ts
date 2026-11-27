@@ -30,6 +30,9 @@ export const LONGUEURS = {
 /** La clé d'un envoi, fabriquée par l'appelant (contrat §2). */
 export const cle = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 
+/** Le jeton d'un lien, tel que la page l'a lu après le `#` (contrat §2). */
+export const reference = z.string().regex(new RegExp(`^[A-Za-z0-9._-]{1,${LONGUEURS.reference}}$`));
+
 /** Au moins un caractère qui ne soit pas un espace. */
 const rempli = (max: number) => z.string().max(max).regex(/\S/);
 const texte = (max: number) => z.string().max(max);
