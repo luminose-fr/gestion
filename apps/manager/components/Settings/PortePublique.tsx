@@ -81,8 +81,11 @@ export const LienDEssai: React.FC = () => {
         </Bouton>
       </div>
       {dernierLien && (
-        <div className="mt-2 flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate text-xs text-brand-main dark:text-dark-text" title={dernierLien}>{dernierLien}</code>
+        <div className="mt-2 flex items-start gap-2">
+          <code className="min-w-0 flex-1 select-all break-all text-xs text-brand-main dark:text-dark-text">{dernierLien}</code>
+          <Bouton type="button" taille="petit" intention="secondaire" onClick={() => { void navigator.clipboard?.writeText(dernierLien); }}>
+            Copier
+          </Bouton>
           <Bouton type="button" taille="petit" intention="secondaire" onClick={() => window.open(dernierLien, '_blank', 'noopener,noreferrer')}>
             {etat.phase === 'revoque' ? 'Rouvrir le lien révoqué' : 'Ouvrir'}
           </Bouton>
