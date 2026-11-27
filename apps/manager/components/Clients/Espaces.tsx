@@ -9,20 +9,19 @@
  *   #seances/mois/<premier>       le planning, au mois
  *   #seances/calendly             l'ancien écran Calendly, tant qu'il sert
  *   #seances/<id>                 une séance et ses notes
- *   #evenements[/<id>]            les évènements (tranche C2b)
- *   #professionnels               les professionnels (tranche C2b)
+ *   #evenements[/nouveau|/<id>]   les évènements (EvenementsView.tsx)
+ *   #professionnels               les professionnels (ProfessionnelsView.tsx)
  *
  * Chaque espace lit lui-même la suite de son adresse : App ne connaît que
  * l'espace. Des identifiants et des dates, jamais un nom (§15.2, règle 3).
  */
 import React from 'react';
-import { ecran } from '../ui';
 import { FichesView } from './FichesView';
 import { NouvelleFicheView } from './NouvelleFicheView';
 import { FicheView } from './FicheView';
 import { SeanceView } from './SeanceView';
 import { PlanningView } from './PlanningView';
-import { useAdresse, Vide } from './commun';
+import { useAdresse } from './commun';
 
 export const EspaceClients: React.FC = () => {
   const [premier] = useAdresse();
@@ -40,8 +39,3 @@ export const EspaceSeances: React.FC = () => {
   }
   return <SeanceView key={premier} id={decodeURIComponent(premier)} />;
 };
-
-/** L'écran d'une tranche qui n'est pas encore livrée : un vide qui le dit. */
-export const AVenir: React.FC = () => (
-  <div className={ecran('liste')}><Vide>Cet écran arrive avec la tranche suivante.</Vide></div>
-);

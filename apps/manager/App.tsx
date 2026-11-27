@@ -47,8 +47,8 @@ const ContentEditor = lazy(() => import('./components/ContentEditor'));
 const PsychedelicsCalculator = lazy(() => import('./components/PsychedelicsCalculator'));
 const EspaceClients = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceClients })));
 const EspaceSeances = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceSeances })));
-const EspaceEvenements = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.AVenir })));
-const EspaceProfessionnels = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.AVenir })));
+const EspaceEvenements = lazy(() => import('./components/Clients/EvenementsView'));
+const EspaceProfessionnels = lazy(() => import('./components/Clients/ProfessionnelsView'));
 
 /**
  * Les espaces de la barre latérale. Clients, Séances, Évènements et
