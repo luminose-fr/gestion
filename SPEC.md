@@ -3344,6 +3344,34 @@ La phase S2b commence par un essai à blanc de ce montage — deux Workers, deux
 méthode — avant d'y poser quoi que ce soit : qu'aucune adresse ne mène aux entrées, et ce qu'un
 parcours complet consomme de temps de calcul et de sous-requêtes sur le plan gratuit.
 
+**Ce que l'essai à blanc a montré** (recette, 27/11/2026, v3.2). Une entrée `Essai`, une méthode
+`ping`, appelée par `POST https://api-recette.luminose.fr/v1/essai` :
+
+- **Il traverse.** La porte : statut 200, 1 ms de temps de calcul, 133 ms de durée — démarrage à
+  froid et réseau compris. Gestion : une invocation `jsrpc` (`Essai`, `ping`, un appel), 0 ms de
+  calcul, 4 ms de durée. Le coût d'une liaison de service est négligeable devant la limite du plan
+  gratuit (10 ms de calcul par invocation) ; la durée vient de la porte, pas de la liaison.
+- **Aucune adresse ne mène aux entrées.** L'invocation de gestion ne porte ni URL ni en-tête : elle
+  n'est atteinte que par la liaison. Les deux Workers sont déployés sans adresse `workers.dev` ni
+  adresse d'aperçu déclarée (`workers_dev = false` pour les deux, `preview_urls = false` pour la porte, vérifiés par `deploy.sh`).
+- **Des robots d'analyse trouvent un domaine neuf en quelques minutes** (`/.env`, `/.git/config`,
+  `/graphql`, le port 8443…) : tous ont reçu 404, sans atteindre gestion, en 0 ms de calcul.
+- **Les sous-requêtes** (onglet Metrics ; les exports de Workers Logs ne les portent pas) : 1 pour
+  la porte — l'appel par la liaison de service compte comme une sous-requête —, 0 pour gestion.
+  Une commande publique coûte donc une sous-requête à la porte, loin de la limite du plan gratuit
+  (50 par invocation) ; celles d'un parcours complet se relèvent à la réception B.
+- **Un journal d'invocation garde tout de la requête** : l'URL complète, tous les en-têtes —
+  l'adresse IP en clair, deux fois (`cf-connecting-ip`, `x-real-ip`), le navigateur, la langue —
+  et l'objet `cf` : pays, région, ville, code postal, latitude, longitude, opérateur. C'est la
+  règle 7 qui tombe. **La porte n'a donc pas de journal d'invocation**, ni de traces, qui portent
+  les mêmes attributs, ni en recette ni à la racine (`observability.logs.invocation_logs = false`) :
+  elle ne garde que ses `console.*`, qui sont des codes fixes. `scripts/deploy.sh` refuse une
+  configuration de la porte qui les rouvrirait. Que ce réglage efface bien l'adresse se constate au
+  déploiement suivant de la recette, avant tout déploiement en production. Gestion, lui, n'est
+  atteint par les portes que par ses entrées : ses invocations `jsrpc` ne portent pas la requête.
+
+L'entrée `Essai` et sa liaison ont été retirées une fois ces relevés faits.
+
 ### 14.4 La base `luminose-clients`
 
 **Créée en Europe, et tenue d'y rester** : `wrangler d1 create luminose-clients
