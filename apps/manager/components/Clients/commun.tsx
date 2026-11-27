@@ -133,9 +133,11 @@ export const aller = (adresse: string) => {
  * Un texte saisi ne se perd pas (brief C2, règle 6) : tant que `modifie` est
  * vrai, quitter l'onglet demande confirmation, et changer d'écran aussi — si
  * Florent refuse, l'adresse revient à l'écran qu'il n'a pas quitté.
+ * `adresse: false` ne garde que l'onglet : pour un écran qui enregistre de
+ * lui-même en partant (les notes d'une séance).
  */
 export const MESSAGE_NON_ENREGISTRE = 'Un texte n’est pas enregistré. Quitter cet écran et le perdre ?';
-export const useGardeSaisie = (modifie: boolean) => {
+export const useGardeSaisie = (modifie: boolean, { adresse: garderAdresse = true }: { adresse?: boolean } = {}) => {
   const adresse = useRef(window.location.hash);
   const retour = useRef(false);
   useEffect(() => {
@@ -150,12 +152,12 @@ export const useGardeSaisie = (modifie: boolean) => {
       }
     };
     window.addEventListener('beforeunload', avantDeQuitter);
-    window.addEventListener('hashchange', avantDeChanger);
+    if (garderAdresse) window.addEventListener('hashchange', avantDeChanger);
     return () => {
       window.removeEventListener('beforeunload', avantDeQuitter);
       window.removeEventListener('hashchange', avantDeChanger);
     };
-  }, [modifie]);
+  }, [modifie, garderAdresse]);
 };
 
 // ─── Les états d'un écran ───────────────────────────────────────────────────

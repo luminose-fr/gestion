@@ -17,6 +17,7 @@
  */
 import { ouvrirAlerte } from './alertes';
 import { newId } from '../db';
+import { texteDesNotes, type ColonnesTrame } from './notes';
 export const TABLES_SENSIBLES = [
   'questionnaires',
   'seances_notes',
@@ -367,10 +368,12 @@ export const questionnairesDeLaFiche = (db: D1Database, clientId: string): D1Pre
     FROM questionnaires WHERE client_id = ?1 ORDER BY created_at DESC, id`).bind(clientId);
 
 // ─── Les notes d'une séance ─────────────────────────────────────────────────
+//
+// Un seul texte Markdown (notes.ts) : il s'écrit dans la colonne `seance`, et
+// chaque écriture vide les cinq autres colonnes de l'ancienne trame.
 
-export const CHAMPS_NOTES_SEANCE = ['demande', 'objectif', 'seance', 'travailPersonnel', 'ideesSuite', 'reponseSms'] as const;
-export type TrameSeance = Record<(typeof CHAMPS_NOTES_SEANCE)[number], string | null>;
-export type NotesSeance = TrameSeance & {
+export type NotesSeance = {
+  texte: string | null;
   version: number | null;
   /** En lecture seule : la copie brute de la page Notion d'origine. */
   importNotion: string | null;
@@ -378,7 +381,7 @@ export type NotesSeance = TrameSeance & {
   reponses: { rang: number; question: string; reponse: string }[];
 };
 
-/** Deux lectures, en un aller-retour : la trame et les réponses à la réservation. */
+/** Deux lectures, en un aller-retour : la note et les réponses à la réservation. */
 export const lireNotesSeance = async (db: D1Database, seanceId: string): Promise<NotesSeance> => {
   const [notes, reponses] = await db.batch([
     db.prepare(`
@@ -388,12 +391,7 @@ export const lireNotesSeance = async (db: D1Database, seanceId: string): Promise
   ]);
   const n = (notes.results[0] ?? null) as Record<string, string | number | null> | null;
   return {
-    demande: (n?.demande as string) ?? null,
-    objectif: (n?.objectif as string) ?? null,
-    seance: (n?.seance as string) ?? null,
-    travailPersonnel: (n?.travail_personnel as string) ?? null,
-    ideesSuite: (n?.idees_suite as string) ?? null,
-    reponseSms: (n?.reponse_sms as string) ?? null,
+    texte: n ? texteDesNotes(n as ColonnesTrame) : null,
     importNotion: (n?.import_notion as string) ?? null,
     version: n ? Number(n.updated_at) : null,
     reponses: (reponses.results as Record<string, unknown>[]).map((r) => ({
@@ -403,16 +401,16 @@ export const lireNotesSeance = async (db: D1Database, seanceId: string): Promise
 };
 
 export const ecrireNotesSeance = (
-  db: D1Database, seanceId: string, t: TrameSeance, version: number | null, maintenant: number, id: string,
+  db: D1Database, seanceId: string, texte: string | null, version: number | null, maintenant: number, id: string,
 ): Promise<IssueNote> => issue(version === null
   ? db.prepare(`
-      INSERT INTO seances_notes (id, seance_id, demande, objectif, seance, travail_personnel, idees_suite, reponse_sms, created_at, updated_at)
-      SELECT ?1, s.id, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9 FROM seances s
+      INSERT INTO seances_notes (id, seance_id, seance, created_at, updated_at)
+      SELECT ?1, s.id, ?3, ?4, ?4 FROM seances s
       WHERE s.id = ?2 AND NOT EXISTS (SELECT 1 FROM seances_notes n WHERE n.seance_id = ?2)`)
-    .bind(id, seanceId, t.demande, t.objectif, t.seance, t.travailPersonnel, t.ideesSuite, t.reponseSms, maintenant).run()
+    .bind(id, seanceId, texte, maintenant).run()
   : db.prepare(`
-      UPDATE seances_notes SET demande = ?2, objectif = ?3, seance = ?4, travail_personnel = ?5, idees_suite = ?6,
-        reponse_sms = ?7, updated_at = MAX(?8, updated_at + 1)
-      WHERE seance_id = ?1 AND updated_at = ?9`)
-    .bind(seanceId, t.demande, t.objectif, t.seance, t.travailPersonnel, t.ideesSuite, t.reponseSms, maintenant, version).run(),
+      UPDATE seances_notes SET demande = NULL, objectif = NULL, seance = ?2, travail_personnel = NULL, idees_suite = NULL,
+        reponse_sms = NULL, updated_at = MAX(?3, updated_at + 1)
+      WHERE seance_id = ?1 AND updated_at = ?4`)
+    .bind(seanceId, texte, maintenant, version).run(),
 version, maintenant);

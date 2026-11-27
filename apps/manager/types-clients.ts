@@ -74,11 +74,9 @@ export type MouvementSeance = {
 };
 export type SeanceDetaillee = Seance & { creeeLe: string; mouvements: MouvementSeance[] };
 
-export type TrameSeance = {
-  demande: string | null; objectif: string | null; seance: string | null;
-  travailPersonnel: string | null; ideesSuite: string | null; reponseSms: string | null;
-};
-export type NotesSeance = TrameSeance & {
+/** Les notes d'une séance : un seul texte Markdown (retour de Florent du 27/11/2026). */
+export type NotesSeance = {
+  texte: string | null;
   version: number | null;
   importNotion: string | null;
   reponses: { rang: number; question: string; reponse: string }[];

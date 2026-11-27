@@ -17,7 +17,7 @@ import { WORKER_URL } from '../constants';
 import { getSessionToken } from '../auth';
 import type {
   PageFiches, FicheSemblable, ChampsFiche, Fiche, NoteFiche, Confiance,
-  Seance, SeanceDetaillee, NotesSeance, TrameSeance, PoseRendezVous, ModificationSeance,
+  Seance, SeanceDetaillee, NotesSeance, PoseRendezVous, ModificationSeance,
   Evenement, EvenementDetaille, ChampsEvenement, Professionnel, ChampsProfessionnel,
   Reservation, ChampsType, PlageHoraire,
 } from '../types-clients';
@@ -73,8 +73,8 @@ export const seancesDeLaPeriode = (du: string, au: string) =>
   appel<{ seances: Seance[] }>(`/seances?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);
 export const lireSeance = (seanceId: string) => appel<SeanceDetaillee>(`/seances/${id(seanceId)}`);
 export const lireNotesSeance = (seanceId: string) => appel<NotesSeance>(`/seances/${id(seanceId)}/notes`);
-export const ecrireNotesSeance = (seanceId: string, trame: TrameSeance, version: number | null) =>
-  appel<{ version: number }>(`/seances/${id(seanceId)}/notes`, 'PUT', { ...trame, version });
+export const ecrireNotesSeance = (seanceId: string, texte: string | null, version: number | null) =>
+  appel<{ version: number }>(`/seances/${id(seanceId)}/notes`, 'PUT', { texte, version });
 export const poserRendezVous = (pose: PoseRendezVous) => appel<{ id: string }>('/seances', 'POST', pose);
 export const deplacerSeance = (seanceId: string, debut: string, revision: number) =>
   appel<{ id: string }>(`/seances/${id(seanceId)}/deplacer`, 'POST', { debut, revision });

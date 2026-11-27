@@ -454,14 +454,14 @@ describe('NORMATIF — une note ne s’écrase pas en silence (règle 7)', () =>
 
   it('deux écritures dans la même milliseconde : deux versions distinctes', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(T);
-    const v1 = (await json(await appeler('PUT', '/api/seances/s1/notes', { demande: 'a', objectif: null, seance: null, travailPersonnel: null, ideesSuite: null, reponseSms: null, version: null }))).version;
-    const v2 = (await json(await appeler('PUT', '/api/seances/s1/notes', { demande: 'b', objectif: null, seance: null, travailPersonnel: null, ideesSuite: null, reponseSms: null, version: v1 }))).version;
+    const v1 = (await json(await appeler('PUT', '/api/seances/s1/notes', { texte: 'a', version: null }))).version;
+    const v2 = (await json(await appeler('PUT', '/api/seances/s1/notes', { texte: 'b', version: v1 }))).version;
     expect(v2).toBeGreaterThan(v1);
-    expect((await appeler('PUT', '/api/seances/s1/notes', { demande: 'c', objectif: null, seance: null, travailPersonnel: null, ideesSuite: null, reponseSms: null, version: v1 })).status).toBe(409);
+    expect((await appeler('PUT', '/api/seances/s1/notes', { texte: 'c', version: v1 })).status).toBe(409);
   });
 
   it('deux premières écritures simultanées : une seule aboutit', async () => {
-    const trame = (demande: string) => ({ demande, objectif: null, seance: null, travailPersonnel: null, ideesSuite: null, reponseSms: null, version: null });
+    const trame = (texte: string) => ({ texte, version: null });
     const [a, b] = await Promise.all([
       appeler('PUT', '/api/seances/s1/notes', trame('premiere')), appeler('PUT', '/api/seances/s1/notes', trame('seconde')),
     ]);
@@ -475,8 +475,24 @@ describe('NORMATIF — une note ne s’écrase pas en silence (règle 7)', () =>
   it('la séance : ses notes, ses réponses et la copie de Notion en lecture seule', async () => {
     await base.prepare(`INSERT INTO seances_reponses (id, seance_id, rang, question, reponse, created_at, updated_at) VALUES ('r1', 's1', 1, 'Qu’est-ce qui vous amène ?', 'Texte d’essai', 0, 0)`).run();
     const n = await json(await appeler('GET', '/api/seances/s1/notes'));
-    expect(n).toMatchObject({ demande: null, version: null, importNotion: null, reponses: [{ rang: 1, question: 'Qu’est-ce qui vous amène ?', reponse: 'Texte d’essai' }] });
+    expect(n).toEqual({ texte: null, version: null, importNotion: null, reponses: [{ rang: 1, question: 'Qu’est-ce qui vous amène ?', reponse: 'Texte d’essai' }] });
     expect((await appeler('PUT', '/api/seances/s1/notes', { importNotion: 'x', version: null })).status).toBe(400);
+    expect((await appeler('PUT', '/api/seances/s1/notes', { demande: 'x', texte: null, version: null })).status).toBe(400);
+  });
+
+  it('les notes d’une séance : un seul texte ; une note de l’ancienne trame se lit en un texte, et s’écrit ainsi', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(T);
+    await base.prepare(`INSERT INTO seances_notes (id, seance_id, demande, seance, reponse_sms, created_at, updated_at)
+      VALUES ('n1', 's1', 'Texte d’essai — demande', 'Texte d’essai — séance', 'Texte d’essai — SMS', 1, 1)`).run();
+    const n = await json(await appeler('GET', '/api/seances/s1/notes'));
+    expect(n.texte).toBe('## Demande\n\nTexte d’essai — demande\n\n## Séance\n\nTexte d’essai — séance\n\n## Réponse SMS\n\nTexte d’essai — SMS');
+    const v = (await json(await appeler('PUT', '/api/seances/s1/notes', { texte: n.texte, version: n.version }))).version;
+    expect(await base.prepare(`SELECT demande, seance, reponse_sms FROM seances_notes WHERE seance_id = 's1'`).first())
+      .toEqual({ demande: null, seance: n.texte, reponse_sms: null });
+    expect((await json(await appeler('GET', '/api/seances/s1/notes'))).texte).toBe(n.texte);
+    // Un texte vide s'enregistre comme rien.
+    await appeler('PUT', '/api/seances/s1/notes', { texte: '   ', version: v });
+    expect((await json(await appeler('GET', '/api/seances/s1/notes'))).texte).toBeNull();
   });
 });
 
