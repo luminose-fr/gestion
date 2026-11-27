@@ -1,0 +1,9 @@
+{
+  "_lisez_moi": "À copier dans le dossier privé (~/.luminose-import/config.json), jamais dans le dépôt. Les identifiants des quatre bases Notion, sans tiret ou avec.",
+  "bases": {
+    "clients": "",
+    "seances": "",
+    "evenements": "",
+    "professionnels": ""
+  }
+}
