@@ -11,6 +11,9 @@
  *   - annulée, avec un évènement  → retiré ;
  *   - réalisée, absente           → laissée telle quelle : c'est l'histoire.
  *
+ * Une fois l'agenda d'accord, elle inscrit les messages de la séance dans son
+ * état présent (messages-seances.ts) : confirmation et rappel, ou annulation.
+ *
  * Elle part APRÈS la réponse (`waitUntil`) : un agenda en panne ne bloque ni la
  * console ni la porte. Une synchronisation manquée met la séance en `echec`, et
  * le passage planifié la reprend. Agenda non relié : rien, et rien n'est noté.
@@ -18,6 +21,7 @@
 import type { Env } from '../env';
 import { baseClients, clientsReliee } from './base';
 import { ouvrirAgenda, type Agenda } from './agenda';
+import { inscrireMessagesSeance } from './messages-seances';
 
 const MINUTE = 60_000;
 const LIBELLES_MODE: Record<string, string> = { sur_place: 'sur place', visio: 'en visio', appel: 'par téléphone' };
@@ -67,6 +71,7 @@ export const synchroniserAgenda = async (env: Env, db: D1Database, agenda: Agend
     if (s.statut === 'annulee') {
       if (evenement) await agenda.retirer(evenement);
       await noter(db, seanceId, 'ecrit', null);
+      await inscrireMessagesSeance(db, seanceId, Date.now());
       return true;
     }
     if (s.statut !== 'prevue') return true;
@@ -75,12 +80,15 @@ export const synchroniserAgenda = async (env: Env, db: D1Database, agenda: Agend
       const fait = await agenda.modifier(evenement, rv, rv.visio && !s.visio_url);
       if (fait) {
         await noter(db, seanceId, 'ecrit', evenement, fait.visioUrl);
+        await inscrireMessagesSeance(db, seanceId, Date.now());
         return true;
       }
       // Disparu de l'agenda (supprimé à la main, ou un autre agenda d'écriture) : on le réécrit.
     }
     const { evenementId, visioUrl } = await agenda.ecrire(rv);
     await noter(db, seanceId, 'ecrit', evenementId, visioUrl);
+    // La confirmation et le rappel, une fois l'agenda écrit (contrat §3.1, point 3).
+    await inscrireMessagesSeance(db, seanceId, Date.now());
     return true;
   } catch (erreur) {
     console.error(erreur instanceof Error && erreur.message.startsWith('agenda.') ? erreur.message : 'agenda.synchronisation');
@@ -97,7 +105,9 @@ export const apresChangement = (env: Env, contexte: () => { waitUntil: (p: Promi
   const travail = (async () => {
     if (!clientsReliee(env)) return;
     const agenda = await ouvrirAgenda(env);
+    // Sans agenda relié, les messages partent tout de suite ; avec, une fois l'agenda d'accord.
     if (agenda) await synchroniserAgenda(env, baseClients(env), agenda, seanceId);
+    else await inscrireMessagesSeance(baseClients(env), seanceId, Date.now());
   })().catch(() => { console.error('agenda.apres_changement'); });
   // Sans contexte d'exécution (un appel direct, dans les essais), le travail part seul.
   try { contexte().waitUntil(travail); } catch { void travail; }

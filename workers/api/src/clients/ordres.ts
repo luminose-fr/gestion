@@ -12,6 +12,7 @@ import { newId } from '../db';
 import { baseClients } from './base';
 import { ouvrirAlerte, alerteBorne } from './alertes';
 import { lireIdentite, destinataireDepuis } from './sensible';
+import { messageDeSeance } from './messages-seances';
 
 export type NouvelOrdre = {
   sorte: SorteOrdre;
@@ -93,7 +94,7 @@ export const composer = (modele: { objet: string | null; corps: string }, valeur
   };
 };
 
-type Candidat = { id: string; modele_cle: string | null; objet_type: string; objet_id: string; etat: 'prevu' | 'confie_a_make'; tentatives: number };
+type Candidat = { id: string; modele_cle: string | null; objet_type: string; objet_id: string; cle_unicite: string; etat: 'prevu' | 'confie_a_make'; tentatives: number };
 
 export type Bilan = {
   examines: number;
@@ -141,7 +142,7 @@ export const releverLesOrdres = async (env: Env, maintenant: number, limite = 10
   const [reglages, dus] = await db.batch([
     db.prepare("SELECT cle, valeur FROM reglages WHERE cle IN ('ordre_tentatives_max')"),
     db.prepare(`
-      SELECT id, modele_cle, objet_type, objet_id, etat, tentatives FROM ordres
+      SELECT id, modele_cle, objet_type, objet_id, cle_unicite, etat, tentatives FROM ordres
       WHERE sorte = 'message.email' AND (
         (etat = 'prevu' AND prevu_le <= ?1)
         OR (etat = 'confie_a_make' AND confie_le <= ?1 - COALESCE((SELECT valeur FROM reglages WHERE cle = 'ordre_relance_min'), 15) * ${MINUTE})
@@ -167,7 +168,22 @@ export const releverLesOrdres = async (env: Env, maintenant: number, limite = 10
         WHERE cle = ?1 AND canal = 'email' AND deleted_at IS NULL ORDER BY version DESC LIMIT 1`).bind(o.modele_cle ?? ''),
       lireIdentite(db, o.objet_type === 'questionnaire' ? o.objet_id : ''),
     ]);
-    const vu = destinataireDepuis(identiteLue.results?.[0] as { identite?: unknown } | undefined);
+    // Une séance (confirmation, rappel, annulation) : relue au départ — toujours dans l'état
+    // attendu, à la même révision — et ses valeurs composées depuis la séance et la fiche.
+    let valeurs: Record<string, string> = {};
+    let vu: { destinataire: { prenom: string; nom: string; email: string | null } | null } | null;
+    if (o.objet_type === 'seance') {
+      const m = await messageDeSeance(env, db, o.cle_unicite);
+      if ('annuler' in m) {
+        await db.batch(clore(db, o, 'annule', m.annuler, maintenant));
+        bilan.annules += 1;
+        continue;
+      }
+      vu = { destinataire: m.destinataire };
+      valeurs = m.valeurs;
+    } else {
+      vu = destinataireDepuis(identiteLue.results?.[0] as { identite?: unknown } | undefined);
+    }
     if (!vu || !vu.destinataire?.email) {
       // L'objet a disparu (effacé), ou il n'y a personne à qui écrire. Un ordre
       // déjà remis ne se reprend pas : il reste tracé, en échec.
@@ -177,7 +193,7 @@ export const releverLesOrdres = async (env: Env, maintenant: number, limite = 10
       continue;
     }
     const modele = modeleLu.results?.[0] as { objet: string | null; corps: string } | undefined;
-    const compose = modele ? composer(modele, { prenom: vu.destinataire.prenom }) : null;
+    const compose = modele ? composer(modele, { prenom: vu.destinataire.prenom, ...valeurs }) : null;
     const message: MessageEmail | null = compose && compose.objet ? {
       ordre: o.id,
       type: 'message.email',

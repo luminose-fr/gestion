@@ -3981,6 +3981,19 @@ signé et échu en dix minutes, qui l'authentifie.
   « [Recette] » : l'agenda est le vrai.
 - **Non relié**, gestion fait sans lui, comme avant : la séance garde `a_ecrire`. Écart toléré en
   recette seulement ; la production exigera l'agenda relié.
+- **Les messages d'une séance** (`clients/messages-seances.ts`) : la confirmation, le rappel par
+  e-mail (`rappel_email_avant_h` avant, s'il reste plus d'une heure), l'annulation. Des ordres
+  `message.email` (§14.6), objet la séance, clé `<modèle>:<séance>:<révision>` : un déplacement
+  fait de nouveaux messages, et ceux de l'ancienne révision s'annulent à la remise
+  (`seance_changee`). La confirmation s'inscrit une fois l'agenda d'accord — tout de suite s'il
+  n'est pas relié —, pour une réservation comme pour un rendez-vous de la console ; une séance
+  reprise de Notion n'en reçoit aucun. Composés au départ : `{{prenom}}`, `{{seance}}`,
+  `{{quand}}` (« lundi 4 janvier à 9 h 30 »), `{{lieu}}` (l'adresse, le lien Meet, ou l'appel),
+  `{{questionnaire}}` (le lien, quand le type le demande et qu'il manque), `{{enregistrement}}`
+  (pour une rencontre : l'entretien peut être enregistré pour la prise de notes, puis effacé —
+  accord de Florent du 27/11/2026). **Les migrations ne posent aucun texte** : le jeu d'essai de
+  la recette en porte une première version (`seance_confirmation`, `seance_rappel`,
+  `seance_annulation`) ; les vrais textes sont à écrire par Florent.
 - **L'agenda suit aussi la console** (`clients/agenda-seances.ts`) : une seule fonction rend
   l'agenda conforme à la séance, quelle qu'en soit la cause — réservation, rendez-vous posé,
   déplacé, annulé (l'évènement est retiré), remis à « prévue », type, durée ou mode changés (un
@@ -3991,7 +4004,8 @@ signé et échu en dix minutes, qui l'authentifie.
 **Plus tard, sans priorité** (demandes de Florent du 27/11/2026, notées ici pour ne pas les
 perdre) :
 
-1. **La confirmation et les rappels**, maintenant que l'agenda s'écrit.
+1. **Les SMS de rappel** (`message.sms`), et un webhook Make pour les e-mails en recette (aucun
+   n'y est configuré : les ordres y restent `prevu`, visibles).
 2. **La newsletter sans reCAPTCHA** : faire passer l'inscription à la newsletter Brevo du site par
    la porte publique, qui a déjà sa limite de fréquence et son champ piège, et retirer reCAPTCHA
    de la page (une origine de service de moins, aussi pour la recette).

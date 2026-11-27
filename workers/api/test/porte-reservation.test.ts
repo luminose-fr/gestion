@@ -108,8 +108,9 @@ describe('réserver — POST /v1/reservation', () => {
     expect(compter(base, 'commandes', "sorte = 'reservation'")).toBe(1);
     const jeton = await verifierJeton(env, r.corps.reference, 'questionnaire', MAINTENANT);
     expect(jeton).toMatchObject({ objet: seance.id, version: 1, echeance: LUNDI_9H30 });
-    // Aucun ordre dans cette phase : la confirmation attend l'agenda.
-    expect(compter(base, 'ordres')).toBe(0);
+    // Sans agenda relié : la confirmation et le rappel, inscrits tout de suite, à la révision 0.
+    expect(base.query('SELECT modele_cle, cle_unicite FROM ordres ORDER BY prevu_le').map((o) => o.cle_unicite))
+      .toEqual([`seance_confirmation:${seance.id}:0`, `seance_rappel:${seance.id}:0`]);
   });
 
   it('puis le questionnaire, avec la référence : rattaché à la séance', async () => {

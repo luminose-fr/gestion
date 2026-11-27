@@ -12,8 +12,8 @@
  * après la réponse, avec son lien Meet en visio ; une écriture manquée se
  * reprend au passage planifié (`agenda_etat = 'echec'`). Non relié, gestion
  * fait sans lui, et la séance garde `a_ecrire`. La confirmation et les rappels
- * attendent l'écriture dans l'agenda (contrat §3.1, point 3) : aucun ordre
- * n'est inscrit dans cette phase.
+ * partent une fois la séance écrite dans l'agenda (contrat §3.1, point 3), ou
+ * tout de suite s'il n'est pas relié (messages-seances.ts).
  *
  * **La même fonction sert à afficher et à réserver** (§14.7.1) :
  * `creneauxLibres` et `verifierCreneau`, de `packages/pratique`, sur les mêmes
@@ -37,6 +37,7 @@ import { identite as identiteDeFiche } from '../fiches';
 import { ouvrirAlerte, alerteBorne } from '../alertes';
 import { ouvrirAgenda } from '../agenda';
 import { synchroniserAgenda } from '../agenda-seances';
+import { inscrireMessagesSeance } from '../messages-seances';
 
 const MINUTE = 60_000;
 const JOUR = 24 * 3_600_000;
@@ -234,6 +235,7 @@ export const reserver = async (env: Env, envoi: unknown, maintenant: number): Pr
         const n = await db.prepare('SELECT client_id FROM seances WHERE id = ?1').bind(seanceId).first<{ client_id: string | null }>();
         if (n && n.client_id === null) await ouvrirAlerte(db, { sorte: 'a_rapprocher', objetType: 'seance', objetId: seanceId }, Date.now()).run();
         if (agenda) await synchroniserAgenda(env, db, agenda, seanceId);
+        else await inscrireMessagesSeance(db, seanceId, Date.now());
       },
     };
   }
