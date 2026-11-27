@@ -121,6 +121,19 @@ describe('NORMATIF — rejouable', () => {
     expect(contenu(base).clients.filter((r: any) => r.id === 'autre-fiche')).toEqual(avant);
   });
 
+  it('la console a de quoi répondre : un couple lié des deux côtés, un professionnel, une recommandation', () => {
+    const base = nouvelle();
+    charger(base);
+    const liens = Object.fromEntries((base.query('SELECT id, couple_client_id, via_client_id, via_professionnel_id FROM clients') as any[])
+      .map((r) => [r.id, [r.couple_client_id, r.via_client_id, r.via_professionnel_id]]));
+    expect(liens['essai-client-jeanluc'][0]).toBe('essai-client-oenone');
+    expect(liens['essai-client-oenone'][0]).toBe('essai-client-jeanluc');
+    expect(liens['essai-client-leo'][1]).toBe('essai-client-emilie');
+    expect(liens['essai-client-eve'][2]).toBe('essai-pro-cabinet');
+    expect(compter(base, 'clients_notes')).toBe(1);
+    expect(compter(base, 'clients_confiance')).toBe(1);
+  });
+
   it('les heures sont celles de Paris, de part et d’autre d’un changement d’heure', () => {
     expect(new Date(aParis(lireDate('2026-12-07'), '09:30')).toISOString()).toBe('2026-12-07T08:30:00.000Z');
     expect(new Date(aParis(lireDate('2027-03-29'), '09:30')).toISOString()).toBe('2027-03-29T07:30:00.000Z');
