@@ -17,8 +17,13 @@ import type { Reponse } from './reponses.ts';
 export type AutorisationRefusee = { autorisation: 'refusee' };
 
 export interface PortePublique {
-  /** `POST /v1/questionnaire…` (contrat §3.2). Toujours `{ ok: true }` quand il est enregistré. */
+  /** `POST /v1/questionnaires` (contrat §3.2). Toujours `{ ok: true }` quand il est enregistré ; jamais `lien_invalide`. */
   questionnaire(envoi: unknown): Promise<Reponse>;
+  /**
+   * `POST /v1/questionnaires/lien` (SPEC §14.5) : le lien vaut-il encore, à
+   * l'ouverture de la page ? `{ ok: true }` ou `lien_invalide`. Rien n'est écrit.
+   */
+  lienQuestionnaire(envoi: unknown): Promise<Reponse>;
 }
 
 export interface PorteService {

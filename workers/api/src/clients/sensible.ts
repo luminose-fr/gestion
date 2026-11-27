@@ -17,6 +17,7 @@
  */
 import { ouvrirAlerte } from './alertes';
 import { newId } from '../db';
+import { seanceAuLienValable } from './portes/lien';
 export const TABLES_SENSIBLES = [
   'questionnaires',
   'seances_notes',
@@ -101,6 +102,9 @@ export type QuestionnaireRecu = {
  * Liée à la commande du lot, et à ce qu'aucun questionnaire ne porte déjà cet
  * envoi : un rejeu ne finit jamais en panne sur l'index unique.
  */
+/** Le prédicat du lien, partagé avec la vérification à l'ouverture (portes/lien.ts). */
+const LIEN = seanceAuLienValable('s', '?7', '?8');
+
 export const insertionQuestionnaire = (db: D1Database, q: QuestionnaireRecu, maintenant: number) =>
   db.prepare(`
     INSERT INTO questionnaires (
@@ -125,12 +129,10 @@ export const insertionQuestionnaire = (db: D1Database, q: QuestionnaireRecu, mai
         COALESCE(?15, (SELECT c.date_naissance FROM clients c WHERE c.id = b.client_id)) AS naissance
       FROM (
         SELECT
-          EXISTS (SELECT 1 FROM seances s WHERE s.id = ?7 AND s.statut <> 'annulee' AND s.liens_version = ?8) AS vue,
-          EXISTS (SELECT 1 FROM seances s WHERE s.id = ?7 AND s.statut <> 'annulee' AND s.liens_version = ?8
-                  AND s.questionnaire_id IS NULL) AS libre,
+          EXISTS (SELECT 1 FROM seances s WHERE ${LIEN}) AS vue,
+          EXISTS (SELECT 1 FROM seances s WHERE ${LIEN} AND s.questionnaire_id IS NULL) AS libre,
           EXISTS (SELECT 1 FROM evenements e WHERE e.id = ?9 AND e.deleted_at IS NULL) AS evt,
-          (SELECT s.client_id FROM seances s WHERE s.id = ?7 AND s.statut <> 'annulee' AND s.liens_version = ?8
-                  AND s.questionnaire_id IS NULL) AS client_id
+          (SELECT s.client_id FROM seances s WHERE ${LIEN} AND s.questionnaire_id IS NULL) AS client_id
       ) AS b
     ) AS r
     WHERE EXISTS (SELECT 1 FROM commandes WHERE id = ?19)

@@ -15,12 +15,13 @@
  */
 import {
   OK, invalide, refuser, valider, champPiegeRempli, questionnaire as schemaQuestionnaire,
-  type Reponse, type Questionnaire,
+  lienQuestionnaire as schemaLien, type Reponse, type Questionnaire,
 } from '@luminose/contrat';
 import type { Env } from '../../env';
 import { newId } from '../../db';
 import { baseClients, clientsReliee } from '../base';
-import { secretDesPortes, verifierJeton } from '../jetons';
+import { secretDesPortes } from '../jetons';
+import { jetonDeQuestionnaire, seanceAuLienValable, SEANCE_TEMOIN } from './lien';
 import { decisionCommande, empreinteDe, lireCommande, reponseAuRejeu, type CommandeVue } from '../commandes';
 import { ouvrirAlerte, alerteBorne } from '../alertes';
 import { inscrireOrdre } from '../ordres';
@@ -40,15 +41,12 @@ const RIEN = async () => {};
 /** La borne de cette sorte de commande (un réglage). */
 const BORNE = 'commandes_questionnaire_max_jour';
 
-/**
- * Un jeton bien formé qui ne vaut jamais rien : vérifié quand l'envoi n'a pas
- * de référence, pour que le chemin sans lien fasse le même calcul que les
- * autres (règle 4).
- */
-const JETON_TEMOIN = `e30.${'A'.repeat(43)}`;
-
 /** La date à Paris, `AAAA-MM-JJ`. */
 const jourAParis = (instant: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(instant);
+
+/** L'interrupteur : un réglage absent ferme la porte — c'est l'ouverture qui se déclare. */
+const INTERRUPTEUR = "SELECT valeur FROM reglages WHERE cle = 'porte_publique_ouverte'";
+const estOuverte = (r: D1Result) => Number((r.results?.[0] as { valeur?: number } | undefined)?.valeur ?? 0) === 1;
 
 /** Ce que la lecture groupée a vu. */
 type Etat = { ouverte: boolean; commande: CommandeVue | null; memoire: { empreinte: string | null } | null; accordConnu: boolean };
@@ -60,15 +58,14 @@ type Etat = { ouverte: boolean; commande: CommandeVue | null; memoire: { emprein
  */
 const lire = async (db: D1Database, cle: string, versionAccord: number): Promise<Etat> => {
   const [reglage, commande, memoire, accord] = await db.batch([
-    db.prepare("SELECT valeur FROM reglages WHERE cle = 'porte_publique_ouverte'"),
+    db.prepare(INTERRUPTEUR),
     lireCommande(db, 'publique', cle),
     lireMemoireEnvoi(db, cle),
     db.prepare("SELECT 1 AS connu FROM textes_versions WHERE cle = 'accord_conservation' AND version = ?1").bind(versionAccord),
   ]);
   const premiere = <T>(r: D1Result) => (r.results?.[0] as T | undefined) ?? null;
   return {
-    // Un réglage absent ferme la porte : c'est l'ouverture qui se déclare.
-    ouverte: Number(premiere<{ valeur: number }>(reglage)?.valeur ?? 0) === 1,
+    ouverte: estOuverte(reglage),
     commande: premiere<CommandeVue>(commande),
     memoire: premiere<{ empreinte: string | null }>(memoire),
     accordConnu: premiere(accord) !== null,
@@ -104,7 +101,7 @@ export const questionnaire = async (env: Env, envoi: unknown, maintenant: number
   const db = baseClients(env);
 
   const empreinte = await empreinteDe(env, q);
-  const jeton = await verifierJeton(env, q.reference ?? JETON_TEMOIN, 'questionnaire', maintenant);
+  const jeton = await jetonDeQuestionnaire(env, q.reference, maintenant);
 
   const etat = await lire(db, q.cle, q.accord.version);
   // 3. Coupée, la porte ne rend rien d'autre — même à une clé déjà vue.
@@ -169,6 +166,39 @@ export const questionnaire = async (env: Env, envoi: unknown, maintenant: number
   if (vu) return { reponse: vu, suite: RIEN };
   await alerteBorne(db, BORNE, maintenant).run();
   return { reponse: refuser('trop_de_demandes'), suite: RIEN };
+};
+
+/**
+ * Vérifier le lien d'un questionnaire à l'ouverture de la page (SPEC §14.5,
+ * §14.6.1, point 1 — décision du 27/11/2026).
+ *
+ * **Une lecture, pas une commande** : ni clé, ni ligne dans `commandes`, ni
+ * compte dans la borne du jour. Rien n'est écrit.
+ *
+ * **Le même chemin pour tous les cas** (règle 4) : une lecture groupée unique
+ * — l'interrupteur et la séance —, faite aussi quand le jeton est faux, sur un
+ * identifiant témoin. Lien faux, échu, révoqué, séance annulée : le même
+ * `lien_invalide`, après les mêmes instructions. Une séance qui a déjà son
+ * questionnaire garde un lien valable : l'ouvrir ne le consomme pas.
+ *
+ * Un aller-retour à la base, deux instructions.
+ */
+export const verifierLienQuestionnaire = async (env: Env, envoi: unknown, maintenant: number): Promise<Reponse> => {
+  const v = valider(schemaLien, envoi);
+  if (!v.valide) return v.refus;
+
+  if (!secretDesPortes(env)) throw new Error('incident: portes_secret_absent');
+  if (!clientsReliee(env)) throw new Error('incident: base_non_reliee');
+  const db = baseClients(env);
+
+  const jeton = await jetonDeQuestionnaire(env, v.donnees.reference, maintenant);
+  const [reglage, seance] = await db.batch([
+    db.prepare(INTERRUPTEUR),
+    db.prepare(`SELECT 1 AS valable FROM seances s WHERE ${seanceAuLienValable('s', '?1', '?2')}`)
+      .bind(jeton?.objet ?? SEANCE_TEMOIN, jeton?.version ?? 0),
+  ]);
+  if (!estOuverte(reglage)) return refuser('ferme');
+  return (seance.results?.length ?? 0) > 0 ? OK : refuser('lien_invalide');
 };
 
 /**

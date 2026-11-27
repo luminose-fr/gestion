@@ -149,14 +149,27 @@ describe('NORMATIF — règle 1 : deux bases qui ne se connaissent pas', () => {
 });
 
 describe('NORMATIF — règle 3 : un seul module nomme les tables sensibles', () => {
+  it('l’exception de l’adresse du contrat ne couvre que `/v1/` devant le nom', () => {
+    const motif = new RegExp(`(?<!/v1/)\\bquestionnaires\\b`);
+    expect(motif.test("router.post('/v1/questionnaires/lien')")).toBe(false);
+    expect(motif.test('SELECT * FROM questionnaires')).toBe(true);
+    expect(motif.test('/api/questionnaires')).toBe(true);
+  });
+
   it('le périmètre lu couvre les trois familles du dépôt', () => {
     const familles = new Set(SOURCES.map((f) => rel(f).split('/')[0]));
     expect([...familles].sort()).toEqual(['apps', 'packages', 'workers']);
     expect(SOURCES.map(rel)).toContain('workers/api/src/clients/sensible.ts');
   });
 
+  /**
+   * Une exception, et une seule : l'adresse du contrat `POST /v1/questionnaires`
+   * (contrat §3.2) porte le nom de la table sans la désigner. La porte la route,
+   * le contrat la documente ; écrite précédée de `/v1/`, elle ne nomme pas la
+   * table. Toute autre occurrence reste une faute (phase S2b).
+   */
   it.each(TABLES_SENSIBLES)('« %s » n’apparaît que dans clients/sensible.ts', (table) => {
-    const motif = new RegExp(`\\b${table}\\b`);
+    const motif = new RegExp(`(?<!/v1/)\\b${table}\\b`);
     const fautifs = SOURCES.filter((f) => motif.test(lire(f))).map(rel);
     expect(fautifs).toEqual(['workers/api/src/clients/sensible.ts']);
   });
