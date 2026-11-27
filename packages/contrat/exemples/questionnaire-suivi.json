@@ -1,0 +1,14 @@
+{
+  "cle": "8b1f0e6c2a9d4b7e9c3a1f5e7d2b4c6a",
+  "contexte": "seance",
+  "version": "suivi",
+  "version_formulaire": "2026-12",
+  "reference": "eyJ1IjoicXVlc3Rpb25uYWlyZSJ9.c2lnbmF0dXJlLWQtZXhlbXBsZQ",
+  "identite": { "prenom": "Émilie", "nom": "Martin", "email": "emilie.martin@example.org" },
+  "reponses": [
+    { "cle": "suivi.changements", "libelle": "Des changements depuis la dernière séance ? (texte d'essai)", "reponse": "non" }
+  ],
+  "informations": "",
+  "declaration": true,
+  "accord": { "accepte": true, "version": 1 }
+}

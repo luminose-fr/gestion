@@ -12,9 +12,12 @@
  * lit se relit en un seul fichier.
  *
  * Dans la phase S1, rien ne les lit ni ne les écrit : ce module n'expose que la
- * liste, dont les tests ont besoin. Les lectures et les écritures arriveront
- * ici, avec les écrans.
+ * liste, dont les tests ont besoin. Les lectures et les écritures arrivent ici,
+ * phase par phase, chacune dans sa section en fin de fichier — d'autres
+ * branches y ajoutent les leurs.
  */
+import { ouvrirAlerte } from './alertes';
+import { newId } from '../db';
 export const TABLES_SENSIBLES = [
   'questionnaires',
   'seances_notes',
@@ -24,3 +27,243 @@ export const TABLES_SENSIBLES = [
 ] as const;
 
 export type TableSensible = (typeof TABLES_SENSIBLES)[number];
+
+// ═══ Phase S2a : recevoir un questionnaire (SPEC §14.6, §14.6.1) ═══════════
+//
+// Ce qui suit écrit et lit le questionnaire reçu, et complète la fiche avec ce
+// qu'il apporte. Les instructions sont composées ici, jouées par
+// `portes/publique.ts` et `passage.ts`. Ici comme ailleurs, les paramètres sont
+// numérotés : D1 ne connaît pas les paramètres nommés.
+
+/**
+ * Une condition sur un questionnaire : il existe sous l'identifiant `p` (un
+ * paramètre, `?4`…) et vérifie `ou`, écrit sur l'alias `q`. C'est par elle que
+ * l'ordre et les alertes d'un lot se lient à ce que le lot a réellement écrit.
+ */
+export const questionnaireExiste = (p: string, ou = '1') =>
+  `EXISTS (SELECT 1 FROM questionnaires q WHERE q.id = ${p} AND (${ou}))`;
+
+/** Aucun questionnaire ne porte déjà cet envoi : la mémoire d'un envoi après la purge de sa commande. */
+export const sansQuestionnaireDeCetEnvoi = (p: string) =>
+  `NOT EXISTS (SELECT 1 FROM questionnaires WHERE envoi_id = ${p})`;
+
+/** L'empreinte de l'envoi qu'un questionnaire porte, s'il en porte un sous cette clé. */
+export const lireMemoireEnvoi = (db: D1Database, cle: string) =>
+  db.prepare('SELECT envoi_empreinte AS empreinte FROM questionnaires WHERE envoi_id = ?1').bind(cle);
+
+/** Ce que l'insertion reçoit : l'envoi validé, mis en forme, et ce que le jeton désigne. */
+export type QuestionnaireRecu = {
+  id: string;
+  /** La clé de la commande. */
+  envoiId: string;
+  envoiEmpreinte: string;
+  contexte: 'seance' | 'decouverte' | 'groupe' | 'journee_externe';
+  version: 'complet' | 'suivi';
+  versionFormulaire: string;
+  /** La séance que désigne un jeton valable ; vide sans jeton valable. */
+  seanceCandidate: string | null;
+  /** Le `liens_version` que le jeton porte. */
+  liensVersion: number | null;
+  evenementCandidat: string | null;
+  /** JSON, tels qu'envoyés. */
+  identite: string;
+  coordonnees: string | null;
+  confiance: string | null;
+  /** JSON : la copie figée des questions et des réponses, et le texte libre. */
+  reponses: string;
+  nbOui: number;
+  dateNaissanceEnvoi: string | null;
+  accordVersion: number;
+  /** La date de réception à Paris, `AAAA-MM-JJ` : c'est elle qui dit l'âge. */
+  jourReception: string;
+  /** La commande qui décide du lot. */
+  commandeId: string;
+};
+
+/**
+ * L'insertion du questionnaire, qui DÉCIDE ELLE-MÊME de son rattachement : elle
+ * relit la séance à l'instant du lot — non annulée, à la même version des liens,
+ * sans questionnaire. Entre la lecture et le lot, la séance a pu être annulée,
+ * son lien révoqué, un premier questionnaire rattaché : c'est l'état du moment
+ * qui vaut (§14.6.1, point 3).
+ *
+ *   - séance libre → rattaché (`fait`), à la séance et à son client s'il en a un ;
+ *   - séance vue mais qui a déjà son questionnaire → `a_rapprocher`, AVEC la
+ *     séance d'où il vient, et sans client ;
+ *   - évènement existant et non supprimé → rattaché à l'évènement, sans client ;
+ *   - tout le reste → `a_rapprocher`, sans rien. Jamais par l'identité déclarée.
+ *
+ * L'âge se lit sur la date de naissance de l'envoi, sinon sur celle de la fiche
+ * désignée ; inconnu, il ne demande rien (`sans_objet`). Un suivi est « à
+ * revoir » quand le client n'a aucun questionnaire complet — toujours, sans
+ * client. Le texte de l'accord est celui de la version acceptée, lu dans la même
+ * instruction.
+ *
+ * Liée à la commande du lot, et à ce qu'aucun questionnaire ne porte déjà cet
+ * envoi : un rejeu ne finit jamais en panne sur l'index unique.
+ */
+export const insertionQuestionnaire = (db: D1Database, q: QuestionnaireRecu, maintenant: number) =>
+  db.prepare(`
+    INSERT INTO questionnaires (
+      id, envoi_id, envoi_empreinte, contexte, version, version_formulaire,
+      client_id, seance_id, evenement_id, identite, coordonnees, confiance, reponses, nb_oui,
+      autorisation_parentale, declaration, accord_conservation, accord_texte, accord_le,
+      rattachement, a_revoir, source, created_at, updated_at
+    )
+    SELECT ?1, ?2, ?3, ?4, ?5, ?6,
+      r.client_id, r.seance_id, r.evenement_id, ?10, ?11, ?12, ?13, ?14,
+      CASE WHEN r.naissance IS NOT NULL AND date(r.naissance, '+18 years') > ?16 THEN 'a_obtenir' ELSE 'sans_objet' END,
+      1, 1, (SELECT t.texte FROM textes_versions t WHERE t.cle = 'accord_conservation' AND t.version = ?17), ?18,
+      CASE WHEN r.libre OR r.evt THEN 'fait' ELSE 'a_rapprocher' END,
+      CASE WHEN ?5 = 'suivi' AND (r.client_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM questionnaires p WHERE p.client_id = r.client_id AND p.version = 'complet'
+      )) THEN 1 ELSE 0 END,
+      'site', ?18, ?18
+    FROM (
+      SELECT b.vue, b.libre, b.evt, b.client_id,
+        CASE WHEN b.vue THEN ?7 END AS seance_id,
+        CASE WHEN b.evt THEN ?9 END AS evenement_id,
+        COALESCE(?15, (SELECT c.date_naissance FROM clients c WHERE c.id = b.client_id)) AS naissance
+      FROM (
+        SELECT
+          EXISTS (SELECT 1 FROM seances s WHERE s.id = ?7 AND s.statut <> 'annulee' AND s.liens_version = ?8) AS vue,
+          EXISTS (SELECT 1 FROM seances s WHERE s.id = ?7 AND s.statut <> 'annulee' AND s.liens_version = ?8
+                  AND s.questionnaire_id IS NULL) AS libre,
+          EXISTS (SELECT 1 FROM evenements e WHERE e.id = ?9 AND e.deleted_at IS NULL) AS evt,
+          (SELECT s.client_id FROM seances s WHERE s.id = ?7 AND s.statut <> 'annulee' AND s.liens_version = ?8
+                  AND s.questionnaire_id IS NULL) AS client_id
+      ) AS b
+    ) AS r
+    WHERE EXISTS (SELECT 1 FROM commandes WHERE id = ?19)
+      AND NOT EXISTS (SELECT 1 FROM questionnaires WHERE envoi_id = ?2)`).bind(
+    q.id, q.envoiId, q.envoiEmpreinte, q.contexte, q.version, q.versionFormulaire,
+    q.seanceCandidate, q.liensVersion, q.evenementCandidat, q.identite, q.coordonnees, q.confiance, q.reponses, q.nbOui,
+    q.dateNaissanceEnvoi, q.jourReception, q.accordVersion, maintenant, q.commandeId,
+  );
+
+/**
+ * La séance reçoit son questionnaire — à la condition qu'il lui soit
+ * EFFECTIVEMENT rattaché par le lot : un second envoi ou un lien révoqué ne la
+ * touche pas.
+ */
+export const rattachementALaSeance = (db: D1Database, q: Pick<QuestionnaireRecu, 'id' | 'seanceCandidate'>, maintenant: number) =>
+  db.prepare(`
+    UPDATE seances SET questionnaire_id = ?1, updated_at = ?3
+    WHERE id = ?2 AND questionnaire_id IS NULL
+      AND EXISTS (SELECT 1 FROM questionnaires q WHERE q.id = ?1 AND q.seance_id = ?2 AND q.rattachement = 'fait')`)
+    .bind(q.id, q.seanceCandidate, maintenant);
+
+/** Ce que l'accusé de réception sait du destinataire : l'identité envoyée. */
+export type DestinataireQuestionnaire = { prenom: string; nom: string; email: string | null };
+
+/** L'identité envoyée avec un questionnaire : une instruction, pour qu'une lecture groupée la porte. */
+export const lireIdentite = (db: D1Database, id: string) =>
+  db.prepare('SELECT identite FROM questionnaires WHERE id = ?1').bind(id);
+
+/**
+ * Le destinataire d'un accusé de réception, depuis la ligne lue : l'identité
+ * envoyée avec le questionnaire — pas la fiche, qui peut ne pas exister (« à
+ * rapprocher »). `null` : le questionnaire n'existe plus (effacé) ;
+ * `destinataire: null` : il existe, mais personne à qui écrire.
+ */
+export const destinataireDepuis = (ligne: { identite?: unknown } | null | undefined): { destinataire: DestinataireQuestionnaire | null } | null => {
+  if (!ligne) return null;
+  try {
+    const i = JSON.parse(typeof ligne.identite === 'string' ? ligne.identite : 'null') as Record<string, unknown> | null;
+    if (!i || typeof i.prenom !== 'string') return { destinataire: null };
+    return {
+      destinataire: {
+        prenom: i.prenom,
+        nom: typeof i.nom === 'string' ? i.nom : '',
+        email: typeof i.email === 'string' && i.email.trim() !== '' ? i.email.trim() : null,
+      },
+    };
+  } catch {
+    return { destinataire: null };
+  }
+};
+
+// ─── Compléter la fiche, après la réponse (§14.6.1, point 10) ───────────────
+
+/**
+ * Ce qu'un questionnaire peut apporter à une fiche : sept champs, remplis s'ils
+ * sont vides, jamais touchés s'ils sont remplis (§14.4 : la porte publique ne
+ * modifie jamais une fiche existante).
+ */
+const CHAMPS_FICHE: [colonne: string, source: 'coordonnees' | 'identite', chemin: string][] = [
+  ['civilite', 'coordonnees', '$.civilite'],
+  ['date_naissance', 'coordonnees', '$.date_naissance'],
+  ['profession', 'coordonnees', '$.profession'],
+  ['adresse', 'coordonnees', '$.adresse'],
+  ['code_postal', 'coordonnees', '$.code_postal'],
+  ['ville', 'coordonnees', '$.ville'],
+  ['telephone', 'identite', '$.telephone'],
+];
+const CHAMPS_CONFIANCE = ['civilite', 'prenom', 'nom', 'telephone', 'email'];
+
+/** Une valeur reçue, vide rendue nulle. */
+const recu = (q: string, source: string, chemin: string) => `NULLIF(TRIM(json_extract(${q}.${source}, '${chemin}')), '')`;
+const plein = (valeur: string) => `NULLIF(TRIM(${valeur}), '')`;
+/** Deux valeurs différentes, les deux renseignées — casse et espaces ignorés. */
+const differe = (a: string, b: string) =>
+  `(${plein(a)} IS NOT NULL AND ${b} IS NOT NULL AND LOWER(REPLACE(TRIM(${a}), ' ', '')) <> LOWER(REPLACE(${b}, ' ', '')))`;
+
+/** Le questionnaire `p` est rattaché à une fiche, et la fiche n'en a pas encore reçu ce qu'il apporte. */
+const aCompleter = (a: string, p: string) =>
+  `${a}.id = ${p} AND ${a}.client_id IS NOT NULL AND ${a}.rattachement = 'fait' AND ${a}.fiche_completee_le IS NULL`;
+
+/**
+ * Le lot qui complète la fiche. Tout est conditionné à `aCompleter` : rejoué,
+ * il ne change rien, puisqu'il pose `fiche_completee_le` en dernier.
+ *
+ *   1. un écart entre l'envoi et la fiche — un autre téléphone, une autre
+ *      adresse e-mail, une autre personne de confiance — ouvre `ecart_fiche` sur
+ *      le questionnaire ; l'écart se lit sur la ligne reçue ;
+ *   2. les champs vides de la fiche sont remplis ; `updated_at` n'avance que si
+ *      l'un d'eux l'a été ;
+ *   3. la personne de confiance est créée si la fiche n'en a pas ;
+ *   4. le questionnaire est marqué.
+ */
+export const lotCompletionFiche = (db: D1Database, questionnaireId: string, maintenant: number): D1PreparedStatement[] => {
+  const ecarts = [
+    ...CHAMPS_FICHE.map(([col, source, chemin]) => differe(`c.${col}`, recu('q', source, chemin))),
+    differe('c.email', recu('q', 'identite', '$.email')),
+    `EXISTS (SELECT 1 FROM clients_confiance cc WHERE cc.client_id = c.id AND (${
+      CHAMPS_CONFIANCE.map((col) => differe(`cc.${col}`, recu('q', 'confiance', `$.${col}`))).join(' OR ')}))`,
+  ].join('\n        OR ');
+  const vide = (col: string) => `${plein(`clients.${col}`)} IS NULL`;
+  const rempli = CHAMPS_FICHE.map(([col, source, chemin]) => `(${vide(col)} AND ${recu('q', source, chemin)} IS NOT NULL)`).join(' OR ');
+
+  return [
+    ouvrirAlerte(db, { sorte: 'ecart_fiche', objetType: 'questionnaire', objetId: questionnaireId }, maintenant, `
+      EXISTS (SELECT 1 FROM questionnaires q JOIN clients c ON c.id = q.client_id
+      WHERE ${aCompleter('q', '?4')} AND (
+        ${ecarts}))`),
+    db.prepare(`
+      UPDATE clients SET
+        ${CHAMPS_FICHE.map(([col, source, chemin]) =>
+          `${col} = CASE WHEN ${vide(col)} THEN COALESCE(${recu('q', source, chemin)}, clients.${col}) ELSE clients.${col} END`).join(',\n        ')},
+        updated_at = CASE WHEN ${rempli} THEN ?2 ELSE clients.updated_at END
+      FROM (SELECT * FROM questionnaires x WHERE ${aCompleter('x', '?1')}) AS q
+      WHERE clients.id = q.client_id`).bind(questionnaireId, maintenant),
+    db.prepare(`
+      INSERT INTO clients_confiance (id, client_id, civilite, prenom, nom, telephone, email, mis_a_jour_le, questionnaire_id, created_at, updated_at)
+      SELECT ?3, q.client_id, ${CHAMPS_CONFIANCE.map((col) => recu('q', 'confiance', `$.${col}`)).join(', ')}, ?2, q.id, ?2, ?2
+      FROM questionnaires q
+      WHERE ${aCompleter('q', '?1')}
+        AND COALESCE(${CHAMPS_CONFIANCE.filter((c) => c !== 'civilite').map((col) => recu('q', 'confiance', `$.${col}`)).join(', ')}) IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM clients_confiance cc WHERE cc.client_id = q.client_id)
+      ON CONFLICT DO NOTHING`).bind(questionnaireId, maintenant, newId()),
+    db.prepare(`UPDATE questionnaires SET fiche_completee_le = ?2, updated_at = ?2 WHERE ${aCompleter('questionnaires', '?1')}`)
+      .bind(questionnaireId, maintenant),
+  ];
+};
+
+/** Les questionnaires rattachés dont la fiche n'a pas été complétée : ce que le passage planifié reprend. */
+export const questionnairesAReprendre = async (db: D1Database, limite: number): Promise<string[]> => {
+  const { results } = await db.prepare(`
+    SELECT id FROM questionnaires
+    WHERE client_id IS NOT NULL AND rattachement = 'fait' AND fiche_completee_le IS NULL AND source = 'site'
+    ORDER BY created_at LIMIT ?1`).bind(limite).all<{ id: string }>();
+  return results.map((r) => r.id);
+};

@@ -35,6 +35,7 @@ import PsychedelicsCalculator from '../components/PsychedelicsCalculator';
 import RdvView from '../components/Clients/RdvView';
 import { BandeauEnvironnement } from '../components/BandeauEnvironnement';
 import { BaseClients } from '../components/Settings/BaseClients';
+import { PortePublique } from '../components/Settings/PortePublique';
 import { ConversationsView } from '../components/Contenus/ConversationsView';
 import { IdeesView } from '../components/Contenus/IdeesView';
 import { PubliesView } from '../components/Contenus/PubliesView';
@@ -976,6 +977,82 @@ describe('où l’on est (SPEC §14.8)', () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: 'Erreur interne' }), { status: 500 }));
     const { findByText } = render(<BaseClients />);
     await findByText(/Erreur 500/);
+  });
+});
+
+/**
+ * La ligne « Porte publique » (SPEC §14.5) : ouverte, coupée, illisible ; couper
+ * se confirme, rouvrir non. Montée seule, et sous « Base des clients » quand la
+ * base est reliée — jamais sans.
+ */
+describe('la porte publique, dans Réglages (SPEC §14.5)', () => {
+  const ETAT = { ouverte: true, commandesDuJour: 3, ordres: { prevu: 2, confieAMake: 1, echec: 0 }, alertesOuvertes: 4 };
+  /** Les appels, et une réponse par route. L'interrupteur rend l'état qu'on lui a demandé. */
+  const brancher = (etat: unknown = ETAT) => {
+    const appels: { url: string; methode: string; corps?: string }[] = [];
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
+      appels.push({ url: String(url), methode: init.method ?? 'GET', corps: init.body as string | undefined });
+      if (String(url).endsWith('/api/portes/interrupteur')) {
+        return new Response(JSON.stringify({ ...ETAT, ouverte: JSON.parse(String(init.body)).ouverte }), { status: 200 });
+      }
+      if (String(url).endsWith('/api/portes')) return new Response(JSON.stringify(etat), { status: 200 });
+      if (String(url).endsWith('/api/environnement')) return new Response(JSON.stringify({ nom: 'recette', clientsReliee: true }), { status: 200 });
+      if (String(url).endsWith('/api/clients/etat')) return new Response(JSON.stringify({ fiches: 1, seances: 0, evenements: 0 }), { status: 200 });
+      return new Response('{}', { status: 200 });
+    });
+    return appels;
+  };
+
+  it('ouverte : les compteurs ; couper demande une confirmation, puis coupe', async () => {
+    const appels = brancher();
+    const { findByText, getByText, container } = render(<PortePublique />);
+    await findByText('Ouverte');
+    expect(container.textContent).toContain('3 commandes sur 24 h · 2 ordres prévus · 1 confié à Make · 0 en échec · 4 alertes ouvertes');
+    fireEvent.click(getByText('Couper'));
+    expect(appels.some((a) => a.methode === 'PUT')).toBe(false);
+    fireEvent.click(getByText('Couper la porte'));
+    await findByText('Coupée');
+    expect(appels.filter((a) => a.methode === 'PUT')).toEqual([
+      { url: expect.stringMatching(/\/api\/portes\/interrupteur$/), methode: 'PUT', corps: '{"ouverte":false}' },
+    ]);
+    expect(container.textContent).toContain('affiche votre téléphone');
+  });
+
+  it('coupée : rouvrir sans confirmation', async () => {
+    const appels = brancher({ ...ETAT, ouverte: false });
+    const { findByText, getByText } = render(<PortePublique />);
+    await findByText('Coupée');
+    fireEvent.click(getByText('Rouvrir'));
+    await findByText('Ouverte');
+    expect(appels.find((a) => a.methode === 'PUT')?.corps).toBe('{"ouverte":true}');
+  });
+
+  it('illisible : une erreur se dit, sans casser la section', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: 'Erreur interne' }), { status: 500 }));
+    const { findByText } = render(<PortePublique />);
+    await findByText(/État des portes illisible \(Erreur 500\)/);
+  });
+
+  it('une réponse sans la forme attendue : la même erreur, pas une page blanche', async () => {
+    brancher({});
+    const { findByText } = render(<PortePublique />);
+    await findByText(/État des portes illisible/);
+  });
+
+  it('sous « Base des clients » quand la base est reliée ; absente sinon', async () => {
+    const appels = brancher();
+    const reliee = render(<BaseClients />);
+    await reliee.findByText('Ouverte');
+    cleanup();
+    appels.length = 0;
+    vi.stubGlobal('fetch', async (url: string) => {
+      appels.push({ url: String(url), methode: 'GET' });
+      return new Response(JSON.stringify({ nom: 'production', clientsReliee: false }), { status: 200 });
+    });
+    const non = render(<BaseClients />);
+    await non.findByText('Non reliée');
+    expect(non.container.textContent).not.toContain('Porte publique');
+    expect(appels.some((a) => a.url.endsWith('/api/portes'))).toBe(false);
   });
 });
 

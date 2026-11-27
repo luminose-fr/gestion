@@ -9,6 +9,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "essai": "node essai/charger.ts",
+    "essai:questionnaire": "node --experimental-transform-types --import ./essai/resolution.mjs essai/questionnaire.ts",
     "essai:contraintes": "node essai/contraintes.ts"
   },
   "devDependencies": {
@@ -20,6 +21,7 @@
   },
   "dependencies": {
     "@luminose/ai": "^2.0.0",
+    "@luminose/contrat": "*",
     "@luminose/corpus": "*",
     "@luminose/editorial": "^2.0.0",
     "@luminose/pratique": "*",

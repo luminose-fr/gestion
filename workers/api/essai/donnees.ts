@@ -66,6 +66,11 @@ export const EFFECTIFS = {
   clients_confiance: 0,
   clients_notes: 0,
   seances_reponses: 0,
+  // Phase S2a : de quoi recevoir un questionnaire et composer son accusé de
+  // réception. Factices l'un et l'autre, et hors des migrations : les vrais
+  // textes viennent avec les écrans et le lot F.
+  textes_versions: 1,
+  messages_modeles: 1,
 } as const;
 
 export type Table = keyof typeof EFFECTIFS;
@@ -277,8 +282,21 @@ export const jeuDEssai = (dateReference: string): JeuDEssai => {
     pdf_cle: null, pdf_le: null, source: 'site', drive_url: null, ...t,
   }];
 
+  // Phase S2a : le texte d'accord que le questionnaire d'essai accepte, et le
+  // modèle de son accusé de réception.
+  const textes: Ligne[] = [{
+    id: 'essai-texte-accord-v1', cle: 'accord_conservation', version: 1,
+    texte: 'Texte d’essai — accord de conservation, factice.', en_vigueur_le: maintenant, ...t,
+  }];
+  const modeles: Ligne[] = [{
+    id: 'essai-modele-questionnaire-accuse', cle: 'questionnaire_accuse', canal: 'email', version: 1,
+    objet: 'Accusé de réception d’essai', corps: 'Texte d’essai — accusé de réception, {{prenom}}.', deleted_at: null, ...t,
+  }];
+
   // Dans l'ordre des renvois : ce qui est désigné avant ce qui désigne.
   return [
+    { table: 'textes_versions', lignes: textes },
+    { table: 'messages_modeles', lignes: modeles },
     { table: 'professionnels', lignes: professionnels },
     { table: 'clients', lignes: clients },
     { table: 'seances', lignes: seances },

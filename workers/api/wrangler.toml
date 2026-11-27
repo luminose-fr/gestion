@@ -104,10 +104,12 @@ routes = [
 [env.recette.vars]
 ENVIRONNEMENT = "recette"
 
-# Aucun déclencheur : le plan gratuit en donne cinq par compte, recette comprise
-# (§14.7), et la veille des modèles n'a rien à faire en recette.
+# Un seul déclencheur : le passage des portes (§14.6, src/declencheurs.ts) —
+# relever les ordres, compléter les fiches, purger les reçus. Le plan gratuit en
+# donne cinq par compte, recette comprise (§14.7), et la veille des modèles n'a
+# rien à faire en recette.
 [env.recette.triggers]
-crons = []
+crons = ["*/5 * * * *"]
 
 # npx wrangler d1 create luminose-gestion-recette --location weur
 [[env.recette.d1_databases]]

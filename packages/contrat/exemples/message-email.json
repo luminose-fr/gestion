@@ -1,0 +1,9 @@
+{
+  "ordre": "c81f2e4a-0b6d-4c8e-9a1f-3d5b7e9c1a2b",
+  "type": "message.email",
+  "destinataire": { "nom": "Émilie Martin", "email": "emilie.martin@example.org" },
+  "objet": "Votre rendez-vous du jeudi 3 décembre à 13 h",
+  "html": "<p>Bonjour Émilie,</p>",
+  "texte": "Bonjour Émilie,",
+  "pieces": [ { "nom": "rendez-vous.ics", "type": "text/calendar", "contenu": "BEGIN:VCALENDAR" } ]
+}

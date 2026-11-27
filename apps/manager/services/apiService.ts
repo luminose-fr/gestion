@@ -565,6 +565,21 @@ export const fetchEnvironnement = () => api<Environnement>('/environnement');
 /** 409 quand la base n'est pas reliée : ne l'appeler qu'après `fetchEnvironnement`. */
 export const fetchEtatBaseClients = () => api<EtatBaseClients>('/clients/etat');
 
+/** Les portes (SPEC §14.5) : l'interrupteur et des compteurs, rien de ce qu'ils comptent. */
+export interface EtatDesPortes {
+  ouverte: boolean;
+  /** Les commandes publiques acceptées sur 24 heures glissantes. */
+  commandesDuJour: number;
+  ordres: { prevu: number; confieAMake: number; echec: number };
+  alertesOuvertes: number;
+}
+
+/** 409 quand la base n'est pas reliée : ne l'appeler qu'après `fetchEnvironnement`. */
+export const fetchEtatDesPortes = () => api<EtatDesPortes>('/portes');
+
+export const poserInterrupteurDesPortes = (ouverte: boolean) =>
+  api<EtatDesPortes>('/portes/interrupteur', { method: 'PUT', ...body({ ouverte }) });
+
 // ── Écriture du corpus : on commite dans Git, on n'écrit pas le bundle ────
 
 export interface SourceCorpus {

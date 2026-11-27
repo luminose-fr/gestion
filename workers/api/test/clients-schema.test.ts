@@ -16,16 +16,19 @@ const TABLES_S1 = [
   'clients_confiance', 'clients_notes', 'seances', 'seances_mouvements', 'seances_notes', 'seances_reponses',
   'evenements', 'inscriptions', 'questionnaires', 'paiements',
 ];
+/** Les tables de la phase S2a (0003_portes.sql) : aucune ne porte de personne. */
+const TABLES_S2A = ['commandes', 'ordres', 'alertes', 'messages_modeles'];
+const TABLES = [...TABLES_S1, ...TABLES_S2A];
 
 let base: TestD1;
 beforeEach(() => { base = baseClients(); });
 
 const colonnes = (table: string) => base.query(`PRAGMA table_info(${table})`).map((c) => c.name as string);
 
-describe('NORMATIF — le schéma de la phase S1', () => {
-  it('porte les tables de la phase, et elles seules', () => {
+describe('NORMATIF — le schéma des phases S1 et S2a', () => {
+  it('porte les tables des phases, et elles seules', () => {
     const tables = base.query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").map((r) => r.name);
-    expect(tables).toEqual([...TABLES_S1].sort());
+    expect(tables).toEqual([...TABLES].sort());
   });
 
   it('les tables sensibles sont des tables de la phase', () => {
@@ -33,8 +36,8 @@ describe('NORMATIF — le schéma de la phase S1', () => {
   });
 
   it('created_at et updated_at partout ; deleted_at seulement sur les tables sans personne', () => {
-    const sansPersonne = ['types_seance', 'horaires', 'horaires_dates', 'professionnels', 'evenements'];
-    for (const t of TABLES_S1) {
+    const sansPersonne = ['types_seance', 'horaires', 'horaires_dates', 'professionnels', 'evenements', 'messages_modeles'];
+    for (const t of TABLES) {
       expect(colonnes(t), t).toEqual(expect.arrayContaining(['created_at', 'updated_at']));
       expect(colonnes(t).includes('deleted_at'), t).toBe(sansPersonne.includes(t));
     }
@@ -145,6 +148,9 @@ describe('les données de départ', () => {
     expect(reglages).toEqual({
       rappel_email_avant_h: 72, rappel_sms_avant_h: 48, retenue_carte_h: 1, retenue_virement_h: 168,
       liste_attente_creneau_min_h: 48, liste_attente_seance_min_h: 48, liste_attente_personnes_max: 8,
+      // Phase S2a (0003_portes.sql).
+      porte_publique_ouverte: 1, commandes_questionnaire_max_jour: 30, emails_max_jour: 50,
+      recus_garde_h: 720, ordre_relance_min: 15, ordre_tentatives_max: 5,
     });
     expect(compter(base, 'textes_versions')).toBe(0);
     expect(compter(base, 'horaires_dates')).toBe(0);
@@ -225,5 +231,62 @@ describe('NORMATIF — effacer une personne (règle 8, Annexe C)', () => {
     expect({ ...base.query("SELECT seance_id, inscription_id FROM questionnaires WHERE id = 'q-orphelin'")[0] })
       .toEqual({ seance_id: null, inscription_id: null });
     expect(compter(base, 'inscriptions', "id = 'i-orpheline'")).toBe(1);
+  });
+});
+
+describe('NORMATIF — le schéma de la phase S2a (0003_portes.sql)', () => {
+  const commande = (porte: string, cle: string, sorte = 'questionnaire') => base.prepare(
+    `INSERT INTO commandes (id, porte, cle, sorte, empreinte, recu, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'e', '{"ok":true}', 0, 0)`).bind(crypto.randomUUID(), porte, cle, sorte).run();
+  const ordre = (cle: string, sorte = 'message.email', etat = 'prevu') => base.prepare(
+    `INSERT INTO ordres (id, sorte, objet_type, objet_id, prevu_le, etat, cle_unicite, created_at, updated_at)
+     VALUES (?, ?, 'questionnaire', 'q', 0, ?, ?, 0, 0)`).bind(crypto.randomUUID(), sorte, etat, cle).run();
+  const alerte = (sorte: string, objet: string, resolue: number | null = null) => base.prepare(
+    `INSERT INTO alertes (id, sorte, objet_type, objet_id, resolue_le, created_at, updated_at)
+     VALUES (?, ?, 'questionnaire', ?, ?, 0, 0)`).bind(crypto.randomUUID(), sorte, objet, resolue).run();
+
+  it('une clé par porte : (porte, cle) est unique', async () => {
+    await commande('publique', 'cle-0000000000000001');
+    await commande('service', 'cle-0000000000000001', 'confirmation');
+    await expect(commande('publique', 'cle-0000000000000001')).rejects.toThrow(/UNIQUE/);
+    await expect(commande('site', 'cle-0000000000000002')).rejects.toThrow(/CHECK/);
+  });
+
+  it('un ordre par effet, une sorte de la liste du contrat', async () => {
+    await ordre('accuse:q');
+    await expect(ordre('accuse:q')).rejects.toThrow(/UNIQUE/);
+    await expect(ordre('autre', 'message.whatsapp')).rejects.toThrow(/CHECK/);
+    await expect(ordre('autre', 'message.email', 'parti')).rejects.toThrow(/CHECK/);
+  });
+
+  it('la même alerte ne s’ouvre pas deux fois ; résolue, elle peut se rouvrir', async () => {
+    await alerte('a_rapprocher', 'q1');
+    await expect(alerte('a_rapprocher', 'q1')).rejects.toThrow(/UNIQUE/);
+    await base.prepare(`UPDATE alertes SET resolue_le = 1 WHERE objet_id = 'q1'`).run();
+    await alerte('a_rapprocher', 'q1');
+    await alerte('a_rapprocher', 'q2', 5);
+    await expect(alerte('inconnue', 'q3')).rejects.toThrow(/CHECK/);
+  });
+
+  it('aucune colonne d’adresse, de numéro ni de texte dans les ordres et les alertes', () => {
+    for (const t of ['ordres', 'alertes', 'commandes']) {
+      expect(colonnes(t).filter((c) => /email|telephone|adresse|nom|prenom|texte|corps|objet$/.test(c)), t).toEqual([]);
+    }
+  });
+
+  it('les modèles naissent vides, versionnés par clé et canal', async () => {
+    expect(compter(base, 'messages_modeles')).toBe(0);
+    const modele = (version: number, canal = 'email') => base.prepare(
+      `INSERT INTO messages_modeles (id, cle, canal, version, objet, corps, created_at, updated_at)
+       VALUES (?, 'questionnaire_accuse', ?, ?, 'Objet', 'Corps', 0, 0)`).bind(crypto.randomUUID(), canal, version).run();
+    await modele(1);
+    await modele(1, 'sms');
+    await modele(2);
+    await expect(modele(1)).rejects.toThrow(/UNIQUE/);
+    await expect(modele(1, 'courrier')).rejects.toThrow(/CHECK/);
+  });
+
+  it('un questionnaire garde la mémoire de son envoi', () => {
+    expect(colonnes('questionnaires')).toEqual(expect.arrayContaining(['envoi_empreinte', 'fiche_completee_le']));
   });
 });
