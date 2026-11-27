@@ -85,13 +85,17 @@ const RailButton: React.FC<{
     <button
         onClick={onClick}
         title={count ? `${label} — ${count} à voir` : label}
-        className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 group ${
+        aria-label={label}
+        // Sur téléphone, le rail est le menu : chaque espace y porte son nom (une icône seule ne
+        // dit rien, et l'infobulle n'existe pas au doigt). Sur grand écran, l'icône seule.
+        className={`relative w-full md:w-11 h-11 rounded-xl flex items-center justify-start md:justify-center gap-3 px-3 md:px-0 transition-all duration-150 group ${
             active
                 ? 'bg-brand-main text-white shadow-md shadow-brand-main/30 dark:bg-white dark:text-brand-main'
                 : 'text-brand-main hover:bg-brand-light hover:text-brand-main dark:text-dark-text dark:hover:bg-dark-sec-bg dark:hover:text-white'
         }`}
     >
-        <Icon className="w-[18px] h-[18px]" />
+        <Icon className="w-[18px] h-[18px] shrink-0" />
+        <span className="md:hidden text-sm font-semibold">{label}</span>
         {count !== undefined && count > 0 && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-brand-main text-white text-[10px] font-bold leading-none tabular-nums ring-2 ring-white dark:bg-white dark:text-brand-main dark:ring-dark-surface">
                 {count}
@@ -163,7 +167,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
             `}>
                 {/* Rail */}
-                <div className="w-[64px] shrink-0 bg-white dark:bg-dark-surface border-r border-brand-border dark:border-dark-sec-border flex flex-col items-center py-3 gap-1">
+                <div className="w-[200px] md:w-[64px] shrink-0 bg-white dark:bg-dark-surface border-r border-brand-border dark:border-dark-sec-border flex flex-col items-stretch md:items-center px-2 md:px-0 py-3 gap-1 overflow-y-auto">
+                    {/* Sur téléphone : fermer le menu sans choisir, quel que soit l'espace. */}
+                    {mobile && (
+                        <button type="button" onClick={onMobileClose} className="self-end p-1 rounded-md text-brand-main dark:text-dark-text" aria-label="Fermer le menu">
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
                     <button
                         type="button"
                         onClick={() => { onNavigate('social', 'conversations'); onMobileClose(); }}
@@ -196,9 +206,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     />
                 </div>
 
-                {/* Sub-panel — only when space has tabs */}
+                {/* Sub-panel — only when space has tabs. Sur téléphone, ses entrées passent par
+                    MobileSubTabs, en rangée sous l'en-tête : le menu ne montre que les espaces. */}
                 {showSubPanel && (
-                    <div className="w-[232px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex flex-col">
+                    <div className="hidden md:flex w-[232px] bg-brand-light/60 dark:bg-dark-bg border-r border-brand-border dark:border-dark-sec-border flex-col">
                         <div className="px-4 h-16 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border shrink-0">
                             <p className="font-bold text-sm text-brand-main dark:text-white truncate">
                                 {titrePanneau}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
 import { PERSONAS_NAV } from '../Settings/apercus';
 import { CORPUS_SECTIONS, BLOCS, CorpusSection } from '../Corpus/sections';
@@ -24,7 +24,7 @@ interface MobileSubTabsProps {
 const RANGEE =
     'md:hidden flex items-center gap-1 overflow-x-auto px-3 py-2 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 scrollbar-hide';
 
-export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
+const Rangees: React.FC<MobileSubTabsProps> = ({
     space, currentTab, currentSettingsSection, currentSettingsPersona = null,
     onNavigate, onNavigateSettings, counts, reglagesCounts,
     currentCorpusSection = 'etat', currentCorpusBloc = null, onNavigateCorpus,
@@ -53,6 +53,7 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                             <button
                                 key={s.id}
                                 onClick={() => onNavigateCorpus?.(s.id)}
+                                aria-current={(currentCorpusSection === s.id) ? 'page' : undefined}
                                 className={CLASSE_ONGLET(currentCorpusSection === s.id)}
                             >
                                 <Icon className="w-3 h-3" />
@@ -69,7 +70,8 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                                 <button
                                     key={b.id}
                                     onClick={() => onNavigateCorpus?.('documents', b.id)}
-                                    className={CLASSE_ONGLET(currentCorpusBloc === b.id)}
+                                    aria-current={(currentCorpusBloc === b.id) ? 'page' : undefined}
+                                className={CLASSE_ONGLET(currentCorpusBloc === b.id)}
                                 >
                                     <Icon className="w-3 h-3" />
                                     {b.label}
@@ -99,6 +101,7 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                             <button
                                 key={s.id}
                                 onClick={() => onNavigateSettings(s.id)}
+                                aria-current={(actif) ? 'page' : undefined}
                                 className={CLASSE_ONGLET(actif)}
                             >
                                 <Icon className="w-3 h-3" />
@@ -122,7 +125,8 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                                 <button
                                     key={p.id}
                                     onClick={() => onNavigateSettings('personas', p.id)}
-                                    className={CLASSE_ONGLET(currentSettingsPersona === p.id)}
+                                    aria-current={(currentSettingsPersona === p.id) ? 'page' : undefined}
+                                className={CLASSE_ONGLET(currentSettingsPersona === p.id)}
                                 >
                                     <Icon className="w-3 h-3" />
                                     {p.label}
@@ -148,6 +152,7 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
                     <button
                         key={t.id}
                         onClick={() => onNavigate(t.id)}
+                        aria-current={active ? 'page' : undefined}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
                             active
                                 ? 'bg-brand-main text-white shadow-sm shadow-brand-main/25 dark:bg-white dark:text-brand-main'
@@ -168,6 +173,23 @@ export const MobileSubTabs: React.FC<MobileSubTabsProps> = ({
             })}
         </div>
     );
+};
+
+/**
+ * La rangée défile d'elle-même jusqu'à l'onglet ouvert : sans cela, sur téléphone,
+ * une section loin dans la liste (Réglages → Réservation) est ouverte sans qu'on
+ * voie laquelle.
+ */
+export const MobileSubTabs: React.FC<MobileSubTabsProps> = (props) => {
+    const zone = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        // La rangée seule défile, à l'horizontale : scrollIntoView ferait aussi défiler la page.
+        zone.current?.querySelectorAll<HTMLElement>('[aria-current="page"]').forEach((e) => {
+            const rangee = e.parentElement;
+            if (rangee) rangee.scrollLeft = e.offsetLeft - (rangee.clientWidth - e.offsetWidth) / 2;
+        });
+    }, [props.space, props.currentTab, props.currentSettingsSection, props.currentSettingsPersona, props.currentCorpusSection, props.currentCorpusBloc]);
+    return <div ref={zone} className="contents"><Rangees {...props} /></div>;
 };
 
 export default MobileSubTabs;
