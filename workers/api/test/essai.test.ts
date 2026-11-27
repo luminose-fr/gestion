@@ -161,3 +161,20 @@ describe('NORMATIF — la commande ne vise que la base locale ou la recette', ()
     expect(() => baseVisee(detournee, 'local')).toThrow(/luminose-clients-local/);
   });
 });
+
+describe('le parcours d’essai d’un questionnaire (phase S2a)', () => {
+  it('envoyé deux fois : une ligne, un ordre prévu ; porte coupée : ferme ; l’interrupteur remis', async () => {
+    const { essayerUnQuestionnaire } = await import('../essai/parcours-questionnaire');
+    const base = nouvelle();
+    charger(base);
+    const env = { CLIENTS: base, PORTES_SECRET: 'secret-de-test' } as any;
+    const r = await essayerUnQuestionnaire(env, aParis(lireDate(DATE), '12:00'));
+    expect(r.premiere).toEqual({ ok: true });
+    expect(r.seconde).toEqual({ ok: true });
+    expect(r.questionnaires).toBe(1);
+    expect(r.ordres).toEqual([{ etat: 'prevu' }]);
+    expect(r.porteCoupee).toEqual({ ok: false, motif: 'ferme' });
+    expect(r.etat).toMatchObject({ ouverte: true, commandesDuJour: 1 });
+    expect(base.query("SELECT valeur FROM reglages WHERE cle = 'porte_publique_ouverte'")[0].valeur).toBe(1);
+  });
+});
