@@ -1,4 +1,4 @@
-# SPEC v3.0 — gestion.luminose.fr
+# SPEC v3.1 — gestion.luminose.fr
 
 > **Cible** : migration complète Notion → Cloudflare D1, restructuration en monorepo,
 > abstraction du fournisseur IA, et ajout des Séries / Déclinaisons.
@@ -195,6 +195,13 @@
 > facultative (`CLIENTS`) ; un paquet pur, `packages/pratique` ; un environnement de recette
 > durable (§14.8). Phase S1 du socle : le chapitre, le schéma (Annexe C), les deux décisions qui
 > ne se prennent qu'une fois, la recette et son jeu d'essai — la production reste sans liaison.
+> **v3.1 (27/11/2026)** : la phase S2 est coupée en deux (§14.11). **S2a** — ce que gestion fait
+> d'une commande une fois reçue : le contrat en schémas (`packages/contrat`), les commandes
+> rejouables, les ordres vers Make et leurs confirmations, les jetons des liens, les bornes,
+> l'interrupteur, et le premier parcours, recevoir un questionnaire ; aucun Worker ni aucune
+> adresse nouvelle. **S2b** — l'essai à blanc, `workers/porte`, les entrées nommées et la recette.
+> Quatre tables (`0003_portes.sql`, Annexe C), et les précisions que la phase apporte au contrat
+> (§14.6.1), à faire confirmer par Florent.
 > Les sections marquées **NORMATIF** font foi : toute divergence du code est un bug du
 > code, pas de la spec. Les modifier exige un bump de version de ce document.
 >
@@ -275,7 +282,7 @@ qui ferait passer ce qu'il range au-delà de 10 Go (§12.4.2).
 ## 1. Architecture cible — NORMATIF
 
 Monorepo npm workspaces. Des moteurs purs — `editorial` pour les contenus, `pratique` pour
-les clients (§14) —, deux Workers aujourd'hui et un troisième, la porte, en phase S2 (§14.3),
+les clients (§14) —, deux Workers aujourd'hui et un troisième, la porte, en phase S2b (§14.3),
 un front.
 
 ```
@@ -291,7 +298,7 @@ gestion.luminose.fr/
 │   ├── psychedelics/       calcul de doses
 │   ├── pratique/           LES RÈGLES DE LA PRATIQUE : la clé d'un client, les
 │   │                       créneaux, la liste d'attente. Zéro dépendance (§14.3).
-│   └── contrat/            le contrat /v1 en schémas zod (phase S2, §14.3)
+│   └── contrat/            le contrat /v1 en schémas zod (phase S2a, §14.3)
 ├── workers/
 │   ├── api/                Hono + D1 + auth
 │   │   ├── migrations/     NNNN_description.sql — la base `luminose-gestion`
@@ -300,7 +307,7 @@ gestion.luminose.fr/
 │   │       ├── routes/
 │   │       └── clients/    l'accès à la base des clients, et lui seul (§14.2)
 │   ├── porte/              la porte publique et la porte de service,
-│   │                       api.luminose.fr (phase S2, §14.5)
+│   │                       api.luminose.fr (phase S2b, §14.5)
 │   └── mcp/                serveur MCP pour Claude, mcp.luminose.fr —
 │       │                   OAuth + Google Ads : lire, et préparer en pause ;
 │       │                   le corpus : lire main, écrire par commit ;
@@ -3284,12 +3291,12 @@ Ce qui s'ajoute à l'arbre du §1 :
 │   ├── pratique/           LES RÈGLES DE LA PRATIQUE : qui est le même client, quels
 │   │                       créneaux sont libres, qui prévenir d'un créneau libéré.
 │   │                       Zéro dépendance, comme `editorial`.
-│   └── contrat/            le contrat /v1 en schémas zod, avec ses exemples (phase S2)
+│   └── contrat/            le contrat /v1 en schémas zod, avec ses exemples (phase S2a)
 ├── workers/
 │   ├── api/
 │   │   ├── migrations-clients/   NNNN_description.sql — la base `luminose-clients`
 │   │   └── src/clients/          l'accès à cette base, et lui seul
-│   └── porte/              la porte publique et la porte de service, api.luminose.fr (S2)
+│   └── porte/              la porte publique et la porte de service, api.luminose.fr (S2b)
 ```
 
 Règles de dépendance, en plus de celles du §1.1 :
@@ -3318,7 +3325,7 @@ packages/pratique ──▶ (rien)
 - L'interface TypeScript des entrées vit dans `packages/contrat` : la porte n'importe rien de
   `workers/api`.
 
-La phase S2 commence par un essai à blanc de ce montage — deux Workers, deux liaisons, une
+La phase S2b commence par un essai à blanc de ce montage — deux Workers, deux liaisons, une
 méthode — avant d'y poser quoi que ce soit : qu'aucune adresse ne mène aux entrées, et ce qu'un
 parcours complet consomme de temps de calcul et de sous-requêtes sur le plan gratuit.
 
@@ -3344,7 +3351,7 @@ d'ici là, Florent peut décider de la supprimer et de la recréer, migrations r
 | Phase | Tables |
 | :--- | :--- |
 | S1 | `types_seance`, `horaires`, `horaires_dates`, `reglages`, `textes_versions`, `professionnels`, `clients`, `clients_confiance` ★, `clients_notes` ★, `seances`, `seances_mouvements`, `seances_notes` ★, `seances_reponses` ★, `evenements`, `inscriptions`, `questionnaires` ★, `paiements` |
-| S2 | `commandes`, `ordres`, `alertes`, `messages_modeles` |
+| S2a | `commandes`, `ordres`, `alertes`, `messages_modeles` ; deux colonnes de `questionnaires` (`envoi_empreinte`, `fiche_completee_le`) |
 | S4 | `effacements` |
 | Réservation | `creneaux_liberes` |
 
@@ -3523,6 +3530,71 @@ et une clé d'unicité. **Ni adresse, ni numéro, ni texte.**
   (`DETOURNEMENT_EMAIL`, `DETOURNEMENT_SMS`). Sans eux, la recette n'envoie rien : un oubli de
   configuration ne doit pas pouvoir écrire à une vraie personne.
 
+#### 14.6.1 Précisions de la phase S2a
+
+Ce que la phase S2a apporte au contrat (`contrat-v1`, §2, §3.2, §4). **À faire confirmer par
+Florent** ; la première écarte une règle générale du contrat et se tranche avant les autres.
+
+1. **Un questionnaire n'est jamais refusé pour son lien.** Le contrat (§2) donne `lien_invalide`
+   à un lien inconnu ou expiré ; pour un questionnaire, on écarte cette règle : référence absente,
+   fausse, échue ou révoquée, il est enregistré « à rapprocher », et la réponse est la même
+   (`{ "ok": true }`). L'autre lecture ferait perdre ses réponses de santé à une personne pour un
+   lien périmé. Si Florent préfère le refus, c'est une branche à changer
+   (`clients/portes/publique.ts`), pas une structure.
+2. **Sans jeton valable, aucun rattachement** — ni à une séance, ni à une fiche. L'identité
+   déclarée ne désigne personne (§14.4).
+3. **Le premier questionnaire rattaché à une séance le reste.** Un second envoi pour la même
+   séance est enregistré à part, « à rapprocher », avec la séance d'où il vient, et une alerte
+   `second_questionnaire`. Le rattachement se décide dans le lot, sur l'état du moment : une
+   séance annulée ou un lien révoqué entre la lecture et l'écriture donnent « à rapprocher ».
+4. **Le champ piège rempli donne une erreur visible** (`invalide`, sans champ), pas un faux
+   succès : une personne dont le navigateur l'aurait rempli doit le voir.
+5. **L'accord de conservation doit être accepté, et sa version connue de gestion**
+   (`textes_versions`) ; inconnue : `invalide` (`accord.version`). Le texte de la version
+   acceptée est recopié sur le questionnaire.
+6. **Moins de 18 ans** à la réception (date de l'envoi, sinon celle de la fiche désignée ; jour
+   de Paris) : autorisation parentale « à obtenir ». **Âge inconnu** — un suivi sans coordonnées
+   ni fiche — : « sans objet ».
+7. **Hors production, on détourne par défaut** : c'est `ENVIRONNEMENT = "production"`, et lui
+   seul, qui autorise un vrai destinataire. Sans adresse de détournement valide et unique, rien ne
+   part ; l'objet détourné est préfixé « [Recette] ».
+8. **Les refus d'avant la décision ne sont pas gardés** (`invalide`, `ferme`,
+   `trop_de_demandes`) : ils n'ont rien décidé, et les garder ferait écrire la base par cela même
+   qu'elle refuse. Le « refus compris » du §14.6 vaut pour les refus d'une décision
+   (`creneau_pris`, `journee_complete`), qui viendront avec leurs phases.
+9. **Porte coupée : `ferme` pour tout**, y compris pour un envoi déjà accepté qu'on rejoue.
+10. **La fiche est complétée après la réponse**, jamais avant (règle 4) : ses champs vides
+    seulement — civilité, date de naissance, profession, adresse, code postal, ville, téléphone —,
+    la personne de confiance si la fiche n'en a pas ; un écart (téléphone, adresse e-mail,
+    personne de confiance) ouvre `ecart_fiche` sur le questionnaire. Si ce travail n'a pas tourné,
+    le passage planifié le reprend (`fiche_completee_le` vide).
+11. **Une confirmation contraire de Make** reçoit `{ "ok": true }` : elle ouvre une alerte
+    `confirmation_contraire`, elle ne change pas l'ordre. Une confirmation d'un ordre jamais
+    confié ou annulé reçoit `invalide` (`ordre`), et ne consomme pas sa clé.
+12. **Après la purge de sa commande, un questionnaire garde la mémoire de son envoi**
+    (`envoi_id`, `envoi_empreinte`) : la même clé et le même contenu reçoivent `{ "ok": true }`
+    sans rien écrire ; un autre contenu, `invalide`.
+13. **Les longueurs maximales** (`packages/contrat`, `LONGUEURS`) : prénom et nom 80 ; e-mail 254 ;
+    téléphone 30 ; profession 120 ; adresse 200 ; code postal 12 ; ville 80 ; `reference` 512 ;
+    `evenement` 64 ; `version_formulaire` 16 ; `reponses` 80 éléments, `cle` 80 (`[a-z0-9._-]`),
+    `libelle` 500, `reponse` 2 000 ; `informations` 4 000. Les objets sont stricts ; une clé
+    inconnue se dit `champ_inconnu`, jamais par son nom. **Les valeurs de départ des réglages** :
+
+    | `cle` | Départ | Sens |
+    | :--- | --: | :--- |
+    | `porte_publique_ouverte` | 1 | l'interrupteur ; 0 : toute commande publique reçoit `ferme` |
+    | `commandes_questionnaire_max_jour` | 30 | questionnaires acceptés sur 24 heures glissantes |
+    | `emails_max_jour` | 50 | e-mails confiés à Make sur 24 heures glissantes (premières remises) |
+    | `recus_garde_h` | 720 | garde d'une commande et de son reçu |
+    | `ordre_relance_min` | 15 | délai avant de représenter un ordre non confirmé |
+    | `ordre_tentatives_max` | 5 | au-delà, l'ordre passe en `echec` |
+
+Et trois choix d'écriture, du même ordre : le secret présenté à Make voyage dans l'en-tête
+`x-make-apikey` (à confirmer en S2b contre le scénario) ; l'empreinte d'un envoi est un HMAC de sa
+forme canonique (clés triées, `cle` retirée), sous une sous-clé de `PORTES_SECRET` distincte de
+celle qui signe les liens ; le passage planifié tourne toutes les cinq minutes, en recette
+seulement (`src/declencheurs.ts`).
+
 ### 14.7 Le temps
 
 - En base, un instant est en millisecondes UTC (§2.2). Un horaire est une heure de Paris.
@@ -3611,7 +3683,8 @@ contrôlée après son déploiement.
 | # | Étape | Critère de sortie |
 | :--- | :--- | :--- |
 | **S1** | **La base et la recette** — ce chapitre ; le schéma des tables de la phase ; la liaison facultative ; `packages/pratique` (clé d'un client) ; les deux décisions de l'agenda et de la dernière place ; l'environnement de recette et son jeu d'essai | La console de recette s'ouvre sur son adresse, base reliée en juridiction européenne, jeu d'essai chargé ; la production, redéployée, est inchangée et dit « non reliée » |
-| **S2** | **Les portes** — l'essai à blanc du §14.3 ; `workers/porte`, les entrées nommées, `packages/contrat`, commandes rejouables, bornes, interrupteur, porte de service, ordres ; un premier parcours de bout en bout : le questionnaire | Un questionnaire fictif envoyé deux fois depuis une page de recette : une ligne, un accusé de réception, détourné ; le temps de calcul et les sous-requêtes d'un parcours relevés |
+| **S2a** | **Ce que gestion fait d'une commande** — `packages/contrat`, commandes rejouables, jetons des liens, bornes, interrupteur, ordres et confirmations, passage planifié ; le premier parcours, recevoir un questionnaire, par une fonction qui ne sait rien du transport (§14.6.1). Aucun Worker ni aucune adresse nouvelle | La suite et le typecheck verts, la suite d'avant inchangée ; en local, avec le jeu d'essai, un questionnaire fictif envoyé deux fois par le script d'essai (`npm run essai:questionnaire`) : une ligne, un ordre `prevu` ; Réglages montre les compteurs ; porte coupée : `ferme` ; `DRY_RUN=1` sur la production affiche les mêmes commandes qu'avant |
+| **S2b** | **Les portes** — l'essai à blanc du §14.3 ; `workers/porte`, les entrées nommées (`WorkerEntrypoint`), CORS, la limite de fréquence, la porte de service, le déploiement en recette et sa page d'essai | Un questionnaire fictif envoyé deux fois depuis une page de recette : une ligne, un accusé de réception, détourné ; le temps de calcul et les sous-requêtes d'un parcours relevés |
 | **S3** | **L'import** — outil, vérification, liste de ce qui demande un regard | Deux imports de suite sur les vraies bases, en local : zéro écart inexpliqué |
 | **S4** | **Les protections** — second facteur à la connexion ; sauvegarde chiffrée de la base et des fichiers, restauration essayée ; effacement d'une personne, lignes non rattachées et fichiers compris ; inspection des journaux, de l'export et du stockage du navigateur | Une restauration et un effacement faits en recette ; alors seulement, la liaison `CLIENTS` est posée en production |
 
@@ -3800,10 +3873,10 @@ d’avant. Cette action n’est proposée qu’après une sauvegarde réussie et
 disponible dans le contenu ouvert, sans compte à rebours. Le mouvement respecte
 la préférence système de réduction des animations (DESIGN.md).
 
-## Annexe C — Schéma de `luminose-clients` (v3.0)
+## Annexe C — Schéma de `luminose-clients` (v3.0, v3.1)
 
-Les tables de la phase S1 (§14.4), d'après le modèle de données du 26/11/2026. **Le fichier
-`workers/api/migrations-clients/0001_schema.sql` fait foi** ; ce qui suit en est la copie au
+Les tables des phases S1 et S2a (§14.4), d'après le modèle de données du 26/11/2026. **Les
+fichiers `workers/api/migrations-clients/0001_schema.sql` et `0003_portes.sql` font foi** ; ce qui suit en est la copie au
 moment de la v3.0, comme l'Annexe A pour l'éditoriale. Les données de départ — six types de
 séance, la semaine type, les réglages — sont dans `0002_reference.sql`.
 
@@ -4217,6 +4290,135 @@ CREATE INDEX idx_paiements_seance ON paiements(seance_id);
 CREATE INDEX idx_paiements_inscription ON paiements(inscription_id);
 ```
 
+### Phase S2a — `0003_portes.sql` (v3.1)
+
+Les tables des portes, côté gestion (§14.6) : aucune ne porte de valeur personnelle. Leurs
+valeurs de départ sont au §14.6.1.
+
+```sql
+-- Les portes, côté gestion : ce qu'une porte a reçu, ce que gestion demande à
+-- Make, ce qui demande le regard de Florent, et les modèles de messages
+-- (SPEC §14.6, phase S2a ; Annexe C).
+--
+-- `0001` et `0002` ne se modifient pas : cette migration ajoute. Aucune des
+-- quatre tables ne porte de valeur personnelle — une commande garde une
+-- empreinte et un reçu minimal, un ordre et une alerte désignent un objet sans
+-- le décrire. Leurs liens vers l'objet sont polymorphes (`objet_type`,
+-- `objet_id`), donc sans clé étrangère : c'est l'effacement de la phase S4 qui
+-- les retire avec la personne (Annexe C, matrice d'effacement).
+
+-- ─── Ce qu'une porte a reçu ─────────────────────────────────────────────────
+
+-- Une ligne par commande ACCEPTÉE : les refus d'avant la décision (invalide,
+-- ferme, trop_de_demandes) ne s'y écrivent pas (§14.6.1). Le couple
+-- (porte, cle) est unique : c'est lui qui fait qu'un envoi rejoué ne crée rien
+-- en double (règle 5).
+CREATE TABLE commandes (
+  id          TEXT PRIMARY KEY,
+  porte       TEXT NOT NULL CHECK (porte IN ('publique', 'service')),
+  -- Fabriquée par l'appelant (contrat §2) ; pour une confirmation de Make,
+  -- l'identifiant de l'ordre.
+  cle         TEXT NOT NULL,
+  sorte       TEXT NOT NULL CHECK (sorte IN ('questionnaire', 'confirmation')),
+  objet_type  TEXT,
+  objet_id    TEXT,
+  -- HMAC de l'envoi, avec un secret de gestion : elle ne permet pas d'en
+  -- deviner le contenu.
+  empreinte   TEXT NOT NULL,
+  -- JSON : la réponse rendue. Ni identité, ni réponse.
+  recu        TEXT NOT NULL,
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_commandes_cle ON commandes(porte, cle);
+-- La purge, et le compte des commandes du jour (la borne).
+CREATE INDEX idx_commandes_created ON commandes(created_at);
+CREATE INDEX idx_commandes_objet ON commandes(objet_type, objet_id);
+
+-- ─── Ce que gestion demande à Make ──────────────────────────────────────────
+
+-- Ni adresse, ni numéro, ni texte : le message se compose au départ, depuis le
+-- modèle et la fiche du moment (§14.6).
+CREATE TABLE ordres (
+  id                  TEXT PRIMARY KEY,
+  -- La liste du contrat, §4.1. Seul `message.email` sert dans la phase S2a.
+  sorte               TEXT NOT NULL CHECK (sorte IN (
+                        'message.email', 'message.sms', 'conversion.importer', 'conversion.retirer',
+                        'contact.brevo', 'client.comptabilite', 'paiement.stancer.creer',
+                        'paiement.stancer.verifier', 'facture.qonto.creer', 'notification.florent')),
+  -- Pour un message : la clé du modèle (`questionnaire_accuse`…).
+  modele_cle          TEXT,
+  objet_type          TEXT NOT NULL,
+  objet_id            TEXT NOT NULL,
+  prevu_le            INTEGER NOT NULL,
+  etat                TEXT NOT NULL DEFAULT 'prevu'
+                      CHECK (etat IN ('prevu', 'confie_a_make', 'fait', 'echec', 'annule')),
+  -- Une clé par effet : `accuse:<questionnaire>`, plus tard
+  -- `rappel:<séance>:<canal>:<révision>`.
+  cle_unicite         TEXT NOT NULL,
+  tentatives          INTEGER NOT NULL DEFAULT 0 CHECK (tentatives >= 0),
+  -- Posée une fois, à la première remise : c'est elle qui compte un e-mail
+  -- dans la borne du jour, pas ses relances.
+  premiere_remise_le  INTEGER,
+  confie_le           INTEGER,
+  termine_le          INTEGER,
+  -- JSON rendu par Make : des identifiants, jamais un texte.
+  resultat            TEXT,
+  -- Un code court : `objet_absent`, le motif d'un échec rendu par Make…
+  motif               TEXT,
+  created_at          INTEGER NOT NULL,
+  updated_at          INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_ordres_cle_unicite ON ordres(cle_unicite);
+CREATE INDEX idx_ordres_etat ON ordres(etat, prevu_le);
+CREATE INDEX idx_ordres_premiere_remise ON ordres(sorte, premiere_remise_le);
+
+-- ─── Ce qui demande le regard de Florent ────────────────────────────────────
+
+-- Une alerte désigne un objet, elle ne le décrit pas : aucune valeur
+-- personnelle ici. L'écart d'une fiche, par exemple, se lit sur la ligne reçue.
+CREATE TABLE alertes (
+  id          TEXT PRIMARY KEY,
+  sorte       TEXT NOT NULL CHECK (sorte IN (
+                'a_rapprocher', 'a_revoir', 'ecart_fiche', 'second_questionnaire', 'message_echec',
+                'confirmation_contraire', 'borne_atteinte', 'modele_absent')),
+  objet_type  TEXT NOT NULL,
+  objet_id    TEXT NOT NULL,
+  resolue_le  INTEGER,
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+-- La même alerte ne s'ouvre pas deux fois tant qu'elle n'est pas résolue.
+CREATE UNIQUE INDEX idx_alertes_ouvertes ON alertes(sorte, objet_type, objet_id) WHERE resolue_le IS NULL;
+CREATE INDEX idx_alertes_objet ON alertes(objet_type, objet_id);
+
+-- ─── Les modèles de messages ────────────────────────────────────────────────
+
+-- Créée vide : les textes viennent du lot F. Une modification crée une version.
+CREATE TABLE messages_modeles (
+  id          TEXT PRIMARY KEY,
+  cle         TEXT NOT NULL,
+  canal       TEXT NOT NULL CHECK (canal IN ('email', 'sms')),
+  version     INTEGER NOT NULL CHECK (version >= 1),
+  objet       TEXT,
+  corps       TEXT NOT NULL,
+  created_at  INTEGER NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  deleted_at  INTEGER
+);
+CREATE UNIQUE INDEX idx_messages_modeles_version ON messages_modeles(cle, canal, version);
+
+-- ─── La mémoire d'un envoi, après la purge de sa commande ───────────────────
+
+-- L'empreinte de l'envoi : un rejeu reconnu après la purge de sa commande
+-- (§14.6.1). Et la fiche complétée : posée quand la fiche a reçu ce que ce
+-- questionnaire pouvait lui apporter — vide, le passage planifié le reprend.
+ALTER TABLE questionnaires ADD COLUMN envoi_empreinte TEXT;
+ALTER TABLE questionnaires ADD COLUMN fiche_completee_le INTEGER;
+
+-- Puis six réglages (§14.6.1).
+```
+
 ### La matrice d'effacement — NORMATIF
 
 Pour chaque relation : qui possède la ligne, si le lien peut être vide, et ce que devient la
@@ -4247,6 +4449,15 @@ n'est jamais retiré pour de bon (suppression logique), une suppression réelle 
 | `questionnaires` ★ | `evenement_id` | `evenements` | oui | restreinte |
 | `paiements` | `seance_id` | `seances` | oui | **détachée** — pièce comptable |
 | `paiements` | `inscription_id` | `inscriptions` | oui | **détachée** — pièce comptable |
+| `commandes` | `objet_type`, `objet_id` | l'objet créé (polymorphe, sans clé étrangère) | oui | **retirée par l'effacement** (S4), avec son reçu (§14.6) |
+| `ordres` | `objet_type`, `objet_id` | l'objet concerné (polymorphe) | non | **retiré par l'effacement** (S4) |
+| `alertes` | `objet_type`, `objet_id` | l'objet désigné (polymorphe) | non | **retirée par l'effacement** (S4) |
+
+Ces trois liens n'ont pas de clé étrangère : une commande, un ordre ou une alerte peut désigner
+un questionnaire, une séance, un ordre ou un réglage. Aucune cascade ne les atteint donc ; c'est
+l'effacement de la phase S4 qui les cherche par `(objet_type, objet_id)` et les retire. Ils ne
+portent aucune valeur personnelle — une empreinte, un reçu minimal, une sorte, un état —, mais
+ils mèneraient à la personne. `messages_modeles` ne porte personne : suppression logique.
 
 Effacer un client retire donc, en cascade : ses séances et, avec elles, leurs mouvements,
 leurs notes et leurs réponses ; sa personne de confiance ; ses notes de fiche ; ses
