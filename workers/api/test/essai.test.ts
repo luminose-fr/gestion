@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { jeuDEssai, enSql, EFFECTIFS, aParis, lireDate, type Table } from '../essai/donnees';
+import { jeuDEssai, enSql, EFFECTIFS, aParis, lireDate, seancesQuiAttendentUnQuestionnaire, type Table } from '../essai/donnees';
 import { baseVisee, lireCible, LOCAL } from '../essai/cible';
 import { prendrePlace } from '../src/clients/decisions';
 import { TestD1, MIGRATIONS_CLIENTS } from './helpers/d1';
@@ -189,5 +189,17 @@ describe('le parcours d’essai d’un questionnaire (phase S2a)', () => {
     expect(r.porteCoupee).toEqual({ ok: false, motif: 'ferme' });
     expect(r.etat).toMatchObject({ ouverte: true, commandesDuJour: 1 });
     expect(base.query("SELECT valeur FROM reglages WHERE cle = 'porte_publique_ouverte'")[0].valeur).toBe(1);
+  });
+});
+
+describe('les séances qui attendent un questionnaire (phase S2b)', () => {
+  it('sont celles que la base chargée dit prévues et sans questionnaire', () => {
+    const base = new TestD1(MIGRATIONS_CLIENTS);
+    charger(base);
+    const enBase = base.query("SELECT id FROM seances WHERE statut = 'prevue' AND questionnaire_id IS NULL ORDER BY id").map((r: any) => r.id);
+    const ids = seancesQuiAttendentUnQuestionnaire(jeuDEssai(DATE));
+    expect([...ids].sort()).toEqual(enBase);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).not.toContain('essai-seance-avenir-breathwork');
   });
 });

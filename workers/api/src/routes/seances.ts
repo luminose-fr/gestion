@@ -14,7 +14,8 @@ import { baseClients } from '../clients/base';
 import { newId } from '../db';
 import { Refus } from '../refus';
 import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSeance } from '../clients/decisions';
-import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType } from '../clients/seances';
+import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens } from '../clients/seances';
+import { secretDesPortes, signerJeton } from '../clients/jetons';
 import { lireNotesSeance, ecrireNotesSeance } from '../clients/sensible';
 import { famille, corps, valider, dateSimple, identifiant, instantIso, iso } from './clients-commun';
 import { MESSAGE_NOTE_MODIFIEE } from './clients';
@@ -183,4 +184,37 @@ seances.patch('/:id', async (c) => {
   if (issue.faite) return c.json({ id });
   if (!(await etatSeance(db, id))) throw new Refus(SEANCE_INTROUVABLE, 404);
   throw new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+});
+
+// ─── Les liens d'une séance (SPEC §14.5, phase S2b) ─────────────────────────
+
+export const MESSAGE_SECRET_ABSENT = 'Le secret des portes n’est pas posé dans cet environnement.';
+export const MESSAGE_SITE_ABSENT = 'L’adresse du site n’est pas configurée.';
+
+/**
+ * Le lien de questionnaire d'une séance : `<ORIGINE_SITE>/#r=<jeton>`, jeton
+ * d'usage `questionnaire`, objet la séance, version son `liens_version`,
+ * échéance son début. **Le lien n'est rangé nulle part** et n'est jamais
+ * journalisé : il se recalcule quand on en a besoin (§14.5). Une instruction.
+ *
+ * C'est un `POST`, pas un `GET` : il fabrique un droit, et l'origine de
+ * l'environnement est exigée comme pour une écriture.
+ */
+seances.post('/:id/lien-questionnaire', async (c) => {
+  const db = baseClients(c.env);
+  if (!secretDesPortes(c.env)) throw new Refus(MESSAGE_SECRET_ABSENT, 409);
+  const origine = c.env.ORIGINE_SITE?.trim();
+  if (!origine) throw new Refus(MESSAGE_SITE_ABSENT, 409);
+  const id = c.req.param('id');
+  const seance = await seancePourUnLien(db, id);
+  if (!seance) throw new Refus(SEANCE_INTROUVABLE, 404);
+  const jeton = await signerJeton(c.env, { usage: 'questionnaire', objet: id, echeance: seance.debut, version: seance.liens_version });
+  return c.json({ lien: `${origine}/#r=${jeton}` });
+});
+
+/** Révoquer les liens d'une séance : le geste qu'aura l'écran de séance (C2). Une instruction. */
+seances.post('/:id/revoquer-liens', async (c) => {
+  const db = baseClients(c.env);
+  if (!(await revoquerLesLiens(db, c.req.param('id'), Date.now()))) throw new Refus(SEANCE_INTROUVABLE, 404);
+  return c.json({ revoques: true });
 });

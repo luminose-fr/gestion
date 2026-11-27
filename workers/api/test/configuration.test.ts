@@ -56,7 +56,7 @@ describe('NORMATIF — la recette', () => {
     expect(r.routes).toEqual(['gestion-recette.luminose.fr/api/*', 'gestion-recette.luminose.fr/auth/*']);
     expect(r.crons).toEqual([DECLENCHEURS.passage]);
     expect(r.workersDev).toBe(false);
-    expect(r.vars).toEqual({ ENVIRONNEMENT: 'recette' });
+    expect(r.vars).toEqual({ ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://essai-recette.luminose.fr' });
   });
 
   it('a ses deux bases, chacune avec ses migrations ; ni R2 ni Workers AI', () => {
@@ -105,9 +105,11 @@ describe('NORMATIF — la recette', () => {
   });
 
   it('des variables oubliées ne s’héritent pas : la recette se dirait production — refusée', () => {
-    const sansVars = completee().replace('[env.recette.vars]\nENVIRONNEMENT = "recette"\n', '');
+    const sansVars = completee().replace(/\[env\.recette\.vars\]\nENVIRONNEMENT = "recette"\n(#.*\n)*ORIGINE_SITE = .*\n/, '');
     expect(resoudre(sansVars, 'recette').vars).toEqual({});
-    expect(ecartsRecette(sansVars)).toEqual(['vars.ENVIRONNEMENT doit valoir "recette"']);
+    expect(ecartsRecette(sansVars)).toEqual([
+      'vars.ENVIRONNEMENT doit valoir "recette"', 'vars.ORIGINE_SITE doit valoir "https://essai-recette.luminose.fr"',
+    ]);
   });
 });
 
@@ -116,7 +118,7 @@ describe('le poste local', () => {
 
   it('déclare la base des clients, que la racine ne porte pas', () => {
     expect(local.d1.map((b) => [b.binding, b.migrationsDir])).toEqual([['DB', 'migrations'], ['CLIENTS', 'migrations-clients']]);
-    expect(local.vars).toEqual({ ENVIRONNEMENT: 'local' });
+    expect(local.vars).toEqual({ ENVIRONNEMENT: 'local', ORIGINE_SITE: 'http://localhost:8790' });
   });
 
   it('ne peut atteindre aucune base distante de la production, et ne se déploie nulle part', () => {

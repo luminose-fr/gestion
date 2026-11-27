@@ -107,6 +107,16 @@ export type Env = {
   PORTES_SECRET?: string;
 
   /**
+   * L'origine du site de cet environnement (SPEC §14.5) : celle des liens
+   * envoyés aux personnes, `<ORIGINE_SITE>/#r=<jeton>`. En recette, la page
+   * d'essai (`https://essai-recette.luminose.fr`) ; en local, la porte en
+   * `wrangler dev`. ABSENTE à la racine : la production n'a pas de lien à
+   * fabriquer dans cette phase, et la route qui en fabrique répond par un
+   * `Refus`.
+   */
+  ORIGINE_SITE?: string;
+
+  /**
    * L'empreinte (SHA-256, hexadécimal) du jeton que Make présente sur la porte
    * de service — jamais le jeton lui-même, comme `MCP_JETON_EMPREINTE`
    * (SPEC §14.5). Le jeton n'ouvre que la confirmation d'un ordre.

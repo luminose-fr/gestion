@@ -248,6 +248,8 @@ export const ecartsRecette = (source: string): string[] => {
     ecarts.push(`routes ${JSON.stringify(r.routes)}, attendues ${JSON.stringify(routesAttendues)}`);
   }
   if (r.vars.ENVIRONNEMENT !== 'recette') ecarts.push('vars.ENVIRONNEMENT doit valoir "recette"');
+  // L'origine des liens : la page d'essai de la recette, jamais le site de production.
+  if (r.vars.ORIGINE_SITE !== 'https://essai-recette.luminose.fr') ecarts.push('vars.ORIGINE_SITE doit valoir "https://essai-recette.luminose.fr"');
   if (r.r2.length > 0 || r.ai) ecarts.push('ni R2 ni Workers AI en recette : ces liaisons sont facultatives');
 
   const attendues: [string, string, string][] = [

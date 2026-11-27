@@ -321,6 +321,19 @@ export const jeuDEssai = (dateReference: string): JeuDEssai => {
   ];
 };
 
+/** La séance que le jeu relie à son questionnaire, en fin de fichier (`enSql`). */
+const SEANCE_AVEC_QUESTIONNAIRE = 'essai-seance-avenir-breathwork';
+
+/**
+ * Les séances du jeu qui attendent un questionnaire : prévues, et sans
+ * questionnaire rattaché. Ce sont celles dont Réglages → Porte publique sait
+ * fabriquer un lien d'essai (phase S2b). Des identifiants, rien de plus.
+ */
+export const seancesQuiAttendentUnQuestionnaire = (jeu: JeuDEssai): string[] =>
+  (jeu.find((t) => t.table === 'seances')?.lignes ?? [])
+    .filter((s) => s.statut === 'prevue' && s.questionnaire_id === null && s.id !== SEANCE_AVEC_QUESTIONNAIRE)
+    .map((s) => String(s.id));
+
 // ─── Le SQL ─────────────────────────────────────────────────────────────────
 
 const litteral = (v: string | number | null): string =>
@@ -345,7 +358,7 @@ export const enSql = (jeu: JeuDEssai): string => {
       );
     }
   }
-  instructions.push(`UPDATE seances SET questionnaire_id = 'essai-questionnaire' WHERE id = 'essai-seance-avenir-breathwork';`);
+  instructions.push(`UPDATE seances SET questionnaire_id = 'essai-questionnaire' WHERE id = '${SEANCE_AVEC_QUESTIONNAIRE}';`);
   // Un couple, lié des deux côtés : chacune des deux fiches désigne l'autre, d'où la fin du fichier.
   instructions.push(`UPDATE clients SET couple_client_id = 'essai-client-oenone' WHERE id = 'essai-client-jeanluc';`);
   instructions.push(`UPDATE clients SET couple_client_id = 'essai-client-jeanluc' WHERE id = 'essai-client-oenone';`);

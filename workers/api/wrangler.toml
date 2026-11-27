@@ -103,6 +103,10 @@ routes = [
 
 [env.recette.vars]
 ENVIRONNEMENT = "recette"
+# L'origine des liens envoyés aux personnes (§14.5) : la page d'essai, servie
+# par la porte de recette. La racine n'en a pas : la production ne fabrique pas
+# de lien dans cette phase.
+ORIGINE_SITE = "https://essai-recette.luminose.fr"
 
 # Un seul déclencheur : le passage des portes (§14.6, src/declencheurs.ts) —
 # relever les ordres, compléter les fiches, purger les reçus. Le plan gratuit en
@@ -141,6 +145,8 @@ routes = []
 
 [env.local.vars]
 ENVIRONNEMENT = "local"
+# La porte en `wrangler dev`, si on la lance.
+ORIGINE_SITE = "http://localhost:8790"
 
 [env.local.triggers]
 crons = []

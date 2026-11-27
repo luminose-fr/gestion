@@ -6,10 +6,15 @@
  * commande du site reçoit `ferme`, et la page du site affiche le téléphone de
  * Florent. Couper se confirme ; rouvrir, non — c'est le retour à la normale.
  * Les compteurs disent combien, jamais qui.
+ *
+ * Hors production, un bricolage d'essai (phase S2b) : fabriquer le lien de
+ * questionnaire d'une séance, pour ouvrir la page d'essai, et révoquer ses
+ * liens. C2 le remplacera par l'action de la fiche de séance ; en production,
+ * il n'existe pas.
  */
 import React, { useEffect, useState } from 'react';
 import { DoorOpen } from 'lucide-react';
-import { Bouton, Etiquette } from '../ui';
+import { Bouton, Champ, Etiquette } from '../ui';
 import { ConfirmModal } from '../CommonModals';
 import * as Api from '../../services/apiService';
 
@@ -27,7 +32,69 @@ const verifiee = (p: Api.EtatDesPortes): Api.EtatDesPortes => {
   return p;
 };
 
-export const PortePublique: React.FC = () => {
+type EtatLien =
+  | { phase: 'vide' }
+  | { phase: 'lien'; lien: string }
+  | { phase: 'revoque' }
+  | { phase: 'erreur'; message: string };
+
+/** Le message d'une erreur de l'API, sans le préfixe « Erreur 409 — ». */
+const messageDe = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^Erreur \d+ — /, '');
+
+/** Le lien d'essai d'une séance, et sa révocation. Hors production seulement. */
+export const LienDEssai: React.FC = () => {
+  const [seanceId, setSeanceId] = useState('');
+  const [etat, setEtat] = useState<EtatLien>({ phase: 'vide' });
+  const [enCours, setEnCours] = useState(false);
+
+  const agir = async (geste: () => Promise<EtatLien>) => {
+    setEnCours(true);
+    try {
+      setEtat(await geste());
+    } catch (e) {
+      setEtat({ phase: 'erreur', message: messageDe(e) });
+    } finally {
+      setEnCours(false);
+    }
+  };
+  const id = seanceId.trim();
+
+  return (
+    <div className="mt-3" data-lien-essai={etat.phase}>
+      <div className="flex items-end gap-2">
+        <Champ
+          id="porte-lien-essai-seance"
+          label="Identifiant de séance"
+          value={seanceId}
+          onChange={(e) => { setSeanceId(e.target.value); setEtat({ phase: 'vide' }); }}
+          classNameEnveloppe="flex-1"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <Bouton type="button" disabled={!id || enCours} onClick={() => agir(async () => ({ phase: 'lien', lien: (await Api.fabriquerLienQuestionnaire(id)).lien }))}>
+          Lien d’essai
+        </Bouton>
+        <Bouton type="button" intention="secondaire" ton="erreur" disabled={!id || enCours} onClick={() => agir(async () => { await Api.revoquerLiensSeance(id); return { phase: 'revoque' }; })}>
+          Révoquer
+        </Bouton>
+      </div>
+      {etat.phase === 'lien' && (
+        <div className="mt-2 flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate text-xs text-brand-main dark:text-dark-text" title={etat.lien}>{etat.lien}</code>
+          <Bouton type="button" taille="petit" intention="secondaire" onClick={() => window.open(etat.lien, '_blank', 'noopener,noreferrer')}>
+            Ouvrir
+          </Bouton>
+        </div>
+      )}
+      {etat.phase === 'revoque' && (
+        <p className="mt-2 text-xs text-brand-main dark:text-dark-text">Liens révoqués : ceux déjà envoyés pour cette séance ne valent plus.</p>
+      )}
+      {etat.phase === 'erreur' && <p className="mt-2 text-xs font-semibold text-erreur">{etat.message}</p>}
+    </div>
+  );
+};
+
+export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> = ({ environnement = 'production' }) => {
   const [etat, setEtat] = useState<Etat>({ phase: 'lecture' });
   const [confirmer, setConfirmer] = useState(false);
   const [enCours, setEnCours] = useState(false);
@@ -106,6 +173,8 @@ export const PortePublique: React.FC = () => {
       )}
 
       {echec && <p className="mt-2 text-xs font-semibold text-erreur">{echec}</p>}
+
+      {portes && environnement !== 'production' && <LienDEssai />}
 
       <ConfirmModal
         isOpen={confirmer}
