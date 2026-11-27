@@ -3309,3 +3309,61 @@ describe('la console des clients — chaque écran chargé, vide, base non reli�
     await waitFor(() => expect(seance.container.textContent).toContain('Histoire du rendez-vous'));
   });
 });
+
+// ─── Tranche C2b : évènements, professionnels, réglages de la réservation ──
+
+import { EspaceEvenements, EvenementView, ListeEvenements, NouvelEvenement } from '../components/Clients/EvenementsView';
+import { ProfessionnelsView } from '../components/Clients/ProfessionnelsView';
+import { FenetreProfessionnel } from '../components/Clients/FenetreProfessionnel';
+import { ReservationReglages } from '../components/Settings/ReservationReglages';
+import { EVENEMENT, PROFESSIONNEL, routesChargeesC2b } from './helpers/clients';
+
+describe('la console des clients — tranche C2b', () => {
+  beforeEach(() => { window.location.hash = ''; });
+
+  const ECRANS: Array<[string, () => React.ReactElement, string]> = [
+    ['Évènements', () => <ListeEvenements />, 'Journée d’essai'],
+    ['Un évènement', () => <EvenementView id="ev-1" />, 'Inscrits'],
+    ['Professionnels', () => <ProfessionnelsView />, 'Cabinet d’essai'],
+    ['Réglages → Réservation', () => <ReservationReglages />, 'La semaine type'],
+  ];
+
+  it.each(ECRANS)('%s : chargé', async (_, ecranRendu, attendu) => {
+    routesChargeesC2b();
+    const { container } = render(ecranRendu());
+    await waitFor(() => expect(container.textContent).toContain(attendu));
+  });
+
+  it.each(ECRANS)('%s : base non reliée', async (_, ecranRendu) => {
+    routesNonReliees();
+    for (const nom of ['lireEvenement', 'listeEvenements', 'listeProfessionnels', 'lireReservation'] as const) {
+      vi.spyOn(ClientsService, nom).mockRejectedValue(new ClientsService.ErreurClients("La base des clients n'est pas reliée à cet environnement.", 409));
+    }
+    const { container } = render(ecranRendu());
+    await waitFor(() => expect(container.textContent).toContain(NON_RELIEE_TEXTE));
+  });
+
+  it('vides', async () => {
+    routesChargeesC2b();
+    vi.spyOn(ClientsService, 'listeEvenements').mockResolvedValue({ evenements: [] });
+    vi.spyOn(ClientsService, 'listeProfessionnels').mockResolvedValue({ professionnels: [] });
+    const ev = render(<ListeEvenements />);
+    await waitFor(() => expect(ev.container.textContent).toContain('Aucun évènement'));
+    cleanup();
+    const pros = render(<ProfessionnelsView />);
+    await waitFor(() => expect(pros.container.textContent).toContain('Aucun professionnel'));
+  });
+
+  it('nouvel évènement, fenêtre d’un professionnel, et l’adresse de l’espace', async () => {
+    routesChargeesC2b();
+    expect(render(<NouvelEvenement />).container.textContent).toContain('Créer l’évènement');
+    cleanup();
+    expect(render(<FenetreProfessionnel pro={PROFESSIONNEL} onFermer={() => {}} onEnregistre={() => {}} />).container.textContent).toContain('Modifier le professionnel');
+    cleanup();
+    expect(render(<FenetreProfessionnel onFermer={() => {}} onEnregistre={() => {}} />).container.textContent).toContain('Nouveau professionnel');
+    cleanup();
+    window.location.hash = `#evenements/${EVENEMENT.id}`;
+    const espace = render(<EspaceEvenements />);
+    await waitFor(() => expect(espace.container.textContent).toContain('Inscrits'));
+  });
+});
