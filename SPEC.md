@@ -3372,6 +3372,27 @@ parcours complet consomme de temps de calcul et de sous-requêtes sur le plan gr
 
 L'entrée `Essai` et sa liaison ont été retirées une fois ces relevés faits.
 
+**La réception de S2b en recette** (27/11/2026, après la fusion dans `main`) :
+
+- **Un questionnaire envoyé deux fois** depuis la page d'essai (« Renvoyer le même envoi ») : une
+  commande, un questionnaire rattaché à sa séance, un ordre `message.email` prévu (sans scénario
+  Make, il ne part pas encore).
+- **Un lien révoqué** : la page dit aussitôt « Ce lien n'est plus valable », sans formulaire. Une
+  page ouverte avant la révocation et envoyée après : `{ "ok": true }`, enregistrée « à rapprocher »,
+  sans séance, avec son alerte.
+- **Porte coupée** : `ferme` à l'ouverture comme à l'envoi. Une autre origine : 403 ; 70 Ko : 413.
+- **Le coût** (Metrics, sur la période des essais) : la porte, 8 sous-requêtes pour environ quatre
+  appels transmis à gestion — la liaison de service, et vraisemblablement le limiteur — et 353 µs
+  de calcul en tout ; gestion, 0 sous-requête. Les entrées de gestion : 1 à 4 ms de calcul, 34 à
+  167 ms de durée.
+- **La coupure des journaux d'invocation tient** : depuis le déploiement qui la pose, l'API Workers
+  Observability ne rend **aucun** évènement pour la porte — elle n'écrit que ses codes de panne, et
+  il n'y en a pas eu. Ni `cf-connecting-ip`, ni `x-real-ip`, ni l'objet `cf`. Les invocations
+  `jsrpc` de gestion ne portent que la méthode appelée.
+- **À trancher avec la vraie page du site** : la page retire le jeton de son adresse à la première
+  ouverture et ne le garde qu'en mémoire. Recharger la page le perd : l'envoi part « à rapprocher »
+  — rien ne se perd, mais la personne ne voit plus que son lien était valable.
+
 ### 14.4 La base `luminose-clients`
 
 **Créée en Europe, et tenue d'y rester** : `wrangler d1 create luminose-clients
