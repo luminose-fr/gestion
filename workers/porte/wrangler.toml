@@ -51,6 +51,10 @@ routes = [
 
 [env.recette.vars]
 ENVIRONNEMENT = "recette"
+# La seule origine admise sur la porte publique (§14.5), et celle que rend
+# Access-Control-Allow-Origin : la page d'essai, qui tient lieu de site de
+# recette. Jamais `*`, jamais l'origine reçue recopiée.
+ORIGINE_SITE = "https://essai-recette.luminose.fr"
 
 [env.recette.triggers]
 crons = []
@@ -68,3 +72,28 @@ head_sampling_rate = 1
 binding = "GESTION_ESSAI"
 service = "gestion-luminose-worker-recette"
 entrypoint = "Essai"
+
+# Les entrées nommées des portes (workers/api/src/clients/portes/entrees.ts).
+[[env.recette.services]]
+binding = "GESTION_PUBLIQUE"
+service = "gestion-luminose-worker-recette"
+entrypoint = "PortePublique"
+
+[[env.recette.services]]
+binding = "GESTION_SERVICE"
+service = "gestion-luminose-worker-recette"
+entrypoint = "PorteService"
+
+# La limite de fréquence (§14.5) : approchée, comptée par centre de données. Elle
+# écarte le bruit ; les vraies bornes sont dans gestion. Valeurs de départ —
+# choix du brief, à confirmer. `namespace_id` est propre au compte : la
+# production aura les siens.
+[[env.recette.ratelimits]]
+name = "LIMITE_QUESTIONNAIRES"
+namespace_id = "2611"
+simple = { limit = 10, period = 60 }
+
+[[env.recette.ratelimits]]
+name = "LIMITE_LIENS"
+namespace_id = "2612"
+simple = { limit = 30, period = 60 }

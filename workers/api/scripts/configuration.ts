@@ -146,6 +146,7 @@ export type Resolue = {
   r2: string[];
   ai: boolean;
   services: LiaisonService[];
+  ratelimits: { name: string; namespaceId: string; limit: number; period: number }[];
   /** Les clés de liaison que la section déclare, quelles qu'elles soient. */
   liaisons: string[];
   observabilite: { enabled: boolean; headSamplingRate: number | null };
@@ -195,6 +196,10 @@ export const resoudre = (source: string, environnement: string | null): Resolue 
       service: String(b.service),
       entrypoint: b.entrypoint === undefined ? null : String(b.entrypoint),
     })),
+    ratelimits: ((propre.ratelimits ?? []) as Table[]).map((b) => {
+      const simple = (b.simple ?? {}) as Table;
+      return { name: String(b.name), namespaceId: String(b.namespace_id), limit: Number(simple.limit), period: Number(simple.period) };
+    }),
     liaisons: CLES_DE_LIAISON.filter((cle) => propre[cle] !== undefined),
     observabilite: {
       enabled: observabilite.enabled === true,
@@ -266,11 +271,18 @@ export const ecartsRecette = (source: string): string[] => {
 export const PORTE_RECETTE = {
   worker: 'luminose-porte-recette',
   domaine: 'api-recette.luminose.fr',
+  origineSite: 'https://essai-recette.luminose.fr',
   /**
-   * Les seules liaisons de la porte : des entrées nommées de gestion DE
-   * RECETTE. Phase S2b, partie A : l'entrée d'essai, et elle seule.
+   * Les seules liaisons de service de la porte : des entrées nommées de
+   * gestion DE RECETTE. `Essai` se retire au dernier commit de la phase S2b.
    */
-  services: [{ binding: 'GESTION_ESSAI', service: RECETTE.worker, entrypoint: 'Essai' }] as LiaisonService[],
+  services: [
+    { binding: 'GESTION_ESSAI', service: RECETTE.worker, entrypoint: 'Essai' },
+    { binding: 'GESTION_PUBLIQUE', service: RECETTE.worker, entrypoint: 'PortePublique' },
+    { binding: 'GESTION_SERVICE', service: RECETTE.worker, entrypoint: 'PorteService' },
+  ] as LiaisonService[],
+  /** Les limiteurs de fréquence (§14.5) : un par route publique. */
+  limiteurs: ['LIMITE_LIENS', 'LIMITE_QUESTIONNAIRES'],
 } as const;
 
 /**
@@ -296,7 +308,15 @@ export const ecartsPorteRecette = (source: string): string[] => {
     ecarts.push(`routes ${JSON.stringify(r.routesDetaillees)}, attendue ${PORTE_RECETTE.domaine} en domaine personnalisé (custom_domain = true)`);
   }
   if (r.vars.ENVIRONNEMENT !== 'recette') ecarts.push('vars.ENVIRONNEMENT doit valoir "recette"');
-  const autres = r.liaisons.filter((l) => l !== 'services');
+  if (r.vars.ORIGINE_SITE !== PORTE_RECETTE.origineSite) ecarts.push(`vars.ORIGINE_SITE doit valoir "${PORTE_RECETTE.origineSite}"`);
+  const limiteurs = r.ratelimits.map((l) => l.name).sort();
+  if (JSON.stringify(limiteurs) !== JSON.stringify(PORTE_RECETTE.limiteurs)) {
+    ecarts.push(`limiteurs [${limiteurs.join(', ')}], attendus [${PORTE_RECETTE.limiteurs.join(', ')}]`);
+  }
+  for (const l of r.ratelimits) {
+    if (!(l.limit > 0) || ![10, 60].includes(l.period)) ecarts.push(`${l.name} : limite ${l.limit} sur ${l.period} s — une limite positive, sur 10 ou 60 secondes`);
+  }
+  const autres = r.liaisons.filter((l) => l !== 'services' && l !== 'ratelimits');
   if (autres.length > 0) ecarts.push(`liaisons interdites à la porte (ni base, ni KV, ni secret — §14.3) : ${autres.join(', ')}`);
   for (const s of r.services) {
     if (s.service !== RECETTE.worker) ecarts.push(`${s.binding} : lié à « ${s.service} », seul « ${RECETTE.worker} » est admis en recette`);

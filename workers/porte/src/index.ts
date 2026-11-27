@@ -1,25 +1,28 @@
 /**
  * Worker de la porte — api-recette.luminose.fr (SPEC §14.3, §14.5).
  *
- * Phase S2b, partie A : l'essai à blanc. Une adresse, `POST /v1/essai`, qui
- * appelle l'entrée `Essai` de gestion par la liaison de service et rend sa
- * réponse. Toute autre adresse : 404, corps vide.
+ * Ce qu'elle accepte, et rien d'autre :
  *
- * Ce que l'essai doit montrer (§14.3) : que l'appel traverse, qu'aucune adresse
- * ne mène aux entrées de gestion, et ce que deux Workers et une liaison coûtent
- * en temps de calcul et en sous-requêtes sur le plan gratuit.
+ *   POST    /v1/questionnaires           → PortePublique.questionnaire
+ *   POST    /v1/questionnaires/lien      → PortePublique.lienQuestionnaire
+ *   OPTIONS sur les deux                 → la réponse de CORS, sans gestion
+ *   POST    /service/v1/confirmations    → PorteService.confirmation
+ *   POST    /v1/essai                    → Essai.ping (l'essai à blanc, partie A)
+ *
+ * Toute autre adresse ou méthode : 404, corps vide.
  *
  * Ce Worker n'importe rien de `workers/api` : il ne connaît de gestion que les
- * interfaces de `packages/contrat`.
+ * interfaces de `packages/contrat`. Il ne journalise jamais le corps, l'adresse
+ * IP, l'en-tête `Authorization` ni la référence d'un lien : une panne se dit
+ * par un code fixe (reponses.ts).
  */
-import type { EntreeEssai } from '@luminose/contrat';
+import type { Env } from './env.ts';
 import { introuvable, journaliser, json, panne } from './reponses.ts';
+import { preliminaire } from './cors.ts';
+import { porterPublique, QUESTIONNAIRE, LIEN } from './publique.ts';
+import { porterService } from './service.ts';
 
-export type Env = {
-  ENVIRONNEMENT?: string;
-  /** La liaison vers l'entrée `Essai` de gestion. Absente — la racine, jamais déployée — : panne. */
-  GESTION_ESSAI?: Pick<EntreeEssai, 'ping'>;
-};
+export type { Env } from './env.ts';
 
 const essai = async (env: Env): Promise<Response> => {
   if (!env.GESTION_ESSAI) {
@@ -33,8 +36,7 @@ const essai = async (env: Env): Promise<Response> => {
     journaliser('porte.panne');
     return panne();
   }
-  // Re-sérialisé depuis la forme attendue, jamais recopié : une réponse de
-  // gestion qui n'a pas cette forme est une panne, pas un corps à relayer.
+  // Re-sérialisé depuis la forme attendue, jamais recopié.
   const r = recu as { ok?: unknown; base?: unknown } | null;
   if (r?.ok !== true || typeof r.base !== 'boolean') {
     journaliser('porte.reponse_hors_schema');
@@ -43,9 +45,19 @@ const essai = async (env: Env): Promise<Response> => {
   return json({ ok: true, base: r.base });
 };
 
+const PUBLIQUES = { '/v1/questionnaires': QUESTIONNAIRE, '/v1/questionnaires/lien': LIEN } as const;
+
 export default {
   async fetch(requete: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(requete.url);
+    const publique = Object.hasOwn(PUBLIQUES, pathname) ? PUBLIQUES[pathname as keyof typeof PUBLIQUES] : null;
+
+    if (publique && requete.method === 'POST') return porterPublique(requete, env, publique);
+    if (publique && requete.method === 'OPTIONS') {
+      if (!env.ORIGINE_SITE) { journaliser('porte.non_configuree'); return panne(); }
+      return preliminaire(env.ORIGINE_SITE);
+    }
+    if (requete.method === 'POST' && pathname === '/service/v1/confirmations') return porterService(requete, env);
     if (requete.method === 'POST' && pathname === '/v1/essai') return essai(env);
     return introuvable();
   },

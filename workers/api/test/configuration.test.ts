@@ -153,9 +153,17 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     expect(r.previewUrls).toBe(false);
     expect(r.routesDetaillees).toEqual([{ pattern: 'api-recette.luminose.fr', customDomain: true }]);
     expect(r.crons).toEqual([]);
-    expect(r.vars).toEqual({ ENVIRONNEMENT: 'recette' });
-    expect(r.liaisons).toEqual(['services']);
-    expect(r.services).toEqual([{ binding: 'GESTION_ESSAI', service: 'gestion-luminose-worker-recette', entrypoint: 'Essai' }]);
+    expect(r.vars).toEqual({ ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://essai-recette.luminose.fr' });
+    expect(r.liaisons).toEqual(['services', 'ratelimits']);
+    expect(r.services).toEqual([
+      { binding: 'GESTION_ESSAI', service: 'gestion-luminose-worker-recette', entrypoint: 'Essai' },
+      { binding: 'GESTION_PUBLIQUE', service: 'gestion-luminose-worker-recette', entrypoint: 'PortePublique' },
+      { binding: 'GESTION_SERVICE', service: 'gestion-luminose-worker-recette', entrypoint: 'PorteService' },
+    ]);
+    expect(r.ratelimits).toEqual([
+      { name: 'LIMITE_QUESTIONNAIRES', namespaceId: '2611', limit: 10, period: 60 },
+      { name: 'LIMITE_LIENS', namespaceId: '2612', limit: 30, period: 60 },
+    ]);
     // Le temps de l'essai : tout est relevé (§14.3).
     expect(r.observabilite).toEqual({ enabled: true, headSamplingRate: 1 });
   });
@@ -165,7 +173,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
   });
 
   it('une liaison vers le gestion de PRODUCTION est refusée', () => {
-    const vers = PORTE.replace('service = "gestion-luminose-worker-recette"', 'service = "gestion-luminose-worker"');
+    const vers = PORTE.replace(/service = "gestion-luminose-worker-recette"/g, 'service = "gestion-luminose-worker"');
     expect(ecartsPorteRecette(vers).join('\n')).toMatch(/seul « gestion-luminose-worker-recette » est admis/);
   });
 
@@ -191,6 +199,12 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
   it('ni base, ni KV, ni secret : une liaison de plus est refusée', () => {
     const avecKv = `${PORTE}\n[[env.recette.kv_namespaces]]\nbinding = "X"\nid = "abc"\n`;
     expect(ecartsPorteRecette(avecKv)).toEqual(['liaisons interdites à la porte (ni base, ni KV, ni secret — §14.3) : kv_namespaces']);
+  });
+
+  it('une autre origine du site, ou un limiteur manquant : refusés', () => {
+    expect(ecartsPorteRecette(PORTE.replace('ORIGINE_SITE = "https://essai-recette.luminose.fr"', 'ORIGINE_SITE = "*"')).join('\n')).toMatch(/ORIGINE_SITE/);
+    const sansLimite = PORTE.replace(/\[\[env\.recette\.ratelimits\]\]\nname = "LIMITE_LIENS"[\s\S]*$/, '');
+    expect(ecartsPorteRecette(sansLimite).join('\n')).toMatch(/limiteurs/);
   });
 
   it('un déclencheur hérité ou déclaré : refusé', () => {

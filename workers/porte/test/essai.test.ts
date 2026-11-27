@@ -67,8 +67,8 @@ describe('toute autre adresse', () => {
     ['POST', '/v1/essai/'],
     ['POST', '/'],
     ['GET', '/'],
-    ['POST', '/v1/questionnaires'],
-    ['POST', '/service/v1/confirmations'],
+    ['GET', '/v1/questionnaires'],
+    ['PUT', '/service/v1/confirmations'],
     ['POST', '/api/contents'],
     ['OPTIONS', '/v1/essai'],
   ])('%s %s : 404, corps vide, sans appeler gestion', async (methode, chemin) => {
