@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 import { CalendarCheck, Unlink } from 'lucide-react';
 import { Bouton, Carte, Champ, TitreSection } from '../ui';
 import * as Clients from '../../services/clientsService';
-import { Avis, EtatLecture, messageDe, useLecture } from '../Clients/commun';
+import { Avis, CLASSES_SELECT, EtatLecture, messageDe, useLecture } from '../Clients/commun';
 
 /** Ce que le retour de Google a dit, lu dans l'adresse (`#reglages/agenda?agenda=…`). */
 const ISSUES: Record<string, { ton: 'neutre' | 'erreur'; texte: string }> = {
@@ -23,6 +23,57 @@ const ISSUES: Record<string, { ton: 'neutre' | 'erreur'; texte: string }> = {
 };
 
 const issueDeLAdresse = () => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('agenda');
+
+/** Les agendas du compte : lesquels rendent Florent indisponible, et lequel reçoit les rendez-vous. */
+const ChoixDesAgendas: React.FC = () => {
+  const lecture = useLecture(() => Clients.lireAgendas(), []);
+  const [lus, setLus] = useState<string[] | null>(null);
+  const [ecrit, setEcrit] = useState<string | null>(null);
+  const [refus, setRefus] = useState<string | null>(null);
+  const [fait, setFait] = useState(false);
+
+  if (lecture.phase !== 'prete') return <EtatLecture lecture={lecture} titre="Lecture de vos agendas" />;
+  const { agendas } = lecture.donnees;
+  const choisis = lus ?? lecture.donnees.lecture;
+  const cible = ecrit ?? lecture.donnees.ecriture;
+  const modifie = JSON.stringify([...choisis].sort()) !== JSON.stringify([...lecture.donnees.lecture].sort()) || cible !== lecture.donnees.ecriture;
+
+  const enregistrer = async () => {
+    setRefus(null);
+    try {
+      await Clients.choisirAgendas(choisis, cible);
+      await lecture.recharger();
+      setLus(null); setEcrit(null); setFait(true);
+    } catch (e) { setRefus(messageDe(e)); }
+  };
+
+  return (
+    <Carte densite="contenu" rythme>
+      <TitreSection
+        as="h3" titre="Vos agendas"
+        sousTitre={modifie ? <span className="text-alerte">Modifications non enregistrées.</span> : fait ? 'Enregistré.' : undefined}
+        action={<Bouton taille="petit" intention="principale" disabled={!modifie || choisis.length === 0} onClick={enregistrer}>Enregistrer</Bouton>}
+      />
+      <fieldset className="space-y-2">
+        <legend className="mb-2 text-sm font-semibold text-brand-main dark:text-white">Ce qui vous rend indisponible</legend>
+        {agendas.map((a) => (
+          <label key={a.id} className="flex items-center gap-2 text-sm text-brand-main dark:text-white">
+            <input type="checkbox" checked={choisis.includes(a.id)}
+              onChange={(e) => { setFait(false); setLus(e.target.checked ? [...choisis, a.id] : choisis.filter((x) => x !== a.id)); }} />
+            {a.nom}{a.principal ? ' (principal)' : ''}
+          </label>
+        ))}
+      </fieldset>
+      <div>
+        <label htmlFor="agenda-ecriture" className="mb-1 block text-sm font-semibold text-brand-main dark:text-white">Où écrire les rendez-vous</label>
+        <select id="agenda-ecriture" className={CLASSES_SELECT} value={cible} onChange={(e) => { setFait(false); setEcrit(e.target.value); }}>
+          {agendas.filter((a) => a.ecriture).map((a) => <option key={a.id} value={a.id}>{a.nom}{a.principal ? ' (principal)' : ''}</option>)}
+        </select>
+      </div>
+      {refus && <Avis ton="erreur">{refus}</Avis>}
+    </Carte>
+  );
+};
 
 export const AgendaReglages: React.FC = () => {
   const lecture = useLecture(() => Clients.lireAgenda(), []);
@@ -63,7 +114,7 @@ export const AgendaReglages: React.FC = () => {
           as="h3"
           titre="L’agenda"
           sousTitre={etat.relie
-            ? `Relié${etat.compte ? ` : ${etat.compte}` : ''}. La réservation lit les plages occupées de l’agenda principal, et y écrit chaque rendez-vous, avec un lien Meet en visio.`
+            ? `Relié${etat.compte ? ` : ${etat.compte}` : ''}. La réservation lit les plages occupées des agendas choisis ci-dessous, et écrit chaque rendez-vous dans le vôtre, avec un lien Meet en visio.`
             : 'Pas encore relié. La réservation fait sans lui : elle ne lit ni n’écrit rien dans Google.'}
         />
         <div className="flex flex-wrap gap-2">
@@ -75,6 +126,8 @@ export const AgendaReglages: React.FC = () => {
           {etat.relie && <Bouton intention="secondaire" taille="petit" onClick={oublier}><Unlink /> Oublier l’autorisation</Bouton>}
         </div>
       </Carte>
+
+      {etat.relie && <ChoixDesAgendas />}
 
       <Carte densite="contenu" rythme>
         <TitreSection

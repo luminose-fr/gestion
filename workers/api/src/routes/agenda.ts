@@ -5,6 +5,8 @@
  *   PUT    /api/agenda/client    poser l'identifiant et le secret du client OAuth
  *   GET    /api/agenda/connexion partir chez Google autoriser gestion (navigation, pas fetch)
  *   GET    /api/agenda/retour    le retour de Google — HORS session, voir plus bas
+ *   GET    /api/agenda/agendas   les agendas du compte, et ceux qui sont choisis
+ *   PUT    /api/agenda/agendas   choisir les agendas lus et l'agenda écrit
  *   DELETE /api/agenda           oublier l'autorisation
  *
  * **Le secret et le jeton de renouvellement n'ont aucun chemin de retour**
@@ -21,8 +23,8 @@ import type { Env } from '../env';
 import { Refus } from '../refus';
 import { famille, corps } from './clients-commun';
 import {
-  lireConfiguration, poser, echangerLeCode, estRelie, PORTEES,
-  CLE_CLIENT_ID, CLE_CLIENT_SECRET, CLE_RENOUVELLEMENT, CLE_COMPTE,
+  lireConfiguration, poser, echangerLeCode, estRelie, ouvrirAgenda, PORTEES,
+  CLE_CLIENT_ID, CLE_CLIENT_SECRET, CLE_RENOUVELLEMENT, CLE_COMPTE, CLE_LECTURE, CLE_ECRITURE,
 } from '../clients/agenda';
 
 export const agenda = famille();
@@ -108,6 +110,37 @@ agenda.get('/retour', async (c) => {
     console.error(erreur instanceof Error && erreur.message.startsWith('agenda.') ? erreur.message : 'agenda.echange');
     return ecran('echec');
   }
+});
+
+agenda.get('/agendas', async (c) => {
+  const conf = await lireConfiguration(c.env);
+  const ouvert = await ouvrirAgenda(c.env);
+  if (!ouvert) throw new Refus('L’agenda n’est pas relié.', 409);
+  let agendas: Awaited<ReturnType<typeof ouvert.liste>>;
+  try {
+    agendas = await ouvert.liste();
+  } catch (erreur) {
+    // Un accès d'avant ce réglage n'a pas le droit de lister : il faut se reconnecter.
+    if (erreur instanceof Error && erreur.message === 'agenda.liste_403') {
+      throw new Refus('Reconnectez l’agenda : l’autorisation d’avant ne permet pas de lister vos agendas.', 409);
+    }
+    throw erreur;
+  }
+  const principal = agendas.find((a) => a.principal)?.id;
+  const reel = (id: string) => (id === 'primary' && principal ? principal : id);
+  return c.json({ agendas, lecture: conf.lecture.map(reel), ecriture: reel(conf.ecriture) });
+});
+
+const Choix = z.strictObject({ lecture: z.array(z.string().min(1).max(300)).min(1).max(20), ecriture: z.string().min(1).max(300) });
+
+agenda.put('/agendas', async (c) => {
+  const { lecture, ecriture } = await corps(c, Choix);
+  const maintenant = Date.now();
+  await c.env.DB.batch([
+    poser(c.env, CLE_LECTURE, JSON.stringify([...new Set(lecture)]), maintenant),
+    poser(c.env, CLE_ECRITURE, ecriture, maintenant),
+  ]);
+  return c.json({ lecture: [...new Set(lecture)], ecriture });
 });
 
 agenda.delete('/', async (c) => {

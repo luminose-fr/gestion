@@ -222,9 +222,10 @@ describe('l’agenda Google relié (§14.12)', () => {
       appels.push({ url, corps });
       if (url.startsWith('https://oauth2.googleapis.com/token')) return Response.json({ access_token: 'acces-essai' });
       if (url.endsWith('/freeBusy')) {
-        return panneLecture ? new Response('', { status: 500 }) : Response.json({ calendars: { primary: { busy: occupe } } });
+        if (panneLecture) return new Response('', { status: 500 });
+        return Response.json({ calendars: Object.fromEntries(corps.items.map((i: { id: string }) => [i.id, { busy: i.id === 'primary' || i.id === 'perso@group.calendar.google.com' ? occupe : [] }])) });
       }
-      if (url.includes('/calendars/primary/events')) {
+      if (url.includes('/events?')) {
         return panneEcriture ? new Response('', { status: 503 }) : Response.json({ id: 'evenement-essai', hangoutLink: corps.conferenceData ? 'https://meet.google.com/abc-defg-hij' : undefined });
       }
       return new Response('', { status: 404 });
@@ -272,6 +273,18 @@ describe('l’agenda Google relié (§14.12)', () => {
     vi.setSystemTime(MAINTENANT + HEURE);
     expect(await reprendreLesAgendas(env)).toBe(1);
     expect(base.query("SELECT agenda_etat FROM seances WHERE origine = 'site'")[0].agenda_etat).toBe('ecrit');
+  });
+
+  it('les agendas choisis : tous lus, et le rendez-vous écrit dans celui qui est désigné', async () => {
+    env.DB.query("INSERT INTO app_settings (key, value, updated_at) VALUES ('agenda_google_lecture', ?, 0)", JSON.stringify(['perso@group.calendar.google.com', 'pro@group.calendar.google.com']));
+    env.DB.query("INSERT INTO app_settings (key, value, updated_at) VALUES ('agenda_google_ecriture', 'pro@group.calendar.google.com', 0)");
+    occupe = [{ start: '2027-01-11T08:00:00Z', end: '2027-01-11T09:00:00Z' }]; // dans l'agenda perso
+    expect((await envoyer('/v1/reservation', reservation())).corps).toEqual({ ok: false, motif: 'creneau_pris' });
+    const lecture = appels.find((a) => a.url.endsWith('/freeBusy'))!;
+    expect(lecture.corps.items).toEqual([{ id: 'perso@group.calendar.google.com' }, { id: 'pro@group.calendar.google.com' }]);
+    occupe = [];
+    expect((await envoyer('/v1/reservation', reservation())).corps.ok).toBe(true);
+    expect(appels.find((a) => a.url.includes('/events?'))!.url).toContain('/calendars/pro%40group.calendar.google.com/events?');
   });
 
   it('rien de Google dans les réponses de la porte', async () => {

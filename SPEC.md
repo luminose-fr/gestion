@@ -3962,8 +3962,10 @@ l'agenda Google**, qui viendra comme étape à part — il faut relier son compt
 - La porte de recette admet le site de recette à côté de la page d'essai (§14.5, écart v3.3).
 
 **L'agenda Google** (choix de Florent du 27/11/2026 : « brancher Google d'abord » ; compte Google
-Workspace luminose.fr ; l'agenda principal seul pour les indisponibilités ; écrire dans l'agenda
-principal ; un lien Meet pour la visio). Florent crée un client OAuth « Interne » dans Google
+Workspace luminose.fr ; un lien Meet pour la visio ; **les agendas lus et l'agenda écrit se
+choisissent** dans Réglages → Agenda Google — « il faut que je puisse définir l'agenda en
+question » —, l'agenda principal tant que rien n'est choisi ; chaque agenda choisi doit se lire,
+un seul illisible est une panne). Florent crée un client OAuth « Interne » dans Google
 Cloud et le pose dans Réglages → Agenda Google (`/api/agenda`), puis autorise gestion chez Google
 une fois. L'identifiant, le secret et le jeton de renouvellement vivent dans `app_settings` sous
 le préfixe des clés (§5.5) : aucune route ne les relit, l'export les exclut. Le retour de Google
