@@ -11,6 +11,7 @@
  *   /api/rdv      prise de rendez-vous Calendly pour un invité (§SMS sans confirmation)
  *   /api/environnement  où l'on est, et si la base des clients est reliée (§14.8)
  *   /api/clients  la base des clients — liaison CLIENTS facultative (§14)
+ *   /api/portes   l'état des portes et l'interrupteur de la porte publique (§14.5)
  *
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
  */
@@ -39,6 +40,7 @@ import { lancerVeille } from './veille';
 import { originesAcceptees } from './environnement';
 import { environnement } from './routes/environnement';
 import { clients } from './routes/clients';
+import { portes } from './routes/portes';
 import { DECLENCHEURS } from './declencheurs';
 import { passer } from './clients/passage';
 
@@ -168,6 +170,7 @@ app.route('/api/montage', montage);
 app.route('/api/environnement', environnement);
 // La base des clients (SPEC §14) : 409 tant que la liaison CLIENTS est absente.
 app.route('/api/clients', clients);
+app.route('/api/portes', portes);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

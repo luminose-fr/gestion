@@ -15,6 +15,7 @@ import React, { useEffect, useState } from 'react';
 import { Database } from 'lucide-react';
 import { Carte, Etiquette } from '../ui';
 import * as Api from '../../services/apiService';
+import { PortePublique } from './PortePublique';
 
 type Etat =
   | { phase: 'lecture' }
@@ -75,6 +76,10 @@ export const BaseClients: React.FC = () => {
           {fictives && <> — <strong className="font-semibold">données fictives</strong></>}
         </p>
       )}
+
+      {/* Les portes n'existent que là où la base est reliée : ailleurs, la route
+          répondrait 409, et l'écran n'a pas à provoquer un refus. */}
+      {reliee && <PortePublique />}
 
       {etat.phase === 'lue' && !reliee && (
         <p className="mt-2 text-xs text-brand-main dark:text-dark-text">
