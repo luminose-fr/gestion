@@ -3551,8 +3551,13 @@ point 3).
 lieu, sur une origine **distincte** de celle de la porte, pour que CORS soit réellement essayé :
 `essai-recette.luminose.fr`, servie par le Worker de la porte de recette (seconde route, domaine
 personnalisé) — `GET /` rend la page, toute autre adresse 404 ; le code ne la sert qu'en recette,
-et la racine de la configuration n'a pas cette route. L'origine du site de la recette
-(`ORIGINE_SITE`) est donc `https://essai-recette.luminose.fr`. La page lit le jeton après le `#`,
+et la racine de la configuration n'a pas cette route. ~~L'origine du site de la recette
+(`ORIGINE_SITE`) est donc `https://essai-recette.luminose.fr`.~~ **v3.3 (27/11/2026)** : la
+recette a désormais un vrai site, `recette.luminose.fr` (le Worker `_recette/` du dépôt du site,
+fermé par mot de passe). `ORIGINE_SITE` vaut cette origine ; la page d'essai garde la sienne,
+`ORIGINE_ESSAI`, admise elle aussi — en recette seulement. `Access-Control-Allow-Origin` rend
+celle des deux qui est exactement l'origine reçue, valeur de la configuration et non en-tête
+recopié ; toute autre origine reçoit le 403 et l'origine du site. La page lit le jeton après le `#`,
 le retire aussitôt de l'adresse et de l'historique, et ne le garde qu'en mémoire — rien dans le
 stockage du navigateur ; elle vérifie le lien à l'ouverture, envoie un questionnaire fictif, et
 peut rejouer le même envoi avec la même clé (règle 5). Les liens d'essai se fabriquent depuis la

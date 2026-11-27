@@ -10,9 +10,10 @@
  *
  * Toute autre adresse ou méthode : 404, corps vide.
  *
- * En recette seulement, l'hôte du site (`ORIGINE_SITE`, essai-recette) sert la
- * page d'essai sur `GET /`, et rien d'autre — pas même les adresses de la
- * porte : chaque origine a son rôle, et CORS s'essaie entre les deux.
+ * En recette seulement, l'hôte de la page d'essai (`ORIGINE_ESSAI`,
+ * essai-recette) sert cette page sur `GET /`, et rien d'autre — pas même les
+ * adresses de la porte : chaque origine a son rôle, et CORS s'essaie entre les
+ * deux. Le site de recette (`ORIGINE_SITE`, recette.luminose.fr) est admis aussi.
  *
  * Ce Worker n'importe rien de `workers/api` : il ne connaît de gestion que les
  * interfaces de `packages/contrat`. Il ne journalise jamais le corps, l'adresse
@@ -21,7 +22,7 @@
  */
 import type { Env } from './env.ts';
 import { introuvable, journaliser, panne } from './reponses.ts';
-import { preliminaire } from './cors.ts';
+import { preliminaire, origineARendre, originesAdmises } from './cors.ts';
 import { porterPublique, QUESTIONNAIRE, LIEN } from './publique.ts';
 import { porterService } from './service.ts';
 import { pageDEssai, entetesDeLaPage } from './essai/page.ts';
@@ -34,7 +35,7 @@ export default {
   async fetch(requete: Request, env: Env): Promise<Response> {
     const { pathname, host } = new URL(requete.url);
 
-    if (env.ORIGINE_SITE && host === new URL(env.ORIGINE_SITE).host) {
+    if (env.ORIGINE_ESSAI && host === new URL(env.ORIGINE_ESSAI).host) {
       if (env.ENVIRONNEMENT === 'recette' && env.ORIGINE_PORTE && requete.method === 'GET' && pathname === '/') {
         return new Response(pageDEssai(env.ORIGINE_PORTE), { status: 200, headers: entetesDeLaPage(env.ORIGINE_PORTE) });
       }
@@ -46,7 +47,7 @@ export default {
     if (publique && requete.method === 'POST') return porterPublique(requete, env, publique);
     if (publique && requete.method === 'OPTIONS') {
       if (!env.ORIGINE_SITE) { journaliser('porte.non_configuree'); return panne(); }
-      return preliminaire(env.ORIGINE_SITE);
+      return preliminaire(origineARendre(requete, originesAdmises(env)));
     }
     if (requete.method === 'POST' && pathname === '/service/v1/confirmations') return porterService(requete, env);
     return introuvable();

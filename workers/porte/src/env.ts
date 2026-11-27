@@ -14,8 +14,14 @@ export type Limiteur = { limit(options: { key: string }): Promise<{ success: boo
 
 export type Env = {
   ENVIRONNEMENT?: string;
-  /** L'origine exacte du site de cet environnement : la seule admise sur la porte publique (§14.5). */
+  /** L'origine exacte du site de cet environnement, admise sur la porte publique (§14.5). */
   ORIGINE_SITE?: string;
+  /**
+   * Recette seulement : l'origine de la page d'essai (essai-recette), que la porte
+   * sert elle-même, et la seconde origine admise. Depuis que la recette a un vrai
+   * site (recette.luminose.fr, v3.3), la page d'essai n'en tient plus lieu.
+   */
+  ORIGINE_ESSAI?: string;
   /** L'origine de la porte elle-même, que la page d'essai appelle (recette seulement). */
   ORIGINE_PORTE?: string;
 

@@ -9,7 +9,7 @@ import { SCRIPT, pageDEssai } from '../src/essai/page';
 
 const SITE = 'https://essai-recette.luminose.fr';
 const PORTE = 'https://api-recette.luminose.fr';
-const env = (extra: Partial<Env> = {}): Env => ({ ENVIRONNEMENT: 'recette', ORIGINE_SITE: SITE, ORIGINE_PORTE: PORTE, ...extra });
+const env = (extra: Partial<Env> = {}): Env => ({ ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://recette.luminose.fr', ORIGINE_ESSAI: SITE, ORIGINE_PORTE: PORTE, ...extra });
 const appeler = (url: string, methode = 'GET', e = env()) => porte.fetch(new Request(url, { method: methode }), e);
 
 describe('où la page est servie', () => {

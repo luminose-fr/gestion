@@ -17,7 +17,7 @@ import {
   type PortePublique, type Reponse,
 } from '@luminose/contrat';
 import type { Env, Limiteur } from './env.ts';
-import { entetesPublics, origineAdmise } from './cors.ts';
+import { entetesPublics, origineAdmise, origineARendre, originesAdmises } from './cors.ts';
 import { typeJson, lireCorps, avecDelai } from './bornes.ts';
 import { limiteAtteinte } from './limite.ts';
 import { json, vide, panne, journaliser } from './reponses.ts';
@@ -51,13 +51,13 @@ export const LIEN: RoutePublique = {
 };
 
 export const porterPublique = async (requete: Request, env: Env, route: RoutePublique): Promise<Response> => {
-  const site = env.ORIGINE_SITE;
   // Sans origine du site, la porte ne sait pas qui admettre : une panne, pas une porte ouverte.
-  if (!site) { journaliser('porte.non_configuree'); return panne(); }
-  const entetes = entetesPublics(site);
+  if (!env.ORIGINE_SITE) { journaliser('porte.non_configuree'); return panne(); }
+  const admises = originesAdmises(env);
+  const entetes = entetesPublics(origineARendre(requete, admises));
 
   // 1. L'origine.
-  if (!origineAdmise(requete, site)) return vide(403, entetes);
+  if (!origineAdmise(requete, admises)) return vide(403, entetes);
   // 2. Le type (la méthode est déjà POST : le routage n'admet rien d'autre).
   if (!typeJson(requete)) return vide(415, entetes);
   // 3. La taille, sur les octets lus ; un JSON illisible est invalide, sans champs.

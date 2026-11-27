@@ -67,7 +67,9 @@ ENVIRONNEMENT = "recette"
 # La seule origine admise sur la porte publique (§14.5), et celle que rend
 # Access-Control-Allow-Origin : la page d'essai, qui tient lieu de site de
 # recette. Jamais `*`, jamais l'origine reçue recopiée.
-ORIGINE_SITE = "https://essai-recette.luminose.fr"
+# Le site de recette (v3.3), et la page d'essai que la porte sert elle-même.
+ORIGINE_SITE = "https://recette.luminose.fr"
+ORIGINE_ESSAI = "https://essai-recette.luminose.fr"
 # Ce que la page d'essai appelle.
 ORIGINE_PORTE = "https://api-recette.luminose.fr"
 
