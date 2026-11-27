@@ -3542,6 +3542,81 @@ et une clé d'unicité. **Ni adresse, ni numéro, ni texte.**
   déclencheur ne réduit pas le travail : chaque passage traite un nombre borné d'ordres et laisse
   le reste au suivant.
 
+#### 14.7.1 Le calcul des créneaux — NORMATIF
+
+Les règles de temps de la réservation vivent dans `packages/pratique` (`temps.ts`,
+`creneaux.ts`, `attente.ts`) : des fonctions pures, sans base, sans réseau, **sans horloge** —
+l'instant présent est un paramètre, et un test vérifie qu'aucune source ne lit `Date.now()` ni
+`new Date()` sans argument. Les valeurs font foi dans les tests du paquet
+(`packages/pratique/test/`), écrites en toutes lettres ; ce qui suit en donne les règles.
+
+**Le temps de Paris.** Tout horaire est une heure de Paris ; tout instant, des millisecondes UTC.
+
+- `instantDeParis(date, heure)` : `'AAAA-MM-JJ'` et `'HH:MM'` → instant. Une heure **qui
+  n'existe pas** (nuit du passage à l'heure d'été) se lit avec le décalage d'avant le
+  changement : `2027-03-28` `02:30` → `2027-03-28T01:30:00Z`. Une heure **qui existe deux fois**
+  (nuit du passage à l'heure d'hiver) désigne sa première occurrence : `2027-10-31` `02:30` →
+  `2027-10-31T00:30:00Z`.
+- `isoDeParis(instant)` : l'instant avec son décalage, tel que le contrat le veut —
+  `2026-12-17T08:30:00Z` → `2026-12-17T09:30:00+01:00` ; `2027-07-01T07:30:00Z` →
+  `2027-07-01T09:30:00+02:00`.
+- `jourDeParis(instant)` → `'AAAA-MM-JJ'` ; `jourDeLaSemaine(date)` → 1 (lundi) … 7 (dimanche),
+  la convention de la table `horaires`.
+- `instantDepuisIso(texte)` refuse (rend `null`) un texte sans décalage, ou qui n'est pas une
+  date.
+
+**Les créneaux.** `creneauxLibres({ type, horaires, occupations, maintenant, du, au,
+toleranceMin = 0 })` rend la liste triée des débuts libres (instants), du jour `du` au jour `au`
+compris. Un type porte `dureeMin`, `margeApresMin`, `pasMin`, `fenetreDebutH`, `fenetreFinH` ;
+les horaires, une semaine type (1 = lundi … 7 = dimanche) et des dates ; une occupation est un
+intervalle d'instants `[debut, fin[`.
+
+1. **Les plages d'un jour** sont celles de `dates[jour]` quand le jour y figure — elles
+   **remplacent** la semaine type, et une liste vide ferme la journée ; sinon celles de
+   `semaine[jour de la semaine]` ; sinon aucune.
+2. **Dans une plage, un créneau commence au début de la plage, puis tous les `pasMin`**, en
+   durée écoulée. Il est retenu si **tout son intervalle — durée et marge — tient dans la
+   plage** : `debut + dureeMin + margeApresMin ≤ fin de la plage`.
+3. **Il est écarté s'il chevauche une occupation.** Son intervalle est
+   `[debut, debut + dureeMin + margeApresMin[` ; une occupation est `[debut, fin[`. Deux
+   intervalles qui se touchent ne se chevauchent pas. Les occupations sont fournies par
+   l'appelant : les séances prévues (de `debut` à `occupe_jusqua`, marge comprise) et les plages
+   occupées de l'agenda Google. La fonction ne les distingue pas, et elles peuvent se recouvrir.
+4. **La fenêtre** : `maintenant + fenetreDebutH − toleranceMin ≤ debut ≤ maintenant +
+   fenetreFinH`, en heures écoulées (§14.7). `toleranceMin` vaut 0 pour afficher, 15 pour
+   réserver. Les deux bornes sont **comprises** ; la tolérance ne joue qu'en bas, jamais en haut.
+5. **Une plage vide ou inversée** une fois convertie en instants — une ouverture `02:30`–`03:00`
+   la nuit du passage à l'heure d'été — ne donne aucun créneau, et ne lève rien.
+6. La fonction ne borne pas la période (les 62 jours du contrat sont l'affaire de la porte) ;
+   `du` après `au` rend une liste vide.
+
+`verifierCreneau({ …les mêmes, debut })` rend `'libre'`, `'hors_fenetre'` ou `'creneau_pris'`.
+**Elle s'appuie sur la même génération** que `creneauxLibres` (§14.7 : « la même fonction sert à
+afficher et à réserver ») :
+
+- `debut` n'est le début d'aucun créneau de la grille de son jour, ou sort de la fenêtre →
+  `hors_fenetre` ;
+- il est dans la grille et dans la fenêtre, mais chevauche une occupation → `creneau_pris` ;
+- sinon `libre`.
+
+Un test le vérifie sur chaque cas, toutes les cinq minutes : un début est `libre` **si et
+seulement si** `creneauxLibres` le rend, à tolérance égale.
+
+**La liste d'attente.** `quiPrevenir({ creneau, seances, reglages, maintenant })` rend les
+identifiants des séances dont la personne est à prévenir d'un créneau libéré, dans l'ordre. Le
+créneau porte son début et sa durée (l'intervalle rendu, marge comprise) ; une séance, sa fiche
+(`null` pour une séance « à rapprocher »), son début, son occupation (durée + marge de son type),
+sa date de réservation, sa case de liste d'attente et son statut ; les réglages,
+`creneauMinH`, `seanceMinH` et `personnesMax` (48, 48, 8).
+
+**Personne** si le créneau commence dans moins de `creneauMinH` ; sinon les séances `prevue`, en
+liste d'attente, qui commencent **après** ce créneau **et** dans `seanceMinH` ou plus, et dont
+l'occupation tient dans le créneau (`occupationMin ≤ dureeMin`). Les deux seuils sont
+**compris** : à 48 heures exactement, on prévient. **Le plafond compte des personnes, pas des
+séances** : d'une même personne, seule sa réservation éligible la plus ancienne est gardée ; une
+séance sans fiche compte pour elle-même. Puis les `personnesMax` **réservées depuis le plus
+longtemps** (`reserveeLe` croissant ; à égalité, par identifiant, pour un ordre stable).
+
 ### 14.8 Les environnements
 
 | | Production | Recette |
@@ -3585,7 +3660,7 @@ et une clé d'unicité. **Ni adresse, ni numéro, ni texte.**
 
 | Cible | Nature |
 | :--- | :--- |
-| `packages/pratique` | la clé d'un client sur les noms du jeu d'essai, avec la clé attendue écrite en toutes lettres ; plus tard, les créneaux aux changements d'heure |
+| `packages/pratique` | la clé d'un client sur les noms du jeu d'essai, avec la clé attendue écrite en toutes lettres ; les créneaux, la fenêtre et la liste d'attente (§14.7.1), changements d'heure compris |
 | Migrations des clients | appliquées sur une base vide, clés étrangères actives ; puis, **sur la base de recette elle-même**, une violation de clé étrangère et un conflit d'index partiel provoqués à la main |
 | Règle 6 | chaque décision jouée deux fois : une seule aboutit ; **un refus à zéro ligne ne laisse rien** — ni fiche, ni mouvement, ni ordre ; une erreur au milieu d'un lot l'annule en entier |
 | Règle 1 | aucun module éditorial n'importe `src/clients/` ; `env.CLIENTS` n'apparaît que là |
