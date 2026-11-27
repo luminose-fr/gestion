@@ -17,7 +17,7 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #   SKIP_TESTS=1 ./scripts/deploy.sh # sans la suite de tests (à éviter)
 #   DRY_RUN=1 npm run deploy         # joue les tests, affiche le reste sans l'exécuter
 #
-#   ./scripts/deploy.sh --env recette        # la RECETTE : api et app (SPEC §14.8)
+#   ./scripts/deploy.sh --env recette        # la RECETTE : api, app, puis porte (SPEC §14.8)
 #   ./scripts/deploy.sh --env recette api    # la recette, Worker seulement
 #   ./scripts/deploy.sh --env recette api porte   # gestion, puis la porte (api-recette.luminose.fr)
 #   DRY_RUN=1 ./scripts/deploy.sh --env recette
@@ -42,9 +42,9 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #
 # Le Worker MCP a ses propres prérequis : workers/mcp/README.md.
 #
-# `porte` (workers/porte, SPEC §14.3) n'existe qu'en recette dans la phase S2b,
-# et hors de la cible par défaut : elle part quand on la nomme, avec `--env
-# recette`. Sans `--env recette`, elle est refusée avant tout effet.
+# `porte` (workers/porte, SPEC §14.3) n'existe qu'en recette dans la phase S2b :
+# elle est dans la cible par défaut de la recette, après gestion, et HORS de
+# celle de la production. Sans `--env recette`, elle est refusée avant tout effet.
 #
 # `mcp` N'EST PAS dans la cible par défaut : il part quand on le nomme. Sa mise
 # en place (KV, secrets, client OAuth Google) est indépendante, et une
@@ -86,7 +86,8 @@ case "$ENVIRONNEMENT" in
   production|recette) ;;
   *) printf '\033[1;33m⚠ Environnement « %s » inconnu : production (par défaut) ou recette.\033[0m\n' "$ENVIRONNEMENT"; exit 1 ;;
 esac
-[ ${#TARGETS[@]} -eq 0 ] && TARGETS=(api app)
+CIBLE_PAR_DEFAUT=0
+[ ${#TARGETS[@]} -eq 0 ] && CIBLE_PAR_DEFAUT=1 && TARGETS=(api app)
 has() { printf '%s\n' "${TARGETS[@]}" | grep -qx "$1"; }
 
 step() { printf '\n\033[1;36m▸ %s\033[0m\n' "$1"; }
@@ -116,6 +117,8 @@ need_dir() {
 # AI, ni déclencheur, ni adresse workers.dev.
 # ═════════════════════════════════════════════════════════════════════════════
 if [ "$ENVIRONNEMENT" = "recette" ]; then
+  # La cible par défaut de la recette comprend la porte ; celle de la production, non.
+  [ "$CIBLE_PAR_DEFAUT" = 1 ] && TARGETS=(api app porte)
   for cible in "${TARGETS[@]}"; do
     case "$cible" in
       api|app|porte) ;;
@@ -272,6 +275,8 @@ if [ "$ENVIRONNEMENT" = "recette" ]; then
   if has porte; then
     printf '  - curl -s -X POST https://%s/v1/essai   # attendu : {"ok":true,"base":true}\n' "$CIBLE_PORTE_DOMAINE"
     printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" https://%s/   # attendu : 404\n' "$CIBLE_PORTE_DOMAINE"
+    printf '  - https://%s/ : la page d’essai (Réglages → Porte publique → Lien d’essai)\n' "$CIBLE_PORTE_ESSAI"
+    printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" -X POST https://%s/v1/questionnaires -H "Origin: https://autre.example.org" -H "Content-Type: application/json" -d "{}"   # attendu : 403\n' "$CIBLE_PORTE_DOMAINE"
   fi
   printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" https://%s/api/contents   # attendu : 401\n' "$CIBLE_DOMAINE"
   printf '  - Se connecter avec les identifiants de RECETTE : le bandeau « Recette » s’affiche\n'
