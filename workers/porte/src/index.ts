@@ -5,6 +5,8 @@
  *
  *   POST    /v1/questionnaires           → PortePublique.questionnaire
  *   POST    /v1/questionnaires/lien      → PortePublique.lienQuestionnaire
+ *   GET     /v1/reservation/creneaux     → PortePublique.creneaux   (phase R1)
+ *   POST    /v1/reservation              → PortePublique.reserver   (phase R1)
  *   OPTIONS sur les deux                 → la réponse de CORS, sans gestion
  *   POST    /service/v1/confirmations    → PorteService.confirmation
  *
@@ -23,13 +25,13 @@
 import type { Env } from './env.ts';
 import { introuvable, journaliser, panne } from './reponses.ts';
 import { preliminaire, origineARendre, originesAdmises } from './cors.ts';
-import { porterPublique, QUESTIONNAIRE, LIEN } from './publique.ts';
+import { porterPublique, QUESTIONNAIRE, LIEN, RESERVATION, CRENEAUX } from './publique.ts';
 import { porterService } from './service.ts';
 import { pageDEssai, entetesDeLaPage } from './essai/page.ts';
 
 export type { Env } from './env.ts';
 
-const PUBLIQUES = { '/v1/questionnaires': QUESTIONNAIRE, '/v1/questionnaires/lien': LIEN } as const;
+const PUBLIQUES = { '/v1/questionnaires': QUESTIONNAIRE, '/v1/questionnaires/lien': LIEN, '/v1/reservation': RESERVATION } as const;
 
 export default {
   async fetch(requete: Request, env: Env): Promise<Response> {
@@ -45,6 +47,8 @@ export default {
     const publique = Object.hasOwn(PUBLIQUES, pathname) ? PUBLIQUES[pathname as keyof typeof PUBLIQUES] : null;
 
     if (publique && requete.method === 'POST') return porterPublique(requete, env, publique);
+    // Une lecture : GET, sans corps ni préliminaire (une requête simple au sens de CORS).
+    if (pathname === '/v1/reservation/creneaux' && requete.method === 'GET') return porterPublique(requete, env, CRENEAUX);
     if (publique && requete.method === 'OPTIONS') {
       if (!env.ORIGINE_SITE) { journaliser('porte.non_configuree'); return panne(); }
       return preliminaire(origineARendre(requete, originesAdmises(env)));

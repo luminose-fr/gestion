@@ -13,7 +13,7 @@ export const REGLAGES_CONNUS = [
   'liste_attente_creneau_min_h', 'liste_attente_seance_min_h', 'liste_attente_personnes_max',
   // Phase S2a : les bornes de la porte publique et des ordres. L'interrupteur
   // (`porte_publique_ouverte`) n'en est pas : il a sa route, et sa confirmation.
-  'commandes_questionnaire_max_jour', 'emails_max_jour', 'recus_garde_h', 'ordre_relance_min', 'ordre_tentatives_max',
+  'commandes_questionnaire_max_jour', 'commandes_reservation_max_jour', 'emails_max_jour', 'recus_garde_h', 'ordre_relance_min', 'ordre_tentatives_max',
 ] as const;
 export type CleReglage = (typeof REGLAGES_CONNUS)[number];
 

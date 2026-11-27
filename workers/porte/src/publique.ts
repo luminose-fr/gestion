@@ -12,13 +12,13 @@
  * plus venu de gestion est une panne, pas un corps à relayer (règle 4).
  */
 import {
-  invalide, refuser, valider, champPiegeRempli, reponseSansDonnee,
-  questionnaire as schemaQuestionnaire, lienQuestionnaire as schemaLien,
-  type PortePublique, type Reponse,
+  invalide, refuser, valider, champPiegeRempli, reponseSansDonnee, reponseReserver, reponseCreneaux,
+  questionnaire as schemaQuestionnaire, lienQuestionnaire as schemaLien, reservation as schemaReservation,
+  lectureCreneaux, type PortePublique, type Reponse,
 } from '@luminose/contrat';
 import type { Env, Limiteur } from './env.ts';
 import { entetesPublics, origineAdmise, origineARendre, originesAdmises } from './cors.ts';
-import { typeJson, lireCorps, avecDelai } from './bornes.ts';
+import { typeJson, lireCorps, avecDelai, type Lecture } from './bornes.ts';
 import { limiteAtteinte } from './limite.ts';
 import { json, vide, panne, journaliser } from './reponses.ts';
 
@@ -27,11 +27,13 @@ export const DELAI_MS = 10_000;
 
 export type RoutePublique = {
   /** La clé de la limite de fréquence ; jamais le nom d'une table. */
-  nom: 'questionnaire' | 'lien';
+  nom: 'questionnaire' | 'lien' | 'creneaux' | 'reservation';
   limiteur: (env: Env) => Limiteur | undefined;
   piege: boolean;
   schema: Parameters<typeof valider>[0];
   appeler: (gestion: PortePublique, envoi: unknown) => Promise<Reponse>;
+  /** Ce que la porte re-sérialise de la réponse de gestion ; un champ de plus est une panne. */
+  reponse: { safeParse: (x: unknown) => { success: true; data: unknown } | { success: false } };
 };
 
 export const QUESTIONNAIRE: RoutePublique = {
@@ -40,6 +42,7 @@ export const QUESTIONNAIRE: RoutePublique = {
   piege: true,
   schema: schemaQuestionnaire,
   appeler: (g, envoi) => g.questionnaire(envoi),
+  reponse: reponseSansDonnee,
 };
 
 export const LIEN: RoutePublique = {
@@ -48,6 +51,31 @@ export const LIEN: RoutePublique = {
   piege: false,
   schema: schemaLien,
   appeler: (g, envoi) => g.lienQuestionnaire(envoi),
+  reponse: reponseSansDonnee,
+};
+
+/** `POST /v1/reservation` (contrat §3.1, phase R1). */
+export const RESERVATION: RoutePublique = {
+  nom: 'reservation',
+  limiteur: (env) => env.LIMITE_RESERVATIONS,
+  piege: true,
+  schema: schemaReservation,
+  appeler: (g, envoi) => g.reserver(envoi),
+  reponse: reponseReserver,
+};
+
+/**
+ * `GET /v1/reservation/creneaux?type=…&du=…&au=…` (contrat §3.1, phase R1) :
+ * une lecture, sans corps. Les paramètres de l'adresse sont lus en objet, puis
+ * suivent le même chemin qu'un envoi — sans type ni taille de corps à vérifier.
+ */
+export const CRENEAUX: RoutePublique = {
+  nom: 'creneaux',
+  limiteur: (env) => env.LIMITE_CRENEAUX,
+  piege: false,
+  schema: lectureCreneaux,
+  appeler: (g, lecture) => g.creneaux(lecture),
+  reponse: reponseCreneaux,
 };
 
 export const porterPublique = async (requete: Request, env: Env, route: RoutePublique): Promise<Response> => {
@@ -58,10 +86,15 @@ export const porterPublique = async (requete: Request, env: Env, route: RoutePub
 
   // 1. L'origine.
   if (!origineAdmise(requete, admises)) return vide(403, entetes);
-  // 2. Le type (la méthode est déjà POST : le routage n'admet rien d'autre).
-  if (!typeJson(requete)) return vide(415, entetes);
-  // 3. La taille, sur les octets lus ; un JSON illisible est invalide, sans champs.
-  const lecture = await lireCorps(requete);
+  // 2 et 3. Le type et la taille d'un envoi (POST) ; une lecture (GET) n'a que les paramètres de son adresse.
+  let lecture: Lecture;
+  if (requete.method === 'GET') {
+    const { searchParams } = new URL(requete.url);
+    lecture = { etat: 'lu', valeur: Object.fromEntries(searchParams) };
+  } else {
+    if (!typeJson(requete)) return vide(415, entetes);
+    lecture = await lireCorps(requete);
+  }
   if (lecture.etat === 'trop_gros') return vide(413, entetes);
   if (lecture.etat === 'illisible') return json(invalide(), entetes);
 
@@ -91,7 +124,7 @@ export const porterPublique = async (requete: Request, env: Env, route: RoutePub
     journaliser(erreur instanceof Error && erreur.message === 'porte.delai' ? 'porte.delai' : 'porte.panne');
     return panne(entetes);
   }
-  const r = reponseSansDonnee.safeParse(recu);
+  const r = route.reponse.safeParse(recu);
   if (!r.success) { journaliser('porte.reponse_hors_schema'); return panne(entetes); }
   return json(r.data, entetes);
 };

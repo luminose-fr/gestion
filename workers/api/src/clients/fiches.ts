@@ -105,7 +105,7 @@ export const fichesSemblables = async (
 };
 
 /** Les valeurs d'identité normalisées, la clé et le nom de recherche, recalculés ensemble. */
-const identite = (prenom: string, nom: string, email: string | null) => {
+export const identite = (prenom: string, nom: string, email: string | null) => {
   const p = normaliserNom(prenom);
   const n = normaliserNom(nom);
   const e = email === null ? null : normaliserEmail(email) || null;

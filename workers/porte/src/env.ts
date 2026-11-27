@@ -32,4 +32,8 @@ export type Env = {
   LIMITE_QUESTIONNAIRES?: Limiteur;
   /** 30 vérifications de lien par minute et par adresse — choix du brief, à confirmer. */
   LIMITE_LIENS?: Limiteur;
+  /** Phase R1 : 60 lectures de créneaux par minute et par adresse. */
+  LIMITE_CRENEAUX?: Limiteur;
+  /** Phase R1 : 10 réservations par minute et par adresse. */
+  LIMITE_RESERVATIONS?: Limiteur;
 };

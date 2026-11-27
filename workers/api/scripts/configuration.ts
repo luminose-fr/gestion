@@ -294,7 +294,7 @@ export const PORTE_RECETTE = {
     { binding: 'GESTION_SERVICE', service: RECETTE.worker, entrypoint: 'PorteService' },
   ] as LiaisonService[],
   /** Les limiteurs de fréquence (§14.5) : un par route publique. */
-  limiteurs: ['LIMITE_LIENS', 'LIMITE_QUESTIONNAIRES'],
+  limiteurs: ['LIMITE_CRENEAUX', 'LIMITE_LIENS', 'LIMITE_QUESTIONNAIRES', 'LIMITE_RESERVATIONS'],
 } as const;
 
 /**

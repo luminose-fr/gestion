@@ -3929,6 +3929,57 @@ l'écran d'effacement la dit. Une restauration ramènerait une personne effacée
 effacements garde donc les identifiants retirés — pas les identités —, et tout effacement
 postérieur à la sauvegarde est rejoué avant de rouvrir la base.
 
+### 14.12 Phase R1 — réserver depuis le site, en recette (v3.3, 27/11/2026)
+
+Florent veut essayer le parcours de rendez-vous de bout en bout sur `recette.luminose.fr`, le
+site de recette (le Worker `_recette/` du dépôt du site, fermé par mot de passe), sans Calendly.
+Proposé à Florent le 27/11/2026, et retenu en attendant sa réponse : **une première version sans
+l'agenda Google**, qui viendra comme étape à part — il faut relier son compte.
+
+**Ce que la phase ajoute.**
+
+- `GET /v1/reservation/creneaux?type=…&du=…&au=…` et `POST /v1/reservation`, tels que le contrat
+  §3.1 les écrit (`packages/contrat/src/reservation.ts`), à travers la porte : origine, limite de
+  fréquence (`LIMITE_CRENEAUX`, 60 par minute ; `LIMITE_RESERVATIONS`, 10 par minute), champ
+  piège, schéma ; la réponse est re-sérialisée depuis son schéma. La lecture est un GET sans corps
+  — une requête simple au sens de CORS, sans préliminaire.
+- Côté gestion (`src/clients/portes/reservation.ts`) : **la même fonction affiche et réserve**
+  (`creneauxLibres`, `verifierCreneau`, §14.7.1), un quart d'heure de tolérance à la réservation.
+  Un type inconnu, inactif ou non réservable en ligne rend une liste vide à la lecture,
+  `hors_fenetre` à la réservation.
+- **Réserver est une commande** (sorte `reservation`, migration `0004_reservation.sql`, borne
+  `commandes_reservation_max_jour`, 30 par 24 heures). Un seul lot : la commande décide, sous la
+  borne ET la liberté de l'intervalle — marge comprise —, dans la transaction ; puis la fiche, si
+  aucune ne porte cette clé ; la séance (`origine = 'site'`, `agenda_etat = 'a_ecrire'`), liée à
+  la commande ; son mouvement « créée par la personne ». La fiche se désigne dans l'instruction de
+  la séance : seule de sa clé, elle est rattachée ; plusieurs, la séance garde l'identité reçue et
+  une alerte `a_rapprocher` est levée après la réponse.
+- La réponse porte la **référence** — le jeton du questionnaire de cette séance, échu au début
+  de la séance (§14.6.2, point 2) —, le début et la fin. La page enchaîne sur le questionnaire avec
+  elle : il se rattache à la séance.
+- **Aucun ordre dans cette phase** : la confirmation et les rappels partent une fois l'agenda
+  écrit (contrat §3.1, point 3). La séance le dit dans la console (`a_ecrire`).
+- La porte de recette admet le site de recette à côté de la page d'essai (§14.5, écart v3.3).
+
+**Écart au contrat §3.1, point 1** : l'agenda Google n'est pas relu avant d'écrire. En recette,
+avec des données fictives, c'est sans conséquence ; la phase de l'agenda le rétablit avant toute
+mise en production.
+
+**Plus tard, sans priorité** (demandes de Florent du 27/11/2026, notées ici pour ne pas les
+perdre) :
+
+1. **L'agenda Google** : lu pour les créneaux, relu avant d'écrire, la séance écrite avec son lien
+   de visio ; puis la confirmation et les rappels.
+2. **La newsletter sans reCAPTCHA** : faire passer l'inscription à la newsletter Brevo du site par
+   la porte publique, qui a déjà sa limite de fréquence et son champ piège, et retirer reCAPTCHA
+   de la page (une origine de service de moins, aussi pour la recette).
+3. **Le résumé de l'entretien de 20 minutes** : déposer le fichier audio sur une séance d'une
+   fiche ; gestion le fait transcrire, en tire un résumé, et le range dans les notes de la séance.
+   Aujourd'hui, Florent le fait à la main (Whisper Transcription, puis Claude). **À trancher
+   d'abord** : la règle 1 (§14.2) interdit aux modules d'IA de lire la base des clients ; un
+   enregistrement de séance est une donnée de santé. Il faudra un chemin à part — fournisseur,
+   juridiction, conservation du fichier — décidé par Florent avant d'écrire une ligne.
+
 ## 15. La console des clients — NORMATIF
 
 > **v0.1, proposition** — en attente de la relecture de Florent. Les routes du §15.3 sont

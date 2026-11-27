@@ -169,6 +169,8 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     expect(r.ratelimits).toEqual([
       { name: 'LIMITE_QUESTIONNAIRES', namespaceId: '2611', limit: 10, period: 60 },
       { name: 'LIMITE_LIENS', namespaceId: '2612', limit: 30, period: 60 },
+      { name: 'LIMITE_CRENEAUX', namespaceId: '2613', limit: 60, period: 60 },
+      { name: 'LIMITE_RESERVATIONS', namespaceId: '2614', limit: 10, period: 60 },
     ]);
     // Les codes de la porte, sans journal d'invocation ni traces (§14.3, règle 7).
     expect(r.observabilite).toEqual({ enabled: true, headSamplingRate: 1, journauxDInvocation: false, traces: false });
