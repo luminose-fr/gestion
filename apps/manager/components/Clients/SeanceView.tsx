@@ -10,7 +10,7 @@
  * Le statut passe par la décision qui lui revient : annuler et remettre à
  * « prévue » ont leurs routes ; réalisée et absent, une simple modification.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Copy, MoveRight } from 'lucide-react';
 import { Bouton, Carte, Champ, Etiquette, TitreSection, ecran } from '../ui';
 import { ConfirmModal } from '../CommonModals';
@@ -49,12 +49,15 @@ export const NotesDeSeance: React.FC<{ id: string }> = ({ id }) => {
   const [enCours, setEnCours] = useState(false);
   const [copie, setCopie] = useState(false);
 
-  useEffect(() => {
-    if (lecture.phase !== 'prete') return;
+  // Les notes lues deviennent la saisie DANS le rendu qui les reçoit, pas dans un effet :
+  // un effet passerait après une première frappe, et l'effacerait.
+  const [luesDe, setLuesDe] = useState<NotesSeance | null>(null);
+  if (lecture.phase === 'prete' && luesDe !== lecture.donnees) {
+    setLuesDe(lecture.donnees);
     setTrame(trameDe(lecture.donnees));
     setLue(trameDe(lecture.donnees));
     setVersion(lecture.donnees.version);
-  }, [lecture.phase === 'prete' ? lecture.donnees : null]);
+  }
 
   const modifiee = TRAME.some(({ champ }) => (trame[champ] ?? '') !== (lue[champ] ?? ''));
   useGardeSaisie(modifiee);
