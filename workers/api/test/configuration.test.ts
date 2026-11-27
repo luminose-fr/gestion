@@ -159,7 +159,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     ]);
     expect(r.crons).toEqual([]);
     expect(r.vars).toEqual({
-      ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://essai-recette.luminose.fr', ORIGINE_PORTE: 'https://api-recette.luminose.fr',
+      ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://recette.luminose.fr', ORIGINE_ESSAI: 'https://essai-recette.luminose.fr', ORIGINE_PORTE: 'https://api-recette.luminose.fr',
     });
     expect(r.liaisons).toEqual(['services', 'ratelimits']);
     expect(r.services).toEqual([
@@ -208,7 +208,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
   });
 
   it('une autre origine du site, ou un limiteur manquant : refusés', () => {
-    expect(ecartsPorteRecette(PORTE.replace('ORIGINE_SITE = "https://essai-recette.luminose.fr"', 'ORIGINE_SITE = "*"')).join('\n')).toMatch(/ORIGINE_SITE/);
+    expect(ecartsPorteRecette(PORTE.replace('ORIGINE_SITE = "https://recette.luminose.fr"', 'ORIGINE_SITE = "*"')).join('\n')).toMatch(/ORIGINE_SITE/);
     const sansLimite = PORTE.replace(/\[\[env\.recette\.ratelimits\]\]\nname = "LIMITE_LIENS"[\s\S]*$/, '');
     expect(ecartsPorteRecette(sansLimite).join('\n')).toMatch(/limiteurs/);
   });
