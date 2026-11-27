@@ -251,7 +251,7 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 | :--- | :--- | :--- |
 | `components/Layout/` (barre latérale, sous-onglets mobiles) | ses tailles et graisses propres | la navigation est hors périmètre depuis le départ |
 | `components/ui/` | les anciennes valeurs, **dans les commentaires** | c'est là qu'on explique ce que le socle remplace |
-| fenêtres modales (`CommonModals`, `AnalysisModal`, `ConfirmSuppressionSerie`, la fenêtre IA de `SubtitleConverter`), `LoginPage`, `Feedback` | `max-w-sm`, `max-w-md`, `max-w-lg`, `max-w-64` | la taille d'une fenêtre ou d'une notification n'est pas une zone de travail |
+| fenêtres modales (`CommonModals`, `AnalysisModal`, `ConfirmSuppressionSerie`, la fenêtre IA de `SubtitleConverter`, `Clients/PoserRendezVous`), `LoginPage`, `Feedback` | `max-w-sm`, `max-w-md`, `max-w-lg`, `max-w-64` | la taille d'une fenêtre ou d'une notification n'est pas une zone de travail |
 | `ContentEditor/renderers/` (`BodyRenderer`, `ScriptVideoRenderer`, `shared.tsx`) | liserés et couleurs de blocs, profondeurs, « Illustrée » | un codage de lecture, ni un sens ni une couleur d'outil |
 | `PsychedelicsCalculator` | la couleur de chaque substance et ses encadrés | de l'identification |
 | `PsychedelicsCalculator`, les doses | `text-3xl` pour la dose, `text-base` pour son unité | la dose est l'information que l'écran existe pour donner : ramenée à `text-lg`, elle ne se lisait plus d'un coup d'œil (arbitré le 23/09/2026) |
@@ -279,7 +279,7 @@ tricher avec le garde-fou.
 
 ```
 OPTS='-rhoE --include=*.tsx --exclude-dir=Layout --exclude-dir=ui --exclude-dir=test'
-MODALES='--exclude=CommonModals.tsx --exclude=AnalysisModal.tsx --exclude=ConfirmSuppressionSerie.tsx --exclude=SubtitleConverter.tsx --exclude=LoginPage.tsx --exclude=Feedback.tsx'
+MODALES='--exclude=CommonModals.tsx --exclude=AnalysisModal.tsx --exclude=ConfirmSuppressionSerie.tsx --exclude=SubtitleConverter.tsx --exclude=PoserRendezVous.tsx --exclude=LoginPage.tsx --exclude=Feedback.tsx'
 LECTURE='--exclude-dir=renderers --exclude=PsychedelicsCalculator.tsx'
 
 grep $OPTS "text-\[[0-9]+px\]" apps/manager | sort -u

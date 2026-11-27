@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEstMobile } from '../Contenu/useEstMobile';
-import { Users, Settings, Briefcase, X, Sparkles, BookMarked } from 'lucide-react';
+import { Users, Settings, Briefcase, X, Sparkles, BookMarked, CalendarDays, Ticket, Stethoscope } from 'lucide-react';
 
 import { SETTINGS_SECTIONS, SettingsSection } from '../Settings/sections';
 import { PERSONAS_NAV } from '../Settings/apercus';
@@ -11,7 +11,7 @@ import { LISTES, type ListeContenus } from '../Contenus/listes';
   L'espace Vidéos a disparu (SPEC §13) : Tournage et Montage sont des étapes
   d'un contenu, et Sous-titres servait un Final Cut qu'on n'ouvre plus.
 */
-type SpaceView = 'social' | 'clients' | 'psychedelics' | 'corpus' | 'settings';
+type SpaceView = 'social' | 'clients' | 'seances' | 'evenements' | 'professionnels' | 'psychedelics' | 'corpus' | 'settings';
 
 interface SidebarProps {
     currentSpace: SpaceView;
@@ -49,11 +49,17 @@ const SPACES: Array<{
     icon: React.ComponentType<{ className?: string }>;
     label: string;
     defaultTab: ListeContenus;
+    /** Un séparateur avant l'espace : les outils (Psychédéliques, Corpus) après la pratique. */
+    separe?: boolean;
 }> = [
-    { id: 'social',       icon: Briefcase, label: 'Contenus',       defaultTab: 'conversations' },
-    { id: 'clients',      icon: Users,     label: 'Clients',        defaultTab: 'conversations' },
-    { id: 'psychedelics', icon: Sparkles,  label: 'Psychédéliques', defaultTab: 'conversations' },
-    { id: 'corpus',       icon: BookMarked, label: 'Corpus',         defaultTab: 'conversations' },
+    { id: 'social',         icon: Briefcase,    label: 'Contenus',       defaultTab: 'conversations' },
+    // La base des clients, chaque usage au premier niveau (décision de Florent, 27/11/2026).
+    { id: 'clients',        icon: Users,        label: 'Clients',        defaultTab: 'conversations' },
+    { id: 'seances',        icon: CalendarDays, label: 'Séances',        defaultTab: 'conversations' },
+    { id: 'evenements',     icon: Ticket,       label: 'Évènements',     defaultTab: 'conversations' },
+    { id: 'professionnels', icon: Stethoscope,  label: 'Professionnels', defaultTab: 'conversations' },
+    { id: 'psychedelics',   icon: Sparkles,     label: 'Psychédéliques', defaultTab: 'conversations', separe: true },
+    { id: 'corpus',         icon: BookMarked,   label: 'Corpus',         defaultTab: 'conversations' },
 ];
 
 /**
@@ -168,13 +174,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </button>
 
                     {SPACES.map(space => (
-                        <RailButton
-                            key={space.id}
-                            active={currentSpace === space.id}
-                            onClick={() => { onNavigate(space.id, space.defaultTab); onMobileClose(); }}
-                            icon={space.icon}
-                            label={space.label}
-                        />
+                        <React.Fragment key={space.id}>
+                            {space.separe && <div role="separator" className="w-8 my-1 border-t border-brand-border dark:border-dark-sec-border" />}
+                            <RailButton
+                                active={currentSpace === space.id}
+                                onClick={() => { onNavigate(space.id, space.defaultTab); onMobileClose(); }}
+                                icon={space.icon}
+                                label={space.label}
+                            />
+                        </React.Fragment>
                     ))}
 
                     <div className="flex-1" />

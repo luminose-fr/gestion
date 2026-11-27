@@ -45,9 +45,17 @@ const SettingsSpace = lazy(() => import('./components/Settings/SettingsSpace'));
 const CorpusSpace = lazy(() => import('./components/Corpus/CorpusSpace'));
 const ContentEditor = lazy(() => import('./components/ContentEditor'));
 const PsychedelicsCalculator = lazy(() => import('./components/PsychedelicsCalculator'));
-const RdvView = lazy(() => import('./components/Clients/RdvView'));
+const EspaceClients = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceClients })));
+const EspaceSeances = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceSeances })));
+const EspaceEvenements = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.AVenir })));
+const EspaceProfessionnels = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.AVenir })));
 
-type SpaceView = 'social' | 'clients' | 'psychedelics' | 'corpus' | 'settings';
+/**
+ * Les espaces de la barre latérale. Clients, Séances, Évènements et
+ * Professionnels sont chacun au premier niveau (décision de Florent du
+ * 27/11/2026) ; chacun lit lui-même la suite de son adresse.
+ */
+type SpaceView = 'social' | 'clients' | 'seances' | 'evenements' | 'professionnels' | 'psychedelics' | 'corpus' | 'settings';
 /** Les trois listes, et `series` : l'adresse d'un plan de série (SPEC §13). */
 type SocialTab = ListeContenus | 'series';
 
@@ -66,6 +74,9 @@ const getHashState = () => {
     
     let space: SpaceView = 'social';
     if (parts[0] === 'clients') space = 'clients';
+    if (parts[0] === 'seances') space = 'seances';
+    if (parts[0] === 'evenements') space = 'evenements';
+    if (parts[0] === 'professionnels') space = 'professionnels';
     if (parts[0] === 'psychedelics' || parts[0] === 'psychedeliques') space = 'psychedelics';
     if (parts[0] === 'corpus') space = 'corpus';
     if (parts[0] === 'settings' || parts[0] === 'reglages') space = 'settings';
@@ -1261,6 +1272,9 @@ function App() {
                       ? (editingSerie ? `Série · ${editingSerie.titre}` : 'Série')
                       : libelleDeListe(currentSocialTab))}
                   {currentSpace === 'clients' && 'Clients'}
+                  {currentSpace === 'seances' && 'Séances'}
+                  {currentSpace === 'evenements' && 'Évènements'}
+                  {currentSpace === 'professionnels' && 'Professionnels'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
                   {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
@@ -1384,11 +1398,10 @@ function App() {
         )}
 
         <Suspense fallback={<Patience titre="Chargement de l’écran" />}>
-        {currentSpace === 'clients' && (
-            <main className="flex-1 overflow-y-auto">
-                <RdvView />
-            </main>
-        )}
+        {currentSpace === 'clients' && <main className="flex-1 overflow-y-auto"><EspaceClients /></main>}
+        {currentSpace === 'seances' && <main className="flex-1 overflow-y-auto"><EspaceSeances /></main>}
+        {currentSpace === 'evenements' && <main className="flex-1 overflow-y-auto"><EspaceEvenements /></main>}
+        {currentSpace === 'professionnels' && <main className="flex-1 overflow-y-auto"><EspaceProfessionnels /></main>}
 
         {currentSpace === 'settings' && (
             <SettingsSpace
