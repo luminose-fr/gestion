@@ -113,7 +113,7 @@ crons = []
 [[env.recette.d1_databases]]
 binding = "DB"
 database_name = "luminose-gestion-recette"
-database_id = "A_REMPLACER"
+database_id = "0c3f8ba2-d2c6-42cd-8970-267f0be3b46a"
 migrations_dir = "migrations"
 
 # npx wrangler d1 create luminose-clients-recette --jurisdiction=eu
@@ -122,7 +122,7 @@ migrations_dir = "migrations"
 [[env.recette.d1_databases]]
 binding = "CLIENTS"
 database_name = "luminose-clients-recette"
-database_id = "A_REMPLACER"
+database_id = "2c197564-b3f5-422c-81d9-1cc82040cb44"
 migrations_dir = "migrations-clients"
 
 # ─── Local : le poste de développement (npm run dev:api) ─────────────────────
