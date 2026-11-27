@@ -284,10 +284,9 @@ export const PORTE_RECETTE = {
   originePorte: 'https://api-recette.luminose.fr',
   /**
    * Les seules liaisons de service de la porte : des entrées nommées de
-   * gestion DE RECETTE. `Essai` se retire au dernier commit de la phase S2b.
+   * gestion DE RECETTE.
    */
   services: [
-    { binding: 'GESTION_ESSAI', service: RECETTE.worker, entrypoint: 'Essai' },
     { binding: 'GESTION_PUBLIQUE', service: RECETTE.worker, entrypoint: 'PortePublique' },
     { binding: 'GESTION_SERVICE', service: RECETTE.worker, entrypoint: 'PorteService' },
   ] as LiaisonService[],

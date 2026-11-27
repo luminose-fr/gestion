@@ -148,7 +148,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     expect(racine.observabilite).toEqual({ enabled: false, headSamplingRate: null, journauxDInvocation: false, traces: false });
   });
 
-  it('la recette déclare tout ce qui s’hérite, et une seule liaison : l’entrée Essai de gestion de recette', () => {
+  it('la recette déclare tout ce qui s’hérite, et ses seules liaisons : les entrées des portes de gestion de recette', () => {
     const r = resoudre(PORTE, 'recette');
     expect(r.name).toBe('luminose-porte-recette');
     expect(r.workersDev).toBe(false);
@@ -163,7 +163,6 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     });
     expect(r.liaisons).toEqual(['services', 'ratelimits']);
     expect(r.services).toEqual([
-      { binding: 'GESTION_ESSAI', service: 'gestion-luminose-worker-recette', entrypoint: 'Essai' },
       { binding: 'GESTION_PUBLIQUE', service: 'gestion-luminose-worker-recette', entrypoint: 'PortePublique' },
       { binding: 'GESTION_SERVICE', service: 'gestion-luminose-worker-recette', entrypoint: 'PorteService' },
     ]);

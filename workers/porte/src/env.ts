@@ -7,7 +7,7 @@
  * jamais déployée, n'a rien — et ce qui manque est une panne, jamais une porte
  * ouverte.
  */
-import type { EntreeEssai, PortePublique, PorteService } from '@luminose/contrat';
+import type { PortePublique, PorteService } from '@luminose/contrat';
 
 /** Un limiteur de la liaison `ratelimits` — ce que la porte en emploie. */
 export type Limiteur = { limit(options: { key: string }): Promise<{ success: boolean }> };
@@ -19,8 +19,6 @@ export type Env = {
   /** L'origine de la porte elle-même, que la page d'essai appelle (recette seulement). */
   ORIGINE_PORTE?: string;
 
-  /** L'entrée de l'essai à blanc (partie A) ; se retire au dernier commit de la phase. */
-  GESTION_ESSAI?: Pick<EntreeEssai, 'ping'>;
   GESTION_PUBLIQUE?: PortePublique;
   GESTION_SERVICE?: PorteService;
 

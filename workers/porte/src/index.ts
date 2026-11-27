@@ -7,7 +7,6 @@
  *   POST    /v1/questionnaires/lien      → PortePublique.lienQuestionnaire
  *   OPTIONS sur les deux                 → la réponse de CORS, sans gestion
  *   POST    /service/v1/confirmations    → PorteService.confirmation
- *   POST    /v1/essai                    → Essai.ping (l'essai à blanc, partie A)
  *
  * Toute autre adresse ou méthode : 404, corps vide.
  *
@@ -21,34 +20,13 @@
  * par un code fixe (reponses.ts).
  */
 import type { Env } from './env.ts';
-import { introuvable, journaliser, json, panne } from './reponses.ts';
+import { introuvable, journaliser, panne } from './reponses.ts';
 import { preliminaire } from './cors.ts';
 import { porterPublique, QUESTIONNAIRE, LIEN } from './publique.ts';
 import { porterService } from './service.ts';
 import { pageDEssai, entetesDeLaPage } from './essai/page.ts';
 
 export type { Env } from './env.ts';
-
-const essai = async (env: Env): Promise<Response> => {
-  if (!env.GESTION_ESSAI) {
-    journaliser('porte.non_reliee');
-    return panne();
-  }
-  let recu: unknown;
-  try {
-    recu = await env.GESTION_ESSAI.ping();
-  } catch {
-    journaliser('porte.panne');
-    return panne();
-  }
-  // Re-sérialisé depuis la forme attendue, jamais recopié.
-  const r = recu as { ok?: unknown; base?: unknown } | null;
-  if (r?.ok !== true || typeof r.base !== 'boolean') {
-    journaliser('porte.reponse_hors_schema');
-    return panne();
-  }
-  return json({ ok: true, base: r.base });
-};
 
 const PUBLIQUES = { '/v1/questionnaires': QUESTIONNAIRE, '/v1/questionnaires/lien': LIEN } as const;
 
@@ -71,7 +49,6 @@ export default {
       return preliminaire(env.ORIGINE_SITE);
     }
     if (requete.method === 'POST' && pathname === '/service/v1/confirmations') return porterService(requete, env);
-    if (requete.method === 'POST' && pathname === '/v1/essai') return essai(env);
     return introuvable();
   },
 };

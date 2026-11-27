@@ -29,7 +29,7 @@ describe('où la page est servie', () => {
     ['une autre adresse du site', `${SITE}/autre`, 'GET'],
     ['la racine en POST', `${SITE}/`, 'POST'],
     ['une adresse de la porte sur l’hôte du site', `${SITE}/v1/questionnaires`, 'POST'],
-    ['l’essai sur l’hôte du site', `${SITE}/v1/essai`, 'POST'],
+    ['le service sur l’hôte du site', `${SITE}/service/v1/confirmations`, 'POST'],
     ['la racine de la porte', `${PORTE}/`, 'GET'],
   ])('%s : 404, corps vide', async (_nom, url, methode) => {
     const r = await appeler(url, methode);

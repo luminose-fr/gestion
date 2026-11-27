@@ -5,10 +5,6 @@
 # entrées nommées de gestion lui ouvrent : un défaut dans le code le plus exposé
 # du dépôt n'atteint ni une table, ni une clé.
 #
-# PHASE S2b, PARTIE A — l'essai à blanc du §14.3 : une seule liaison, vers
-# l'entrée `Essai` de gestion, et une seule adresse, POST /v1/essai. Les entrées
-# des portes viennent ensuite ; `Essai` se retire au dernier commit de la phase.
-#
 # CE QUI S'HÉRITE (SPEC §14.8, même piège que workers/api/wrangler.toml) :
 # `routes`, `triggers`, `workers_dev`, `preview_urls` et `observability`
 # s'héritent de la racine ; `vars` et les liaisons, non. La recette déclare donc
@@ -93,15 +89,10 @@ invocation_logs = false
 [env.recette.observability.traces]
 enabled = false
 
-# L'entrée d'essai de gestion (workers/api/src/index.ts, classe `Essai`). Seul
-# un Worker qui déclare cette liaison l'atteint : elle n'a pas d'adresse.
-# Gestion se déploie AVANT la porte : l'entrée doit exister quand on la lie.
-[[env.recette.services]]
-binding = "GESTION_ESSAI"
-service = "gestion-luminose-worker-recette"
-entrypoint = "Essai"
-
 # Les entrées nommées des portes (workers/api/src/clients/portes/entrees.ts).
+# Seul un Worker qui déclare ces liaisons les atteint : elles n'ont pas
+# d'adresse. Gestion se déploie AVANT la porte : une entrée doit exister quand
+# on la lie.
 [[env.recette.services]]
 binding = "GESTION_PUBLIQUE"
 service = "gestion-luminose-worker-recette"

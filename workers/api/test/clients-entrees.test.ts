@@ -7,7 +7,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MAINTENANT } from './helpers/clients';
 import { envPortes, ficheEssai, seanceEssai, jetonDe, envoiComplet } from './helpers/portes';
-import { PortePublique, PorteService } from '../src/index';
+import worker, { PortePublique, PorteService } from '../src/index';
+import { makeEnv } from './helpers/d1';
 
 const REPERES = ['Émilie', 'emilie.martin@example.org', '+33 6 39 98 00 01', 'Question d’essai 2', 'Bearer repere-jeton-make'];
 
@@ -98,4 +99,18 @@ describe('PorteService.confirmation', () => {
     await expect(entree.confirmation(`Bearer ${jeton}`, { ordre: 'o1', issue: 'fait' })).rejects.toThrow(/^porte\.non_reliee$/);
     expect(journal.mock.calls).toEqual([['porte.non_reliee']]);
   });
+});
+
+describe('aucune adresse ne mène aux entrées (SPEC §14.3)', () => {
+  it('l’export par défaut ne change pas : fetch et scheduled, et rien d’autre', () => {
+    expect(Object.keys(worker).sort()).toEqual(['fetch', 'scheduled']);
+  });
+
+  it.each(['/v1/questionnaires', '/v1/questionnaires/lien', '/service/v1/confirmations', '/v1/essai', '/api/essai', '/api/portes/questionnaire'])(
+    'POST %s sur gestion : 401 ou 404, jamais une entrée', async (chemin) => {
+      const r = await worker.fetch(new Request(`https://gestion-recette.luminose.fr${chemin}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      }), makeEnv({ clients: true }) as never, ctx);
+      expect([401, 404]).toContain(r.status);
+    });
 });

@@ -273,7 +273,6 @@ if [ "$ENVIRONNEMENT" = "recette" ]; then
 
   step "Vérifications suggérées"
   if has porte; then
-    printf '  - curl -s -X POST https://%s/v1/essai   # attendu : {"ok":true,"base":true}\n' "$CIBLE_PORTE_DOMAINE"
     printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" https://%s/   # attendu : 404\n' "$CIBLE_PORTE_DOMAINE"
     printf '  - https://%s/ : la page d’essai (Réglages → Porte publique → Lien d’essai)\n' "$CIBLE_PORTE_ESSAI"
     printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" -X POST https://%s/v1/questionnaires -H "Origin: https://autre.example.org" -H "Content-Type: application/json" -d "{}"   # attendu : 403\n' "$CIBLE_PORTE_DOMAINE"
