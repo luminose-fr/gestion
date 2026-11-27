@@ -11,3 +11,5 @@ export { normaliserEmail, normaliserNom, nomRecherche, cleClient } from './clien
 export { instantDeParis, isoDeParis, jourDeParis, jourDeLaSemaine, jourSuivant, instantDepuisIso } from './temps.ts';
 export { creneauxLibres, verifierCreneau } from './creneaux.ts';
 export type { TypeDeSeance, Plage, Horaires, Occupation, DemandeDeCreneaux, VerdictDeCreneau } from './creneaux.ts';
+export { quiPrevenir } from './attente.ts';
+export type { CreneauLibere, SeanceEnAttente, ReglagesAttente } from './attente.ts';
