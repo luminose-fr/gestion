@@ -1,0 +1,70 @@
+# Worker de la porte — la porte publique et la porte de service (SPEC §14.3, §14.5).
+#
+# UN WORKER À PART, sans base, sans secret, sans KV : il reçoit, borne, valide,
+# et appelle gestion par une liaison de service. Il ne peut que ce que les
+# entrées nommées de gestion lui ouvrent : un défaut dans le code le plus exposé
+# du dépôt n'atteint ni une table, ni une clé.
+#
+# PHASE S2b, PARTIE A — l'essai à blanc du §14.3 : une seule liaison, vers
+# l'entrée `Essai` de gestion, et une seule adresse, POST /v1/essai. Les entrées
+# des portes viennent ensuite ; `Essai` se retire au dernier commit de la phase.
+#
+# CE QUI S'HÉRITE (SPEC §14.8, même piège que workers/api/wrangler.toml) :
+# `routes`, `triggers`, `workers_dev`, `preview_urls` et `observability`
+# s'héritent de la racine ; `vars` et les liaisons, non. La recette déclare donc
+# tout, même vide. La résolution est vérifiée par
+# workers/api/test/configuration.test.ts et, avant tout effet, par
+# ./scripts/deploy.sh --env recette porte.
+
+name = "luminose-porte"
+main = "src/index.ts"
+compatibility_date = "2026-01-31"
+
+# LA RACINE N'EST DÉPLOYÉE PAR RIEN dans cette phase : sans la base des clients
+# en production, toute commande y serait une panne, et api.luminose.fr n'existe
+# pas encore. Elle n'a ni adresse, ni déclencheur, ni liaison ; elle existe pour
+# que la recette ait de quoi hériter EXPLICITEMENT. scripts/deploy.sh refuse la
+# cible « porte » sans --env recette.
+#
+# ATTENTION TOML : ces clés restent AVANT tout en-tête de table — placées après
+# [vars] ou [observability], elles appartiendraient à cette table.
+workers_dev = false
+preview_urls = false
+routes = []
+
+# Pas d'observabilité tant que l'essai n'a pas dit ce que Workers Logs garde
+# d'une invocation (en-têtes, adresse IP) : à trancher au §14.3 avant la
+# production.
+[observability]
+enabled = false
+
+# ─── Recette : api-recette.luminose.fr ───────────────────────────────────────
+[env.recette]
+name = "luminose-porte-recette"
+workers_dev = false
+preview_urls = false
+# `custom_domain` : wrangler crée l'enregistrement DNS et le certificat au
+# premier déploiement. Le nom ne doit porter aucun enregistrement DNS avant.
+routes = [
+  { pattern = "api-recette.luminose.fr", custom_domain = true }
+]
+
+[env.recette.vars]
+ENVIRONNEMENT = "recette"
+
+[env.recette.triggers]
+crons = []
+
+# L'essai à blanc : tout est relevé, le temps de l'essai (§14.3) — temps de
+# calcul, sous-requêtes, et ce que l'invocation garde.
+[env.recette.observability]
+enabled = true
+head_sampling_rate = 1
+
+# L'entrée d'essai de gestion (workers/api/src/index.ts, classe `Essai`). Seul
+# un Worker qui déclare cette liaison l'atteint : elle n'a pas d'adresse.
+# Gestion se déploie AVANT la porte : l'entrée doit exister quand on la lie.
+[[env.recette.services]]
+binding = "GESTION_ESSAI"
+service = "gestion-luminose-worker-recette"
+entrypoint = "Essai"

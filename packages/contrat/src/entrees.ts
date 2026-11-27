@@ -28,3 +28,16 @@ export interface PorteService {
    */
   confirmation(autorisation: string | null, envoi: unknown): Promise<Reponse | AutorisationRefusee>;
 }
+
+/**
+ * L'entrée de l'essai à blanc (SPEC §14.3, phase S2b, partie A) : deux Workers,
+ * une liaison, une méthode, aucune donnée. Elle dit seulement que l'appel a
+ * traversé, et si la base des clients est reliée de l'autre côté. Elle se retire
+ * au dernier commit de la phase, avec sa liaison : une entrée qui ne sert plus
+ * est une surface de trop.
+ */
+export type ReponseEssai = { ok: true; base: boolean };
+
+export interface EntreeEssai {
+  ping(): Promise<ReponseEssai>;
+}

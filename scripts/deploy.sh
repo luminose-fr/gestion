@@ -19,6 +19,7 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 #
 #   ./scripts/deploy.sh --env recette        # la RECETTE : api et app (SPEC §14.8)
 #   ./scripts/deploy.sh --env recette api    # la recette, Worker seulement
+#   ./scripts/deploy.sh --env recette api porte   # gestion, puis la porte (api-recette.luminose.fr)
 #   DRY_RUN=1 ./scripts/deploy.sh --env recette
 #
 # Sans `--env`, c'est la PRODUCTION, et son chemin est celui d'avant la v3.0 :
@@ -40,6 +41,10 @@ if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 # script s'il manque : rien à faire à la main, si le jeton peut écrire dans R2.
 #
 # Le Worker MCP a ses propres prérequis : workers/mcp/README.md.
+#
+# `porte` (workers/porte, SPEC §14.3) n'existe qu'en recette dans la phase S2b,
+# et hors de la cible par défaut : elle part quand on la nomme, avec `--env
+# recette`. Sans `--env recette`, elle est refusée avant tout effet.
 #
 # `mcp` N'EST PAS dans la cible par défaut : il part quand on le nomme. Sa mise
 # en place (KV, secrets, client OAuth Google) est indépendante, et une
@@ -113,9 +118,9 @@ need_dir() {
 if [ "$ENVIRONNEMENT" = "recette" ]; then
   for cible in "${TARGETS[@]}"; do
     case "$cible" in
-      api|app) ;;
+      api|app|porte) ;;
       mcp) warn "La cible « mcp » n'existe pas en recette : le serveur MCP n'a qu'un environnement."; exit 1 ;;
-      *) warn "Cible « $cible » inconnue (api, app)."; exit 1 ;;
+      *) warn "Cible « $cible » inconnue (api, app, porte)."; exit 1 ;;
     esac
   done
 
@@ -143,6 +148,34 @@ if [ "$ENVIRONNEMENT" = "recette" ]; then
     fi
   fi
   rm -f "$ECARTS_FICHIER"
+
+  # 1 bis. La porte (workers/porte/wrangler.toml), si elle est visée : son nom,
+  #    sa route en domaine personnalisé, ni workers.dev ni aperçu, ni base ni
+  #    KV, et une liaison vers le gestion DE RECETTE seulement. À part de la
+  #    cible de l'api : un écart de la porte n'arrête pas un déploiement qui ne
+  #    la vise pas.
+  if has porte; then
+    step "Cible de la porte (workers/porte/wrangler.toml, section [env.recette])"
+    ECARTS_FICHIER="$(mktemp)"
+    CIBLE_OK=1
+    CIBLE_SORTIE="$(node workers/api/scripts/cible.ts recette porte 2>"$ECARTS_FICHIER")" || CIBLE_OK=0
+    eval "$CIBLE_SORTIE"
+    printf '   Worker %s · https://%s\n' "$CIBLE_PORTE_WORKER" "$CIBLE_PORTE_DOMAINE"
+    printf '   Liaisons %s\n' "$CIBLE_PORTE_SERVICES"
+    if [ "$CIBLE_OK" = 1 ]; then
+      ok "Cible conforme"
+    else
+      while IFS= read -r ecart; do warn "$ecart"; done <"$ECARTS_FICHIER"
+      if [ "${DRY_RUN:-0}" = "1" ]; then
+        warn "Répétition : la suite s'affiche, mais un vrai déploiement s'arrêterait ici."
+      else
+        warn "Corriger workers/porte/wrangler.toml, section [env.recette]. Rien n'a été lancé."
+        rm -f "$ECARTS_FICHIER"
+        exit 1
+      fi
+    fi
+    rm -f "$ECARTS_FICHIER"
+  fi
 
   # 2. Le compte : les DEUX bases de la recette doivent y être visibles, chacune
   #    sous son nom — c'est aussi ce qui prouve qu'on n'est pas sur un autre
@@ -227,7 +260,19 @@ if [ "$ENVIRONNEMENT" = "recette" ]; then
     ok "Front en ligne : https://${CIBLE_DOMAINE}"
   fi
 
+  # APRÈS gestion : la porte lie une entrée nommée de gestion, qui doit exister
+  # quand on la lie (SPEC §14.3). Ni base, ni secret, ni migration.
+  if has porte; then
+    step "Porte ${CIBLE_PORTE_WORKER} (https://${CIBLE_PORTE_DOMAINE})"
+    ( cd workers/porte && run npx wrangler deploy --env recette )
+    ok "Porte déployée"
+  fi
+
   step "Vérifications suggérées"
+  if has porte; then
+    printf '  - curl -s -X POST https://%s/v1/essai   # attendu : {"ok":true,"base":true}\n' "$CIBLE_PORTE_DOMAINE"
+    printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" https://%s/   # attendu : 404\n' "$CIBLE_PORTE_DOMAINE"
+  fi
   printf '  - curl -s -o /dev/null -w "%%{http_code}\\n" https://%s/api/contents   # attendu : 401\n' "$CIBLE_DOMAINE"
   printf '  - Se connecter avec les identifiants de RECETTE : le bandeau « Recette » s’affiche\n'
   printf '  - Réglages : « Base des clients : reliée — données fictives »\n'
@@ -235,6 +280,14 @@ if [ "$ENVIRONNEMENT" = "recette" ]; then
   printf '  - Contraintes : npm run essai:contraintes -w workers/api\n'
   ok "Recette : terminé"
   exit 0
+fi
+
+# ─── La porte n'a pas de production dans cette phase ─────────────────────────
+# Sans la base des clients en production, toute commande y serait une panne, et
+# api.luminose.fr n'existe pas (SPEC §14.11, S2b). Refusée avant tout effet.
+if has porte; then
+  warn "La cible « porte » ne se déploie qu'en recette dans cette phase : ./scripts/deploy.sh --env recette porte"
+  exit 1
 fi
 
 # ─── Le Worker MCP est-il prêt à partir ? ────────────────────────────────────

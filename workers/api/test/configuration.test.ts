@@ -11,10 +11,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resoudre, ecartsRecette, lireToml } from '../scripts/configuration';
+import { resoudre, ecartsRecette, ecartsPorteRecette, lireToml } from '../scripts/configuration';
 import { DECLENCHEURS } from '../src/declencheurs';
 
 const SOURCE = readFileSync(join(import.meta.dirname, '..', 'wrangler.toml'), 'utf8');
+const PORTE = readFileSync(join(import.meta.dirname, '..', '..', 'porte', 'wrangler.toml'), 'utf8');
 /**
  * Le fichier tel qu'avant le report des identifiants de recette : les tests
  * ne doivent pas dépendre de ce que Florent y a écrit depuis.
@@ -129,6 +130,72 @@ describe('le poste local', () => {
   it('garde ce que le développement du montage utilise : Workers AI et R2', () => {
     expect(local.ai).toBe(true);
     expect(local.r2).toEqual(['luminose-montage']);
+  });
+});
+
+describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.8)', () => {
+  it('la racine n’est déployée par rien : ni adresse, ni déclencheur, ni liaison, ni observabilité', () => {
+    const racine = resoudre(PORTE, null);
+    expect(racine.name).toBe('luminose-porte');
+    expect(racine.workersDev).toBe(false);
+    expect(racine.previewUrls).toBe(false);
+    expect(racine.routes).toEqual([]);
+    expect(racine.crons).toEqual([]);
+    expect(racine.liaisons).toEqual([]);
+    expect(racine.vars).toEqual({});
+    expect(racine.observabilite.enabled).toBe(false);
+  });
+
+  it('la recette déclare tout ce qui s’hérite, et une seule liaison : l’entrée Essai de gestion de recette', () => {
+    const r = resoudre(PORTE, 'recette');
+    expect(r.name).toBe('luminose-porte-recette');
+    expect(r.workersDev).toBe(false);
+    expect(r.previewUrls).toBe(false);
+    expect(r.routesDetaillees).toEqual([{ pattern: 'api-recette.luminose.fr', customDomain: true }]);
+    expect(r.crons).toEqual([]);
+    expect(r.vars).toEqual({ ENVIRONNEMENT: 'recette' });
+    expect(r.liaisons).toEqual(['services']);
+    expect(r.services).toEqual([{ binding: 'GESTION_ESSAI', service: 'gestion-luminose-worker-recette', entrypoint: 'Essai' }]);
+    // Le temps de l'essai : tout est relevé (§14.3).
+    expect(r.observabilite).toEqual({ enabled: true, headSamplingRate: 1 });
+  });
+
+  it('le fichier du dépôt est une porte de recette conforme', () => {
+    expect(ecartsPorteRecette(PORTE)).toEqual([]);
+  });
+
+  it('une liaison vers le gestion de PRODUCTION est refusée', () => {
+    const vers = PORTE.replace('service = "gestion-luminose-worker-recette"', 'service = "gestion-luminose-worker"');
+    expect(ecartsPorteRecette(vers).join('\n')).toMatch(/seul « gestion-luminose-worker-recette » est admis/);
+  });
+
+  it('une section qui oublie workers_dev, preview_urls et ses routes : refusée (rien n’hérite de bon)', () => {
+    const oublieuse = PORTE
+      .replace('[env.recette]\nname = "luminose-porte-recette"\nworkers_dev = false\npreview_urls = false\n', '[env.recette]\nname = "luminose-porte-recette"\n')
+      .replace(/routes = \[\n  \{ pattern = "api-recette[\s\S]*?\n\]\n/, '')
+      .replace(/workers_dev = false\npreview_urls = false\nroutes = \[\]\n/, '');
+    const r = resoudre(oublieuse, 'recette');
+    expect(r.workersDev).toBe(true);
+    expect(r.previewUrls).toBe(true);
+    const ecarts = ecartsPorteRecette(oublieuse).join('\n');
+    expect(ecarts).toMatch(/workers_dev/);
+    expect(ecarts).toMatch(/preview_urls/);
+    expect(ecarts).toMatch(/routes/);
+  });
+
+  it('une route qui n’est pas un domaine personnalisé, ou une autre adresse : refusée', () => {
+    expect(ecartsPorteRecette(PORTE.replace('custom_domain = true', 'zone_name = "luminose.fr"')).join('\n')).toMatch(/domaine personnalisé/);
+    expect(ecartsPorteRecette(PORTE.replace('pattern = "api-recette.luminose.fr"', 'pattern = "api.luminose.fr"')).join('\n')).toMatch(/routes/);
+  });
+
+  it('ni base, ni KV, ni secret : une liaison de plus est refusée', () => {
+    const avecKv = `${PORTE}\n[[env.recette.kv_namespaces]]\nbinding = "X"\nid = "abc"\n`;
+    expect(ecartsPorteRecette(avecKv)).toEqual(['liaisons interdites à la porte (ni base, ni KV, ni secret — §14.3) : kv_namespaces']);
+  });
+
+  it('un déclencheur hérité ou déclaré : refusé', () => {
+    const avecCron = PORTE.replace('[env.recette.triggers]\ncrons = []', '[env.recette.triggers]\ncrons = ["*/5 * * * *"]');
+    expect(ecartsPorteRecette(avecCron).join('\n')).toMatch(/déclencheurs/);
   });
 });
 

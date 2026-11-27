@@ -116,21 +116,42 @@ export const lireToml = (source: string): Table => {
 };
 
 export type BaseD1 = { binding: string; databaseName: string; databaseId: string; migrationsDir: string };
+export type Route = { pattern: string; customDomain: boolean };
+export type LiaisonService = { binding: string; service: string; entrypoint: string | null };
+
+/**
+ * Les clés de wrangler.toml qui déclarent une liaison ou une ressource. Aucune
+ * ne s'hérite ; la porte n'a droit qu'à `services` (§14.3 : ni base, ni secret,
+ * ni KV). La liste est large exprès : une liaison qu'elle ne nommerait pas
+ * passerait le contrôle sans être vue.
+ */
+const CLES_DE_LIAISON = [
+  'd1_databases', 'kv_namespaces', 'r2_buckets', 'ai', 'services', 'durable_objects', 'queues',
+  'vectorize', 'hyperdrive', 'analytics_engine_datasets', 'browser', 'ratelimits', 'unsafe',
+  'send_email', 'secrets_store_secrets', 'workflows', 'assets', 'mtls_certificates', 'dispatch_namespaces',
+] as const;
 
 /** Ce que `wrangler … --env <nom>` vise, une fois l'héritage appliqué. */
 export type Resolue = {
   environnement: string | null;
   name: string;
   workersDev: boolean;
+  /** Les adresses d'aperçu, sur workers.dev elles aussi. Non déclarées : la valeur de `workers_dev`. */
+  previewUrls: boolean;
   routes: string[];
+  routesDetaillees: Route[];
   crons: string[];
   vars: Record<string, string>;
   d1: BaseD1[];
   r2: string[];
   ai: boolean;
+  services: LiaisonService[];
+  /** Les clés de liaison que la section déclare, quelles qu'elles soient. */
+  liaisons: string[];
+  observabilite: { enabled: boolean; headSamplingRate: number | null };
 };
 
-const HERITEES = ['routes', 'triggers', 'workers_dev'] as const;
+const HERITEES = ['routes', 'triggers', 'workers_dev', 'preview_urls', 'observability'] as const;
 
 /** `null` : la racine — la production. */
 export const resoudre = (source: string, environnement: string | null): Resolue => {
@@ -145,12 +166,19 @@ export const resoudre = (source: string, environnement: string | null): Resolue 
     ? String(racine.name)
     : String(propre.name ?? `${racine.name}-${environnement}`);
   const triggers = (valeur('triggers') ?? {}) as Table;
+  // Sans déclaration nulle part, wrangler ouvre workers.dev.
+  const workersDev = (valeur('workers_dev') ?? true) as boolean;
+  const routesDetaillees = ((valeur('routes') ?? []) as Valeur[]).map((r): Route => (typeof r === 'string'
+    ? { pattern: r, customDomain: false }
+    : { pattern: String((r as Table).pattern), customDomain: (r as Table).custom_domain === true }));
+  const observabilite = (valeur('observability') ?? {}) as Table;
   return {
     environnement,
     name,
-    // Sans déclaration nulle part, wrangler ouvre workers.dev.
-    workersDev: (valeur('workers_dev') ?? true) as boolean,
-    routes: ((valeur('routes') ?? []) as Valeur[]).map((r) => (typeof r === 'string' ? r : String((r as Table).pattern))),
+    workersDev,
+    previewUrls: (valeur('preview_urls') ?? workersDev) as boolean,
+    routes: routesDetaillees.map((r) => r.pattern),
+    routesDetaillees,
     crons: ((triggers.crons ?? []) as Valeur[]).map(String),
     // Ni les variables ni les liaisons ne s'héritent : seule la section compte.
     vars: Object.fromEntries(Object.entries((propre.vars ?? {}) as Table).map(([k, v]) => [k, String(v)])),
@@ -162,6 +190,16 @@ export const resoudre = (source: string, environnement: string | null): Resolue 
     })),
     r2: ((propre.r2_buckets ?? []) as Table[]).map((b) => String(b.bucket_name)),
     ai: propre.ai !== undefined,
+    services: ((propre.services ?? []) as Table[]).map((b) => ({
+      binding: String(b.binding),
+      service: String(b.service),
+      entrypoint: b.entrypoint === undefined ? null : String(b.entrypoint),
+    })),
+    liaisons: CLES_DE_LIAISON.filter((cle) => propre[cle] !== undefined),
+    observabilite: {
+      enabled: observabilite.enabled === true,
+      headSamplingRate: typeof observabilite.head_sampling_rate === 'number' ? observabilite.head_sampling_rate : null,
+    },
   };
 };
 
@@ -219,6 +257,55 @@ export const ecartsRecette = (source: string): string[] => {
     if (b.migrationsDir !== dossier) ecarts.push(`${binding} : migrations_dir « ${b.migrationsDir} », attendu « ${dossier} »`);
     if (!UUID.test(b.databaseId)) ecarts.push(`${binding} : database_id « ${b.databaseId} » n’est pas un identifiant (wrangler d1 create ${nom})`);
     if (idsProduction.has(b.databaseId)) ecarts.push(`${binding} : database_id est celui d’une base de la PRODUCTION`);
+  }
+  return ecarts;
+};
+
+// ─── La porte de recette (SPEC §14.3, §14.5, §14.8) ─────────────────────────
+
+export const PORTE_RECETTE = {
+  worker: 'luminose-porte-recette',
+  domaine: 'api-recette.luminose.fr',
+  /**
+   * Les seules liaisons de la porte : des entrées nommées de gestion DE
+   * RECETTE. Phase S2b, partie A : l'entrée d'essai, et elle seule.
+   */
+  services: [{ binding: 'GESTION_ESSAI', service: RECETTE.worker, entrypoint: 'Essai' }] as LiaisonService[],
+} as const;
+
+/**
+ * Les écarts entre la porte de recette déclarée (workers/porte/wrangler.toml)
+ * et ce qu'elle doit être. Vide : la cible est la bonne.
+ *
+ * Ce qui est refusé, c'est tout ce qui la relierait à la production : une
+ * route héritée ou recopiée, une adresse workers.dev, une liaison vers le
+ * Worker de gestion de production, une base, un KV, un secret.
+ */
+export const ecartsPorteRecette = (source: string): string[] => {
+  const ecarts: string[] = [];
+  const r = resoudre(source, 'recette');
+  const racine = resoudre(source, null);
+
+  if (r.name !== PORTE_RECETTE.worker) ecarts.push(`Worker « ${r.name} », attendu « ${PORTE_RECETTE.worker} »`);
+  if (r.name === racine.name) ecarts.push('la porte de recette porte le nom de la racine');
+  if (r.workersDev) ecarts.push('workers_dev doit valoir false : la porte n’a pas d’adresse workers.dev');
+  if (r.previewUrls) ecarts.push('preview_urls doit valoir false : une adresse d’aperçu mènerait à la porte hors de son domaine');
+  if (r.crons.length > 0) ecarts.push(`déclencheurs planifiés hérités ou déclarés (${r.crons.join(', ')}) : crons = [] attendu`);
+  const routesAttendues: Route[] = [{ pattern: PORTE_RECETTE.domaine, customDomain: true }];
+  if (JSON.stringify(r.routesDetaillees) !== JSON.stringify(routesAttendues)) {
+    ecarts.push(`routes ${JSON.stringify(r.routesDetaillees)}, attendue ${PORTE_RECETTE.domaine} en domaine personnalisé (custom_domain = true)`);
+  }
+  if (r.vars.ENVIRONNEMENT !== 'recette') ecarts.push('vars.ENVIRONNEMENT doit valoir "recette"');
+  const autres = r.liaisons.filter((l) => l !== 'services');
+  if (autres.length > 0) ecarts.push(`liaisons interdites à la porte (ni base, ni KV, ni secret — §14.3) : ${autres.join(', ')}`);
+  for (const s of r.services) {
+    if (s.service !== RECETTE.worker) ecarts.push(`${s.binding} : lié à « ${s.service} », seul « ${RECETTE.worker} » est admis en recette`);
+  }
+  const vu = (l: LiaisonService) => `${l.binding} → ${l.service}#${l.entrypoint ?? '(défaut)'}`;
+  const declarees = r.services.map(vu).sort();
+  const attendues = PORTE_RECETTE.services.map(vu).sort();
+  if (JSON.stringify(declarees) !== JSON.stringify(attendues)) {
+    ecarts.push(`liaisons de service [${declarees.join(', ')}], attendues [${attendues.join(', ')}]`);
   }
   return ecarts;
 };

@@ -21,6 +21,8 @@
  * Aucun CORS : le front partage l'origine de cette API (SPEC §1.2).
  */
 import { Hono } from 'hono';
+import { WorkerEntrypoint } from 'cloudflare:workers';
+import type { EntreeEssai, ReponseEssai } from '@luminose/contrat';
 import { z, ZodError } from 'zod';
 import { Refus } from './refus';
 import type { Contexte, Env } from './env';
@@ -48,6 +50,7 @@ import { clients } from './routes/clients';
 import { portes } from './routes/portes';
 import { DECLENCHEURS } from './declencheurs';
 import { passer } from './clients/passage';
+import { clientsReliee } from './clients/base';
 import { seances } from './routes/seances';
 import { evenements, inscriptions } from './routes/evenements';
 import { professionnels } from './routes/professionnels';
@@ -238,3 +241,19 @@ export default {
     else ctx.waitUntil(lancerVeille(env).then(() => undefined));
   },
 };
+
+/**
+ * L'essai à blanc du §14.3 (phase S2b, partie A) : une entrée nommée, sans
+ * adresse, que seul un Worker déclarant la liaison atteint — la porte de
+ * recette (workers/porte/wrangler.toml). Elle ne lit rien et n'écrit rien :
+ * elle dit que l'appel a traversé, et si la base des clients est reliée.
+ *
+ * L'export par défaut ne change pas : `fetch` ne connaît pas cette classe, et
+ * aucune route n'y mène. Elle se retire au dernier commit de la phase, avec sa
+ * liaison.
+ */
+export class Essai extends WorkerEntrypoint<Env> implements EntreeEssai {
+  async ping(): Promise<ReponseEssai> {
+    return { ok: true, base: clientsReliee(this.env) };
+  }
+}
