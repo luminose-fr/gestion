@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { AIModel, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
 import { BaseClients } from './BaseClients';
+import { ReservationReglages } from './ReservationReglages';
 import * as Api from '../../services/apiService';
 import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
@@ -2117,6 +2118,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         )}
                     </div>
                 )}
+
+                {section === 'reservation' && <ReservationReglages />}
 
                 {section === 'backup' && (
                     <div className="max-w-3xl animate-fade-in">
