@@ -120,9 +120,13 @@ export const NotesDeSeance: React.FC<{ id: string }> = ({ id }) => {
   };
 
   // En quittant l'écran (une autre adresse de la console) : ce qui attend part tout de suite.
-  useEffect(() => () => {
-    monte.current = false;
-    if (minuteur.current) void enregistrer();
+  // `monte` repasse à vrai à chaque montage : le mode strict de React démonte et remonte une fois.
+  useEffect(() => {
+    monte.current = true;
+    return () => {
+      monte.current = false;
+      if (minuteur.current) void enregistrer();
+    };
   }, [enregistrer]);
 
   // L'onglet qui passe à l'arrière-plan (téléphone verrouillé, autre application) : idem.

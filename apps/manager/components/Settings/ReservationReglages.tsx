@@ -294,7 +294,8 @@ const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void }>
     <div key={k} className="flex items-center justify-between gap-3 py-2">
       <label htmlFor={`reglage-${k}`} className="text-sm text-brand-main dark:text-white">{def?.libelle ?? k}</label>
       <span className="flex shrink-0 items-center gap-2">
-        <Champ id={`reglage-${k}`} type="number" min={0} className="w-24 text-right" value={s[k] ?? ''} onChange={(e) => setS((x) => ({ ...x, [k]: (e.target as HTMLInputElement).value }))} />
+        {/* La largeur va à une enveloppe : la classe du champ porte déjà w-full. */}
+        <span className="w-24"><Champ id={`reglage-${k}`} type="number" min={0} className="text-right" value={s[k] ?? ''} onChange={(e) => setS((x) => ({ ...x, [k]: (e.target as HTMLInputElement).value }))} /></span>
         <span className="w-20 text-xs text-brand-main dark:text-dark-text">{def?.unite ?? ''}</span>
       </span>
     </div>
@@ -310,12 +311,12 @@ const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void }>
       {groupes.map((g) => {
         const corps = <div className="divide-y divide-brand-border dark:divide-dark-sec-border">{g.cles.map((k) => ligne(k, g.reglages[k]))}</div>;
         return g.replie ? (
-          <details key={g.titre}>
+          <details key={g.titre} className="pt-2">
             <summary className={`cursor-pointer ${CLASSES_SURTITRE}`}>{g.titre}</summary>
             <div className="mt-2">{corps}</div>
           </details>
         ) : (
-          <section key={g.titre}>
+          <section key={g.titre} className="pt-2">
             <p className={CLASSES_SURTITRE}>{g.titre}</p>
             {corps}
           </section>
