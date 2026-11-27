@@ -3960,6 +3960,17 @@ L'adresse dit où l'on est, par des identifiants seulement : `#clients/semaine`,
 `#clients/fiches`, `#clients/fiches/<id>`, `#clients/seances/<id>`, `#clients/evenements/<id>`,
 `#clients/professionnels`.
 
+> **Écart décidé par Florent le 27/11/2026 — il remplace les onglets ci-dessus.** Pas d'espace
+> « Clients » à onglets : chaque usage est au premier niveau de la barre latérale, dans cet ordre —
+> **Contenus**, **Clients** (les fiches, les séances d'une fiche, poser un rendez-vous depuis une
+> fiche), **Séances** (le planning : semaine, mois), **Évènements**, **Professionnels**, puis un
+> séparateur, **Psychédéliques** et **Corpus** ; Réglages reste en bas. Les adresses deviennent :
+> `#clients` (les fiches), `#clients/nouvelle`, `#clients/<id>` ; `#seances/semaine/<lundi>`,
+> `#seances/mois/<premier du mois>`, `#seances/<id>` ; `#evenements`, `#evenements/<id>` ;
+> `#professionnels` ; `#reglages/reservation`. L'ancien écran Calendly (§3.8) reste accessible
+> comme troisième vue du planning, `#seances/calendly`, tant que Calendly sert. Les écrans
+> décrits ci-dessous gardent leur contenu ; seule leur place change.
+
 **Semaine.** La semaine en cours, du lundi au dimanche, jour par jour ; pour chaque séance :
 l'heure, la personne, le type, et deux pastilles — statut et paiement. Précédente, suivante,
 aujourd'hui. Un contrôle « Semaine · Mois » ; le mois est une grille qui montre, par jour,

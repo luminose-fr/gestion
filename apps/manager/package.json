@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@luminose/editorial": "*",
+    "@luminose/pratique": "*",
     "@luminose/psychedelics": "*",
     "@luminose/shared": "^2.0.0",
     "@luminose/subtitles": "*",
