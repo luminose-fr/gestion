@@ -9,7 +9,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "essai": "node essai/charger.ts",
-    "essai:contraintes": "node essai/contraintes.ts"
+    "essai:contraintes": "node essai/contraintes.ts",
+    "import": "node import/outil.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260819.1",
