@@ -94,6 +94,17 @@ export type Env = {
    * et la console fonctionne à l'identique.
    */
   MCP_JETON_EMPREINTE?: string;
+
+  /**
+   * Le secret des portes (SPEC §14.5, §14.6) : deux sous-clés en sont dérivées,
+   * l'une signe les liens envoyés aux personnes, l'autre calcule l'empreinte
+   * des envois (clients/jetons.ts).
+   *
+   * FACULTATIF : absent, aucun jeton n'est signé ni reconnu, et recevoir une
+   * commande est une panne — la porte rend un 5xx, rien n'est enregistré à
+   * moitié. Le reste de la console fonctionne à l'identique.
+   */
+  PORTES_SECRET?: string;
 };
 
 /** Qui appelle : la console, par son jeton de session, ou le serveur MCP, par le sien. */
