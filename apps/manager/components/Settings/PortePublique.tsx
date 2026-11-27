@@ -35,7 +35,8 @@ const verifiee = (p: Api.EtatDesPortes): Api.EtatDesPortes => {
 type EtatLien =
   | { phase: 'vide' }
   | { phase: 'lien'; lien: string }
-  | { phase: 'revoque' }
+  /** Le dernier lien fabriqué reste à portée : le rouvrir après la révocation, c'est l'essai (B5). */
+  | { phase: 'revoque'; lien: string | null }
   | { phase: 'erreur'; message: string };
 
 /** Le message d'une erreur de l'API, sans le préfixe « Erreur 409 — ». */
@@ -46,6 +47,7 @@ export const LienDEssai: React.FC = () => {
   const [seanceId, setSeanceId] = useState('');
   const [etat, setEtat] = useState<EtatLien>({ phase: 'vide' });
   const [enCours, setEnCours] = useState(false);
+  const dernierLien = etat.phase === 'lien' || etat.phase === 'revoque' ? etat.lien : null;
 
   const agir = async (geste: () => Promise<EtatLien>) => {
     setEnCours(true);
@@ -74,20 +76,23 @@ export const LienDEssai: React.FC = () => {
         <Bouton type="button" disabled={!id || enCours} onClick={() => agir(async () => ({ phase: 'lien', lien: (await Api.fabriquerLienQuestionnaire(id)).lien }))}>
           Lien d’essai
         </Bouton>
-        <Bouton type="button" intention="secondaire" ton="erreur" disabled={!id || enCours} onClick={() => agir(async () => { await Api.revoquerLiensSeance(id); return { phase: 'revoque' }; })}>
+        <Bouton type="button" intention="secondaire" ton="erreur" disabled={!id || enCours} onClick={() => agir(async () => { await Api.revoquerLiensSeance(id); return { phase: 'revoque', lien: dernierLien }; })}>
           Révoquer
         </Bouton>
       </div>
-      {etat.phase === 'lien' && (
+      {dernierLien && (
         <div className="mt-2 flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate text-xs text-brand-main dark:text-dark-text" title={etat.lien}>{etat.lien}</code>
-          <Bouton type="button" taille="petit" intention="secondaire" onClick={() => window.open(etat.lien, '_blank', 'noopener,noreferrer')}>
-            Ouvrir
+          <code className="min-w-0 flex-1 truncate text-xs text-brand-main dark:text-dark-text" title={dernierLien}>{dernierLien}</code>
+          <Bouton type="button" taille="petit" intention="secondaire" onClick={() => window.open(dernierLien, '_blank', 'noopener,noreferrer')}>
+            {etat.phase === 'revoque' ? 'Rouvrir le lien révoqué' : 'Ouvrir'}
           </Bouton>
         </div>
       )}
       {etat.phase === 'revoque' && (
-        <p className="mt-2 text-xs text-brand-main dark:text-dark-text">Liens révoqués : ceux déjà envoyés pour cette séance ne valent plus.</p>
+        <p className="mt-2 text-xs text-brand-main dark:text-dark-text">
+          Liens révoqués : ceux déjà envoyés pour cette séance ne valent plus.
+          {etat.lien ? ' Rouvrez celui-ci depuis ce bouton : recharger la page d’essai ne le rouvre pas, elle a retiré le jeton de son adresse.' : ''}
+        </p>
       )}
       {etat.phase === 'erreur' && <p className="mt-2 text-xs font-semibold text-erreur">{etat.message}</p>}
     </div>

@@ -1103,6 +1103,9 @@ describe('la porte publique, dans Réglages (SPEC §14.5)', () => {
     expect(ouvrir).toHaveBeenCalledWith(LIEN, '_blank', 'noopener,noreferrer');
     fireEvent.click(getByText('Révoquer'));
     await findByText(/Liens révoqués/);
+    // Le lien révoqué reste à portée, pour l'essai de B5 : le rouvrir doit dire qu'il ne vaut plus.
+    fireEvent.click(getByText('Rouvrir le lien révoqué'));
+    expect(ouvrir).toHaveBeenLastCalledWith(LIEN, '_blank', 'noopener,noreferrer');
     expect(appels.filter((a) => a.methode === 'POST').map((a) => a.url.replace(/^.*\/api/, ''))).toEqual([
       '/seances/essai-seance-01/lien-questionnaire', '/seances/essai-seance-01/revoquer-liens',
     ]);
