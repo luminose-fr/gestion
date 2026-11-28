@@ -33,8 +33,8 @@ export interface BarreProps {
 }
 
 const TONS = {
-  brand:  { piste: 'bg-brand-main/15 dark:bg-white/10',   remplissage: 'bg-marque' },
-  violet: { piste: 'bg-brand-main dark:bg-dark-bg', remplissage: 'bg-brand-main dark:bg-dark-bg' },
+  brand:  { piste: 'bg-marque/15',   remplissage: 'bg-marque' },
+  violet: { piste: 'bg-marque ', remplissage: 'bg-marque ' },
   ambre:  { piste: 'bg-alerte/15',   remplissage: 'bg-alerte' },
 };
 
@@ -219,7 +219,7 @@ const LigneActivite: React.FC<{ tache: Tache; maintenant: number }> = ({ tache, 
 
   return (
     /* Le bandeau prolonge l'en-tête plutôt que de se fondre dans la page : posé
-       sur `bg-brand-light`, il avait exactement la couleur du fond des listes et
+       sur `bg-fond`, il avait exactement la couleur du fond des listes et
        ne se voyait pas — c'est le reproche d'origine. */
     <div className="px-4 md:px-6 py-2 bg-surface border-b border-bord animate-fade-in">
       <div className="flex items-center gap-3 flex-wrap text-xs text-second">

@@ -60,7 +60,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
                 <div
                   key={jour.toString()}
                   className={`min-h-[104px] border-b border-r border-bord p-2 space-y-1 ${
-                    duMois ? 'bg-surface' : 'bg-brand-light/50 dark:bg-dark-bg/50'
+                    duMois ? 'bg-surface' : 'bg-fond/50 '
                   }`}
                 >
                   <div className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${

@@ -112,7 +112,7 @@ describe('Bouton — tons de sens', () => {
       <>{TONS.map(ton => <Bouton key={ton} intention="principale" ton={ton}>{ton}</Bouton>)}</>,
     );
     for (const classe of boutons(container)) {
-      expect(classe).toContain('text-white dark:text-dark-bg');
+      expect(classe).toContain('text-sur-marque');
     }
   });
 

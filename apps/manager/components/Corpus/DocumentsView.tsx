@@ -275,7 +275,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   href={EDITEUR(ouvert.chemin)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-micro text-brand-main hover:text-second dark:hover:text-white"
+                  className="inline-flex items-center gap-1 text-micro text-texte hover:text-second dark:hover:text-white"
                 >
                   <ExternalLink className="w-3 h-3" /> {depotOuvert ? 'ou sur GitHub' : 'Modifier sur GitHub'}
                 </a>
@@ -333,7 +333,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   onChange={(e) => setEdition({ ...edition, contenu: e.target.value })}
                   spellCheck={false}
                   rows={26}
-                  className="w-full font-mono text-xs leading-relaxed p-3 rounded-lg border border-bord bg-brand-light/40 dark:bg-dark-bg text-second resize-y outline-hidden focus:border-marque"
+                  className="w-full font-mono text-xs leading-relaxed p-3 rounded-lg border border-bord bg-fond/40 text-second resize-y outline-hidden focus:border-marque"
                 />
 
                 {commit ? (

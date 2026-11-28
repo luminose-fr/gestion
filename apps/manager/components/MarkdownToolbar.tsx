@@ -26,7 +26,7 @@ export const MarkdownToolbar: React.FC<MarkdownToolbarProps> = ({ className = ""
     );
 
     return (
-        <div className={`flex items-center gap-1 p-2 border-b border-bord bg-brand-light/50 dark:bg-dark-bg/50 ${className}`}>
+        <div className={`flex items-center gap-1 p-2 border-b border-bord bg-fond/50  ${className}`}>
             <Button command="bold" icon={Bold} title="Gras" />
             <Button command="italic" icon={Italic} title="Italique" />
             

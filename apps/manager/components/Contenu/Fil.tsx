@@ -112,7 +112,7 @@ const Bulle: React.FC<{
         return (
             <div className="flex flex-col items-end gap-1">
                 <span className="text-xs font-bold text-second">Vous · {jourCourt(b.le)}</span>
-                <div className={`max-w-[85%] ${RAYON_VOUS} bg-brand-main dark:bg-white px-4 py-2 text-sm leading-[22px] text-white dark:text-brand-main whitespace-pre-wrap`}>
+                <div className={`max-w-[85%] ${RAYON_VOUS} bg-marque px-4 py-2 text-sm leading-[22px] text-sur-marque whitespace-pre-wrap`}>
                     {b.texte}
                 </div>
             </div>
@@ -218,7 +218,7 @@ const Composeur: React.FC<{ zone: ZoneComposeur }> = ({ zone }) => {
                 <div className="flex flex-wrap gap-2">
                     {zone.reponses.map(r => (
                         <button key={r.libelle} type="button" onClick={r.onChoisir} disabled={zone.desactive}
-                            className="h-9 px-3 rounded-full border border-bord bg-surface text-xs font-semibold text-second hover:border-brand-main/40 transition-colors disabled:opacity-40 truncate max-w-full">
+                            className="h-9 px-3 rounded-full border border-bord bg-surface text-xs font-semibold text-second hover:border-marque/40 transition-colors disabled:opacity-40 truncate max-w-full">
                             {r.libelle}
                         </button>
                     ))}
@@ -259,7 +259,7 @@ export const Fil: React.FC<FilProps> = ({ elements, attente, zone, onAppliquer, 
     );
 
     return (
-        <div className="h-full min-h-0 flex flex-col bg-fil dark:bg-dark-bg">
+        <div className="h-full min-h-0 flex flex-col bg-fil">
             {entete ?? (
                 <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-bord">
                     <MessageCircle className="w-4 h-4 text-second" />

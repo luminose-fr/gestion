@@ -1,9 +1,9 @@
 /**
  * La carte — une surface, une bordure, un rayon.
  *
- * Deux conventions de bordure se disputaient les écrans (`border-brand-border`
- * contre `border-brand-light`, et côté sombre `dark:border-dark-sec-border`
- * contre `dark:border-dark-sec-bg`). Celle qui reste est la majoritaire ; elle
+ * Deux conventions de bordure se disputaient les écrans (`border-bord`
+ * contre `border-fond`, et côté sombre ``
+ * contre ``). Celle qui reste est la majoritaire ; elle
  * n'est plus écrite qu'ici.
  */
 import React from 'react';

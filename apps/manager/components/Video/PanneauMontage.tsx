@@ -522,7 +522,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                             <span className="font-bold">{debit} mots par minute</span> — durée ≈ {secondes(estime.duree)}
                         </label>
                         <input id="debit-reel" type="range" min={DEBIT_MIN} max={DEBIT_MAX} step={5} value={debit}
-                            onChange={e => setDebit(Number(e.target.value))} className="w-full accent-brand-main dark:accent-dark-text" />
+                            onChange={e => setDebit(Number(e.target.value))} className="w-full accent-marque" />
                         <p className="text-xs text-second">
                             Lisez le script à voix haute, chronométrez, et réglez le débit : l’aperçu et les scènes seules tomberont au bon rythme.
                         </p>
@@ -607,7 +607,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                             type="button"
                             onClick={exporterVideo}
                             disabled={!finale || indisponible !== null || occupe}
-                            className="w-full h-12 rounded-lg bg-white text-brand-main text-sm font-bold inline-flex items-center justify-center gap-2 hover:bg-brand-light transition-colors disabled:opacity-40 [&_svg]:size-4"
+                            className="w-full h-12 rounded-lg bg-white text-texte text-sm font-bold inline-flex items-center justify-center gap-2 hover:bg-survole transition-colors disabled:opacity-40 [&_svg]:size-4"
                         >
                             <Download /> {exportee ? 'Exporter à nouveau' : 'Exporter la vidéo'}
                         </button>
@@ -636,7 +636,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                             return (
                                 <div key={rang} className="space-y-1">
                                     <div className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
-                                        <span className="text-xs text-brand-main truncate">{rang + 1}. {sequence.role || 'Scène'} — {secondes(m.fin - m.debut)}</span>
+                                        <span className="text-xs text-texte truncate">{rang + 1}. {sequence.role || 'Scène'} — {secondes(m.fin - m.debut)}</span>
                                         {boutonExport(`scene-${rang}`, () => exporterScene(rang))}
                                     </div>
                                     {progression(`scene-${rang}`)}

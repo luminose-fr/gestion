@@ -30,7 +30,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
       <div className="w-full max-w-md">
         {/* Logo + Title */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-main to-brand-hover flex items-center justify-center shadow-lg shadow-brand-main/30 mb-4">
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-marque to-marque-survol flex items-center justify-center shadow-lg shadow-marque/30 mb-4">
             <span className="font-display italic text-white text-lg leading-none">L</span>
           </div>
           <h1 className="font-display italic text-lg text-texte">

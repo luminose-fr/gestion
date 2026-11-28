@@ -23,7 +23,7 @@ export interface PanneauSerieProps {
 
 export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications, etapes, active, onPlan, onOuvrir }) => (
     // Sur téléphone, le panneau s'efface : la place manque, et le plan reste à un clic du retour.
-    <nav aria-label={`Série ${serie.titre}`} className="hidden md:block w-[272px] shrink-0 min-h-0 overflow-y-auto border-r border-bord bg-brand-light/60 dark:bg-dark-bg px-3 py-4 space-y-1">
+    <nav aria-label={`Série ${serie.titre}`} className="hidden md:block w-[272px] shrink-0 min-h-0 overflow-y-auto border-r border-bord bg-fond/60 px-3 py-4 space-y-1">
         <div className="px-2 pb-3 space-y-1">
             <Etiquette>Série</Etiquette>
             <p className="text-sm font-bold text-texte leading-snug">{serie.titre}</p>
@@ -89,7 +89,7 @@ export const AvancementSerie: React.FC<{ publications: ContentItem[]; etapes: Re
                 {publications.map(p => {
                     const faits = etapes[p.id]?.progression.segments.filter(s => s === 'fait').length ?? 0;
                     const couleur = p.status === ContentStatus.PUBLISHED ? 'bg-succes'
-                        : faits > 0 ? 'bg-brand-main/45 dark:bg-dark-text/45' : 'bg-bord';
+                        : faits > 0 ? 'bg-marque/45 ' : 'bg-bord';
                     return <span key={p.id} className={`flex-1 h-[5px] rounded-full ${couleur}`} />;
                 })}
             </span>

@@ -81,7 +81,7 @@ export const MatiereOuverture: React.FC<{
         <div className="rounded-xl border border-bord bg-surface p-5 space-y-4">
             <div>
                 <Etiquette className="mb-1">Notes</Etiquette>
-                <div className="rounded-lg border border-bord bg-fond focus-within:border-brand-main dark:focus-within:border-white transition-colors">
+                <div className="rounded-lg border border-bord bg-fond focus-within:border-marque dark:focus-within:border-white transition-colors">
                     <RichTextarea value={notes} onChange={onNotes} className="w-full min-h-[140px] p-3 text-sm" placeholder="Vos notes brutes, ce que vous voulez dire, ce qui vous a fait penser à ce sujet…" />
                 </div>
             </div>

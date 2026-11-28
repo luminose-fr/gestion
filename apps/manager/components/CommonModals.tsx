@@ -39,14 +39,14 @@ export const AlertModal: React.FC<AlertModalProps> = ({ isOpen, onClose, title, 
     switch(type) {
       case 'error': return <AlertCircle className="w-6 h-6 text-erreur" />;
       case 'success': return <CheckCircle2 className="w-6 h-6 text-succes" />;
-      default: return <AlertCircle className="w-6 h-6 text-brand-main" />;
+      default: return <AlertCircle className="w-6 h-6 text-texte" />;
     }
   };
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in" onClick={onClose}>
       <div ref={modal} role="dialog" aria-modal="true" aria-labelledby={titreId} aria-describedby={descriptionId} tabIndex={-1} className="ui-dialog bg-surface w-full max-w-sm rounded-xl shadow-lg border border-bord p-6 relative" onClick={e => e.stopPropagation()}>
-        <button aria-label="Fermer" onClick={onClose} className="absolute top-4 right-4 text-brand-main hover:text-brand-main dark:hover:text-dark-text">
+        <button aria-label="Fermer" onClick={onClose} className="absolute top-4 right-4 text-texte hover:text-texte">
           <X className="w-5 h-5" />
         </button>
         <div className="flex flex-col items-center text-center">
@@ -121,7 +121,7 @@ export const CharCounter: React.FC<{ current: number, max: number }> = ({ curren
   
   return (
     <div className={`text-micro text-right mt-1 font-semibold transition-colors ${
-      isOver ? 'text-erreur' : isClose ? 'text-brand-main' : 'text-brand-main'
+      isOver ? 'text-erreur' : isClose ? 'text-texte' : 'text-texte'
     }`}>
       {current}/{max}
     </div>

@@ -56,20 +56,20 @@ const INTENTIONS: Record<TonBouton, Record<IntentionBouton, string>> = {
   */
   succes: {
     principale:
-      'border border-transparent bg-succes text-white dark:text-dark-bg hover:bg-succes/90',
+      'border border-transparent bg-succes text-sur-marque hover:bg-succes/90',
     secondaire: 'border border-succes/30 text-succes hover:bg-succes/10',
     discrete: 'border border-transparent text-succes underline hover:no-underline',
   },
   alerte: {
     principale:
-      'border border-transparent bg-alerte text-white dark:text-dark-bg hover:bg-alerte/90',
+      'border border-transparent bg-alerte text-sur-marque hover:bg-alerte/90',
     secondaire: 'border border-alerte/30 text-alerte hover:bg-alerte/10',
     discrete: 'border border-transparent text-alerte underline hover:no-underline',
   },
   /** Suppression, verdict « À revoir ». */
   erreur: {
     principale:
-      'border border-transparent bg-erreur text-white dark:text-dark-bg hover:bg-erreur/90',
+      'border border-transparent bg-erreur text-sur-marque hover:bg-erreur/90',
     secondaire: 'border border-erreur/30 text-erreur hover:bg-erreur/10',
     discrete: 'border border-transparent text-erreur underline hover:no-underline',
   },

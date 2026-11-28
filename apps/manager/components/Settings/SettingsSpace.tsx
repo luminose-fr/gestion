@@ -193,7 +193,7 @@ const TON_TEXTE: Record<string, string> = {
 };
 
 const TON_REMPLISSAGE: Record<string, string> = {
-    calme: 'bg-brand-main/60 dark:bg-white/60',
+    calme: 'bg-marque/60',
     attention: 'bg-alerte',
     critique: 'bg-erreur',
     inconnu: 'bg-transparent',
@@ -1026,7 +1026,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-micro font-semibold border ${
                                                     cle?.configured
                                                         ? 'bg-succes/10 text-succes border-succes/30'
-                                                        : 'bg-brand-light text-brand-main border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border'
+                                                        : 'bg-fond text-texte border-bord   '
                                                 }`}>
                                                     {cle?.configured ? cle.hint : 'Aucune clé'}
                                                 </span>
@@ -1095,14 +1095,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <button
                                     onClick={() => handleCreateModel()}
-                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-bord text-second hover:border-brand-main hover:text-texte text-sm font-bold transition-colors"
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-bord text-second hover:border-marque hover:text-texte text-sm font-bold transition-colors"
                                 >
                                     <Plus className="w-3.5 h-3.5" />
                                     Ajouter un modèle
                                 </button>
                                 <button
                                     onClick={ouvrirExplorateur}
-                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-bord text-second hover:border-brand-main hover:text-texte text-sm font-bold transition-colors"
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-bord text-second hover:border-marque hover:text-texte text-sm font-bold transition-colors"
                                 >
                                     <Compass className="w-3.5 h-3.5" />
                                     Explorer les catalogues
@@ -1116,7 +1116,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         </div>
 
                         {/* Testeur */}
-                        <div className="rounded-xl border border-bord bg-brand-light/40 dark:bg-dark-bg/40 p-4 space-y-3">
+                        <div className="rounded-xl border border-bord bg-fond/40 p-4 space-y-3">
                             <Etiquette forme="entete" avecIcone>
                                 <FlaskConical className="w-3 h-3" />
                                 Tester un code API
@@ -1147,7 +1147,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     onKeyDown={e => { if (e.key === 'Enter' && testApiCode.trim()) handleTestModel(); }}
                                     placeholder="ex : anthropic/claude-opus-4.7"
                                     disabled={testStatus === 'testing'}
-                                    className={`${CHAMP} flex-1 min-w-0 font-mono placeholder-brand-main/30`}
+                                    className={`${CHAMP} flex-1 min-w-0 font-mono placeholder:text-second`}
                                 />
                                 <Bouton
                                     onClick={handleTestModel}
@@ -1384,7 +1384,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                         // « Actualiser » effacerait les forces au lieu de les réécrire.
                                                         const mesure = sourceCatalogue === 'openrouter' || !!m.reference;
                                                         return (
-                                                        <tr key={m.id} className="hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors">
+                                                        <tr key={m.id} className="hover:bg-survole/40 transition-colors">
                                                             <td className="px-3 py-2">
                                                                 <div className="flex items-center gap-2 flex-wrap">
                                                                     <p className="font-semibold text-sm text-texte">{m.name}</p>
@@ -1522,7 +1522,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                         type="text"
                                         value={editModel.name || ''}
                                         onChange={e => setEditModel({ ...editModel, name: e.target.value })}
-                                        className={`${CHAMP} font-semibold placeholder-brand-main/30`}
+                                        className={`${CHAMP} font-semibold placeholder:text-second`}
                                         placeholder="Ex : GPT-5.2 Pro"
                                     />
                                 </div>
@@ -1614,7 +1614,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 onClick={() => setEditModel({ ...editModel, textQuality: v })}
                                                 className={`flex-1 h-8 rounded-md text-sm font-bold transition-colors ${
                                                     editModel.textQuality === v
-                                                        ? 'bg-brand-main text-white shadow-xs'
+                                                        ? 'bg-marque text-sur-marque shadow-xs'
                                                         : 'hover:bg-actif text-texte'
                                                 }`}
                                             >
@@ -1788,7 +1788,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 {p.hint}
                                             </span>
                                         ) : (
-                                            <span className="text-micro font-bold px-2 py-1 rounded-full bg-brand-light text-brand-main border border-brand-border dark:bg-dark-bg dark:text-dark-text dark:border-dark-sec-border">
+                                            <span className="text-micro font-bold px-2 py-1 rounded-full bg-fond text-texte border border-bord">
                                                 Aucune clé
                                             </span>
                                         )}
@@ -1882,9 +1882,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     <div className="bg-surface border border-bord rounded-xl overflow-hidden">
                                         <div className="flex items-center gap-2 flex-wrap px-4 py-2 border-b border-bord text-micro text-second">
                                             <span className="font-mono">{feuille.hash}</span>
-                                            <span className="text-brand-main/20 dark:text-dark-text/20">·</span>
+                                            <span className="text-texte/20">·</span>
                                             <span>{signes(feuille.taille)}</span>
-                                            <span className="text-brand-main/20 dark:text-dark-text/20">·</span>
+                                            <span className="text-texte/20">·</span>
                                             <span>{feuille.documents.length} document{feuille.documents.length > 1 ? 's' : ''}</span>
                                         </div>
                                         <ul className="px-4 py-3 flex flex-wrap gap-1.5">
@@ -1979,7 +1979,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                         {mesures.map((m, i) => (
                                             <tr
                                                 key={`${m.action}-${m.format}-${m.modelLabel}-${i}`}
-                                                className="border-b border-brand-border/50 dark:border-dark-sec-border/50 last:border-0"
+                                                className="border-b border-bord/50 last:border-0"
                                             >
                                                 <td className="px-4 py-3">
                                                     <div className="font-semibold text-texte">
@@ -2057,7 +2057,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                         {quotas && (
                             <>
-                                <div className="rounded-xl border border-bord bg-surface divide-y divide-brand-border/50 dark:divide-dark-sec-border/50">
+                                <div className="rounded-xl border border-bord bg-surface divide-y divide-bord/50">
                                     {quotas.postes.map(poste => {
                                         const part = poste.valeur === null ? null : poste.valeur / poste.seuil;
                                         const etat = etatDuPoste(part);

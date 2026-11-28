@@ -82,7 +82,7 @@ export default function PsychedelicsCalculator() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <section className="rounded-xl border border-brand-border bg-white p-4 shadow-xs sm:p-6 dark:border-dark-sec-border dark:bg-dark-surface">
+        <section className="rounded-xl border border-bord bg-surface p-4 shadow-xs sm:p-6">
           <div>
             <p className="text-sm font-semibold text-texte">Type de produit</p>
             <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
@@ -98,7 +98,7 @@ export default function PsychedelicsCalculator() {
                     className={`min-h-[72px] rounded-xl border px-3 py-3 text-sm font-semibold transition-colors sm:min-h-0 sm:rounded-lg sm:px-3 sm:py-2 ${
                       isActive
                         ? `${tabTheme.soft} ${tabTheme.accent}`
-                        : 'border-brand-border text-brand-main hover:bg-brand-light hover:text-brand-main dark:border-dark-sec-border dark:text-dark-text dark:hover:bg-dark-sec-bg dark:hover:text-white'
+                        : 'border-bord text-texte hover:bg-survole hover:text-texte    dark:hover:text-white'
                     }`}
                   >
                     <span className="flex flex-col items-center justify-center gap-2 sm:flex-row">
@@ -113,10 +113,10 @@ export default function PsychedelicsCalculator() {
 
           <div className="mt-6 space-y-5">
             {usesWeight && (
-              <div className="rounded-xl border border-brand-border p-4 sm:p-5 dark:border-dark-sec-border">
+              <div className="rounded-xl border border-bord p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-sm font-semibold text-texte">Poids corporel</p>
-                  <div className="rounded-full bg-brand-light px-3 py-1 text-sm font-bold text-brand-main dark:bg-dark-sec-bg dark:text-dark-text">
+                  <div className="rounded-full bg-fond px-3 py-1 text-sm font-bold text-texte">
                     {weight} kg
                   </div>
                 </div>
@@ -126,7 +126,7 @@ export default function PsychedelicsCalculator() {
                   max="120"
                   value={weight}
                   onChange={(event) => setWeight(parseInt(event.target.value, 10))}
-                  className="mt-4 w-full accent-brand-main"
+                  className="mt-4 w-full accent-marque"
                 />
               </div>
             )}
@@ -144,8 +144,8 @@ export default function PsychedelicsCalculator() {
                           onClick={() => setMushroomFamily(family)}
                           className={`rounded-xl border p-3 text-center text-sm font-semibold transition-colors sm:p-4 ${
                             isSelected
-                              ? 'border-brand-main bg-brand-light dark:border-dark-text dark:bg-dark-sec-bg'
-                              : 'border-brand-border hover:bg-brand-light/60 dark:border-dark-sec-border dark:hover:bg-dark-bg/60'
+                              ? 'border-marque bg-fond  '
+                              : 'border-bord hover:bg-survole/60  '
                           }`}
                         >
                           <div className="text-texte">{family}</div>
@@ -167,8 +167,8 @@ export default function PsychedelicsCalculator() {
                           onClick={() => setMushroomForm(form)}
                           className={`rounded-xl border p-3 text-center text-sm font-semibold transition-colors sm:p-4 ${
                             isSelected
-                              ? 'border-brand-main bg-brand-light dark:border-dark-text dark:bg-dark-sec-bg'
-                              : 'border-brand-border hover:bg-brand-light/60 dark:border-dark-sec-border dark:hover:bg-dark-bg/60'
+                              ? 'border-marque bg-fond  '
+                              : 'border-bord hover:bg-survole/60  '
                           }`}
                         >
                           <div>{form}</div>
@@ -196,7 +196,7 @@ export default function PsychedelicsCalculator() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-brand-border bg-white p-4 shadow-xs sm:p-6 dark:border-dark-sec-border dark:bg-dark-surface">
+        <section className="rounded-xl border border-bord bg-surface p-4 shadow-xs sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h4 className={CLASSES_TITRE}>Paliers estimatifs</h4>
@@ -211,11 +211,11 @@ export default function PsychedelicsCalculator() {
 
           <div className="mt-5 space-y-4">
             {microDoseResult && (
-              <article className="rounded-xl border border-dashed border-brand-main/35 bg-brand-light/70 p-4 dark:border-dark-text/35 dark:bg-dark-sec-bg/70">
+              <article className="rounded-xl border border-dashed border-marque/35 bg-fond/70 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-white px-1.5 py-0.5 text-micro font-semibold text-brand-main dark:bg-dark-surface dark:text-dark-text">
+                      <span className="rounded-full bg-surface px-1.5 py-0.5 text-micro font-semibold text-texte">
                         Micro-dose
                       </span>
                     </div>
@@ -241,14 +241,14 @@ export default function PsychedelicsCalculator() {
                 return (
                   <article
                     key={result.level}
-                    className="rounded-xl border border-brand-border p-4 transition-colors dark:border-dark-sec-border"
+                    className="rounded-xl border border-bord p-4 transition-colors"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-texte">{result.level}</span>
                           {isRecommended && (
-                            <span className="rounded-full bg-brand-light px-1.5 py-0.5 text-micro font-semibold text-brand-main dark:bg-dark-sec-bg dark:text-dark-text">
+                            <span className="rounded-full bg-fond px-1.5 py-0.5 text-micro font-semibold text-texte">
                               Repère
                             </span>
                           )}
@@ -273,7 +273,7 @@ export default function PsychedelicsCalculator() {
         </section>
       </div>
 
-      <section className="rounded-xl border border-brand-border bg-white p-4 shadow-xs sm:p-6 dark:border-dark-sec-border dark:bg-dark-surface">
+      <section className="rounded-xl border border-bord bg-surface p-4 shadow-xs sm:p-6">
         <div className="flex flex-col gap-6">
           <div>
             <Etiquette as="div" forme="pastille">
@@ -290,7 +290,7 @@ export default function PsychedelicsCalculator() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-            <div className="rounded-xl border border-brand-border p-4 sm:p-5 dark:border-dark-sec-border">
+            <div className="rounded-xl border border-bord p-4 sm:p-5">
               <h4 className={CLASSES_TITRE}>
                 Conseils communs à tous les produits
               </h4>
@@ -298,7 +298,7 @@ export default function PsychedelicsCalculator() {
                 {COMMON_SAFETY_POINTS.map((item) => (
                   <div
                     key={item.title}
-                    className="rounded-xl border border-brand-border bg-brand-light p-4 dark:border-dark-sec-border dark:bg-dark-sec-bg"
+                    className="rounded-xl border border-bord bg-fond p-4"
                   >
                     <div className="text-sm font-semibold text-texte">{item.title}</div>
                     <p className="mt-2 text-sm leading-6 text-second">
@@ -319,7 +319,7 @@ export default function PsychedelicsCalculator() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-brand-border bg-brand-light p-4 sm:p-5 dark:border-dark-sec-border dark:bg-dark-sec-bg">
+            <div className="rounded-xl border border-bord bg-fond p-4 sm:p-5">
               <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${theme.soft}`}>{activeTab}</div>
               <h4 className={`${CLASSES_TITRE} mt-3`}>
                 Conseils pour {safetyTargetLabel}
@@ -334,7 +334,7 @@ export default function PsychedelicsCalculator() {
                   {safety.effects.map((effect) => (
                     <span
                       key={effect}
-                      className="rounded-full border border-brand-border bg-white px-3 py-1 text-xs font-semibold text-brand-main dark:border-dark-sec-border dark:bg-dark-surface dark:text-dark-text"
+                      className="rounded-full border border-bord bg-surface px-3 py-1 text-xs font-semibold text-texte"
                     >
                       {effect}
                     </span>
@@ -342,7 +342,7 @@ export default function PsychedelicsCalculator() {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-xl border border-brand-border bg-white p-4 text-sm text-brand-main dark:border-dark-sec-border dark:bg-dark-surface dark:text-white">
+              <div className="mt-5 rounded-xl border border-bord bg-surface p-4 text-sm text-texte">
                 <div className="flex items-center gap-2">
                   <Clock3 className="w-4 h-4" />
                   Durée indicative : <strong>{safety.duration}</strong>

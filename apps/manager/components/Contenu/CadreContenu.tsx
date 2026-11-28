@@ -41,7 +41,7 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                 onClick={() => setOuvert(o => !o)}
                 aria-expanded={ouvert}
                 aria-haspopup="menu"
-                className="ui-action w-full md:w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-bord bg-fond text-left hover:border-brand-main/40"
+                className="ui-action w-full md:w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-bord bg-fond text-left hover:border-marque/40"
             >
                 <span className="flex-1 min-w-0 space-y-1">
                     <span className="flex items-baseline justify-between gap-2">
@@ -74,7 +74,7 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                                 }`}
                             >
                                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-micro font-bold shrink-0 ${
-                                    l.faite ? 'bg-succes text-white dark:text-dark-bg'
+                                    l.faite ? 'bg-succes text-sur-marque '
                                         : l.actuelle ? 'bg-marque text-sur-marque'
                                             : 'border border-bord text-second'
                                 }`}>
@@ -170,7 +170,7 @@ export const CadreContenu: React.FC<CadreContenuProps> = ({
                         onChange={(e) => onTitre(e.target.value)}
                         aria-label="Titre du contenu"
                         placeholder="Sans titre"
-                        className={`w-full bg-transparent outline-hidden truncate placeholder-brand-main/40 ${CLASSES_TITRE_ECRAN('contenu')}`}
+                        className={`w-full bg-transparent outline-hidden truncate placeholder:text-second ${CLASSES_TITRE_ECRAN('contenu')}`}
                     />
                 ) : (
                     <TitreEcran taille="contenu" as="h1">{titre || 'Sans titre'}</TitreEcran>

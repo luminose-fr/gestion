@@ -335,8 +335,8 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
 
     const survole = (i: number) => !!survol && i >= survol.premier && i <= survol.dernier;
     const surligne = (i: number) => estChoisi(i)
-        ? 'bg-brand-main/15 dark:bg-white/15'
-        : survole(i) ? 'bg-brand-main/10 dark:bg-white/10' : '';
+        ? 'bg-marque/15'
+        : survole(i) ? 'bg-marque/10' : '';
     const arrondi = (i: number) => {
         const p = estChoisi(i) ? choisis : survol;
         if (!p || i < p.premier || i > p.dernier) return '';
@@ -346,15 +346,15 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
     const rendreEcran = (e: EcranDansLeTexte) => {
         const actif = placement?.sequence === e.sequence && placement.element === e.element && !e.coup;
         const ton = actif
-            ? 'border-brand-main bg-brand-main text-white dark:border-white dark:bg-white dark:text-brand-main'
+            ? 'border-marque bg-marque text-sur-marque'
             : e.manque || e.aVerifier
-                ? `${e.manque ? 'border-dashed' : ''} border-alerte/60 bg-white text-alerte dark:bg-dark-surface`
-                : 'border-brand-border bg-white text-brand-main dark:border-dark-sec-border dark:bg-dark-surface dark:text-dark-text';
+                ? `${e.manque ? 'border-dashed' : ''} border-alerte/60 bg-white text-alerte `
+                : 'border-bord bg-white text-texte   ';
         const classes = `inline-flex max-w-60 items-center gap-1 h-5 px-1.5 mr-1 rounded-md border text-micro font-semibold align-middle [&_svg]:size-3 ${ton}`;
         const contenu = (
             <>
                 {e.coup ? <Zap /> : (
-                    <span aria-hidden className={`size-2 shrink-0 rounded-full ${e.sombre ? 'bg-dark-surface dark:bg-dark-text' : 'border border-brand-main/50 dark:border-dark-text/60'}`} />
+                    <span aria-hidden className={`size-2 shrink-0 rounded-full ${e.sombre ? 'bg-dark-surface ' : 'border border-marque/50 '}`} />
                 )}
                 <span className="truncate">{e.libelle}</span>
             </>
@@ -370,7 +370,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                 aria-pressed={actif}
                 title={`${e.libelle}${etat} · cliquer, puis le mot où il doit apparaître`}
                 onClick={() => { setOuvert(null); setPlacement(actif ? null : e); }}
-                className={`${classes} transition-colors ${actif ? '' : 'hover:border-brand-main/40'}`}
+                className={`${classes} transition-colors ${actif ? '' : 'hover:border-marque/40'}`}
             >
                 {contenu}
             </button>
@@ -440,7 +440,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                     title={`${libelle} : cliquer pour les voir`}
                     onClick={() => { if (!placement) setOuvert(actif ? null : { type: 'coupe', mots: lesMots }); }}
                     className={`inline-flex size-5 items-center justify-center rounded-md align-middle transition-colors [&_svg]:size-3.5 ${
-                        actif ? 'bg-marque text-sur-marque' : 'text-brand-main hover:bg-brand-light hover:text-second dark:hover:bg-dark-sec-bg dark:hover:text-white'
+                        actif ? 'bg-marque text-sur-marque' : 'text-texte hover:bg-survole hover:text-second  dark:hover:text-white'
                     }`}
                 >
                     <Scissors />
@@ -480,7 +480,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                 <Etiquette>Dite {liste.length === 2 ? 'deux' : liste.length} fois — choisissez la version</Etiquette>
                 {liste.map((v, n) => (
                     <div key={n} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
-                        v.retenue ? 'border-brand-main bg-brand-light dark:border-white dark:bg-dark-sec-bg' : 'border-bord'
+                        v.retenue ? 'border-marque bg-fond ' : 'border-bord'
                     }`}>
                         <label className="min-w-0 flex-1 flex items-start gap-3 cursor-pointer">
                             <input
@@ -491,7 +491,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                                     setOuvert({ type: 'versions', phrase, mot: ouvert?.type === 'versions' ? ouvert.mot : choisis?.premier ?? 0 });
                                     onChoisirVersion(phrase, v.debut);
                                 }}
-                                className="mt-1 accent-brand-main dark:accent-dark-text"
+                                className="mt-1 accent-marque"
                             />
                             <span className="text-sm text-second">
                                 {v.texte || '—'}

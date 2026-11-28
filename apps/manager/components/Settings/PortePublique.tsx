@@ -133,7 +133,7 @@ export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> =
   const portes = etat.phase === 'lue' ? etat.portes : null;
 
   return (
-    <div className="mt-3 border-t border-brand-border pt-3 dark:border-dark-sec-border" data-porte-publique={portes ? (portes.ouverte ? 'ouverte' : 'coupee') : etat.phase}>
+    <div className="mt-3 border-t border-bord pt-3" data-porte-publique={portes ? (portes.ouverte ? 'ouverte' : 'coupee') : etat.phase}>
       <div className="flex items-center justify-between gap-4">
         <span className="flex items-center gap-1.5 text-sm font-semibold text-texte">
           <DoorOpen className="size-4 shrink-0" aria-hidden />

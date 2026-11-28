@@ -81,7 +81,7 @@ const SENS_DES_STATUTS: Record<string, string> = {
 /* ── Habillage ───────────────────────────────────────────────────────── */
 
 const Section: React.FC<{ titre: string; chapeau?: string; children: React.ReactNode }> = ({ titre, chapeau, children }) => (
-  <section className="pt-8 first:pt-0 border-t first:border-t-0 border-brand-border/70 dark:border-dark-sec-border">
+  <section className="pt-8 first:pt-0 border-t first:border-t-0 border-bord/70">
     <TitreSection titre={titre} />
     {chapeau && (
       <p className="mt-1 text-sm text-second max-w-3xl">{chapeau}</p>
@@ -129,7 +129,7 @@ const Puce: React.FC<{ children: React.ReactNode; ton?: 'neutre' | 'attention' }
   <span className={`inline-block font-mono text-micro px-1.5 py-0.5 rounded-md border ${
     ton === 'attention'
       ? 'text-alerte border-alerte/30'
-      : 'text-brand-main border-brand-border dark:text-dark-text dark:border-dark-sec-border'
+      : 'text-texte border-bord  '
   }`}>{children}</span>
 );
 
@@ -603,7 +603,7 @@ const CarteView: React.FC = () => {
             })}
           </tbody>
         </Tableau>
-        <div className="mt-6 max-w-3xl rounded-lg border-l-2 border-brand-main dark:border-dark-text bg-bas px-4 py-3">
+        <div className="mt-6 max-w-3xl rounded-lg border-l-2 border-marque bg-bas px-4 py-3">
           <Etiquette forme="entete" className="mb-1.5">
             Où voir ce qui part vraiment
           </Etiquette>

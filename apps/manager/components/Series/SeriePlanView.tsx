@@ -256,7 +256,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     onChange={e => setTitre(e.target.value)}
                     onBlur={saveTitre}
                     placeholder="Le sujet de la série…"
-                    className={`${CLASSES_TITRE} w-full bg-transparent outline-hidden placeholder-brand-main/30 dark:placeholder-dark-text/30`}
+                    className={`${CLASSES_TITRE} w-full bg-transparent outline-hidden placeholder:text-second`}
                 />
 
                 <Champ multiligne
@@ -377,7 +377,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
 
                 {rows.length === 0 ? (
                     <div className="px-4 py-8 text-center">
-                        <Wand2 className="w-10 h-10 mx-auto mb-3 text-brand-border dark:text-dark-sec-border" />
+                        <Wand2 className="w-10 h-10 mx-auto mb-3 text-bord" />
                         <p className="text-sm text-second text-balance mx-auto">
                             Le plan est vide. Demandez-en un à l'Éclateur : il rend une progression —
                             titre, angle, matière, format et objectif pour chaque publication, dans

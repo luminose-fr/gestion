@@ -283,7 +283,7 @@ const EtatView: React.FC = () => {
         )}
         <button
           onClick={() => void recharger()}
-          className="ml-auto inline-flex items-center gap-1.5 text-xs text-brand-main hover:text-second dark:hover:text-white"
+          className="ml-auto inline-flex items-center gap-1.5 text-xs text-texte hover:text-second dark:hover:text-white"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Actualiser
         </button>
@@ -432,7 +432,7 @@ const EtatView: React.FC = () => {
           ))}
           {etat.absencesDeliberees.map((a) => (
             <div key={a.chemin} className="flex items-baseline gap-2 text-sm py-1">
-              <FileText className="w-3.5 h-3.5 text-brand-main shrink-0 translate-y-0.5" />
+              <FileText className="w-3.5 h-3.5 text-texte shrink-0 translate-y-0.5" />
               <span className="font-mono text-xs text-second">{a.chemin}</span>
               <span className="text-xs text-second">
                 absence délibérée, confirmée en {a.revu} — à re-confirmer, jamais à combler
