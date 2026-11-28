@@ -92,6 +92,16 @@ const lirePourCalculer = async (db: D1Database, cleType: string, du: string, au:
   return { ouverte: estOuverte(reglage), ligne: t, type, horaires, occupations, enPlus: resultats.slice(5) };
 };
 
+/**
+ * Une absence restée à payer, pour une fiche de cette clé. Sans clé (pas
+ * d'e-mail), rien ne se lit : la règle ne vaut que pour une personne que la
+ * base reconnaît. Une instruction, jointe à la lecture groupée.
+ */
+const absenceNonReglee = (db: D1Database, cleClient: string | null) => db.prepare(`
+  SELECT 1 FROM seances s JOIN clients c ON c.id = s.client_id
+  WHERE ?1 IS NOT NULL AND c.cle_client = ?1 AND s.statut = 'absent' AND s.etat_paiement IN ('a_payer', 'attente_especes')
+  LIMIT 1`).bind(cleClient);
+
 const exigerLaBase = (env: Env) => {
   if (!clientsReliee(env)) throw new Error('incident: base_non_reliee');
   return baseClients(env);
@@ -135,7 +145,8 @@ type Recu = { ok: true; reference: string; debut: string; fin: string };
  *
  * 1. Le contrat, le champ piège, la base, le secret.
  * 2. UNE lecture groupée : l'interrupteur, le type, les horaires, les séances
- *    de la journée, la commande de cette clé. Une clé déjà vue rend son reçu.
+ *    de la journée, la commande de cette clé, une absence non réglée. Une clé
+ *    déjà vue rend son reçu ; une absence non réglée, le refus « ferme ».
  * 3. Le créneau, par `verifierCreneau` (tolérance d'un quart d'heure) :
  *    `hors_fenetre` ou `creneau_pris` sans rien écrire.
  * 4. UN lot, qui décide : la commande — sous la borne du jour ET la condition
@@ -162,10 +173,17 @@ export const reserver = async (env: Env, envoi: unknown, maintenant: number): Pr
   const empreinte = await empreinteDe(env, r);
   const jour = jourDeParis(debut);
 
-  const lu = await lirePourCalculer(db, r.type, jour, jour, [lireCommande(db, 'publique', r.cle)]);
+  const fiche = identiteDeFiche(r.identite.prenom, r.identite.nom, r.identite.email);
+  const lu = await lirePourCalculer(db, r.type, jour, jour, [lireCommande(db, 'publique', r.cle), absenceNonReglee(db, fiche.cleClient)]);
   if (!lu.ouverte) return { reponse: refuser('ferme'), suite: rien };
   const deja = (lu.enPlus[0].results?.[0] as CommandeVue | undefined) ?? null;
   if (deja) return { reponse: reponseAuRejeu(deja, empreinte), suite: rien };
+  // Une absence non réglée : pas de nouvelle réservation en ligne tant que la
+  // personne n'a pas régularisé (décision de Florent du 28/11/2026). La réponse
+  // est celle d'une réception coupée — la page affiche le téléphone de Florent —
+  // et rien n'y dit pourquoi : quiconque tape une adresse ne doit rien apprendre
+  // de la personne qui la porte.
+  if ((lu.enPlus[1].results?.length ?? 0) > 0) return { reponse: refuser('ferme'), suite: rien };
   if (!lu.type || !lu.ligne) return { reponse: refuser('hors_fenetre'), suite: rien };
 
   // L'intervalle occupé, marge comprise : c'est lui que la décision protège.
@@ -185,7 +203,6 @@ export const reserver = async (env: Env, envoi: unknown, maintenant: number): Pr
   });
   const recu: Recu = { ok: true, reference, debut: isoDeParis(debut), fin: isoDeParis(debut + lu.type.dureeMin * MINUTE) };
 
-  const fiche = identiteDeFiche(r.identite.prenom, r.identite.nom, r.identite.email);
   const clientNeuf = newId();
   const commandeId = newId();
   // Les deux instants sont des entiers calculés ici, jamais un texte reçu : écrits tels quels.

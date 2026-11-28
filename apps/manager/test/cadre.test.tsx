@@ -29,7 +29,7 @@ describe('la barre latérale', () => {
   it('Aujourd’hui en tête, deux groupes à libellés dans l’ordre de la fréquence, Réglages en bas', () => {
     const { container, getByRole } = render(<BarreLaterale actif="agenda" onNaviguer={() => {}} baseReliee reception={OUVERTE} />);
     const textes = [...container.querySelectorAll('a, span[aria-disabled]')].map(a => a.textContent);
-    expect(textes.slice(0, 8)).toEqual([AUJOURDHUI, ...PRATIQUE, ...EDITORIAL].map(e => e.libelle));
+    expect(textes.slice(0, 9)).toEqual([AUJOURDHUI, ...PRATIQUE, ...EDITORIAL].map(e => e.libelle));
     expect(container.textContent).toContain('Pratique');
     expect(container.textContent).toContain('Éditorial');
     expect(getByRole('link', { name: 'Agenda' }).getAttribute('aria-current')).toBe('page');
@@ -58,9 +58,9 @@ describe('la barre latérale', () => {
 
   it('base non reliée : la pratique se grise, sauf Psychédéliques ; pas de ligne d’état', () => {
     const { container, queryByRole } = render(<BarreLaterale actif="contenus" onNaviguer={() => {}} baseReliee={false} reception={null} />);
-    for (const nom of ['Aujourd’hui', 'Agenda', 'Clients', 'Stages', 'Professionnels']) expect(queryByRole('link', { name: nom })).toBeNull();
+    for (const nom of ['Aujourd’hui', 'Agenda', 'Clients', 'Paiements', 'Stages', 'Professionnels']) expect(queryByRole('link', { name: nom })).toBeNull();
     expect(queryByRole('link', { name: 'Psychédéliques' })).not.toBeNull();
-    expect(container.querySelectorAll('[aria-disabled="true"]')).toHaveLength(5);
+    expect(container.querySelectorAll('[aria-disabled="true"]')).toHaveLength(6);
     expect(container.textContent).not.toContain('Réception du site');
   });
 

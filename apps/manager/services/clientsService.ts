@@ -75,6 +75,9 @@ export const seancesDeLaPeriode = (du: string, au: string) =>
 export const lireQuestionnaireSante = (qid: string) => appel<QuestionnaireSante>(`/sante/${id(qid)}`);
 export const marquerQuestionnaireRelu = (qid: string) => appel<{ id: string }>(`/sante/${id(qid)}/relu`, 'POST');
 export const marquerQuestionnaireARevoir = (qid: string) => appel<{ id: string }>(`/sante/${id(qid)}/a-revoir`, 'POST');
+/** L'écran Paiements : à encaisser, ou encaissés ces trois derniers mois, et le total. */
+export const lirePaiements = (vue: 'a_encaisser' | 'encaisses') =>
+  appel<{ seances: Seance[]; nombre: number; totalCentimes: number }>(`/seances/paiements?vue=${vue}`);
 /** Les jours d'une période pour l'Agenda : fermés ou non, et les créneaux libres. 62 jours au plus. */
 export const disponibilites = (du: string, au: string) =>
   appel<{ jours: JourAgenda[]; agendaLu: boolean }>(`/seances/disponibilites?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);

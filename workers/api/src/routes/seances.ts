@@ -17,7 +17,7 @@ import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSean
 import { apresChangement } from '../clients/agenda-seances';
 import { lireAujourdhui, provenanceEnClair, HEURE_DU_SOIR } from '../clients/aujourdhui';
 import { disponibilites } from '../clients/disponibilites';
-import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance } from '../clients/seances';
+import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance, lirePaiements } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
 import { lireNotesSeance, ecrireNotesSeance } from '../clients/sensible';
 import { famille, corps, valider, dateSimple, identifiant, instantIso, iso } from './clients-commun';
@@ -76,6 +76,17 @@ seances.get('/', async (c) => {
   if (fin <= debut) throw new Refus('La fin de la période précède son début.', 400);
   if (fin - debut > (JOURS_MAX + 1) * 24 * 3_600_000) throw new Refus(`Une période couvre ${JOURS_MAX} jours au plus.`, 400);
   return c.json({ seances: (await seancesDeLaPeriode(baseClients(c.env), debut, fin)).map(enSortie) });
+});
+
+/**
+ * L'écran Paiements (refonte, lot 8) : ce qui reste à encaisser, ou ce qui a
+ * été encaissé ces trois derniers mois — et le total. Deux instructions.
+ * Déclarée avant `/:id`.
+ */
+seances.get('/paiements', async (c) => {
+  const { vue } = valider(z.strictObject({ vue: z.enum(['a_encaisser', 'encaisses']) }), c.req.query());
+  const lu = await lirePaiements(baseClients(c.env), vue, Date.now());
+  return c.json({ seances: lu.lignes.map(enSortie), nombre: lu.nombre, totalCentimes: lu.centimes });
 });
 
 /**

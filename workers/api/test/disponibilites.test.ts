@@ -63,3 +63,24 @@ describe('les jours de l’Agenda', () => {
     expect((await appeler('GET', '/api/seances/disponibilites?du=2027-01-01&au=2027-03-04')).status).toBe(400);
   });
 });
+
+describe('Paiements (lot 8)', () => {
+  const seance = (id: string, jour: number, statut: string, paiement: string, montant = 8000) => {
+    const debut = Date.UTC(2026, 10, jour, 8, 0);
+    return base.prepare(`INSERT INTO seances (id, client_id, type_seance_id, debut, duree_min, occupe_jusqua, statut, etat_paiement, montant_centimes, origine, created_at, updated_at)
+      VALUES (?, 'client-a', ?, ?, 60, ?, ?, ?, ?, 'console', 0, 0)`).bind(id, TYPES.seance, debut, debut + 60 * MINUTE, statut, paiement, montant).run();
+  };
+  it('à encaisser : réalisées et absences dues, de la plus ancienne ; le total ; encaissés à part', async () => {
+    await seance('a', 20, 'realisee', 'a_payer');
+    await seance('b', 10, 'absent', 'a_payer', 5000);
+    await seance('c', 25, 'realisee', 'payee');
+    await seance('d', 15, 'realisee', 'offerte');
+    await seance('e', 28, 'annulee', 'a_payer');
+    const du = await (await appeler('GET', '/api/seances/paiements?vue=a_encaisser')).json() as any;
+    expect(du.seances.map((s: any) => s.id)).toEqual(['b', 'a']);
+    expect([du.nombre, du.totalCentimes]).toEqual([2, 13000]);
+    const recus = await (await appeler('GET', '/api/seances/paiements?vue=encaisses')).json() as any;
+    expect(recus.seances.map((s: any) => s.id)).toEqual(['c']);
+    expect((await appeler('GET', '/api/seances/paiements?vue=autre')).status).toBe(400);
+  });
+});

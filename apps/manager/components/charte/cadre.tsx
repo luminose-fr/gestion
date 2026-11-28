@@ -19,13 +19,14 @@ const FOCUS_DEDANS = 'outline-none focus-visible:outline-2 focus-visible:-outlin
 // ─── Les entrées ────────────────────────────────────────────────────────────
 
 export type IdNav =
-  | 'aujourdhui' | 'agenda' | 'clients' | 'stages' | 'professionnels' | 'psychedeliques'
+  | 'aujourdhui' | 'agenda' | 'clients' | 'paiements' | 'stages' | 'professionnels' | 'psychedeliques'
   | 'contenus' | 'corpus' | 'reglages' | 'plus';
 
 /** Les tracés des maquettes (Nav.dc.html), sur une grille de 16. */
 const TRACES: Record<IdNav | 'ajouter' | 'replier' | 'idee' | 'fiche' | 'rechercher', string> = {
   aujourdhui: 'M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M8 5a3 3 0 100 6 3 3 0 000-6z',
   agenda: 'M3 4h10v9H3zM3 7h10M6 2v3M10 2v3',
+  paiements: 'M2 4h12v8H2zM2 7h12',
   clients: 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.5-2.5 2.5-3.5 5-3.5s4.5 1 5 3.5',
   stages: 'M5 7a2 2 0 100-4 2 2 0 000 4zM11 7a2 2 0 100-4 2 2 0 000 4zM1.5 13c.3-2 1.7-3 3.5-3s3.2 1 3.5 3M10 10.1c.3-.1.7-.1 1-.1 1.8 0 3.2 1 3.5 3',
   professionnels: 'M3 5h10v8H3zM6 5V3h4v2',
@@ -53,13 +54,14 @@ type Entree = { id: IdNav; libelle: string; adresse: string; base?: boolean };
 /**
  * L'ordre suit la fréquence (01, §3, règle 3). `base` : l'entrée lit la base
  * des clients, et se grise tant qu'elle n'est pas reliée (la production,
- * jusqu'à la phase S4). Paiements entrera avec son écran (lot 8) : une
- * entrée qui ne mène nulle part n'a pas sa place.
+ * jusqu'à la phase S4). Une entrée n'entre qu'avec son écran : une entrée qui
+ * ne mène nulle part n'a pas sa place.
  */
 export const AUJOURDHUI: Entree = { id: 'aujourdhui', libelle: 'Aujourd’hui', adresse: '#aujourdhui', base: true };
 export const PRATIQUE: Entree[] = [
   { id: 'agenda', libelle: 'Agenda', adresse: '#agenda', base: true },
   { id: 'clients', libelle: 'Clients', adresse: '#clients', base: true },
+  { id: 'paiements', libelle: 'Paiements', adresse: '#paiements', base: true },
   { id: 'stages', libelle: 'Stages', adresse: '#stages', base: true },
   { id: 'professionnels', libelle: 'Professionnels', adresse: '#professionnels', base: true },
   { id: 'psychedeliques', libelle: 'Psychédéliques', adresse: '#psychedeliques' },

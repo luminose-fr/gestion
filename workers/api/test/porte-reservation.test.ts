@@ -160,6 +160,18 @@ describe('réserver — POST /v1/reservation', () => {
     expect(compter(base, 'clients')).toBe(1);
   });
 
+  it('une absence non réglée sur la fiche de cette clé : ferme, comme une réception coupée, et rien d’écrit ; réglée, la réservation passe', async () => {
+    ficheEssai(base, 'c1', { cle_client: 'emilie.martin@example.org emilie martin' });
+    base.prepare(`INSERT INTO seances (id, client_id, type_seance_id, debut, duree_min, occupe_jusqua, statut, etat_paiement, origine, created_at, updated_at)
+      VALUES ('absente', 'c1', NULL, 1, 60, 3600001, 'absent', 'a_payer', 'console', 0, 0)`).run();
+    const refus = await envoyer('/v1/reservation', reservation());
+    // Rien dans la réponse ne dit pourquoi : la même que la porte coupée.
+    expect(refus.corps).toEqual({ ok: false, motif: 'ferme' });
+    expect(compter(base, 'seances', "origine = 'site'")).toBe(0);
+    base.prepare("UPDATE seances SET etat_paiement = 'payee' WHERE id = 'absente'").run();
+    expect((await envoyer('/v1/reservation', reservation())).corps.ok).toBe(true);
+  });
+
   it('deux fiches de cette clé : rien n’est rattaché, la séance garde l’identité reçue, une alerte est levée', async () => {
     ficheEssai(base, 'c1', { cle_client: 'emilie.martin@example.org emilie martin' });
     ficheEssai(base, 'c2', { cle_client: 'emilie.martin@example.org emilie martin' });

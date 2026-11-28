@@ -4001,6 +4001,14 @@ signé et échu en dix minutes, qui l'authentifie.
   synchronisation suivante. Elle part après la réponse ; manquée, la séance passe en `echec` et le
   passage planifié la reprend. Une séance réalisée ou absente garde son évènement.
 
+- **Une absence non réglée ferme la réservation en ligne** (décision de Florent du 28/11/2026,
+  refonte lot 8) : une fiche de la clé reçue porte une séance `absent` encore `a_payer` ou
+  `attente_especes` — la réservation est refusée `ferme`, la même réponse qu'une réception
+  coupée, et rien d'écrit. La réponse ne dit pas pourquoi : quiconque tape une adresse ne doit
+  rien apprendre de la personne qui la porte. La règle ne vaut que pour une identité que la base
+  reconnaît (une clé) ; elle se lève dès que la séance est réglée. La console montre la dette en
+  rouge sur la fiche, la séance et Paiements.
+
 **Plus tard, sans priorité** (demandes de Florent du 27/11/2026, notées ici pour ne pas les
 perdre) :
 
@@ -4125,6 +4133,8 @@ traces d'envoi vers Brevo et la comptabilité — un envoi qui en porte un est r
 | Route | Ce qu'elle fait |
 | :--- | :--- |
 | `GET /api/seances?du=&au=` | les séances de la période (62 jours au plus), tous statuts, **avec ou sans fiche, avec ou sans type** (règle 13) : heure, durée, type, statut, paiement, mode, et le prénom et le nom de la personne. **Une instruction.** |
+| `GET /api/seances/paiements?vue=a_encaisser\|encaisses` | l'écran Paiements (refonte, lot 8) : les séances passées, réalisées **ou manquées**, payables et pas payées, de la plus ancienne à la plus récente — ou les séances payées des 92 derniers jours ; 200 lignes au plus, et le total de toutes. **Deux instructions.** |
+| `GET /api/sante/:id`, `POST /api/sante/:id/relu`, `POST /api/sante/:id/a-revoir` | un questionnaire de santé, sur son seul écran (refonte, lot 8) : la personne par son prénom et son nom, les réponses, les « oui » marqués à regarder ; relu (résout l'alerte `a_revoir`) ; à revoir. Le nom de la route ne désigne pas la table (§14.2, règle 3) ; lectures et écritures dans `clients/sensible.ts`. |
 | `GET /api/seances/disponibilites?du=&au=` | les jours de l'Agenda (refonte, lot 5) : fermé par habitude (aucun horaire ce jour de la semaine) ou par une date d'exception, et le nombre de créneaux de séance encore libres dans les horaires — la règle de `creneauxLibres`, sans la fenêtre de réservation en ligne, agenda Google compris quand il est relié (une lecture de l'agenda qui échoue ne fait pas tomber l'écran : `agendaLu: false`). 62 jours au plus. **Quatre instructions, un aller-retour**, plus l'agenda. |
 | `GET /api/seances/aujourdhui` | l'écran Aujourd'hui (refonte de la console, lot 3 — `docs/refonte/`) : la journée (le soir, jusqu'au lendemain midi), la prochaine séance, et À traiter — les séances passées restées « prévues » (60 jours) et les séances réalisées sans notes (14 jours). L'**état** d'une note et d'un questionnaire, jamais leur contenu ; la provenance d'un entretien préalable en une ligne. **Quatre instructions, un aller-retour**, chacune bornée. |
 | `GET /api/seances/:id` | la séance, sa personne, son type, ses mouvements ; depuis la refonte (lot 4), la nature du type, la provenance d'un entretien préalable en une ligne, l'**état** du questionnaire, et la dernière séance réalisée de la personne (`precedente`). **Trois instructions, un aller-retour.** Un chevauchement refusé (poser, déplacer, remettre à « prévue », changer la durée ou le type) dit avec qui et à quelles heures — une lecture faite après le refus, qui ne décide de rien. |

@@ -50,6 +50,7 @@ const CorpusSpace = lazy(() => import('./components/Corpus/CorpusSpace'));
 const ContentEditor = lazy(() => import('./components/ContentEditor'));
 const PageComposants = lazy(() => import('./components/charte/PageComposants'));
 const AujourdhuiView = lazy(() => import('./components/Aujourdhui/AujourdhuiView'));
+const PaiementsView = lazy(() => import('./components/Paiements/PaiementsView'));
 const PsychedelicsCalculator = lazy(() => import('./components/PsychedelicsCalculator'));
 const EspaceClients = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceClients })));
 const EspaceSeances = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceSeances })));
@@ -61,7 +62,7 @@ const EspaceProfessionnels = lazy(() => import('./components/Clients/Professionn
  * Professionnels sont chacun au premier niveau (décision de Florent du
  * 27/11/2026) ; chacun lit lui-même la suite de son adresse.
  */
-type SpaceView = 'social' | 'clients' | 'seances' | 'evenements' | 'professionnels' | 'psychedelics' | 'corpus' | 'settings' | 'plus' | 'aujourdhui';
+type SpaceView = 'social' | 'clients' | 'seances' | 'evenements' | 'professionnels' | 'psychedelics' | 'corpus' | 'settings' | 'plus' | 'aujourdhui' | 'paiements';
 /** Les trois listes, et `series` : l'adresse d'un plan de série (SPEC §13). */
 type SocialTab = ListeContenus | 'series';
 
@@ -91,6 +92,7 @@ const getHashState = () => {
     if (parts[0] === 'settings' || parts[0] === 'reglages') space = 'settings';
     if (parts[0] === 'plus') space = 'plus';
     if (parts[0] === 'aujourdhui') space = 'aujourdhui';
+    if (parts[0] === 'paiements') space = 'paiements';
     
     let tab: SocialTab = 'conversations';
     if (parts[1] && (estListe(parts[1]) || parts[1] === 'series')) {
@@ -1248,7 +1250,7 @@ function App() {
   // ── Le cadre (refonte, lot 2) : l'entrée active, la navigation, les gestes du « + » ──
   const ESPACE_DE: Record<Exclude<IdNav, 'reglages' | 'contenus' | 'corpus'>, SpaceView> = {
       agenda: 'seances', clients: 'clients', stages: 'evenements', professionnels: 'professionnels',
-      psychedeliques: 'psychedelics', plus: 'plus', aujourdhui: 'aujourdhui',
+      psychedeliques: 'psychedelics', plus: 'plus', aujourdhui: 'aujourdhui', paiements: 'paiements',
   };
   const idNav: IdNav | null =
       currentSpace === 'social' ? 'contenus'
@@ -1262,7 +1264,7 @@ function App() {
       updateRoute(ESPACE_DE[id], 'conversations');
   };
   // La recherche reste dans le métier où l'on est : les personnes, depuis la pratique seulement.
-  const depuisPratique = idNav !== null && ['aujourdhui', 'agenda', 'clients', 'stages', 'professionnels', 'psychedeliques'].includes(idNav);
+  const depuisPratique = idNav !== null && ['aujourdhui', 'agenda', 'clients', 'paiements', 'stages', 'professionnels', 'psychedeliques'].includes(idNav);
   const ecransCherchables: Resultat[] = [AUJOURDHUI, ...PRATIQUE, ...EDITORIAL]
       .filter((e) => !(e.base && baseReliee === false))
       .map((e) => ({ cle: `ecran-${e.id}`, nom: e.libelle, detail: PRATIQUE.includes(e) ? 'Pratique' : EDITORIAL.includes(e) ? 'Éditorial' : undefined, agir: () => naviguer(e.id) }))
@@ -1344,6 +1346,7 @@ function App() {
                   {currentSpace === 'evenements' && 'Stages'}
                   {currentSpace === 'plus' && 'Plus'}
                   {currentSpace === 'aujourdhui' && 'Aujourd’hui'}
+                  {currentSpace === 'paiements' && 'Paiements'}
                   {currentSpace === 'professionnels' && 'Professionnels'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
                   {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
@@ -1478,6 +1481,8 @@ function App() {
         {currentSpace === 'seances' && <main className="flex-1 overflow-y-auto"><EspaceSeances /></main>}
         {currentSpace === 'evenements' && <main className="flex-1 overflow-y-auto"><EspaceEvenements /></main>}
         {currentSpace === 'professionnels' && <main className="flex-1 overflow-y-auto"><EspaceProfessionnels /></main>}
+
+        {currentSpace === 'paiements' && <main className="flex-1 overflow-y-auto bg-fond"><PaiementsView /></main>}
 
         {currentSpace === 'aujourdhui' && (
             <main className="flex-1 overflow-y-auto bg-fond"><AujourdhuiView reception={reception} /></main>

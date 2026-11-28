@@ -122,3 +122,34 @@ export const quiOccupe = (
 export const gabaritSeance = (db: D1Database, id: string) =>
   db.prepare('SELECT debut, duree_min, type_seance_id FROM seances WHERE id = ?1')
     .bind(id).first<{ debut: number; duree_min: number; type_seance_id: string | null }>();
+
+// ─── Paiements (refonte de la console, lot 8) ───────────────────────────────
+
+/** Les deux listes de l'écran Paiements, bornées. */
+export const LIGNES_PAIEMENTS = 200;
+export const JOURS_ENCAISSES = 92;
+
+/**
+ * À encaisser : les séances passées, réalisées ou manquées (une absence reste
+ * due, décision du 28/11/2026), payables et pas payées — de la plus ancienne à
+ * la plus récente. Encaissés : les séances payées des trois derniers mois, la
+ * plus récente d'abord. Une instruction par liste, et le total à part : la
+ * liste est bornée, le total ne l'est pas.
+ */
+export const lirePaiements = async (db: D1Database, vue: 'a_encaisser' | 'encaisses', maintenant: number) => {
+  const condition = vue === 'a_encaisser'
+    ? `s.statut IN ('realisee', 'absent') AND s.etat_paiement IN ('a_payer', 'attente_especes') AND s.debut < ?1`
+    : `s.etat_paiement = 'payee' AND s.debut < ?1 AND s.debut >= ?1 - ${JOURS_ENCAISSES} * 86400000`;
+  const [lignes, total] = await db.batch([
+    db.prepare(`
+      SELECT ${COLONNES}
+      FROM seances s
+      LEFT JOIN clients c ON c.id = s.client_id
+      LEFT JOIN types_seance t ON t.id = s.type_seance_id
+      WHERE ${condition}
+      ORDER BY s.debut ${vue === 'a_encaisser' ? 'ASC' : 'DESC'}, s.id LIMIT ${LIGNES_PAIEMENTS}`).bind(maintenant),
+    db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(s.montant_centimes), 0) AS centimes FROM seances s WHERE ${condition}`).bind(maintenant),
+  ]);
+  const t = total.results[0] as { n: number; centimes: number };
+  return { lignes: lignes.results as Brut[], nombre: Number(t.n), centimes: Number(t.centimes) };
+};
