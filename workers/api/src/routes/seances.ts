@@ -16,6 +16,7 @@ import { Refus } from '../refus';
 import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSeance } from '../clients/decisions';
 import { apresChangement } from '../clients/agenda-seances';
 import { lireAujourdhui, provenanceEnClair, HEURE_DU_SOIR } from '../clients/aujourdhui';
+import { disponibilites } from '../clients/disponibilites';
 import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
 import { lireNotesSeance, ecrireNotesSeance } from '../clients/sensible';
@@ -75,6 +76,19 @@ seances.get('/', async (c) => {
   if (fin <= debut) throw new Refus('La fin de la période précède son début.', 400);
   if (fin - debut > (JOURS_MAX + 1) * 24 * 3_600_000) throw new Refus(`Une période couvre ${JOURS_MAX} jours au plus.`, 400);
   return c.json({ seances: (await seancesDeLaPeriode(baseClients(c.env), debut, fin)).map(enSortie) });
+});
+
+/**
+ * Les jours d'une période pour l'Agenda (refonte, lot 5) : fermés ou non, et
+ * les créneaux libres du type « séance », comptés comme le site les
+ * proposerait. 62 jours au plus, comme les séances. Déclarée avant `/:id`.
+ */
+seances.get('/disponibilites', async (c) => {
+  const { du, au } = valider(Periode, c.req.query());
+  if (au < du) throw new Refus('La fin de la période précède son début.', 400);
+  const jours = Math.round((instantDeParis(au, '12:00') - instantDeParis(du, '12:00')) / 86_400_000) + 1;
+  if (jours > JOURS_MAX) throw new Refus(`Une période couvre ${JOURS_MAX} jours au plus.`, 400);
+  return c.json(await disponibilites(c.env, du, au, Date.now()));
 });
 
 /**

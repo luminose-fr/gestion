@@ -54,6 +54,7 @@ export const routesChargees = () => {
   vi.spyOn(Clients, 'lireSeance').mockResolvedValue(SEANCE_DETAILLEE);
   vi.spyOn(Clients, 'lireNotesSeance').mockResolvedValue(NOTES);
   vi.spyOn(Clients, 'seancesDeLaPeriode').mockResolvedValue({ seances: [SEANCE] });
+  vi.spyOn(Clients, 'disponibilites').mockResolvedValue({ jours: [], agendaLu: true });
   vi.spyOn(Clients, 'lireReservation').mockResolvedValue(RESERVATION);
   vi.spyOn(Clients, 'listeEvenements').mockResolvedValue({ evenements: [] });
 };
@@ -61,7 +62,7 @@ export const routesChargees = () => {
 /** Toutes les lectures répondent « base non reliée ». */
 export const routesNonReliees = () => {
   for (const nom of ['rechercherFiches', 'fichesSemblables', 'lireFiche', 'lireConfiance', 'lireNoteFiche', 'listeProfessionnels',
-    'lireSeance', 'lireNotesSeance', 'seancesDeLaPeriode', 'lireReservation', 'listeEvenements'] as const) {
+    'lireSeance', 'lireNotesSeance', 'seancesDeLaPeriode', 'disponibilites', 'lireReservation', 'listeEvenements'] as const) {
     vi.spyOn(Clients, nom).mockRejectedValue(NON_RELIEE);
   }
 };

@@ -19,7 +19,7 @@ import type {
   PageFiches, FicheSemblable, ChampsFiche, Fiche, NoteFiche, Confiance,
   Seance, SeanceDetaillee, NotesSeance, PoseRendezVous, ModificationSeance,
   Evenement, EvenementDetaille, ChampsEvenement, Professionnel, ChampsProfessionnel,
-  Reservation, ChampsType, PlageHoraire, Aujourdhui,
+  Reservation, ChampsType, PlageHoraire, Aujourdhui, JourAgenda,
 } from '../types-clients';
 
 /** Un refus ou une panne d'une route des clients. `champs` : les champs en défaut d'une entrée invalide. */
@@ -71,6 +71,9 @@ export const ecrireConfiance = (ficheId: string, confiance: Omit<Confiance, 'mis
 /** `du`, `au` : `AAAA-MM-JJ`, 62 jours au plus. Des dates, pas des personnes : elles vont dans l'adresse. */
 export const seancesDeLaPeriode = (du: string, au: string) =>
   appel<{ seances: Seance[] }>(`/seances?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);
+/** Les jours d'une période pour l'Agenda : fermés ou non, et les créneaux libres. 62 jours au plus. */
+export const disponibilites = (du: string, au: string) =>
+  appel<{ jours: JourAgenda[]; agendaLu: boolean }>(`/seances/disponibilites?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);
 export const lireSeance = (seanceId: string) => appel<SeanceDetaillee>(`/seances/${id(seanceId)}`);
 /** L'écran Aujourd'hui : la journée, la prochaine séance, À traiter — une lecture. */
 export const lireAujourdhui = () => appel<Aujourdhui>('/seances/aujourdhui');

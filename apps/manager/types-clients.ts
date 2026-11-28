@@ -93,6 +93,8 @@ export type SeanceDuJour = Seance & {
   /** `null` quand la lecture ne le dit pas (la prochaine séance, À traiter). */
   notesEcrites: boolean | null;
 };
+/** Un jour de l'Agenda (refonte, lot 5). `libres` : les créneaux de séance libres dans les horaires. */
+export type JourAgenda = { date: string; ferme: 'exception' | 'habitude' | null; exception: boolean; libres: number | null };
 export type ATraiter = { sorte: 'clore' | 'notes'; seance: SeanceDuJour };
 export type Aujourdhui = {
   maintenant: string;
