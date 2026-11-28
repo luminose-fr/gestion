@@ -99,9 +99,12 @@ describe('Bouton — tons de sens', () => {
     }
   });
 
-  it('garde son texte lisible au survol en sombre', () => {
+  // Refonte, lot 9 : les couleurs viennent des jetons de la charte, qui suivent le thème —
+  // plus de `dark:` à écrire pour garder un bouton lisible en sombre.
+  it('prend la marque de la charte, sans couleur du thème écrite à la main', () => {
     const { container } = render(<Bouton intention="principale">Publier</Bouton>);
-    expect(boutons(container)[0]).toContain('dark:hover:bg-brand-light');
+    expect(boutons(container)[0]).toContain('bg-marque text-sur-marque');
+    expect(boutons(container)[0]).not.toMatch(/dark:/);
   });
 
   it('reste lisible en sombre quand il est plein', () => {
@@ -133,7 +136,7 @@ describe('Carte', () => {
   it('a une seule convention de bordure et un seul rayon', () => {
     const { container } = render(<Carte>Contenu</Carte>);
     const classe = (container.firstChild as HTMLElement).className;
-    expect(classe).toContain('border-brand-border dark:border-dark-sec-border');
+    expect(classe).toContain('border-bord');
     expect(classe).toContain('rounded-xl');
     expect(classe).not.toContain('border-brand-light');
     expect(classe).not.toContain('dark:border-dark-sec-bg');
@@ -247,8 +250,8 @@ describe('Etiquette — les deux sur-titres', () => {
     );
     const [surtitre, entete] = classes(container);
     for (const c of [surtitre, entete]) expect(c).toContain('text-micro font-bold uppercase tracking-wider');
-    expect(surtitre).toContain('text-brand-main dark:text-dark-text');
-    expect(entete).toContain('text-brand-main dark:text-dark-text');
+    expect(surtitre).toContain('text-second');
+    expect(entete).toContain('text-second');
     expect(entete).not.toMatch(/text-brand-main\//);
   });
 
@@ -275,7 +278,7 @@ describe('Etiquette — les deux sur-titres', () => {
   });
 
   it('prête ses classes aux en-têtes de tableau, sans disposition', () => {
-    expect(CLASSES_SURTITRE).toBe('text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text');
+    expect(CLASSES_SURTITRE).toBe('text-micro font-bold uppercase tracking-wider text-second');
     expect(CLASSES_SURTITRE).not.toMatch(/\b(block|flex)\b/);
   });
 });

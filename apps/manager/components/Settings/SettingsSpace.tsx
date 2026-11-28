@@ -186,10 +186,10 @@ const pourcent = (part: number | null) => {
  * quatre postes : une jauge se lit par sa longueur, pas par sa teinte.
  */
 const TON_TEXTE: Record<string, string> = {
-    calme: 'text-brand-main dark:text-dark-text',
+    calme: 'text-second',
     attention: 'text-alerte',
     critique: 'text-erreur',
-    inconnu: 'text-brand-main dark:text-dark-text',
+    inconnu: 'text-second',
 };
 
 const TON_REMPLISSAGE: Record<string, string> = {
@@ -218,10 +218,10 @@ const CHAMP = CLASSES_CHAMP;
 
 /** En-tête de groupe : un titre, ce qu'il regroupe, et un filet. */
 const EnTeteGroupe: React.FC<{ titre: string; detail?: string; droite?: React.ReactNode }> = ({ titre, detail, droite }) => (
-    <div className="flex items-baseline justify-between gap-3 border-b border-brand-border dark:border-dark-sec-border pb-1.5 mb-3">
+    <div className="flex items-baseline justify-between gap-3 border-b border-bord pb-1.5 mb-3">
         <span className="flex items-baseline gap-2 min-w-0">
-            <span className="text-sm font-bold text-brand-main dark:text-white">{titre}</span>
-            {detail && <span className="text-micro text-brand-main dark:text-dark-text truncate">{detail}</span>}
+            <span className="text-sm font-bold text-texte">{titre}</span>
+            {detail && <span className="text-micro text-second truncate">{detail}</span>}
         </span>
         {droite}
     </div>
@@ -280,7 +280,7 @@ const VeilleModeles: React.FC<{
         return (
             <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <p className="text-xs text-brand-main dark:text-dark-text">
+                    <p className="text-xs text-second">
                         <strong className="font-semibold">Veille des modèles</strong> —{' '}
                         {etat
                             ? `rien de nouveau au ${quand(etat.le)}.`
@@ -302,7 +302,7 @@ const VeilleModeles: React.FC<{
                 </Etiquette>
                 {verifier}
             </div>
-            <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text mb-2">
+            <p className="text-micro leading-relaxed text-second mb-2">
                 Une version plus récente d'un modèle de votre catalogue, sur le même adaptateur
                 {etat ? ` — vu le ${quand(etat.le)}` : ''}.
                 {propositions.some(p => ficheDe(p)) && (
@@ -315,12 +315,12 @@ const VeilleModeles: React.FC<{
                     choisir ensuite dans Modèles par famille.</>
                 )}
             </p>
-            <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
+            <ul className="divide-y divide-bord">
                 {propositions.map(p => (
                     <li key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2">
                         <div className="min-w-0">
-                            <p className="text-sm font-semibold text-brand-main dark:text-white">{p.nom}</p>
-                            <p className="text-micro text-brand-main dark:text-dark-text">
+                            <p className="text-sm font-semibold text-texte">{p.nom}</p>
+                            <p className="text-micro text-second">
                                 <span className="font-mono">{p.apiCode}</span>
                                 {' · '}{providers.find(x => x.id === p.provider)?.label ?? p.provider}
                                 {p.remplaceNom ? ` · après ${p.remplaceNom}` : ''}
@@ -948,12 +948,12 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const FilAriane: React.FC<{ label: string }> = ({ label }) => (
         <button
             onClick={backToList}
-            className="flex items-center gap-1 text-xs font-semibold text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white transition-colors mb-4"
+            className="flex items-center gap-1 text-xs font-semibold text-second hover:text-texte transition-colors mb-4"
         >
             <ChevronLeft className="w-3.5 h-3.5" />
             <span>Retour</span>
-            <span className="text-brand-main dark:text-dark-text mx-1">/</span>
-            <span className="text-brand-main dark:text-white font-semibold truncate">{label}</span>
+            <span className="text-second mx-1">/</span>
+            <span className="text-texte font-semibold truncate">{label}</span>
         </button>
     );
 
@@ -1004,7 +1004,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 onVerifier={() => void verifierMaintenant()}
                             />
 
-                            <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
+                            <p className="text-sm leading-relaxed text-second max-w-3xl">
                                 Rangés par adaptateur — celui qui reçoit l'appel. Un même modèle peut être joignable
                                 chez plusieurs d'entre eux, avec un code différent et un prix différent.
                             </p>
@@ -1034,7 +1034,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                         />
 
                                         {groupe.models.length === 0 ? (
-                                            <p className="text-xs italic text-brand-main dark:text-dark-text leading-relaxed">
+                                            <p className="text-xs italic text-second leading-relaxed">
                                                 Aucun modèle sur cet adaptateur. Posez sa clé, puis testez un code avant de l'enregistrer.
                                             </p>
                                         ) : (
@@ -1049,24 +1049,24 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                             key={m.id}
                                                             className={`p-4 rounded-xl border transition-all ${
                                                                 isActive
-                                                                    ? 'bg-brand-light dark:bg-dark-bg border-brand-main dark:border-white'
-                                                                    : 'bg-white dark:bg-dark-surface border-brand-border dark:border-dark-sec-border'
+                                                                    ? 'bg-fond border-marque'
+                                                                    : 'bg-surface border-bord'
                                                             }`}
                                                         >
                                                             <div className="flex items-center justify-between gap-2 mb-1">
-                                                                <h3 className="font-semibold text-sm text-brand-main dark:text-white truncate">{m.name}</h3>
+                                                                <h3 className="font-semibold text-sm text-texte truncate">{m.name}</h3>
                                                                 {m.sortie === 'image' && <Etiquette as="span" forme="pastille" className="ml-auto">Image</Etiquette>}
                                                                 {m.vendor && (
-                                                                    <span className="shrink-0 text-micro bg-brand-light dark:bg-dark-sec-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
+                                                                    <span className="shrink-0 text-micro bg-bas text-second border border-bord px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap">
                                                                         {m.vendor}
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <p className="text-xs text-brand-main dark:text-dark-text font-mono truncate opacity-70 mb-2">{m.apiCode}</p>
+                                                            <p className="text-xs text-second font-mono truncate opacity-70 mb-2">{m.apiCode}</p>
                                                             <div className="flex items-center gap-2">
                                                                 {/* Un modèle d'image n'est pas le modèle actif : son défaut se règle dans la famille Illustrer. */}
                                                                 {m.sortie === 'image' ? null : isActive ? (
-                                                                    <span className="flex items-center gap-1 text-micro font-bold px-2 py-1 rounded-lg bg-brand-main text-white dark:bg-white dark:text-brand-main">
+                                                                    <span className="flex items-center gap-1 text-micro font-bold px-2 py-1 rounded-lg bg-marque text-sur-marque">
                                                                         <CheckCircle2 className="w-3 h-3" />
                                                                         Défaut
                                                                     </span>
@@ -1095,33 +1095,33 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <button
                                     onClick={() => handleCreateModel()}
-                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-colors"
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-bord text-second hover:border-brand-main hover:text-texte text-sm font-bold transition-colors"
                                 >
                                     <Plus className="w-3.5 h-3.5" />
                                     Ajouter un modèle
                                 </button>
                                 <button
                                     onClick={ouvrirExplorateur}
-                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main hover:text-brand-main dark:hover:text-white text-sm font-bold transition-colors"
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-bord text-second hover:border-brand-main hover:text-texte text-sm font-bold transition-colors"
                                 >
                                     <Compass className="w-3.5 h-3.5" />
                                     Explorer les catalogues
                                 </button>
                             </div>
 
-                            <p className="text-micro text-brand-main dark:text-dark-text leading-relaxed px-1">
+                            <p className="text-micro text-second leading-relaxed px-1">
                                 Le modèle marqué <strong>« Défaut »</strong> sert aux actions qui n'ont pas de réglage
                                 propre. Modifiable aussi depuis le sélecteur en haut de l'application.
                             </p>
                         </div>
 
                         {/* Testeur */}
-                        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light/40 dark:bg-dark-bg/40 p-4 space-y-3">
+                        <div className="rounded-xl border border-bord bg-brand-light/40 dark:bg-dark-bg/40 p-4 space-y-3">
                             <Etiquette forme="entete" avecIcone>
                                 <FlaskConical className="w-3 h-3" />
                                 Tester un code API
                             </Etiquette>
-                            <p className="text-micro text-brand-main dark:text-dark-text leading-relaxed">
+                            <p className="text-micro text-second leading-relaxed">
                                 Vérifie si un modèle répond, chez l'adaptateur choisi. Requête mini, ~1 token de coût.
                             </p>
                             <select
@@ -1229,8 +1229,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     const ONGLET = (actif: boolean) =>
                         `px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                             actif
-                                ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                                : 'text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg'
+                                ? 'bg-marque text-sur-marque'
+                                : 'text-second hover:bg-survole'
                         }`;
                     const TH = `${CLASSES_SURTITRE} px-3 py-2 whitespace-nowrap`;
 
@@ -1247,13 +1247,13 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             />
 
                             {sourceCatalogue === 'openrouter' && (
-                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                <p className="text-sm leading-relaxed text-second max-w-3xl mb-1">
                                     Deux sources croisées : OpenRouter pour le prix, le contexte et les indices
                                     d'Artificial Analysis ; EQ-Bench pour la qualité d'écriture.
                                 </p>
                             )}
                             {sourceCatalogue === 'anthropic' && (
-                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                <p className="text-sm leading-relaxed text-second max-w-3xl mb-1">
                                     Les modèles que votre compte Anthropic peut appeler, lus avec votre clé. Le code
                                     affiché est celui que l'adaptateur Anthropic attend ; prix et notes sont ceux du
                                     même modèle chez OpenRouter, à titre indicatif — votre facture est celle
@@ -1261,14 +1261,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 </p>
                             )}
                             {sourceCatalogue === 'onemin' && (
-                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-1">
+                                <p className="text-sm leading-relaxed text-second max-w-3xl mb-1">
                                     La liste que 1min.ai sert à son propre site. Elle n'est pas documentée : lue au
                                     mieux, elle peut cesser de répondre sans préavis. 1min.ai facture en crédits ;
                                     les prix affichés sont ceux du même modèle chez OpenRouter, pour comparer, pas
                                     pour compter.
                                 </p>
                             )}
-                            <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-4">
+                            <p className="text-xs leading-relaxed text-second max-w-3xl mb-4">
                                 Les indices d'Artificial Analysis mesurent le raisonnement, le code et la capacité
                                 d'agent — aucune tâche de votre flux. EQ-Bench juge de la prose, en anglais et sur
                                 de la fiction : c'est un indice de votre voix, pas une mesure. Ils réduisent le
@@ -1276,7 +1276,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             </p>
 
                             {catalogue && !catalogueEtat.reference && (
-                                <p className="text-xs text-brand-main dark:text-dark-text mb-3">
+                                <p className="text-xs text-second mb-3">
                                     La référence OpenRouter n'a pas répondu : la liste est complète, mais sans prix
                                     ni notes.
                                 </p>
@@ -1289,14 +1289,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             )}
 
                             {catalogue && catalogueEtat.reference && !catalogueEtat.ecriture && (
-                                <p className="text-xs text-brand-main dark:text-dark-text mb-3">
+                                <p className="text-xs text-second mb-3">
                                     Notes d'écriture indisponibles ({catalogueEtat.ecritureRaison ?? 'raison inconnue'}) :
                                     EQ-Bench n'est pas une API publiée, sa forme peut changer sans préavis. La sélection
                                     en dépend — le catalogue entier reste lisible.
                                 </p>
                             )}
                             {catalogue && catalogueEtat.reference && !catalogueEtat.benchmarks && (
-                                <p className="text-xs text-brand-main dark:text-dark-text mb-3">
+                                <p className="text-xs text-second mb-3">
                                     {catalogueEtat.raison === 'clé absente'
                                         ? "Indices d'Artificial Analysis indisponibles : aucune clé OpenRouter posée."
                                         : "Indices d'Artificial Analysis indisponibles : OpenRouter a refusé la requête (quota, sans doute)."}
@@ -1304,7 +1304,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             )}
 
                             {catalogue && courteListe.length > 0 && (
-                                <div className="flex items-center gap-1 p-1 mb-3 rounded-xl bg-brand-light dark:bg-dark-bg w-fit">
+                                <div className="flex items-center gap-1 p-1 mb-3 rounded-xl bg-fond w-fit">
                                     <button onClick={() => { setVueCatalogue('selection'); setTri('prix'); }} className={ONGLET(vueCatalogue === 'selection')}>
                                         La sélection · {courteListe.length}
                                     </button>
@@ -1315,7 +1315,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             )}
 
                             {vueCatalogue === 'selection' && courteListe.length > 0 && (
-                                <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text max-w-3xl mb-3 pl-3 border-l-2 border-brand-border dark:border-dark-sec-border">
+                                <p className="text-xs leading-relaxed text-second max-w-3xl mb-3 pl-3 border-l-2 border-bord">
                                     Vous n'utiliserez jamais quarante modèles. Cette liste garde, par palier de prix,
                                     ceux qui écrivent le mieux — au plus trois par fabricant, une seule variante par
                                     modèle, et rien qui soit battu sur tous les tableaux par moins cher que lui.
@@ -1325,7 +1325,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                             <div className="flex flex-col sm:flex-row gap-2 mb-3">
                                 <div className="relative flex-1 min-w-0">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-brand-main dark:text-dark-text" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-second" />
                                     <input
                                         type="text"
                                         value={recherche}
@@ -1357,10 +1357,10 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                             {catalogue && (
                                 <>
-                                    <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface overflow-hidden">
+                                    <div className="rounded-xl border border-bord bg-surface overflow-hidden">
                                         <div className="overflow-x-auto">
                                             <table className="min-w-full text-sm">
-                                                <thead className="bg-brand-light dark:bg-dark-bg border-b border-brand-border dark:border-dark-sec-border">
+                                                <thead className="bg-fond border-b border-bord">
                                                     <tr>
                                                         <th className={`${TH} text-left min-w-[17rem]`}>Modèle</th>
                                                         <th className={`${TH} text-right`}>
@@ -1374,7 +1374,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                         <th className="w-24 px-3 py-2" aria-hidden="true" />
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
+                                                <tbody className="divide-y divide-bord">
                                                     {visibles.map(m => {
                                                         const correspondants = modelesCorrespondants(m.id);
                                                         // Déjà là, c'est déjà là SUR CET ADAPTATEUR : le même
@@ -1387,7 +1387,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                         <tr key={m.id} className="hover:bg-brand-light/40 dark:hover:bg-dark-bg/40 transition-colors">
                                                             <td className="px-3 py-2">
                                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                                    <p className="font-semibold text-sm text-brand-main dark:text-white">{m.name}</p>
+                                                                    <p className="font-semibold text-sm text-texte">{m.name}</p>
                                                                     {m.palierLibelle && vueCatalogue === 'tout' && (
                                                                         <Etiquette as="span" forme="pastille">
                                                                             sélection · {m.palierLibelle}
@@ -1397,56 +1397,56 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                                         <Etiquette as="span" forme="pastille">Image</Etiquette>
                                                                     )}
                                                                 </div>
-                                                                <p className="font-mono text-micro text-brand-main dark:text-dark-text">{m.id}</p>
+                                                                <p className="font-mono text-micro text-second">{m.id}</p>
                                                                 {m.reference && (
-                                                                    <p className="text-micro text-brand-main dark:text-dark-text">
+                                                                    <p className="text-micro text-second">
                                                                         Mesures de <span className="font-mono">{m.reference}</span>
                                                                     </p>
                                                                 )}
                                                                 {(m.forces ?? []).length > 0 && (
-                                                                    <p className="text-micro text-brand-main dark:text-dark-text mt-0.5">
+                                                                    <p className="text-micro text-second mt-0.5">
                                                                         Fort en : {(m.forces ?? []).join(', ')}
                                                                     </p>
                                                                 )}
                                                             </td>
-                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main dark:text-dark-text">
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-second">
                                                                 {m.completionPrice === 0 && m.promptPrice === 0
                                                                     ? 'gratuit'
                                                                     : m.completionPrice === null && m.promptPrice === null
                                                                         ? '—'
                                                                         : `${prix(m.promptPrice)} → ${prix(m.completionPrice)}`}
                                                             </td>
-                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main dark:text-dark-text">
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-second">
                                                                 {m.contextLength ? `${Math.round(m.contextLength / 1000)}k` : '—'}
                                                             </td>
                                                             <td className="px-3 py-2 text-right whitespace-nowrap">
                                                                 {note(m.ecriture, 2) === null ? (
-                                                                    <span className="text-xs text-brand-main dark:text-dark-text">—</span>
+                                                                    <span className="text-xs text-second">—</span>
                                                                 ) : (
-                                                                    <span className="text-xs font-bold text-brand-main dark:text-white">{note(m.ecriture, 2)}</span>
+                                                                    <span className="text-xs font-bold text-texte">{note(m.ecriture, 2)}</span>
                                                                 )}
                                                             </td>
                                                             <td className="px-3 py-2 text-right whitespace-nowrap">
                                                                 {m.slop === null ? (
-                                                                    <span className="text-xs text-brand-main dark:text-dark-text">—</span>
+                                                                    <span className="text-xs text-second">—</span>
                                                                 ) : (
                                                                     <span className={`text-xs font-bold ${
                                                                         m.slop <= 13 ? 'text-succes'
-                                                                            : m.slop <= 22 ? 'text-brand-main dark:text-white'
+                                                                            : m.slop <= 22 ? 'text-texte'
                                                                             : 'text-alerte'
                                                                     }`}>
                                                                         {note(m.slop)}
                                                                     </span>
                                                                 )}
                                                             </td>
-                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-brand-main dark:text-dark-text">
+                                                            <td className="px-3 py-2 text-right whitespace-nowrap text-xs text-second">
                                                                 {note(m.suivi, 1) ?? '—'}
                                                             </td>
                                                             <td className="px-3 py-2 text-right whitespace-nowrap">
                                                                 {m.intelligence === null ? (
-                                                                    <span className="text-xs text-brand-main dark:text-dark-text">—</span>
+                                                                    <span className="text-xs text-second">—</span>
                                                                 ) : (
-                                                                    <span className="text-xs text-brand-main dark:text-dark-text">{m.intelligence.toFixed(1)}</span>
+                                                                    <span className="text-xs text-second">{m.intelligence.toFixed(1)}</span>
                                                                 )}
                                                             </td>
                                                             <td className="px-3 py-2 text-right">
@@ -1480,14 +1480,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     </div>
 
                                     {/* Une colonne dont on ignore le sens ne sert à rien. */}
-                                    <p className="mt-3 px-1 text-micro leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
+                                    <p className="mt-3 px-1 text-micro leading-relaxed text-second max-w-3xl">
                                         <strong className="font-semibold">Écriture</strong> et <strong className="font-semibold">Consignes</strong> : sur 20, plus haut est meilleur.{' '}
                                         <strong className="font-semibold">Tournures d'IA</strong> : densité des formules toutes faites — <em>plus bas est meilleur</em>, et c'est
                                         la colonne la plus parlante pour la voix.
                                     </p>
 
                                     {/* Aucun plafond silencieux : ce qui n'est pas montré est annoncé. */}
-                                    <p className="mt-1 px-1 text-micro text-brand-main dark:text-dark-text">
+                                    <p className="mt-1 px-1 text-micro text-second">
                                         {trie.length > PLAFOND
                                             ? `${PLAFOND} modèles affichés sur ${trie.length} correspondants — affinez la recherche.`
                                             : `${trie.length} modèle${trie.length > 1 ? 's' : ''} affiché${trie.length > 1 ? 's' : ''}.`}
@@ -1559,7 +1559,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                             <option value={editModel.provider}>{editModel.provider} (inconnu)</option>
                                         )}
                                     </select>
-                                    <p className="mt-1.5 text-micro text-brand-main dark:text-dark-text">
+                                    <p className="mt-1.5 text-micro text-second">
                                         Par où passe l'appel. Sa clé se pose dans « Clés des fournisseurs ».
                                     </p>
                                 </div>
@@ -1572,7 +1572,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                         onChange={sortie => setEditModel({ ...editModel, sortie })}
                                         options={[{ valeur: 'texte', libelle: 'Texte' }, { valeur: 'image', libelle: 'Image' }]}
                                     />
-                                    <p className="mt-1.5 text-micro text-brand-main dark:text-dark-text">
+                                    <p className="mt-1.5 text-micro text-second">
                                         {editModel.sortie === 'image'
                                             ? 'Il illustre les Reels expliqués, et ne passe que par OpenRouter.'
                                             : 'Il écrit : les actions du flux éditorial le proposent.'}
@@ -1607,7 +1607,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                                 <div>
                                     <Etiquette as="label" className="mb-1">Qualité rédaction (1-5)</Etiquette>
-                                    <div className="flex gap-1.5 p-2 bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg">
+                                    <div className="flex gap-1.5 p-2 bg-fond border border-bord rounded-lg">
                                         {[1, 2, 3, 4, 5].map(v => (
                                             <button
                                                 key={v}
@@ -1615,7 +1615,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 className={`flex-1 h-8 rounded-md text-sm font-bold transition-colors ${
                                                     editModel.textQuality === v
                                                         ? 'bg-brand-main text-white shadow-xs'
-                                                        : 'hover:bg-brand-border dark:hover:bg-dark-sec-border text-brand-main dark:text-white'
+                                                        : 'hover:bg-actif text-texte'
                                                 }`}
                                             >
                                                 {v}
@@ -1671,7 +1671,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     const aPart = AI_ACTION_CATALOG.filter(a => actionModels[a.id]);
                     return (
                     <div className="space-y-6 animate-fade-in">
-                        <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
+                        <p className="text-sm leading-relaxed text-second max-w-3xl">
                             Un modèle par famille de travail. Sans réglage, une famille qui écrit prend le modèle
                             choisi en haut de l'application, et Illustrer le premier modèle d'image du catalogue.
                             Les familles sont rangées par ce qu'elles demandent — les classements publics, eux,
@@ -1697,13 +1697,13 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 return (
                                     <Carte key={id} rythme>
                                         <div className="flex items-baseline justify-between gap-3">
-                                            <span className="text-sm font-bold text-brand-main dark:text-white">{famille.titre}</span>
-                                            <span className="text-micro text-right text-brand-main dark:text-dark-text">
+                                            <span className="text-sm font-bold text-texte">{famille.titre}</span>
+                                            <span className="text-micro text-right text-second">
                                                 {actions.length > 0 ? actions.map(a => a.label).join(' · ') : 'Les illustrations du Reel expliqué'}
                                             </span>
                                         </div>
-                                        <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text">{famille.demande}</p>
-                                        <p className="text-xs leading-relaxed font-semibold text-brand-main dark:text-white">→ {famille.choix}</p>
+                                        <p className="text-xs leading-relaxed text-second">{famille.demande}</p>
+                                        <p className="text-xs leading-relaxed font-semibold text-texte">→ {famille.choix}</p>
                                         <SelecteurModele
                                             sortie={sortieDeFamille(id)}
                                             value={familleModels[id] ?? ''}
@@ -1712,7 +1712,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                             vide={sortieDeFamille(id) === 'image' ? '— Le premier modèle d’image —' : '— Modèle de l’en-tête —'}
                                         />
                                         {exceptions.map(a => (
-                                            <p key={a.id} className="flex flex-wrap items-center gap-2 text-xs text-brand-main dark:text-dark-text">
+                                            <p key={a.id} className="flex flex-wrap items-center gap-2 text-xs text-second">
                                                 <span><span className="font-semibold">{a.label}</span> suit son propre réglage : {nomDe(actionModels[a.id])}.</span>
                                                 <Bouton taille="petit" intention="discrete" disabled={presetBusy === a.id}
                                                     onClick={() => void handleActionModel(a.id, '')}>
@@ -1726,8 +1726,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         </div>
 
                         {/* Le réglage fin reste possible, replié : il l'emporte sur la famille, et se dit sur sa carte. */}
-                        <details className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
-                            <summary className="px-4 py-3 text-sm font-semibold text-brand-main dark:text-white cursor-pointer">
+                        <details className="rounded-xl border border-bord bg-surface">
+                            <summary className="px-4 py-3 text-sm font-semibold text-texte cursor-pointer">
                                 Régler une action à part
                                 {aPart.length > 0 && <span className="font-normal"> — {aPart.length} réglée{aPart.length > 1 ? 's' : ''} à part</span>}
                             </summary>
@@ -1735,13 +1735,13 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 {AI_ACTION_CATALOG.map(action => (
                                     <div
                                         key={action.id}
-                                        className="p-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface flex flex-col gap-3"
+                                        className="p-4 rounded-xl border border-bord bg-surface flex flex-col gap-3"
                                     >
                                         <div className="flex items-baseline justify-between gap-2">
-                                            <span className="text-sm font-bold text-brand-main dark:text-white">{action.label}</span>
-                                            <span className="text-micro text-brand-main dark:text-dark-text whitespace-nowrap">{ATTENDU_FAMILLES[action.attendu]?.titre}</span>
+                                            <span className="text-sm font-bold text-texte">{action.label}</span>
+                                            <span className="text-micro text-second whitespace-nowrap">{ATTENDU_FAMILLES[action.attendu]?.titre}</span>
                                         </div>
-                                        <p className="text-micro leading-relaxed text-brand-main dark:text-dark-text flex-1">
+                                        <p className="text-micro leading-relaxed text-second flex-1">
                                             {action.pourChoisir}
                                         </p>
                                         <SelecteurModele
@@ -1761,7 +1761,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 {/* ─── CLÉS DES FOURNISSEURS ─── */}
                 {section === 'providers' && (
                     <div className="space-y-4 animate-fade-in">
-                        <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
+                        <p className="text-sm leading-relaxed text-second max-w-3xl">
                             Une clé posée ici part au Worker et n'en revient jamais : l'application n'en affiche que
                             les quatre derniers caractères. Pour la remplacer, saisissez-en une nouvelle — il n'y a
                             rien à relire.
@@ -1779,9 +1779,9 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                             {providers.map(p => (
-                                <div key={p.id} className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 space-y-3">
+                                <div key={p.id} className="rounded-xl border border-bord bg-surface p-4 space-y-3">
                                     <div className="flex items-center justify-between gap-2">
-                                        <h3 className="font-semibold text-sm text-brand-main dark:text-white">{p.label}</h3>
+                                        <h3 className="font-semibold text-sm text-texte">{p.label}</h3>
                                         {p.configured ? (
                                             <span className="flex items-center gap-1.5 text-micro font-bold px-2 py-1 rounded-full bg-succes/10 text-succes border border-succes/30">
                                                 <CheckCircle2 className="w-3 h-3" />
@@ -1795,7 +1795,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     </div>
 
                                     {p.source === 'environnement' && (
-                                        <p className="text-micro text-brand-main dark:text-dark-text leading-relaxed">
+                                        <p className="text-micro text-second leading-relaxed">
                                             Clé héritée des secrets du Worker. En saisir une ici la remplacera.
                                         </p>
                                     )}
@@ -1846,13 +1846,13 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 {section === 'personas' && fiche && (
                     <div className="max-w-3xl animate-fade-in space-y-5">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-micro bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text border border-brand-border dark:border-dark-sec-border px-2 py-0.5 rounded-full font-bold">
+                            <span className="text-micro bg-fond text-second border border-bord px-2 py-0.5 rounded-full font-bold">
                                 {fiche.titre}
                             </span>
                             {fiche.action && (
-                                <span className="text-micro font-mono text-brand-main dark:text-dark-text">{fiche.action}</span>
+                                <span className="text-micro font-mono text-second">{fiche.action}</span>
                             )}
-                            <span className="flex items-center gap-1 text-micro text-brand-main dark:text-dark-text">
+                            <span className="flex items-center gap-1 text-micro text-second">
                                 <Eye className="w-3 h-3" /> Lecture seule · {signes(fiche.texte.length)}
                             </span>
                         </div>
@@ -1866,8 +1866,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 )}
                                 {!feuilleErreur && !feuille && <Patience titre="Composition de la feuille…" aspect="ligne" />}
                                 {feuille?.neRecoitRien && (
-                                    <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl p-4">
-                                        <span className="font-semibold text-brand-main dark:text-white">Ne reçoit rien du corpus — et c'est voulu.</span>{' '}
+                                    <p className="text-sm leading-relaxed text-second bg-surface border border-bord rounded-xl p-4">
+                                        <span className="font-semibold text-texte">Ne reçoit rien du corpus — et c'est voulu.</span>{' '}
                                         Ce rôle travaille sur ce qu'on lui donne, sans savoir d'où ça vient.
                                     </p>
                                 )}
@@ -1879,8 +1879,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     </p>
                                 )}
                                 {feuille && !!feuille.texte && (
-                                    <div className="bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl overflow-hidden">
-                                        <div className="flex items-center gap-2 flex-wrap px-4 py-2 border-b border-brand-border dark:border-dark-sec-border text-micro text-brand-main dark:text-dark-text">
+                                    <div className="bg-surface border border-bord rounded-xl overflow-hidden">
+                                        <div className="flex items-center gap-2 flex-wrap px-4 py-2 border-b border-bord text-micro text-second">
                                             <span className="font-mono">{feuille.hash}</span>
                                             <span className="text-brand-main/20 dark:text-dark-text/20">·</span>
                                             <span>{signes(feuille.taille)}</span>
@@ -1889,16 +1889,16 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                         </div>
                                         <ul className="px-4 py-3 flex flex-wrap gap-1.5">
                                             {feuille.documents.map(d => (
-                                                <li key={d} className="text-micro font-mono bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text px-1.5 py-0.5 rounded-md">
+                                                <li key={d} className="text-micro font-mono bg-fond text-second px-1.5 py-0.5 rounded-md">
                                                     {d}
                                                 </li>
                                             ))}
                                         </ul>
-                                        <details className="border-t border-brand-border dark:border-dark-sec-border">
-                                            <summary className="px-4 py-2 text-xs font-semibold text-brand-main dark:text-dark-text cursor-pointer hover:text-brand-main dark:hover:text-white">
+                                        <details className="border-t border-bord">
+                                            <summary className="px-4 py-2 text-xs font-semibold text-second cursor-pointer hover:text-texte">
                                                 Lire le texte joint
                                             </summary>
-                                            <pre className="whitespace-pre-wrap text-xs text-brand-main dark:text-dark-text leading-relaxed font-sans px-4 pb-4">
+                                            <pre className="whitespace-pre-wrap text-xs text-second leading-relaxed font-sans px-4 pb-4">
                                                 {feuille.texte}
                                             </pre>
                                         </details>
@@ -1913,11 +1913,11 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                 detail={fiche.action ? "composé à l'appel" : `reproduit dans ${PRESENCES_VOIX} des neuf prompts`}
                             />
                             {fiche.exemple && (
-                                <p className="text-xs leading-relaxed text-brand-main dark:text-dark-text mb-2">
+                                <p className="text-xs leading-relaxed text-second mb-2">
                                     <span className="font-semibold">Aperçu.</span> {fiche.exemple}
                                 </p>
                             )}
-                            <pre className="whitespace-pre-wrap text-xs text-brand-main dark:text-dark-text leading-relaxed font-sans bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-xl p-4">
+                            <pre className="whitespace-pre-wrap text-xs text-second leading-relaxed font-sans bg-surface border border-bord rounded-xl p-4">
                                 {fiche.texte}
                             </pre>
                         </section>
@@ -1927,14 +1927,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                 {/* ─── SAUVEGARDE ─── */}
                 {section === 'mesures' && (
                     <div className="animate-fade-in space-y-4">
-                        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
-                            <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+                        <div className="rounded-xl border border-bord bg-surface p-5">
+                            <p className="text-sm leading-relaxed text-second">
                                 Chaque appel au modèle laisse une ligne : jetons, durée, coût, issue. La colonne qui
-                                décide est <strong className="font-semibold text-brand-main dark:text-white">jetons/s</strong> —
+                                décide est <strong className="font-semibold text-texte">jetons/s</strong> —
                                 elle sépare un modèle qui produit trop d'un hébergeur qui produit lentement, et les deux
                                 ne se corrigent pas au même endroit.
                             </p>
-                            <p className="mt-2 text-micro text-brand-main dark:text-dark-text">
+                            <p className="mt-2 text-micro text-second">
                                 Les moyennes ne portent que sur les appels réussis. Les échecs sont comptés à part :
                                 un refus rendu en trois secondes ferait passer un modèle lent pour un modèle rapide.
                             </p>
@@ -1949,11 +1949,11 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         )}
 
                         {mesures?.length === 0 && (
-                            <div className="rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-8 text-center">
-                                <p className="text-sm text-brand-main dark:text-dark-text">
+                            <div className="rounded-xl border border-dashed border-bord p-8 text-center">
+                                <p className="text-sm text-second">
                                     Aucun appel mesuré pour l'instant.
                                 </p>
-                                <p className="mt-1 text-micro text-brand-main dark:text-dark-text">
+                                <p className="mt-1 text-micro text-second">
                                     La mesure commence au premier appel suivant le déploiement — rien n'est reconstitué
                                     rétroactivement.
                                 </p>
@@ -1961,18 +1961,18 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                         )}
 
                         {!!mesures?.length && (
-                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface overflow-x-auto">
+                            <div className="rounded-xl border border-bord bg-surface overflow-x-auto">
                                 <table className="w-full text-xs">
                                     <thead>
-                                        <tr className="border-b border-brand-border dark:border-dark-sec-border text-left">
-                                            <th className="px-4 py-3 font-semibold text-brand-main dark:text-white">Action</th>
-                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Appels</th>
-                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Entrée</th>
-                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Sortie</th>
-                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Durée</th>
-                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Jetons/s</th>
-                                            <th className="px-3 py-3 font-semibold text-right text-brand-main dark:text-white">Coût</th>
-                                            <th className="px-4 py-3 font-semibold text-right text-brand-main dark:text-white">Échecs</th>
+                                        <tr className="border-b border-bord text-left">
+                                            <th className="px-4 py-3 font-semibold text-texte">Action</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-texte">Appels</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-texte">Entrée</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-texte">Sortie</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-texte">Durée</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-texte">Jetons/s</th>
+                                            <th className="px-3 py-3 font-semibold text-right text-texte">Coût</th>
+                                            <th className="px-4 py-3 font-semibold text-right text-texte">Échecs</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1982,39 +1982,39 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 className="border-b border-brand-border/50 dark:border-dark-sec-border/50 last:border-0"
                                             >
                                                 <td className="px-4 py-3">
-                                                    <div className="font-semibold text-brand-main dark:text-white">
+                                                    <div className="font-semibold text-texte">
                                                         {m.action ?? 'sans action'}
                                                     </div>
-                                                    <div className="text-micro text-brand-main dark:text-dark-text">
+                                                    <div className="text-micro text-second">
                                                         {m.format ?? 'tous formats'} · {m.modelLabel}
                                                     </div>
                                                 </td>
-                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main dark:text-dark-text">
+                                                <td className="px-3 py-3 text-right tabular-nums text-second">
                                                     {m.appels}
                                                 </td>
-                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main dark:text-dark-text">
+                                                <td className="px-3 py-3 text-right tabular-nums text-second">
                                                     {entier(m.entreeMoy)}
                                                 </td>
-                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main dark:text-dark-text">
+                                                <td className="px-3 py-3 text-right tabular-nums text-second">
                                                     {entier(m.sortieMoy)}
                                                     {m.sortieMax !== null && (
-                                                        <span className="ml-1 text-micro text-brand-main dark:text-dark-text">
+                                                        <span className="ml-1 text-micro text-second">
                                                             max {entier(m.sortieMax)}
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main dark:text-dark-text">
+                                                <td className="px-3 py-3 text-right tabular-nums text-second">
                                                     {duree(m.dureeMoyMs)}
                                                 </td>
-                                                <td className="px-3 py-3 text-right tabular-nums font-semibold text-brand-main dark:text-white">
+                                                <td className="px-3 py-3 text-right tabular-nums font-semibold text-texte">
                                                     {m.jetonsParSeconde === null ? '—' : decimal(m.jetonsParSeconde)}
                                                 </td>
-                                                <td className="px-3 py-3 text-right tabular-nums text-brand-main dark:text-dark-text">
+                                                <td className="px-3 py-3 text-right tabular-nums text-second">
                                                     {dollars(m.coutTotal)}
                                                 </td>
                                                 <td className="px-4 py-3 text-right tabular-nums">
                                                     {m.echecs === 0
-                                                        ? <span className="text-brand-main dark:text-dark-text">0</span>
+                                                        ? <span className="text-second">0</span>
                                                         : <span className="font-semibold text-erreur">{m.echecs}</span>}
                                                 </td>
                                             </tr>
@@ -2028,14 +2028,14 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {section === 'quotas' && (
                     <div className="animate-fade-in space-y-4 max-w-3xl">
-                        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
-                            <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
-                                La consommation depuis <strong className="font-semibold text-brand-main dark:text-white">00:00 UTC</strong>,
+                        <div className="rounded-xl border border-bord bg-surface p-5">
+                            <p className="text-sm leading-relaxed text-second">
+                                La consommation depuis <strong className="font-semibold text-texte">00:00 UTC</strong>,
                                 face aux plafonds du plan gratuit. L'heure compte : les compteurs de Cloudflare se
                                 remettent à zéro à minuit UTC, pas à minuit à Paris. R2, lui, compte ses opérations
                                 au mois, depuis le 1<sup>er</sup> — et c'est le seul service qui facture au-delà.
                             </p>
-                            <p className="mt-2 text-micro text-brand-main dark:text-dark-text">
+                            <p className="mt-2 text-micro text-second">
                                 Les constructions de Pages n'y figurent pas — l'API d'analytics ne les expose pas.
                                 Et ce n'est pas ici que se lit la dépense : les modèles se facturent à part, dans Mesures.
                             </p>
@@ -2043,7 +2043,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
 
                         {quotasErreur && (
-                            <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
+                            <div className="rounded-xl border border-bord bg-surface p-5">
                                 <p className="text-xs font-semibold text-erreur flex items-start gap-1.5">
                                     <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                     <span>{quotasErreur}</span>
@@ -2057,7 +2057,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                         {quotas && (
                             <>
-                                <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface divide-y divide-brand-border/50 dark:divide-dark-sec-border/50">
+                                <div className="rounded-xl border border-bord bg-surface divide-y divide-brand-border/50 dark:divide-dark-sec-border/50">
                                     {quotas.postes.map(poste => {
                                         const part = poste.valeur === null ? null : poste.valeur / poste.seuil;
                                         const etat = etatDuPoste(part);
@@ -2065,22 +2065,22 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                             <div key={poste.id} className="p-5">
                                                 <div className="flex items-baseline justify-between gap-4 mb-2">
                                                     <div>
-                                                        <span className="text-sm font-semibold text-brand-main dark:text-white">
+                                                        <span className="text-sm font-semibold text-texte">
                                                             {poste.libelle}
                                                         </span>
-                                                        <span className="ml-2 text-micro text-brand-main dark:text-dark-text">
+                                                        <span className="ml-2 text-micro text-second">
                                                             {poste.service} · {poste.periode === 'jour' ? 'par jour' : poste.periode === 'mois' ? 'par mois' : 'au total'}
                                                         </span>
                                                     </div>
-                                                    <div className="text-xs tabular-nums text-brand-main dark:text-dark-text shrink-0">
+                                                    <div className="text-xs tabular-nums text-second shrink-0">
                                                         {poste.valeur === null ? '—' : quantite(poste.valeur, poste.unite)}
-                                                        <span className="text-brand-main dark:text-dark-text">
+                                                        <span className="text-second">
                                                             {' / '}{quantite(poste.seuil, poste.unite)}
                                                         </span>
                                                     </div>
                                                 </div>
 
-                                                <div className="h-1.5 rounded-full bg-brand-light dark:bg-dark-bg overflow-hidden">
+                                                <div className="h-1.5 rounded-full bg-fond overflow-hidden">
                                                     {part !== null && (
                                                         <div
                                                             className={`h-full rounded-full ${TON_REMPLISSAGE[etat.ton]}`}
@@ -2099,7 +2099,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                                 </div>
 
                                                 {poste.note && (
-                                                    <p className="mt-1 text-micro text-brand-main dark:text-dark-text">
+                                                    <p className="mt-1 text-micro text-second">
                                                         {poste.note}
                                                     </p>
                                                 )}
@@ -2108,7 +2108,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     })}
                                 </div>
 
-                                <p className="text-micro text-brand-main dark:text-dark-text px-1">
+                                <p className="text-micro text-second px-1">
                                     Plafonds du plan gratuit relevés à la main dans la documentation Cloudflare
                                     {' — '}{relevesParService(quotas).map(({ services, date }) =>
                                         `${services.join(', ')} le ${new Date(date).toLocaleDateString('fr-FR')}`).join(' ; ')}
@@ -2137,8 +2137,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {section === 'backup' && (
                     <div className="max-w-3xl animate-fade-in">
-                        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5 space-y-3">
-                            <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+                        <div className="rounded-xl border border-bord bg-surface p-5 space-y-3">
+                            <p className="text-sm leading-relaxed text-second">
                                 Un fichier JSON de toutes vos données — contenus, séries, modèles, conversations et
                                 productions IA, captures de l’Inbox et mesures, suppressions comprises. Le filet de Cloudflare ne remonte qu'à sept
                                 jours ; celui-ci ne s'efface pas.
@@ -2154,7 +2154,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                                     ? <EnCours label="Préparation…" />
                                     : <><Download className="w-3.5 h-3.5" /> Télécharger une sauvegarde</>}
                             </Bouton>
-                            <p className="text-micro text-brand-main dark:text-dark-text">
+                            <p className="text-micro text-second">
                                 Les clés des fournisseurs et les fichiers vidéo/image de R2 en sont exclus. Conservez une copie de vos médias.
                             </p>
                         </div>

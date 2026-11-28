@@ -217,7 +217,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
     };
 
     return (
-        <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-dark-surface">
+        <div className="flex-1 min-h-0 flex flex-col bg-surface">
             {/* Une seule action principale, comme toute matière (SPEC §13.12) : allonger la série d'une publication. */}
             <EnteteMatiere
                 nom="Plan de la série"
@@ -233,7 +233,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
         <div className="flex-1 min-h-0 overflow-y-auto p-7 space-y-5 animate-fade-in">
 
             {/* ── L'intention de la série ──────────────────────────────────── */}
-            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-5 space-y-3">
+            <div className="bg-surface rounded-xl border border-bord p-5 space-y-3">
                 <div className="flex items-center gap-3 flex-wrap">
                     <Etiquette forme="entete">Intention</Etiquette>
                     <div className="ml-auto flex items-center gap-2">
@@ -271,11 +271,11 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                     <Bouton
                         onClick={() => onOpenContent(sourceContent)}
                         className="w-full">
-                        <Link2 className="w-3.5 h-3.5 shrink-0 text-brand-main dark:text-dark-text" />
+                        <Link2 className="w-3.5 h-3.5 shrink-0 text-second" />
                         <Etiquette as="span" className="shrink-0">
                             Contenu pilier
                         </Etiquette>
-                        <span className="text-xs text-brand-main dark:text-dark-text truncate">
+                        <span className="text-xs text-second truncate">
                             {sourceContent.title || 'Sans titre'}
                         </span>
                     </Bouton>
@@ -283,8 +283,8 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
             </div>
 
             {/* ── Le plan de publication ─────────────────────────────────── */}
-            <div className={`bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden ${planOuvert ? '' : 'opacity-80'}`}>
-                <div className={`px-4 py-2 bg-brand-light dark:bg-dark-bg flex items-center gap-2 flex-wrap ${planOuvert ? 'border-b border-brand-border dark:border-dark-sec-border' : ''}`}>
+            <div className={`bg-surface rounded-xl border border-bord overflow-hidden ${planOuvert ? '' : 'opacity-80'}`}>
+                <div className={`px-4 py-2 bg-fond flex items-center gap-2 flex-wrap ${planOuvert ? 'border-b border-bord' : ''}`}>
                     <button
                         type="button"
                         onClick={() => setPlanForce(!planOuvert)}
@@ -301,7 +301,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                         Replié, l'en-tête doit répondre à « pourquoi j'ouvrirais ça ? ».
                         Nommer la section ne suffit pas : c'est le geste qu'on annonce.
                     */}
-                    <span className="text-micro text-brand-main dark:text-dark-text">
+                    <span className="text-micro text-second">
                         {rows.length > 0
                             ? `${usableRows.length} contenu${usableRows.length > 1 ? 's' : ''} à créer`
                             : planOuvert
@@ -314,7 +314,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                             value={nombreSouhaite}
                             onChange={e => setNombreSouhaite(Number(e.target.value))}
                             title="Nombre de publications demandé à l'Éclateur"
-                            className="px-2 py-1.5 rounded-md border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface text-micro font-semibold text-brand-main dark:text-dark-text outline-hidden cursor-pointer"
+                            className="px-2 py-1.5 rounded-md border border-bord bg-surface text-micro font-semibold text-second outline-hidden cursor-pointer"
                         >
                             {TAILLES.map(n => (
                                 <option key={n} value={n}>{n} publications</option>
@@ -378,7 +378,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 {rows.length === 0 ? (
                     <div className="px-4 py-8 text-center">
                         <Wand2 className="w-10 h-10 mx-auto mb-3 text-brand-border dark:text-dark-sec-border" />
-                        <p className="text-sm text-brand-main dark:text-dark-text text-balance mx-auto">
+                        <p className="text-sm text-second text-balance mx-auto">
                             Le plan est vide. Demandez-en un à l'Éclateur : il rend une progression —
                             titre, angle, matière, format et objectif pour chaque publication, dans
                             l'ordre où elles se lisent. Vous pouvez aussi les ajouter ligne par ligne.
@@ -387,7 +387,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
-                            <thead className="border-b border-brand-border dark:border-dark-sec-border">
+                            <thead className="border-b border-bord">
                                 <tr>
                                     <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[14rem]`}>Titre</th>
                                     <th className={`${CLASSES_SURTITRE} px-3 py-2 text-left min-w-[16rem]`}>Angle</th>
@@ -398,7 +398,7 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                                     <th className="w-10 px-3 py-2" aria-hidden="true" />
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-brand-border dark:divide-dark-sec-border">
+                            <tbody className="divide-y divide-bord">
                                 {rows.map((row, index) => (
                                     <tr key={index} className="align-top">
                                         <td className="px-3 py-2">
@@ -481,8 +481,8 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
             </div>
 
             {/* ── Les contenus déjà créés ────────────────────────────────── */}
-            <div className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border overflow-hidden">
-                <div className="px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
+            <div className="bg-surface rounded-xl border border-bord overflow-hidden">
+                <div className="px-4 py-2 border-b border-bord bg-fond">
                     <Etiquette forme="entete">Publications, dans l’ordre</Etiquette>
                 </div>
                 {erreurOrdre && (
@@ -493,30 +493,30 @@ export const SeriePlanView: React.FC<SeriePlanViewProps> = ({
                 )}
                 <p className="sr-only" aria-live="polite">{annonce}</p>
                 {contents.length === 0 ? (
-                    <p className="px-4 py-8 text-center text-sm text-brand-main dark:text-dark-text">
+                    <p className="px-4 py-8 text-center text-sm text-second">
                         Aucun contenu rattaché pour l'instant.
                     </p>
                 ) : (
-                    <ul ref={listeRef} className="divide-y divide-brand-border dark:divide-dark-sec-border">
+                    <ul ref={listeRef} className="divide-y divide-bord">
                         {ordonnees.map((item, index) => (
-                            <li key={item.id} className="flex items-center hover:bg-survol dark:hover:bg-dark-sec-bg transition-colors">
+                            <li key={item.id} className="flex items-center hover:bg-survole transition-colors">
                                 <button
                                     onClick={() => onOpenContent(item)}
                                     className="flex-1 min-w-0 min-h-[60px] grid grid-cols-[26px_minmax(0,1fr)_auto_200px_16px] items-center gap-4 px-5 py-2 text-left"
                                 >
-                                    <span className="w-[26px] h-[26px] rounded-full border border-brand-border dark:border-dark-sec-border flex items-center justify-center text-xs font-bold text-brand-main dark:text-dark-text">
+                                    <span className="w-[26px] h-[26px] rounded-full border border-bord flex items-center justify-center text-xs font-bold text-second">
                                         {item.seriePosition ?? index + 1}
                                     </span>
                                     <span className="min-w-0">
-                                        <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
-                                        {item.angle && <span className="block text-xs text-brand-main dark:text-dark-text truncate">{item.angle}</span>}
+                                        <span className="block text-sm font-semibold text-texte truncate">{item.title || 'Sans titre'}</span>
+                                        {item.angle && <span className="block text-xs text-second truncate">{item.angle}</span>}
                                     </span>
                                     <span>{getFormatDef(item.targetFormat)?.shortKey && <Etiquette as="span" forme="pastille">{getFormatDef(item.targetFormat)!.shortKey}</Etiquette>}</span>
                                     <span className="space-y-1">
                                         {etapes[item.id] && <BarreProgression segments={etapes[item.id].progression.segments} complet={etapes[item.id].progression.complet} />}
-                                        <span className={`block text-xs font-semibold truncate ${etapes[item.id]?.progression.complet ? 'text-succes' : 'text-brand-main dark:text-dark-text'}`}>{etapes[item.id]?.libelle}</span>
+                                        <span className={`block text-xs font-semibold truncate ${etapes[item.id]?.progression.complet ? 'text-succes' : 'text-second'}`}>{etapes[item.id]?.libelle}</span>
                                     </span>
-                                    <ChevronRight className="w-4 h-4 text-brand-main dark:text-dark-text" />
+                                    <ChevronRight className="w-4 h-4 text-second" />
                                 </button>
                                 {onReordonner && ordonnees.length > 1 && (
                                     <span className="flex items-center gap-1 pr-4">

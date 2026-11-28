@@ -55,9 +55,9 @@ const ChoixDesAgendas: React.FC = () => {
         action={<Bouton taille="petit" intention="principale" disabled={!modifie || choisis.length === 0} onClick={enregistrer}>Enregistrer</Bouton>}
       />
       <fieldset className="space-y-2">
-        <legend className="mb-2 text-sm font-semibold text-brand-main dark:text-white">Ce qui vous rend indisponible</legend>
+        <legend className="mb-2 text-sm font-semibold text-texte">Ce qui vous rend indisponible</legend>
         {agendas.map((a) => (
-          <label key={a.id} className="flex items-center gap-2 text-sm text-brand-main dark:text-white">
+          <label key={a.id} className="flex items-center gap-2 text-sm text-texte">
             <input type="checkbox" checked={choisis.includes(a.id)}
               onChange={(e) => { setFait(false); setLus(e.target.checked ? [...choisis, a.id] : choisis.filter((x) => x !== a.id)); }} />
             {a.nom}{a.principal ? ' (principal)' : ''}
@@ -65,7 +65,7 @@ const ChoixDesAgendas: React.FC = () => {
         ))}
       </fieldset>
       <div>
-        <label htmlFor="agenda-ecriture" className="mb-1 block text-sm font-semibold text-brand-main dark:text-white">Où écrire les rendez-vous</label>
+        <label htmlFor="agenda-ecriture" className="mb-1 block text-sm font-semibold text-texte">Où écrire les rendez-vous</label>
         <select id="agenda-ecriture" className={CLASSES_SELECT} value={cible} onChange={(e) => { setFait(false); setEcrit(e.target.value); }}>
           {agendas.filter((a) => a.ecriture).map((a) => <option key={a.id} value={a.id}>{a.nom}{a.principal ? ' (principal)' : ''}</option>)}
         </select>

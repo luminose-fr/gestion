@@ -61,14 +61,14 @@ const DepotVisuel: React.FC<{
             onDrop={deposable ? (e) => { e.preventDefault(); void deposer(e.dataTransfer.files?.[0]); } : undefined}
         >
             {visuel ? (
-                <img src={visuel.url} alt="" className="size-10 shrink-0 rounded-md object-cover border border-brand-border dark:border-dark-sec-border" />
+                <img src={visuel.url} alt="" className="size-10 shrink-0 rounded-md object-cover border border-bord" />
             ) : (
-                <div className="size-10 shrink-0 rounded-md border border-dashed border-brand-border dark:border-dark-sec-border flex items-center justify-center text-brand-main dark:text-dark-text">
+                <div className="size-10 shrink-0 rounded-md border border-dashed border-bord flex items-center justify-center text-second">
                     <ImageIcon className="size-4" />
                 </div>
             )}
             <div className="min-w-0 flex-1 space-y-1">
-                <p className="text-xs text-brand-main dark:text-dark-text line-clamp-2" title={t(description)}>
+                <p className="text-xs text-second line-clamp-2" title={t(description)}>
                     <span className="font-bold">{numero !== undefined ? `Écran ${numero} · ` : ''}{nature}</span> — {t(description)}
                 </p>
                 {visuel?.perime && (
@@ -148,9 +148,9 @@ const GenerationIllustration: React.FC<{
         <div className="space-y-2 pt-1">
             {proposee ? (
                 <div className="flex items-start gap-3">
-                    <img src={proposee.image} alt={`Proposition pour « ${illustration.id} »`} className="w-32 shrink-0 rounded-lg border border-brand-border dark:border-dark-sec-border" />
+                    <img src={proposee.image} alt={`Proposition pour « ${illustration.id} »`} className="w-32 shrink-0 rounded-lg border border-bord" />
                     <div className="space-y-2">
-                        <p className="text-xs text-brand-main dark:text-dark-text">{proposee.modelLabel}{cout(proposee.coutUsd)}</p>
+                        <p className="text-xs text-second">{proposee.modelLabel}{cout(proposee.coutUsd)}</p>
                         <div className="flex flex-wrap items-center gap-2">
                             <Bouton taille="petit" intention="principale" disabled={enCours} onClick={() => void garder()}><Check /> Garder</Bouton>
                             <Bouton taille="petit" intention="secondaire" disabled={enCours} onClick={() => void generer()}><RotateCcw /> Refaire</Bouton>
@@ -159,7 +159,7 @@ const GenerationIllustration: React.FC<{
                     </div>
                 </div>
             ) : enCours ? (
-                <p className="flex items-center gap-1.5 text-xs text-brand-main dark:text-dark-text">
+                <p className="flex items-center gap-1.5 text-xs text-second">
                     <EnCours label="Génération… une demi-minute environ" taille="xs" />
                 </p>
             ) : (
@@ -168,7 +168,7 @@ const GenerationIllustration: React.FC<{
                         title={enAttente ? `Gardez d’abord « ${enAttente} » : celle-ci en est la suite` : undefined}>
                         <Sparkles /> {deja ? 'En générer une autre' : 'Générer'}
                     </Bouton>
-                    {enAttente && <span className="text-xs text-brand-main dark:text-dark-text">Après « {enAttente} », dont elle est la suite.</span>}
+                    {enAttente && <span className="text-xs text-second">Après « {enAttente} », dont elle est la suite.</span>}
                 </div>
             )}
             {erreur && <p className="text-xs text-erreur">{erreur}</p>}
@@ -209,7 +209,7 @@ export const VisuelsAFournir: React.FC<{ reel: ReelExplique; visuels: VisuelsRee
                     </select>
                 </div>
             ) : (
-                <p className="text-xs text-brand-main dark:text-dark-text">
+                <p className="text-xs text-second">
                     Aucun modèle d’image au catalogue : en ajouter un dans Réglages → Modèles IA, sortie « Image ».
                 </p>
             ))}

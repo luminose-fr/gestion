@@ -48,7 +48,7 @@ export function ControleSegmente<T extends string>({
         boutons[index]?.focus();
         onChange(prochaine.valeur);
       }}
-      className={`inline-flex items-center gap-1 h-10 p-1 rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 ${className}`}
+      className={`inline-flex items-center gap-1 h-10 p-1 rounded-lg border border-bord bg-surface shrink-0 ${className}`}
     >
       {options.map(o => {
         const actif = o.valeur === valeur;
@@ -64,13 +64,13 @@ export function ControleSegmente<T extends string>({
             onClick={() => onChange(o.valeur)}
             className={`ui-action ui-segment inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-semibold whitespace-nowrap disabled:opacity-40 ${
               actif
-                ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                : 'text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white'
+                ? 'bg-marque text-sur-marque'
+                : 'text-second hover:text-texte'
             }`}
           >
             {o.libelle}
             {o.compte !== undefined && (
-              <span className={`text-micro font-bold tabular-nums ${actif ? 'text-white/80 dark:text-brand-main' : 'text-brand-main dark:text-dark-text'}`}>
+              <span className={`text-micro font-bold tabular-nums ${actif ? 'text-sur-marque' : 'text-second'}`}>
                 {o.compte}
               </span>
             )}

@@ -45,7 +45,21 @@ Le cadre (lot 2) vit dans `components/charte/cadre.tsx` : la barre latérale à 
 (Pratique, Éditorial ; repliable en icônes, le choix retenu), la barre du bas de l'iPhone
 et sa feuille « Ajouter », l'écran « Plus » (`#plus`), la ligne d'état de la réception du
 site, et `ListeSecondNiveau` — au-delà de quatre vues, la liste vit dans l'écran.
-`components/Layout/` a disparu avec lui. Depuis ce lot, l'échelle d'avant garde ses noms
+`components/Layout/` a disparu avec lui.
+
+**Lot 9 : l'échelle d'avant se replie sur la charte.** Les couples de couleurs qu'elle
+écrivait à la main (`text-brand-main dark:text-dark-text`, `bg-white dark:bg-dark-surface`,
+`border-brand-border dark:border-dark-sec-border`…) sont remplacés partout par leurs jetons
+de sens (`text-second`, `bg-surface`, `border-bord`…), et les composants de
+`components/ui/` — bouton, champ, titre d'écran, contrôle segmenté — prennent les couleurs
+et la police de la charte. Ces couples ne reviennent pas :
+
+```
+grep -rnE "text-brand-main dark:text-(dark-text|white)|bg-white dark:bg-dark-surface|border-brand-border dark:border-dark-sec-border|bg-brand-light dark:bg-dark-bg" apps/manager --include=*.tsx
+```
+
+Restent, écran par écran, des couleurs d'avant écrites seules (une deux-centaine) : elles
+suivent le thème par les valeurs de `index.css`, et partent à mesure qu'un écran est refait. Depuis ce lot, l'échelle d'avant garde ses noms
 mais prend les valeurs de la charte (`index.css`), et la variante `dark:` suit le thème
 choisi : un écran pas encore refait se recolore sans être réécrit.
 

@@ -29,9 +29,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
   const duJour = (jour: Date) => items.filter(item => !!item.scheduledDate && isSameDay(parseISO(item.scheduledDate), jour));
 
   return (
-    <div className="flex flex-col bg-white dark:bg-dark-surface rounded-xl shadow-xs border border-brand-border dark:border-dark-sec-border overflow-hidden">
+    <div className="flex flex-col bg-surface rounded-xl shadow-xs border border-bord overflow-hidden">
       <TitreSection
-        className="p-4 border-b border-brand-border dark:border-dark-sec-border capitalize"
+        className="p-4 border-b border-bord capitalize"
         titre={format(mois, 'MMMM yyyy', { locale: fr })}
         action={<>
           <Bouton taille="grand" className="w-10 px-0" title="Mois précédent" aria-label="Mois précédent"
@@ -48,7 +48,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
       <div className="overflow-x-auto">
         {/* Une largeur minimale : sur téléphone, le calendrier défile plutôt que de s'écraser. */}
         <div className="min-w-[800px]">
-          <div className="grid grid-cols-7 border-b border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
+          <div className="grid grid-cols-7 border-b border-bord bg-fond">
             {JOURS.map(jour => <Etiquette as="div" className="py-2 text-center" key={jour}>{jour}</Etiquette>)}
           </div>
           <div className="grid grid-cols-7">
@@ -59,13 +59,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ items, onItemClick }) => {
               return (
                 <div
                   key={jour.toString()}
-                  className={`min-h-[104px] border-b border-r border-brand-border dark:border-dark-sec-border p-2 space-y-1 ${
-                    duMois ? 'bg-white dark:bg-dark-surface' : 'bg-brand-light/50 dark:bg-dark-bg/50'
+                  className={`min-h-[104px] border-b border-r border-bord p-2 space-y-1 ${
+                    duMois ? 'bg-surface' : 'bg-brand-light/50 dark:bg-dark-bg/50'
                   }`}
                 >
                   <div className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${
-                    aujourdhui ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                      : duMois ? 'text-brand-main dark:text-dark-text' : 'text-brand-main dark:text-dark-text'
+                    aujourdhui ? 'bg-marque text-sur-marque'
+                      : duMois ? 'text-second' : 'text-second'
                   }`}>
                     {format(jour, 'd')}
                   </div>

@@ -45,7 +45,7 @@ export const Carte: React.FC<CarteProps> = ({
 }) => (
   <div
     className={[
-      'rounded-xl bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border',
+      'rounded-xl bg-surface border border-bord',
       DENSITES[densite],
       posee ? 'shadow-xs' : '',
       rythme ? 'space-y-3' : '',

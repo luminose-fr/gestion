@@ -84,7 +84,7 @@ export default function PsychedelicsCalculator() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <section className="rounded-xl border border-brand-border bg-white p-4 shadow-xs sm:p-6 dark:border-dark-sec-border dark:bg-dark-surface">
           <div>
-            <p className="text-sm font-semibold text-brand-main dark:text-white">Type de produit</p>
+            <p className="text-sm font-semibold text-texte">Type de produit</p>
             <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
               {SUBSTANCES.map((substance) => {
                 const isActive = activeTab === substance;
@@ -115,7 +115,7 @@ export default function PsychedelicsCalculator() {
             {usesWeight && (
               <div className="rounded-xl border border-brand-border p-4 sm:p-5 dark:border-dark-sec-border">
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm font-semibold text-brand-main dark:text-white">Poids corporel</p>
+                  <p className="text-sm font-semibold text-texte">Poids corporel</p>
                   <div className="rounded-full bg-brand-light px-3 py-1 text-sm font-bold text-brand-main dark:bg-dark-sec-bg dark:text-dark-text">
                     {weight} kg
                   </div>
@@ -134,7 +134,7 @@ export default function PsychedelicsCalculator() {
             {activeTab === 'Champignons' && (
               <div className="space-y-5">
                 <div>
-                  <p className="text-sm font-semibold text-brand-main dark:text-white">Type de champignon</p>
+                  <p className="text-sm font-semibold text-texte">Type de champignon</p>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {MUSHROOM_FAMILIES.map((family) => {
                       const isSelected = mushroomFamily === family;
@@ -148,7 +148,7 @@ export default function PsychedelicsCalculator() {
                               : 'border-brand-border hover:bg-brand-light/60 dark:border-dark-sec-border dark:hover:bg-dark-bg/60'
                           }`}
                         >
-                          <div className="text-brand-main dark:text-white">{family}</div>
+                          <div className="text-texte">{family}</div>
                         </button>
                       );
                     })}
@@ -156,7 +156,7 @@ export default function PsychedelicsCalculator() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-brand-main dark:text-white">État du produit</p>
+                  <p className="text-sm font-semibold text-texte">État du produit</p>
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     {MUSHROOM_FORMS.map((form) => {
                       const isSelected = mushroomForm === form;
@@ -200,7 +200,7 @@ export default function PsychedelicsCalculator() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h4 className={CLASSES_TITRE}>Paliers estimatifs</h4>
-              <p className="mt-1 text-sm text-brand-main dark:text-dark-text">
+              <p className="mt-1 text-sm text-second">
                 {activeTab === 'Champignons' && `${selectedMushroomVariant.label}, ${weight} kg`}
                 {activeTab === 'LSD' && 'Doses fixes (indépendantes du poids)'}
                 {activeTab === 'MDMA' && `Règle 1,5 mg/kg, ${weight} kg`}
@@ -219,15 +219,15 @@ export default function PsychedelicsCalculator() {
                         Micro-dose
                       </span>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">
+                    <p className="mt-2 text-sm leading-6 text-second">
                       {microDoseResult.description}
                     </p>
                   </div>
                   {/* Exception écrite dans DESIGN.md : la dose est l'information que
                       l'écran existe pour donner, elle se lit d'un coup d'œil. */}
-                  <div className="text-3xl font-bold text-brand-main dark:text-white">
+                  <div className="text-3xl font-bold text-texte">
                     {microDoseResult.amount}
-                    <span className="ml-2 text-base font-semibold text-brand-main dark:text-dark-text">
+                    <span className="ml-2 text-base font-semibold text-second">
                       {microDoseResult.unit}
                     </span>
                   </div>
@@ -246,21 +246,21 @@ export default function PsychedelicsCalculator() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-brand-main dark:text-white">{result.level}</span>
+                          <span className="text-sm font-semibold text-texte">{result.level}</span>
                           {isRecommended && (
                             <span className="rounded-full bg-brand-light px-1.5 py-0.5 text-micro font-semibold text-brand-main dark:bg-dark-sec-bg dark:text-dark-text">
                               Repère
                             </span>
                           )}
                         </div>
-                        <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">
+                        <p className="mt-2 text-sm leading-6 text-second">
                           {result.description}
                         </p>
                       </div>
 
-                      <div className="text-3xl font-bold text-brand-main dark:text-white">
+                      <div className="text-3xl font-bold text-texte">
                         {result.amount}
-                        <span className="ml-2 text-base font-semibold text-brand-main dark:text-dark-text">
+                        <span className="ml-2 text-base font-semibold text-second">
                           {result.unit}
                         </span>
                       </div>
@@ -283,7 +283,7 @@ export default function PsychedelicsCalculator() {
             <h3 className={`${CLASSES_TITRE} mt-3`}>
               Conseils et réduction des risques
             </h3>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-brand-main dark:text-dark-text">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-second">
               Les résultats restent indicatifs et doivent toujours être croisés avec la puissance réelle du produit,
               le contexte de consommation et la sensibilité de la personne.
             </p>
@@ -300,8 +300,8 @@ export default function PsychedelicsCalculator() {
                     key={item.title}
                     className="rounded-xl border border-brand-border bg-brand-light p-4 dark:border-dark-sec-border dark:bg-dark-sec-bg"
                   >
-                    <div className="text-sm font-semibold text-brand-main dark:text-white">{item.title}</div>
-                    <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">
+                    <div className="text-sm font-semibold text-texte">{item.title}</div>
+                    <p className="mt-2 text-sm leading-6 text-second">
                       {item.description}
                     </p>
                   </div>
@@ -324,7 +324,7 @@ export default function PsychedelicsCalculator() {
               <h4 className={`${CLASSES_TITRE} mt-3`}>
                 Conseils pour {safetyTargetLabel}
               </h4>
-              <p className="mt-2 text-sm leading-6 text-brand-main dark:text-dark-text">{safety.advice}</p>
+              <p className="mt-2 text-sm leading-6 text-second">{safety.advice}</p>
 
               <div className="mt-5">
                 <Etiquette as="div">

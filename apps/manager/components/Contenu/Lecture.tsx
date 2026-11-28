@@ -44,22 +44,22 @@ export const LectureScript: React.FC<{ draft: string | null; format: string | nu
             {reel.sequences.map((s, i) => {
                 const m = minutage.sequences[i];
                 return (
-                    <div key={i} className="grid grid-cols-[160px_minmax(0,1fr)] gap-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
+                    <div key={i} className="grid grid-cols-[160px_minmax(0,1fr)] gap-4 rounded-xl border border-bord bg-surface p-5">
                         <div className="space-y-1">
                             <Etiquette forme="entete">{i + 1} · {s.role || nature(s.plan)}</Etiquette>
-                            <p className="text-xs text-brand-main dark:text-dark-text">{nature(s.plan)} · {Math.round(m.debut)} à {Math.round(m.fin)} s</p>
+                            <p className="text-xs text-second">{nature(s.plan)} · {Math.round(m.debut)} à {Math.round(m.fin)} s</p>
                         </div>
                         <div className="space-y-2">
-                            <p className="text-sm leading-6 text-brand-main dark:text-dark-text whitespace-pre-wrap">{texteAffiche(s.voix)}</p>
-                            {s.intention && <p className="text-xs italic leading-relaxed text-brand-main dark:text-dark-text">{s.intention}</p>}
+                            <p className="text-sm leading-6 text-second whitespace-pre-wrap">{texteAffiche(s.voix)}</p>
+                            {s.intention && <p className="text-xs italic leading-relaxed text-second">{s.intention}</p>}
                         </div>
                     </div>
                 );
             })}
             {reel.accroche_pub?.voix && (
-                <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-4 rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-5">
+                <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-4 rounded-xl border border-dashed border-bord p-5">
                     <Etiquette forme="entete">Seconde accroche · publicité</Etiquette>
-                    <p className="text-sm leading-6 text-brand-main dark:text-dark-text">{texteAffiche(reel.accroche_pub.voix)}</p>
+                    <p className="text-sm leading-6 text-second">{texteAffiche(reel.accroche_pub.voix)}</p>
                 </div>
             )}
             <CarrouselLegende legende={reel.legende as any} />
@@ -86,19 +86,19 @@ export const LectureTournage: React.FC<{ draft: string | null; format: string | 
                     ? (s.elements ?? []).map(ecranEnClair)
                     : [s.coup ? `Coup de poing : ${texteAffiche(s.coup.texte)}` : 'Votre visage, face caméra.'];
                 return (
-                    <div key={i} className="flex flex-wrap gap-5 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
+                    <div key={i} className="flex flex-wrap gap-5 rounded-xl border border-bord bg-surface p-5">
                         <div className="flex-1 min-w-[280px] space-y-3">
                             <div className="flex items-center gap-3">
-                                <span className="w-7 h-7 rounded-full bg-brand-main text-white dark:bg-white dark:text-brand-main flex items-center justify-center text-xs font-bold">{i + 1}</span>
+                                <span className="w-7 h-7 rounded-full bg-marque text-sur-marque flex items-center justify-center text-xs font-bold">{i + 1}</span>
                                 <Etiquette forme="entete">{nature(s.plan)} · {s.role}</Etiquette>
-                                <span className="text-xs text-brand-main dark:text-dark-text">{secondes(m.fin - m.debut)}</span>
+                                <span className="text-xs text-second">{secondes(m.fin - m.debut)}</span>
                             </div>
-                            <p className="text-lg font-semibold leading-relaxed text-brand-main dark:text-white">{texteAffiche(s.voix)}</p>
-                            {s.intention && <p className="text-sm italic text-brand-main dark:text-dark-text">{s.intention}</p>}
+                            <p className="text-lg font-semibold leading-relaxed text-texte">{texteAffiche(s.voix)}</p>
+                            {s.intention && <p className="text-sm italic text-second">{s.intention}</p>}
                         </div>
-                        <div className="w-full sm:w-auto sm:max-w-[300px] sm:min-w-[220px] rounded-lg bg-brand-light dark:bg-dark-bg p-4 space-y-2 self-start">
+                        <div className="w-full sm:w-auto sm:max-w-[300px] sm:min-w-[220px] rounded-lg bg-fond p-4 space-y-2 self-start">
                             <Etiquette>À l’écran</Etiquette>
-                            <ul className="space-y-1 text-sm text-brand-main dark:text-dark-text">
+                            <ul className="space-y-1 text-sm text-second">
                                 {aLEcran.map((t, j) => <li key={j}>{t}</li>)}
                             </ul>
                         </div>
@@ -106,10 +106,10 @@ export const LectureTournage: React.FC<{ draft: string | null; format: string | 
                 );
             })}
             {reel.accroche_pub?.voix && (
-                <div className="rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-5 space-y-2">
+                <div className="rounded-xl border border-dashed border-bord p-5 space-y-2">
                     <Etiquette forme="entete">Seconde accroche · publicité</Etiquette>
-                    <p className="text-lg font-semibold leading-relaxed text-brand-main dark:text-white">{texteAffiche(reel.accroche_pub.voix)}</p>
-                    <p className="text-xs text-brand-main dark:text-dark-text">À tourner dans la foulée : elle remplace la séquence 1 dans la version publicitaire.</p>
+                    <p className="text-lg font-semibold leading-relaxed text-texte">{texteAffiche(reel.accroche_pub.voix)}</p>
+                    <p className="text-xs text-second">À tourner dans la foulée : elle remplace la séquence 1 dans la version publicitaire.</p>
                 </div>
             )}
         </div>
@@ -128,13 +128,13 @@ export const TrameCarrousel: React.FC<{ draft: string }> = ({ draft }) => {
                 const texte = typeof s.texte === 'string' ? s.texte : '';
                 const trop = texte.length > SLIDE_TEXT_MAX;
                 return (
-                    <div key={i} className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5 space-y-2">
+                    <div key={i} className="rounded-xl border border-bord bg-surface p-5 space-y-2">
                         <div className="flex items-center justify-between gap-3">
                             <Etiquette forme="entete">{s.numero ?? i + 1} · {s.role || s.titre || 'Slide'}</Etiquette>
-                            <span className={`text-xs tabular-nums ${trop ? 'text-alerte font-semibold' : 'text-brand-main dark:text-dark-text'}`}>{texte.length} / {SLIDE_TEXT_MAX}</span>
+                            <span className={`text-xs tabular-nums ${trop ? 'text-alerte font-semibold' : 'text-second'}`}>{texte.length} / {SLIDE_TEXT_MAX}</span>
                         </div>
-                        {s.titre && s.role && <p className="text-sm font-bold text-brand-main dark:text-white">{s.titre}</p>}
-                        <p className="text-sm leading-6 text-brand-main dark:text-dark-text">{texte}</p>
+                        {s.titre && s.role && <p className="text-sm font-bold text-texte">{s.titre}</p>}
+                        <p className="text-sm leading-6 text-second">{texte}</p>
                     </div>
                 );
             })}
@@ -207,7 +207,7 @@ const CopiePostCourt: React.FC<{ draft: string; format: string | null }> = ({ dr
                         {copie === 'texte' ? <><Check /> Copié</> : <><Copy /> Copier</>}
                     </Bouton>
                 </div>
-                <div className="space-y-4 text-sm leading-relaxed text-brand-main dark:text-dark-text select-text">
+                <div className="space-y-4 text-sm leading-relaxed text-second select-text">
                     {texte.split('\n\n').map((p, i) => <p key={i}>{p}</p>)}
                 </div>
             </div>
@@ -219,14 +219,14 @@ const CopiePostCourt: React.FC<{ draft: string; format: string | null }> = ({ dr
                             {copie === 'prompt' ? <><Check /> Copié</> : <><Copy /> Copier</>}
                         </Bouton>
                     </div>
-                    <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap select-text">{prompt}</p>
+                    <p className="text-sm leading-relaxed text-second whitespace-pre-wrap select-text">{prompt}</p>
                     {image && format && <IllustrerPost prompt={prompt} format={format} proportions={image.proportions} />}
                 </div>
             )}
             {visuel && (
                 <div className="space-y-2">
                     <Etiquette forme="entete">Visuel suggéré</Etiquette>
-                    <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{visuel}</p>
+                    <p className="text-sm leading-relaxed text-second whitespace-pre-wrap">{visuel}</p>
                 </div>
             )}
         </div>
@@ -254,7 +254,7 @@ export const CeQuiSeraPublie: React.FC<{
                 <div className="flex-1 min-w-[220px]">
                     {script?.reel.legende
                         ? <CarrouselLegende legende={script.reel.legende as any} />
-                        : <p className="text-sm text-brand-main dark:text-dark-text">La vidéo part depuis le fichier exporté.</p>}
+                        : <p className="text-sm text-second">La vidéo part depuis le fichier exporté.</p>}
                 </div>
             </div>
         );
@@ -268,7 +268,7 @@ export const CeQuiSeraPublie: React.FC<{
             </div>
         );
     }
-    if (!draft) return <p className="text-sm text-brand-main dark:text-dark-text">Pas de contenu rédigé.</p>;
+    if (!draft) return <p className="text-sm text-second">Pas de contenu rédigé.</p>;
     if (copiable) return <CopiePostCourt draft={draft} format={format} />;
     return <BodyRenderer body={draft} datePublication={datePublication ?? undefined} />;
 };

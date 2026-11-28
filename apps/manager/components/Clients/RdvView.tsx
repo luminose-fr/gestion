@@ -263,21 +263,21 @@ const RdvView: React.FC = () => {
   if (confirme) {
     return (
       <div className={ecran('travail')}>
-        <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-5">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-brand-main dark:text-white">
+        <section className="bg-surface rounded-xl border border-bord p-5">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-texte">
             <Check className="w-4 h-4" /> Rendez-vous posé
           </h2>
-          <p className="text-sm text-brand-main dark:text-dark-text mt-2 first-letter:uppercase">
+          <p className="text-sm text-second mt-2 first-letter:uppercase">
             {confirme.nom} — {JOUR.format(new Date(confirme.debut))} à {HEURE.format(new Date(confirme.debut))}
           </p>
-          <p className="text-xs mt-3 inline-flex items-center gap-1.5 text-brand-main dark:text-dark-text">
+          <p className="text-xs mt-3 inline-flex items-center gap-1.5 text-second">
             <MessageSquare className="w-3.5 h-3.5" />
             {confirme.telephone
               ? <>Rappels SMS au {confirme.telephone}, sans confirmation à demander.</>
               : <>Aucun numéro retenu par Calendly : il n’y aura pas de rappel SMS.</>}
           </p>
           {confirme.lieu && (
-            <p className="text-xs mt-2 inline-flex items-center gap-1.5 text-brand-main dark:text-dark-text">
+            <p className="text-xs mt-2 inline-flex items-center gap-1.5 text-second">
               <Video className="w-3.5 h-3.5" />
               {confirme.lieu.texte.startsWith('http')
                 ? <a href={confirme.lieu.texte} target="_blank" rel="noreferrer" className="underline">{confirme.lieu.texte}</a>
@@ -286,10 +286,10 @@ const RdvView: React.FC = () => {
           )}
           <div className="flex gap-3 mt-4 text-xs">
             {confirme.annulation && (
-              <a href={confirme.annulation} target="_blank" rel="noreferrer" className="underline text-brand-main dark:text-dark-text">Annuler</a>
+              <a href={confirme.annulation} target="_blank" rel="noreferrer" className="underline text-second">Annuler</a>
             )}
             {confirme.report && (
-              <a href={confirme.report} target="_blank" rel="noreferrer" className="underline text-brand-main dark:text-dark-text">Reprogrammer</a>
+              <a href={confirme.report} target="_blank" rel="noreferrer" className="underline text-second">Reprogrammer</a>
             )}
           </div>
           <Bouton
@@ -304,11 +304,11 @@ const RdvView: React.FC = () => {
 
   return (
     <div className={`${ecran('travail')} space-y-4`}>
-      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
+      <section className="bg-surface rounded-xl border border-bord p-4 md:p-5">
         <Etiquette as="h2" forme="entete" className="mb-1">
           L’invité
         </Etiquette>
-        <p className="text-xs text-brand-main dark:text-dark-text mb-3">
+        <p className="text-xs text-second mb-3">
           Le numéro sert aux rappels SMS. En le renseignant, vous attestez de l’accord de la personne —
           c’est exactement ce que demande Calendly quand vous réservez pour elle.
         </p>
@@ -319,7 +319,7 @@ const RdvView: React.FC = () => {
         </div>
       </section>
 
-      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
+      <section className="bg-surface rounded-xl border border-bord p-4 md:p-5">
         <div className="flex items-center justify-between mb-2">
           <Etiquette as="h2" forme="entete">
             Le rendez-vous
@@ -327,7 +327,7 @@ const RdvView: React.FC = () => {
           {types && types.length > 0 && (
             <button
               onClick={() => setReglage((r) => !r)}
-              className="inline-flex items-center gap-1.5 text-micro text-brand-main dark:text-dark-text hover:underline"
+              className="inline-flex items-center gap-1.5 text-micro text-second hover:underline"
             >
               <Settings2 className="w-3.5 h-3.5" />
               {reglage ? 'Terminer' : 'Types affichés'}
@@ -336,22 +336,22 @@ const RdvView: React.FC = () => {
         </div>
 
         {types === null ? (
-          <p className="text-sm text-brand-main dark:text-dark-text">Lecture des types d’événements…</p>
+          <p className="text-sm text-second">Lecture des types d’événements…</p>
         ) : reglage ? (
           <div>
-            <p className="text-xs text-brand-main dark:text-dark-text mb-2">
+            <p className="text-xs text-second mb-2">
               Cochez ce qui doit apparaître ici. Rien de coché : tout s’affiche.
             </p>
             <div className="grid gap-1.5 md:grid-cols-2">
               {types.map((t) => (
-                <label key={t.uri} className="flex items-center gap-2 text-sm text-brand-main dark:text-dark-text">
+                <label key={t.uri} className="flex items-center gap-2 text-sm text-second">
                   <input
                     type="checkbox"
                     checked={selection.includes(t.uri)}
                     onChange={() => basculerSelection(t.uri)}
                     className="accent-brand-main"
                   />
-                  {t.nom} <span className="text-xs text-brand-main dark:text-dark-text">{t.duree} min</span>
+                  {t.nom} <span className="text-xs text-second">{t.duree} min</span>
                 </label>
               ))}
             </div>
@@ -369,7 +369,7 @@ const RdvView: React.FC = () => {
                 className={`cursor-pointer px-3 py-2 rounded-lg text-sm border transition-colors ${
                   typeUri === t.uri
                     ? 'bg-brand-main text-white border-brand-main dark:bg-white dark:text-brand-main dark:border-white'
-                    : 'border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main/40'
+                    : 'border-bord text-second hover:border-brand-main/40'
                 }`}
               >
                 <input
@@ -380,7 +380,7 @@ const RdvView: React.FC = () => {
                   onChange={() => setTypeUri(t.uri)}
                 />
                 {t.nom}
-                <span className={typeUri === t.uri ? 'opacity-70 ml-1.5 text-xs' : 'ml-1.5 text-xs text-brand-main dark:text-dark-text'}>
+                <span className={typeUri === t.uri ? 'opacity-70 ml-1.5 text-xs' : 'ml-1.5 text-xs text-second'}>
                   {t.duree} min
                 </span>
               </label>
@@ -390,13 +390,13 @@ const RdvView: React.FC = () => {
 
         {type && !reglage && (type.lieux.length > 1 || KINDS_AVEC_TEXTE.includes(lieuKind)) && (
           <div className="mt-3">
-            <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
+            <label className="block text-xs font-semibold text-second mb-1">
               Lieu
             </label>
             {type.lieux.length > 1 && (
               <div className="flex flex-wrap gap-3 mb-2">
                 {type.lieux.map((l) => (
-                  <label key={l.kind} className="inline-flex items-center gap-1.5 text-sm text-brand-main dark:text-dark-text">
+                  <label key={l.kind} className="inline-flex items-center gap-1.5 text-sm text-second">
                     <input
                       type="radio"
                       name="lieu-rdv"
@@ -430,14 +430,14 @@ const RdvView: React.FC = () => {
               const multiple = q.type === 'multi_select';
               return (
                 <div key={q.position}>
-                  <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
+                  <label className="block text-xs font-semibold text-second mb-1">
                     {q.nom}
-                    {!q.requis && <span className="font-normal text-brand-main dark:text-dark-text"> — facultatif</span>}
+                    {!q.requis && <span className="font-normal text-second"> — facultatif</span>}
                   </label>
                   {q.choix.length > 0 ? (
                     <div className="space-y-1">
                       {q.choix.map((choix) => (
-                        <label key={choix} className="flex items-start gap-2 text-sm text-brand-main dark:text-dark-text">
+                        <label key={choix} className="flex items-start gap-2 text-sm text-second">
                           <input
                             type={multiple ? 'checkbox' : 'radio'}
                             name={`q-${q.position}`}
@@ -478,18 +478,18 @@ const RdvView: React.FC = () => {
         {typeUri && !reglage && (
           <div className="mt-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <label className="inline-flex items-center gap-2 text-xs text-brand-main dark:text-dark-text">
+              <label className="inline-flex items-center gap-2 text-xs text-second">
                 <input type="checkbox" checked={libre} onChange={(e) => setLibre(e.target.checked)} className="accent-brand-main" />
                 Ignorer le délai minimum et l’horizon de réservation
               </label>
-              <span className="inline-flex items-center gap-1.5 text-micro text-brand-main dark:text-dark-text">
+              <span className="inline-flex items-center gap-1.5 text-micro text-second">
                 {chargement ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CalendarClock className="w-3 h-3" />}
                 trois mois
               </span>
             </div>
 
             {libre && (
-              <p className="text-micro text-brand-main dark:text-dark-text mb-3 leading-relaxed">
+              <p className="text-micro text-second mb-3 leading-relaxed">
                 Créneaux recomposés depuis le planning de disponibilité par défaut et les plages déjà occupées :
                 ni délai de 48 h, ni limite à 21 jours. Les tampons et les règles propres à un type d’événement
                 ne sont pas appliqués — Calendly reste seul juge au moment de poser le rendez-vous.
@@ -497,13 +497,13 @@ const RdvView: React.FC = () => {
             )}
 
             {questionsManquantes.length > 0 && (
-              <p className="text-micro text-brand-main dark:text-dark-text mb-3">
+              <p className="text-micro text-second mb-3">
                 À renseigner avant de choisir une heure : {questionsManquantes.map((q) => q.nom).join(' · ')}
               </p>
             )}
 
             {!chargement && creneaux && creneaux.length === 0 && (
-              <p className="text-sm text-brand-main dark:text-dark-text">
+              <p className="text-sm text-second">
                 Aucun créneau libre sur les trois prochains mois.
               </p>
             )}
@@ -511,13 +511,13 @@ const RdvView: React.FC = () => {
             <div className="space-y-5">
               {parMois(creneaux ?? []).map((mois) => (
                 <div key={mois.titre}>
-                  <Etiquette className="sticky top-0 bg-white dark:bg-dark-surface py-1 first-letter:uppercase">
+                  <Etiquette className="sticky top-0 bg-surface py-1 first-letter:uppercase">
                     {mois.titre}
                   </Etiquette>
                   <div className="space-y-3 mt-1">
                     {mois.jours.map((groupe) => (
                       <div key={groupe.date.toISOString()} className="md:flex md:gap-3">
-                        <p className="md:w-48 md:shrink-0 text-xs font-semibold text-brand-main dark:text-dark-text mb-1 md:mb-0 md:pt-2 first-letter:uppercase">
+                        <p className="md:w-48 md:shrink-0 text-xs font-semibold text-second mb-1 md:mb-0 md:pt-2 first-letter:uppercase">
                           {JOUR.format(groupe.date)}
                         </p>
                         <div className="flex flex-wrap gap-1.5">
@@ -555,14 +555,14 @@ const RdvView: React.FC = () => {
               <div
                 role="region"
                 aria-label="Confirmer le rendez-vous"
-                className="sticky bottom-0 mt-4 -mx-4 md:-mx-5 -mb-4 md:-mb-5 px-4 md:px-5 py-3 bg-white dark:bg-dark-surface border-t border-brand-border dark:border-dark-sec-border rounded-b-xl flex flex-wrap items-center gap-3"
+                className="sticky bottom-0 mt-4 -mx-4 md:-mx-5 -mb-4 md:-mb-5 px-4 md:px-5 py-3 bg-surface border-t border-bord rounded-b-xl flex flex-wrap items-center gap-3"
               >
                 {/* Pleine largeur sur un téléphone, sinon le récapitulatif s'écrase à un mot par ligne. */}
                 <div className="min-w-0 basis-full md:basis-0 md:flex-1">
-                  <p className="text-sm font-semibold text-brand-main dark:text-white first-letter:uppercase">
+                  <p className="text-sm font-semibold text-texte first-letter:uppercase">
                     {JOUR.format(new Date(choisi))} à {HEURE.format(new Date(choisi))}
                   </p>
-                  <p className="text-xs text-brand-main dark:text-dark-text">
+                  <p className="text-xs text-second">
                     {type.nom} · {type.duree} min · {nom.trim() || 'invité sans nom'}
                     {' · '}
                     {telephone.trim() ? <>rappels SMS au {telephone.trim()}</> : <>sans rappel SMS</>}

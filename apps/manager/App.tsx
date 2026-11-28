@@ -1231,7 +1231,7 @@ function App() {
 
   if (checkingAuth) {
     return (
-      <div className="h-screen flex items-center justify-center bg-brand-light dark:bg-dark-bg">
+      <div className="h-screen flex items-center justify-center bg-fond">
         <Patience titre="Vérification de la session" />
       </div>
     );
@@ -1308,7 +1308,7 @@ function App() {
     <div className="flex flex-col h-screen">
     {/* Au-dessus de tout, barre latérale comprise : il ne s'efface jamais (SPEC §14.8). */}
     <BandeauEnvironnement nom={nomEnvironnement} />
-    <div className="flex flex-1 min-h-0 bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans transition-colors duration-200 overflow-hidden border-t border-brand-border dark:border-dark-sec-border">
+    <div className="flex flex-1 min-h-0 bg-fond text-second font-sans transition-colors duration-200 overflow-hidden border-t border-bord">
 
       <BarreLaterale
           actif={idNav}
@@ -1330,14 +1330,14 @@ function App() {
             afficher derrière.
         */}
         {isInitializing && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-brand-light dark:bg-dark-bg">
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-fond">
                 <Patience titre="Chargement de vos contenus" detail="Cache local, puis synchronisation" />
             </div>
         )}
 
         {/* 64 px, à la hauteur de l'en-tête du panneau : les deux bordures basses se prolongent.
             Un contenu ouvert a son propre bandeau (SPEC §13.9) : celui-ci s'efface. */}
-        {!isEditorTakeover && <header className="relative h-16 px-4 md:px-8 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
+        {!isEditorTakeover && <header className="relative h-16 px-4 md:px-8 flex items-center justify-between border-b border-bord bg-surface shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
               <TitreCharte className="truncate">
                   {currentSpace === 'social' && (currentSocialTab === 'series'
@@ -1355,12 +1355,12 @@ function App() {
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
               </TitreCharte>
               {currentSpace === 'corpus' && (
-                  <p className="hidden lg:block text-xs text-brand-main dark:text-dark-text truncate">
+                  <p className="hidden lg:block text-xs text-second truncate">
                       {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
                   </p>
               )}
               {currentSpace === 'settings' && (
-                  <p className="hidden lg:block text-xs text-brand-main dark:text-dark-text truncate">
+                  <p className="hidden lg:block text-xs text-second truncate">
                       {settingsSectionSousTitre(currentSettingsSection)}
                   </p>
               )}
@@ -1370,12 +1370,12 @@ function App() {
                  {/* Sélecteur global du modèle IA — le repli des familles sans réglage (Réglages → Modèles
                      par famille). Sur téléphone, il céderait toute la place au titre : chaque famille garde le sien. */}
                  <div className="relative hidden md:flex items-center">
-                     <Cpu className="w-[13px] h-[13px] absolute left-2 text-brand-main dark:text-dark-text pointer-events-none" />
+                     <Cpu className="w-[13px] h-[13px] absolute left-2 text-second pointer-events-none" />
                      <select
                         value={activeModelId}
                         onChange={(e) => handleActiveModelChange(e.target.value)}
                         title="Modèle IA des familles sans réglage — Réglages → Modèles par famille"
-                        className="appearance-none pl-6 pr-6 py-1.5 max-w-[180px] truncate rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-xs font-semibold text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors cursor-pointer"
+                        className="appearance-none pl-6 pr-6 py-1.5 max-w-[180px] truncate rounded-lg border border-bord bg-fond text-xs font-semibold text-texte outline-hidden focus:border-marque transition-colors cursor-pointer"
                      >
                         {modelesDeTexte(aiModels).length === 0 && <option value="">Aucun modèle configuré</option>}
                         {/* Groupé par adaptateur : le même modèle peut être joignable
@@ -1390,7 +1390,7 @@ function App() {
                                 </optgroup>
                             ))}
                      </select>
-                     <ChevronDown className="w-3 h-3 absolute right-2 text-brand-main dark:text-dark-text pointer-events-none" />
+                     <ChevronDown className="w-3 h-3 absolute right-2 text-second pointer-events-none" />
                  </div>
 
                  {/* L'icône tourne, pas le bouton : `disabled:animate-spin` faisait
@@ -1398,14 +1398,14 @@ function App() {
                  <button
                     onClick={() => synchroniser(true)}
                     disabled={isSyncing}
-                    className="p-2 rounded-lg text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg hover:text-brand-main dark:hover:text-white transition-colors disabled:opacity-60"
+                    className="p-2 rounded-lg text-second hover:bg-survole hover:text-texte transition-colors disabled:opacity-60"
                     title={isSyncing ? 'Synchronisation en cours…' : 'Synchroniser'}
                  >
                      <RefreshCw className={`w-[14px] h-[14px] ${isSyncing ? 'animate-spin' : ''}`} />
                  </button>
                  <button
                     onClick={handleLogout}
-                    className="p-2 rounded-lg text-brand-main dark:text-dark-text hover:bg-erreur/10 hover:text-erreur transition-colors"
+                    className="p-2 rounded-lg text-second hover:bg-erreur/10 hover:text-erreur transition-colors"
                     title="Déconnexion"
                  >
                      <LogOut className="w-[14px] h-[14px]" />
@@ -1558,7 +1558,7 @@ function App() {
         {currentSpace === 'psychedelics' && (
             <main className="flex-1 overflow-y-auto">
                 <div className={ecran('liste')}>
-                    <p className="text-xs text-brand-main dark:text-dark-text mb-4">
+                    <p className="text-xs text-second mb-4">
                         Calculateur de repères de dosage et aide à la réduction des risques
                     </p>
                     <PsychedelicsCalculator />

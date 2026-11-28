@@ -24,7 +24,7 @@ export type VarianteMarkdown = 'document' | 'message';
 
 // Le gras d'une fiche ressort en pleine couleur sur son texte atténué ; celui
 // d'un message garde la couleur de sa bulle.
-const GRAS = { document: 'font-semibold text-brand-main dark:text-white', message: 'font-bold' } as const;
+const GRAS = { document: 'font-semibold text-texte', message: 'font-bold' } as const;
 
 const inline = (texte: string, cle: string, variante: VarianteMarkdown = 'document'): React.ReactNode[] =>
   texte
@@ -36,7 +36,7 @@ const inline = (texte: string, cle: string, variante: VarianteMarkdown = 'docume
       }
       if (p.startsWith('`') && p.endsWith('`')) {
         return (
-          <code key={`${cle}-${i}`} className="font-mono text-[0.85em] px-1 py-0.5 rounded-md bg-brand-light dark:bg-dark-sec-bg">
+          <code key={`${cle}-${i}`} className="font-mono text-[0.85em] px-1 py-0.5 rounded-md bg-bas">
             {p.slice(1, -1)}
           </code>
         );
@@ -61,7 +61,7 @@ export const Tableau: React.FC<{ entete: React.ReactNode[]; lignes: React.ReactN
       </thead>
       <tbody>
         {lignes.map((r, k) => (
-          <tr key={k} className="border-t border-brand-border dark:border-dark-sec-border">
+          <tr key={k} className="border-t border-bord">
             {r.map((c, j) => <td key={j} className="py-1.5 pr-3 align-top">{c}</td>)}
           </tr>
         ))}
@@ -75,7 +75,7 @@ const LISTE = /^\s*([-*•]|\d+\.)\s+/;
 export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> = ({ texte, variante = 'document' }) => {
   const message = variante === 'message';
   // Un document atténue son texte courant ; un message garde la couleur de sa bulle.
-  const couleur = message ? '' : 'text-brand-main dark:text-dark-text';
+  const couleur = message ? '' : 'text-second';
   const marge = message ? 'my-2 first:mt-0 last:mb-0' : 'my-2';
   const lignes = texte.split('\n');
   const out: React.ReactNode[] = [];
@@ -88,7 +88,7 @@ export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> 
 
     // Filet
     if (/^---+$/.test(l.trim())) {
-      out.push(<hr key={i} className="my-4 border-brand-border dark:border-dark-sec-border" />);
+      out.push(<hr key={i} className="my-4 border-bord" />);
       i++; continue;
     }
 
@@ -98,7 +98,7 @@ export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> 
       const n = titre[1].length;
       const taille = ['text-lg', 'text-sm', 'text-sm', 'text-sm'][n - 1];
       out.push(
-        <p key={i} className={`${taille} font-bold ${message ? '' : 'text-brand-main dark:text-white'} mt-4 mb-1.5 first:mt-0`}>
+        <p key={i} className={`${taille} font-bold ${message ? '' : 'text-texte'} mt-4 mb-1.5 first:mt-0`}>
           {inline(titre[2], `h${i}`, variante)}
         </p>,
       );
@@ -110,7 +110,7 @@ export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> 
       const debut = ++i;
       while (i < lignes.length && !lignes[i].startsWith('```')) i++;
       out.push(
-        <pre key={debut} className="my-2 p-3 rounded-lg bg-brand-light dark:bg-dark-sec-bg overflow-x-auto text-micro font-mono leading-relaxed">
+        <pre key={debut} className="my-2 p-3 rounded-lg bg-bas overflow-x-auto text-micro font-mono leading-relaxed">
           {lignes.slice(debut, i).join('\n')}
         </pre>,
       );
@@ -141,7 +141,7 @@ export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> 
       const bloc: string[] = [];
       while (i < lignes.length && lignes[i].startsWith('>')) bloc.push(lignes[i++].replace(/^>\s?/, ''));
       out.push(
-        <blockquote key={debut} className="my-3 pl-3 border-l-2 border-brand-main/30 dark:border-dark-text/25 text-brand-main dark:text-dark-text text-sm">
+        <blockquote key={debut} className="my-3 pl-3 border-l-2 border-bord text-second text-sm">
           {inline(bloc.join(' '), `q${debut}`, variante)}
         </blockquote>,
       );
@@ -160,7 +160,7 @@ export const Markdown: React.FC<{ texte: string; variante?: VarianteMarkdown }> 
         <ul key={debut} className={`${marge} space-y-1 text-sm`}>
           {items.map((t, k) => (
             <li key={k} className={`flex gap-2 ${couleur}`}>
-              <span className="text-brand-main dark:text-dark-text select-none">{t.puce}</span>
+              <span className="text-second select-none">{t.puce}</span>
               <span>{inline(t.texte, `li${debut}${k}`, variante)}</span>
             </li>
           ))}

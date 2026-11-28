@@ -120,12 +120,12 @@ const LigneType: React.FC<{ type: TypeReservation; onEnregistre: () => void }> =
     return (
       <div className="flex items-start justify-between gap-3 py-3">
         <div className="min-w-0 space-y-1">
-          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-brand-main dark:text-white">
+          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-texte">
             {type.libelle}
             {!type.actif && <Pastille libelle="Inactif" ton="neutre" />}
             {type.actif && !type.reservableEnLigne && <Pastille libelle="Pas en ligne" ton="neutre" />}
           </p>
-          <p className="text-xs text-brand-main dark:text-dark-text">{resume}</p>
+          <p className="text-xs text-second">{resume}</p>
         </div>
         <Bouton taille="petit" intention="secondaire" onClick={() => { setS(initial); setOuvert(true); }} aria-label={`Modifier ${type.libelle}`}><Pencil /> Modifier</Bouton>
       </div>
@@ -157,7 +157,7 @@ const LigneType: React.FC<{ type: TypeReservation; onEnregistre: () => void }> =
           {nombre('pasMin', 'Créneaux tous les (min)')}
           {nombre('ordre', 'Rang dans la liste')}
         </div>
-        <div className="flex flex-wrap gap-4 text-sm text-brand-main dark:text-white">
+        <div className="flex flex-wrap gap-4 text-sm text-texte">
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.reservableEnLigne} onChange={(e) => setS((x) => ({ ...x, reservableEnLigne: e.target.checked }))} /> Réservable en ligne</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.actif} onChange={(e) => setS((x) => ({ ...x, actif: e.target.checked }))} /> Actif</label>
         </div>
@@ -176,11 +176,11 @@ const LigneType: React.FC<{ type: TypeReservation; onEnregistre: () => void }> =
 /** Des plages sur une ligne : début, fin, retirer ; et « Une plage » au bout. */
 const Plages: React.FC<{ plages: PlageHoraire[]; onChange: (p: PlageHoraire[]) => void; prefixe: string; nom: string }> = ({ plages, onChange, prefixe, nom }) => (
   <div className="flex flex-wrap items-center gap-2">
-    {plages.length === 0 && <span className="text-sm text-brand-main dark:text-dark-text">Fermé</span>}
+    {plages.length === 0 && <span className="text-sm text-second">Fermé</span>}
     {plages.map((p, i) => (
       <span key={i} className="flex items-center gap-1">
         <Champ id={`${prefixe}-${i}-debut`} aria-label={`${nom}, plage ${i + 1} : de`} type="time" className="w-28" value={p.debut} onChange={(e) => onChange(plages.map((x, j) => (j === i ? { ...x, debut: (e.target as HTMLInputElement).value } : x)))} />
-        <span className="text-xs text-brand-main dark:text-dark-text">à</span>
+        <span className="text-xs text-second">à</span>
         <Champ id={`${prefixe}-${i}-fin`} aria-label={`${nom}, plage ${i + 1} : à`} type="time" className="w-28" value={p.fin} onChange={(e) => onChange(plages.map((x, j) => (j === i ? { ...x, fin: (e.target as HTMLInputElement).value } : x)))} />
         <Bouton taille="petit" intention="discrete" aria-label={`Retirer la plage ${i + 1} (${nom})`} onClick={() => onChange(plages.filter((_, j) => j !== i))}><Trash2 /></Bouton>
       </span>
@@ -211,10 +211,10 @@ const Semaine: React.FC<{ reservation: Reservation; onEnregistre: () => void }> 
         sousTitre={modifie ? NON_ENREGISTRE : 'Un seul horaire pour tous les types.'}
         action={<Bouton taille="petit" intention="principale" disabled={!modifie} onClick={enregistrer}>Enregistrer</Bouton>}
       />
-      <div className="divide-y divide-brand-border dark:divide-dark-sec-border">
+      <div className="divide-y divide-bord">
         {JOURS.map((nom, i) => (
           <div key={nom} className="grid gap-2 py-2 sm:grid-cols-[7rem_1fr] sm:items-center">
-            <p className="text-sm font-semibold text-brand-main dark:text-white">{nom}</p>
+            <p className="text-sm font-semibold text-texte">{nom}</p>
             <Plages prefixe={`semaine-${i}`} nom={nom} plages={semaine[i]} onChange={(p) => setSemaine((j) => j.map((x, k) => (k === i ? p : x)))} />
           </div>
         ))}
@@ -236,10 +236,10 @@ const Dates: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = 
     <Carte densite="contenu" rythme>
       <TitreSection as="h3" titre="Les dates d’exception à venir" sousTitre="Une date posée remplace la semaine type ce jour-là ; sans plage, la journée est fermée. Fermer des jours se fait aussi depuis l’Agenda." />
       {reservation.dates.length === 0 ? <Vide>Aucune exception à venir.</Vide> : (
-        <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
+        <ul className="divide-y divide-bord">
           {reservation.dates.map((d) => (
             <li key={d.date} className="flex items-center justify-between gap-2 py-2">
-              <span className="text-sm text-brand-main dark:text-white">
+              <span className="text-sm text-texte">
                 <span className="font-semibold first-letter:uppercase">{jourEnLettres(`${d.date}T12:00:00+01:00`)}</span>
                 {' · '}{d.plages.length === 0 ? 'fermée' : d.plages.map((p) => `${p.debut}–${p.fin}`).join(', ')}
               </span>
@@ -248,8 +248,8 @@ const Dates: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = 
           ))}
         </ul>
       )}
-      <div className="space-y-3 border-t border-brand-border dark:border-dark-sec-border pt-3">
-        <p className="text-sm font-semibold text-brand-main dark:text-white">Poser une exception</p>
+      <div className="space-y-3 border-t border-bord pt-3">
+        <p className="text-sm font-semibold text-texte">Poser une exception</p>
         <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-center">
           <Champ id="exception-date" aria-label="Date de l’exception" type="date" value={date} onChange={(e) => setDate((e.target as HTMLInputElement).value)} />
           <Plages prefixe="exception" nom="Exception" plages={plages} onChange={setPlages} />
@@ -295,11 +295,11 @@ const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void; g
 
   const ligne = (k: string, def?: { libelle: string; unite: string }) => (
     <div key={k} className="flex items-center justify-between gap-3 py-2">
-      <label htmlFor={`reglage-${k}`} className="text-sm text-brand-main dark:text-white">{def?.libelle ?? k}</label>
+      <label htmlFor={`reglage-${k}`} className="text-sm text-texte">{def?.libelle ?? k}</label>
       <span className="flex shrink-0 items-center gap-2">
         {/* La largeur va à une enveloppe : la classe du champ porte déjà w-full. */}
         <span className="w-24"><Champ id={`reglage-${k}`} type="number" min={0} className="text-right" value={s[k] ?? ''} onChange={(e) => setS((x) => ({ ...x, [k]: (e.target as HTMLInputElement).value }))} /></span>
-        <span className="w-20 text-xs text-brand-main dark:text-dark-text">{def?.unite ?? ''}</span>
+        <span className="w-20 text-xs text-second">{def?.unite ?? ''}</span>
       </span>
     </div>
   );
@@ -312,7 +312,7 @@ const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void; g
         action={<Bouton taille="petit" intention="principale" disabled={changesVues.length === 0} onClick={enregistrer}>Enregistrer</Bouton>}
       />
       {groupes.map((g) => {
-        const corps = <div className="divide-y divide-brand-border dark:divide-dark-sec-border">{g.cles.map((k) => ligne(k, g.reglages[k]))}</div>;
+        const corps = <div className="divide-y divide-bord">{g.cles.map((k) => ligne(k, g.reglages[k]))}</div>;
         return g.replie ? (
           <details key={g.titre} className="pt-2">
             <summary className={`cursor-pointer ${CLASSES_SURTITRE}`}>{g.titre}</summary>
@@ -350,7 +350,7 @@ export const ReservationReglages: React.FC<{ partie?: PartieReservation }> = ({ 
     <div className="space-y-4">
       <Carte densite="contenu">
         <TitreSection as="h3" titre="Les types de rendez-vous" sousTitre="Ce que la réservation en ligne propose, type par type." />
-        <div className="divide-y divide-brand-border dark:divide-dark-sec-border">
+        <div className="divide-y divide-bord">
           {r.types.map((t) => <LigneType key={`${t.id}-${t.dureeMin}-${t.montantCentimes}-${t.actif}-${t.fenetreDebutH}-${t.fenetreFinH}`} type={t} onEnregistre={relire} />)}
         </div>
       </Carte>

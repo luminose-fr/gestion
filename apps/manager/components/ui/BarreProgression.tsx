@@ -11,9 +11,9 @@ import React from 'react';
 export type EtatSegment = 'fait' | 'encours' | 'avenir';
 
 const COULEURS: Record<EtatSegment, string> = {
-  fait: 'bg-brand-main dark:bg-dark-text',
-  encours: 'bg-brand-main/40 dark:bg-dark-text/40',
-  avenir: 'bg-brand-border dark:bg-dark-sec-border',
+  fait: 'bg-marque',
+  encours: 'bg-marque/40',
+  avenir: 'bg-bord',
 };
 
 export interface BarreProgressionProps {

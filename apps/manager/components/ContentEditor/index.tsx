@@ -1302,7 +1302,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
               value={editionManuelle}
               onChange={(e) => setEditionManuelle(e.target.value)}
               aria-label="Retouche du brouillon"
-              className="w-full h-full min-h-[480px] p-4 rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-sm leading-relaxed text-brand-main dark:text-dark-text font-mono outline-hidden focus:border-brand-main dark:focus:border-white"
+              className="w-full h-full min-h-[480px] p-4 rounded-xl border border-bord bg-fond text-sm leading-relaxed text-second font-mono outline-hidden focus:border-marque"
           />
       );
   } else switch (affichee) {
@@ -1456,7 +1456,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             pastilles={[getFormatDef(editedItem.targetFormat)?.shortKey, editedItem.objectif, ...editedItem.platforms].filter(Boolean) as string[]}
             selecteur={<SelecteurEtape lignes={lignes} affichee={affichee} onChoisir={(e) => { setEditionManuelle(null); setVueMobile(null); onStepChange(e); }} />}
             bandeau={auMontage || !compact ? undefined : (
-                <div className="px-4 py-2 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+                <div className="px-4 py-2 border-b border-bord bg-surface">
                     <ControleSegmente<'fil' | 'matiere'> libelle="Afficher" valeur={vue} onChange={setVueMobile}
                         options={[{ valeur: 'fil', libelle: 'Le fil' }, { valeur: 'matiere', libelle: NOMS_DES_ETAPES[affichee] }]} />
                 </div>
@@ -1465,7 +1465,7 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
             actionDroite={auMontage ? (
                 <Bouton taille="grand" onClick={() => setFilOuvert(o => !o)} aria-expanded={filOuvert}>
                     <MessageCircle /> Le fil
-                    <span className="text-micro font-bold tabular-nums text-brand-main dark:text-dark-text">{elements.length}</span>
+                    <span className="text-micro font-bold tabular-nums text-second">{elements.length}</span>
                 </Bouton>
             ) : undefined}
             pied={<PiedContenu etat={isDirty && saveStatus !== 'error' ? 'saving' : saveStatus} erreur={saveError} onReessayer={retrySave} cout={coutAffiche} onSupprimer={onDelete ? () => setConfirmDelete(true) : undefined} />}
@@ -1477,12 +1477,12 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                             dernierExport={resumeMontage?.dernierExport ?? null} priseOuverte={priseAOuvrir} />
                         : <div className="p-7"><MatiereVide titre="Pas encore de script" texte="Le montage suit le script : il s’écrit d’abord à l’atelier." /></div>}
                     {filOuvert && (
-                        <div className="absolute inset-y-0 right-0 z-30 w-[440px] max-w-full shadow-lg border-l border-brand-border dark:border-dark-sec-border">
+                        <div className="absolute inset-y-0 right-0 z-30 w-[440px] max-w-full shadow-lg border-l border-bord">
                             {leFil(
-                                <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-brand-border dark:border-dark-sec-border">
-                                    <MessageCircle className="w-4 h-4 text-brand-main dark:text-dark-text" />
-                                    <span className="text-sm font-bold text-brand-main dark:text-white">Le fil</span>
-                                    <span className="flex-1 text-xs text-brand-main dark:text-dark-text">ce qui s’est dit et fait</span>
+                                <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-bord">
+                                    <MessageCircle className="w-4 h-4 text-second" />
+                                    <span className="text-sm font-bold text-texte">Le fil</span>
+                                    <span className="flex-1 text-xs text-second">ce qui s’est dit et fait</span>
                                     <Bouton taille="grand" intention="discrete" className="w-10 px-0 no-underline" aria-label="Fermer le fil" onClick={() => setFilOuvert(false)}>
                                         <X />
                                     </Bouton>
@@ -1493,10 +1493,10 @@ const ContentEditor: React.FC<ContentEditorProps> = ({
                 </div>
             ) : (
                 <div className={`flex-1 min-h-0 grid grid-cols-1 ${compact ? '' : panneauSerie ? 'grid-cols-[380px_minmax(0,1fr)]' : 'grid-cols-[440px_minmax(0,1fr)]'}`}>
-                    <div className={`min-h-0 border-r border-brand-border dark:border-dark-sec-border ${!compact || vue === 'fil' ? 'block' : 'hidden'}`}>
+                    <div className={`min-h-0 border-r border-bord ${!compact || vue === 'fil' ? 'block' : 'hidden'}`}>
                         {leFil()}
                     </div>
-                    <div className={`min-h-0 flex-col bg-white dark:bg-dark-surface ${!compact || vue === 'matiere' ? 'flex' : 'hidden'}`}>
+                    <div className={`min-h-0 flex-col bg-surface ${!compact || vue === 'matiere' ? 'flex' : 'hidden'}`}>
                         {entete}
                         <div key={affichee} className="ui-stage flex-1 overflow-y-auto p-4 md:p-7">{corps}</div>
                     </div>

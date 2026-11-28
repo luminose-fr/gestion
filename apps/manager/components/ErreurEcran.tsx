@@ -9,7 +9,7 @@ export class ErreurEcran extends React.Component<React.PropsWithChildren, { erre
   render() {
     if (!this.state.erreur) return this.props.children;
     return (
-      <div role="alert" className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text">
+      <div role="alert" className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 bg-fond text-second">
         <p className="text-lg font-bold">Cet écran n’a pas pu s’afficher.</p>
         <p className="text-sm">Rechargez l’application pour réessayer.</p>
         <Bouton intention="principale" onClick={() => window.location.reload()}>Recharger l’application</Bouton>

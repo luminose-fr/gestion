@@ -16,11 +16,11 @@ import { Etiquette } from './Etiquette';
  */
 export const CLASSES_CHAMP =
   'w-full px-3 py-2 rounded-lg text-sm ' +
-  'bg-brand-light dark:bg-dark-bg ' +
-  'border border-brand-border dark:border-dark-sec-border ' +
-  'text-brand-main dark:text-white ' +
-  'placeholder-brand-main/40 dark:placeholder-dark-text/40 ' +
-  'outline-hidden focus:border-brand-main dark:focus:border-white ' +
+  'bg-surface ' +
+  'border border-champ ' +
+  'text-texte ' +
+  'placeholder:text-second ' +
+  'outline-hidden focus:border-marque ' +
   'transition-colors disabled:opacity-40';
 
 interface ChampCommun {
@@ -96,7 +96,7 @@ export const Champ = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, Ch
         )}
         {controle}
         {aide && (
-          <p className="mt-1 text-xs text-brand-main dark:text-dark-text">{aide}</p>
+          <p className="mt-1 text-xs text-second">{aide}</p>
         )}
       </div>
     );

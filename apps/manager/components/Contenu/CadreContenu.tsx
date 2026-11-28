@@ -41,24 +41,24 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                 onClick={() => setOuvert(o => !o)}
                 aria-expanded={ouvert}
                 aria-haspopup="menu"
-                className="ui-action w-full md:w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg text-left hover:border-brand-main/40"
+                className="ui-action w-full md:w-[320px] h-[52px] flex items-center gap-3 px-3 rounded-[10px] border border-bord bg-fond text-left hover:border-brand-main/40"
             >
                 <span className="flex-1 min-w-0 space-y-1">
                     <span className="flex items-baseline justify-between gap-2">
-                        <span className="text-sm font-bold text-brand-main dark:text-white truncate">{NOMS_DES_ETAPES[affichee]}</span>
+                        <span className="text-sm font-bold text-texte truncate">{NOMS_DES_ETAPES[affichee]}</span>
                         <span className={`${CLASSES_SURTITRE} shrink-0`}>
                             Étape {rang + 1} sur {lignes.length}
                         </span>
                     </span>
                     <BarreProgression segments={segments} fine />
                 </span>
-                <ChevronDown className={`w-4 h-4 shrink-0 text-brand-main dark:text-dark-text transition-transform ${ouvert ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 shrink-0 text-second transition-transform ${ouvert ? 'rotate-180' : ''}`} />
             </button>
             {ouvert && (
                 <>
                     {/* Un clic dehors referme : le voile ne se voit pas, il attrape. */}
                     <div className="fixed inset-0 z-20" onClick={() => setOuvert(false)} />
-                    <div role="menu" className="ui-popover absolute right-0 z-30 mt-1 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shadow-lg p-1"
+                    <div role="menu" className="ui-popover absolute right-0 z-30 mt-1 w-[320px] max-w-[calc(100vw-2rem)] rounded-xl border border-bord bg-surface shadow-lg p-1"
 >
                         <Etiquette className="px-3 pt-2 pb-1">Aller à une étape</Etiquette>
                         {lignes.map((l, i) => (
@@ -70,21 +70,21 @@ export const SelecteurEtape: React.FC<SelecteurEtapeProps> = ({ lignes, affichee
                                 title={l.raison ?? undefined}
                                 onClick={() => { onChoisir(l.etape); setOuvert(false); }}
                                 className={`ui-action w-full h-11 flex items-center gap-3 px-3 rounded-lg text-left disabled:opacity-40 disabled:cursor-not-allowed ${
-                                    l.etape === affichee ? 'bg-brand-light dark:bg-dark-bg' : 'hover:bg-brand-light dark:hover:bg-dark-bg'
+                                    l.etape === affichee ? 'bg-fond' : 'hover:bg-survole'
                                 }`}
                             >
                                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-micro font-bold shrink-0 ${
                                     l.faite ? 'bg-succes text-white dark:text-dark-bg'
-                                        : l.actuelle ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                                            : 'border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text'
+                                        : l.actuelle ? 'bg-marque text-sur-marque'
+                                            : 'border border-bord text-second'
                                 }`}>
                                     {l.faite ? <Check className="w-3.5 h-3.5" /> : i + 1}
                                 </span>
                                 <span className="flex-1 min-w-0">
-                                    <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{l.nom}</span>
-                                    {l.actuelle && <span className="block text-micro text-brand-main dark:text-dark-text">étape actuelle</span>}
+                                    <span className="block text-sm font-semibold text-texte truncate">{l.nom}</span>
+                                    {l.actuelle && <span className="block text-micro text-second">étape actuelle</span>}
                                 </span>
-                                {l.statut && <span className="text-xs text-brand-main dark:text-dark-text shrink-0">{l.statut}</span>}
+                                {l.statut && <span className="text-xs text-second shrink-0">{l.statut}</span>}
                             </button>
                         ))}
                     </div>
@@ -112,7 +112,7 @@ export interface PiedContenuProps {
  * de réessayer, sans quoi Florent croirait son travail sauvegardé.
  */
 export const PiedContenu: React.FC<PiedContenuProps> = ({ etat, erreur, onReessayer, cout, libelleSupprimer = 'Supprimer ce contenu', onSupprimer }) => (
-    <div className="h-12 shrink-0 flex items-center gap-4 px-4 md:px-8 border-t border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+    <div className="h-12 shrink-0 flex items-center gap-4 px-4 md:px-8 border-t border-bord bg-surface">
         <span aria-live="polite" aria-atomic="true" className="min-w-0 md:min-w-[220px] flex items-center gap-4 text-xs whitespace-nowrap">
             {etat === 'saving' ? <EnCours label="Enregistrement…" taille="xs" />
                 : etat === 'error' ? (
@@ -123,7 +123,7 @@ export const PiedContenu: React.FC<PiedContenuProps> = ({ etat, erreur, onReessa
                 ) : (
                     <span className="ui-feedback flex items-center gap-1.5 text-succes" data-confirme={etat === 'saved' || undefined}><Check className="w-3.5 h-3.5" /> Enregistré<span className="hidden md:inline"> automatiquement</span></span>
                 )}
-            {cout && <span className="hidden sm:inline text-brand-main dark:text-dark-text tabular-nums" title={cout.detail}>Coût IA {cout.libelle}</span>}
+            {cout && <span className="hidden sm:inline text-second tabular-nums" title={cout.detail}>Coût IA {cout.libelle}</span>}
         </span>
         <span className="flex-1" />
         {onSupprimer && (
@@ -156,11 +156,11 @@ export interface CadreContenuProps {
 export const CadreContenu: React.FC<CadreContenuProps> = ({
     retour, titre, onTitre, pastilles, selecteur, actionDroite, panneauSerie, bandeau, pied, children,
 }) => (
-    <div className="w-full h-full flex flex-col bg-brand-light dark:bg-dark-bg">
+    <div className="w-full h-full flex flex-col bg-fond">
         {/* Sur téléphone, le bandeau passe sur deux lignes : le titre, puis le sélecteur en pleine largeur. */}
-        <div className="md:h-20 shrink-0 flex flex-wrap md:flex-nowrap items-center gap-x-4 gap-y-2 px-4 md:px-8 py-3 md:py-0 border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface">
+        <div className="md:h-20 shrink-0 flex flex-wrap md:flex-nowrap items-center gap-x-4 gap-y-2 px-4 md:px-8 py-3 md:py-0 border-b border-bord bg-surface">
             <button type="button" onClick={retour.onClick}
-                className="h-10 shrink-0 inline-flex items-center gap-1.5 px-2 rounded-lg text-sm font-semibold text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors">
+                className="h-10 shrink-0 inline-flex items-center gap-1.5 px-2 rounded-lg text-sm font-semibold text-second hover:text-texte hover:bg-survole transition-colors">
                 <ChevronLeft className="w-4 h-4" /> {retour.libelle}
             </button>
             <div className="flex-1 min-w-0 space-y-1">

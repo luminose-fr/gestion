@@ -35,9 +35,9 @@ const COULEUR_STATUT: Record<string, string> = {
   actif: 'text-succes',
   active: 'text-succes',
   suspendu: 'text-alerte',
-  termine: 'text-brand-main dark:text-dark-text',
-  candidat: 'text-brand-main dark:text-white',
-  'volontairement-absent': 'text-brand-main dark:text-dark-text',
+  termine: 'text-second',
+  candidat: 'text-texte',
+  'volontairement-absent': 'text-second',
 };
 
 interface Props {
@@ -191,7 +191,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
   };
 
   if (erreur && !liste) return <p className="text-sm text-erreur">Échec — {erreur}</p>;
-  if (!liste) return <p className="text-sm text-brand-main dark:text-dark-text">Lecture des documents…</p>;
+  if (!liste) return <p className="text-sm text-second">Lecture des documents…</p>;
 
   return (
     /*
@@ -202,7 +202,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
     <div className="grid gap-5 lg:grid-cols-[210px_1fr]">
       <nav>
         {docs.length === 0 ? (
-          <p className="text-sm text-brand-main dark:text-dark-text">
+          <p className="text-sm text-second">
             Ce bloc est vide — il se remplira quand un cas d'usage l'exigera.
           </p>
         ) : (
@@ -220,13 +220,13 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   title={d.titre}
                   className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
                     ouvert?.chemin === d.chemin
-                      ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main'
-                      : 'hover:bg-brand-light dark:hover:bg-dark-sec-bg text-brand-main dark:text-dark-text'
+                      ? 'bg-marque text-sur-marque'
+                      : 'hover:bg-survole text-second'
                   }`}
                 >
                   <span className="block truncate">{d.titre}</span>
                   <span className={`block text-micro font-mono ${
-                    ouvert?.chemin === d.chemin ? 'opacity-70' : COULEUR_STATUT[d.statut ?? ''] ?? 'text-brand-main dark:text-dark-text'
+                    ouvert?.chemin === d.chemin ? 'opacity-70' : COULEUR_STATUT[d.statut ?? ''] ?? 'text-second'
                   }`}>
                     {d.statut ?? d.type ?? '—'}
                     {chargement === d.chemin && ' · ouverture…'}
@@ -238,23 +238,23 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
         )}
       </nav>
 
-      <article className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-6 min-h-[20rem]">
+      <article className="bg-surface rounded-xl border border-bord p-4 md:p-6 min-h-[20rem]">
         {erreur && <p className="text-sm text-erreur mb-3">Échec — {erreur}</p>}
         {!ouvert ? (
-          <p className="text-sm text-brand-main dark:text-dark-text">
+          <p className="text-sm text-second">
             Choisissez un document. Le corpus est en lecture seule ici — il se modifie dans Git,
             et le déploiement le republie.
           </p>
         ) : (
           <>
-            <header className="mb-4 pb-3 border-b border-brand-border dark:border-dark-sec-border">
-              <p className="font-mono text-micro text-brand-main dark:text-dark-text">{ouvert.chemin}.md</p>
+            <header className="mb-4 pb-3 border-b border-bord">
+              <p className="font-mono text-micro text-second">{ouvert.chemin}.md</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-micro font-mono">
                 {Object.entries(ouvert.meta)
                   .filter(([, v]) => v !== null && v !== undefined && v !== '')
                   .map(([k, v]) => (
-                    <span key={k} className="text-brand-main dark:text-dark-text">
-                      {k}: <span className={k === 'statut' ? COULEUR_STATUT[String(v)] ?? '' : 'text-brand-main dark:text-dark-text'}>
+                    <span key={k} className="text-second">
+                      {k}: <span className={k === 'statut' ? COULEUR_STATUT[String(v)] ?? '' : 'text-second'}>
                         {Array.isArray(v) ? v.join(', ') : String(v)}
                       </span>
                     </span>
@@ -275,7 +275,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   href={EDITEUR(ouvert.chemin)}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-micro text-brand-main hover:text-brand-main dark:text-dark-text dark:hover:text-white"
+                  className="inline-flex items-center gap-1 text-micro text-brand-main hover:text-second dark:hover:text-white"
                 >
                   <ExternalLink className="w-3 h-3" /> {depotOuvert ? 'ou sur GitHub' : 'Modifier sur GitHub'}
                 </a>
@@ -287,7 +287,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   que c'est cassé.
                 */}
                 {!edition && !retardDeLaFiche && (
-                  <span className="text-micro text-brand-main dark:text-dark-text">
+                  <span className="text-micro text-second">
                     une correction n'entre dans les prompts qu'au déploiement
                   </span>
                 )}
@@ -333,7 +333,7 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   onChange={(e) => setEdition({ ...edition, contenu: e.target.value })}
                   spellCheck={false}
                   rows={26}
-                  className="w-full font-mono text-xs leading-relaxed p-3 rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light/40 dark:bg-dark-bg text-brand-main dark:text-dark-text resize-y outline-hidden focus:border-brand-main dark:focus:border-white"
+                  className="w-full font-mono text-xs leading-relaxed p-3 rounded-lg border border-bord bg-brand-light/40 dark:bg-dark-bg text-second resize-y outline-hidden focus:border-marque"
                 />
 
                 {commit ? (

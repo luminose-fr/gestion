@@ -82,7 +82,7 @@ export const LienDEssai: React.FC = () => {
       </div>
       {dernierLien && (
         <div className="mt-2 flex items-start gap-2">
-          <code className="min-w-0 flex-1 select-all break-all text-xs text-brand-main dark:text-dark-text">{dernierLien}</code>
+          <code className="min-w-0 flex-1 select-all break-all text-xs text-second">{dernierLien}</code>
           <Bouton type="button" taille="petit" intention="secondaire" onClick={() => { void navigator.clipboard?.writeText(dernierLien); }}>
             Copier
           </Bouton>
@@ -92,7 +92,7 @@ export const LienDEssai: React.FC = () => {
         </div>
       )}
       {etat.phase === 'revoque' && (
-        <p className="mt-2 text-xs text-brand-main dark:text-dark-text">
+        <p className="mt-2 text-xs text-second">
           Liens révoqués : ceux déjà envoyés pour cette séance ne valent plus.
           {etat.lien ? ' Rouvrez celui-ci depuis ce bouton : recharger la page d’essai ne le rouvre pas, elle a retiré le jeton de son adresse.' : ''}
         </p>
@@ -135,11 +135,11 @@ export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> =
   return (
     <div className="mt-3 border-t border-brand-border pt-3 dark:border-dark-sec-border" data-porte-publique={portes ? (portes.ouverte ? 'ouverte' : 'coupee') : etat.phase}>
       <div className="flex items-center justify-between gap-4">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-main dark:text-white">
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-texte">
           <DoorOpen className="size-4 shrink-0" aria-hidden />
           Réception du site
         </span>
-        {etat.phase === 'lecture' && <span className="text-xs text-brand-main dark:text-dark-text">Lecture…</span>}
+        {etat.phase === 'lecture' && <span className="text-xs text-second">Lecture…</span>}
         {portes && (
           <div className="flex items-center gap-2">
             <Etiquette forme="pastille" ton={portes.ouverte ? 'succes' : 'alerte'} as="span">
@@ -165,7 +165,7 @@ export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> =
       )}
 
       {portes && (
-        <p className="mt-2 text-xs tabular-nums text-brand-main dark:text-dark-text">
+        <p className="mt-2 text-xs tabular-nums text-second">
           {nombre(portes.commandesDuJour, 'commande', 'commandes')} sur 24 h
           {' · '}{nombre(portes.ordres.prevu, 'ordre prévu', 'ordres prévus')}
           {' · '}{nombre(portes.ordres.confieAMake, 'confié à Make', 'confiés à Make')}
@@ -175,7 +175,7 @@ export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> =
       )}
 
       {portes && !portes.ouverte && (
-        <p className="mt-2 text-xs text-brand-main dark:text-dark-text">
+        <p className="mt-2 text-xs text-second">
           Le site reçoit « fermé » à tout envoi, et affiche votre téléphone.
         </p>
       )}

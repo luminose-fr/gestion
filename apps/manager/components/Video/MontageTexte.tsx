@@ -440,7 +440,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                     title={`${libelle} : cliquer pour les voir`}
                     onClick={() => { if (!placement) setOuvert(actif ? null : { type: 'coupe', mots: lesMots }); }}
                     className={`inline-flex size-5 items-center justify-center rounded-md align-middle transition-colors [&_svg]:size-3.5 ${
-                        actif ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main' : 'text-brand-main hover:bg-brand-light hover:text-brand-main dark:text-dark-text dark:hover:bg-dark-sec-bg dark:hover:text-white'
+                        actif ? 'bg-marque text-sur-marque' : 'text-brand-main hover:bg-brand-light hover:text-second dark:hover:bg-dark-sec-bg dark:hover:text-white'
                     }`}
                 >
                     <Scissors />
@@ -471,7 +471,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
             <X />
         </Bouton>
     );
-    const cadreDuPanneau = 'mt-2 space-y-3 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-3';
+    const cadreDuPanneau = 'mt-2 space-y-3 rounded-xl border border-bord bg-surface p-3';
 
     const rendreVersions = (phrase: number) => {
         const liste = versionsDe.get(phrase) ?? [];
@@ -480,7 +480,7 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                 <Etiquette>Dite {liste.length === 2 ? 'deux' : liste.length} fois — choisissez la version</Etiquette>
                 {liste.map((v, n) => (
                     <div key={n} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
-                        v.retenue ? 'border-brand-main bg-brand-light dark:border-white dark:bg-dark-sec-bg' : 'border-brand-border dark:border-dark-sec-border'
+                        v.retenue ? 'border-brand-main bg-brand-light dark:border-white dark:bg-dark-sec-bg' : 'border-bord'
                     }`}>
                         <label className="min-w-0 flex-1 flex items-start gap-3 cursor-pointer">
                             <input
@@ -493,9 +493,9 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                                 }}
                                 className="mt-1 accent-brand-main dark:accent-dark-text"
                             />
-                            <span className="text-sm text-brand-main dark:text-dark-text">
+                            <span className="text-sm text-second">
                                 {v.texte || '—'}
-                                <span className="block text-xs text-brand-main dark:text-dark-text">
+                                <span className="block text-xs text-second">
                                     {v.retenue ? 'Dans la vidéo' : `À ${minutes(v.debut)} dans la prise`}
                                 </span>
                             </span>
@@ -532,11 +532,11 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                     )}
                     {!toutCoupe && <Bouton taille="petit" intention="secondaire" onClick={() => trancher(true)}><Scissors /> Couper</Bouton>}
                     {!rienCoupe && <Bouton taille="petit" intention="secondaire" onClick={() => trancher(false)}>Rétablir</Bouton>}
-                    <span className="text-xs tabular-nums text-brand-main dark:text-dark-text">{secondes(mots[dernier].fin - mots[premier].debut)}</span>
+                    <span className="text-xs tabular-nums text-second">{secondes(mots[dernier].fin - mots[premier].debut)}</span>
                     {fermer}
                 </div>
                 {silence && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-brand-main dark:text-dark-text [&_svg]:size-3.5">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-second [&_svg]:size-3.5">
                         <Pause />
                         <span>
                             {estCoupee(silence, choix)
@@ -572,10 +572,10 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
                     const texte = texteDes(g.premier, g.dernier);
                     return (
                         <div key={g.premier} className="flex flex-wrap items-center gap-2">
-                            <p className="min-w-0 flex-1 text-sm line-through text-brand-main dark:text-dark-text" title={texte}>
+                            <p className="min-w-0 flex-1 text-sm line-through text-second" title={texte}>
                                 {texte.length > APERCU_MAX ? `${texte.slice(0, APERCU_MAX)}…` : texte}
                             </p>
-                            <span className="text-xs tabular-nums text-brand-main dark:text-dark-text">{secondes(mots[g.dernier].fin - mots[g.premier].debut)}</span>
+                            <span className="text-xs tabular-nums text-second">{secondes(mots[g.dernier].fin - mots[g.premier].debut)}</span>
                             {onEcouterLaPrise && (
                                 <Bouton taille="petit" intention="secondaire" aria-label="Écouter ce passage" title="Écouter ce passage"
                                     onClick={() => onEcouterLaPrise(mots[g.premier].debut, mots[g.dernier].fin)}>
@@ -658,32 +658,32 @@ export const MontageTexte: React.FC<MontageTexteProps> = ({
             )}
 
             {mots.length === 0 ? (
-                <p className="py-4 border-t border-brand-border dark:border-dark-sec-border text-xs text-brand-main dark:text-dark-text">
+                <p className="py-4 border-t border-bord text-xs text-second">
                     La transcription est vide : rien à monter.
                 </p>
             ) : (
                 <>
                     {!titre && (
-                        <p className="pb-3 text-xs text-brand-main dark:text-dark-text">
+                        <p className="pb-3 text-xs text-second">
                             Cliquez une phrase pour l’écouter, la couper ou choisir sa version ; l’étiquette d’un écran, pour le déplacer. Un ✂ marque ce qui a été coupé.
                         </p>
                     )}
                     {blocs.map((b, k) => (
-                        <div key={k} className="grid grid-cols-[120px_minmax(0,1fr)] gap-5 py-3 border-t border-brand-border dark:border-dark-sec-border">
+                        <div key={k} className="grid grid-cols-[120px_minmax(0,1fr)] gap-5 py-3 border-t border-bord">
                             <div className="flex flex-col gap-1 pt-1.5">
                                 <Etiquette>{b.repere}</Etiquette>
-                                {b.temps && <span className="text-xs tabular-nums text-brand-main dark:text-dark-text">{b.temps}</span>}
+                                {b.temps && <span className="text-xs tabular-nums text-second">{b.temps}</span>}
                             </div>
                             <div className="min-w-0">
                                 {b.indices.length === 0 ? (
-                                    <p className="text-xs leading-7.5 text-brand-main dark:text-dark-text">{b.note}</p>
+                                    <p className="text-xs leading-7.5 text-second">{b.note}</p>
                                 ) : (
-                                    <p className="text-sm leading-7.5 text-brand-main dark:text-dark-text" onMouseLeave={() => setSurvol(null)}>
+                                    <p className="text-sm leading-7.5 text-second" onMouseLeave={() => setSurvol(null)}>
                                         {rendreSuite(b.indices)}
                                     </p>
                                 )}
                                 {b.indices.length > 0 && b.note && (
-                                    <p className="text-xs text-brand-main dark:text-dark-text">{b.note}</p>
+                                    <p className="text-xs text-second">{b.note}</p>
                                 )}
                                 {panneauDe(k)}
                             </div>

@@ -40,14 +40,14 @@ const TAILLES: Record<TailleBouton, string> = {
 */
 const INTENTIONS: Record<TonBouton, Record<IntentionBouton, string>> = {
   neutre: {
+    // Refonte, lot 9 : les intentions d'avant prennent celles de la charte (plein, bordé,
+    // souligné) — un écran pas encore refait parle déjà la même langue que les autres.
     principale:
-      // En sombre le fond est blanc : le survol clair de la marque, pas le violet
-      // foncé du clair, sur lequel le texte brand-main disparaîtrait.
-      'border border-transparent bg-brand-main text-white hover:bg-brand-hover dark:bg-white dark:text-brand-main dark:hover:bg-brand-light',
+      'border border-marque bg-marque text-sur-marque hover:bg-marque-survol hover:border-marque-survol',
     secondaire:
-      'border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text hover:border-brand-main/40',
+      'border border-marque text-marque hover:bg-actif',
     discrete:
-      'border border-transparent text-brand-main dark:text-dark-text underline hover:no-underline',
+      'border border-transparent text-marque underline underline-offset-[3px] hover:text-marque-survol',
   },
   /*
     Les tokens de sens s'éclaircissent en sombre (#6ee7b7, #fcd34d) : un texte

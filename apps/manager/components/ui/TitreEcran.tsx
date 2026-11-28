@@ -18,7 +18,7 @@ const TAILLES = {
  * taille ne s'écrit qu'ici.
  */
 export const CLASSES_TITRE_ECRAN = (taille: keyof typeof TAILLES = 'ecran') =>
-  `font-display italic font-normal text-brand-hover dark:text-white ${TAILLES[taille]}`;
+  `font-titre font-medium tracking-[-.01em] text-texte ${TAILLES[taille]}`;
 
 export interface TitreEcranProps extends React.HTMLAttributes<HTMLHeadingElement> {
   taille?: keyof typeof TAILLES;
@@ -27,7 +27,7 @@ export interface TitreEcranProps extends React.HTMLAttributes<HTMLHeadingElement
 
 export const TitreEcran: React.FC<TitreEcranProps> = ({ taille = 'ecran', as: Balise = 'h1', className = '', ...reste }) => (
   <Balise
-    className={`font-display italic font-normal truncate text-brand-hover dark:text-white ${TAILLES[taille]} ${className}`}
+    className={`font-titre font-medium tracking-[-.01em] truncate text-texte ${TAILLES[taille]} ${className}`}
     {...reste}
   />
 );

@@ -54,28 +54,28 @@ export const ConfirmSuppressionSerie: React.FC<{
       onClick={enCours ? undefined : onClose}
     >
       <div ref={modal} role="dialog" aria-modal="true" aria-label="Confirmer la suppression de la série" tabIndex={-1}
-        className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-md rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6"
+        className="ui-dialog bg-surface w-full max-w-md rounded-xl shadow-lg border border-bord p-6"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 mb-4 text-brand-main dark:text-white">
+        <div className="flex items-center gap-3 mb-4 text-texte">
           <AlertTriangle className="w-6 h-6 text-erreur shrink-0" />
           <h3 className={`${CLASSES_TITRE} leading-tight`}>Supprimer « {titre} » ?</h3>
         </div>
 
         {nbPublications === 0 ? (
-          <p className="text-sm text-brand-main dark:text-dark-text mb-6 leading-relaxed">
+          <p className="text-sm text-second mb-6 leading-relaxed">
             Cette série ne contient aucune publication. Il n'y a que le regroupement à supprimer.
           </p>
         ) : (
-          <p className="text-sm text-brand-main dark:text-dark-text mb-4 leading-relaxed">
-            Cette série contient <strong className="font-bold text-brand-main dark:text-white">{publications}</strong>.
+          <p className="text-sm text-second mb-4 leading-relaxed">
+            Cette série contient <strong className="font-bold text-texte">{publications}</strong>.
             Que faut-il en faire ?
           </p>
         )}
 
         {/* Le pilier préexiste à la série : le dire évite d'hésiter devant « tout supprimer ». */}
         {titrePilier && (
-          <p className="flex items-start gap-2 text-xs text-brand-main dark:text-dark-text bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border rounded-lg px-3 py-2 mb-4 leading-relaxed">
+          <p className="flex items-start gap-2 text-xs text-second bg-fond border border-bord rounded-lg px-3 py-2 mb-4 leading-relaxed">
             <Link2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>
               Le contenu pilier <strong className="font-semibold">{titrePilier}</strong> n'est pas dans la série :
@@ -131,7 +131,7 @@ export const ConfirmSuppressionSerie: React.FC<{
         </div>
 
         {nbPublications > 0 && (
-          <p className="text-xs text-brand-main dark:text-dark-text mt-4 leading-relaxed">
+          <p className="text-xs text-second mt-4 leading-relaxed">
             Détachées, les publications restent dans « En cours », « Prêts » ou les archives selon leur
             statut — elles perdent seulement leur rang dans la progression.
           </p>

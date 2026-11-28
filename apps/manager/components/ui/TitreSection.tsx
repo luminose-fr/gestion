@@ -16,7 +16,7 @@ import React from 'react';
  * pas de sens : un titre centré sous l'icône d'un vide ou d'une fenêtre, un
  * titre précédé de son icône, un titre éditable en place.
  */
-export const CLASSES_TITRE = 'text-lg font-bold text-brand-main dark:text-white';
+export const CLASSES_TITRE = 'text-lg font-bold text-texte';
 
 export interface TitreSectionProps {
   titre: React.ReactNode;
@@ -53,7 +53,7 @@ export const TitreSection: React.FC<TitreSectionProps> = ({
     <div className="min-w-0">
       {React.createElement(as, { className: CLASSES_TITRE }, titre)}
       {sousTitre && (
-        <p className="mt-1 text-xs text-brand-main dark:text-dark-text">{sousTitre}</p>
+        <p className="mt-1 text-xs text-second">{sousTitre}</p>
       )}
     </div>
     {action && <div className="flex items-center gap-2 shrink-0">{action}</div>}

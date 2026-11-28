@@ -26,23 +26,23 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-light dark:bg-dark-bg px-4">
+    <div className="min-h-screen flex items-center justify-center bg-fond px-4">
       <div className="w-full max-w-md">
         {/* Logo + Title */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-main to-brand-hover flex items-center justify-center shadow-lg shadow-brand-main/30 mb-4">
             <span className="font-display italic text-white text-lg leading-none">L</span>
           </div>
-          <h1 className="font-display italic text-lg text-brand-main dark:text-white">
+          <h1 className="font-display italic text-lg text-texte">
             Gestion Luminose
           </h1>
-          <p className="text-sm text-brand-main dark:text-dark-text mt-1">
+          <p className="text-sm text-second mt-1">
             Connectez-vous pour accéder à votre studio
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-white dark:bg-dark-surface rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-8">
+        <div className="bg-surface rounded-xl shadow-lg border border-bord p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error */}
             {error && (
@@ -91,7 +91,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
                 <button
                   type="button"
                   onClick={() => setShowPassword(s => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-brand-main dark:text-dark-text hover:text-brand-main dark:hover:text-white hover:bg-brand-light dark:hover:bg-dark-bg transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-second hover:text-texte hover:bg-survole transition-colors"
                   aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                   aria-pressed={showPassword}
                 >
@@ -113,7 +113,7 @@ export const LoginPage = ({ onLoginSuccess }: { onLoginSuccess: () => void }) =>
           </form>
         </div>
 
-        <p className="text-center text-xs text-brand-main dark:text-dark-text mt-6">
+        <p className="text-center text-xs text-second mt-6">
           © {new Date().getFullYear()} Luminose Studio
         </p>
       </div>

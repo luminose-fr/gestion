@@ -66,7 +66,7 @@ const InboxView: React.FC = () => {
     catch (e: any) { setErreur(e?.message ?? 'Suppression impossible.'); }
   };
 
-  if (!captures && !erreur) return <p className="text-sm text-brand-main dark:text-dark-text">Lecture de l'inbox…</p>;
+  if (!captures && !erreur) return <p className="text-sm text-second">Lecture de l'inbox…</p>;
 
   const attente = (captures ?? []).filter((c) => c.integratedAt === null);
   const integrees = (captures ?? []).filter((c) => c.integratedAt !== null);
@@ -75,14 +75,14 @@ const InboxView: React.FC = () => {
     <div className="space-y-4 max-w-3xl mx-auto">
       {erreur && <p className="text-sm text-erreur">Échec — {erreur}</p>}
 
-      <section className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4 md:p-5">
+      <section className="bg-surface rounded-xl border border-bord p-4 md:p-5">
         <Etiquette as="h2" forme="entete" className="mb-1">
           Capturer
         </Etiquette>
-        <p className="text-xs text-brand-main dark:text-dark-text mb-3">
+        <p className="text-xs text-second mb-3">
           Trois champs, quelques secondes. Rien n'entre dans le corpus tant que ce n'est pas intégré.
         </p>
-        <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mb-1">
+        <label className="block text-xs font-semibold text-second mb-1">
           Ce qui a été décidé, dans mes mots
         </label>
         <Champ multiligne
@@ -90,7 +90,7 @@ const InboxView: React.FC = () => {
           onChange={(e) => setDecide(e.target.value)}
           rows={3}
         />
-        <label className="block text-xs font-semibold text-brand-main dark:text-dark-text mt-3 mb-1">
+        <label className="block text-xs font-semibold text-second mt-3 mb-1">
           Ce que ça rend faux
         </label>
         <Champ
@@ -98,7 +98,7 @@ const InboxView: React.FC = () => {
           onChange={(e) => setRemplace(e.target.value)}
           placeholder="Laisser vide si je ne sais pas — c'est une réponse acceptable"
         />
-        <p className="text-micro text-brand-main dark:text-dark-text mt-1.5">
+        <p className="text-micro text-second mt-1.5">
           Vide veut dire « je ne sais pas », jamais « rien ». Ce champ coûte cinq secondes
           maintenant et une heure d'archéologie plus tard s'il manque.
         </p>
@@ -121,26 +121,26 @@ const InboxView: React.FC = () => {
           croit que le bouton fait le travail, et le corpus ne change jamais.
         */}
         {attente.length > 0 && (
-          <p className="text-xs text-brand-main dark:text-dark-text mb-2 leading-relaxed">
+          <p className="text-xs text-second mb-2 leading-relaxed">
             Intégrer, c'est aller corriger le markdown dans le dépôt, commiter, déployer —
             puis revenir cocher ici en disant où c'est parti. Le bouton ne range rien tout
             seul : il ferme la boucle entre tes mots d'origine et le fichier qui les porte.
           </p>
         )}
         {attente.length === 0 ? (
-          <p className="inline-flex items-center gap-2 text-sm text-brand-main dark:text-dark-text">
+          <p className="inline-flex items-center gap-2 text-sm text-second">
             <InboxIcon className="w-4 h-4" /> Rien en attente.
           </p>
         ) : (
           <ul className="space-y-2">
             {attente.map((c) => (
-              <li key={c.id} className="bg-white dark:bg-dark-surface rounded-xl border border-brand-border dark:border-dark-sec-border p-4">
-                <p className="text-sm text-brand-main dark:text-dark-text">{c.decide}</p>
-                <p className="text-xs mt-1.5 text-brand-main dark:text-dark-text">
+              <li key={c.id} className="bg-surface rounded-xl border border-bord p-4">
+                <p className="text-sm text-second">{c.decide}</p>
+                <p className="text-xs mt-1.5 text-second">
                   <span className="font-semibold">Remplace :</span>{' '}
                   {c.remplace ?? <em className="opacity-70">je ne sais pas</em>}
                 </p>
-                <p className="text-micro font-mono text-brand-main dark:text-dark-text mt-1">
+                <p className="text-micro font-mono text-second mt-1">
                   {jour(c.createdAt)}{c.source ? ` · ${c.source}` : ''}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
@@ -174,15 +174,15 @@ const InboxView: React.FC = () => {
           <Etiquette as="h2" className="mb-2">
             Intégrées — {integrees.length}
           </Etiquette>
-          <p className="text-xs text-brand-main dark:text-dark-text mb-2">
+          <p className="text-xs text-second mb-2">
             Jamais supprimées : chacune porte ce qui l'a absorbée. La chaîne se remonte — le
             fichier, le commit, la capture, les mots d'origine.
           </p>
           <ul className="space-y-1.5">
             {integrees.map((c) => (
-              <li key={c.id} className="text-xs border-l-2 border-brand-border dark:border-dark-sec-border pl-3 py-1">
-                <p className="text-brand-main dark:text-dark-text">{c.decide}</p>
-                <p className="font-mono text-micro text-brand-main dark:text-dark-text mt-0.5">
+              <li key={c.id} className="text-xs border-l-2 border-bord pl-3 py-1">
+                <p className="text-second">{c.decide}</p>
+                <p className="font-mono text-micro text-second mt-0.5">
                   {jour(c.createdAt)} → {c.integration}
                 </p>
               </li>

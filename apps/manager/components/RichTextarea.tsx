@@ -174,7 +174,7 @@ export const RichTextarea = ({ value, onChange, className = "", placeholder, id,
             onInput={handleInput}
             className={`
                 outline-hidden overflow-y-auto whitespace-pre-wrap wrap-break-word 
-                text-base md:text-lg leading-relaxed text-brand-main dark:text-white
+                text-base md:text-lg leading-relaxed text-texte
                 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400
                 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:border-b [&_h1]:border-brand-border/50
                 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-1

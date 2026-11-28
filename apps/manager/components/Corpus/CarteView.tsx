@@ -84,23 +84,23 @@ const Section: React.FC<{ titre: string; chapeau?: string; children: React.React
   <section className="pt-8 first:pt-0 border-t first:border-t-0 border-brand-border/70 dark:border-dark-sec-border">
     <TitreSection titre={titre} />
     {chapeau && (
-      <p className="mt-1 text-sm text-brand-main dark:text-dark-text max-w-3xl">{chapeau}</p>
+      <p className="mt-1 text-sm text-second max-w-3xl">{chapeau}</p>
     )}
     <div className="mt-4">{children}</div>
   </section>
 );
 
 const Prose: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="max-w-3xl text-sm leading-relaxed text-brand-main dark:text-dark-text space-y-3">
+  <div className="max-w-3xl text-sm leading-relaxed text-second space-y-3">
     {children}
   </div>
 );
 
 const Figure: React.FC<{ titre: string; legende: React.ReactNode; children: React.ReactNode }> = ({ titre, legende, children }) => (
-  <figure className="m-0 mt-5 rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-4 md:p-5">
-    <div className="overflow-x-auto text-brand-main dark:text-dark-text">{children}</div>
-    <figcaption className="mt-4 pt-3 border-t border-brand-border dark:border-dark-sec-border text-xs leading-relaxed text-brand-main dark:text-dark-text max-w-3xl">
-      <strong className="text-brand-main dark:text-dark-text">{titre}</strong>{' '}{legende}
+  <figure className="m-0 mt-5 rounded-xl border border-bord bg-surface p-4 md:p-5">
+    <div className="overflow-x-auto text-second">{children}</div>
+    <figcaption className="mt-4 pt-3 border-t border-bord text-xs leading-relaxed text-second max-w-3xl">
+      <strong className="text-second">{titre}</strong>{' '}{legende}
     </figcaption>
   </figure>
 );
@@ -112,13 +112,13 @@ const Tableau: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const Th: React.FC<{ children?: React.ReactNode; droite?: boolean }> = ({ children, droite }) => (
-  <th className={`pb-2 pr-4 ${CLASSES_SURTITRE} border-b border-brand-border dark:border-dark-sec-border whitespace-nowrap ${droite ? 'text-right' : 'text-left'}`}>
+  <th className={`pb-2 pr-4 ${CLASSES_SURTITRE} border-b border-bord whitespace-nowrap ${droite ? 'text-right' : 'text-left'}`}>
     {children}
   </th>
 );
 
 const Td: React.FC<{ children?: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <td className={`py-2 pr-4 align-top border-b border-brand-border dark:border-dark-sec-border ${className}`}>{children}</td>
+  <td className={`py-2 pr-4 align-top border-b border-bord ${className}`}>{children}</td>
 );
 
 const Mono: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -141,14 +141,14 @@ const Puce: React.FC<{ children: React.ReactNode; ton?: 'neutre' | 'attention' }
 const Couches: React.FC<{ items: Array<{ titre: string; texte: string; option?: boolean }> }> = ({ items }) => (
   <ol className="mt-4 space-y-0 list-none p-0 max-w-3xl">
     {items.map((c, i) => (
-      <li key={c.titre} className="grid grid-cols-[1.8rem_1fr] gap-x-3 py-2 border-b border-brand-border dark:border-dark-sec-border last:border-b-0">
-        <span className="font-mono text-xs tabular-nums text-brand-main dark:text-dark-text pt-0.5">
+      <li key={c.titre} className="grid grid-cols-[1.8rem_1fr] gap-x-3 py-2 border-b border-bord last:border-b-0">
+        <span className="font-mono text-xs tabular-nums text-second pt-0.5">
           {String(i + 1).padStart(2, '0')}
         </span>
-        <span className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+        <span className="text-sm leading-relaxed text-second">
           <strong className="font-semibold">{c.titre}</strong>
           {c.option && <span className="ml-2 align-middle"><Puce>seulement si</Puce></span>}
-          <span className="block text-brand-main dark:text-dark-text">{c.texte}</span>
+          <span className="block text-second">{c.texte}</span>
         </span>
       </li>
     ))}
@@ -158,8 +158,8 @@ const Couches: React.FC<{ items: Array<{ titre: string; texte: string; option?: 
 const Points: React.FC<{ items: Array<{ titre: string; texte: string }> }> = ({ items }) => (
   <ul className="mt-4 space-y-3 list-none p-0 max-w-3xl">
     {items.map(p => (
-      <li key={p.titre} className="relative pl-5 text-sm leading-relaxed text-brand-main dark:text-dark-text">
-        <span className="absolute left-0 top-[0.62em] w-2.5 h-px bg-brand-main dark:bg-dark-text" />
+      <li key={p.titre} className="relative pl-5 text-sm leading-relaxed text-second">
+        <span className="absolute left-0 top-[0.62em] w-2.5 h-px bg-marque" />
         <strong className="font-semibold">{p.titre}</strong> {p.texte}
       </li>
     ))}
@@ -169,13 +169,13 @@ const Points: React.FC<{ items: Array<{ titre: string; texte: string }> }> = ({ 
 const Refus: React.FC<{ items: Array<{ titre: string; texte: string; renverse?: boolean }> }> = ({ items }) => (
   <ul className="mt-4 space-y-3 list-none p-0 max-w-3xl">
     {items.map(x => (
-      <li key={x.titre} className="grid grid-cols-[1.1rem_1fr] gap-x-3 text-sm leading-relaxed text-brand-main dark:text-dark-text">
-        <span className={`font-mono leading-relaxed ${x.renverse ? 'text-alerte' : 'text-brand-main dark:text-dark-text'}`}>
+      <li key={x.titre} className="grid grid-cols-[1.1rem_1fr] gap-x-3 text-sm leading-relaxed text-second">
+        <span className={`font-mono leading-relaxed ${x.renverse ? 'text-alerte' : 'text-second'}`}>
           {x.renverse ? '~' : '\u00d7'}
         </span>
         <span>
           <strong className="font-semibold">{x.titre}</strong>{' '}
-          <span className="text-brand-main dark:text-dark-text">{x.texte}</span>
+          <span className="text-second">{x.texte}</span>
         </span>
       </li>
     ))}
@@ -214,7 +214,7 @@ const CarteView: React.FC = () => {
     return <p className="text-sm text-erreur">Échec — {erreur}</p>;
   }
   if (!etat) {
-    return <div className="text-sm text-brand-main dark:text-dark-text">Lecture du corpus…</div>;
+    return <div className="text-sm text-second">Lecture du corpus…</div>;
   }
 
   const profil = (id: string) => etat.profils.find(p => p.profil === id);
@@ -226,17 +226,17 @@ const CarteView: React.FC = () => {
 
       {/* ── Le propos, et les chiffres du jour ── */}
       <div>
-        <p className="max-w-3xl text-sm leading-relaxed text-brand-main dark:text-dark-text">
+        <p className="max-w-3xl text-sm leading-relaxed text-second">
           Le corpus est une seule copie modifiable — {nb(etat.documents)} fiches markdown dans
           le dépôt. Cette page dit par quels chemins elles atteignent un modèle, et ce qui les
           empêche de diverger. <strong>Aucun chiffre n'y est recopié :</strong> tout ce qui est
           compté ci-dessous est lu à l'ouverture de l'écran.
         </p>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs text-brand-main dark:text-dark-text">
-          <span><strong className="text-brand-main dark:text-dark-text">{nb(etat.documents)}</strong> fiches</span>
-          <span><strong className="text-brand-main dark:text-dark-text">{etat.blocs.length}</strong> blocs</span>
-          <span><strong className="text-brand-main dark:text-dark-text">{etat.profils.length}</strong> profils</span>
-          <span><strong className="text-brand-main dark:text-dark-text">{AI_ACTION_CATALOG.length}</strong> actions éditoriales</span>
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs text-second">
+          <span><strong className="text-second">{nb(etat.documents)}</strong> fiches</span>
+          <span><strong className="text-second">{etat.blocs.length}</strong> blocs</span>
+          <span><strong className="text-second">{etat.profils.length}</strong> profils</span>
+          <span><strong className="text-second">{AI_ACTION_CATALOG.length}</strong> actions éditoriales</span>
           <span>au {new Date(etat.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
         </div>
       </div>
@@ -269,17 +269,17 @@ const CarteView: React.FC = () => {
           <tbody>
             {BLOCS.map(b => (
               <tr key={b.id}>
-                <Td className="font-semibold whitespace-nowrap text-brand-main dark:text-white">{b.label}</Td>
-                <Td className="font-mono text-xs tabular-nums text-right text-brand-main dark:text-dark-text">
+                <Td className="font-semibold whitespace-nowrap text-texte">{b.label}</Td>
+                <Td className="font-mono text-xs tabular-nums text-right text-second">
                   {parBloc[b.id] ?? 0}
                 </Td>
-                <Td className="text-brand-main dark:text-dark-text">{b.sousTitre}</Td>
+                <Td className="text-second">{b.sousTitre}</Td>
               </tr>
             ))}
           </tbody>
         </Tableau>
 
-        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">Le vocabulaire des statuts</h3>
+        <h3 className="mt-8 text-sm font-bold text-texte">Le vocabulaire des statuts</h3>
         <Prose>
           <p>
             Le <Mono>statut</Mono> d'une fiche décide si elle entre dans un contexte et si l'offre
@@ -300,7 +300,7 @@ const CarteView: React.FC = () => {
             {(etat.statuts ?? Object.keys(SENS_DES_STATUTS)).map(s => (
               <tr key={s}>
                 <Td className="whitespace-nowrap"><Mono>{s}</Mono></Td>
-                <Td className="text-brand-main dark:text-dark-text">
+                <Td className="text-second">
                   {SENS_DES_STATUTS[s] ?? (
                     <span className="text-alerte">
                       Statut connu du Worker mais pas décrit ici — ajouter sa définition.
@@ -312,7 +312,7 @@ const CarteView: React.FC = () => {
           </tbody>
         </Tableau>
 
-        <div className="mt-4 max-w-3xl text-sm leading-relaxed text-brand-main dark:text-dark-text">
+        <div className="mt-4 max-w-3xl text-sm leading-relaxed text-second">
           <p>
             Le dernier est le moins évident et le plus utile : sans lui, une IA qui lit le corpus
             comble le vide en inventant une charte, et l'incohérence revient là où il y avait une
@@ -432,9 +432,9 @@ const CarteView: React.FC = () => {
           <tbody>
             {SURFACES.map(s => (
               <tr key={s.id}>
-                <Td className="font-semibold text-brand-main dark:text-white">{s.nom}</Td>
+                <Td className="font-semibold text-texte">{s.nom}</Td>
                 <Td><Mono>{s.profil}</Mono></Td>
-                <Td className="text-brand-main dark:text-dark-text">
+                <Td className="text-second">
                   {s.automatique
                     ? <><Puce>automatique</Puce> {s.note}</>
                     : <><Puce ton="attention">{s.geste === 'telecharger' ? 'fichier à importer' : 'à coller'}</Puce> {s.note}</>}
@@ -462,7 +462,7 @@ const CarteView: React.FC = () => {
           </p>
         </Prose>
 
-        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">L'anatomie d'un appel</h3>
+        <h3 className="mt-8 text-sm font-bold text-texte">L'anatomie d'un appel</h3>
         <Prose>
           <p>
             Un appel se compose toujours dans le même ordre : le rôle d'abord, les circonstances
@@ -588,14 +588,14 @@ const CarteView: React.FC = () => {
               return (
                 <tr key={a.id}>
                   <Td><Mono>{a.id}</Mono></Td>
-                  <Td className="whitespace-nowrap text-brand-main dark:text-white">{a.persona}</Td>
-                  <Td className="text-brand-main dark:text-dark-text">{a.attendu}</Td>
+                  <Td className="whitespace-nowrap text-texte">{a.persona}</Td>
+                  <Td className="text-second">{a.attendu}</Td>
                   <Td>
                     {chemins === null
                       ? <Puce ton="attention">rien — décision</Puce>
-                      : <span className="font-mono text-xs text-brand-main dark:text-dark-text">{chemins.join(' · ')}</span>}
+                      : <span className="font-mono text-xs text-second">{chemins.join(' · ')}</span>}
                   </Td>
-                  <Td className="font-mono text-xs tabular-nums text-right whitespace-nowrap text-brand-main dark:text-dark-text">
+                  <Td className="font-mono text-xs tabular-nums text-right whitespace-nowrap text-second">
                     {chemins === null ? '—' : f ? nb(f.taille) : '…'}
                   </Td>
                 </tr>
@@ -603,11 +603,11 @@ const CarteView: React.FC = () => {
             })}
           </tbody>
         </Tableau>
-        <div className="mt-6 max-w-3xl rounded-lg border-l-2 border-brand-main dark:border-dark-text bg-brand-light dark:bg-dark-sec-bg px-4 py-3">
+        <div className="mt-6 max-w-3xl rounded-lg border-l-2 border-brand-main dark:border-dark-text bg-bas px-4 py-3">
           <Etiquette forme="entete" className="mb-1.5">
             Où voir ce qui part vraiment
           </Etiquette>
-          <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+          <p className="text-sm leading-relaxed text-second">
             <strong>Réglages → Personas.</strong> Chaque rôle y montre sa feuille de salle en
             premier — demandée au Worker, jamais recomposée dans le navigateur, sans quoi l'écran
             de vérification pourrait montrer autre chose que ce qui est envoyé — puis le prompt
@@ -642,7 +642,7 @@ const CarteView: React.FC = () => {
           <Etiquette forme="entete" ton="alerte" className="mb-1.5">
             Le piège
           </Etiquette>
-          <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">
+          <p className="text-sm leading-relaxed text-second">
             <strong>Enregistrer ne déploie pas.</strong> Corriger une fiche puis relancer une
             rédaction dans la foulée, c'est envoyer l'ancienne version au modèle. L'écran le dit
             après l'enregistrement ; si vous avez choisi « plus tard », c'est à vous de revenir.
@@ -650,7 +650,7 @@ const CarteView: React.FC = () => {
           </p>
         </div>
 
-        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">L'inbox est une salle d'attente, pas un chemin</h3>
+        <h3 className="mt-8 text-sm font-bold text-texte">L'inbox est une salle d'attente, pas un chemin</h3>
         <Prose>
           <p>
             Le mot « intégrer » laisse croire que le bouton range la capture dans le corpus. Il ne
@@ -664,7 +664,7 @@ const CarteView: React.FC = () => {
           </p>
         </Prose>
 
-        <h3 className="mt-8 text-sm font-bold text-brand-main dark:text-white">Intégrer, ce n'est pas écrire : c'est réviser l'impact</h3>
+        <h3 className="mt-8 text-sm font-bold text-texte">Intégrer, ce n'est pas écrire : c'est réviser l'impact</h3>
         <Prose>
           <p>
             « À partir d'aujourd'hui ma cible principale devient X » ne touche pas un fichier. Ça

@@ -42,7 +42,7 @@ export type ModelesImage = ReturnType<typeof useModeleImage>;
 export const ChoixModeleImage: React.FC<{ id: string; choix: ModelesImage }> = ({ id, choix }) => {
     if (choix.modeles.length === 0) {
         return (
-            <p className="text-xs text-brand-main dark:text-dark-text">
+            <p className="text-xs text-second">
                 Aucun modèle d’image au catalogue : en ajouter un dans Réglages → Modèles IA, sortie « Image ».
             </p>
         );
@@ -150,9 +150,9 @@ export const ResultatIllustration: React.FC<{ illustration: Illustration; nomFic
         <div className="space-y-2">
             {proposee && (
                 <div className="flex flex-wrap items-start gap-3">
-                    <img src={proposee.image} alt={alt} className="w-40 shrink-0 rounded-lg border border-brand-border dark:border-dark-sec-border" />
+                    <img src={proposee.image} alt={alt} className="w-40 shrink-0 rounded-lg border border-bord" />
                     <div className="space-y-2">
-                        <p className="text-xs text-brand-main dark:text-dark-text">{proposee.modelLabel} · {proposee.proportions}{cout(proposee.coutUsd)}</p>
+                        <p className="text-xs text-second">{proposee.modelLabel} · {proposee.proportions}{cout(proposee.coutUsd)}</p>
                         <div className="flex flex-wrap items-center gap-2">
                             <Bouton taille="petit" intention="principale" disabled={enCours} onClick={() => void telecharger(proposee.image, nomFichier)}>
                                 <Download /> Télécharger
@@ -166,7 +166,7 @@ export const ResultatIllustration: React.FC<{ illustration: Illustration; nomFic
                 </div>
             )}
             {enCours && (
-                <p className="flex items-center gap-1.5 text-xs text-brand-main dark:text-dark-text">
+                <p className="flex items-center gap-1.5 text-xs text-second">
                     <EnCours label="Génération… une demi-minute environ" taille="xs" />
                 </p>
             )}

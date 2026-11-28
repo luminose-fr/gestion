@@ -28,7 +28,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
 
     if (!data || !data.format) {
         return (
-            <div className="p-6 whitespace-pre-wrap text-sm leading-relaxed text-brand-main dark:text-dark-text">
+            <div className="p-6 whitespace-pre-wrap text-sm leading-relaxed text-second">
                 {data?.edited_raw || body}
             </div>
         );
@@ -40,7 +40,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                 <div className="flex items-center gap-2 text-micro font-bold text-amber-600 dark:text-amber-400 uppercase">
                     <Pencil className="w-3 h-3" /> Contenu édité manuellement
                 </div>
-                <div className="whitespace-pre-wrap text-sm leading-relaxed text-brand-main dark:text-dark-text">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-second">
                     {data.edited_raw}
                 </div>
             </div>
@@ -59,7 +59,7 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
     if (isPostTexte) return (
         <div className="p-6 space-y-4">
             {data.accroche && <Block label="Accroche" color="border-pink-400">{t(data.accroche)}</Block>}
-            {data.corps && <Block label="Corps" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
+            {data.corps && <Block label="Corps" color="border-marque">{t(data.corps)}</Block>}
             {data.cta   && <Block label="CTA"   color="border-green-400">{t(data.cta)}</Block>}
             {Array.isArray(data.hashtags) && data.hashtags.filter(Boolean).length > 0 && (
                 <Block label="Hashtags" color="border-blue-400">
@@ -89,8 +89,8 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
         return (
             <div>
                 {/* Le corps se lit comme l'article publié : même convertisseur que le fichier du site. */}
-                <div className="p-6 space-y-4 text-sm leading-relaxed text-brand-main dark:text-dark-text">
-                    {data.titre_h1    && <h2 className="text-lg font-bold text-brand-main dark:text-white">{t(data.titre_h1)}</h2>}
+                <div className="p-6 space-y-4 text-sm leading-relaxed text-second">
+                    {data.titre_h1    && <h2 className="text-lg font-bold text-texte">{t(data.titre_h1)}</h2>}
                     {t(data.meta_description) && <Block label="Meta description" color="border-brand-border">{t(data.meta_description)}</Block>}
                     {resume.length > 0 && (
                         <Block label="En résumé" color="border-purple-400">
@@ -100,12 +100,12 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                     {t(data.introduction) && <TexteLeger source={t(data.introduction)} />}
                     {sections.map((s: any, i: number) => (
                         <div key={i} className="space-y-3">
-                            {t(s.sous_titre_h2) && <h3 className="text-sm font-bold text-brand-main dark:text-white pt-2">{t(s.sous_titre_h2)}</h3>}
+                            {t(s.sous_titre_h2) && <h3 className="text-sm font-bold text-texte pt-2">{t(s.sous_titre_h2)}</h3>}
                             {t(s.contenu) && <TexteLeger source={t(s.contenu)} />}
                             {/* La conclusion ferme la dernière section, comme dans le fichier du site. */}
                             {i === sections.length - 1 && t(data.conclusion) && <TexteLeger source={t(data.conclusion)} />}
                             {illustrationsApres(i + 1).map((ill, j) => (
-                                <div key={j} className="rounded-lg border border-dashed border-brand-border dark:border-dark-sec-border px-4 py-3 text-xs text-brand-main dark:text-dark-text">
+                                <div key={j} className="rounded-lg border border-dashed border-bord px-4 py-3 text-xs text-second">
                                     Illustration — {ill.alt || ill.fichier}
                                 </div>
                             ))}
@@ -144,12 +144,12 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
 
     if (isReelShort) return (
         <div className="p-6 space-y-4">
-            {data.contrainte && <p className="text-micro font-bold text-brand-main dark:text-dark-text uppercase">{t(data.contrainte)}</p>}
+            {data.contrainte && <p className="text-micro font-bold text-second uppercase">{t(data.contrainte)}</p>}
             {(data.sections || []).map((s: any, i: number) => (
                 <BlockPre key={i} label={`${t(s.timing)} ${t(s.role)}`} color={
                     i === 0 ? "border-pink-400" :
                     i === (data.sections?.length ?? 0) - 1 ? "border-green-400" :
-                    "border-brand-main dark:border-white"
+                    "border-marque"
                 }>
                     {t(s.texte)}
                     {s.intention && <p className="mt-2 text-xs italic opacity-60">{t(s.intention)}</p>}
@@ -160,12 +160,12 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
 
     if (isYoutube) return (
         <div className="p-6 space-y-4">
-            {t(data.titre_video) && <h2 className="text-lg font-bold text-brand-main dark:text-white">{t(data.titre_video)}</h2>}
+            {t(data.titre_video) && <h2 className="text-lg font-bold text-texte">{t(data.titre_video)}</h2>}
             {data.intro && <Block label="Intro" color="border-pink-400">{t(data.intro)}</Block>}
             {(data.developpement || []).map((s: any, i: number) => (
                 <div key={i} className="space-y-2">
-                    {s.point  && <h3 className="text-sm font-bold text-brand-main dark:text-white">{t(s.point)}</h3>}
-                    {s.contenu && <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{t(s.contenu)}</p>}
+                    {s.point  && <h3 className="text-sm font-bold text-texte">{t(s.point)}</h3>}
+                    {s.contenu && <p className="text-sm leading-relaxed text-second">{t(s.contenu)}</p>}
                 </div>
             ))}
             {data.conclusion && <Block label="Conclusion" color="border-purple-400">{t(data.conclusion)}</Block>}
@@ -187,17 +187,17 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
                 const isIllustree = s.type === 'ILLUSTRÉE' || s.type === 'IMAGE'; // IMAGE = rétrocompat ancienne trame
                 const intention = s.intention_visuelle || s.visuel; // visuel = rétrocompat
                 return (
-                    <div key={i} className={`bg-brand-light dark:bg-dark-bg rounded-lg p-3 border ${isIllustree ? 'border-amber-300 dark:border-amber-700' : 'border-brand-border dark:border-dark-sec-border'}`}>
+                    <div key={i} className={`bg-fond rounded-lg p-3 border ${isIllustree ? 'border-amber-300 dark:border-amber-700' : 'border-bord'}`}>
                         <div className="flex items-center gap-2 mb-2">
                             <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-micro font-bold flex items-center justify-center">{s.numero ?? i + 1}</span>
-                            {s.titre && <span className="text-sm font-bold text-brand-main dark:text-white">{t(s.titre)}</span>}
+                            {s.titre && <span className="text-sm font-bold text-texte">{t(s.titre)}</span>}
                             {s.type && (
-                                <span className={`px-1.5 py-0.5 rounded-full text-micro font-semibold ${isIllustree ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-brand-border/50 dark:bg-dark-sec-border/50 text-brand-main dark:text-dark-text'}`}>
+                                <span className={`px-1.5 py-0.5 rounded-full text-micro font-semibold ${isIllustree ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-brand-border/50 dark:bg-dark-sec-border/50 text-second'}`}>
                                     {isIllustree ? 'Illustrée' : 'Typo'}
                                 </span>
                             )}
                         </div>
-                        {s.texte && <p className="text-sm text-brand-main dark:text-dark-text leading-relaxed">{t(s.texte)}</p>}
+                        {s.texte && <p className="text-sm text-second leading-relaxed">{t(s.texte)}</p>}
                         {intention && isIllustree && (
                             <p className="mt-2 text-xs italic text-amber-600 dark:text-amber-400 border-l-2 border-amber-300 dark:border-amber-700 pl-2">
                                 Intention visuelle : {t(intention)}
@@ -224,12 +224,12 @@ export const BodyRenderer: React.FC<BodyRendererProps> = ({ body, datePublicatio
         <div className="p-6 space-y-4">
             {data.objet && <Block label="Objet" color="border-blue-400">{t(data.objet)}</Block>}
             {data.accroche && <Block label="Accroche" color="border-pink-400">{t(data.accroche)}</Block>}
-            {data.corps && <Block label="Corps" color="border-brand-main dark:border-white">{t(data.corps)}</Block>}
+            {data.corps && <Block label="Corps" color="border-marque">{t(data.corps)}</Block>}
             {data.repositionnement && <Block label="Repositionnement" color="border-purple-400">{t(data.repositionnement)}</Block>}
             {data.baffe && <Block label="Baffe" color="border-pink-400">{t(data.baffe)}</Block>}
             {data.cta && <Block label="CTA" color="border-green-400">{t(data.cta)}</Block>}
         </div>
     );
 
-    return <div className="p-6 text-sm text-brand-main dark:text-dark-text whitespace-pre-wrap">{body}</div>;
+    return <div className="p-6 text-sm text-second whitespace-pre-wrap">{body}</div>;
 };

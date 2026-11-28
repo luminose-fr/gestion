@@ -324,7 +324,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
 
     const progression = (cible: string) => export_?.cible === cible && (
         <div className="space-y-1">
-            <p className="flex items-center gap-1.5 text-xs text-brand-main dark:text-dark-text">
+            <p className="flex items-center gap-1.5 text-xs text-second">
                 <EnCours label={`Export… ${Math.round(export_.part * 100)} %`} taille="xs" />
             </p>
             <Barre part={export_.part} libelle="Export" />
@@ -457,7 +457,7 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
     const aDesChoix = Object.keys(principale?.prise.coupes ?? {}).length > 0;
 
     const section = (titreSection: string, contenu: React.ReactNode) => (
-        <div className="space-y-2 py-4 border-t border-brand-border dark:border-dark-sec-border">
+        <div className="space-y-2 py-4 border-t border-bord">
             <Etiquette>{titreSection}</Etiquette>
             {contenu}
         </div>
@@ -518,12 +518,12 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                 ))}
                 {animations && !plan && sequences.length > 0 && section('Débit, sans prise', (
                     <div className="space-y-1">
-                        <label htmlFor="debit-reel" className="block text-xs text-brand-main dark:text-dark-text">
+                        <label htmlFor="debit-reel" className="block text-xs text-second">
                             <span className="font-bold">{debit} mots par minute</span> — durée ≈ {secondes(estime.duree)}
                         </label>
                         <input id="debit-reel" type="range" min={DEBIT_MIN} max={DEBIT_MAX} step={5} value={debit}
                             onChange={e => setDebit(Number(e.target.value))} className="w-full accent-brand-main dark:accent-dark-text" />
-                        <p className="text-xs text-brand-main dark:text-dark-text">
+                        <p className="text-xs text-second">
                             Lisez le script à voix haute, chronométrez, et réglez le débit : l’aperçu et les scènes seules tomberont au bon rythme.
                         </p>
                     </div>
@@ -531,8 +531,8 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                 {section('Stockage', montage.etat && prises.indisponible
                     ? <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : aucune prise ne peut être déposée.</p>
                     : montage.etat?.stockage.disponible && montage.etat.stockage.plafond > 0
-                        ? <p className="text-xs text-brand-main dark:text-dark-text">{poids(montage.etat.stockage.octets)} sur {poids(montage.etat.stockage.plafond)} gratuits, tous contenus confondus. Une prise retirée rend sa place.</p>
-                        : <p className="text-xs text-brand-main dark:text-dark-text">—</p>)}
+                        ? <p className="text-xs text-second">{poids(montage.etat.stockage.octets)} sur {poids(montage.etat.stockage.plafond)} gratuits, tous contenus confondus. Une prise retirée rend sa place.</p>
+                        : <p className="text-xs text-second">—</p>)}
             </div>
         </div>
     );
@@ -648,15 +648,15 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
             </div>
 
             {/* Le texte tel qu'il sera entendu, et au-dessus ce qui reste à faire. */}
-            <div className="relative min-h-0 flex flex-col bg-white dark:bg-dark-surface">
-                <div className="h-[52px] shrink-0 flex items-center gap-3 px-7 border-b border-brand-border dark:border-dark-sec-border">
+            <div className="relative min-h-0 flex flex-col bg-surface">
+                <div className="h-[52px] shrink-0 flex items-center gap-3 px-7 border-b border-bord">
                     {plan && principale ? (
                         <>
-                            <span className="text-lg font-bold tabular-nums text-brand-main dark:text-white">{minutes(plan.duree)}</span>
-                            <span className="text-sm text-brand-main dark:text-dark-text">gardées sur {minutes(principale.prise.duree)} de prise</span>
+                            <span className="text-lg font-bold tabular-nums text-texte">{minutes(plan.duree)}</span>
+                            <span className="text-sm text-second">gardées sur {minutes(principale.prise.duree)} de prise</span>
                         </>
                     ) : (
-                        <span className="text-sm font-semibold text-brand-main dark:text-white">{sansScript || !animations ? 'La prise' : 'Avant le tournage'}</span>
+                        <span className="text-sm font-semibold text-texte">{sansScript || !animations ? 'La prise' : 'Avant le tournage'}</span>
                     )}
                     {calee && (
                         <div className="ml-auto flex items-center gap-2">
@@ -719,10 +719,10 @@ const PanneauMontage: React.FC<PanneauMontageProps> = ({ data: brouillon, conten
                 </div>
 
                 {tiroir && calee && (
-                    <aside aria-label="La prise" className="absolute inset-y-0 right-0 z-20 w-[440px] max-w-full flex flex-col bg-white dark:bg-dark-surface border-l border-brand-border dark:border-dark-sec-border shadow-lg">
-                        <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-brand-border dark:border-dark-sec-border">
-                            <Film className="size-4 text-brand-main dark:text-dark-text" />
-                            <span className="flex-1 text-sm font-bold text-brand-main dark:text-white">La prise</span>
+                    <aside aria-label="La prise" className="absolute inset-y-0 right-0 z-20 w-[440px] max-w-full flex flex-col bg-surface border-l border-bord shadow-lg">
+                        <div className="h-[60px] shrink-0 flex items-center gap-2 px-5 border-b border-bord">
+                            <Film className="size-4 text-second" />
+                            <span className="flex-1 text-sm font-bold text-texte">La prise</span>
                             <Bouton taille="grand" intention="discrete" className="w-10 px-0 no-underline" aria-label="Fermer le tiroir de la prise" onClick={() => setTiroir(false)}>
                                 <X />
                             </Bouton>

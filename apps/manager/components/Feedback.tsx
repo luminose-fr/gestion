@@ -33,7 +33,7 @@ export interface BarreProps {
 }
 
 const TONS = {
-  brand:  { piste: 'bg-brand-main/15 dark:bg-white/10',   remplissage: 'bg-brand-main dark:bg-dark-text' },
+  brand:  { piste: 'bg-brand-main/15 dark:bg-white/10',   remplissage: 'bg-marque' },
   violet: { piste: 'bg-brand-main dark:bg-dark-bg', remplissage: 'bg-brand-main dark:bg-dark-bg' },
   ambre:  { piste: 'bg-alerte/15',   remplissage: 'bg-alerte' },
 };
@@ -104,10 +104,10 @@ export const Patience: React.FC<{
 }> = ({ titre, detail, part = null, aspect = 'ligne' }) => {
   const corps = (
     <>
-      <Loader2 className="w-6 h-6 text-brand-main dark:text-dark-text animate-spin mb-3" />
-      <p className="text-sm font-semibold text-brand-main dark:text-white">{titre}</p>
+      <Loader2 className="w-6 h-6 text-second animate-spin mb-3" />
+      <p className="text-sm font-semibold text-texte">{titre}</p>
       {detail && (
-        <p className="mt-1 text-xs text-brand-main dark:text-dark-text">{detail}</p>
+        <p className="mt-1 text-xs text-second">{detail}</p>
       )}
       <Barre part={part} libelle={titre} className="mt-4 max-w-64" />
     </>
@@ -115,7 +115,7 @@ export const Patience: React.FC<{
 
   if (aspect === 'bloc') {
     return (
-      <div className="flex flex-col items-center justify-center text-center p-6 w-64 bg-white dark:bg-dark-surface rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border animate-fade-in">
+      <div className="flex flex-col items-center justify-center text-center p-6 w-64 bg-surface rounded-xl shadow-lg border border-bord animate-fade-in">
         {corps}
       </div>
     );
@@ -221,17 +221,17 @@ const LigneActivite: React.FC<{ tache: Tache; maintenant: number }> = ({ tache, 
     /* Le bandeau prolonge l'en-tête plutôt que de se fondre dans la page : posé
        sur `bg-brand-light`, il avait exactement la couleur du fond des listes et
        ne se voyait pas — c'est le reproche d'origine. */
-    <div className="px-4 md:px-6 py-2 bg-white dark:bg-dark-surface border-b border-brand-border dark:border-dark-sec-border animate-fade-in">
-      <div className="flex items-center gap-3 flex-wrap text-xs text-brand-main dark:text-dark-text">
+    <div className="px-4 md:px-6 py-2 bg-surface border-b border-bord animate-fade-in">
+      <div className="flex items-center gap-3 flex-wrap text-xs text-second">
         <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
         <span className="flex-1 min-w-0">
-          <strong className="font-bold text-brand-main dark:text-white">{tache.label}</strong>
+          <strong className="font-bold text-texte">{tache.label}</strong>
           {tache.persona ? ` — ${tache.persona}` : ''}
           {tache.modele && (
-            <span className="text-brand-main dark:text-dark-text"> · {tache.modele}</span>
+            <span className="text-second"> · {tache.modele}</span>
           )}
           {tache.etape && (
-            <span className="text-brand-main dark:text-dark-text"> · {tache.etape}</span>
+            <span className="text-second"> · {tache.etape}</span>
           )}
         </span>
         {long && (
@@ -239,7 +239,7 @@ const LigneActivite: React.FC<{ tache: Tache; maintenant: number }> = ({ tache, 
             plus long que d'habitude
           </span>
         )}
-        <span className="shrink-0 tabular-nums text-brand-main dark:text-dark-text">
+        <span className="shrink-0 tabular-nums text-second">
           {secondes} s
         </span>
       </div>

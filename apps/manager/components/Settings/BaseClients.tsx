@@ -49,17 +49,17 @@ export const BaseClients: React.FC<{ partie?: 'etat' | 'reception' }> = ({ parti
     if (etat.phase === 'lecture') return null;
     return reliee
       ? <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'} />
-      : <Carte densite="contenu"><p className="text-sm text-brand-main dark:text-dark-text">La base des clients n’est pas reliée ici : le site ne reçoit rien, il n’y a pas de réception à couper.</p></Carte>;
+      : <Carte densite="contenu"><p className="text-sm text-second">La base des clients n’est pas reliée ici : le site ne reçoit rien, il n’y a pas de réception à couper.</p></Carte>;
   }
 
   return (
     <Carte densite="contenu" data-base-clients={etat.phase === 'lue' ? (reliee ? 'reliee' : 'non-reliee') : etat.phase}>
       <div className="flex items-baseline justify-between gap-4">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-main dark:text-white">
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-texte">
           <Database className="size-4 shrink-0" aria-hidden />
           Base des clients
         </span>
-        {etat.phase === 'lecture' && <span className="text-xs text-brand-main dark:text-dark-text">Lecture…</span>}
+        {etat.phase === 'lecture' && <span className="text-xs text-second">Lecture…</span>}
         {etat.phase === 'lue' && (
           <Etiquette forme="pastille" ton={reliee ? 'succes' : 'neutre'} as="span">
             {reliee ? 'Reliée' : 'Non reliée'}
@@ -77,7 +77,7 @@ export const BaseClients: React.FC<{ partie?: 'etat' | 'reception' }> = ({ parti
       )}
 
       {etat.phase === 'lue' && reliee && etat.effectifs && (
-        <p className="mt-2 text-xs tabular-nums text-brand-main dark:text-dark-text">
+        <p className="mt-2 text-xs tabular-nums text-second">
           {nombre(etat.effectifs.fiches, 'fiche', 'fiches')}
           {' · '}{nombre(etat.effectifs.seances, 'séance', 'séances')}
           {' · '}{nombre(etat.effectifs.evenements, 'évènement', 'évènements')}
@@ -90,7 +90,7 @@ export const BaseClients: React.FC<{ partie?: 'etat' | 'reception' }> = ({ parti
       {reliee && partie !== 'etat' && <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'} />}
 
       {etat.phase === 'lue' && !reliee && (
-        <p className="mt-2 text-xs text-brand-main dark:text-dark-text">
+        <p className="mt-2 text-xs text-second">
           La liaison <code>CLIENTS</code> n’est pas posée dans cet environnement : le reste de la console
           fonctionne à l’identique. En production, elle ne le sera qu’après les protections de la phase S4.
         </p>

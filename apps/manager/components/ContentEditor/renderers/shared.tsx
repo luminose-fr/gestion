@@ -54,17 +54,17 @@ export const copyTextToClipboard = async (text: string): Promise<boolean> => {
 
 /** Bloc structuré avec border-left colorée — utilisé par tous les renderers */
 export const Block = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
-    <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
+    <div className={`rounded-lg border-l-4 ${color} bg-fond p-4`}>
         <p className="text-micro font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
-        <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text">{children}</div>
+        <div className="text-sm leading-relaxed text-second">{children}</div>
     </div>
 );
 
 /** Bloc identique mais avec whitespace-pre-wrap (pour le script vidéo) */
 export const BlockPre = ({ label, color, children }: { label: string; color: string; children: React.ReactNode }) => (
-    <div className={`rounded-lg border-l-4 ${color} bg-brand-light dark:bg-dark-bg p-4`}>
+    <div className={`rounded-lg border-l-4 ${color} bg-fond p-4`}>
         <p className="text-micro font-bold uppercase tracking-widest mb-2 opacity-60">{label}</p>
-        <div className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">{children}</div>
+        <div className="text-sm leading-relaxed text-second whitespace-pre-wrap">{children}</div>
     </div>
 );
 
@@ -169,9 +169,9 @@ export const CarrouselLegende: React.FC<{ legende?: LegendeCarrousel | null }> =
     };
 
     return (
-        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5">
+        <div className="rounded-xl border border-bord bg-fond p-5">
             <div className="flex items-center justify-between gap-2 mb-3">
-                <p className="text-micro font-bold uppercase tracking-wider text-brand-main dark:text-dark-text">
+                <p className="text-micro font-bold uppercase tracking-wider text-second">
                     Légende de publication
                 </p>
                 <Bouton data-confirme={copied || undefined} aria-live="polite" taille="petit" intention={copied ? 'principale' : 'secondaire'} ton={copied ? 'succes' : 'neutre'}
@@ -183,19 +183,19 @@ export const CarrouselLegende: React.FC<{ legende?: LegendeCarrousel | null }> =
                 </Bouton>
             </div>
             {t(legende?.texte) && (
-                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap">
+                <p className="text-sm leading-relaxed text-second whitespace-pre-wrap">
                     {t(legende!.texte)}
                 </p>
             )}
             {t(legende?.cta) && (
-                <p className="mt-3 text-sm font-semibold text-brand-main dark:text-white">
+                <p className="mt-3 text-sm font-semibold text-texte">
                     {t(legende!.cta)}
                 </p>
             )}
             {tags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                     {tags.map((tag, i) => (
-                        <span key={i} className="text-xs font-semibold text-brand-main dark:text-dark-text bg-brand-light dark:bg-dark-bg rounded-md px-2 py-0.5">
+                        <span key={i} className="text-xs font-semibold text-second bg-fond rounded-md px-2 py-0.5">
                             {tag}
                         </span>
                     ))}

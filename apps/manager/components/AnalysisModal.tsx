@@ -220,19 +220,19 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         onClick={isAnalyzing ? undefined : onClose}
     >
       <div ref={modal} role="dialog" aria-modal="true" aria-label="Analyse IA en lot" tabIndex={-1}
-        className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-lg rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border flex flex-col overflow-hidden"
+        className="ui-dialog bg-surface w-full max-w-lg rounded-xl shadow-lg border border-bord flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 border-b border-brand-border dark:border-dark-sec-border bg-brand-light/30 dark:bg-dark-bg/30 flex items-center justify-between">
+        <div className="p-6 border-b border-bord bg-brand-light/30 dark:bg-dark-bg/30 flex items-center justify-between">
             <div className="flex items-center gap-3">
-                <div className="bg-brand-light dark:bg-dark-bg p-2 rounded-lg text-brand-main dark:text-dark-text">
+                <div className="bg-fond p-2 rounded-lg text-second">
                     <Brain className="w-6 h-6" />
                 </div>
                 <TitreSection as="h3" titre="Analyse IA en lot" sousTitre="Optimisez vos idées automatiquement" />
             </div>
             {!isAnalyzing && (
-                <button aria-label="Fermer" onClick={onClose} className="text-brand-main hover:text-brand-main dark:text-dark-text dark:hover:text-white transition-colors">
+                <button aria-label="Fermer" onClick={onClose} className="text-brand-main hover:text-second dark:hover:text-white transition-colors">
                     <X className="w-5 h-5" />
                 </button>
             )}
@@ -242,22 +242,22 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
         <div className="p-6 space-y-6">
             {!isAnalyzing ? (
                 <>
-                    <div className="bg-brand-light dark:bg-dark-bg p-4 rounded-lg border border-brand-border dark:border-dark-sec-border">
+                    <div className="bg-fond p-4 rounded-lg border border-bord">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-semibold text-brand-main dark:text-white">Idées à analyser</span>
+                            <span className="text-sm font-semibold text-texte">Idées à analyser</span>
                             <span className="bg-brand-main text-white text-xs px-2 py-0.5 rounded-full font-bold">{itemsToAnalyze.length}</span>
                         </div>
-                        <p className="text-xs text-brand-main dark:text-dark-text">
+                        <p className="text-xs text-second">
                             Ces idées seront envoyées à l'IA pour évaluation, suggestion d'angle stratégique et choix des plateformes.
                         </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
-                        <div className="p-3 bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border rounded-lg">
+                        <div className="p-3 bg-surface border border-bord rounded-lg">
                             <Etiquette as="div" avecIcone className="mb-1">
                                 <Cpu className="w-3 h-3" /> Modèle
                             </Etiquette>
-                            <div className="text-sm font-semibold text-brand-main dark:text-white truncate" title={modelName}>
+                            <div className="text-sm font-semibold text-texte truncate" title={modelName}>
                                 {modelName}
                             </div>
                         </div>
@@ -283,7 +283,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({
 
         {/* Footer */}
         {!isAnalyzing && (
-            <div className="p-6 border-t border-brand-border dark:border-dark-sec-border flex justify-end gap-3 bg-brand-light/30 dark:bg-dark-bg/30">
+            <div className="p-6 border-t border-bord flex justify-end gap-3 bg-brand-light/30 dark:bg-dark-bg/30">
                 <Bouton
                     onClick={onClose}
                     intention="discrete">

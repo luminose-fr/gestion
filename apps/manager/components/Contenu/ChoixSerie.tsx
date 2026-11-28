@@ -92,7 +92,7 @@ export const ChoixSerie: React.FC<ChoixSerieProps> = ({ contenu, series, onDepla
     };
 
     return (
-        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5 space-y-4">
+        <div className="rounded-xl border border-bord bg-surface p-5 space-y-4">
             <div className="flex flex-wrap gap-4">
                 <div className="flex-1 min-w-[240px]">
                     <Etiquette as="label" htmlFor="serie-du-contenu" className="mb-1">Série</Etiquette>
@@ -143,7 +143,7 @@ export const ChoixSerie: React.FC<ChoixSerieProps> = ({ contenu, series, onDepla
             )}
 
             {contenu.publie ? (
-                <p className="text-xs text-brand-main dark:text-dark-text">
+                <p className="text-xs text-second">
                     Publié : sa série fait partie de l’historique de publication, il ne se déplace plus.
                 </p>
             ) : (

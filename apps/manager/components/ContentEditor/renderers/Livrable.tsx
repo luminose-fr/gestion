@@ -43,7 +43,7 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
     const { fichier, url, illustrations, posts, avertissements } = livrable;
 
     return (
-        <div className="p-6 space-y-4 border-t border-brand-border dark:border-dark-sec-border">
+        <div className="p-6 space-y-4 border-t border-bord">
             <Etiquette as="h3" forme="entete">Publication</Etiquette>
 
             <Carte densite="contenu" rythme>
@@ -56,10 +56,10 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                         </Bouton>
                     </div>
                 </div>
-                <p className="text-sm font-mono text-brand-main dark:text-dark-text break-all select-text">
+                <p className="text-sm font-mono text-second break-all select-text">
                     _posts/{fichier.nom}
                 </p>
-                <p className="text-xs text-brand-main dark:text-dark-text break-all select-text">
+                <p className="text-xs text-second break-all select-text">
                     En ligne à {url}
                 </p>
                 {avertissements.length > 0 && (
@@ -72,10 +72,10 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                     </ul>
                 )}
                 <details className="group">
-                    <summary className="text-xs font-semibold text-brand-main dark:text-dark-text cursor-pointer select-none">
+                    <summary className="text-xs font-semibold text-second cursor-pointer select-none">
                         Voir le code
                     </summary>
-                    <pre className="mt-2 max-h-96 overflow-auto custom-scrollbar rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-3 text-xs font-mono text-brand-main dark:text-dark-text whitespace-pre select-text">
+                    <pre className="mt-2 max-h-96 overflow-auto custom-scrollbar rounded-lg border border-bord bg-fond p-3 text-xs font-mono text-second whitespace-pre select-text">
                         {fichier.contenu}
                     </pre>
                 </details>
@@ -85,7 +85,7 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                 <Carte densite="contenu" rythme>
                     <Etiquette forme="entete">Illustrations</Etiquette>
                     {illustrations.map((illustration, i) => (
-                        <div key={i} className="rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-4 space-y-2">
+                        <div key={i} className="rounded-lg border border-bord bg-fond p-4 space-y-2">
                             <div className="flex items-center justify-between gap-3 flex-wrap">
                                 <Etiquette>
                                     {illustration.apresSection === null
@@ -94,11 +94,11 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                                 </Etiquette>
                                 <BoutonCopier texte={illustration.prompt} titre="Copier le prompt" />
                             </div>
-                            <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap select-text">
+                            <p className="text-sm leading-relaxed text-second whitespace-pre-wrap select-text">
                                 {illustration.prompt}
                             </p>
                             {/* Le site lit le .jpg et sa variante @2x : les deux noms, pour ne pas avoir à les deviner. */}
-                            <p className="text-xs font-mono text-brand-main dark:text-dark-text break-all">
+                            <p className="text-xs font-mono text-second break-all">
                                 /images/blog/{illustration.fichier}.jpg · {illustration.fichier}@2x.jpg
                             </p>
                         </div>
@@ -111,12 +111,12 @@ export const Livrable: React.FC<{ livrable: LivrableArticle }> = ({ livrable }) 
                     <Etiquette forme="entete">Post d’accompagnement</Etiquette>
                     <div className="grid gap-3 xl:grid-cols-2">
                         {posts.map(post => (
-                            <div key={post.plateforme} className="rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-4 space-y-2">
+                            <div key={post.plateforme} className="rounded-lg border border-bord bg-fond p-4 space-y-2">
                                 <div className="flex items-center justify-between gap-3">
                                     <Etiquette>{post.plateforme}</Etiquette>
                                     <BoutonCopier texte={post.texte} titre={`Copier le post ${post.plateforme}`} />
                                 </div>
-                                <p className="text-sm leading-relaxed text-brand-main dark:text-dark-text whitespace-pre-wrap break-words select-text">
+                                <p className="text-sm leading-relaxed text-second whitespace-pre-wrap break-words select-text">
                                     {post.texte}
                                 </p>
                             </div>

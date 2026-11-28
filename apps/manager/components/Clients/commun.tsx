@@ -217,7 +217,7 @@ export const Avis: React.FC<React.PropsWithChildren<{ ton?: 'neutre' | 'erreur' 
     className={`text-sm rounded-lg px-3 py-2 border ${
       ton === 'erreur' ? 'text-erreur border-erreur/30 bg-erreur/10'
         : ton === 'alerte' ? 'text-alerte border-alerte/30 bg-alerte/10'
-          : 'text-brand-main dark:text-dark-text border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface'
+          : 'text-second border-bord bg-surface'
     }`}
   >
     {children}
@@ -226,10 +226,10 @@ export const Avis: React.FC<React.PropsWithChildren<{ ton?: 'neutre' | 'erreur' 
 
 /** Une liste vide se dit, elle ne reste pas blanche. */
 export const Vide: React.FC<React.PropsWithChildren> = ({ children }) => (
-  <p className="text-sm text-brand-main dark:text-dark-text py-6 text-center">{children}</p>
+  <p className="text-sm text-second py-6 text-center">{children}</p>
 );
 
 /** Le sélecteur natif, aux classes du champ : un choix fermé (statut, paiement, mode, type). */
 export const CLASSES_SELECT =
-  'w-full px-3 py-2 rounded-lg text-sm bg-brand-light dark:bg-dark-bg border border-brand-border dark:border-dark-sec-border ' +
-  'text-brand-main dark:text-white outline-hidden focus:border-brand-main dark:focus:border-white transition-colors disabled:opacity-40';
+  'w-full px-3 py-2 rounded-lg text-sm bg-fond border border-bord ' +
+  'text-texte outline-hidden focus:border-marque transition-colors disabled:opacity-40';

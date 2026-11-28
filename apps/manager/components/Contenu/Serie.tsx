@@ -23,10 +23,10 @@ export interface PanneauSerieProps {
 
 export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications, etapes, active, onPlan, onOuvrir }) => (
     // Sur téléphone, le panneau s'efface : la place manque, et le plan reste à un clic du retour.
-    <nav aria-label={`Série ${serie.titre}`} className="hidden md:block w-[272px] shrink-0 min-h-0 overflow-y-auto border-r border-brand-border dark:border-dark-sec-border bg-brand-light/60 dark:bg-dark-bg px-3 py-4 space-y-1">
+    <nav aria-label={`Série ${serie.titre}`} className="hidden md:block w-[272px] shrink-0 min-h-0 overflow-y-auto border-r border-bord bg-brand-light/60 dark:bg-dark-bg px-3 py-4 space-y-1">
         <div className="px-2 pb-3 space-y-1">
             <Etiquette>Série</Etiquette>
-            <p className="text-sm font-bold text-brand-main dark:text-white leading-snug">{serie.titre}</p>
+            <p className="text-sm font-bold text-texte leading-snug">{serie.titre}</p>
         </div>
         <button
             type="button"
@@ -34,8 +34,8 @@ export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications,
             aria-current={active === null ? 'page' : undefined}
             className={`w-full h-12 flex items-center gap-3 px-3 rounded-[10px] text-sm font-semibold transition-colors ${
                 active === null
-                    ? 'bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border shadow-xs text-brand-main dark:text-white'
-                    : 'text-brand-main dark:text-dark-text hover:bg-white dark:hover:bg-dark-surface'
+                    ? 'bg-surface border border-bord shadow-xs text-texte'
+                    : 'text-second hover:bg-surface'
             }`}
         >
             <ListOrdered className="w-4 h-4 shrink-0" /> Plan de la série
@@ -51,19 +51,19 @@ export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications,
                     aria-current={ici ? 'page' : undefined}
                     className={`w-full flex items-start gap-3 px-3 py-2 rounded-[10px] text-left transition-colors ${
                         ici
-                            ? 'bg-white dark:bg-dark-surface border border-brand-border dark:border-dark-sec-border shadow-xs'
-                            : 'border border-transparent hover:bg-white dark:hover:bg-dark-surface'
+                            ? 'bg-surface border border-bord shadow-xs'
+                            : 'border border-transparent hover:bg-surface'
                     }`}
                 >
                     <span className={`w-[26px] h-[26px] shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
-                        ici ? 'bg-brand-main text-white dark:bg-white dark:text-brand-main' : 'border border-brand-border dark:border-dark-sec-border text-brand-main dark:text-dark-text'
+                        ici ? 'bg-marque text-sur-marque' : 'border border-bord text-second'
                     }`}>
                         {item.seriePosition ?? i + 1}
                     </span>
                     <span className="flex-1 min-w-0 space-y-1">
-                        <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
+                        <span className="block text-sm font-semibold text-texte truncate">{item.title || 'Sans titre'}</span>
                         {etape && <BarreProgression segments={etape.progression.segments} complet={etape.progression.complet} fine />}
-                        <span className={`block text-xs truncate ${etape?.progression.complet ? 'text-succes' : 'text-brand-main dark:text-dark-text'}`}>{etape?.libelle}</span>
+                        <span className={`block text-xs truncate ${etape?.progression.complet ? 'text-succes' : 'text-second'}`}>{etape?.libelle}</span>
                     </span>
                 </button>
             );
@@ -79,17 +79,17 @@ export const PanneauSerie: React.FC<PanneauSerieProps> = ({ serie, publications,
 export const AvancementSerie: React.FC<{ publications: ContentItem[]; etapes: Record<string, EtapeCourante> }> = ({ publications, etapes }) => {
     const publiees = publications.filter(p => p.status === ContentStatus.PUBLISHED).length;
     return (
-        <div className="w-full md:w-[320px] h-[52px] shrink-0 flex flex-col justify-center gap-1.5 px-3 rounded-[10px] border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
+        <div className="w-full md:w-[320px] h-[52px] shrink-0 flex flex-col justify-center gap-1.5 px-3 rounded-[10px] border border-bord bg-fond">
             <span className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-bold text-brand-main dark:text-white">Avancement</span>
+                <span className="text-sm font-bold text-texte">Avancement</span>
                 <span className={CLASSES_SURTITRE}>{publiees} sur {publications.length} publiée{publiees > 1 ? 's' : ''}</span>
             </span>
             <span className="flex gap-[3px]">
-                {publications.length === 0 && <span className="flex-1 h-[5px] rounded-full bg-brand-border dark:bg-dark-sec-border" />}
+                {publications.length === 0 && <span className="flex-1 h-[5px] rounded-full bg-bord" />}
                 {publications.map(p => {
                     const faits = etapes[p.id]?.progression.segments.filter(s => s === 'fait').length ?? 0;
                     const couleur = p.status === ContentStatus.PUBLISHED ? 'bg-succes'
-                        : faits > 0 ? 'bg-brand-main/45 dark:bg-dark-text/45' : 'bg-brand-border dark:bg-dark-sec-border';
+                        : faits > 0 ? 'bg-brand-main/45 dark:bg-dark-text/45' : 'bg-bord';
                     return <span key={p.id} className={`flex-1 h-[5px] rounded-full ${couleur}`} />;
                 })}
             </span>

@@ -41,7 +41,7 @@ export const AvantDExporter: React.FC<AvantDExporterProps> = ({ data, animations
     if (!aRevoir && !desVisuels) return null;
     const sequences = data.sequences ?? [];
     return (
-        <section className={`rounded-xl border p-4 space-y-3 ${aRevoir ? 'border-alerte/30' : 'border-brand-border dark:border-dark-sec-border'}`}>
+        <section className={`rounded-xl border p-4 space-y-3 ${aRevoir ? 'border-alerte/30' : 'border-bord'}`}>
             <Etiquette forme="entete" ton={aRevoir ? 'alerte' : 'neutre'}>{aRevoir ? 'Avant d’exporter' : 'Visuels'}</Etiquette>
             {desVisuels && visuels.indisponible && (
                 <p className="text-xs text-alerte">Le stockage Cloudflare (R2) n'est pas configuré sur le Worker : les visuels ne peuvent pas être déposés.</p>
@@ -50,7 +50,7 @@ export const AvantDExporter: React.FC<AvantDExporterProps> = ({ data, animations
             {figes.map(f => {
                 const role = sequences[f.sequence]?.role;
                 return (
-                    <div key={f.debut} className="flex items-start gap-3 text-xs text-brand-main dark:text-dark-text">
+                    <div key={f.debut} className="flex items-start gap-3 text-xs text-second">
                         <Clock className="size-4 shrink-0 text-alerte" />
                         <p className="min-w-0 flex-1">
                             <span className="font-bold">Rien ne bouge pendant {secondes(f.fin - f.debut)}</span>, à {minutes(f.debut)} — séquence {f.sequence + 1}{role ? ` · ${role}` : ''}.
@@ -63,7 +63,7 @@ export const AvantDExporter: React.FC<AvantDExporterProps> = ({ data, animations
                 );
             })}
             {aVerifier > 0 && (
-                <div className="flex items-start gap-3 text-xs text-brand-main dark:text-dark-text">
+                <div className="flex items-start gap-3 text-xs text-second">
                     <TriangleAlert className="size-4 shrink-0 text-alerte" />
                     <p className="min-w-0 flex-1">
                         <span className="font-bold">{aVerifier === 1 ? '1 écran à vérifier' : `${aVerifier} écrans à vérifier`}</span> : les mots

@@ -30,8 +30,8 @@ export type TonEtiquette = 'neutre' | 'succes' | 'alerte' | 'erreur';
 const CAPITALES = 'text-micro font-bold uppercase tracking-wider';
 
 const COULEUR_ROLE: Record<'surtitre' | 'entete', string> = {
-  surtitre: 'text-brand-main dark:text-dark-text',
-  entete: 'text-brand-main dark:text-dark-text',
+  surtitre: 'text-second',
+  entete: 'text-second',
 };
 
 const COULEUR_SENS: Record<Exclude<TonEtiquette, 'neutre'>, string> = {
@@ -56,7 +56,7 @@ const PASTILLE =
   'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-micro font-semibold [&_svg]:size-3 [&_svg]:shrink-0';
 
 const TONS_PASTILLE: Record<TonEtiquette, string> = {
-  neutre: 'bg-brand-main/10 text-brand-main dark:bg-white/15 dark:text-white',
+  neutre: 'bg-actif text-texte',
   succes: 'bg-succes/10 text-succes',
   alerte: 'bg-alerte/10 text-alerte',
   erreur: 'bg-erreur/10 text-erreur',

@@ -31,10 +31,10 @@ export const EnteteMatiere: React.FC<{
 }> = ({ nom, sousTitre, principale, autres = [] }) => {
     const [menu, setMenu] = useState(false);
     return (
-        <div className="h-[60px] shrink-0 flex items-center gap-3 px-4 md:px-7 border-b border-brand-border dark:border-dark-sec-border">
+        <div className="h-[60px] shrink-0 flex items-center gap-3 px-4 md:px-7 border-b border-bord">
             <div className="flex-1 min-w-0 flex items-baseline gap-2">
-                <span className="text-sm font-bold text-brand-main dark:text-white">{nom}</span>
-                {sousTitre && <span className="text-xs text-brand-main dark:text-dark-text truncate">{sousTitre}</span>}
+                <span className="text-sm font-bold text-texte">{nom}</span>
+                {sousTitre && <span className="text-xs text-second truncate">{sousTitre}</span>}
             </div>
             {principale && (
                 <span title={principale.desactive ? principale.raison : undefined}>
@@ -56,9 +56,9 @@ export const EnteteMatiere: React.FC<{
 
 /** Un état vide, en pointillé : ce qui viendra ici, et d'où. */
 export const MatiereVide: React.FC<{ titre: string; texte: string }> = ({ titre, texte }) => (
-    <div className="rounded-xl border border-dashed border-brand-border dark:border-dark-sec-border p-6 text-center space-y-1">
-        <p className="text-sm font-semibold text-brand-main dark:text-white">{titre}</p>
-        <p className="text-xs text-brand-main dark:text-dark-text text-balance">{texte}</p>
+    <div className="rounded-xl border border-dashed border-bord p-6 text-center space-y-1">
+        <p className="text-sm font-semibold text-texte">{titre}</p>
+        <p className="text-xs text-second text-balance">{texte}</p>
     </div>
 );
 
@@ -78,10 +78,10 @@ export const MatiereOuverture: React.FC<{
     serie?: React.ReactNode;
 }> = ({ notes, onNotes, format, onFormat, verrouille, vide, serie }) => (
     <div className="max-w-3xl space-y-4">
-        <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5 space-y-4">
+        <div className="rounded-xl border border-bord bg-surface p-5 space-y-4">
             <div>
                 <Etiquette className="mb-1">Notes</Etiquette>
-                <div className="rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg focus-within:border-brand-main dark:focus-within:border-white transition-colors">
+                <div className="rounded-lg border border-bord bg-fond focus-within:border-brand-main dark:focus-within:border-white transition-colors">
                     <RichTextarea value={notes} onChange={onNotes} className="w-full min-h-[140px] p-3 text-sm" placeholder="Vos notes brutes, ce que vous voulez dire, ce qui vous a fait penser à ce sujet…" />
                 </div>
             </div>
@@ -97,7 +97,7 @@ export const MatiereOuverture: React.FC<{
                     {!format && <option value="">Choisir un format…</option>}
                     {TARGET_FORMAT_VALUES.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
-                <p className="mt-1 text-xs text-brand-main dark:text-dark-text">
+                <p className="mt-1 text-xs text-second">
                     {verrouille ? 'L’atelier est ouvert : le format ne change plus.' : 'Modifiable jusqu’à l’ouverture de l’atelier.'}
                 </p>
             </div>
@@ -129,7 +129,7 @@ export const BlocPublier: React.FC<{
         setDate(dateInitiale ? dateInitiale.slice(0, 10) : new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10));
     }, [dateInitiale]);
     return (
-        <div className="w-full max-w-[340px] rounded-xl border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg p-5 space-y-4 self-start">
+        <div className="w-full max-w-[340px] rounded-xl border border-bord bg-fond p-5 space-y-4 self-start">
             <Etiquette forme="entete">Publier</Etiquette>
             {plateformes.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -157,8 +157,8 @@ export const BlocPublier: React.FC<{
             )}
             <Bouton taille="petit" intention="discrete" disabled={occupe} onClick={onRepasserEnEcriture}>Repasser en écriture</Bouton>
             {onDecliner && (
-                <div className="pt-3 border-t border-brand-border dark:border-dark-sec-border space-y-2">
-                    <p className="text-xs text-brand-main dark:text-dark-text">Ce contenu peut devenir le pilier d’une série.</p>
+                <div className="pt-3 border-t border-bord space-y-2">
+                    <p className="text-xs text-second">Ce contenu peut devenir le pilier d’une série.</p>
                     <Bouton taille="grand" onClick={onDecliner}><Layers /> Décliner en série</Bouton>
                 </div>
             )}

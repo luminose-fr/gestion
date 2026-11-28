@@ -36,7 +36,7 @@ export const PubliesView: React.FC<PubliesViewProps> = ({
         <div className="space-y-4 animate-fade-in">
             <div className="flex flex-wrap md:flex-nowrap items-center gap-3">
                 <div className="relative w-full md:w-auto md:flex-1 md:min-w-[140px] md:max-w-[280px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-main dark:text-dark-text" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-second" />
                     <Champ
                         type="search"
                         placeholder="Rechercher…"
@@ -58,30 +58,30 @@ export const PubliesView: React.FC<PubliesViewProps> = ({
                 <CalendarView items={items} onItemClick={onOuvrir} />
             ) : triees.length > 0 ? (
                 <Carte densite="tableau" posee>
-                    <div className="divide-y divide-brand-border/60 dark:divide-dark-sec-border/60">
+                    <div className="divide-y divide-bord">
                         {triees.map(item => (
                             <button
                                 key={item.id}
                                 type="button"
                                 onClick={() => onOuvrir(item)}
-                                className="ui-list-action w-full min-h-[60px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_auto_160px_20px] items-center gap-4 px-4 md:px-5 py-2 text-left hover:bg-survol dark:hover:bg-dark-sec-bg"
+                                className="ui-list-action w-full min-h-[60px] grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_auto_160px_20px] items-center gap-4 px-4 md:px-5 py-2 text-left hover:bg-survole"
                             >
-                                <span className="text-sm font-semibold text-brand-main dark:text-white truncate">{item.title || 'Sans titre'}</span>
+                                <span className="text-sm font-semibold text-texte truncate">{item.title || 'Sans titre'}</span>
                                 <span className="hidden md:block">
                                     {getFormatDef(item.targetFormat)?.shortKey && (
                                         <Etiquette as="span" forme="pastille">{getFormatDef(item.targetFormat)!.shortKey}</Etiquette>
                                     )}
                                 </span>
                                 <span className="text-xs font-semibold text-succes truncate">{etapes[item.id]?.libelle ?? 'Publié'}</span>
-                                <ChevronRight className="hidden md:block w-4 h-4 text-brand-main dark:text-dark-text" />
+                                <ChevronRight className="hidden md:block w-4 h-4 text-second" />
                             </button>
                         ))}
                     </div>
                 </Carte>
             ) : !isInitializing && (
                 <Carte densite="seule" className="text-center space-y-2">
-                    <CheckCircle2 className="w-8 h-8 mx-auto text-brand-main dark:text-dark-text" />
-                    <p className="text-sm text-brand-main dark:text-dark-text">
+                    <CheckCircle2 className="w-8 h-8 mx-auto text-second" />
+                    <p className="text-sm text-second">
                         {searchQuery.trim() ? 'Aucune publication pour cette recherche.' : 'Rien de publié pour l’instant.'}
                     </p>
                 </Carte>
