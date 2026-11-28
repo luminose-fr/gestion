@@ -13,7 +13,7 @@ import * as Activite from './activityService';
 import type {
   Content, Serie, AIModel, Generation, CoachSession, CoachMessage, EtatDeVue, VueId,
   ModeSuppressionSerie, MesureSynthese, QuotasReponse,
-  RdvType, RdvCreneau, RdvConfirme, Transcription, MoteurTranscription,
+  Transcription, MoteurTranscription,
   EtatMontage, PriseDistante, VisuelDistant, PriseDeclaree, RolePrise, ResumeMontages, ExportNote, ResumeFils,
   DeplacerContenuInput, ResultatDeplacement, SerieEtSesContenus,
 } from '@luminose/shared';
@@ -684,35 +684,6 @@ export const integrerCapture = (id: string, integration: string) =>
 export const supprimerCapture = (id: string) =>
   api<{ ok: true }>(`/inbox/${id}`, { method: 'DELETE' });
 
-// ── Rendez-vous Calendly ─────────────────────────────────────────────────
-
-export const fetchRdvTypes = () =>
-  api<{ types: RdvType[] }>('/rdv/types', {}, { label: 'Types de rendez-vous', cle: 'api:rdv-types' });
-
-/**
- * `jours` : la fenêtre, quatre-vingt-douze au maximum. `libre` recompose les
- * créneaux depuis l'agenda, sans le délai minimum ni l'horizon de réservation.
- */
-export const fetchRdvCreneaux = (type: string, jours: number, libre: boolean) =>
-  api<{ creneaux: RdvCreneau[]; depuis: string; jusqua: string; libre: boolean }>(
-    `/rdv/creneaux?type=${encodeURIComponent(type)}&jours=${jours}${libre ? '&libre=1' : ''}`,
-    {},
-    { label: 'Recherche des créneaux', cle: `api:rdv-creneaux${libre ? '-libre' : ''}` },
-  );
-
-export const fetchRdvSelection = () =>
-  api<{ types: string[] }>('/rdv/selection');
-
-export const enregistrerRdvSelection = (types: string[]) =>
-  api<{ types: string[] }>('/rdv/selection', { method: 'PUT', ...body({ types }) });
-
-export const creerRdv = (payload: {
-  type: string; debut: string; nom: string; email: string;
-  telephone: string | null; lieu: { kind: string; texte: string } | null;
-  reponses: Array<{ question: string; answer: string; position: number }>;
-}) =>
-  api<{ rdv: RdvConfirme }>('/rdv', { method: 'POST', ...body(payload) },
-    { label: 'Création du rendez-vous', cle: 'api:rdv-creation' });
 
 // ── Transcription d'une prise (SPEC §12.5) ───────────────────────────────
 

@@ -9,19 +9,19 @@
  * règle 5). « Poser un rendez-vous » est l'action principale.
  *
  * L'adresse porte la vue et le lundi affiché : `#agenda/semaine/2026-12-14`,
- * `#agenda/mois/2026-12-01`. Des dates, jamais une personne. L'ancien écran
- * Calendly reste une troisième vue, tant que Calendly sert.
+ * `#agenda/mois/2026-12-01`. Des dates, jamais une personne. L'écran
+ * Calendly a été retiré le 28/11/2026 (décision de Florent : la réservation
+ * passe par le site et gestion) ; `#agenda/calendly` mène à la semaine.
  */
-import React, { lazy, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Bouton, Carte, Champ, Etiquette, Fenetre, FOCUS, Onglets, Pastille, Secondaire } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { JourAgenda, Seance } from '../../types-clients';
 import { aller, aujourdhui, EtatLecture, heure, jourDe, lundiDe, messageDe, nomComplet, plusJours, useLecture } from './commun';
 import { PoserRendezVous } from './PoserRendezVous';
 
-const RdvView = lazy(() => import('./RdvView'));
 
-export type VuePlanning = 'semaine' | 'mois' | 'calendly';
+export type VuePlanning = 'semaine' | 'mois';
 
 const JOURS_COURTS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
 const MOIS = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -215,7 +215,6 @@ export const FermerJours: React.FC<{ onFermer: () => void; onFait: () => void }>
             ))}
           </div>
         )}
-        <Secondaire>Pensez à fermer aussi ces jours dans Calendly, tant qu’il sert.</Secondaire>
         {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
       </div>
     </Fenetre>
@@ -240,10 +239,8 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string; poser?: b
   const premier = `${reference.slice(0, 7)}-01`;
   const bornes = useMemo(() => (vue === 'mois' ? grilleDuMois(premier) : { debut: lundi, fin: plusJours(lundi, 6) }), [vue, premier, lundi]);
   const lecture = useLecture(
-    () => (vue === 'calendly'
-      ? Promise.resolve({ seances: [] as Seance[], jours: [] as JourAgenda[] })
-      : Promise.all([Clients.seancesDeLaPeriode(bornes.debut, bornes.fin), Clients.disponibilites(bornes.debut, bornes.fin)])
-        .then(([s, d]) => ({ seances: s.seances, jours: d.jours }))),
+    () => Promise.all([Clients.seancesDeLaPeriode(bornes.debut, bornes.fin), Clients.disponibilites(bornes.debut, bornes.fin)])
+      .then(([s, d]) => ({ seances: s.seances, jours: d.jours })),
     [vue, bornes.debut, bornes.fin],
   );
   const jours = useMemo(() => new Map((lecture.phase === 'prete' ? lecture.donnees.jours : []).map((j) => [j.date, j])), [lecture]);
@@ -253,7 +250,7 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string; poser?: b
     try { await Clients.rendreDateALaSemaine(d); await lecture.recharger(); } catch (e) { setRefus(messageDe(e)); }
   };
 
-  const changerVue = (v: VuePlanning) => aller(v === 'calendly' ? 'agenda/calendly' : `agenda/${v}/${v === 'mois' ? premier : lundi}`);
+  const changerVue = (v: VuePlanning) => aller(`agenda/${v}/${v === 'mois' ? premier : lundi}`);
   const precedent = () => aller(vue === 'mois' ? `agenda/mois/${moisVoisin(premier, -1)}` : `agenda/semaine/${plusJours(lundi, -7)}`);
   const suivant = () => aller(vue === 'mois' ? `agenda/mois/${moisVoisin(premier, 1)}` : `agenda/semaine/${plusJours(lundi, 7)}`);
   const titre = vue === 'mois'
@@ -269,8 +266,8 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string; poser?: b
 
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-6">
         <Onglets<VuePlanning> libelle="Vue de l’agenda" actif={vue} onChange={changerVue}
-          onglets={[{ id: 'semaine', libelle: 'Semaine' }, { id: 'mois', libelle: 'Mois' }, { id: 'calendly', libelle: 'Calendly' }]} />
-        {vue !== 'calendly' && (
+          onglets={[{ id: 'semaine', libelle: 'Semaine' }, { id: 'mois', libelle: 'Mois' }]} />
+        {(
           <div className="flex flex-1 items-center gap-2 md:justify-end">
             <span className="mr-auto min-w-0 font-semibold first-letter:uppercase md:mr-2">{titre}</span>
             <Bouton taille="petit" intention="borde" onClick={precedent} aria-label={vue === 'mois' ? 'Mois précédent' : 'Semaine précédente'}>‹</Bouton>
@@ -282,13 +279,13 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string; poser?: b
 
       {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
 
-      {vue === 'calendly' ? <RdvView /> : lecture.phase !== 'prete' ? <EtatLecture lecture={lecture} /> : (
+      {lecture.phase !== 'prete' ? <EtatLecture lecture={lecture} /> : (
         <>
           {vue === 'mois'
             ? <Mois premier={premier} debut={bornes.debut} fin={bornes.fin} seances={lecture.donnees.seances} jours={jours} />
             : <Semaine lundi={lundi} seances={lecture.donnees.seances} jours={jours} onOuvrir={(d) => void ouvrirJour(d)} />}
           {vue === 'semaine' && lecture.donnees.seances.length === 0 && <Secondaire>Aucune séance cette semaine.</Secondaire>}
-          <Secondaire>« N libres » compte les créneaux de séance encore libres dans vos horaires. Calendly sert encore : pensez à y reporter un jour fermé ou un rendez-vous déplacé.</Secondaire>
+          <Secondaire>« N libres » compte les créneaux de séance encore libres dans vos horaires.</Secondaire>
         </>
       )}
 

@@ -84,16 +84,6 @@ export type Env = {
   CLOUDFLARE_ACCOUNT_ID?: string;
 
   /**
-   * Jeton d'accès personnel Calendly — portée « scheduled_events:write », pour
-   * poser un rendez-vous à la place d'un invité (voir routes/rdv.ts).
-   *
-   * FACULTATIF, comme les deux précédents et pour la même raison : absent, tout
-   * le reste de l'application fonctionne à l'identique et seul l'écran de prise
-   * de rendez-vous se tait, en disant ce qui lui manque.
-   */
-  CALENDLY_TOKEN?: string;
-
-  /**
    * L'empreinte (SHA-256, hexadécimal) du jeton du serveur MCP — jamais le
    * jeton lui-même, que seul le Worker MCP garde (acces-mcp.ts, SPEC §7).
    *

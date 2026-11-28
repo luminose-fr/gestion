@@ -912,7 +912,12 @@ Maximum **50 requêtes D1 par invocation**. Conséquences normatives :
 - Toute route nouvelle doit pouvoir énoncer son nombre de requêtes, borné et indépendant
   du volume de données.
 
-### 3.8 Prise de rendez-vous Calendly — NORMATIF
+### 3.8 Prise de rendez-vous Calendly — RETIRÉE (28/11/2026)
+
+> **Retirée le 28/11/2026**, à la demande de Florent : « pas utile, et plus utile lors de la
+> bascule ». L'onglet de l'Agenda, `routes/rdv.ts`, les types partagés et `CALENDLY_TOKEN`
+> ont quitté gestion ; `#agenda/calendly` mène à la semaine. Ce qui suit reste comme
+> mémoire de ce qu'elle faisait.
 
 > **v3.0** : la réservation arrive dans gestion (§14). Cet écran reste en service, tel quel,
 > jusqu'à la bascule ; il disparaît alors, avec `CALENDLY_TOKEN`. Le « ni un agenda, ni un

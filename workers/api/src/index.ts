@@ -8,7 +8,6 @@
  *   /api/models/catalogue  explorateur OpenRouter — filtre, ne décide pas (§5.6)
  *   /api/corpus   le corpus, EN LECTURE SEULE — embarqué au déploiement, 0 requête D1
  *   /api/inbox    les captures — le SEUL store en écriture de la console
- *   /api/rdv      prise de rendez-vous Calendly pour un invité (§SMS sans confirmation)
  *   /api/environnement  où l'on est, et si la base des clients est reliée (§14.8)
  *   /api/clients  la base des clients — liaison CLIENTS facultative (§14) : les fiches,
  *                 leurs notes, leur personne de confiance (§15.3)
@@ -37,7 +36,6 @@ import { corpus } from './routes/corpus';
 import { inbox } from './routes/inbox';
 import { mesures } from './routes/mesures';
 import { quotas } from './routes/quotas';
-import { rdv } from './routes/rdv';
 import { transcription } from './routes/transcription';
 import { montage } from './routes/montage';
 import { veille } from './routes/veille';
@@ -180,7 +178,6 @@ app.route('/api/corpus', corpus);
 app.route('/api/inbox', inbox);
 app.route('/api/mesures', mesures);
 app.route('/api/quotas', quotas);
-app.route('/api/rdv', rdv);
 app.route('/api/transcription', transcription);
 app.route('/api/montage', montage);
 app.route('/api/environnement', environnement);

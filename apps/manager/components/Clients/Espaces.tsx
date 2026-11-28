@@ -9,7 +9,6 @@
  *   #clients/rattacher            ce qui attend une fiche (lot 8)
  *   #agenda[/semaine/<lundi>]     le planning, à la semaine
  *   #agenda/mois/<premier>        le planning, au mois
- *   #agenda/calendly              l'ancien écran Calendly, tant qu'il sert
  *   #agenda/poser                 le planning, « Poser un rendez-vous » ouvert
  *   #agenda/<id>                  une séance et ses notes
  *   #stages[/nouveau|/<id>]       les stages (EvenementsView.tsx)
@@ -40,11 +39,13 @@ export const EspaceClients: React.FC = () => {
   return <FicheView key={premier} id={decodeURIComponent(premier)} />;
 };
 
-const VUES = ['semaine', 'mois', 'calendly'] as const;
+const VUES = ['semaine', 'mois'] as const;
 
 export const EspaceSeances: React.FC = () => {
   const [premier, second] = useAdresse();
   if (premier === 'poser') return <PlanningView vue="semaine" poser />;
+  // L'écran Calendly, retiré le 28/11/2026 : son ancienne adresse mène à la semaine.
+  if (premier === 'calendly') return <PlanningView vue="semaine" />;
   if (!premier || (VUES as readonly string[]).includes(premier)) {
     return <PlanningView vue={(premier as (typeof VUES)[number]) ?? 'semaine'} date={second} />;
   }
