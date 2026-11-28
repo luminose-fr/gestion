@@ -434,3 +434,62 @@ export const notesEcritesSql = (s: string) => `EXISTS (
 export const etatQuestionnaireSql = (s: string) => `(
   SELECT CASE WHEN q.relu_le IS NULL THEN 'non_relu' ELSE 'relu' END
   FROM questionnaires q WHERE q.id = ${s}.questionnaire_id)`;
+
+// ═══ Refonte de la console, lot 8 : lire un questionnaire, le marquer relu ═
+//
+// Le seul écran qui montre les réponses : celui du questionnaire, ouvert par
+// Florent depuis la séance, la fiche ou Aujourd'hui. Aucune liste ne les
+// porte. Une lecture, deux décisions : relu, à revoir.
+
+export type QuestionnaireLu = {
+  id: string; recuLe: number; contexte: string; version: string | null;
+  clientId: string | null; seanceId: string | null; evenementId: string | null;
+  prenom: string | null; nom: string | null;
+  questions: { cle: string; libelle: string; reponse: string }[];
+  informations: string;
+  reluLe: number | null; aRevoir: boolean; aRapprocher: boolean;
+};
+
+/** Le questionnaire, la personne par son prénom et son nom (sa fiche, sinon ce qu'elle a envoyé). Une instruction. */
+export const lireQuestionnaire = async (db: D1Database, id: string): Promise<QuestionnaireLu | null> => {
+  const q = await db.prepare(`
+    SELECT q.id, q.created_at, q.contexte, q.version, q.client_id, q.seance_id, q.evenement_id, q.reponses,
+      q.relu_le, q.a_revoir, q.rattachement,
+      COALESCE(c.prenom, json_extract(q.identite, '$.prenom')) AS prenom,
+      COALESCE(c.nom, json_extract(q.identite, '$.nom')) AS nom
+    FROM questionnaires q LEFT JOIN clients c ON c.id = q.client_id
+    WHERE q.id = ?1`).bind(id).first<Record<string, unknown>>();
+  if (!q) return null;
+  let contenu: { questions?: unknown; informations?: unknown } = {};
+  try { contenu = JSON.parse(String(q.reponses ?? '{}')); } catch { contenu = {}; }
+  const questions = Array.isArray(contenu.questions)
+    ? (contenu.questions as Record<string, unknown>[]).map((r) => ({ cle: String(r.cle ?? ''), libelle: String(r.libelle ?? ''), reponse: String(r.reponse ?? '') }))
+    : [];
+  return {
+    id: String(q.id), recuLe: Number(q.created_at), contexte: String(q.contexte), version: (q.version as string | null) ?? null,
+    clientId: (q.client_id as string | null) ?? null, seanceId: (q.seance_id as string | null) ?? null, evenementId: (q.evenement_id as string | null) ?? null,
+    prenom: (q.prenom as string | null) ?? null, nom: (q.nom as string | null) ?? null,
+    questions, informations: typeof contenu.informations === 'string' ? contenu.informations : '',
+    reluLe: q.relu_le === null ? null : Number(q.relu_le), aRevoir: Number(q.a_revoir) === 1, aRapprocher: q.rattachement === 'a_rapprocher',
+  };
+};
+
+/**
+ * Marquer relu : la date, et « à revoir » retombe ; l'alerte `a_revoir` qui
+ * désignait ce questionnaire se résout dans le même lot. Rendre `false` : il
+ * n'existe pas.
+ */
+export const marquerQuestionnaireRelu = async (db: D1Database, id: string, maintenant: number): Promise<boolean> => {
+  const [maj] = await db.batch([
+    db.prepare('UPDATE questionnaires SET relu_le = ?2, a_revoir = 0, updated_at = ?2 WHERE id = ?1').bind(id, maintenant),
+    db.prepare(`UPDATE alertes SET resolue_le = ?2, updated_at = ?2
+      WHERE sorte = 'a_revoir' AND objet_type = 'questionnaire' AND objet_id = ?1 AND resolue_le IS NULL`).bind(id, maintenant),
+  ]);
+  return maj.meta.changes === 1;
+};
+
+/** « À revoir avec la personne » : le questionnaire n'est plus relu, il attend l'échange. */
+export const marquerQuestionnaireARevoir = async (db: D1Database, id: string, maintenant: number): Promise<boolean> => {
+  const r = await db.prepare('UPDATE questionnaires SET a_revoir = 1, relu_le = NULL, updated_at = ?2 WHERE id = ?1').bind(id, maintenant).run();
+  return r.meta.changes === 1;
+};

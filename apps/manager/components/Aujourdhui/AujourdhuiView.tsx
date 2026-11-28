@@ -21,6 +21,9 @@ const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 const FOCUS_DEDANS = 'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marque';
 
 const adresseSeance = (s: SeanceDuJour) => `#agenda/${encodeURIComponent(s.id)}`;
+/** Une ligne d'À traiter mène à l'écran où son geste se fait. */
+const adresseDe = (t: ATraiter) =>
+  t.sorte === 'questionnaire' && t.seance.questionnaireId ? `#clients/questionnaire/${encodeURIComponent(t.seance.questionnaireId)}` : adresseSeance(t.seance);
 const typeDe = (s: SeanceDuJour) => s.type?.libelle ?? s.libelleImporte ?? 'Type inconnu';
 
 /** « dans 25 min », « dans 2 h 10 », « en cours » ; rien au-delà de la journée. */
@@ -157,6 +160,7 @@ const echeance = (t: ATraiter, jour: string): string => {
 const GESTES: Record<ATraiter['sorte'], string> = {
   clore: 'Clore la séance restée « prévue »',
   notes: 'Écrire les notes',
+  questionnaire: 'Relire le questionnaire',
 };
 
 const ATraiterBloc: React.FC<{ a: Aujourdhui }> = ({ a }) => {
@@ -174,7 +178,7 @@ const ATraiterBloc: React.FC<{ a: Aujourdhui }> = ({ a }) => {
     <section aria-labelledby="titre-a-traiter" className="flex flex-col gap-2">
       <div className="flex items-baseline gap-3">
         <Etiquette as="h2" id="titre-a-traiter">À traiter{a.aTraiter.length ? ` · ${a.aTraiter.length}` : ''}</Etiquette>
-        {a.aTraiter.length > 1 && <Secondaire>du plus ancien au plus récent</Secondaire>}
+        {a.aTraiter.length > 1 && <Secondaire>du plus en retard au plus lointain</Secondaire>}
       </div>
       {a.aTraiter.length === 0 ? (
         <Carte className="px-4 py-4"><p>Tout est à jour. Rien ne vous attend ici.</p></Carte>
@@ -182,12 +186,12 @@ const ATraiterBloc: React.FC<{ a: Aujourdhui }> = ({ a }) => {
         <Carte as="div" className="overflow-hidden">
           <div ref={liste} onKeyDown={parcourir}>
             {a.aTraiter.map((t, i) => (
-              <a key={`${t.sorte}-${t.seance.id}`} href={adresseSeance(t.seance)} className={cx(
+              <a key={`${t.sorte}-${t.seance.id}`} href={adresseDe(t)} className={cx(
                 'flex flex-wrap items-center gap-x-4 gap-y-0.5 px-4 py-2.5 hover:bg-survole md:flex-nowrap', i > 0 && 'border-t border-bord', FOCUS_DEDANS,
               )}>
                 <span className="w-full font-semibold md:w-72 md:flex-none">{GESTES[t.sorte]}</span>
                 <span className="min-w-0 flex-1 truncate">{nomComplet(t.seance.personne)}</span>
-                <span className="text-secondaire text-second">{echeance(t, a.jour)}</span>
+                <span className="text-secondaire text-second">{t.sorte === 'questionnaire' ? `séance ${echeance(t, a.jour)}` : echeance(t, a.jour)}</span>
                 <span aria-hidden="true" className="hidden text-second md:inline">›</span>
               </a>
             ))}

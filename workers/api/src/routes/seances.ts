@@ -115,6 +115,7 @@ seances.get('/aujourdhui', async (c) => {
     provenance: s.type_nature === 'rencontre' ? provenanceEnClair(s) : null,
     questionnaire: (s.questionnaire as string | null | undefined) ?? (Number(s.questionnaire_requis) === 1 ? 'pas_recu' : null),
     notesEcrites: s.notes_ecrites === undefined ? null : Number(s.notes_ecrites) === 1,
+    questionnaireId: s.questionnaire_id ?? null,
   });
   return c.json({
     maintenant: iso(maintenant),
@@ -126,6 +127,7 @@ seances.get('/aujourdhui', async (c) => {
     aTraiter: [
       ...lu.aClore.map((s) => ({ sorte: 'clore' as const, s })),
       ...lu.notes.map((s) => ({ sorte: 'notes' as const, s })),
+      ...lu.aRelire.map((s) => ({ sorte: 'questionnaire' as const, s })),
     ].sort((a, b) => Number(a.s.debut) - Number(b.s.debut)).map(({ sorte, s }) => ({ sorte, seance: enLigne(s) })),
   });
 });
@@ -140,6 +142,7 @@ seances.get('/:id', async (c) => {
     nature: lue.seance.type_nature ?? null,
     provenance: lue.seance.type_nature === 'rencontre' ? provenanceEnClair(lue.seance) : null,
     questionnaire: (lue.seance.questionnaire as string | null) ?? (Number(lue.seance.questionnaire_requis) === 1 ? 'pas_recu' : null),
+    questionnaireId: lue.seance.questionnaire_id ?? null,
     precedente: lue.precedente ? { id: lue.precedente.id, debut: iso(lue.precedente.debut as number) } : null,
     mouvements: lue.mouvements.map((m) => ({
       id: m.id, nature: m.nature, par: m.par, ancienDebut: iso(m.ancien_debut as number | null),

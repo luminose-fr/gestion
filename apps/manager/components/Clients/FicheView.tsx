@@ -336,7 +336,9 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               <ul>
                 {fiche.listeQuestionnaires.map((q) => (
                   <li key={q.id} className="flex items-center justify-between gap-2 border-t border-bord px-4 py-2.5">
-                    <span>Reçu le {dateCourte(q.date)}{q.version && <span className="text-secondaire text-second"> · {q.version === 'complet' ? 'complet' : 'suivi'}</span>}</span>
+                    <a href={`#clients/questionnaire/${encodeURIComponent(q.id)}`} className={`underline underline-offset-[3px] hover:text-marque ${FOCUS}`}>
+                      Reçu le {dateCourte(q.date)}{q.version && <span className="text-secondaire text-second"> · {q.version === 'complet' ? 'complet' : 'suivi'}</span>}
+                    </a>
                     <span className="flex gap-1.5">
                       <PastilleCharte ton={q.relu ? 'succes' : 'alerte'}>{q.relu ? 'Relu' : 'Non relu'}</PastilleCharte>
                       {q.aRevoir && <PastilleCharte ton="erreur">À revoir</PastilleCharte>}

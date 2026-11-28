@@ -452,7 +452,9 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
             {s.questionnaire
               ? <div><Pastille ton={QUESTIONNAIRE[s.questionnaire].ton}>{QUESTIONNAIRE[s.questionnaire].libelle}</Pastille></div>
               : <Secondaire>Pas demandé pour ce type de séance.</Secondaire>}
-            {s.questionnaire && s.questionnaire !== 'pas_recu' && <Secondaire>Sa lecture arrive avec l’écran du questionnaire.</Secondaire>}
+            {s.questionnaireId && (
+              <a href={`#clients/questionnaire/${encodeURIComponent(s.questionnaireId)}`} className={`inline-flex h-8 items-center self-start rounded-controle border border-marque px-3 text-secondaire font-semibold text-marque hover:bg-actif ${FOCUS}`}>Voir le questionnaire</a>
+            )}
           </Carte>
 
           {s.precedente && <DerniereFois id={s.precedente.id} debut={s.precedente.debut} />}

@@ -42,7 +42,7 @@ export const seancesDeLaPeriode = async (db: D1Database, du: number, au: number)
 export const lireSeance = async (db: D1Database, id: string): Promise<{ seance: Brut; mouvements: Brut[]; precedente: Brut | null } | null> => {
   const [seance, mouvements, precedente] = await db.batch([
     db.prepare(`
-      SELECT ${COLONNES}, s.provenance, t.nature AS type_nature, t.questionnaire_requis,
+      SELECT ${COLONNES}, s.provenance, s.questionnaire_id, t.nature AS type_nature, t.questionnaire_requis,
         c.origine AS client_origine, c.mot_cle_google_ads, ${etatQuestionnaireSql('s')} AS questionnaire
       FROM seances s
       LEFT JOIN clients c ON c.id = s.client_id

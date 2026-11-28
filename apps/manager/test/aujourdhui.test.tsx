@@ -27,7 +27,7 @@ const seance = (id: string, debut: string, fin: string, champs: Partial<SeanceDu
   id, debut, fin, occupeJusqua: fin, dureeMin: 60, revision: 0, statut: 'prevue', etatPaiement: 'a_payer', montantCentimes: 8000,
   mode: 'sur_place', listeAttente: false, agendaEtat: 'ecrit', origine: 'console', type: { id: 't', cle: 'seance', libelle: 'Séance d’hypnose' } as any,
   libelleImporte: null, personne: { clientId: 'c', prenom: 'Camille', nom: 'Martin' }, nature: 'seance', provenance: null,
-  questionnaire: null, notesEcrites: null, ...champs,
+  questionnaire: null, notesEcrites: null, questionnaireId: null, ...champs,
 });
 
 const ENTRETIEN = seance('e1', '2027-01-12T11:00:00+01:00', '2027-01-12T11:20:00+01:00', {

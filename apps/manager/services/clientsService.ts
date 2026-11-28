@@ -19,7 +19,7 @@ import type {
   PageFiches, FicheSemblable, ChampsFiche, Fiche, NoteFiche, Confiance,
   Seance, SeanceDetaillee, NotesSeance, PoseRendezVous, ModificationSeance,
   Evenement, EvenementDetaille, ChampsEvenement, Professionnel, ChampsProfessionnel,
-  Reservation, ChampsType, PlageHoraire, Aujourdhui, JourAgenda,
+  Reservation, ChampsType, PlageHoraire, Aujourdhui, JourAgenda, QuestionnaireSante,
 } from '../types-clients';
 
 /** Un refus ou une panne d'une route des clients. `champs` : les champs en défaut d'une entrée invalide. */
@@ -71,6 +71,10 @@ export const ecrireConfiance = (ficheId: string, confiance: Omit<Confiance, 'mis
 /** `du`, `au` : `AAAA-MM-JJ`, 62 jours au plus. Des dates, pas des personnes : elles vont dans l'adresse. */
 export const seancesDeLaPeriode = (du: string, au: string) =>
   appel<{ seances: Seance[] }>(`/seances?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);
+/** Un questionnaire de santé, et ses deux décisions (refonte, lot 8). */
+export const lireQuestionnaireSante = (qid: string) => appel<QuestionnaireSante>(`/sante/${id(qid)}`);
+export const marquerQuestionnaireRelu = (qid: string) => appel<{ id: string }>(`/sante/${id(qid)}/relu`, 'POST');
+export const marquerQuestionnaireARevoir = (qid: string) => appel<{ id: string }>(`/sante/${id(qid)}/a-revoir`, 'POST');
 /** Les jours d'une période pour l'Agenda : fermés ou non, et les créneaux libres. 62 jours au plus. */
 export const disponibilites = (du: string, au: string) =>
   appel<{ jours: JourAgenda[]; agendaLu: boolean }>(`/seances/disponibilites?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);

@@ -121,7 +121,7 @@ describe('Aujourd’hui', () => {
     expect((await lire()).corps.journee[0].provenance).toBeNull();
   });
 
-  it('quatre instructions, en un aller-retour, quel que soit le volume', async () => {
+  it('cinq instructions, en un aller-retour, quel que soit le volume', async () => {
     vi.setSystemTime(A(10));
     for (let i = 0; i < 12; i++) await seance(`s${i}`, A(9, 0, 1 + (i % 10)), { statut: i % 2 ? 'realisee' : 'prevue' });
     const preparees: string[] = [];
@@ -129,11 +129,25 @@ describe('Aujourd’hui', () => {
     (env.CLIENTS as any).prepare = (sql: string) => { preparees.push(sql); return prepare(sql); };
     const batch = vi.spyOn(env.CLIENTS as any, 'batch');
     await lire();
-    expect(preparees).toHaveLength(4);
+    expect(preparees).toHaveLength(5);
     expect(batch).toHaveBeenCalledTimes(1);
   });
 
   it('sans la base des clients : 409', async () => {
     expect((await lire(makeEnv())).statut).toBe(409);
+  });
+});
+
+describe('Aujourd’hui — le questionnaire à relire (lot 8)', () => {
+  it('reçu et pas relu, pour une séance des sept jours : une ligne ; relu : elle sort', async () => {
+    vi.setSystemTime(A(8));
+    await base.prepare(`INSERT INTO questionnaires (id, contexte, client_id, reponses, created_at, updated_at)
+      VALUES ('q', 'seance', 'client-a', '{}', 0, 0)`).run();
+    await seance('jeudi', A(9, 0, 14), { questionnaire_id: 'q' });
+    let { corps } = await lire();
+    expect(corps.aTraiter.map((t: any) => [t.sorte, t.seance.id, t.seance.questionnaireId])).toEqual([['questionnaire', 'jeudi', 'q']]);
+    await base.prepare("UPDATE questionnaires SET relu_le = 1 WHERE id = 'q'").run();
+    ({ corps } = await lire());
+    expect(corps.aTraiter).toEqual([]);
   });
 });

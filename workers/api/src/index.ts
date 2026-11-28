@@ -55,6 +55,7 @@ import { evenements, inscriptions } from './routes/evenements';
 import { professionnels } from './routes/professionnels';
 import { reservation } from './routes/reservation';
 import { agenda } from './routes/agenda';
+import { sante } from './routes/sante';
 
 const app = new Hono<Contexte>();
 
@@ -195,6 +196,7 @@ app.route('/api/inscriptions', inscriptions);
 app.route('/api/professionnels', professionnels);
 app.route('/api/reservation', reservation);
 app.route('/api/agenda', agenda);
+app.route('/api/sante', sante);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

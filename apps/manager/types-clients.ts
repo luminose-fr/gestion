@@ -80,6 +80,7 @@ export type SeanceDetaillee = Seance & {
   questionnaire?: 'relu' | 'non_relu' | 'pas_recu' | null;
   /** La dernière séance réalisée de la même personne. */
   precedente?: { id: string; debut: string } | null;
+  questionnaireId?: string | null;
 };
 
 /**
@@ -92,10 +93,21 @@ export type SeanceDuJour = Seance & {
   questionnaire: 'relu' | 'non_relu' | 'pas_recu' | null;
   /** `null` quand la lecture ne le dit pas (la prochaine séance, À traiter). */
   notesEcrites: boolean | null;
+  questionnaireId: string | null;
 };
 /** Un jour de l'Agenda (refonte, lot 5). `libres` : les créneaux de séance libres dans les horaires. */
 export type JourAgenda = { date: string; ferme: 'exception' | 'habitude' | null; exception: boolean; libres: number | null };
-export type ATraiter = { sorte: 'clore' | 'notes'; seance: SeanceDuJour };
+export type ATraiter = { sorte: 'clore' | 'notes' | 'questionnaire'; seance: SeanceDuJour };
+
+/** Un questionnaire de santé, sur son écran seulement (refonte, lot 8). */
+export type QuestionnaireSante = {
+  id: string; recuLe: string; contexte: string; version: 'complet' | 'suivi' | null;
+  clientId: string | null; seanceId: string | null; evenementId: string | null;
+  personne: { prenom: string | null; nom: string | null };
+  questions: { cle: string; libelle: string; reponse: string; aRegarder: boolean }[];
+  informations: string;
+  reluLe: string | null; aRevoir: boolean; aRapprocher: boolean;
+};
 export type Aujourdhui = {
   maintenant: string;
   jour: string;

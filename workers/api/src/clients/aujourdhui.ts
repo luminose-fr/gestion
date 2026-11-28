@@ -1,7 +1,7 @@
 /**
  * L'écran Aujourd'hui (refonte de la console, lot 3 — docs/refonte/01, §3).
  *
- * Une lecture groupée, en UN aller-retour de quatre instructions, chacune
+ * Une lecture groupée, en UN aller-retour de cinq instructions, chacune
  * bornée : son nombre de requêtes ne dépend pas du volume (CLAUDE.md, « Pas
  * de N+1 »).
  *
@@ -15,9 +15,11 @@
  * - « Écrire les notes » : une séance réalisée des quatorze derniers jours,
  *   sans notes ; elle sort à la première frappe enregistrée.
  *
- * Le questionnaire à relire, la réservation à rattacher et les alertes
- * entreront avec leurs écrans (lot 8) : une ligne qui mène à une impasse
- * apprend à ne plus lire la liste.
+ * - « Relire le questionnaire » (lot 8) : reçu, pas relu, pour une séance des
+ *   sept prochains jours ; elle sort quand on le marque relu.
+ *
+ * La réservation à rattacher et les autres alertes entreront avec leurs
+ * écrans : une ligne qui mène à une impasse apprend à ne plus lire la liste.
  *
  * Des listes : l'état d'une note ou d'un questionnaire, jamais leur contenu
  * (04, §4) — les deux fragments viennent de `sensible.ts`.
@@ -36,7 +38,7 @@ export const JOURS_DES_SEANCES_PREVUES = 60;
 export const LIGNES_PAR_SORTE = 30;
 
 const SEANCE = `
-  s.id, s.debut, s.duree_min, s.statut, s.etat_paiement, s.mode, s.provenance, s.libelle_importe,
+  s.id, s.debut, s.duree_min, s.statut, s.etat_paiement, s.mode, s.provenance, s.libelle_importe, s.questionnaire_id,
   t.id AS type_id, t.cle AS type_cle, t.libelle AS type_libelle, t.nature AS type_nature, t.questionnaire_requis,
   c.id AS client_id, c.origine AS client_origine, c.mot_cle_google_ads,
   COALESCE(c.prenom, json_extract(s.identite_recue, '$.prenom')) AS personne_prenom,
@@ -49,14 +51,17 @@ const JOINTURES = `
 
 const FIN = `(s.debut + s.duree_min * 60000)`;
 
-export type LectureAujourdhui = { journee: Brut[]; prochaine: Brut | null; aClore: Brut[]; notes: Brut[] };
+/** Un questionnaire non relu se signale une semaine avant sa séance. */
+export const JOURS_DU_QUESTIONNAIRE = 7;
+
+export type LectureAujourdhui = { journee: Brut[]; prochaine: Brut | null; aClore: Brut[]; notes: Brut[]; aRelire: Brut[] };
 
 /**
  * `du`–`au` : la journée affichée (le lendemain midi s'y ajoute le soir, c'est
  * l'appelant qui le décide). `maintenant` sépare le passé de l'avenir.
  */
 export const lireAujourdhui = async (db: D1Database, du: number, au: number, maintenant: number): Promise<LectureAujourdhui> => {
-  const [journee, prochaine, aClore, notes] = await db.batch([
+  const [journee, prochaine, aClore, notes, aRelire] = await db.batch([
     db.prepare(`
       SELECT ${SEANCE}, ${etatQuestionnaireSql('s')} AS questionnaire, ${notesEcritesSql('s')} AS notes_ecrites
       ${JOINTURES}
@@ -78,12 +83,19 @@ export const lireAujourdhui = async (db: D1Database, du: number, au: number, mai
       ${JOINTURES}
       WHERE s.statut = 'realisee' AND ${FIN} <= ?1 AND s.debut >= ?2 AND NOT ${notesEcritesSql('s')}
       ORDER BY s.debut, s.id LIMIT ${LIGNES_PAR_SORTE}`).bind(maintenant, maintenant - JOURS_DES_NOTES * 86_400_000),
+    // Un questionnaire reçu et pas relu, pour une séance des sept prochains jours (lot 8 : l'écran existe).
+    db.prepare(`
+      SELECT ${SEANCE}
+      ${JOINTURES}
+      WHERE s.statut = 'prevue' AND s.debut >= ?1 AND s.debut < ?2 AND ${etatQuestionnaireSql('s')} = 'non_relu'
+      ORDER BY s.debut, s.id LIMIT ${LIGNES_PAR_SORTE}`).bind(maintenant, maintenant + JOURS_DU_QUESTIONNAIRE * 86_400_000),
   ]);
   return {
     journee: journee.results as Brut[],
     prochaine: (prochaine.results[0] as Brut | undefined) ?? null,
     aClore: aClore.results as Brut[],
     notes: notes.results as Brut[],
+    aRelire: aRelire.results as Brut[],
   };
 };
 
