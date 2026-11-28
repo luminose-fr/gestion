@@ -1,0 +1,70 @@
+@title Aujourd’hui
+@size 1440 980
+@body
+@@MAC@@
+@@NAV aujourdhui@@
+@@MAIN@@
+<div style="max-width: 770px; width: 100%; display: flex; flex-direction: column; gap: 28px">
+<header style="display: flex; flex-direction: column; gap: 2px">
+<div class="e">Vendredi 27 novembre · 10 h 35</div>
+<h1>Aujourd’hui</h1>
+</header>
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div class="e">Prochaine séance</div>
+<a href="SeanceEntretien.dc.html" class="c" style="padding: 18px 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; border-color: var(--marque)">
+<span style="flex: none; display: flex; flex-direction: column; gap: 4px"><span style="font: 500 34px/1 Fraunces, Georgia, serif; letter-spacing: -0.02em">11:00</span><span class="p" style="align-self: flex-start; border-color: var(--marque); color: var(--marque)">dans 25 min</span></span>
+<span style="flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 2px; padding-left: 20px; border-left: 1px solid var(--bord)"><span style="font-size: 17px; font-weight: 600">Julien Roux</span><span>Entretien préalable · 20 min, au téléphone</span><span class="s">Vient de : Google Ads · mot-clé : hypnose arrêt tabac</span></span>
+<span class="p al">! Questionnaire non relu</span>
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+</a>
+</section>
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div class="e">La journée</div>
+<div class="c" style="padding: 6px 0">
+<sc-for list="{{seances}}" as="s" hint-placeholder-count="4">
+<a href="{{s.href}}" style="padding: 0 20px; display: flex; gap: 14px; color: {{s.coul}}">
+<span style="width: 48px; flex: none; padding: 10px 0; font-weight: 600">{{s.heure}}</span>
+<span aria-hidden="true" style="width: 12px; flex: none; display: flex; flex-direction: column; align-items: center"><span style="width: 2px; height: 14px; background: {{s.haut}}"></span><span style="width: 12px; height: 12px; flex: none; border-radius: 999px; border: 2px solid {{s.pointBord}}; background: {{s.pointFond}}"></span><span style="width: 2px; flex: 1; background: {{s.bas}}"></span></span>
+<span style="flex: 1; min-width: 0; padding: 10px 0; display: flex; flex-direction: column"><span style="font-weight: 500">{{s.qui}}</span><span class="s">{{s.type}}</span></span>
+<span style="padding: 10px 0; display: flex; gap: 6px; align-items: flex-start"><sc-if value="{{s.notes}}" hint-placeholder-val="{{ false }}"><span class="p al">! Notes à écrire</span></sc-if><span class="{{s.cls}}">{{s.statut}}</span></span>
+</a>
+</sc-for>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 8px"><div class="e" style="flex: 1">À traiter · 5</div><span class="s">du plus pressé au moins pressé</span></div>
+<div class="c">
+<sc-for list="{{taches}}" as="k" hint-placeholder-count="5">
+<a href="{{k.href}}" class="{{k.cls}}" style="min-height: 48px; padding: 8px 16px 8px 20px; display: flex; align-items: center; gap: 12px">
+<span style="width: 270px; flex: none; font-weight: 600; color: var(--marque)">{{k.geste}}</span>
+<span style="flex: 1; min-width: 0">{{k.objet}}</span>
+<span class="{{k.eCls}}">{{k.echeance}}</span>
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="color: var(--second)"><path d="M6 3l5 5-5 5"/></svg>
+</a>
+</sc-for>
+</div>
+<p class="s">↑ ↓ pour parcourir · ↵ pour ouvrir. Une ligne disparaît quand son geste est fait.</p>
+</section>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const S = (heure, qui, type, etat, href, notes) => ({ heure: heure, qui: qui, type: type, href: href, notes: !!notes,
+statut: etat === 'f' ? '✓ Réalisée' : '○ Prévue', cls: etat === 'f' ? 'p ok' : 'p', coul: 'inherit',
+pointFond: etat === 'f' ? 'var(--succes)' : etat === 'n' ? 'var(--marque)' : 'var(--surface)', pointBord: etat === 'f' ? 'var(--succes)' : etat === 'n' ? 'var(--marque)' : 'var(--champ)' });
+const s = [
+S('09:00', 'Camille Martin', 'Séance d’accompagnement', 'f', 'SeanceApres.dc.html', true),
+S('11:00', 'Julien Roux', 'Entretien préalable · 20 min, au téléphone', 'n', 'SeanceEntretien.dc.html'),
+S('14:00', 'Nadia Benali', 'Séance d’hypnose', 'p', 'Seance.dc.html'),
+S('16:30', 'Thomas Petit', 'Entretien préalable · provenance inconnue', 'p', 'SeanceEntretien.dc.html')
+].map((x, i, a) => ({ ...x, haut: i ? 'var(--bord)' : 'transparent', bas: i < a.length - 1 ? 'var(--bord)' : 'transparent' }));
+const K = (geste, objet, echeance, href, retard) => ({ geste: geste, objet: objet, echeance: (retard ? '! ' : '') + echeance, eCls: retard ? 'p al' : 's', href: href });
+return { seances: s, taches: [
+K('Relire le questionnaire', 'Julien Roux', 'entretien à 11 h', 'Questionnaire.dc.html', true),
+K('Écrire les notes', 'Élodie Garcia', 'séance d’hier, 15 h 30', 'SeanceApres.dc.html'),
+K('Clore la séance restée « prévue »', 'Marc Fabre', 'mardi 24, 10 h', '#'),
+K('Rattacher la réservation', 'reçue au nom de S. Lacombe', 'hier, 21 h 12', 'Rattacher.dc.html'),
+K('Encaisser', 'Camille Martin', 'depuis 9 jours', 'Paiements.dc.html', true)
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}

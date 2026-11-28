@@ -1,0 +1,48 @@
+@title Corpus, état
+@size 1440 960
+@body
+@@MAC@@
+@@NAV corpus@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Corpus</h1><span class="s">28 documents · 6 blocs · relevé du 27 novembre</span><button type="button" class="b o p">Actualiser</button></header>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="true" href="Corpus.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">État</a>
+<a role="tab" aria-selected="false" href="CorpusDocuments.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Documents</a>
+<a role="tab" aria-selected="false" href="CorpusARanger.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">À ranger</a>
+<a role="tab" aria-selected="false" href="CorpusCarte.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Carte</a>
+</div>
+<section class="c">
+<div style="padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h2 style="flex: 1">Ce que portent mes IA</h2><span class="p al">! 4 à recoller</span></div>
+<sc-for list="{{surfaces}}" as="s" hint-placeholder-count="6">
+<div class="l" style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 300px; display: flex; flex-direction: column"><span style="font-weight: 600">{{s.nom}}</span><span class="s">{{s.aide}}</span></span>
+<span class="p" style="flex: none">{{s.profil}}</span>
+<span style="width: 150px"><span class="{{s.cls}}">{{s.etat}}</span></span>
+<span style="width: 130px; display: flex; justify-content: flex-end"><sc-if value="{{s.action}}" hint-placeholder-val="{{ true }}"><button type="button" class="b o p">{{s.action}}</button></sc-if></span>
+</div>
+</sc-for>
+<p class="l s" style="padding: 10px 16px">Le texte est copié, puis la version est enregistrée. Si la copie échoue, rien n’est enregistré.</p>
+</section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Les trois profils</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<div class="c" style="padding: 14px 16px"><h2>Noyau</h2><p class="s">L’essentiel, présent en permanence, y compris dans un champ d’instructions plafonné.</p><p class="s">7 633 car. · 2 doc. · plafond 7 800</p></div>
+<div class="c" style="padding: 14px 16px"><h2>Complet</h2><p class="s">Tout ce qui est stable : identité, cadre, offres, voix, canaux, matière. Sans la stratégie.</p><p class="s">49 196 car. · 22 doc.</p></div>
+<div class="c" style="padding: 14px 16px"><h2>Stratégie</h2><p class="s">Décisions datées, hypothèses, questions ouvertes. Ne sert jamais à rédiger un contenu.</p><p class="s">16 122 car. · 6 doc.</p></div>
+</div></section>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const S = (nom, aide, profil, etat, action) => ({ nom: nom, aide: aide, profil: profil, etat: etat === 'a' ? '✓ Automatique' : '! Jamais déposée', cls: etat === 'a' ? 'p ok' : 'p al', action: action || '' });
+return { surfaces: [
+S('Projet Claude « Luminose »', 'Synchronisé depuis le dépôt : les fiches arrivent seules. Coller le noyau dans les instructions du projet.', 'complet', 'a'),
+S('Projet ChatGPT · instructions', 'À coller dans les instructions du projet.', 'noyau', 'j', 'Copier'),
+S('Projet ChatGPT · fichier du projet', 'Le contexte complet. Il complète les instructions, il ne les remplace pas.', 'complet', 'j', 'Télécharger'),
+S('Gem Gemini · instructions', 'À coller dans le champ d’instructions du Gem.', 'noyau', 'j', 'Copier'),
+S('Gem Gemini · fichier de connaissance', 'À retélécharger à chaque changement du corpus.', 'complet', 'j', 'Télécharger'),
+S('Claude Code', 'Lit le dépôt directement : rien à déposer.', 'complet', 'a'),
+S('Appels de la console', 'Une feuille par action, composée à chaque appel.', 'feuille', 'a')
+] };
+}

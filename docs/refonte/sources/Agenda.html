@@ -1,0 +1,60 @@
+@title Agenda, semaine
+@size 1440 900
+@body
+@@MAC@@
+@@NAV agenda@@
+@@MAIN@@
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<h1 style="flex: 1; min-width: 200px">Agenda</h1>
+<a href="FermerJours.dc.html" class="b o">Fermer des jours…</a>
+<a href="RendezVous.dc.html" class="b">Poser un rendez-vous</a>
+</header>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)">
+<div role="tablist" style="display: flex; gap: 4px">
+<a role="tab" aria-selected="true" href="Agenda.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Semaine</a>
+<a role="tab" aria-selected="false" href="AgendaMois.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Mois</a>
+</div>
+<span style="flex: 1"></span>
+<span style="font-weight: 600">23 – 29 novembre 2026</span>
+<div style="display: flex; gap: 4px; padding-bottom: 6px">
+<button type="button" class="b o p" aria-label="Semaine précédente">‹</button><button type="button" class="b o p">Aujourd’hui</button><button type="button" class="b o p" aria-label="Semaine suivante">›</button>
+</div>
+</div>
+<div style="overflow-x: auto">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 8px; min-height: 560px">
+<sc-for list="{{jours}}" as="j" hint-placeholder-count="7">
+<section style="display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 12px; border: 1px solid {{j.bord}}; background: {{j.fond}}">
+<div style="display: flex; align-items: baseline; gap: 6px; padding: 2px 4px"><span style="font-weight: 600">{{j.nom}}</span><span class="s">{{j.note}}</span></div>
+<sc-for list="{{j.seances}}" as="s" hint-placeholder-count="2">
+<a href="{{s.href}}" class="c" style="padding: 8px 10px; display: flex; flex-direction: column; gap: 4px">
+<span><span style="font-weight: 600">{{s.heure}}</span> {{s.qui}}</span>
+<span class="s">{{s.type}}</span>
+<span style="display: flex; gap: 4px; flex-wrap: wrap"><span class="{{s.statutCls}}">{{s.statut}}</span><span class="{{s.paieCls}}">{{s.paie}}</span></span>
+</a>
+</sc-for>
+<sc-if value="{{j.ferme}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 4px"><span class="p">× Jour fermé</span><button type="button" class="b d p">Ouvrir ce jour</button></div>
+</sc-if>
+</section>
+</sc-for>
+</div>
+</div>
+<p class="s">« N libres » compte les créneaux encore ouverts à la réservation. Calendly et l’agenda Google servent encore : pensez à y reporter un jour fermé ou un rendez-vous déplacé.</p>
+</main>
+</div>
+@logic
+vals() {
+const S = (heure, qui, type, st, pa) => ({ heure: heure, qui: qui, type: type, href: 'Seance.dc.html',
+statut: { r: '✓ Réalisée', p: '○ Prévue', a: '× Annulée', b: '– Absente' }[st], statutCls: st === 'r' ? 'p ok' : st === 'b' ? 'p er' : 'p',
+paie: { o: '✓ Payé', e: '! À encaisser', f: 'Offert' }[pa], paieCls: pa === 'o' ? 'p ok' : pa === 'e' ? 'p al' : 'p' });
+const J = (nom, seances, o) => Object.assign({ nom: nom, seances: seances, note: '', ferme: false, fond: 'transparent', bord: 'var(--bord)' }, o || {});
+return { jours: [
+J('lun. 23', [S('09:00', 'Camille Martin', 'Accompagnement', 'r', 'e'), S('14:00', 'Marc Fabre', 'Hypnose', 'r', 'o')]),
+J('mar. 24', [S('10:00', 'Marc Fabre', 'Accompagnement', 'p', 'e'), S('16:00', 'Sophie Lacombe', 'Entretien préalable', 'b', 'f')], { note: '3 libres' }),
+J('mer. 25', [S('09:30', 'Nadia Benali', 'Breathwork holotropique individuel', 'r', 'o')], { note: '2 libres' }),
+J('jeu. 26', [S('11:00', 'Thomas Petit', 'Hypnose', 'a', 'f'), S('15:30', 'Élodie Garcia', 'Accompagnement', 'p', 'e')]),
+J('ven. 27', [S('09:00', 'Camille Martin', 'Accompagnement', 'p', 'e'), S('11:00', 'Julien Roux', 'Entretien préalable', 'p', 'f'), S('14:00', 'Nadia Benali', 'Hypnose', 'p', 'e'), S('16:30', 'Thomas Petit', 'Entretien préalable', 'p', 'f')], { note: 'aujourd’hui · 1 libre', bord: 'var(--marque)', fond: 'var(--survol)' }),
+J('sam. 28', [], { ferme: true, fond: 'var(--bas)' }),
+J('dim. 29', [], { ferme: true, fond: 'var(--bas)' })
+] };
+}

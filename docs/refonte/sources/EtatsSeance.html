@@ -1,0 +1,35 @@
+@title États d’une séance
+@size 1440 1080
+@body
+<div class="{{theme}} app" style="width: 1440px; min-height: 1080px; box-sizing: border-box; padding: 40px; display: flex; flex-direction: column; gap: 24px">
+<header><h1>Une séance · ses états</h1></header>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Statut de la séance, tel qu’il s’affiche dans l’en-tête</div>
+<div class="c" style="padding: 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<span class="p">○ Prévue</span><span class="p al">! Passée, restée « prévue »</span><span class="p ok">✓ Réalisée</span><span class="p">× Annulée</span><span class="p er">– Absente</span><span class="p al">! À rattacher à une fiche</span><span class="p al">! Sans type</span>
+<span class="s" style="flex-basis: 100%">Réalisée, annulée ou absente : « Remettre à “prévue” » remplace l’action principale. À rattacher : l’action principale devient « Rattacher à une fiche ». Sans type : « Choisir le type ».</span>
+</div></section>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Notes : enregistrement en cours, puis fait</div>
+<div class="c" style="padding: 12px 16px; display: flex; flex-direction: column; gap: 8px"><span class="s" role="status">Enregistrement…</span><span class="s" role="status" style="color: var(--succes)">✓ Enregistré à 16 h 42</span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Notes : échec de l’enregistrement</div>
+<div role="alert" class="c" style="padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px; border-color: var(--erreur)"><span style="flex: 1; color: var(--erreur); font-weight: 600">× Non enregistré. Votre texte reste à l’écran.</span><button type="button" class="b o p">Réessayer</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Questionnaire de santé</div>
+<div class="c" style="padding: 16px; display: flex; gap: 8px; flex-wrap: wrap"><span class="p">Pas reçu</span><span class="p al">! Non relu</span><span class="p ok">✓ Relu le 12 octobre</span></div></section>
+</div>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Notes : conflit entre le Mac et l’iPhone. L’enregistrement s’arrête, le texte saisi reste à l’écran</div>
+<div class="c" style="border-color: var(--alerte)">
+<p role="alert" style="padding: 12px 16px; background: var(--af); color: var(--alerte); font-weight: 600; border-radius: 12px 12px 0 0">! Cette note a été modifiée ailleurs à 16 h 40, depuis l’iPhone. Rien n’est enregistré tant que vous n’avez pas choisi.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr))">
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 8px"><div class="e">Votre texte, sur cet écran</div><h2>Séance</h2><p>Arrivée fatiguée, semaine chargée au travail. Clarification autour de la reprise du sport.</p><button type="button" class="b" style="align-self: flex-start">Garder mon texte</button></div>
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-left: 1px solid var(--bord)"><div class="e">Version enregistrée à 16 h 40</div><h2>Séance</h2><p>Arrivée fatiguée. Induction courte.</p><button type="button" class="b o" style="align-self: flex-start">Prendre la version enregistrée</button></div>
+</div>
+<p class="l s" style="padding: 10px 16px">Vous pouvez aussi copier un passage d’une colonne vers l’autre avant de choisir.</p>
+</div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; gap: 8px; align-items: center"><div class="e">Enregistrement de l’entretien, à côté des notes</div><span class="p">À venir</span></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; align-items: start">
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 6px"><h2>Transcription en cours</h2><p class="s">entretien-roux.m4a · 18 min. Vous pouvez continuer à écrire.</p></div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 6px"><h2>Résumé en cours</h2><p class="s">La transcription est prête. Le résumé arrive.</p></div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--marque)"><h2>Résumé prêt</h2><p class="s">Une proposition : elle n’écrit jamais par-dessus vos notes.</p><div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="b p">Insérer sous Séance</button><button type="button" class="b o p">Écarter</button></div></div>
+<div role="alert" class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--erreur)"><h2 style="color: var(--erreur)">× La transcription a échoué</h2><p class="s">Le fichier est conservé. Vos notes ne sont pas touchées.</p><button type="button" class="b o p" style="align-self: flex-start">Relancer</button></div>
+</div></section>
+</div>

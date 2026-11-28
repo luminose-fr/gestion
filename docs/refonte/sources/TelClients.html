@@ -1,0 +1,34 @@
+@title Clients, iPhone
+@size 390 844
+@body
+@@TEL@@
+<header style="padding: 8px 16px 12px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px"><h1 style="flex: 1; padding-left: 4px">Clients</h1><a href="TelNouvelleFiche.dc.html" class="b">Nouvelle fiche</a></div>
+<label for="rech" style="position: absolute; left: -9999px">Nom, e-mail ou téléphone</label>
+<input id="rech" class="f" type="search" placeholder="Nom, e-mail ou téléphone">
+</header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 0 16px">
+<div class="c">
+<sc-for list="{{clients}}" as="c" hint-placeholder-count="8">
+<a href="TelFiche.dc.html" class="{{c.cls}}" style="min-height: 60px; box-sizing: border-box; padding: 8px 14px; display: flex; align-items: center; gap: 10px">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 600">{{c.nom}}</span><span class="s">{{c.ville}} · {{c.n}}</span><span class="s">{{c.quand}}</span></span>
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+</a>
+</sc-for>
+</div>
+</div>
+@@TAB clients@@
+</div>
+@logic
+vals() {
+const c = (nom, ville, n, quand, i) => ({ nom: nom, ville: ville, n: n, quand: quand });
+return { clients: [
+c('Nadia Benali', 'Castelnaudary', '12 séances', 'Prochaine : aujourd’hui, 14 h 00'),
+c('Marc Fabre', 'Toulouse', '7 séances', 'Dernière : mardi 24 novembre'),
+c('Élodie Garcia', 'Villefranche-de-Lauragais', '4 séances', 'Dernière : hier, 15 h 30'),
+c('Sophie Lacombe', 'Castelnaudary', 'aucune séance', 'Dernière : mardi 24 novembre (absente)'),
+c('Camille Martin', 'Villefranche-de-Lauragais', '9 séances', 'Prochaine : lundi 30 novembre, 9 h 00'),
+c('Thomas Petit', 'Toulouse', 'aucune séance', 'Prochaine : aujourd’hui, 16 h 30'),
+c('Camille Roux', 'Toulouse', '2 séances', 'Dernière : jeudi 5 novembre')
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}

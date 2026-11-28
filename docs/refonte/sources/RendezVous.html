@@ -1,0 +1,61 @@
+@title Poser ou déplacer un rendez-vous
+@size 720 860
+@props {"deplacer":{"editor":"boolean","default":false},"chevauchement":{"editor":"boolean","default":false}}
+@body
+@@WIN@@
+<div style="padding: 20px 24px 12px"><h1>{{titre}}</h1><p class="s">{{sous}}</p></div>
+<div style="padding: 8px 24px 16px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 40px">
+<span style="width: 96px; flex: none; font-weight: 500">Personne</span>
+<span style="flex: 1; font-weight: 600">Camille Martin <span class="s" style="font-weight: 400">· Villefranche-de-Lauragais</span></span>
+<button type="button" class="b d p">Changer</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="type" style="font-weight: 500">Type</label>
+<select id="type" class="f"><option>Séance d’accompagnement</option><option>Entretien préalable (20 min, offert)</option><option>Séance d’hypnose</option><option>Breathwork holotropique individuel</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="date" style="font-weight: 500">Date</label><input id="date" class="f" type="text" value="lundi 7 décembre 2026"><span style="display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px"><button type="button" class="b o p" aria-pressed="true" style="background: var(--actif)">Dans 7 jours</button><button type="button" class="b o p" style="font-weight: 500">Dans 14 jours</button><button type="button" class="b o p" style="font-weight: 500">Premier créneau libre</button></span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 500">Créneaux libres ce jour</span>
+<div role="radiogroup" aria-label="Créneaux libres" style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{groupes}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 12px"><span class="s" style="width: 88px; flex: none">{{g.nom}}</span><span style="display: flex; gap: 8px; flex-wrap: wrap"><sc-for list="{{g.creneaux}}" as="c" hint-placeholder-count="3"><button type="button" role="radio" aria-checked="{{c.on}}" class="b o" style="width: 84px; background: {{c.fond}}; font-weight: {{c.gras}}">{{c.h}}</button></sc-for></span></div>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{chevauchement}}" hint-placeholder-val="{{ false }}">
+<p role="alert" class="c" style="padding: 10px 12px; border-color: var(--erreur); background: var(--ef); color: var(--erreur); font-weight: 500">× L’heure saisie, 10 h 30, chevauche la séance de Marc Fabre, de 10 h 00 à 11 h 00. Choisissez un autre créneau.</p>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span class="e">Déjà prévu ce jour</span>
+<sc-for list="{{prevus}}" as="p" hint-placeholder-count="2"><div style="display: flex; gap: 12px"><span style="width: 110px; flex: none; font-weight: 600">{{p.h}}</span><span>{{p.qui}}</span><span class="s">{{p.type}}</span></div></sc-for>
+</div>
+<details class="c" style="padding: 12px 16px"><summary style="font-weight: 600">Durée, mode et montant <span class="s" style="font-weight: 400">· 1 h · en séance, à Villefranche-de-Lauragais · [MONTANT]</span></summary>
+<div style="padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="duree" style="font-weight: 500">Durée</label><input id="duree" class="f" type="text" value="1 h"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="mode" style="font-weight: 500">Mode</label><select id="mode" class="f"><option>En séance, à Villefranche-de-Lauragais</option><option>En visio</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="montant" style="font-weight: 500">Montant</label><input id="montant" class="f" type="text" value="[MONTANT]"></div>
+</div></details>
+</div>
+<p class="s l" style="padding: 12px 24px">Calendly et l’agenda Google servent encore : pensez à y reporter ce rendez-vous.</p>
+<div class="l" style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 8px">
+<button type="button" class="b d">Fermer sans enregistrer</button>
+<button type="button" class="b">{{action}}</button>
+</div>
+</div>
+</div>
+@logic
+vals() {
+const dep = !!this.props.deplacer;
+const chev = !!this.props.chevauchement;
+const pris = chev ? '' : '09:00';
+return {
+titre: dep ? 'Déplacer le rendez-vous' : 'Poser un rendez-vous',
+sous: dep ? 'Actuellement : lundi 30 novembre, 9 h 00. La personne est prévenue par e-mail.' : 'Suivant de Camille Martin : même type, sept jours plus tard, à la même heure.',
+aideDate: dep ? '' : 'Proposée : sept jours après la séance du 30 novembre.',
+action: dep ? 'Déplacer à ce créneau' : 'Poser le rendez-vous',
+chevauchement: chev,
+groupes: [['Matin', ['09:00', '11:30']], ['Après-midi', ['14:00', '15:30', '17:00']]].map((g) => ({ nom: g[0], creneaux: g[1].map((h) => ({ h: h, on: h === pris, fond: h === pris ? 'var(--actif)' : 'transparent', gras: h === pris ? 600 : 500 })) })),
+prevus: [{ h: '10:00 – 11:00', qui: 'Marc Fabre', type: 'Séance d’accompagnement' }, { h: '16:30 – 16:50', qui: 'Thomas Petit', type: 'Entretien préalable' }]
+};
+}

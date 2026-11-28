@@ -1,0 +1,63 @@
+@title Une fiche
+@size 1440 1000
+@body
+@@MAC@@
+@@NAV clients@@
+@@MAIN@@
+<a href="Clients.dc.html" class="s" style="align-self: flex-start">‹ Clients</a>
+<header style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; max-width: 1150px">
+<div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 4px">
+<h1>Camille Martin</h1>
+<p>34 ans · <a href="tel:0600000001" style="text-decoration: underline">06 00 00 00 01</a> · <a href="mailto:camille.martin@exemple.fr" style="text-decoration: underline">camille.martin@exemple.fr</a></p>
+<p class="s">Provenance : Google Ads · mot-clé : accompagnement Toulouse</p>
+</div>
+<a href="RendezVous.dc.html" class="b">Poser un rendez-vous</a>
+</header>
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; max-width: 1150px">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<sc-for list="{{cartes}}" as="k" hint-placeholder-count="4">
+<section class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px"><h2 style="flex: 1">{{k.titre}}</h2><button type="button" class="b d p">Modifier</button></div>
+<sc-for list="{{k.lignes}}" as="x" hint-placeholder-count="3"><div style="display: flex; gap: 12px"><span class="s" style="width: 150px; flex: none">{{x.nom}}</span><span style="min-width: 0">{{x.val}}</span></div></sc-for>
+</section>
+</sc-for>
+</div>
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<section class="c">
+<div style="padding: 12px 20px; display: flex; align-items: baseline; gap: 8px"><h2 style="flex: 1">Séances</h2><span class="s">9 réalisées · 1 à venir</span></div>
+<sc-for list="{{seances}}" as="s" hint-placeholder-count="5">
+<a href="Seance.dc.html" class="l" style="padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<span style="width: 132px; flex: none; font-weight: 600">{{s.quand}}</span>
+<span style="flex: 1; min-width: 120px">{{s.type}}</span>
+<span class="{{s.statutCls}}">{{s.statut}}</span><span class="{{s.paieCls}}">{{s.paie}}</span>
+</a>
+</sc-for>
+<a href="#toutes" class="l s" style="display: block; padding: 10px 20px; text-decoration: underline">Voir les 5 séances plus anciennes</a>
+</section>
+<section class="c">
+<div style="padding: 12px 20px"><h2>Inscriptions aux stages</h2></div>
+<a href="#stage" class="l" style="padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><span style="flex: 1; min-width: 200px">Stage de breathwork holotropique · 14-15 mars · Villefranche-de-Lauragais</span><span class="p ok">✓ Inscrite</span><span class="p al">! À encaisser</span></a>
+</section>
+<section class="c">
+<div style="padding: 12px 20px"><h2>Questionnaires de santé</h2></div>
+<a href="#questionnaire" class="l" style="padding: 10px 20px; display: flex; align-items: center; gap: 12px"><span style="flex: 1">Reçu le 20 novembre, pour le stage</span><span class="p al">! Non relu</span></a>
+<a href="#questionnaire" class="l" style="padding: 10px 20px; display: flex; align-items: center; gap: 12px"><span style="flex: 1">Reçu le 10 octobre, avant la première séance</span><span class="p ok">✓ Relu le 12 octobre</span></a>
+</section>
+</div>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const L = (a) => a.map((x) => ({ nom: x[0], val: x[1] }));
+const S = (quand, type, st, pa) => ({ quand: quand, type: type, statut: st === 'p' ? '○ Prévue' : '✓ Réalisée', statutCls: st === 'p' ? 'p' : 'p ok', paie: pa === 'e' ? '! À encaisser' : '✓ Payé', paieCls: pa === 'e' ? 'p al' : 'p ok' });
+return {
+cartes: [
+{ titre: 'Identité et coordonnées', lignes: L([['Naissance', '14 mai 1992'], ['Adresse', 'Villefranche-de-Lauragais'], ['Préfère', 'le SMS']]) },
+{ titre: 'Provenance et liens', lignes: L([['Origine', 'Google Ads · mot-clé : accompagnement Toulouse'], ['Venue par', 'personne'], ['Couple', 'non']]) },
+{ titre: 'Personne de confiance', lignes: L([['Nom', 'Hélène Martin, sa sœur'], ['Téléphone', '06 00 00 00 09']]) },
+{ titre: 'Notes de la fiche', lignes: L([['', 'Préfère les séances du matin. Ne pas appeler avant 9 h.']]) }
+],
+seances: [S('lun. 30 nov., 9 h', 'Séance d’accompagnement', 'p', 'e'), S('lun. 23 nov., 9 h', 'Séance d’accompagnement', 'r', 'e'), S('lun. 16 nov., 9 h', 'Séance d’hypnose', 'r', 'o'), S('lun. 9 nov., 9 h', 'Séance d’accompagnement', 'r', 'o'), S('lun. 2 nov., 9 h', 'Séance d’accompagnement', 'r', 'o')]
+};
+}

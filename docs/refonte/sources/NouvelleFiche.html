@@ -1,0 +1,41 @@
+@title Nouvelle fiche
+@size 1440 900
+@body
+@@MAC@@
+@@NAV clients@@
+@@MAIN@@
+<a href="Clients.dc.html" class="s" style="align-self: flex-start">‹ Clients</a>
+<header><h1>Nouvelle fiche</h1><p class="s">Tout se remplit au clavier : Tab passe au champ suivant, ⌘↵ enregistre.</p></header>
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
+<form style="flex: 1 1 520px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<section class="c" style="padding: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="prenom" style="font-weight: 500">Prénom</label><input id="prenom" class="f" type="text" value="Julien"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="nom" style="font-weight: 500">Nom</label><input id="nom" class="f" type="text" value="Roux" style="outline: 2px solid var(--marque); outline-offset: 2px"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="mail" style="font-weight: 500">E-mail</label><input id="mail" class="f" type="email" value=""><span class="s">Facultatif pendant l’appel : sert aux rappels.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="tel" style="font-weight: 500">Téléphone</label><input id="tel" class="f" type="tel" value="06 00 00 00 04"></div>
+</section>
+<details class="c" style="padding: 14px 20px"><summary style="font-weight: 600"><span style="flex: 1">Le reste, quand vous l’avez</span><span class="s" style="font-weight: 400">Provenance déjà reprise de la réservation · 4 champs vides</span></summary>
+<div style="padding-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="naissance" style="font-weight: 500">Date de naissance</label><input id="naissance" class="f" type="text" placeholder="jj/mm/aaaa"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="ville" style="font-weight: 500">Ville</label><input id="ville" class="f" type="text" value="Toulouse"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="origine" style="font-weight: 500">Provenance</label><input id="origine" class="f" type="text" value="Google Ads · mot-clé : hypnose arrêt tabac"><span class="s">Reprise de la réservation.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="par" style="font-weight: 500">Venu par</label><select id="par" class="f"><option>Personne</option><option>Un professionnel</option><option>Une personne accompagnée</option></select></div>
+<div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px"><label for="confiance" style="font-weight: 500">Personne de confiance</label><input id="confiance" class="f" type="text" placeholder="Nom et téléphone"></div>
+</div></details>
+<div style="display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap">
+<button type="button" class="b o">Enregistrer</button>
+<a href="RendezVous.dc.html" class="b">Enregistrer et poser un rendez-vous</a>
+</div>
+</form>
+<aside aria-live="polite" style="flex: 1 1 280px; max-width: 320px; display: flex; flex-direction: column; gap: 8px">
+<div class="e">Fiches semblables</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--alerte)">
+<div><div style="font-weight: 600">Camille Roux</div><div class="s">Toulouse · 2 séances</div></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="p ok">✓ Même nom</span><span class="p">× Prénom différent</span><span class="p">× Téléphone différent</span></div>
+<a href="Fiche.dc.html" class="b o p" style="align-self: flex-start">Ouvrir cette fiche</a>
+</div>
+<p class="s">Les fiches proches s’affichent dès la saisie du nom, de l’e-mail ou du téléphone. C’est ici que se décide de ne pas créer de doublon.</p>
+</aside>
+</div>
+</main>
+</div>

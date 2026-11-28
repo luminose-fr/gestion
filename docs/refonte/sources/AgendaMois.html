@@ -1,0 +1,55 @@
+@title Agenda, mois
+@size 1440 960
+@body
+@@MAC@@
+@@NAV agenda@@
+@@MAIN@@
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<h1 style="flex: 1; min-width: 200px">Agenda</h1>
+<a href="FermerJours.dc.html" class="b o">Fermer des jours…</a>
+<a href="RendezVous.dc.html" class="b">Poser un rendez-vous</a>
+</header>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)">
+<div role="tablist" style="display: flex; gap: 4px">
+<a role="tab" aria-selected="false" href="Agenda.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Semaine</a>
+<a role="tab" aria-selected="true" href="AgendaMois.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Mois</a>
+</div>
+<span style="flex: 1"></span>
+<span style="font-weight: 600">Novembre 2026</span>
+<div style="display: flex; gap: 4px; padding-bottom: 6px">
+<button type="button" class="b o p" aria-label="Mois précédent">‹</button><button type="button" class="b o p">Aujourd’hui</button><button type="button" class="b o p" aria-label="Mois suivant">›</button>
+</div>
+</div>
+<div style="overflow-x: auto">
+<div style="min-width: 840px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--bord); border-radius: 12px; overflow: hidden; background: var(--surface)">
+<sc-for list="{{entetes}}" as="e" hint-placeholder-count="7"><div class="e" style="padding: 8px 10px; background: var(--bas)">{{e}}</div></sc-for>
+<sc-for list="{{cases}}" as="c" hint-placeholder-count="35">
+<a href="Agenda.dc.html" class="l" style="min-height: 112px; box-sizing: border-box; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; border-left: 1px solid var(--bord); margin-left: -1px; background: {{c.fond}}">
+<span style="display: flex; align-items: center; gap: 6px"><span style="font-weight: 600; padding: 0 6px; border-radius: 8px; background: {{c.numFond}}; color: {{c.numCoul}}">{{c.num}}</span><sc-if value="{{c.ferme}}" hint-placeholder-val="{{ false }}"><span class="s">× Fermé</span></sc-if></span>
+<sc-for list="{{c.lignes}}" as="x" hint-placeholder-count="2"><span class="s" style="color: var(--texte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{x}}</span></sc-for>
+<span class="s">{{c.reste}}</span>
+</a>
+</sc-for>
+</div>
+</div>
+<p class="s">Une case ouvre la semaine de ce jour. Les pastilles de statut et de paiement se lisent dans la vue Semaine.</p>
+</main>
+</div>
+@logic
+vals() {
+const noms = ['C. Martin', 'J. Roux', 'N. Benali', 'M. Fabre', 'É. Garcia', 'S. Lacombe', 'T. Petit'];
+const heures = ['09:00', '10:30', '14:00', '15:30', '17:00'];
+const cases = [];
+for (let i = 0; i < 42; i++) {
+const jour = i - 5;
+const dansMois = jour >= 1 && jour <= 30;
+const num = jour < 1 ? 26 + i : jour > 30 ? jour - 30 : jour;
+const ferme = i % 7 > 4 || jour === 11;
+const n = ferme ? 0 : 1 + ((i * 7) % 4);
+const lignes = [];
+for (let k = 0; k < Math.min(n, 3); k++) lignes.push(heures[k] + ' ' + noms[(i + k * 3) % 7]);
+const auj = jour === 27;
+cases.push({ num: num, ferme: ferme, lignes: lignes, reste: n > 3 ? '+ ' + (n - 3) + ' autre' : '', fond: ferme ? 'var(--bas)' : 'transparent', numFond: auj ? 'var(--marque)' : 'transparent', numCoul: auj ? 'var(--sur)' : dansMois ? 'inherit' : 'var(--second)' });
+}
+return { entetes: ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'], cases: cases };
+}

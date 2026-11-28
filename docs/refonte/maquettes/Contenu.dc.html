@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Un contenu ouvert</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app" style="min-height: 960px; display: flex; flex-direction: column">
+<header style="padding: 12px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid var(--bord); background: var(--surface)">
+<a href="Contenus.dc.html" class="b o p">‹ Conversations</a>
+<div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 4px"><h1>Débrancher les émotions</h1><div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="p">Reel expliqué</span><span class="p">Recadrage de croyance</span><span class="p">Instagram</span><span class="p">Facebook</span><span class="p">Youtube</span></div></div>
+<button type="button" aria-haspopup="listbox" aria-label="Aller à une étape, étape actuelle : Script, 3 sur 6" class="c" style="width: 300px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; text-align: left">
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="flex: 1; font-weight: 600">Script</span><span class="e">Étape 3 sur 6</span><span aria-hidden="true">⌄</span></span>
+<span style="display: flex; gap: 3px"><sc-for list="{{etapes}}" as="b" hint-placeholder-count="6"><span style="flex: 1; height: 4px; border-radius: 999px; background: {{b}}"></span></sc-for></span>
+</button>
+</header>
+<div style="flex: 1; display: flex; flex-wrap: wrap">
+<nav aria-label="Plan de la série" style="flex: 1 1 220px; max-width: 260px; box-sizing: border-box; padding: 16px 12px; background: var(--bas); border-right: 1px solid var(--bord); display: flex; flex-direction: column; gap: 4px">
+<div class="e" style="padding: 0 8px">Série</div><div style="padding: 0 8px 8px; font-weight: 600">Ce qu’on refuse de sentir</div>
+<a href="#plan" style="padding: 8px; text-decoration: underline" class="s">Plan de la série</a>
+<sc-for list="{{plan}}" as="p" hint-placeholder-count="7">
+<a href="Contenu.dc.html" style="padding: 8px; border-radius: 8px; display: flex; gap: 10px; background: {{p.fond}}">
+<span style="width: 24px; height: 24px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; background: {{p.numFond}}; color: {{p.numCoul}}; border: 1px solid var(--bord)">{{p.n}}</span>
+<span style="min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.titre}}</span><span class="s" style="color: {{p.etatCoul}}">{{p.etat}}</span></span>
+</a>
+</sc-for>
+</nav>
+<section aria-label="Le fil" style="flex: 2 1 320px; max-width: 420px; min-width: 0; display: flex; flex-direction: column; background: var(--fil); border-right: 1px solid var(--bord)">
+<div style="padding: 12px 20px; border-bottom: 1px solid var(--bord)"><span style="font-weight: 600">Le fil</span> <span class="s">ce qui s’est dit et fait</span></div>
+<div style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{fil}}" as="m" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 4px; align-items: {{m.cote}}">
+<span class="s"><span style="font-weight: 600">{{m.qui}}</span> · {{m.date}}</span>
+<div style="max-width: 86%; padding: 8px 12px; border-radius: 12px; border: 1px solid {{m.bord}}; background: {{m.fond}}; color: {{m.coul}}">{{m.texte}}<sc-if value="{{m.retour}}" hint-placeholder-val="{{ false }}"><br><a href="#version" class="s" style="text-decoration: underline">Revenir à la version précédente</a></sc-if></div>
+</div>
+</sc-for>
+</div>
+<div style="padding: 12px 20px 16px; border-top: 1px solid var(--bord); display: flex; flex-direction: column; gap: 8px">
+<span class="s"><span style="font-weight: 600">Au Rédacteur</span> · un message = un ajustement · <a href="#coach" style="text-decoration: underline">Parler au Coach</a></span>
+<div style="display: flex; gap: 8px"><label for="msg" style="position: absolute; left: -9999px">Message au Rédacteur</label><input id="msg" class="f" type="text" placeholder="Ce que le Rédacteur doit changer, et rien d’autre"><button type="button" class="b">Envoyer</button></div>
+</div>
+</section>
+<section aria-label="La matière" style="flex: 4 1 480px; min-width: 0; display: flex; flex-direction: column">
+<div style="padding: 10px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)"><span style="flex: 1"><span style="font-weight: 600">Script</span> <span class="s">écrit</span></span><button type="button" class="b o p" aria-label="Autres actions">···</button><button type="button" class="b">Marquer prête à tourner</button></div>
+<div style="flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{sequences}}" as="q" hint-placeholder-count="5">
+<div class="c" style="padding: 14px 18px; display: flex; gap: 20px; flex-wrap: wrap">
+<div style="width: 170px; flex: none"><div class="e">{{q.titre}}</div><div class="s">{{q.plan}}</div></div>
+<div style="flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 4px"><p>{{q.texte}}</p><p class="s" style="font-style: italic">{{q.jeu}}</p></div>
+</div>
+</sc-for>
+</div>
+</section>
+</div>
+<footer style="padding: 8px 24px; display: flex; align-items: center; gap: 16px; border-top: 1px solid var(--bord); background: var(--surface)"><span class="s" role="status" style="color: var(--succes)">✓ Enregistré automatiquement</span><span class="s" style="flex: 1">Coût IA ≥ 0,33 $</span><button type="button" class="b d p" style="color: var(--erreur)">Supprimer ce contenu</button></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "$preview": {"width": 1440, "height": 960}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const P = (n, titre, etat, on, fini) => ({ n: n, titre: titre, etat: etat, fond: on ? 'var(--actif)' : 'transparent', numFond: on ? 'var(--marque)' : 'transparent', numCoul: on ? 'var(--sur)' : 'inherit', etatCoul: fini ? 'var(--succes)' : 'var(--second)' });
+const M = (qui, date, texte, moi, retour) => ({ qui: qui, date: date, texte: texte, retour: !!retour, cote: moi ? 'flex-end' : 'flex-start', fond: moi ? 'var(--marque)' : 'var(--surface)', coul: moi ? 'var(--sur)' : 'inherit', bord: moi ? 'transparent' : 'var(--bord)' });
+return {
+etapes: [1, 1, 1, 0, 0, 0].map((x, i) => (x ? 'var(--marque)' : 'var(--bord)')),
+plan: [P(1, 'Débrancher les émotions', 'Script écrit', true), P(2, 'Tout ce qui ne s’exprime pas…', 'Atelier · 1 tour'), P(3, 'Chaque émotion que tu refuses…', 'Atelier · 1 tour'), P(4, 'Ce à quoi tu résistes persiste', 'Atelier · 1 tour'), P(5, 'Une armure plus solide', '✓ Exportée le 30 oct.', false, true), P(6, '« Gestion du stress » ?', 'Brouillon écrit'), P(7, 'Rien ne va jamais disparaître…', 'Atelier · 1 tour')],
+fil: [M('Analyste', '11 févr.', 'Idée préparée.'), M('Rédacteur', '23 mars', 'Script rédigé : 4 séquences, ≈ 63 s.'), M('Vous', '7 nov.', 'Rangé dans « Ce qu’on refuse de sentir » n° 1.', true), M('Vous', '7 nov.', 'Repassé en écriture.', true), M('Vous', '12 nov.', 'Corrige uniquement les points relevés par le contrôle du format, sans perdre le sens ni la voix.', true), M('Rédacteur', '12 nov.', 'Ajusté : 8 séquences, ≈ 66 s.', false, true)],
+sequences: [
+{ titre: '1 · Accroche', plan: 'Face caméra · 0 à 4 s', texte: '« Florent, vous pouvez m’aider à couper mes émotions ? »', jeu: 'Regard caméra direct, ton qui reprend la demande. Petite pause après la phrase.' },
+{ titre: '3 · L’image', plan: 'Scène · 16 à 22 s', texte: 'Vous voyez le petit voyant qui s’allume quand vous êtes sur la réserve ?', jeu: 'Ton conversationnel, presque complice.' },
+{ titre: '5 · Le prix payé', plan: 'Scène · 35 à 40 s', texte: 'Non. Ça vous garantit juste la panne sèche au milieu de nulle part.', jeu: 'Poser « la panne sèche », sans dramatiser.' },
+{ titre: '6 · Bascule', plan: 'Face caméra · 40 à 46 s', texte: 'Couper ses émotions, c’est exactement ça. L’émotion n’est pas le problème.', jeu: 'Ralentir nettement. Ton posé, regard tenu.' },
+{ titre: '7 · Ouverture', plan: 'Scène · 46 à 52 s', texte: 'C’est le voyant qui vous signale que quelque chose, dessous, mérite d’être regardé.', jeu: 'Ton doux, une seconde de silence à la fin.' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

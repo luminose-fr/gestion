@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Agenda, semaine</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app" style="display: flex; flex-wrap: wrap; min-height: 900px">
+<div style="flex: none; display: flex; background: var(--bas); border-right: 1px solid var(--bord)"><dc-import name="Nav" actif="agenda" sombre="{{sombre}}" replie="{{replie}}" hint-size="232px,900px"></dc-import></div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 24px">
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<h1 style="flex: 1; min-width: 200px">Agenda</h1>
+<a href="FermerJours.dc.html" class="b o">Fermer des jours…</a>
+<a href="RendezVous.dc.html" class="b">Poser un rendez-vous</a>
+</header>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)">
+<div role="tablist" style="display: flex; gap: 4px">
+<a role="tab" aria-selected="true" href="Agenda.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Semaine</a>
+<a role="tab" aria-selected="false" href="AgendaMois.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Mois</a>
+</div>
+<span style="flex: 1"></span>
+<span style="font-weight: 600">23 – 29 novembre 2026</span>
+<div style="display: flex; gap: 4px; padding-bottom: 6px">
+<button type="button" class="b o p" aria-label="Semaine précédente">‹</button><button type="button" class="b o p">Aujourd’hui</button><button type="button" class="b o p" aria-label="Semaine suivante">›</button>
+</div>
+</div>
+<div style="overflow-x: auto">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 8px; min-height: 560px">
+<sc-for list="{{jours}}" as="j" hint-placeholder-count="7">
+<section style="display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 12px; border: 1px solid {{j.bord}}; background: {{j.fond}}">
+<div style="display: flex; align-items: baseline; gap: 6px; padding: 2px 4px"><span style="font-weight: 600">{{j.nom}}</span><span class="s">{{j.note}}</span></div>
+<sc-for list="{{j.seances}}" as="s" hint-placeholder-count="2">
+<a href="{{s.href}}" class="c" style="padding: 8px 10px; display: flex; flex-direction: column; gap: 4px">
+<span><span style="font-weight: 600">{{s.heure}}</span> {{s.qui}}</span>
+<span class="s">{{s.type}}</span>
+<span style="display: flex; gap: 4px; flex-wrap: wrap"><span class="{{s.statutCls}}">{{s.statut}}</span><span class="{{s.paieCls}}">{{s.paie}}</span></span>
+</a>
+</sc-for>
+<sc-if value="{{j.ferme}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 4px"><span class="p">× Jour fermé</span><button type="button" class="b d p">Ouvrir ce jour</button></div>
+</sc-if>
+</section>
+</sc-for>
+</div>
+</div>
+<p class="s">« N libres » compte les créneaux encore ouverts à la réservation. Calendly et l’agenda Google servent encore : pensez à y reporter un jour fermé ou un rendez-vous déplacé.</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "replie": {"editor": "boolean", "default": false}, "$preview": {"width": 1440, "height": 900}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const S = (heure, qui, type, st, pa) => ({ heure: heure, qui: qui, type: type, href: 'Seance.dc.html',
+statut: { r: '✓ Réalisée', p: '○ Prévue', a: '× Annulée', b: '– Absente' }[st], statutCls: st === 'r' ? 'p ok' : st === 'b' ? 'p er' : 'p',
+paie: { o: '✓ Payé', e: '! À encaisser', f: 'Offert' }[pa], paieCls: pa === 'o' ? 'p ok' : pa === 'e' ? 'p al' : 'p' });
+const J = (nom, seances, o) => Object.assign({ nom: nom, seances: seances, note: '', ferme: false, fond: 'transparent', bord: 'var(--bord)' }, o || {});
+return { jours: [
+J('lun. 23', [S('09:00', 'Camille Martin', 'Accompagnement', 'r', 'e'), S('14:00', 'Marc Fabre', 'Hypnose', 'r', 'o')]),
+J('mar. 24', [S('10:00', 'Marc Fabre', 'Accompagnement', 'p', 'e'), S('16:00', 'Sophie Lacombe', 'Entretien préalable', 'b', 'f')], { note: '3 libres' }),
+J('mer. 25', [S('09:30', 'Nadia Benali', 'Breathwork holotropique individuel', 'r', 'o')], { note: '2 libres' }),
+J('jeu. 26', [S('11:00', 'Thomas Petit', 'Hypnose', 'a', 'f'), S('15:30', 'Élodie Garcia', 'Accompagnement', 'p', 'e')]),
+J('ven. 27', [S('09:00', 'Camille Martin', 'Accompagnement', 'p', 'e'), S('11:00', 'Julien Roux', 'Entretien préalable', 'p', 'f'), S('14:00', 'Nadia Benali', 'Hypnose', 'p', 'e'), S('16:30', 'Thomas Petit', 'Entretien préalable', 'p', 'f')], { note: 'aujourd’hui · 1 libre', bord: 'var(--marque)', fond: 'var(--survol)' }),
+J('sam. 28', [], { ferme: true, fond: 'var(--bas)' }),
+J('dim. 29', [], { ferme: true, fond: 'var(--bas)' })
+] };
+}
+}
+</script>
+</body>
+</html>

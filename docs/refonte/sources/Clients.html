@@ -1,0 +1,48 @@
+@title Clients
+@size 1440 900
+@body
+@@MAC@@
+@@NAV clients@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<h1 style="flex: 1; min-width: 200px">Clients</h1>
+<a href="NouvelleFiche.dc.html" class="b">Nouvelle fiche</a>
+</header>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="rech" class="s">Nom, e-mail ou téléphone · <span style="padding: 0 5px; border: 1px solid var(--bord); border-radius: 4px">/</span> pour y revenir</label>
+<input id="rech" class="f" type="search" placeholder="Rechercher une personne" style="height: 48px; font-size: 16px; outline: 2px solid var(--marque); outline-offset: 2px">
+</div>
+<div class="c" style="overflow-x: auto">
+<table style="width: 100%; min-width: 640px; border-collapse: collapse; text-align: left">
+<thead><tr class="e"><th scope="col" style="padding: 10px 16px; font: inherit">Nom</th><th scope="col" style="padding: 10px 16px; font: inherit">Ville</th><th scope="col" style="padding: 10px 16px; font: inherit; text-align: right">Séances</th><th scope="col" style="padding: 10px 16px; font: inherit">Dernière ou prochaine séance</th></tr></thead>
+<tbody>
+<sc-for list="{{clients}}" as="c" hint-placeholder-count="8">
+<tr class="l" style="background: {{c.fond}}">
+<td style="padding: 0"><a href="Fiche.dc.html" style="display: block; padding: 12px 16px; font-weight: 600">{{c.nom}}</a></td>
+<td style="padding: 12px 16px">{{c.ville}}</td>
+<td style="padding: 12px 16px; text-align: right">{{c.n}}</td>
+<td style="padding: 12px 16px"><span style="display: flex; align-items: center; gap: 12px"><span style="flex: 1"><span class="s">{{c.sens}}</span> {{c.quand}}</span><sc-if value="{{c.survol}}" hint-placeholder-val="{{ false }}"><a href="RendezVous.dc.html" class="b o p">Poser un rendez-vous</a></sc-if></span></td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<p class="s">8 personnes. Au survol ou au focus d’une ligne, « Poser un rendez-vous » apparaît (ici sur la troisième). La liste ne montre ni notes ni questionnaires.</p>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const c = (nom, ville, n, sens, quand, survol) => ({ nom: nom, ville: ville, n: n, sens: sens, quand: quand, survol: !!survol, fond: survol ? 'var(--survol)' : 'transparent' });
+return { clients: [
+c('Nadia Benali', 'Castelnaudary', 12, 'Prochaine', 'aujourd’hui, 14 h 00'),
+c('Marc Fabre', 'Toulouse', 7, 'Dernière', 'mardi 24 novembre'),
+c('Élodie Garcia', 'Villefranche-de-Lauragais', 4, 'Dernière', 'hier, 15 h 30', true),
+c('Sophie Lacombe', 'Castelnaudary', 0, 'Dernière', 'mardi 24 novembre (absente)'),
+c('Camille Martin', 'Villefranche-de-Lauragais', 9, 'Prochaine', 'lundi 30 novembre, 9 h 00'),
+c('Thomas Petit', 'Toulouse', 0, 'Prochaine', 'aujourd’hui, 16 h 30'),
+c('Camille Roux', 'Toulouse', 2, 'Dernière', 'jeudi 5 novembre'),
+c('Julien Roux', 'Toulouse', 0, 'Prochaine', 'aujourd’hui, 11 h 00')
+] };
+}

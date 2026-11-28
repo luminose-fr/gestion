@@ -1,0 +1,47 @@
+@title Paiements, encaissés
+@size 1440 900
+@body
+@@MAC@@
+@@NAV paiements@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Paiements</h1><span><span class="s">Encaissé en novembre :</span> <span style="font-weight: 600">[TOTAL] · 31 lignes</span></span></header>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)">
+<div role="tablist" style="display: flex; gap: 4px">
+<a role="tab" aria-selected="false" href="Paiements.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">À encaisser <span class="s">5</span></a>
+<a role="tab" aria-selected="true" href="Encaisses.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Encaissés</a>
+</div>
+<span style="flex: 1"></span>
+<div style="display: flex; gap: 4px; padding-bottom: 6px; align-items: center"><button type="button" class="b o p" aria-label="Mois précédent">‹</button><span style="font-weight: 600; padding: 0 8px">Novembre 2026</span><button type="button" class="b o p" aria-label="Mois suivant">›</button></div>
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap" role="radiogroup" aria-label="Moyen de paiement">
+<button type="button" role="radio" aria-checked="true" class="b o p" style="background: var(--actif)">✓ Tous</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Carte 18</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Espèces 7</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Virement 4</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Chèque 2</button>
+</div>
+<div class="c">
+<sc-for list="{{lignes}}" as="l" hint-placeholder-count="6">
+<div class="{{l.cls}}" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span class="s" style="width: 110px">{{l.jour}}</span>
+<a href="Fiche.dc.html" style="width: 170px; font-weight: 600">{{l.qui}}</a>
+<span style="flex: 1; min-width: 220px">{{l.quoi}}</span>
+<span class="p ok">✓ {{l.moyen}}</span>
+<span style="width: 90px; text-align: right; font-weight: 600">[MONTANT]</span>
+<details style="position: relative"><summary class="b d p" aria-label="Autres actions pour cette ligne" style="text-decoration: none">···</summary></details>
+</div>
+</sc-for>
+</div>
+<p class="s">« ··· » ouvre « Remettre à encaisser » et « Changer le moyen ». Une ligne encaissée ne se supprime pas.</p>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const L = (jour, qui, quoi, moyen) => ({ jour: jour, qui: qui, quoi: quoi, moyen: moyen });
+return { lignes: [
+L('jeu. 26 nov.', 'Nadia Benali', 'Séance · Breathwork holotropique individuel · mer. 25', 'Carte'),
+L('mar. 24 nov.', 'Marc Fabre', 'Séance · Hypnose · lun. 23', 'Espèces'),
+L('lun. 23 nov.', 'Thomas Petit', 'Stage de breathwork holotropique, 14-15 mars', 'Virement'),
+L('lun. 16 nov.', 'Camille Martin', 'Séance · Hypnose · lun. 16', 'Carte'),
+L('jeu. 12 nov.', 'Camille Roux', 'Stage de breathwork holotropique, 14-15 mars', 'Chèque'),
+L('lun. 9 nov.', 'Camille Martin', 'Séance · Accompagnement · lun. 9', 'Carte')
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}

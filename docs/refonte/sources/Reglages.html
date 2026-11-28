@@ -1,0 +1,79 @@
+@title Réglages
+@size 1440 960
+@props {"section":{"editor":"enum","default":"reception","options":["reception","types"]}}
+@body
+@@MAC@@
+@@NAV reglages@@
+@@MAIN@@
+<h1>Réglages</h1>
+<div style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Sections des réglages" style="flex: 1 1 200px; max-width: 240px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{groupes}}" as="g" hint-placeholder-count="3">
+<div class="e" style="padding: 14px 10px 6px">{{g.nom}}</div>
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="4"><a href="{{i.href}}" style="min-height: 36px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: {{i.gras}}; background: {{i.fond}}; color: {{i.coul}}"><span style="flex: 1">{{i.nom}}</span><span class="s">{{i.note}}</span></a></sc-for>
+</sc-for>
+</nav>
+<sc-if value="{{reception}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 3 1 480px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<section class="c" style="padding: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap">
+<div style="flex: 1; min-width: 260px"><h2>Réception du site : ouverte</h2><p class="s">Le site luminose.fr enregistre les réservations, les questionnaires de santé, les inscriptions aux stages et les paiements.</p></div>
+<div role="radiogroup" aria-label="Réception du site" style="display: flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--bas); border: 1px solid var(--bord)">
+<button type="button" role="radio" aria-checked="true" style="height: 44px; min-width: 124px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--succes); background: var(--sf); color: var(--succes); font-weight: 600">✓ Ouverte</button>
+<button type="button" role="radio" aria-checked="false" style="height: 44px; min-width: 124px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--second); font-weight: 500">Coupée</button>
+</div>
+</section>
+<section class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; border-style: dashed">
+<div class="e">Confirmation affichée avant de couper</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div><p style="font-weight: 600">S’arrête</p><p class="s">Réservations · Questionnaires de santé · Inscriptions aux stages · Paiements</p></div>
+<div><p style="font-weight: 600">Ne s’arrête pas</p><p class="s">Le site reste visible · La console · Les rappels déjà programmés</p></div>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="b o p">Couper la réception</button><button type="button" class="b d p">Laisser ouverte</button><span class="s" style="align-self: center">« Rouvrir » ne demande aucune confirmation.</span></div>
+</section>
+<section class="c">
+<div style="padding: 12px 20px"><h2>Reçu aujourd’hui</h2></div>
+<sc-for list="{{recus}}" as="r" hint-placeholder-count="3"><div class="l" style="padding: 10px 20px; display: flex; gap: 16px"><span style="width: 56px; font-weight: 600">{{r.h}}</span><span style="flex: 1">{{r.quoi}}</span><span class="{{r.cls}}">{{r.etat}}</span></div></sc-for>
+</section>
+<details class="c" style="padding: 12px 20px"><summary style="font-weight: 600">Limites de sécurité</summary><p class="s" style="padding-top: 8px">Nombre d’envois acceptés par heure et par adresse. À ne toucher qu’en cas d’abus.</p></details>
+</div>
+</sc-if>
+<sc-if value="{{types}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 3 1 480px; max-width: 900px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px"><h2 style="flex: 1">Types de rendez-vous</h2><button type="button" class="b p">Nouveau type</button></div>
+<p role="status" class="c" style="padding: 10px 16px; border-color: var(--succes); color: var(--succes); font-weight: 500">✓ Séance d’hypnose enregistrée. Le changement s’applique aux rendez-vous posés à partir de maintenant ; ceux déjà posés gardent leur durée et leur montant.</p>
+<div class="c">
+<sc-for list="{{lignes}}" as="t" hint-placeholder-count="4">
+<div class="{{t.cls}}" style="padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 240px; display: flex; flex-direction: column"><span style="font-weight: 600">{{t.nom}}</span><span class="s">{{t.detail}}</span></span>
+<span style="width: 90px; text-align: right; font-weight: 600">{{t.montant}}</span>
+<span style="width: 150px"><span class="{{t.pCls}}">{{t.ligne}}</span></span>
+<button type="button" class="b o p">Modifier</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const sec = this.props.section ?? 'reception';
+const G = (nom, items) => ({ nom: nom, items: items.map((x) => { const on = x[1] === sec; return { nom: x[0], href: x[1] === 'types' ? 'ReglagesTypes.dc.html' : x[1] === 'reception' ? 'Reglages.dc.html' : '#', note: x[2] || '', gras: on ? 600 : 500, fond: on ? 'var(--actif)' : 'transparent', coul: on ? 'var(--marque)' : 'inherit' }; }) });
+const T = (nom, detail, montant, enLigne, i) => ({ nom: nom, detail: detail, montant: montant, ligne: enLigne ? '✓ Réservable en ligne' : 'Posé par vous', pCls: enLigne ? 'p ok' : 'p' });
+return {
+reception: sec === 'reception', types: sec === 'types',
+groupes: [
+G('Pratique', [['Réception du site', 'reception', 'ouverte'], ['Types de rendez-vous', 'types'], ['Horaires habituels', 'h'], ['Règles', 'r'], ['Messages', 'm', 'à venir']]),
+G('Rédaction IA', [['Modèles', 'a'], ['Modèle par usage', 'b'], ['Coûts et durées', 'c'], ['Clés des fournisseurs', 'd']]),
+G('Données et fonctionnement', [['État', 'e'], ['Hébergement', 'f'], ['Export éditorial', 'g']])
+],
+recus: [{ h: '08:14', quoi: 'Réservation · Thomas Petit · entretien préalable', etat: '✓ Rattachée', cls: 'p ok' }, { h: '09:02', quoi: 'Questionnaire de santé · Julien Roux', etat: '! Non relu', cls: 'p al' }, { h: '10:47', quoi: 'Paiement · Marc Fabre', etat: '✓ Enregistré', cls: 'p ok' }],
+lignes: [
+T('Entretien préalable', '20 min · sans marge · au téléphone · réservable jusqu’à 30 jours', 'Offert', true),
+T('Séance d’accompagnement', '1 h · marge 15 min · en séance ou en visio', '[MONTANT]', true),
+T('Séance d’hypnose', '1 h · marge 15 min · en séance, à Villefranche-de-Lauragais', '[MONTANT]', true),
+T('Breathwork holotropique individuel', '[DURÉE] · marge 30 min · en séance', '[MONTANT]', false)
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' }))
+};
+}

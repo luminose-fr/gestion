@@ -1,0 +1,32 @@
+@title États de l’agenda, du rendez-vous et des clients
+@size 1440 900
+@body
+<div class="{{theme}} app" style="width: 1440px; min-height: 900px; box-sizing: border-box; padding: 40px; display: flex; flex-direction: column; gap: 24px">
+<header><h1>Agenda, rendez-vous, clients · leurs états</h1></header>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Agenda : semaine sans séance</div>
+<div class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 8px"><p>Aucune séance cette semaine.</p><button type="button" class="b p" style="align-self: flex-start">Poser un rendez-vous</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Agenda : un jour vient d’être fermé</div>
+<div class="c" role="status" style="padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px"><span style="flex: 1">✓ Du 21 décembre au 1er janvier : jours fermés. Pensez à les fermer aussi dans Calendly.</span><button type="button" class="b d p">Annuler</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Agenda : erreur de chargement</div>
+<div role="alert" class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--erreur)"><p style="font-weight: 600; color: var(--erreur)">× L’agenda n’a pas pu être chargé.</p><button type="button" class="b o p" style="align-self: flex-start">Réessayer</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Rendez-vous : chevauchement refusé</div>
+<p role="alert" class="c" style="padding: 12px 16px; border-color: var(--erreur); background: var(--ef); color: var(--erreur); font-weight: 500">× L’heure saisie, 10 h 30, chevauche la séance de Marc Fabre, de 10 h 00 à 11 h 00. Choisissez un autre créneau.</p></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Rendez-vous : jour fermé ou sans créneau</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px"><p>Le samedi 5 décembre est fermé : aucun créneau.</p><div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="b o p">Ouvrir ce jour</button><button type="button" class="b d p">Choisir une autre date</button></div></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Rendez-vous : posé</div>
+<div class="c" role="status" style="padding: 12px 16px"><span style="color: var(--succes); font-weight: 600">✓ Rendez-vous posé</span> · Camille Martin, lundi 7 décembre, 9 h 00.</div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Clients : recherche sans résultat</div>
+<div class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 8px"><p>Personne ne correspond à « dupont ».</p><a href="NouvelleFiche.dc.html" class="b p" style="align-self: flex-start">Nouvelle fiche « dupont »</a><p class="s">Le texte tapé est reporté dans le nom.</p></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Clients : aucune fiche encore</div>
+<div class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 8px"><p>Aucune fiche pour l’instant. Les réservations du site en créeront, ou vous pouvez commencer ici.</p><a href="NouvelleFiche.dc.html" class="b p" style="align-self: flex-start">Nouvelle fiche</a></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Nouvelle fiche : champ refusé</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 4px"><label for="mailko" style="font-weight: 500">E-mail</label><input id="mailko" class="f" type="email" value="julien.roux@exemple" aria-invalid="true" aria-describedby="mailko-aide" style="border-color: var(--erreur)"><span id="mailko-aide" style="font-size: 13px; color: var(--erreur)">× Il manque la fin de l’adresse, par exemple « .fr ».</span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Nouvelle fiche : enregistrement impossible</div>
+<div role="alert" class="c" style="padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px; border-color: var(--erreur)"><span style="flex: 1; color: var(--erreur); font-weight: 600">× La fiche n’a pas été enregistrée. Ce que vous avez saisi reste à l’écran.</span><button type="button" class="b o p">Réessayer</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Liste : chargement</div>
+<div class="c" aria-busy="true" style="padding: 16px; display: flex; flex-direction: column; gap: 14px"><span style="width: 60%; height: 14px; border-radius: 8px; background: var(--actif)"></span><span style="width: 75%; height: 14px; border-radius: 8px; background: var(--actif)"></span><span style="width: 50%; height: 14px; border-radius: 8px; background: var(--actif)"></span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Base non reliée</div>
+<div class="c" style="padding: 16px; border-color: var(--alerte)"><span style="font-weight: 600; color: var(--alerte)">! La pratique n’est pas disponible : la base n’est pas reliée.</span><br><span class="s">Même message sur Agenda, Clients et la fenêtre de rendez-vous.</span></div></section>
+</div>
+</div>

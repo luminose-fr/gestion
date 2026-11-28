@@ -1,0 +1,41 @@
+@title Professionnels
+@size 1440 900
+@body
+@@MAC@@
+@@NAV professionnels@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Professionnels</h1><button type="button" class="b">Nouveau professionnel</button></header>
+<div style="display: flex; flex-direction: column; gap: 4px; max-width: 360px"><label for="filtre" class="s">Nom, catégorie ou ville</label><input id="filtre" class="f" type="search" placeholder="Filtrer"></div>
+<div class="c" style="overflow-x: auto">
+<table style="width: 100%; min-width: 820px; border-collapse: collapse; text-align: left">
+<thead><tr class="e"><th scope="col" style="padding: 10px 16px; font: inherit">Nom</th><th scope="col" style="padding: 10px 16px; font: inherit">Catégories</th><th scope="col" style="padding: 10px 16px; font: inherit">Ville</th><th scope="col" style="padding: 10px 16px; font: inherit">Téléphone</th><th scope="col" style="padding: 10px 16px; font: inherit">Relation</th><th scope="col" style="padding: 10px 16px; font: inherit; text-align: right">Personnes adressées</th></tr></thead>
+<tbody>
+<sc-for list="{{pros}}" as="p" hint-placeholder-count="6">
+<tr class="l">
+<td style="padding: 0"><a href="Professionnel.dc.html" style="display: block; padding: 12px 16px; font-weight: 600">{{p.nom}}</a></td>
+<td style="padding: 12px 16px">{{p.cat}}</td><td style="padding: 12px 16px">{{p.ville}}</td>
+<td style="padding: 12px 16px"><a href="tel:0500000000" style="text-decoration: underline">{{p.tel}}</a></td>
+<td style="padding: 10px 16px"><span class="{{p.cls}}">{{p.rel}}</span></td>
+<td style="padding: 12px 16px; text-align: right">{{p.n}}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<p class="s">Une ligne ouvre la fenêtre du professionnel : coordonnées, catégories et courriers de prospection.</p>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const P = (nom, cat, ville, tel, connu, n) => ({ nom: nom, cat: cat, ville: ville, tel: tel, rel: connu ? '✓ Connu' : 'À rencontrer', cls: connu ? 'p ok' : 'p', n: n });
+return { pros: [
+P('Claire Dumas', 'Ostéopathe', 'Villefranche-de-Lauragais', '05 00 00 00 11', true, 4),
+P('Antoine Vidal', 'Médecin généraliste', 'Castelnaudary', '05 00 00 00 12', true, 2),
+P('Maison de santé du Lauragais', 'Pluridisciplinaire', 'Villefranche-de-Lauragais', '05 00 00 00 13', false, 0),
+P('Lucie Arnaud', 'Sage-femme', 'Toulouse', '05 00 00 00 14', true, 1),
+P('Paul Séguier', 'Kinésithérapeute', 'Castelnaudary', '05 00 00 00 15', false, 0),
+P('Inès Morel', 'Psychologue', 'Toulouse', '05 00 00 00 16', true, 3)
+] };
+}

@@ -1,0 +1,32 @@
+@title Stages
+@size 1440 900
+@body
+@@MAC@@
+@@NAV stages@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Stages</h1><button type="button" class="b">Nouveau stage</button></header>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="true" href="Stages.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">À venir</a>
+<a role="tab" aria-selected="false" href="#passes" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Passés</a>
+</div>
+<div class="c">
+<sc-for list="{{stages}}" as="s" hint-placeholder-count="3">
+<a href="Stage.dc.html" class="{{s.cls}}" style="padding: 14px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 260px"><span style="font-weight: 600">{{s.nom}}</span><br><span class="s">{{s.dates}} · {{s.ville}}</span></span>
+<span class="{{s.pCls}}">{{s.places}}</span>
+<span class="s" style="width: 220px">{{s.suivi}}</span>
+</a>
+</sc-for>
+</div>
+</div>
+</main>
+</div>
+@logic
+vals() {
+return { stages: [
+{ nom: 'Stage de breathwork holotropique', dates: '14-15 mars', ville: 'Villefranche-de-Lauragais', places: '5 places libres sur 12', pCls: 'p', suivi: '2 questionnaires à relire · 3 non réglés' },
+{ nom: 'Stage de breathwork holotropique', dates: '6-7 juin', ville: 'Villefranche-de-Lauragais', places: '× Complet · 12 sur 12', pCls: 'p al', suivi: '2 personnes en liste d’attente' },
+{ nom: 'Journée de méditation', dates: '19 septembre', ville: 'Castelnaudary', places: '10 places libres sur 10', pCls: 'p', suivi: 'Inscriptions pas encore ouvertes' }
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}

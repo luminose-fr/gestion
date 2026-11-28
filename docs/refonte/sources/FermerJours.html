@@ -1,0 +1,34 @@
+@title Fermer des jours
+@size 720 660
+@body
+@@WIN@@
+<div style="padding: 20px 24px 12px"><h1>Fermer des jours</h1><p class="s">Aucune réservation ne sera possible sur le site pendant ces jours.</p></div>
+<div style="padding: 8px 24px 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="du" style="font-weight: 500">Du</label><input id="du" class="f" type="text" value="lundi 21 décembre 2026"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="au" style="font-weight: 500">Au</label><input id="au" class="f" type="text" value="vendredi 1er janvier 2027"></div>
+</div>
+<div class="l" style="padding: 16px 24px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px"><span class="p al">! 3 séances déjà prévues</span><span class="s">Fermer les jours ne les annule pas.</span></div>
+<sc-for list="{{seances}}" as="s" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 40px">
+<span style="width: 150px; flex: none; font-weight: 600">{{s.quand}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span>{{s.qui}}</span><span class="s">{{s.type}}</span></span>
+<a href="RendezVous.dc.html" class="b o p">Déplacer</a>
+</div>
+</sc-for>
+</div>
+<p class="s l" style="padding: 12px 24px">Pensez à fermer aussi ces jours dans Calendly.</p>
+<div class="l" style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 8px">
+<button type="button" class="b d">Ne rien fermer</button>
+<button type="button" class="b">Fermer ces jours</button>
+</div>
+</div>
+</div>
+@logic
+vals() {
+return { seances: [
+{ quand: 'lun. 21 déc., 9 h', qui: 'Camille Martin', type: 'Séance d’accompagnement' },
+{ quand: 'mar. 22 déc., 14 h', qui: 'Nadia Benali', type: 'Séance d’hypnose' },
+{ quand: 'mer. 23 déc., 10 h', qui: 'Marc Fabre', type: 'Séance d’accompagnement' }
+] };
+}

@@ -1,0 +1,48 @@
+@title Agenda, mois, iPhone
+@size 390 844
+@body
+@@TEL@@
+<header style="padding: 8px 16px 0; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px"><h1 style="flex: 1; padding-left: 4px">Agenda</h1><a href="TelRendezVous.dc.html" class="b">Poser un rendez-vous</a></div>
+<div style="display: flex; align-items: center; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="false" href="TelAgenda.dc.html" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 500; color: var(--second)">Semaine</a>
+<a role="tab" aria-selected="true" href="TelAgendaMois.dc.html" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Mois</a>
+<span style="flex: 1"></span>
+<button type="button" class="b d" aria-label="Mois précédent" style="min-width: 44px; text-decoration: none">‹</button><span style="font-weight: 600">Nov. 2026</span><button type="button" class="b d" aria-label="Mois suivant" style="min-width: 44px; text-decoration: none">›</button>
+</div>
+</header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px">
+<sc-for list="{{entetes}}" as="e" hint-placeholder-count="7"><div class="s" style="text-align: center; padding-bottom: 4px">{{e}}</div></sc-for>
+<sc-for list="{{cases}}" as="c" hint-placeholder-count="35">
+<a href="TelAgenda.dc.html" aria-label="{{c.aria}}" style="height: 48px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: {{c.fond}}; color: {{c.coul}}; border: 1px solid {{c.bord}}">
+<span style="font-weight: {{c.gras}}">{{c.num}}</span><span style="font-size: 12px">{{c.sous}}</span>
+</a>
+</sc-for>
+</div>
+<p class="s" style="padding: 0 4px">Le chiffre du bas compte les séances. × : jour fermé.</p>
+<section style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 4px"><span style="font-weight: 600; color: var(--marque)">Vendredi 27</span><span class="s">aujourd’hui · 4 séances</span></div>
+<div class="c">
+<a href="TelSeance.dc.html" style="min-height: 44px; box-sizing: border-box; padding: 10px 14px; display: flex; gap: 12px"><span style="width: 46px; flex: none; font-weight: 600">09:00</span><span style="flex: 1">Camille Martin</span><span class="p">○ Prévue</span></a>
+<a href="TelSeance.dc.html" class="l" style="min-height: 44px; box-sizing: border-box; padding: 10px 14px; display: flex; gap: 12px"><span style="width: 46px; flex: none; font-weight: 600">11:00</span><span style="flex: 1">Julien Roux</span><span class="p">○ Prévue</span></a>
+<a href="TelAgenda.dc.html" class="l s" style="min-height: 44px; box-sizing: border-box; padding: 10px 14px; display: flex; align-items: center; text-decoration: underline">Voir les 4 séances dans la semaine</a>
+</div>
+</section>
+<a href="TelFermerJours.dc.html" class="b o">Fermer des jours…</a>
+</div>
+@@TAB agenda@@
+</div>
+@logic
+vals() {
+const cases = [];
+for (let i = 0; i < 35; i++) {
+const jour = i - 5;
+const dans = jour >= 1 && jour <= 30;
+const ferme = i % 7 > 4 || jour === 11;
+const n = ferme ? 0 : 1 + ((i * 7) % 4);
+const auj = jour === 27;
+cases.push({ num: jour < 1 ? 26 + i : jour, sous: ferme ? '×' : String(n), aria: (jour < 1 ? 26 + i : jour) + (ferme ? ', jour fermé' : ', ' + n + ' séances'), fond: auj ? 'var(--marque)' : ferme ? 'var(--bas)' : 'transparent', coul: auj ? 'var(--sur)' : dans ? 'inherit' : 'var(--second)', bord: 'transparent', gras: auj ? 600 : 500 });
+}
+return { entetes: ['L', 'M', 'M', 'J', 'V', 'S', 'D'], cases: cases };
+}

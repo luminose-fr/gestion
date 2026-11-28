@@ -1,0 +1,47 @@
+@title Questionnaire de santé
+@size 1440 960
+@props {"etat":{"editor":"enum","default":"non relu","options":["non relu","relu","à revoir"]}}
+@body
+@@MAC@@
+@@NAV clients@@
+@@MAIN@@
+<a href="Seance.dc.html" class="s" style="align-self: flex-start">‹ Séance du lundi 30 novembre</a>
+<header style="max-width: 770px; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap">
+<div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 6px">
+<h1>Questionnaire de santé · <a href="Fiche.dc.html" style="text-decoration: underline; text-underline-offset: 4px">Camille Martin</a></h1>
+<p class="s">Reçu le 20 novembre, pour le stage de breathwork holotropique des 14-15 mars.</p>
+<div><span class="{{pCls}}">{{p}}</span></div>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" class="b o">À revoir avec la personne</button>
+<button type="button" class="b">Marquer relu</button>
+</div>
+</header>
+<div style="max-width: 770px; display: flex; flex-direction: column; gap: 16px">
+<section class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; border-color: var(--alerte)">
+<div style="display: flex; align-items: center; gap: 8px"><h2 style="flex: 1">Contre-indications déclarées</h2><span class="p al">! 2 à regarder</span></div>
+<sc-for list="{{alertes}}" as="a" hint-placeholder-count="2">
+<div style="padding: 10px 12px; border-radius: 8px; background: var(--af); display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; color: var(--alerte)">! {{a.q}}</span><span>{{a.r}}</span></div>
+</sc-for>
+</section>
+<section class="c">
+<div style="padding: 12px 20px"><h2>Toutes les réponses</h2></div>
+<sc-for list="{{reponses}}" as="r" hint-placeholder-count="6">
+<div class="l" style="padding: 10px 20px; display: flex; gap: 16px; flex-wrap: wrap"><span class="s" style="flex: 1 1 280px">{{r.q}}</span><span style="flex: 1 1 200px; font-weight: {{r.gras}}">{{r.r}}</span></div>
+</sc-for>
+</section>
+<p class="s">Second envoi : les deux versions s’affichent côte à côte, les réponses changées en gras.</p>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const e = this.props.etat ?? 'non relu';
+const R = (q, r, g) => ({ q: q, r: r, gras: g ? 600 : 400 });
+return {
+p: { 'non relu': '! Non relu', 'relu': '✓ Relu le 27 novembre', 'à revoir': '! À revoir avec la personne' }[e],
+pCls: e === 'relu' ? 'p ok' : 'p al',
+alertes: [{ q: 'Antécédents cardiovasculaires', r: 'Oui : [RÉPONSE DE LA PERSONNE]' }, { q: 'Traitement en cours', r: 'Oui : [RÉPONSE DE LA PERSONNE]' }],
+reponses: [R('Antécédents cardiovasculaires', 'Oui', true), R('Épilepsie', 'Non'), R('Grossesse', 'Non'), R('Glaucome ou décollement de la rétine', 'Non'), R('Opération récente', 'Non'), R('Traitement en cours', 'Oui', true), R('Suivi psychiatrique', 'Non'), R('Autre chose à signaler', 'Rien')]
+};
+}

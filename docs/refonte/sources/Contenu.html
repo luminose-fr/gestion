@@ -1,0 +1,69 @@
+@title Un contenu ouvert
+@size 1440 960
+@body
+<div class="{{theme}} app" style="min-height: 960px; display: flex; flex-direction: column">
+<header style="padding: 12px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid var(--bord); background: var(--surface)">
+<a href="Contenus.dc.html" class="b o p">‹ Conversations</a>
+<div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 4px"><h1>Débrancher les émotions</h1><div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="p">Reel expliqué</span><span class="p">Recadrage de croyance</span><span class="p">Instagram</span><span class="p">Facebook</span><span class="p">Youtube</span></div></div>
+<button type="button" aria-haspopup="listbox" aria-label="Aller à une étape, étape actuelle : Script, 3 sur 6" class="c" style="width: 300px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; text-align: left">
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="flex: 1; font-weight: 600">Script</span><span class="e">Étape 3 sur 6</span><span aria-hidden="true">⌄</span></span>
+<span style="display: flex; gap: 3px"><sc-for list="{{etapes}}" as="b" hint-placeholder-count="6"><span style="flex: 1; height: 4px; border-radius: 999px; background: {{b}}"></span></sc-for></span>
+</button>
+</header>
+<div style="flex: 1; display: flex; flex-wrap: wrap">
+<nav aria-label="Plan de la série" style="flex: 1 1 220px; max-width: 260px; box-sizing: border-box; padding: 16px 12px; background: var(--bas); border-right: 1px solid var(--bord); display: flex; flex-direction: column; gap: 4px">
+<div class="e" style="padding: 0 8px">Série</div><div style="padding: 0 8px 8px; font-weight: 600">Ce qu’on refuse de sentir</div>
+<a href="#plan" style="padding: 8px; text-decoration: underline" class="s">Plan de la série</a>
+<sc-for list="{{plan}}" as="p" hint-placeholder-count="7">
+<a href="Contenu.dc.html" style="padding: 8px; border-radius: 8px; display: flex; gap: 10px; background: {{p.fond}}">
+<span style="width: 24px; height: 24px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; background: {{p.numFond}}; color: {{p.numCoul}}; border: 1px solid var(--bord)">{{p.n}}</span>
+<span style="min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{p.titre}}</span><span class="s" style="color: {{p.etatCoul}}">{{p.etat}}</span></span>
+</a>
+</sc-for>
+</nav>
+<section aria-label="Le fil" style="flex: 2 1 320px; max-width: 420px; min-width: 0; display: flex; flex-direction: column; background: var(--fil); border-right: 1px solid var(--bord)">
+<div style="padding: 12px 20px; border-bottom: 1px solid var(--bord)"><span style="font-weight: 600">Le fil</span> <span class="s">ce qui s’est dit et fait</span></div>
+<div style="flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{fil}}" as="m" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 4px; align-items: {{m.cote}}">
+<span class="s"><span style="font-weight: 600">{{m.qui}}</span> · {{m.date}}</span>
+<div style="max-width: 86%; padding: 8px 12px; border-radius: 12px; border: 1px solid {{m.bord}}; background: {{m.fond}}; color: {{m.coul}}">{{m.texte}}<sc-if value="{{m.retour}}" hint-placeholder-val="{{ false }}"><br><a href="#version" class="s" style="text-decoration: underline">Revenir à la version précédente</a></sc-if></div>
+</div>
+</sc-for>
+</div>
+<div style="padding: 12px 20px 16px; border-top: 1px solid var(--bord); display: flex; flex-direction: column; gap: 8px">
+<span class="s"><span style="font-weight: 600">Au Rédacteur</span> · un message = un ajustement · <a href="#coach" style="text-decoration: underline">Parler au Coach</a></span>
+<div style="display: flex; gap: 8px"><label for="msg" style="position: absolute; left: -9999px">Message au Rédacteur</label><input id="msg" class="f" type="text" placeholder="Ce que le Rédacteur doit changer, et rien d’autre"><button type="button" class="b">Envoyer</button></div>
+</div>
+</section>
+<section aria-label="La matière" style="flex: 4 1 480px; min-width: 0; display: flex; flex-direction: column">
+<div style="padding: 10px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)"><span style="flex: 1"><span style="font-weight: 600">Script</span> <span class="s">écrit</span></span><button type="button" class="b o p" aria-label="Autres actions">···</button><button type="button" class="b">Marquer prête à tourner</button></div>
+<div style="flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{sequences}}" as="q" hint-placeholder-count="5">
+<div class="c" style="padding: 14px 18px; display: flex; gap: 20px; flex-wrap: wrap">
+<div style="width: 170px; flex: none"><div class="e">{{q.titre}}</div><div class="s">{{q.plan}}</div></div>
+<div style="flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 4px"><p>{{q.texte}}</p><p class="s" style="font-style: italic">{{q.jeu}}</p></div>
+</div>
+</sc-for>
+</div>
+</section>
+</div>
+<footer style="padding: 8px 24px; display: flex; align-items: center; gap: 16px; border-top: 1px solid var(--bord); background: var(--surface)"><span class="s" role="status" style="color: var(--succes)">✓ Enregistré automatiquement</span><span class="s" style="flex: 1">Coût IA ≥ 0,33 $</span><button type="button" class="b d p" style="color: var(--erreur)">Supprimer ce contenu</button></footer>
+</div>
+@logic
+vals() {
+const P = (n, titre, etat, on, fini) => ({ n: n, titre: titre, etat: etat, fond: on ? 'var(--actif)' : 'transparent', numFond: on ? 'var(--marque)' : 'transparent', numCoul: on ? 'var(--sur)' : 'inherit', etatCoul: fini ? 'var(--succes)' : 'var(--second)' });
+const M = (qui, date, texte, moi, retour) => ({ qui: qui, date: date, texte: texte, retour: !!retour, cote: moi ? 'flex-end' : 'flex-start', fond: moi ? 'var(--marque)' : 'var(--surface)', coul: moi ? 'var(--sur)' : 'inherit', bord: moi ? 'transparent' : 'var(--bord)' });
+return {
+etapes: [1, 1, 1, 0, 0, 0].map((x, i) => (x ? 'var(--marque)' : 'var(--bord)')),
+plan: [P(1, 'Débrancher les émotions', 'Script écrit', true), P(2, 'Tout ce qui ne s’exprime pas…', 'Atelier · 1 tour'), P(3, 'Chaque émotion que tu refuses…', 'Atelier · 1 tour'), P(4, 'Ce à quoi tu résistes persiste', 'Atelier · 1 tour'), P(5, 'Une armure plus solide', '✓ Exportée le 30 oct.', false, true), P(6, '« Gestion du stress » ?', 'Brouillon écrit'), P(7, 'Rien ne va jamais disparaître…', 'Atelier · 1 tour')],
+fil: [M('Analyste', '11 févr.', 'Idée préparée.'), M('Rédacteur', '23 mars', 'Script rédigé : 4 séquences, ≈ 63 s.'), M('Vous', '7 nov.', 'Rangé dans « Ce qu’on refuse de sentir » n° 1.', true), M('Vous', '7 nov.', 'Repassé en écriture.', true), M('Vous', '12 nov.', 'Corrige uniquement les points relevés par le contrôle du format, sans perdre le sens ni la voix.', true), M('Rédacteur', '12 nov.', 'Ajusté : 8 séquences, ≈ 66 s.', false, true)],
+sequences: [
+{ titre: '1 · Accroche', plan: 'Face caméra · 0 à 4 s', texte: '« Florent, vous pouvez m’aider à couper mes émotions ? »', jeu: 'Regard caméra direct, ton qui reprend la demande. Petite pause après la phrase.' },
+{ titre: '3 · L’image', plan: 'Scène · 16 à 22 s', texte: 'Vous voyez le petit voyant qui s’allume quand vous êtes sur la réserve ?', jeu: 'Ton conversationnel, presque complice.' },
+{ titre: '5 · Le prix payé', plan: 'Scène · 35 à 40 s', texte: 'Non. Ça vous garantit juste la panne sèche au milieu de nulle part.', jeu: 'Poser « la panne sèche », sans dramatiser.' },
+{ titre: '6 · Bascule', plan: 'Face caméra · 40 à 46 s', texte: 'Couper ses émotions, c’est exactement ça. L’émotion n’est pas le problème.', jeu: 'Ralentir nettement. Ton posé, regard tenu.' },
+{ titre: '7 · Ouverture', plan: 'Scène · 46 à 52 s', texte: 'C’est le voyant qui vous signale que quelque chose, dessous, mérite d’être regardé.', jeu: 'Ton doux, une seconde de silence à la fin.' }
+]
+};
+}

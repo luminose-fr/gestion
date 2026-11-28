@@ -1,0 +1,47 @@
+@title Une séance, iPhone
+@size 390 844
+@props {"moment":{"editor":"enum","default":"apres","options":["avant","entretien","apres"]}}
+@body
+@@TEL@@
+<header style="padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px">
+<a href="TelAgenda.dc.html" class="s" style="min-height: 44px; display: flex; align-items: center; align-self: flex-start">‹ Agenda</a>
+<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><div style="padding: 8px 12px; border-radius: 8px; background: var(--actif)"><div class="e">D’où vient la personne</div><div style="font-weight: 600">Google Ads · mot-clé : hypnose arrêt tabac</div></div></sc-if>
+<h1><a href="TelFiche.dc.html" style="text-decoration: underline; text-underline-offset: 4px">{{d.qui}}</a></h1>
+<p>{{d.type}} · {{d.quand}}</p>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="{{d.statutCls}}">{{d.statut}}</span><span class="{{d.paieCls}}">{{d.paie}}</span><span class="{{d.qCls}}">{{d.q}}</span></div>
+</header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px">
+<section class="c" aria-label="Notes de la séance" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 0 6px; display: flex; align-items: center">
+<button type="button" class="b d" style="font-weight: 600; text-decoration: none; min-width: 44px">G</button>
+<button type="button" class="b d" style="font-style: italic; text-decoration: none; min-width: 44px">I</button>
+<button type="button" class="b d" style="text-decoration: none">Titre</button>
+<button type="button" class="b d" style="text-decoration: none">Liste</button>
+<span style="flex: 1"></span><span class="s" role="status" style="color: var(--succes); padding-right: 8px">{{d.temoin}}</span>
+</div>
+<div class="l" role="textbox" aria-multiline="true" aria-label="Notes" tabindex="0" style="flex: 1; padding: 12px 16px; font-size: 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+<h2>Séance</h2>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ true }}"><p>Arrivée fatiguée, semaine chargée au travail. Clarification autour de la reprise du sport, puis une induction courte.</p></sc-if>
+<h2>Travail personnel</h2>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ true }}"><p>Dix minutes de marche chaque matin, sans téléphone.</p></sc-if>
+<h2>Idées pour la suite</h2>
+</div>
+</section>
+</div>
+<div style="padding: 12px 16px; display: flex; gap: 8px">
+<a href="TelRendezVous.dc.html" class="b o" style="flex: 1">Déplacer</a>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ true }}"><button type="button" class="b" style="flex: 1">Terminer la séance</button></sc-if>
+<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><a href="TelNouvelleFiche.dc.html" class="b" style="flex: 1">Compléter la fiche</a></sc-if>
+</div>
+@@TAB agenda@@
+</div>
+@logic
+vals() {
+const m = this.props.moment ?? 'apres';
+const d = {
+avant: { qui: 'Camille Martin', type: 'Séance d’accompagnement', quand: 'lundi 30 nov., 9 h', statut: '○ Prévue', statutCls: 'p', paie: '! À encaisser', paieCls: 'p al', q: '✓ Questionnaire relu', qCls: 'p ok', temoin: '' },
+entretien: { qui: 'Julien Roux', type: 'Entretien préalable', quand: 'aujourd’hui, 11 h', statut: '○ Prévue', statutCls: 'p', paie: 'Offert', paieCls: 'p', q: 'Questionnaire pas reçu', qCls: 'p', temoin: '✓ Enregistré' },
+apres: { qui: 'Élodie Garcia', type: 'Séance d’accompagnement', quand: 'hier, 15 h 30', statut: '! Restée « prévue »', statutCls: 'p al', paie: '! À encaisser', paieCls: 'p al', q: '✓ Questionnaire relu', qCls: 'p ok', temoin: '✓ Enregistré' }
+}[m];
+return { d: d, entretien: m === 'entretien', apres: m === 'apres' };
+}

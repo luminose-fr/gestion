@@ -1,0 +1,52 @@
+@title Aujourd’hui, iPhone
+@size 390 844
+@body
+@@TEL@@
+<header style="padding: 4px 20px 10px"><div class="e">Vendredi 27 novembre · 10 h 35</div><h1>Aujourd’hui</h1></header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 16px">
+<a href="TelSeanceEntretien.dc.html" class="c" style="padding: 12px 14px; display: flex; gap: 14px; border-color: var(--marque)">
+<span style="flex: none; display: flex; flex-direction: column; gap: 4px"><span style="font: 500 28px/1 Fraunces, Georgia, serif">11:00</span><span class="p" style="border-color: var(--marque); color: var(--marque)">dans 25 min</span></span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">Julien Roux</span><span class="s">Entretien préalable · au téléphone</span><span class="s">Google Ads · hypnose arrêt tabac</span><span><span class="p al">! Questionnaire non relu</span></span></span>
+</a>
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div class="e" style="padding: 0 4px">La journée</div>
+<div class="c">
+<sc-for list="{{seances}}" as="s" hint-placeholder-count="4">
+<a href="TelSeance.dc.html" class="{{s.cls}}" style="min-height: 44px; padding: 10px 14px; display: flex; align-items: flex-start; gap: 12px">
+<span style="width: 46px; flex: none; font-weight: 600">{{s.heure}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">{{s.qui}}</span><span class="s">{{s.type}}</span><span class="s">{{s.origine}}</span>
+<sc-if value="{{s.aRelire}}" hint-placeholder-val="{{ false }}"><span><span class="p al">! Questionnaire non relu</span></span></sc-if></span>
+</a>
+</sc-for>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div class="e" style="padding: 0 4px">À traiter</div>
+<div class="c">
+<sc-for list="{{taches}}" as="k" hint-placeholder-count="4">
+<a href="#geste" class="{{k.cls}}" style="min-height: 52px; box-sizing: border-box; padding: 8px 14px; display: flex; align-items: center; gap: 10px">
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 600; color: var(--marque)">{{k.geste}}</span><span class="s">{{k.objet}} · {{k.echeance}}</span></span>
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+</a>
+</sc-for>
+</div>
+</section>
+</div>
+@@TAB aujourdhui@@
+</div>
+@logic
+vals() {
+const l = (a) => a.map((x, i) => ({ ...x, cls: i ? 'l' : '' }));
+return {
+seances: l([
+{ heure: '09:00', qui: 'Camille Martin', type: 'Séance d’accompagnement', origine: '' },
+{ heure: '14:00', qui: 'Nadia Benali', type: 'Séance d’hypnose', origine: '' },
+{ heure: '16:30', qui: 'Thomas Petit', type: 'Entretien préalable · provenance inconnue', origine: '' }
+]),
+taches: l([
+{ geste: 'Écrire les notes', objet: 'Élodie Garcia', echeance: 'séance d’hier, 15 h 30' },
+{ geste: 'Relire le questionnaire', objet: 'Julien Roux', echeance: 'entretien à 11 h' },
+{ geste: 'Encaisser', objet: 'Camille Martin', echeance: 'depuis 9 jours' }
+])
+};
+}

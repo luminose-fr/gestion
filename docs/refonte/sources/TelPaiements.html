@@ -1,0 +1,40 @@
+@title Paiements, iPhone
+@size 390 844
+@body
+@@TEL@@
+<header style="padding: 8px 16px 0; display: flex; flex-direction: column; gap: 4px">
+<h1 style="padding-left: 4px">Paiements</h1>
+<p class="s" style="padding-left: 4px">À encaisser : <span style="font-weight: 600; color: var(--texte)">[TOTAL] · 4 lignes</span></p>
+<div role="tablist" style="display: flex; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="true" href="TelPaiements.dc.html" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">À encaisser</a>
+<a role="tab" aria-selected="false" href="#encaisses" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 500; color: var(--second)">Encaissés</a>
+</div>
+</header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px">
+<div class="c">
+<sc-for list="{{lignes}}" as="l" hint-placeholder-count="4">
+<div class="{{l.cls}}" style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 10px"><span style="flex: 1; min-width: 0"><a href="TelFiche.dc.html" style="font-weight: 600">{{l.qui}}</a><br><span class="s">{{l.quoi}} · {{l.date}}</span></span><span style="font-weight: 600">[MONTANT]</span></div>
+<div style="display: flex; align-items: center; gap: 8px"><span class="{{l.ancCls}}">{{l.anc}}</span><span style="flex: 1"></span>
+<sc-if value="{{l.aPayer}}" hint-placeholder-val="{{ true }}"><button type="button" class="b o">Marquer payé</button></sc-if>
+<sc-if value="{{l.fait}}" hint-placeholder-val="{{ false }}"><span class="p ok">✓ Payé, espèces</span><button type="button" class="b d">Annuler</button></sc-if>
+</div>
+<sc-if value="{{l.choix}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="Moyen de paiement" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><button type="button" class="b o">Carte</button><button type="button" class="b o">Espèces</button><button type="button" class="b o">Virement</button><button type="button" class="b o">Chèque</button></div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+@@TAB plus@@
+</div>
+@logic
+vals() {
+const L = (qui, quoi, date, j, etat) => ({ qui: qui, quoi: quoi, date: date, anc: (j > 7 ? '! ' : '') + 'depuis ' + j + ' jours', ancCls: j > 7 ? 'p al' : 'p', aPayer: !etat, choix: etat === 'choix', fait: etat === 'fait' });
+return { lignes: [
+L('Camille Martin', 'Accompagnement', '18 nov.', 9, ''),
+L('Marc Fabre', 'Accompagnement', '24 nov.', 3, 'choix'),
+L('Nadia Benali', 'Stage des 14-15 mars', 'inscrite le 12 nov.', 15, ''),
+L('Élodie Garcia', 'Accompagnement', '19 nov.', 8, 'fait')
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}

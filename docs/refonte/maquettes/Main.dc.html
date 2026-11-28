@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Charte actuelle et charte proposée</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.a-clair{--fond:#F9F5FF;--surface:#FFFFFF;--bord:#E8DEF6;--texte:#20122E;--second:#60407F;--marque:#6163A5;--sur:#FFFFFF;--succes:#047857;--alerte:#B45309;--erreur:#B91C1C;--sf:transparent;--af:transparent;--ef:transparent;--ui:'Futura LT',Futura,'Century Gothic',sans-serif;--titre:'Abril Display',Georgia,serif}
+.a-sombre{--fond:#20122E;--surface:#3F2258;--bord:#613F7F;--texte:#BB95DD;--second:#BB95DD;--marque:#BB95DD;--sur:#20122E;--succes:#6EE7B7;--alerte:#FCD34D;--erreur:#FCA5A5;--sf:transparent;--af:transparent;--ef:transparent;--ui:'Futura LT',Futura,'Century Gothic',sans-serif;--titre:'Abril Display',Georgia,serif}
+.p-clair{--fond:#FAF8FC;--surface:#FFFFFF;--bord:#E3DCEB;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--ui:Figtree,system-ui,sans-serif;--titre:Fraunces,Georgia,serif}
+.p-sombre{--fond:#17121D;--surface:#211A2A;--bord:#3B304A;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--ui:Figtree,system-ui,sans-serif;--titre:Fraunces,Georgia,serif}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1720px; box-sizing: border-box; padding: 48px; background: #FFFFFF; color: #231A2E; font-family: Figtree, system-ui, sans-serif; font-size: 15px; line-height: 1.45; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #5E5470">Console Luminose · étape 0</div>
+<h1 style="margin: 0; font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 34px">Charte actuelle, charte proposée</h1>
+<p style="margin: 0; max-width: 860px; color: #5E5470">Les violets restent. Les fonds perdent de la saturation pour laisser lire les notes, la chaleur passe dans les gris (tirés vers la prune), et le thème sombre quitte le violet sur violet.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">Couleurs</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="4">
+<div class="{{t.cls}}" style="background: var(--fond); color: var(--texte); border: 1px solid var(--bord); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; font-family: var(--ui); font-size: 14px">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--second)">{{t.nom}}</div>
+<div style="font-family: var(--titre); font-size: 22px">Aujourd'hui</div>
+<div style="background: var(--surface); border: 1px solid var(--bord); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px">
+<div style="font-weight: 500">Relire le questionnaire</div>
+<div style="color: var(--second); font-size: 13px">Camille Martin · séance demain 9 h</div>
+</div>
+<div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+<button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: var(--marque); color: var(--sur); font: inherit; font-weight: 600">Poser un rendez-vous</button>
+<a href="#couleurs" style="color: var(--marque); text-decoration: underline">Fermer des jours…</a>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 500">
+<span style="padding: 3px 10px; border-radius: 999px; border: 1px solid var(--succes); background: var(--sf); color: var(--succes)">✓ Payé</span>
+<span style="padding: 3px 10px; border-radius: 999px; border: 1px solid var(--alerte); background: var(--af); color: var(--alerte)">! À encaisser</span>
+<span style="padding: 3px 10px; border-radius: 999px; border: 1px solid var(--erreur); background: var(--ef); color: var(--erreur)">× Échec</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; font-size: 12px">
+<sc-for list="{{t.sw}}" as="s" hint-placeholder-count="6">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="width: 28px; height: 28px; flex: none; border-radius: 8px; border: 1px solid var(--bord); background: {{s.hex}}"></span>
+<span style="display: flex; flex-direction: column"><span style="font-weight: 500">{{s.nom}}</span><span style="color: var(--second)">{{s.hex}}</span></span>
+</div>
+</sc-for>
+</div>
+<div style="border-top: 1px solid var(--bord); padding-top: 10px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--second)">
+<div style="font-weight: 600">Contrastes mesurés</div>
+<sc-for list="{{t.ct}}" as="c" hint-placeholder-count="3">
+<div style="display: flex; justify-content: space-between; gap: 8px"><span>{{c.quoi}}</span><span style="font-variant-numeric: tabular-nums; color: var(--texte)">{{c.ratio}}</span></div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; color: #5E5470">Seuil AA : 4,5:1 pour le texte. Le brief ne donne pas la couleur du texte courant en thème clair ; j'ai pris #20122E pour l'actuelle.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">Polices</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+<div style="border: 1px solid #E3DCEB; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #5E5470">Actuelle · Futura LT et Abril Display</div>
+<div style="font-family: 'Abril Display', Georgia, serif; font-size: 18px">Séance d'accompagnement</div>
+<div style="font-family: 'Futura LT', Futura, 'Century Gothic', sans-serif; font-size: 14px">Relire le questionnaire · Camille Martin · séance demain 9 h<br>09:30 · 14:00 · 60 € · 1 240 € à encaisser</div>
+<div style="font-size: 13px; color: #5E5470">Futura est une police commerciale : sa licence web s'achète à part. Ses minuscules sont basses, donc petites à 14 px dans une liste dense. Abril Display a des déliés très fins, fragiles à 18 px. Affichées ici seulement si elles sont installées sur ce poste.</div>
+</div>
+<div style="border: 1px solid #E3DCEB; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; background: #FAF8FC">
+<div style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #5E5470">Proposée · Figtree et Fraunces</div>
+<div style="font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 20px">Séance d'accompagnement</div>
+<div style="font-size: 15px; font-variant-numeric: tabular-nums">Relire le questionnaire · Camille Martin · séance demain 9 h<br>09:30 · 14:00 · 60 € · 1 240 € à encaisser</div>
+<div style="font-size: 13px; color: #5E5470">Figtree garde la géométrie ronde de Futura avec des minuscules plus hautes : elle tient mieux le texte courant et les notes. Fraunces, serif douce, sert aux titres d'écran et au titre d'un contenu ouvert, rien d'autre. Les deux sont sur Google Fonts, sous licence SIL Open Font.</div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">Échelles</h2>
+<div style="border: 1px solid #E3DCEB; border-radius: 12px; overflow: hidden; font-size: 14px">
+<div style="display: grid; grid-template-columns: 170px 210px 250px 1fr; gap: 16px; padding: 10px 20px; background: #F2EEF6; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #5E5470"><span>Échelle</span><span>Actuelle</span><span>Proposée</span><span>Raison</span></div>
+<sc-for list="{{echelles}}" as="e" hint-placeholder-count="7">
+<div style="display: grid; grid-template-columns: 170px 210px 250px 1fr; gap: 16px; padding: 9px 20px; border-top: 1px solid #E3DCEB"><span style="font-weight: 600">{{e.nom}}</span><span style="color: #5E5470">{{e.avant}}</span><span style="font-weight: 500">{{e.apres}}</span><span style="color: #5E5470">{{e.raison}}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<button type="button" style="height: 44px; padding: 0 18px; border: 0; border-radius: 8px; background: #5A3E85; color: #FFFFFF; font: inherit; font-weight: 600">Terminer la séance · 44</button>
+<button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: #5A3E85; color: #FFFFFF; font: inherit; font-weight: 600">Nouvelle fiche · 40</button>
+<button type="button" style="height: 40px; padding: 0 16px; border: 1px solid #5A3E85; border-radius: 8px; background: #FFFFFF; color: #5A3E85; font: inherit; font-weight: 600">Déplacer · 40</button>
+<button type="button" style="height: 32px; padding: 0 12px; border: 1px solid #5A3E85; border-radius: 8px; background: #FFFFFF; color: #5A3E85; font: inherit; font-size: 13px; font-weight: 600">Marquer payé · 32</button>
+<button type="button" style="height: 32px; padding: 0 4px; border: 0; background: none; color: #5A3E85; font: inherit; font-size: 13px; text-decoration: underline">Annuler</button>
+<span style="font-size: 13px; color: #5E5470">Trois intentions : pleine, bordée, soulignée. Jamais de bouton rond.</span>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1720}}'>
+class Component extends DCLogic {
+renderVals() {
+const sw = (a) => a.map((x) => ({ nom: x[0], hex: x[1] }));
+const ct = (a) => a.map((x) => ({ quoi: x[0], ratio: x[1] }));
+return {
+themes: [
+{ nom: 'Actuelle · clair', cls: 'a-clair', sw: sw([['Fond', '#F9F5FF'], ['Bordure', '#E8DEF6'], ['Fond du fil', '#F1EBF8'], ['Principal', '#6163A5'], ['Survol', '#60407F'], ['Alerte', '#B45309']]), ct: ct([['Principal sur fond', '5,1'], ['Principal sur fond du fil', '4,7'], ['Alerte sur fond', '4,7']]) },
+{ nom: 'Actuelle · sombre', cls: 'a-sombre', sw: sw([['Fond', '#20122E'], ['Surface', '#3F2258'], ['Bordure', '#613F7F'], ['Texte', '#BB95DD'], ['Succès', '#6EE7B7'], ['Alerte', '#FCD34D']]), ct: ct([['Texte sur fond', '7,1'], ['Texte sur surface', '5,4'], ['Alerte sur surface', '9,2']]) },
+{ nom: 'Proposée · clair', cls: 'p-clair', sw: sw([['Fond', '#FAF8FC'], ['Barre latérale', '#F2EEF6'], ['Bordure', '#E3DCEB'], ['Texte', '#231A2E'], ['Secondaire', '#5E5470'], ['Marque', '#5A3E85']]), ct: ct([['Texte sur fond', '15,8'], ['Secondaire sur fond', '6,7'], ['Marque sur fond', '8,1'], ['Alerte sur sa teinte', '5,4']]) },
+{ nom: 'Proposée · sombre', cls: 'p-sombre', sw: sw([['Fond', '#17121D'], ['Surface', '#211A2A'], ['Bordure', '#3B304A'], ['Texte', '#EDE7F3'], ['Secondaire', '#B3A8C2'], ['Marque', '#BDA6E8']]), ct: ct([['Texte sur surface', '13,9'], ['Secondaire sur surface', '7,5'], ['Marque sur surface', '7,9'], ['Alerte sur sa teinte', '8,2']]) }
+],
+echelles: [
+{ nom: 'Typographie', avant: '11 · 12 · 14 · 18 px', apres: '12 · 13 · 15 · 20 px, titre d\u2019écran 26 px', raison: 'Un cinquième rôle, réservé au titre d\u2019écran en Fraunces : il donne son caractère à l\u2019écran. Les capitales à 11 px sont à la limite sur l’iPhone ; 15 px tient mieux la lecture des notes. Champs à 16 px sur l’iPhone : en dessous, Safari zoome à la prise de focus.' },
+{ nom: 'Graisses', avant: 'trois', apres: '400 · 500 · 600', raison: 'Inchangé.' },
+{ nom: 'Boutons', avant: '30 · 38 · 40 px', apres: '32 · 40 · 44 px', raison: '38 et 40 ne se distinguent pas à l’œil ; 44 px est la cible tactile de l’iPhone.' },
+{ nom: 'Espacements', avant: 'multiples de 4', apres: '4 · 8 · 12 · 16 · 24 · 32 · 48', raison: 'Même base, fermée à sept pas.' },
+{ nom: 'Rayons', avant: '8 · 12 · plein', apres: '8 · 12 · plein', raison: 'Inchangé.' },
+{ nom: 'Ombres', avant: 'carte, menu', apres: 'carte, menu', raison: 'Inchangé. En sombre, la carte se détache par sa surface, sans ombre.' },
+{ nom: 'Largeurs de travail', avant: '1150 · 770 px', apres: '1150 · 770 px', raison: 'Inchangé.' },
+{ nom: 'Couleurs de sens', avant: 'succès, alerte, erreur', apres: 'les trois mêmes rôles', raison: 'Teintes recalées, chacune avec son fond teinté ; une pastille porte toujours un signe et un libellé.' }
+]
+};
+}
+}
+</script>
+</body>
+</html>
