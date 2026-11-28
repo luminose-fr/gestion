@@ -24,6 +24,13 @@ export interface PortePublique {
    * l'ouverture de la page ? `{ ok: true }` ou `lien_invalide`. Rien n'est écrit.
    */
   lienQuestionnaire(envoi: unknown): Promise<Reponse>;
+  /**
+   * `GET /v1/reservation/creneaux` (contrat §3.1) : les paramètres de l'adresse,
+   * lus en objet. `{ ok: true, creneaux }`, ou un refus. Rien n'est écrit.
+   */
+  creneaux(lecture: unknown): Promise<Reponse>;
+  /** `POST /v1/reservation` (contrat §3.1) : `{ ok: true, reference, debut, fin }`, ou un refus. */
+  reserver(envoi: unknown): Promise<Reponse>;
 }
 
 export interface PorteService {

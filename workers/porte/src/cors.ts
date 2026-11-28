@@ -29,6 +29,21 @@ export const preliminaire = (origineSite: string) =>
     },
   });
 
-/** L'origine reçue est-elle exactement celle du site ? Absente : non. */
-export const origineAdmise = (requete: Request, origineSite: string): boolean =>
-  requete.headers.get('Origin') === origineSite;
+/**
+ * Les origines admises, telles que la configuration les écrit : le site, et en
+ * recette la page d'essai. Rien d'autre, et jamais `*`.
+ */
+export const originesAdmises = (env: { ORIGINE_SITE?: string; ORIGINE_ESSAI?: string; ENVIRONNEMENT?: string }): string[] =>
+  [env.ORIGINE_SITE, env.ENVIRONNEMENT === 'recette' ? env.ORIGINE_ESSAI : undefined].filter((o): o is string => !!o);
+
+/**
+ * L'origine à écrire dans `Access-Control-Allow-Origin` : celle de la liste qui
+ * est exactement l'origine reçue — une valeur de la configuration, pas l'en-tête
+ * recopié —, sinon la première (le site). Le navigateur d'un autre site refuse.
+ */
+export const origineARendre = (requete: Request, admises: string[]): string =>
+  admises.find((o) => o === requete.headers.get('Origin')) ?? admises[0];
+
+/** L'origine reçue est-elle exactement l'une des origines admises ? Absente : non. */
+export const origineAdmise = (requete: Request, admises: string[]): boolean =>
+  admises.includes(requete.headers.get('Origin') ?? '');

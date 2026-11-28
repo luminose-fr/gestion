@@ -159,7 +159,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     ]);
     expect(r.crons).toEqual([]);
     expect(r.vars).toEqual({
-      ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://essai-recette.luminose.fr', ORIGINE_PORTE: 'https://api-recette.luminose.fr',
+      ENVIRONNEMENT: 'recette', ORIGINE_SITE: 'https://recette.luminose.fr', ORIGINE_ESSAI: 'https://essai-recette.luminose.fr', ORIGINE_PORTE: 'https://api-recette.luminose.fr',
     });
     expect(r.liaisons).toEqual(['services', 'ratelimits']);
     expect(r.services).toEqual([
@@ -169,6 +169,8 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
     expect(r.ratelimits).toEqual([
       { name: 'LIMITE_QUESTIONNAIRES', namespaceId: '2611', limit: 10, period: 60 },
       { name: 'LIMITE_LIENS', namespaceId: '2612', limit: 30, period: 60 },
+      { name: 'LIMITE_CRENEAUX', namespaceId: '2613', limit: 60, period: 60 },
+      { name: 'LIMITE_RESERVATIONS', namespaceId: '2614', limit: 10, period: 60 },
     ]);
     // Les codes de la porte, sans journal d'invocation ni traces (§14.3, règle 7).
     expect(r.observabilite).toEqual({ enabled: true, headSamplingRate: 1, journauxDInvocation: false, traces: false });
@@ -208,7 +210,7 @@ describe('NORMATIF — la porte (workers/porte/wrangler.toml, SPEC §14.3, §14.
   });
 
   it('une autre origine du site, ou un limiteur manquant : refusés', () => {
-    expect(ecartsPorteRecette(PORTE.replace('ORIGINE_SITE = "https://essai-recette.luminose.fr"', 'ORIGINE_SITE = "*"')).join('\n')).toMatch(/ORIGINE_SITE/);
+    expect(ecartsPorteRecette(PORTE.replace('ORIGINE_SITE = "https://recette.luminose.fr"', 'ORIGINE_SITE = "*"')).join('\n')).toMatch(/ORIGINE_SITE/);
     const sansLimite = PORTE.replace(/\[\[env\.recette\.ratelimits\]\]\nname = "LIMITE_LIENS"[\s\S]*$/, '');
     expect(ecartsPorteRecette(sansLimite).join('\n')).toMatch(/limiteurs/);
   });

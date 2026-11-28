@@ -280,7 +280,10 @@ export const PORTE_RECETTE = {
   domaine: 'api-recette.luminose.fr',
   /** La page d'essai (§14.5), servie par la porte de recette sur une origine à elle. */
   domaineEssai: 'essai-recette.luminose.fr',
-  origineSite: 'https://essai-recette.luminose.fr',
+  /** Le site de recette (v3.3) : recette.luminose.fr, le Worker `_recette/` du dépôt du site. */
+  origineSite: 'https://recette.luminose.fr',
+  /** La page d'essai, seconde origine admise en recette (§14.5). */
+  origineEssai: 'https://essai-recette.luminose.fr',
   originePorte: 'https://api-recette.luminose.fr',
   /**
    * Les seules liaisons de service de la porte : des entrées nommées de
@@ -291,7 +294,7 @@ export const PORTE_RECETTE = {
     { binding: 'GESTION_SERVICE', service: RECETTE.worker, entrypoint: 'PorteService' },
   ] as LiaisonService[],
   /** Les limiteurs de fréquence (§14.5) : un par route publique. */
-  limiteurs: ['LIMITE_LIENS', 'LIMITE_QUESTIONNAIRES'],
+  limiteurs: ['LIMITE_CRENEAUX', 'LIMITE_LIENS', 'LIMITE_QUESTIONNAIRES', 'LIMITE_RESERVATIONS'],
 } as const;
 
 /**
@@ -318,6 +321,7 @@ export const ecartsPorteRecette = (source: string): string[] => {
   }
   if (r.vars.ENVIRONNEMENT !== 'recette') ecarts.push('vars.ENVIRONNEMENT doit valoir "recette"');
   if (r.vars.ORIGINE_SITE !== PORTE_RECETTE.origineSite) ecarts.push(`vars.ORIGINE_SITE doit valoir "${PORTE_RECETTE.origineSite}"`);
+  if (r.vars.ORIGINE_ESSAI !== PORTE_RECETTE.origineEssai) ecarts.push(`vars.ORIGINE_ESSAI doit valoir "${PORTE_RECETTE.origineEssai}"`);
   if (r.vars.ORIGINE_PORTE !== PORTE_RECETTE.originePorte) ecarts.push(`vars.ORIGINE_PORTE doit valoir "${PORTE_RECETTE.originePorte}"`);
   const limiteurs = r.ratelimits.map((l) => l.name).sort();
   if (JSON.stringify(limiteurs) !== JSON.stringify(PORTE_RECETTE.limiteurs)) {

@@ -151,6 +151,8 @@ describe('les données de départ', () => {
       // Phase S2a (0003_portes.sql).
       porte_publique_ouverte: 1, commandes_questionnaire_max_jour: 30, emails_max_jour: 50,
       recus_garde_h: 720, ordre_relance_min: 15, ordre_tentatives_max: 5,
+      // Phase R1 (0004_reservation.sql).
+      commandes_reservation_max_jour: 30,
     });
     expect(compter(base, 'textes_versions')).toBe(0);
     expect(compter(base, 'horaires_dates')).toBe(0);

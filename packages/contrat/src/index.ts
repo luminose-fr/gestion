@@ -10,6 +10,7 @@
 export * from './reponses.ts';
 export * from './briques.ts';
 export * from './questionnaire.ts';
+export * from './reservation.ts';
 export * from './make.ts';
 export * from './valider.ts';
 export type * from './entrees.ts';

@@ -97,7 +97,17 @@ export type NouvelleSeance = {
  * `occupe_jusqua` = début + durée + marge du type, calculé par l'instruction
  * même : la marge est lue dans la transaction, pas recopiée par l'appelant.
  */
-export const lotCreation = (db: D1Database, s: NouvelleSeance, auteur: Auteur, maintenant: number): Lot => ({
+/**
+ * `cleClient` (réservation depuis le site, §14.4, « Désigner un client ») : la
+ * fiche est désignée DANS l'instruction — celle qui porte cette clé si elle est
+ * seule ; aucune s'il y en a plusieurs, et la séance reste « à rapprocher ».
+ * Sans elle, `clientId` vaut tel quel (la console a choisi la fiche).
+ */
+export const lotCreation = (
+  db: D1Database, s: NouvelleSeance, auteur: Auteur, maintenant: number, cleClient: string | null = null,
+  /** Une condition de plus, en SQL : celle qui lie la séance à la commande d'une réservation (§14.12). */
+  enPlus = '1',
+): Lot => ({
   instructions: [
     db.prepare(`
       INSERT INTO seances (
@@ -106,15 +116,17 @@ export const lotCreation = (db: D1Database, s: NouvelleSeance, auteur: Auteur, m
         liste_attente, conditions_acceptees_le, conditions_version, questionnaire_id, origine,
         clic_annonce, provenance, created_at, updated_at
       )
-      SELECT ?1, ?2, ?3, ?4, ?5, ?6, borne.fin,
+      SELECT ?1,
+        CASE WHEN ?19 IS NULL THEN ?2 ELSE (SELECT CASE WHEN COUNT(*) = 1 THEN MIN(c.id) END FROM clients c WHERE c.cle_client = ?19) END,
+        ?3, ?4, ?5, ?6, borne.fin,
         0, 'prevue', ?7, ?8, ?9, ?10, 'a_ecrire', 1,
         ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18
       FROM (SELECT ?5 + (?6 + ${marge('?3')}) * ${MINUTE} AS fin) AS borne
-      WHERE ${libre('?5', 'borne.fin')}`).bind(
+      WHERE ${libre('?5', 'borne.fin')} AND (${enPlus})`).bind(
       s.id, s.clientId, s.typeSeanceId, s.identiteRecue ?? null, s.debut, s.dureeMin,
       s.etatPaiement, s.montantCentimes, s.mode ?? null, s.visioUrl ?? null,
       s.listeAttente ? 1 : 0, s.conditionsAccepteesLe ?? null, s.conditionsVersion ?? null, s.questionnaireId ?? null,
-      s.origine, s.clicAnnonce ?? null, s.provenance ?? null, maintenant,
+      s.origine, s.clicAnnonce ?? null, s.provenance ?? null, maintenant, cleClient,
     ),
     // Lié par l'existence de la séance : refusée, elle n'existe pas.
     db.prepare(`

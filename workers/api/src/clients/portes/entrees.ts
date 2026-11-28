@@ -21,6 +21,7 @@ import type {
 import type { Env } from '../../env';
 import { questionnaire, verifierLienQuestionnaire } from './publique';
 import { confirmation } from './service';
+import { creneaux, reserver } from './reservation';
 
 /** Les codes qu'une entrée lève. Le texte d'une erreur levée par S2a n'en sort pas. */
 export type CodePanne = 'porte.panne' | 'porte.non_reliee' | 'porte.non_configuree' | 'porte.suite';
@@ -59,6 +60,26 @@ export class PortePublique extends WorkerEntrypoint<Env> implements ContratPubli
   async lienQuestionnaire(envoi: unknown): Promise<Reponse> {
     try {
       return await verifierLienQuestionnaire(this.env, envoi, Date.now());
+    } catch (erreur) {
+      return panne(erreur);
+    }
+  }
+
+  /** Une lecture : rien n'est écrit (contrat §3.1). */
+  async creneaux(lecture: unknown): Promise<Reponse> {
+    try {
+      return await creneaux(this.env, lecture, Date.now());
+    } catch (erreur) {
+      return panne(erreur);
+    }
+  }
+
+  /** Ce qui dépend de qui est la personne — l'alerte d'une fiche ambiguë — se fait après la réponse. */
+  async reserver(envoi: unknown): Promise<Reponse> {
+    try {
+      const { reponse, suite } = await reserver(this.env, envoi, Date.now());
+      this.ctx.waitUntil(suite().catch(() => { console.error('porte.suite' satisfies CodePanne); }));
+      return reponse;
     } catch (erreur) {
       return panne(erreur);
     }

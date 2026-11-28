@@ -73,7 +73,7 @@ export const EFFECTIFS = {
   // réception. Factices l'un et l'autre, et hors des migrations : les vrais
   // textes viennent avec les écrans et le lot F.
   textes_versions: 1,
-  messages_modeles: 1,
+  messages_modeles: 4,
 } as const;
 
 export type Table = keyof typeof EFFECTIFS;
@@ -291,9 +291,27 @@ export const jeuDEssai = (dateReference: string): JeuDEssai => {
     id: 'essai-texte-accord-v1', cle: 'accord_conservation', version: 1,
     texte: 'Texte d’essai — accord de conservation, factice.', en_vigueur_le: maintenant, ...t,
   }];
+  // Les messages d'une séance (SPEC §14.12) : une première version des textes, pour que la
+  // recette envoie quelque chose de lisible. Les vrais modèles viendront avec leurs textes,
+  // écrits par Florent : les migrations n'en posent aucun.
+  const corpsSeance = (phrase: string, avecQuestionnaire: boolean) => [
+    'Bonjour {{prenom}},', phrase, ...(avecQuestionnaire ? ['{{questionnaire}}', '{{enregistrement}}'] : []),
+    'Si vous avez un empêchement, prévenez-moi au plus tôt, par retour de ce message.', 'À bientôt,\nFlorent Jaouali',
+  ].join('\n\n');
   const modeles: Ligne[] = [{
     id: 'essai-modele-questionnaire-accuse', cle: 'questionnaire_accuse', canal: 'email', version: 1,
     objet: 'Accusé de réception d’essai', corps: 'Texte d’essai — accusé de réception, {{prenom}}.', deleted_at: null, ...t,
+  }, {
+    id: 'essai-modele-seance-confirmation', cle: 'seance_confirmation', canal: 'email', version: 1,
+    objet: '{{seance}} — {{quand}}', corps: corpsSeance('Votre rendez-vous est confirmé : {{seance}}, {{quand}}, {{lieu}}.', true), deleted_at: null, ...t,
+  }, {
+    id: 'essai-modele-seance-rappel', cle: 'seance_rappel', canal: 'email', version: 1,
+    objet: 'Rappel — {{seance}}, {{quand}}', corps: corpsSeance('Je vous rappelle notre rendez-vous : {{seance}}, {{quand}}, {{lieu}}.', true), deleted_at: null, ...t,
+  }, {
+    id: 'essai-modele-seance-annulation', cle: 'seance_annulation', canal: 'email', version: 1,
+    objet: 'Rendez-vous annulé — {{seance}}, {{quand}}',
+    corps: 'Bonjour {{prenom}},\n\nNotre rendez-vous du {{quand}} ({{seance}}) est annulé.\n\nPour en convenir d’un autre, répondez simplement à ce message.\n\nFlorent Jaouali',
+    deleted_at: null, ...t,
   }];
 
   // La console (phase C1) : de quoi remplir les cartes d'une fiche.

@@ -3551,8 +3551,13 @@ point 3).
 lieu, sur une origine **distincte** de celle de la porte, pour que CORS soit réellement essayé :
 `essai-recette.luminose.fr`, servie par le Worker de la porte de recette (seconde route, domaine
 personnalisé) — `GET /` rend la page, toute autre adresse 404 ; le code ne la sert qu'en recette,
-et la racine de la configuration n'a pas cette route. L'origine du site de la recette
-(`ORIGINE_SITE`) est donc `https://essai-recette.luminose.fr`. La page lit le jeton après le `#`,
+et la racine de la configuration n'a pas cette route. ~~L'origine du site de la recette
+(`ORIGINE_SITE`) est donc `https://essai-recette.luminose.fr`.~~ **v3.3 (27/11/2026)** : la
+recette a désormais un vrai site, `recette.luminose.fr` (le Worker `_recette/` du dépôt du site,
+fermé par mot de passe). `ORIGINE_SITE` vaut cette origine ; la page d'essai garde la sienne,
+`ORIGINE_ESSAI`, admise elle aussi — en recette seulement. `Access-Control-Allow-Origin` rend
+celle des deux qui est exactement l'origine reçue, valeur de la configuration et non en-tête
+recopié ; toute autre origine reçoit le 403 et l'origine du site. La page lit le jeton après le `#`,
 le retire aussitôt de l'adresse et de l'historique, et ne le garde qu'en mémoire — rien dans le
 stockage du navigateur ; elle vérifie le lien à l'ouverture, envoie un questionnaire fictif, et
 peut rejouer le même envoi avec la même clé (règle 5). Les liens d'essai se fabriquent depuis la
@@ -3923,6 +3928,102 @@ Travel) et les sauvegardes le gardent jusqu'à leur terme : la durée réelle es
 l'écran d'effacement la dit. Une restauration ramènerait une personne effacée : la trace des
 effacements garde donc les identifiants retirés — pas les identités —, et tout effacement
 postérieur à la sauvegarde est rejoué avant de rouvrir la base.
+
+### 14.12 Phase R1 — réserver depuis le site, en recette (v3.3, 27/11/2026)
+
+Florent veut essayer le parcours de rendez-vous de bout en bout sur `recette.luminose.fr`, le
+site de recette (le Worker `_recette/` du dépôt du site, fermé par mot de passe), sans Calendly.
+Proposé à Florent le 27/11/2026, et retenu en attendant sa réponse : **une première version sans
+l'agenda Google**, qui viendra comme étape à part — il faut relier son compte.
+
+**Ce que la phase ajoute.**
+
+- `GET /v1/reservation/creneaux?type=…&du=…&au=…` et `POST /v1/reservation`, tels que le contrat
+  §3.1 les écrit (`packages/contrat/src/reservation.ts`), à travers la porte : origine, limite de
+  fréquence (`LIMITE_CRENEAUX`, 60 par minute ; `LIMITE_RESERVATIONS`, 10 par minute), champ
+  piège, schéma ; la réponse est re-sérialisée depuis son schéma. La lecture est un GET sans corps
+  — une requête simple au sens de CORS, sans préliminaire.
+- Côté gestion (`src/clients/portes/reservation.ts`) : **la même fonction affiche et réserve**
+  (`creneauxLibres`, `verifierCreneau`, §14.7.1), un quart d'heure de tolérance à la réservation.
+  Un type inconnu, inactif ou non réservable en ligne rend une liste vide à la lecture,
+  `hors_fenetre` à la réservation.
+- **Réserver est une commande** (sorte `reservation`, migration `0004_reservation.sql`, borne
+  `commandes_reservation_max_jour`, 30 par 24 heures). Un seul lot : la commande décide, sous la
+  borne ET la liberté de l'intervalle — marge comprise —, dans la transaction ; puis la fiche, si
+  aucune ne porte cette clé ; la séance (`origine = 'site'`, `agenda_etat = 'a_ecrire'`), liée à
+  la commande ; son mouvement « créée par la personne ». La fiche se désigne dans l'instruction de
+  la séance : seule de sa clé, elle est rattachée ; plusieurs, la séance garde l'identité reçue et
+  une alerte `a_rapprocher` est levée après la réponse.
+- La réponse porte la **référence** — le jeton du questionnaire de cette séance, échu au début
+  de la séance (§14.6.2, point 2) —, le début et la fin. La page enchaîne sur le questionnaire avec
+  elle : il se rattache à la séance.
+- **Aucun ordre dans cette phase** : la confirmation et les rappels partent une fois l'agenda
+  écrit (contrat §3.1, point 3). La séance le dit dans la console (`a_ecrire`).
+- La porte de recette admet le site de recette à côté de la page d'essai (§14.5, écart v3.3).
+
+**L'agenda Google** (choix de Florent du 27/11/2026 : « brancher Google d'abord » ; compte Google
+Workspace luminose.fr ; un lien Meet pour la visio ; **les agendas lus et l'agenda écrit se
+choisissent** dans Réglages → Agenda Google — « il faut que je puisse définir l'agenda en
+question » —, l'agenda principal tant que rien n'est choisi ; chaque agenda choisi doit se lire,
+un seul illisible est une panne). Florent crée un client OAuth « Interne » dans Google
+Cloud et le pose dans Réglages → Agenda Google (`/api/agenda`), puis autorise gestion chez Google
+une fois. L'identifiant, le secret et le jeton de renouvellement vivent dans `app_settings` sous
+le préfixe des clés (§5.5) : aucune route ne les relit, l'export les exclut. Le retour de Google
+(`GET /api/agenda/retour`) est hors session — le cookie est `SameSite=Strict` — et c'est son état,
+signé et échu en dix minutes, qui l'authentifie.
+
+- **Relié**, l'agenda est lu sur la période des créneaux, et **relu sur l'intervalle juste avant
+  de réserver** ; une lecture qui échoue est une panne, rien n'est réservé (contrat §3.1, point 1).
+- La séance s'écrit **après la réponse** (`waitUntil`), avec `conferenceData` pour un lien Meet en
+  visio, l'identifiant de la séance en `requestId` et en propriété privée ; l'évènement et le lien
+  sont notés sur la séance (`agenda_etat = 'ecrit'`). Une écriture manquée passe en `echec`, et le
+  passage planifié la reprend, cinq au plus par passage. En recette, le titre commence par
+  « [Recette] » : l'agenda est le vrai.
+- **Non relié**, gestion fait sans lui, comme avant : la séance garde `a_ecrire`. Écart toléré en
+  recette seulement ; la production exigera l'agenda relié.
+- **Les messages d'une séance** (`clients/messages-seances.ts`) : la confirmation, le rappel par
+  e-mail (`rappel_email_avant_h` avant, s'il reste plus d'une heure), l'annulation. Des ordres
+  `message.email` (§14.6), objet la séance, clé `<modèle>:<séance>:<révision>` : un déplacement
+  fait de nouveaux messages, et ceux de l'ancienne révision s'annulent à la remise
+  (`seance_changee`). La confirmation s'inscrit une fois l'agenda d'accord — tout de suite s'il
+  n'est pas relié —, pour une réservation comme pour un rendez-vous de la console ; une séance
+  reprise de Notion n'en reçoit aucun. Composés au départ : `{{prenom}}`, `{{seance}}`,
+  `{{quand}}` (« lundi 4 janvier à 9 h 30 »), `{{lieu}}` (l'adresse, le lien Meet, ou l'appel),
+  `{{questionnaire}}` (le lien, quand le type le demande et qu'il manque), `{{enregistrement}}`
+  (pour une rencontre : l'entretien peut être enregistré pour la prise de notes, puis effacé —
+  accord de Florent du 27/11/2026). **Les migrations ne posent aucun texte** : le jeu d'essai de
+  la recette en porte une première version (`seance_confirmation`, `seance_rappel`,
+  `seance_annulation`) ; les vrais textes sont à écrire par Florent.
+- **L'agenda suit aussi la console** (`clients/agenda-seances.ts`) : une seule fonction rend
+  l'agenda conforme à la séance, quelle qu'en soit la cause — réservation, rendez-vous posé,
+  déplacé, annulé (l'évènement est retiré), remis à « prévue », type, durée ou mode changés (un
+  lien Meet est créé au passage en visio). Un évènement supprimé à la main est réécrit à la
+  synchronisation suivante. Elle part après la réponse ; manquée, la séance passe en `echec` et le
+  passage planifié la reprend. Une séance réalisée ou absente garde son évènement.
+
+**Plus tard, sans priorité** (demandes de Florent du 27/11/2026, notées ici pour ne pas les
+perdre) :
+
+1. **Les SMS de rappel** (`message.sms`).
+
+**Les e-mails partent en recette** (27/11/2026, accord de Florent) : un scénario Make de recette
+(« Recette gestion : message.email -> Gmail (détourné vers Florent) ») reçoit l'ordre sur son
+webhook, l'envoie par le Gmail de florent@luminose.fr — **un filtre n'envoie qu'à
+florent@luminose.fr**, en plus du détournement de gestion —, puis confirme l'ordre à la porte de
+service avec le jeton de service. Le webhook n'a pas de clé d'API (l'outil qui l'a créé ne sait
+pas en poser) : `x-make-apikey` n'y est pas vérifié ; à poser à la main avant la production.
+2. **La newsletter sans reCAPTCHA** : faire passer l'inscription à la newsletter Brevo du site par
+   la porte publique, qui a déjà sa limite de fréquence et son champ piège, et retirer reCAPTCHA
+   de la page (une origine de service de moins, aussi pour la recette).
+3. **Le résumé de l'entretien de 20 minutes** : déposer le fichier audio sur une séance d'une
+   fiche ; gestion le fait transcrire, en tire un résumé, et le range dans les notes de la séance.
+   Aujourd'hui, Florent le fait à la main (Whisper Transcription, puis Claude). **À trancher
+   d'abord** : la règle 1 (§14.2) interdit aux modules d'IA de lire la base des clients ; un
+   enregistrement de séance est une donnée de santé. Il faudra un chemin à part — fournisseur,
+   juridiction, conservation du fichier — décidé par Florent avant d'écrire une ligne.
+   **Accepté par Florent le 27/11/2026** : l'e-mail de confirmation de l'entretien portera une
+   phrase disant que l'entretien peut être enregistré pour sa prise de notes, puis effacé (à
+   écrire avec les modèles de la phase des e-mails).
 
 ## 15. La console des clients — NORMATIF
 

@@ -116,3 +116,17 @@ export const poserDate = (date: string, plages: PlageHoraire[]) =>
   appel<{ date: string; fermee: boolean }>(`/reservation/dates/${encodeURIComponent(date)}`, 'PUT', { plages });
 export const rendreDateALaSemaine = (date: string) => appel<{ date: string }>(`/reservation/dates/${encodeURIComponent(date)}`, 'DELETE');
 export const modifierReglages = (valeurs: Record<string, number>) => appel<{ reglages: number }>('/reservation/reglages', 'PATCH', valeurs);
+
+// ── L'agenda Google (SPEC §14.12) ────────────────────────────────────────
+
+export type EtatAgenda = { clientPose: boolean; relie: boolean; compte: string | null };
+export const lireAgenda = () => appel<EtatAgenda>('/agenda');
+export const poserClientAgenda = (clientId: string, clientSecret: string) => appel<EtatAgenda>('/agenda/client', 'PUT', { clientId, clientSecret });
+export type AgendaGoogle = { id: string; nom: string; principal: boolean; ecriture: boolean };
+export type ChoixAgendas = { agendas: AgendaGoogle[]; lecture: string[]; ecriture: string };
+export const lireAgendas = () => appel<ChoixAgendas>('/agenda/agendas');
+export const choisirAgendas = (lecture: string[], ecriture: string) => appel<{ lecture: string[]; ecriture: string }>('/agenda/agendas', 'PUT', { lecture, ecriture });
+export const oublierAgenda = () => appel<{ relie: false }>('/agenda', 'DELETE');
+/** Une navigation, pas un appel : Google affiche sa page d'autorisation, puis revient. */
+export const adresseConnexionAgenda = () => `${WORKER_URL}/api/agenda/connexion`;
+

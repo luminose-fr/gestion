@@ -267,6 +267,33 @@ describe('CORS', () => {
   });
 });
 
+describe('CORS — le site de recette et la page d’essai (v3.3)', () => {
+  const ESSAI = 'https://essai-recette.luminose.fr';
+  const RECETTE = 'https://recette.luminose.fr';
+  const deux = (extra: Partial<Env> = {}) => env({ ORIGINE_SITE: RECETTE, ORIGINE_ESSAI: ESSAI, ...extra });
+
+  it('en recette, les deux origines sont admises, et chacune reçoit la sienne', async () => {
+    for (const origine of [RECETTE, ESSAI]) {
+      const r = await appeler('/v1/questionnaires', { origine }, deux());
+      expect(r.status).toBe(200);
+      expect(r.headers.get('Access-Control-Allow-Origin')).toBe(origine);
+      const p = await appeler('/v1/questionnaires', { methode: 'OPTIONS', corps: null, origine }, deux());
+      expect(p.headers.get('Access-Control-Allow-Origin')).toBe(origine);
+    }
+  });
+
+  it('une autre origine : 403, et l’en-tête dit le site, pas l’origine reçue', async () => {
+    const r = await appeler('/v1/questionnaires', { origine: 'https://autre.example.org' }, deux());
+    expect(r.status).toBe(403);
+    expect(r.headers.get('Access-Control-Allow-Origin')).toBe(RECETTE);
+  });
+
+  it('hors recette, ORIGINE_ESSAI n’ouvre rien', async () => {
+    const r = await appeler('/v1/questionnaires', { origine: ESSAI }, deux({ ENVIRONNEMENT: 'production' }));
+    expect(r.status).toBe(403);
+  });
+});
+
 describe('porte de service', () => {
   const confirmer = (o: Options = {}, e = env()) =>
     appeler('/service/v1/confirmations', { origine: null, corps: JSON.stringify({ ordre: 'o1', issue: 'fait' }), ...o }, e);

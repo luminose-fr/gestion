@@ -53,6 +53,7 @@ const GROUPES: { titre: string; replie?: boolean; reglages: Record<string, { lib
     replie: true,
     reglages: {
       commandes_questionnaire_max_jour: { libelle: 'Questionnaires acceptés', unite: 'par 24 h' },
+      commandes_reservation_max_jour: { libelle: 'Réservations acceptées', unite: 'par 24 h' },
       emails_max_jour: { libelle: 'E-mails confiés à Make', unite: 'par 24 h' },
       recus_garde_h: { libelle: 'Garde des reçus de commande', unite: 'h' },
       ordre_relance_min: { libelle: 'Relance d’un ordre non confirmé', unite: 'min' },

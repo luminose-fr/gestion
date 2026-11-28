@@ -14,6 +14,7 @@ import { baseClients } from '../clients/base';
 import { newId } from '../db';
 import { Refus } from '../refus';
 import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSeance } from '../clients/decisions';
+import { apresChangement } from '../clients/agenda-seances';
 import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
 import { lireNotesSeance, ecrireNotesSeance } from '../clients/sensible';
@@ -121,6 +122,7 @@ seances.post('/', async (c) => {
     origine: 'console',
   }, 'florent', Date.now());
   if (!issue.faite) throw new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+  apresChangement(c.env, () => c.executionCtx, id);
   return c.json({ id }, 201);
 });
 
@@ -133,7 +135,7 @@ seances.post('/:id/deplacer', async (c) => {
   const id = c.req.param('id');
   const { debut, revision } = await corps(c, Deplacement);
   const issue = await deplacerSeance(db, { seanceId: id, nouveauDebut: debut, revisionAttendue: revision }, 'florent', Date.now());
-  if (issue.faite) return c.json({ id });
+  if (issue.faite) { apresChangement(c.env, () => c.executionCtx, id); return c.json({ id }); }
   // Rien d'écrit : dire pourquoi, sans rien décider sur cette lecture.
   const etat = await etatSeance(db, id);
   if (!etat) throw new Refus(SEANCE_INTROUVABLE, 404);
@@ -147,6 +149,7 @@ seances.post('/:id/annuler', async (c) => {
   const id = c.req.param('id');
   const issue = await annulerSeance(db, id, 'florent', Date.now());
   if (!issue.faite && !(await etatSeance(db, id))) throw new Refus(SEANCE_INTROUVABLE, 404);
+  if (issue.faite) apresChangement(c.env, () => c.executionCtx, id);
   // Annuler une séance qui n'est plus prévue est sans effet : `fait` le dit.
   return c.json({ id, fait: issue.faite });
 });
@@ -155,7 +158,7 @@ seances.post('/:id/prevoir', async (c) => {
   const db = baseClients(c.env);
   const id = c.req.param('id');
   const issue = await retablirSeance(db, id, 'florent', Date.now());
-  if (issue.faite) return c.json({ id });
+  if (issue.faite) { apresChangement(c.env, () => c.executionCtx, id); return c.json({ id }); }
   const etat = await etatSeance(db, id);
   if (!etat) throw new Refus(SEANCE_INTROUVABLE, 404);
   if (etat.statut === 'prevue') throw new Refus('Cette séance est déjà prévue.', 409);
@@ -181,7 +184,11 @@ seances.patch('/:id', async (c) => {
   const { typeSeanceId, dureeMin, ...champs } = await corps(c, Modification);
   if (typeSeanceId && !(await gabaritType(db, typeSeanceId))) throw new Refus('Ce type de séance n’existe pas.', 400);
   const issue = await changerSeance(db, { seanceId: id, champs, typeSeanceId, dureeMin }, Date.now());
-  if (issue.faite) return c.json({ id });
+  // Le type, la durée ou le mode changent le titre, la fin ou la visio : l'agenda suit.
+  if (issue.faite) {
+    if (typeSeanceId !== undefined || dureeMin !== undefined || champs.mode !== undefined) apresChangement(c.env, () => c.executionCtx, id);
+    return c.json({ id });
+  }
   if (!(await etatSeance(db, id))) throw new Refus(SEANCE_INTROUVABLE, 404);
   throw new Refus(MESSAGE_CHEVAUCHEMENT, 409);
 });

@@ -3,12 +3,12 @@
  * mobiles et l'écran lui-même — pour qu'une section ajoutée le soit à un
  * seul endroit.
  */
-import { Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud, CalendarClock } from 'lucide-react';
+import { Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud, CalendarClock, CalendarCheck } from 'lucide-react';
 import type { AIModel } from '../../types';
 import type { ProviderKeyState } from '../../services/apiService';
 
 export type SettingsSection =
-    | 'models' | 'presets' | 'mesures' | 'quotas' | 'providers' | 'personas' | 'reservation' | 'backup';
+    | 'models' | 'presets' | 'mesures' | 'quotas' | 'providers' | 'personas' | 'reservation' | 'agenda' | 'backup';
 
 export const SETTINGS_SECTIONS: Array<{
     id: SettingsSection;
@@ -24,6 +24,7 @@ export const SETTINGS_SECTIONS: Array<{
     { id: 'providers', label: 'Clés des fournisseurs',  sousTitre: 'Écriture seule — rien ne revient',       icon: KeyRound },
     { id: 'personas',  label: 'Personas',               sousTitre: 'Les prompts système, en lecture',        icon: User },
     { id: 'reservation', label: 'Réservation',          sousTitre: 'Types, semaine type, dates d’exception, réglages', icon: CalendarClock },
+    { id: 'agenda',    label: 'Agenda Google',          sousTitre: 'Ce que la réservation lit et écrit dans votre agenda', icon: CalendarCheck },
     { id: 'backup',    label: 'Sauvegarde',             sousTitre: 'Export JSON complet',                    icon: Download },
 ];
 

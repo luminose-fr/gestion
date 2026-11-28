@@ -54,6 +54,7 @@ import { seances } from './routes/seances';
 import { evenements, inscriptions } from './routes/evenements';
 import { professionnels } from './routes/professionnels';
 import { reservation } from './routes/reservation';
+import { agenda } from './routes/agenda';
 
 const app = new Hono<Contexte>();
 
@@ -118,6 +119,9 @@ app.post('/auth/login', async (c) => {
  * les appelle, et le serveur MCP n'y écrit que ce qui lui est accordé.
  */
 const requireSession = async (c: any, next: () => Promise<void>) => {
+  // Le retour de Google (routes/agenda.ts) n'a pas la session — cookie SameSite=Strict — :
+  // son état signé l'authentifie, et il ne fait que poser l'autorisation de l'agenda.
+  if (c.req.method === 'GET' && new URL(c.req.url).pathname === '/api/agenda/retour') return next();
   const porteur = c.req.header('Authorization');
   if (porteur?.startsWith('Bearer ')) {
     const verdict = await verifierJetonMcp(porteur.slice('Bearer '.length).trim(), c.env);
@@ -190,6 +194,7 @@ app.route('/api/evenements', evenements);
 app.route('/api/inscriptions', inscriptions);
 app.route('/api/professionnels', professionnels);
 app.route('/api/reservation', reservation);
+app.route('/api/agenda', agenda);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 

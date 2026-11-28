@@ -22,7 +22,7 @@ import type { Env } from '../env';
 import { empreinteHmac } from './jetons';
 
 export type Porte = 'publique' | 'service';
-export type SorteCommande = 'questionnaire' | 'confirmation';
+export type SorteCommande = 'questionnaire' | 'confirmation' | 'reservation';
 
 const JOUR = 24 * 3_600_000;
 const HEURE = 3_600_000;
