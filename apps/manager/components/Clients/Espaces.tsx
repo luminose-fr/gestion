@@ -5,11 +5,15 @@
  *   #clients                      les fiches
  *   #clients/nouvelle             une nouvelle fiche
  *   #clients/<id>                 une fiche
- *   #seances[/semaine/<lundi>]    le planning, à la semaine
- *   #seances/mois/<premier>       le planning, au mois
- *   #seances/calendly             l'ancien écran Calendly, tant qu'il sert
- *   #seances/<id>                 une séance et ses notes
- *   #evenements[/nouveau|/<id>]   les évènements (EvenementsView.tsx)
+ *   #agenda[/semaine/<lundi>]     le planning, à la semaine
+ *   #agenda/mois/<premier>        le planning, au mois
+ *   #agenda/calendly              l'ancien écran Calendly, tant qu'il sert
+ *   #agenda/poser                 le planning, « Poser un rendez-vous » ouvert
+ *   #agenda/<id>                  une séance et ses notes
+ *   #stages[/nouveau|/<id>]       les stages (EvenementsView.tsx)
+ *
+ * `#seances` et `#evenements`, les adresses d'avant la refonte (lot 2),
+ * sont remplacées par App sans entrée d'historique.
  *   #professionnels               les professionnels (ProfessionnelsView.tsx)
  *
  * Chaque espace lit lui-même la suite de son adresse : App ne connaît que
@@ -34,6 +38,7 @@ const VUES = ['semaine', 'mois', 'calendly'] as const;
 
 export const EspaceSeances: React.FC = () => {
   const [premier, second] = useAdresse();
+  if (premier === 'poser') return <PlanningView vue="semaine" poser />;
   if (!premier || (VUES as readonly string[]).includes(premier)) {
     return <PlanningView vue={(premier as (typeof VUES)[number]) ?? 'semaine'} date={second} />;
   }

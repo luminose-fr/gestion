@@ -8,12 +8,12 @@
  * grille qui montre, par jour, l'heure et le prénom. Toucher une séance l'ouvre.
  * Sur téléphone, la semaine est une liste de jours.
  *
- * L'adresse porte la vue et le lundi affiché : `#seances/semaine/2026-12-14`,
- * `#seances/mois/2026-12-01`. Des dates, jamais une personne.
+ * L'adresse porte la vue et le lundi affiché : `#agenda/semaine/2026-12-14`,
+ * `#agenda/mois/2026-12-01`. Des dates, jamais une personne.
  *
  * L'ancien écran Calendly reste ici, troisième vue, tant que Calendly sert.
  */
-import React, { lazy, useMemo, useState } from 'react';
+import React, { lazy, useEffect, useMemo, useState } from 'react';
 import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Bouton, Carte, ControleSegmente, ecran } from '../ui';
 import * as Clients from '../../services/clientsService';
@@ -47,7 +47,7 @@ const moisVoisin = (premier: string, n: number) => {
 
 const LigneSeance: React.FC<{ s: Seance }> = ({ s }) => (
   <li>
-    <a href={`#seances/${encodeURIComponent(s.id)}`} className="ui-list-action block rounded-lg px-2 py-2 hover:bg-survol dark:hover:bg-dark-sec-bg">
+    <a href={`#agenda/${encodeURIComponent(s.id)}`} className="ui-list-action block rounded-lg px-2 py-2 hover:bg-survol dark:hover:bg-dark-sec-bg">
       {/* L'heure, puis la personne en entier : dans une colonne de jour, un nom coupé ne se lit plus. */}
       <span className="block text-sm font-semibold text-brand-main dark:text-white tabular-nums">{heure(s.debut)}</span>
       <span className="block text-sm text-brand-main dark:text-white break-words">{nomComplet(s.personne)}</span>
@@ -105,7 +105,7 @@ const Mois: React.FC<{ premier: string; debut: string; fin: string; seances: Sea
             <ul className="mt-1 space-y-1">
               {(jours.get(date) ?? []).map((s) => (
                 <li key={s.id}>
-                  <a href={`#seances/${encodeURIComponent(s.id)}`} title={`${nomComplet(s.personne)} — ${s.type?.libelle ?? ''}`}
+                  <a href={`#agenda/${encodeURIComponent(s.id)}`} title={`${nomComplet(s.personne)} — ${s.type?.libelle ?? ''}`}
                     className={`block truncate rounded-md px-1 text-xs hover:bg-survol dark:hover:bg-dark-sec-bg ${s.statut === 'annulee' ? 'line-through text-brand-main dark:text-dark-text' : 'text-brand-main dark:text-white'}`}>
                     <span className="tabular-nums">{heure(s.debut)}</span> {s.personne.prenom ?? '—'}
                   </a>
@@ -119,8 +119,15 @@ const Mois: React.FC<{ premier: string; debut: string; fin: string; seances: Sea
   );
 };
 
-export const PlanningView: React.FC<{ vue: VuePlanning; date?: string }> = ({ vue, date }) => {
-  const [rdv, setRdv] = useState(false);
+/**
+ * `poser` : l'adresse `#agenda/poser`, où mène le « + » de l'iPhone (refonte,
+ * lot 2) — la semaine en cours, la fenêtre déjà ouverte. La fermer rend
+ * l'adresse de l'agenda, pour qu'un « retour » ne la rouvre pas.
+ */
+export const PlanningView: React.FC<{ vue: VuePlanning; date?: string; poser?: boolean }> = ({ vue, date, poser = false }) => {
+  const [rdv, setRdv] = useState(poser);
+  useEffect(() => { if (poser) setRdv(true); }, [poser]);
+  const fermerRdv = () => { setRdv(false); if (poser) aller('agenda'); };
   const reference = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : aujourdhui();
   const lundi = lundiDe(reference);
   const premier = `${reference.slice(0, 7)}-01`;
@@ -130,9 +137,9 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string }> = ({ vu
     [vue, bornes.debut, bornes.fin],
   );
 
-  const changerVue = (v: VuePlanning) => aller(v === 'calendly' ? 'seances/calendly' : `seances/${v}/${v === 'mois' ? premier : lundi}`);
-  const precedent = () => aller(vue === 'mois' ? `seances/mois/${moisVoisin(premier, -1)}` : `seances/semaine/${plusJours(lundi, -7)}`);
-  const suivant = () => aller(vue === 'mois' ? `seances/mois/${moisVoisin(premier, 1)}` : `seances/semaine/${plusJours(lundi, 7)}`);
+  const changerVue = (v: VuePlanning) => aller(v === 'calendly' ? 'agenda/calendly' : `agenda/${v}/${v === 'mois' ? premier : lundi}`);
+  const precedent = () => aller(vue === 'mois' ? `agenda/mois/${moisVoisin(premier, -1)}` : `agenda/semaine/${plusJours(lundi, -7)}`);
+  const suivant = () => aller(vue === 'mois' ? `agenda/mois/${moisVoisin(premier, 1)}` : `agenda/semaine/${plusJours(lundi, 7)}`);
   const titre = vue === 'mois'
     ? enLettres(premier, MOIS)
     : `Du ${enLettres(lundi, JOUR_MOIS)} au ${enLettres(plusJours(lundi, 6), JOUR_MOIS)}`;
@@ -153,7 +160,7 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string }> = ({ vu
         <>
           <div className="flex flex-wrap items-center gap-2">
             <Bouton intention="secondaire" onClick={precedent} aria-label={vue === 'mois' ? 'Mois précédent' : 'Semaine précédente'}><ChevronLeft /></Bouton>
-            <Bouton intention="secondaire" onClick={() => aller(`seances/${vue}/${vue === 'mois' ? `${aujourdhui().slice(0, 7)}-01` : lundiDe(aujourdhui())}`)}>Aujourd’hui</Bouton>
+            <Bouton intention="secondaire" onClick={() => aller(`agenda/${vue}/${vue === 'mois' ? `${aujourdhui().slice(0, 7)}-01` : lundiDe(aujourdhui())}`)}>Aujourd’hui</Bouton>
             <Bouton intention="secondaire" onClick={suivant} aria-label={vue === 'mois' ? 'Mois suivant' : 'Semaine suivante'}><ChevronRight /></Bouton>
             <p className="text-sm font-bold text-brand-main dark:text-white first-letter:uppercase">{titre}</p>
           </div>
@@ -170,8 +177,8 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string }> = ({ vu
       {rdv && (
         <PoserRendezVous
           date={vue === 'semaine' && lundi > aujourdhui() ? lundi : aujourdhui()}
-          onFermer={() => setRdv(false)}
-          onPose={(id) => { setRdv(false); aller(`seances/${encodeURIComponent(id)}`); }}
+          onFermer={fermerRdv}
+          onPose={(id) => { setRdv(false); aller(`agenda/${encodeURIComponent(id)}`); }}
         />
       )}
     </div>

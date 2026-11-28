@@ -18,8 +18,6 @@ import React from 'react';
 
 import SettingsSpace from '../components/Settings/SettingsSpace';
 import CorpusSpace from '../components/Corpus/CorpusSpace';
-import { Sidebar } from '../components/Layout/Sidebar';
-import { MobileSubTabs } from '../components/Layout/MobileSubTabs';
 import DocumentsView from '../components/Corpus/DocumentsView';
 import InboxView from '../components/Corpus/InboxView';
 import { Markdown } from '../components/ui';
@@ -2254,142 +2252,17 @@ describe('Markdown', () => {
 });
 
 /**
- * La navigation du Corpus vit désormais dans le panneau latéral, à trois
- * niveaux : espace, section, bloc. Le troisième niveau ne s'ouvre que sous la
- * section active — un panneau qui déplierait six blocs en permanence
- * afficherait neuf entrées pour trois destinations.
+ * La navigation du Corpus passe au cadre de la refonte (lot 2) : ses sections
+ * en onglets, ses blocs dans l'écran — test/cadre.test.tsx. Reste ici la coque.
  */
-describe('Corpus — navigation à trois niveaux', () => {
+describe('Corpus — la coque', () => {
   afterEach(cleanup);
-
-  const props = {
-    currentSpace: 'corpus' as const,
-    currentSocialTab: 'conversations' as const,
-    currentSettingsSection: 'models' as const,
-    currentSettingsPersona: null,
-    onNavigate: () => {},
-    onNavigateSettings: () => {},
-    counts: { conversations: 0, ideas: 0, publies: 0 },
-    isMobileOpen: false,
-    onMobileClose: () => {},
-  };
-
-  it('le deuxième panneau porte les trois sections, sans les blocs', () => {
-    const { container } = render(
-      <Sidebar {...props} currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
-    );
-    expect(container.textContent).toContain('État');
-    expect(container.textContent).toContain('Documents');
-    expect(container.textContent).toContain('Inbox');
-    // Le troisième panneau n'existe pas hors de la section Documents : il
-    // disparaît plutôt que de rester vide.
-    expect(container.textContent).not.toContain('Répertoire');
-  });
-
-  it('un troisième panneau apparaît sous Documents, avec les six blocs', () => {
-    const { container } = render(
-      <Sidebar {...props} currentCorpusSection="documents" currentCorpusBloc="socle" onNavigateCorpus={() => {}} />,
-    );
-    for (const b of ['Socle', 'Voix', 'Stratégie', 'Canaux', 'Répertoire', 'Outils']) {
-      expect(container.textContent).toContain(b);
-    }
-    // Trois colonnes de navigation : le rail, les sections, les blocs.
-    const panneaux = container.querySelectorAll('aside > div');
-    expect(panneaux.length).toBe(3);
-  });
-
-  it('porte les captures en attente en pastille', () => {
-    const { container } = render(
-      <Sidebar {...props} currentCorpusSection="etat" currentCorpusBloc={null}
-        onNavigateCorpus={() => {}} corpusCounts={{ inbox: 3, parBloc: { socle: 9 } }} />,
-    );
-    expect(container.textContent).toContain('3');
-  });
-
-  /** La veille des modèles (SPEC §5.7) : on ne va pas dans Réglages sans raison. */
-  it('porte les nouvelles versions de modèles sur Réglages et sur Modèles IA', () => {
-    const { container, getByTitle } = render(
-      <Sidebar {...props} currentSpace="settings" currentSettingsSection="presets"
-        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}}
-        reglagesCounts={{ models: 2 }} />,
-    );
-    expect(getByTitle('Réglages — 2 à voir')).toBeTruthy();
-    const onglet = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.startsWith('Modèles IA'));
-    expect(onglet?.textContent).toBe('Modèles IA2');
-    cleanup();
-    // Rien à voir : ni compteur, ni mention.
-    const vide = render(
-      <Sidebar {...props} currentSpace="settings" currentSettingsSection="presets"
-        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}}
-        reglagesCounts={{ models: 0 }} />,
-    );
-    expect(vide.getByTitle('Réglages')).toBeTruthy();
-  });
-
-  it('le troisième panneau des rôles apparaît sous Personas, et pas ailleurs', () => {
-    const sansRoles = render(
-      <Sidebar {...props} currentSpace="settings" currentSettingsSection="models"
-        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
-    );
-    expect(sansRoles.container.querySelectorAll('aside > div').length).toBe(2);
-    cleanup();
-
-    const { container } = render(
-      <Sidebar {...props} currentSpace="settings" currentSettingsSection="personas"
-        currentSettingsPersona="DRAFT_CONTENT"
-        currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
-    );
-    expect(container.querySelectorAll('aside > div').length).toBe(3);
-    for (const p of PERSONAS_NAV) expect(container.textContent).toContain(p.label);
-  });
-
-  /**
-   * Les quatre niveaux doivent faire la même largeur — sinon deux colonnes de
-   * navigation côte à côte se lisent comme une hiérarchie qui n'existe pas.
-   */
-  it('les deux panneaux de navigation font la même largeur', () => {
-    const { container } = render(
-      <Sidebar {...props} currentCorpusSection="documents" currentCorpusBloc="socle" onNavigateCorpus={() => {}} />,
-    );
-    const [, deuxieme, troisieme] = [...container.querySelectorAll('aside > div')];
-    expect(deuxieme.className).toContain('w-[232px]');
-    expect(troisieme.className).toContain('w-[232px]');
-  });
 
   it('la coque route vers la vue demandée', () => {
     vi.spyOn(Api, 'fetchInbox').mockResolvedValue({ captures: [], enAttente: 0 } as any);
     const { container } = render(<CorpusSpace section="inbox" bloc={null} />);
     expect(container.textContent).toContain('inbox');
     vi.restoreAllMocks();
-  });
-});
-
-describe('Corpus — navigation sur téléphone', () => {
-  afterEach(cleanup);
-
-  const props = {
-    currentTab: 'conversations' as const,
-    currentSettingsSection: 'models' as const,
-    onNavigate: () => {},
-    onNavigateSettings: () => {},
-    counts: { conversations: 0, ideas: 0, publies: 0 },
-  };
-
-  it('une seule rangée hors Documents', () => {
-    const { container } = render(
-      <MobileSubTabs {...props} space="corpus" currentCorpusSection="etat" currentCorpusBloc={null} onNavigateCorpus={() => {}} />,
-    );
-    expect(container.textContent).toContain('État');
-    expect(container.textContent).not.toContain('Répertoire');
-  });
-
-  it('deux rangées sous Documents — les mêmes trois niveaux, empilés', () => {
-    const { container } = render(
-      <MobileSubTabs {...props} space="corpus" currentCorpusSection="documents" currentCorpusBloc="voix" onNavigateCorpus={() => {}} />,
-    );
-    expect(container.textContent).toContain('Documents');
-    expect(container.textContent).toContain('Répertoire');
-    expect(container.querySelectorAll('div.md\\:hidden')).toHaveLength(2);
   });
 });
 
@@ -3058,28 +2931,6 @@ describe('Reel expliqué — prise et rendu', () => {
   it('le coup de poing se dessine', () => {
     const { container } = render(<CoupDePoingLuminose texte="Pas un [défaut]" largeur={108} />);
     expect(container.querySelector('[aria-label="Coup de poing : Pas un défaut"]')).not.toBeNull();
-  });
-});
-
-/**
- * L'espace Vidéos → Montage (SPEC §12.4.3) : la porte d'entrée des Reels
- * expliqués. Il a un retour anticipé (aucun Reel), et se monte donc dans ses
- * deux états.
- */
-describe('la navigation de Contenus (SPEC §13)', () => {
-  it('trois entrées, chacune avec son compteur, et plus d’espace Vidéos', () => {
-    const { container } = render(<Sidebar
-      currentSpace="social" currentSocialTab="conversations" currentSettingsSection="models" currentSettingsPersona={null}
-      currentCorpusSection="etat" currentCorpusBloc={null}
-      onNavigate={noop} onNavigateSettings={noop} onNavigateCorpus={noop}
-      counts={{ conversations: 25, ideas: 44, publies: 17 }} isMobileOpen={false} onMobileClose={noop} />);
-    expect(container.textContent).toContain('Conversations25');
-    expect(container.textContent).toContain('Idées44');
-    expect(container.textContent).toContain('Publiés17');
-    expect(container.querySelector('[title="Vidéos"]')).toBeNull();
-    const mobile = render(<MobileSubTabs space="social" currentTab="ideas" currentSettingsSection="models"
-      onNavigate={noop} onNavigateSettings={noop} counts={{ conversations: 25, ideas: 44, publies: 17 }} />);
-    expect(mobile.container.textContent).toContain('Publiés');
   });
 });
 

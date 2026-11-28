@@ -13,6 +13,7 @@ import {
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { AIModel, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
+import { ChoixTheme } from '../charte/ChoixTheme';
 import { BaseClients } from './BaseClients';
 import { ReservationReglages } from './ReservationReglages';
 import { AgendaReglages } from './AgendaReglages';
@@ -2122,6 +2123,8 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {section === 'reservation' && <ReservationReglages />}
                 {section === 'agenda' && <AgendaReglages />}
+
+                {section === 'apparence' && <ChoixTheme />}
 
                 {section === 'backup' && (
                     <div className="max-w-3xl animate-fade-in">

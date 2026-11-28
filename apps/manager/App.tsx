@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { RefreshCw, LogOut, AlertCircle, Menu, Cpu, ChevronDown } from 'lucide-react';
+import { RefreshCw, LogOut, AlertCircle, Cpu, ChevronDown } from 'lucide-react';
 import { ContentItem, ContentStatus, AIModel, Serie, Verdict, Platform, isObjectif, isProfondeur } from './types';
 import * as Api from './services/apiService';
 import * as StorageService from './services/storageService';
@@ -15,7 +15,7 @@ import { enregistrerCatalogue, modelesDeTexte, propositionsAVoir } from './servi
 import { generateSeriePlan } from './services/seriesService';
 
 import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings/apercus';
-import { BLOCS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
+import { BLOCS, CORPUS_SECTIONS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
 import { fetchDocumentsCorpus, fetchInbox } from './services/apiService';
 import {
   SettingsSection, isSettingsSection, settingsSectionLabel, settingsSectionSousTitre,
@@ -29,14 +29,15 @@ import { BandeauActivite, EnCours, FiletActivite, Patience } from './components/
 import { ecran, TitreEcran } from './components/ui';
 
 // Components refactorisés
-import { Sidebar } from './components/Layout/Sidebar';
-import { MobileSubTabs } from './components/Layout/MobileSubTabs';
+import { BarreLaterale, BarreDuBas, FeuilleAjouter, EcranPlus, ListeSecondNiveau, useReception, type IdNav, type Geste } from './components/charte/cadre';
+import { Onglets, TitreEcran as TitreCharte } from './components/charte';
+import { SETTINGS_SECTIONS } from './components/Settings/sections';
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { SeriePlanView } from './components/Series/SeriePlanView';
 import { ConversationsView, type FiltreGeste, type DernierMot } from './components/Contenus/ConversationsView';
 import { IdeesView } from './components/Contenus/IdeesView';
 import { PubliesView, type VuePublies } from './components/Contenus/PubliesView';
-import { REDIRECTIONS, estListe, libelleDeListe, listeDuContenu, type ListeContenus } from './components/Contenus/listes';
+import { LISTES, REDIRECTIONS, estListe, libelleDeListe, listeDuContenu, type ListeContenus } from './components/Contenus/listes';
 import { PanneauSerie, AvancementSerie } from './components/Contenu/Serie';
 import { CadreContenu, PiedContenu } from './components/Contenu/CadreContenu';
 import { BandeauEnvironnement } from './components/BandeauEnvironnement';
@@ -56,7 +57,7 @@ const EspaceProfessionnels = lazy(() => import('./components/Clients/Professionn
  * Professionnels sont chacun au premier niveau (décision de Florent du
  * 27/11/2026) ; chacun lit lui-même la suite de son adresse.
  */
-type SpaceView = 'social' | 'clients' | 'seances' | 'evenements' | 'professionnels' | 'psychedelics' | 'corpus' | 'settings';
+type SpaceView = 'social' | 'clients' | 'seances' | 'evenements' | 'professionnels' | 'psychedelics' | 'corpus' | 'settings' | 'plus';
 /** Les trois listes, et `series` : l'adresse d'un plan de série (SPEC §13). */
 type SocialTab = ListeContenus | 'series';
 
@@ -65,6 +66,9 @@ const getSpaceHash = (space: SpaceView) => {
     if (space === 'psychedelics') return 'psychedeliques';
     if (space === 'corpus') return 'corpus';
     if (space === 'settings') return 'reglages';
+    // Refonte, lot 2 : Séances devient Agenda, Évènements devient Stages (docs/refonte/01, §3).
+    if (space === 'seances') return 'agenda';
+    if (space === 'evenements') return 'stages';
     return space;
 };
 
@@ -75,12 +79,13 @@ const getHashState = () => {
     
     let space: SpaceView = 'social';
     if (parts[0] === 'clients') space = 'clients';
-    if (parts[0] === 'seances') space = 'seances';
-    if (parts[0] === 'evenements') space = 'evenements';
+    if (parts[0] === 'seances' || parts[0] === 'agenda') space = 'seances';
+    if (parts[0] === 'evenements' || parts[0] === 'stages') space = 'evenements';
     if (parts[0] === 'professionnels') space = 'professionnels';
     if (parts[0] === 'psychedelics' || parts[0] === 'psychedeliques') space = 'psychedelics';
     if (parts[0] === 'corpus') space = 'corpus';
     if (parts[0] === 'settings' || parts[0] === 'reglages') space = 'settings';
+    if (parts[0] === 'plus') space = 'plus';
     
     let tab: SocialTab = 'conversations';
     if (parts[1] && (estListe(parts[1]) || parts[1] === 'series')) {
@@ -147,6 +152,9 @@ const adresseRemplacee = (): string | null => {
     const [chemin] = window.location.hash.replace('#', '').split('?');
     const parts = chemin.split('/');
     if (parts[0] === 'videos') return 'social/conversations';
+    // Les adresses d'avant la refonte (lot 2) : un lien de l'agenda Google, un favori.
+    if (parts[0] === 'seances') return ['agenda', ...parts.slice(1)].join('/');
+    if (parts[0] === 'evenements') return ['stages', ...parts.slice(1)].join('/');
     if (parts[0] !== 'social') return null;
     if (!parts[1]) return 'social/conversations';
     if (parts[1] === 'series' && !parts[2]) return 'social/conversations';
@@ -211,7 +219,11 @@ function App() {
   const [fils, setFils] = useState<ResumeFils | null>(null);
   const [montages, setMontages] = useState<ResumeMontages | null>(null);
   
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  /** Le « + » de la barre du bas (refonte, lot 2). */
+  const [ajoutOuvert, setAjoutOuvert] = useState(false);
+  /** La base des clients : `null` tant qu'on ne sait pas, et rien ne se grise pendant ce temps. */
+  const [baseReliee, setBaseReliee] = useState<boolean | null>(null);
+  const reception = useReception(baseReliee);
   /** La planche de la charte (refonte, lot 1) : une adresse à part, hors des espaces. */
   const [surComposants, setSurComposants] = useState(() => window.location.hash === '#composants');
   useEffect(() => {
@@ -432,7 +444,7 @@ function App() {
     if (!authenticated) return;
     let vivant = true;
     Api.fetchEnvironnement()
-      .then(e => { if (vivant) setNomEnvironnement(e?.nom ?? null); })
+      .then(e => { if (vivant) { setNomEnvironnement(e?.nom ?? null); setBaseReliee(typeof e?.clientsReliee === 'boolean' ? e.clientsReliee : null); } })
       .catch(() => {});
     return () => { vivant = false; };
   }, [authenticated]);
@@ -596,7 +608,6 @@ function App() {
 
   useEffect(() => {
       setSearchQuery("");
-      setIsMobileMenuOpen(false);
       // Le champ d'ajout ne prend la main que pour l'arrivée depuis « + Nouveau → Idée ».
       if (currentSocialTab !== 'ideas') setIdeeEnAvant(false);
   }, [currentSocialTab]);
@@ -1211,6 +1222,29 @@ function App() {
   const surLePlan = currentSocialTab === 'series' && !!editingSerie && !editingItem;
   const isEditorTakeover = currentSpace === 'social' && (!!editingItem || surLePlan);
 
+  // ── Le cadre (refonte, lot 2) : l'entrée active, la navigation, les gestes du « + » ──
+  const ESPACE_DE: Record<Exclude<IdNav, 'reglages' | 'contenus' | 'corpus'>, SpaceView> = {
+      agenda: 'seances', clients: 'clients', stages: 'evenements', professionnels: 'professionnels',
+      psychedeliques: 'psychedelics', plus: 'plus',
+  };
+  const idNav: IdNav | null =
+      currentSpace === 'social' ? 'contenus'
+      : currentSpace === 'settings' ? 'reglages'
+      : currentSpace === 'corpus' ? 'corpus'
+      : (Object.keys(ESPACE_DE) as (keyof typeof ESPACE_DE)[]).find(k => ESPACE_DE[k] === currentSpace) ?? null;
+  const naviguer = (id: IdNav) => {
+      if (id === 'contenus') return updateRoute('social', 'conversations');
+      if (id === 'reglages') return updateSettingsRoute(currentSettingsSection);
+      if (id === 'corpus') return updateCorpusRoute(currentCorpusSection, currentCorpusBloc);
+      updateRoute(ESPACE_DE[id], 'conversations');
+  };
+  const faireGeste = (g: Geste) => {
+      setAjoutOuvert(false);
+      if (g === 'idee') { setIdeeEnAvant(true); updateRoute('social', 'ideas'); return; }
+      const adresse = g === 'fiche' ? 'clients/nouvelle' : 'agenda/poser';
+      if (window.location.hash !== `#${adresse}`) window.location.hash = adresse;
+  };
+
   /** Les publications d'une série, dans l'ordre du plan. */
   const publicationsDe = (serieId: string) => items
       .filter(i => i.serieId === serieId)
@@ -1233,22 +1267,13 @@ function App() {
     <BandeauEnvironnement nom={nomEnvironnement} />
     <div className="flex flex-1 min-h-0 bg-brand-light dark:bg-dark-bg text-brand-main dark:text-dark-text font-sans transition-colors duration-200 overflow-hidden border-t border-brand-border dark:border-dark-sec-border">
 
-      <Sidebar
-          currentSpace={currentSpace}
-          currentSocialTab={currentSocialTab === 'series' ? 'conversations' : currentSocialTab}
-          currentSettingsSection={currentSettingsSection}
-          currentSettingsPersona={currentSettingsPersona}
-          currentCorpusSection={currentCorpusSection}
-          currentCorpusBloc={currentCorpusBloc}
-          onNavigate={(space, tab) => updateRoute(space, tab)}
-          onNavigateSettings={updateSettingsRoute}
-          onNavigateCorpus={updateCorpusRoute}
-          counts={counts}
-          corpusCounts={corpusCounts}
-          reglagesCounts={{ models: propositionsAVoir(veille, aiModels).length }}
-          isMobileOpen={isMobileMenuOpen}
-          onMobileClose={() => setIsMobileMenuOpen(false)}
-          replie={isEditorTakeover}
+      <BarreLaterale
+          actif={idNav}
+          onNaviguer={naviguer}
+          baseReliee={baseReliee}
+          reception={reception}
+          compteReglages={propositionsAVoir(veille, aiModels).length}
+          forcerRepliee={isEditorTakeover}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
@@ -1270,27 +1295,19 @@ function App() {
             Un contenu ouvert a son propre bandeau (SPEC §13.9) : celui-ci s'efface. */}
         {!isEditorTakeover && <header className="relative h-16 px-4 md:px-8 flex items-center justify-between border-b border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface shrink-0 z-20">
             <div className="flex items-center gap-3 min-w-0">
-              <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  aria-label="Ouvrir la navigation"
-                  aria-expanded={isMobileMenuOpen}
-                  className="md:hidden p-2 -ml-1 rounded-lg text-brand-main dark:text-dark-text hover:bg-brand-light dark:hover:bg-dark-sec-bg transition-colors"
-              >
-                  <Menu className="w-5 h-5" />
-              </button>
-
-              <TitreEcran>
+              <TitreCharte className="truncate">
                   {currentSpace === 'social' && (currentSocialTab === 'series'
                       ? (editingSerie ? `Série · ${editingSerie.titre}` : 'Série')
                       : libelleDeListe(currentSocialTab))}
                   {currentSpace === 'clients' && 'Clients'}
-                  {currentSpace === 'seances' && 'Séances'}
-                  {currentSpace === 'evenements' && 'Évènements'}
+                  {currentSpace === 'seances' && 'Agenda'}
+                  {currentSpace === 'evenements' && 'Stages'}
+                  {currentSpace === 'plus' && 'Plus'}
                   {currentSpace === 'professionnels' && 'Professionnels'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
                   {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
                   {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
-              </TitreEcran>
+              </TitreCharte>
               {currentSpace === 'corpus' && (
                   <p className="hidden lg:block text-xs text-brand-main dark:text-dark-text truncate">
                       {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
@@ -1358,20 +1375,26 @@ function App() {
             depuis l'atelier reste visible quand on revient à la liste (SPEC §3.5.1). */}
         <BandeauActivite />
 
-        {(currentSpace === 'settings' || currentSpace === 'corpus' || (currentSpace === 'social' && !isEditorTakeover)) && (
-          <MobileSubTabs
-              space={currentSpace === 'settings' ? 'settings' : currentSpace === 'corpus' ? 'corpus' : 'social'}
-              currentTab={currentSocialTab === 'series' ? 'conversations' : currentSocialTab}
-              currentSettingsSection={currentSettingsSection}
-              currentSettingsPersona={currentSettingsPersona}
-              currentCorpusSection={currentCorpusSection}
-              currentCorpusBloc={currentCorpusBloc}
-              onNavigate={(tab) => updateRoute('social', tab)}
-              onNavigateSettings={updateSettingsRoute}
-              onNavigateCorpus={updateCorpusRoute}
-              counts={counts}
-              reglagesCounts={{ models: propositionsAVoir(veille, aiModels).length }}
-          />
+        {/* Le second niveau, jusqu'à quatre vues : des onglets en haut de l'écran (refonte, lot 2). */}
+        {currentSpace === 'social' && !isEditorTakeover && (
+          <div className="flex-none overflow-x-auto bg-surface px-4 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <Onglets
+                libelle="Contenus"
+                actif={currentSocialTab === 'series' ? 'conversations' : currentSocialTab}
+                onChange={(tab) => updateRoute('social', tab)}
+                onglets={LISTES.map(l => ({ id: l.id, libelle: l.label, compte: counts[l.id] }))}
+            />
+          </div>
+        )}
+        {currentSpace === 'corpus' && (
+          <div className="flex-none overflow-x-auto bg-surface px-4 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <Onglets
+                libelle="Corpus"
+                actif={currentCorpusSection}
+                onChange={(section) => updateCorpusRoute(section)}
+                onglets={CORPUS_SECTIONS.map(c => ({ id: c.id, libelle: c.label, compte: c.id === 'inbox' ? corpusCounts.inbox : undefined }))}
+            />
+          </div>
         )}
 
         {error && (
@@ -1415,7 +1438,31 @@ function App() {
         {currentSpace === 'evenements' && <main className="flex-1 overflow-y-auto"><EspaceEvenements /></main>}
         {currentSpace === 'professionnels' && <main className="flex-1 overflow-y-auto"><EspaceProfessionnels /></main>}
 
+        {currentSpace === 'plus' && (
+            <main className="flex-1 overflow-y-auto bg-fond">
+                <EcranPlus onNaviguer={naviguer} baseReliee={baseReliee} reception={reception}
+                    compteReglages={propositionsAVoir(veille, aiModels).length} />
+            </main>
+        )}
+
         {currentSpace === 'settings' && (
+          <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+            {/* Au-delà de quatre vues, la liste vit dans l'écran (refonte, lot 2). */}
+            <ListeSecondNiveau
+                libelle="Réglages"
+                actif={currentSettingsSection}
+                onChoisir={(id) => updateSettingsRoute(id)}
+                entrees={SETTINGS_SECTIONS.map(r => ({ id: r.id, libelle: r.label, compte: r.id === 'models' ? propositionsAVoir(veille, aiModels).length : undefined }))}
+            />
+            {currentSettingsSection === 'personas' && (
+                <ListeSecondNiveau
+                    libelle="Rôles"
+                    actif={currentSettingsPersona}
+                    onChoisir={(id) => updateSettingsRoute('personas', id)}
+                    entrees={PERSONAS_NAV.map(r => ({ id: r.id, libelle: r.label }))}
+                />
+            )}
+            <div className="flex-1 min-w-0 min-h-0 flex flex-col">
             <SettingsSpace
                 section={currentSettingsSection}
                 persona={currentSettingsPersona}
@@ -1432,14 +1479,26 @@ function App() {
                 veille={veille}
                 onVeilleChange={setVeille}
             />
+            </div>
+          </div>
         )}
 
         {currentSpace === 'corpus' && (
-            <main className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+            {currentCorpusSection === 'documents' && (
+                <ListeSecondNiveau
+                    libelle="Documents"
+                    actif={currentCorpusBloc}
+                    onChoisir={(id) => updateCorpusRoute('documents', id)}
+                    entrees={BLOCS.map(b => ({ id: b.id, libelle: b.label, compte: corpusCounts.parBloc?.[b.id] }))}
+                />
+            )}
+            <main className="flex-1 min-w-0 overflow-y-auto">
                 <div className={ecran('liste')}>
                     <CorpusSpace section={currentCorpusSection} bloc={currentCorpusBloc} />
                 </div>
             </main>
+          </div>
         )}
 
         {currentSpace === 'psychedelics' && (
@@ -1593,6 +1652,12 @@ function App() {
       </div>
 
     </div>
+    {/* L'iPhone : la barre du bas, dans le flux, sous l'écran — rien ne passe dessous.
+        Un contenu ouvert prend l'écran entier, comme il prend la largeur sur le Mac. */}
+    {!isEditorTakeover && (
+        <BarreDuBas actif={idNav} onNaviguer={naviguer} onAjouter={() => setAjoutOuvert(true)} baseReliee={baseReliee} />
+    )}
+    <FeuilleAjouter ouverte={ajoutOuvert} onFermer={() => setAjoutOuvert(false)} onGeste={faireGeste} baseReliee={baseReliee} />
     </div>
   );
 }

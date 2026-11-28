@@ -7,7 +7,17 @@
 @import '@fontsource/fraunces/500.css';
 @import './charte/jetons.css';
 
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/*
+  Le sombre suit le thème de la charte (lot 2) : `data-theme="dark"` le force, `data-theme="light"`
+  l'écarte, et sans choix c'est la préférence du système. Les écrans d'avant gardent leurs `dark:` ;
+  seul le déclencheur change.
+*/
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) { @slot; }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) { @slot; }
+  }
+}
 
 @theme {
   /*
@@ -55,7 +65,9 @@
   --shadow-carte: var(--ombre-carte);
   --shadow-fenetre: var(--ombre-fenetre);
 
-  --font-sans: 'Futura LT', Futura, Century Gothic, sans-serif;
+  /* Lot 2 : les écrans d'avant prennent la police de la charte. Futura reste servie pour le titre
+     d'un contenu (font-display) jusqu'à l'habillage de l'éditorial (lot 9). */
+  --font-sans: 'Figtree Variable', Figtree, system-ui, sans-serif;
   --font-display: 'Abril Display', Georgia, serif;
 
   /*
@@ -66,15 +78,21 @@
   --text-micro: 0.6875rem;      /* 11 px */
   --text-micro--line-height: 1rem;
 
-  --color-brand-main: #6163a5;
-  --color-brand-hover: #60407f;
-  --color-brand-light: #f9f5ff;
-  --color-brand-border: #e8def6;
-  --color-dark-bg: #20122e;
-  --color-dark-surface: #3f2258;
-  --color-dark-text: #bb95dd;
-  --color-dark-sec-border: #613f7f;
-  --color-dark-sec-bg: rgba(63, 34, 88, 0.5);
+  /*
+    Lot 2 de la refonte : l'échelle d'avant garde ses noms, mais ses valeurs deviennent celles de
+    tokens.css — les écrans pas encore refaits se recolorent sans être réécrits. Les `brand-*` sont
+    les valeurs CLAIRES de la charte, les `dark-*` ses valeurs SOMBRES, chacune posée en dur : les
+    écrans d'avant écrivent eux-mêmes leur `dark:` et ne doivent pas changer de teinte deux fois.
+  */
+  --color-brand-main: #5A3E85;       /* --marque, clair */
+  --color-brand-hover: #472E6C;      /* --marque-survol, clair */
+  --color-brand-light: #FAF8FC;      /* --fond, clair */
+  --color-brand-border: #E3DCEB;     /* --bord, clair */
+  --color-dark-bg: #17121D;          /* --fond, sombre */
+  --color-dark-surface: #211A2A;     /* --surface, sombre */
+  --color-dark-text: #BDA6E8;        /* --marque, sombre */
+  --color-dark-sec-border: #3B304A;  /* --bord, sombre */
+  --color-dark-sec-bg: #2A2135;      /* --survol, sombre */
 
   /*
     Deux surfaces de la refonte « le fil » (SPEC §13), validées le 27/10/2026 :
@@ -83,8 +101,8 @@
     de liste, à peine plus clair que brand-light. En sombre, l'un et l'autre
     reprennent dark-bg et dark-sec-bg.
   */
-  --color-fil: #f1ebf8;
-  --color-survol: #fcfaff;
+  --color-fil: #F5F1F9;              /* --fil de la charte, clair */
+  --color-survol: #F6F2FA;           /* --survol, clair */
 
   /*
     Les trois sens que l'interface porte en couleur. Ils remplacent green-*,
@@ -93,9 +111,9 @@
     qu'un écran écrit `text-succes` et jamais `dark:text-…`. Les surfaces
     s'en déduisent par opacité (`bg-succes/10`, `border-succes/30`).
   */
-  --color-succes: #047857;
-  --color-alerte: #b45309;
-  --color-erreur: #b91c1c;
+  --color-succes: #0F6B4F;
+  --color-alerte: #9A4A06;
+  --color-erreur: #B3261E;
 
   /*
     Les témoins d'attente. `animate-fade-in` était utilisé depuis longtemps sans
@@ -122,13 +140,18 @@
 /*
   Les valeurs claires passent 4.5:1 sur blanc et sur brand-light ; ces valeurs
   sombres les passent sur dark-bg et dark-surface. Même mécanisme que la
-  variante `dark` : la préférence système.
+  variante `dark` : le thème choisi, sinon la préférence système.
 */
+:root[data-theme="dark"] {
+  --color-succes: #6FD6AE;
+  --color-alerte: #F2C063;
+  --color-erreur: #F4A199;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
-    --color-succes: #6ee7b7;
-    --color-alerte: #fcd34d;
-    --color-erreur: #fca5a5;
+  :root:not([data-theme="light"]) {
+    --color-succes: #6FD6AE;
+    --color-alerte: #F2C063;
+    --color-erreur: #F4A199;
   }
 }
 
@@ -209,12 +232,10 @@
 
 /* Un focus visible demeure nécessaire quand le champ retire le contour natif. */
 @layer base {
+  /* La marque de la charte suit le thème : un seul contour, lisible dans les deux. */
   :where(button, a, input, select, textarea, [contenteditable="true"]):focus-visible {
-    outline: 2px solid var(--color-brand-main);
+    outline: 2px solid var(--marque);
     outline-offset: 2px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :where(button, a, input, select, textarea, [contenteditable="true"]):focus-visible { outline-color: white; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

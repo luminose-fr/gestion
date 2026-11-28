@@ -49,7 +49,7 @@ const rendezVous = (env: Env, s: Ligne) => {
     description: [
       `${s.origine === 'site' ? 'Réservée sur le site' : 'Posée dans gestion'}, ${LIBELLES_MODE[String(s.mode)] ?? ''}`.trim().replace(/,$/, ''),
       telephone ? `Téléphone : ${telephone}` : null,
-      `Dans gestion : ${adresseConsole}/#seances/${encodeURIComponent(String(s.id))}`,
+      `Dans gestion : ${adresseConsole}/#agenda/${encodeURIComponent(String(s.id))}`,
     ].filter(Boolean).join('\n'),
     debut,
     fin: debut + Number(s.duree_min) * MINUTE,

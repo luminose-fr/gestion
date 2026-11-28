@@ -246,7 +246,7 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
 
   return (
     <div className={`${ecran('liste')} space-y-4`}>
-      <Bouton taille="petit" intention="discrete" onClick={() => window.history.length > 1 ? window.history.back() : aller('seances')}><ArrowLeft /> Retour</Bouton>
+      <Bouton taille="petit" intention="discrete" onClick={() => window.history.length > 1 ? window.history.back() : aller('agenda')}><ArrowLeft /> Retour</Bouton>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start">
         <div className="space-y-4">

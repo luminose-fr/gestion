@@ -22,7 +22,7 @@ export const CORPUS_SECTIONS: Array<{
 }> = [
     { id: 'etat',      label: 'État',      sousTitre: 'Ce qui demande une décision',              icon: Gauge },
     { id: 'documents', label: 'Documents', sousTitre: 'Le corpus, en lecture seule',             icon: BookOpen },
-    { id: 'inbox',     label: 'Inbox',     sousTitre: 'Capturer sans ranger — trois champs',     icon: Inbox },
+    { id: 'inbox',     label: 'À ranger',     sousTitre: 'Capturer sans ranger — trois champs',     icon: Inbox },
     { id: 'carte',     label: 'Carte',     sousTitre: 'Comment le corpus atteint un modèle',      icon: MapIcon },
 ];
 

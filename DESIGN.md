@@ -41,6 +41,14 @@ souligné × petit 32, normal 40 — 44 sur l'iPhone —, tactile 44), `Champ` e
 (`<dialog>` natif), `TemoinEnregistrement`, `Etiquette`, `TitreEcran`, `TitreCarte`,
 `Secondaire`. La planche se voit à **`#composants`**, dans les deux thèmes.
 
+Le cadre (lot 2) vit dans `components/charte/cadre.tsx` : la barre latérale à libellés
+(Pratique, Éditorial ; repliable en icônes, le choix retenu), la barre du bas de l'iPhone
+et sa feuille « Ajouter », l'écran « Plus » (`#plus`), la ligne d'état de la réception du
+site, et `ListeSecondNiveau` — au-delà de quatre vues, la liste vit dans l'écran.
+`components/Layout/` a disparu avec lui. Depuis ce lot, l'échelle d'avant garde ses noms
+mais prend les valeurs de la charte (`index.css`), et la variante `dark:` suit le thème
+choisi : un écran pas encore refait se recolore sans être réécrit.
+
 Un écran refait **compose ces composants** et n'écrit ni couleur, ni taille de texte, ni
 rayon, ni ombre. Ces commandes, sur les fichiers qui importent la charte, rendent zéro
 ligne (`App.tsx` et `index.tsx` n'importent la charte que pour aiguiller et poser le

@@ -13,21 +13,13 @@
       ::-webkit-scrollbar-track {
         background: transparent; 
       }
+      /* Les jetons de la charte : la barre suit le thème choisi, pas seulement le système. */
       ::-webkit-scrollbar-thumb {
-        background: #cbd5e1; 
+        background: var(--bord);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8; 
-      }
-
-      @media (prefers-color-scheme: dark) {
-        ::-webkit-scrollbar-thumb {
-          background: #613f7f; 
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #BB95DD; 
-        }
+        background: var(--champ);
       }
     </style>
 

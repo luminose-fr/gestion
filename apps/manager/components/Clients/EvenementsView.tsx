@@ -30,7 +30,7 @@ const TYPES = [
 
 const LigneEvenement: React.FC<{ e: Evenement }> = ({ e }) => (
   <li>
-    <a href={`#evenements/${encodeURIComponent(e.id)}`} className="ui-list-action flex items-center justify-between gap-3 px-4 py-3 hover:bg-survol dark:hover:bg-dark-sec-bg">
+    <a href={`#stages/${encodeURIComponent(e.id)}`} className="ui-list-action flex items-center justify-between gap-3 px-4 py-3 hover:bg-survol dark:hover:bg-dark-sec-bg">
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{e.nom}</span>
         <span className="block text-xs text-brand-main dark:text-dark-text">{dateCourte(e.debut)}{e.ville && ` · ${e.ville}`}</span>
@@ -54,7 +54,7 @@ export const ListeEvenements: React.FC = () => {
   return (
     <div className={`${ecran('liste')} space-y-4`}>
       <div className="flex justify-end">
-        <Bouton taille="grand" intention="principale" posee onClick={() => aller('evenements/nouveau')}><Plus /> Nouvel évènement</Bouton>
+        <Bouton taille="grand" intention="principale" posee onClick={() => aller('stages/nouveau')}><Plus /> Nouvel évènement</Bouton>
       </div>
       {tous.length === 0 && <Vide>Aucun évènement pour l’instant.</Vide>}
       {[['À venir', aVenir], ['Passés', passes]].map(([titre, liste]) => (liste as Evenement[]).length > 0 && (
@@ -170,7 +170,7 @@ const FormulaireEvenement: React.FC<{ initiale: Saisie; enregistrer: (s: Saisie)
 
 export const NouvelEvenement: React.FC = () => (
   <div className={`${ecran('travail')} space-y-4`}>
-    <TitreSection titre="Nouvel évènement" action={<Bouton intention="discrete" onClick={() => aller('evenements')}><ArrowLeft /> Évènements</Bouton>} />
+    <TitreSection titre="Nouvel évènement" action={<Bouton intention="discrete" onClick={() => aller('stages')}><ArrowLeft /> Évènements</Bouton>} />
     <FormulaireEvenement initiale={SAISIE_VIDE} libelle="Créer l’évènement" enregistrer={async (s) => {
       const r = versRoute(s);
       if (typeof r === 'string') throw new Error(r);
@@ -220,7 +220,7 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
   return (
     <div className={`${ecran('liste')} space-y-4`}>
       <div className="flex items-center justify-between gap-3">
-        <Bouton taille="petit" intention="discrete" onClick={() => aller('evenements')}><ArrowLeft /> Évènements</Bouton>
+        <Bouton taille="petit" intention="discrete" onClick={() => aller('stages')}><ArrowLeft /> Évènements</Bouton>
         <Bouton taille="petit" intention="secondaire" ton="erreur" onClick={() => setSupprimer(true)} disabled={e.inscriptions.length > 0}
           title={e.inscriptions.length > 0 ? 'Un évènement qui a des inscrits ne se supprime pas.' : undefined}>
           <Trash2 /> Supprimer
@@ -285,7 +285,7 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
       <ConfirmModal
         isOpen={supprimer}
         onClose={() => setSupprimer(false)}
-        onConfirm={() => void Clients.supprimerEvenement(id).then(() => aller('evenements')).catch((err) => setRefusSuppression(messageDe(err)))}
+        onConfirm={() => void Clients.supprimerEvenement(id).then(() => aller('stages')).catch((err) => setRefusSuppression(messageDe(err)))}
         title="Supprimer cet évènement ?"
         message="Il disparaît des listes. Un évènement qui a des inscrits ne se supprime pas."
         confirmLabel="Supprimer"

@@ -263,7 +263,7 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
                 {fiche.seances.map((s) => (
                   <li key={s.id}>
-                    <a href={`#seances/${encodeURIComponent(s.id)}`} className="ui-list-action block py-2 hover:bg-survol dark:hover:bg-dark-sec-bg rounded-lg px-2">
+                    <a href={`#agenda/${encodeURIComponent(s.id)}`} className="ui-list-action block py-2 hover:bg-survol dark:hover:bg-dark-sec-bg rounded-lg px-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold text-brand-main dark:text-white">
                           {s.numero !== null && <span className="tabular-nums">Séance {s.numero} · </span>}
@@ -289,7 +289,7 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
                 {fiche.inscriptions.map((i) => (
                   <li key={i.id} className="flex items-center justify-between gap-2 py-2">
-                    <a className="text-sm text-brand-main dark:text-white underline hover:no-underline" href={`#evenements/${encodeURIComponent(i.evenement.id)}`}>
+                    <a className="text-sm text-brand-main dark:text-white underline hover:no-underline" href={`#stages/${encodeURIComponent(i.evenement.id)}`}>
                       {i.evenement.nom} · {dateCourte(i.evenement.debut)}
                     </a>
                     <Pastille libelle={INSCRIPTIONS[i.statut].libelle} ton={INSCRIPTIONS[i.statut].ton} />
@@ -324,7 +324,7 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
         <PoserRendezVous
           fiche={{ id: fiche.id, prenom: fiche.prenom, nom: fiche.nom }}
           onFermer={() => setRdvOuvert(false)}
-          onPose={(seanceId) => { setRdvOuvert(false); aller(`seances/${encodeURIComponent(seanceId)}`); }}
+          onPose={(seanceId) => { setRdvOuvert(false); aller(`agenda/${encodeURIComponent(seanceId)}`); }}
         />
       )}
     </div>
