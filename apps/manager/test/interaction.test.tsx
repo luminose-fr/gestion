@@ -84,6 +84,12 @@ import { NouvelleFicheView } from '../components/Clients/NouvelleFicheView';
 import { FicheView } from '../components/Clients/FicheView';
 import { NotesDeSeance, SeanceView } from '../components/Clients/SeanceView';
 import { PoserRendezVous } from '../components/Clients/PoserRendezVous';
+
+// jsdom ne connaît pas showModal : la fenêtre de la charte (un <dialog>) s'ouvre par cette imitation.
+if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', ''); };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.removeAttribute('open'); };
+}
 import { routesChargees, FICHE } from './helpers/clients';
 
 describe('la console des clients', () => {

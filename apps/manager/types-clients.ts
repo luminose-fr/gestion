@@ -72,7 +72,15 @@ export type MouvementSeance = {
   id: string; nature: 'creee' | 'deplacee' | 'annulee' | 'retablie'; par: 'florent' | 'personne' | 'import';
   ancienDebut: string | null; nouveauDebut: string | null; revision: number; le: string;
 };
-export type SeanceDetaillee = Seance & { creeeLe: string; mouvements: MouvementSeance[] };
+export type SeanceDetaillee = Seance & {
+  creeeLe: string; mouvements: MouvementSeance[];
+  /** Refonte, lot 4 : ce qui change l'écran selon le moment. */
+  nature?: 'rencontre' | 'seance' | null;
+  provenance?: string | null;
+  questionnaire?: 'relu' | 'non_relu' | 'pas_recu' | null;
+  /** La dernière séance réalisée de la même personne. */
+  precedente?: { id: string; debut: string } | null;
+};
 
 /**
  * Une séance vue d'Aujourd'hui (refonte, lot 3) : l'état d'une note et d'un

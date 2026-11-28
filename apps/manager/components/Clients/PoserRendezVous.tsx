@@ -1,47 +1,53 @@
 /**
- * Poser un rendez-vous — une fenêtre (SPEC §15.4). La personne (déjà choisie
- * depuis une fiche ; sinon la recherche des fiches), le type, la date, l'heure,
- * et — repliés — la durée, le mode, le montant. Sous la date, les séances déjà
- * prévues ce jour-là.
+ * Poser ou déplacer un rendez-vous — UNE fenêtre pour les deux (refonte de la
+ * console, lot 4 ; maquettes RendezVous, RendezVousDeplacer, TelRendezVous).
  *
- * Florent passe outre la fenêtre et les horaires, pas l'agenda : un
- * chevauchement est refusé par la route, et son message s'affiche tel quel. La
- * fenêtre rappelle que rien n'est écrit dans l'agenda Google et qu'aucun message
- * ne part.
+ * Poser : la personne (déjà choisie depuis une fiche, sinon la recherche des
+ * fiches), le type, la date, l'heure, et — repliés — la durée, le mode, le
+ * montant. Déplacer : la personne et le type sont ceux de la séance ; seuls la
+ * date et l'heure changent, et la révision lue part avec la demande.
+ *
+ * Sous la date, ce qui occupe déjà ce jour-là. Florent passe outre la fenêtre
+ * et les horaires, pas l'agenda : un chevauchement est refusé par la route,
+ * qui dit avec qui, et la saisie reste pour changer l'heure.
  */
-import React, { useEffect, useId, useState } from 'react';
-import { X } from 'lucide-react';
-import { Bouton, Champ, Etiquette, CLASSES_TITRE } from '../ui';
-import { useEscapeClose } from '../hooks/useEscapeClose';
-import { useModalFocus } from '../hooks/useModalFocus';
+import React, { useEffect, useState } from 'react';
+import { Bouton, Champ, Choix, Fenetre, Pastille, Repliable, Secondaire } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { ModeSeance, Seance, TypeReservation } from '../../types-clients';
-import { aujourdhui, Avis, centimesDepuis, CLASSES_SELECT, heure, isoDepuis, messageDe, MODES, nomComplet, PastilleStatut } from './commun';
+import { aujourdhui, centimesDepuis, euros, heure, isoDepuis, jourDe, messageDe, MODES, nomComplet, STATUTS } from './commun';
 import { ChoixFiche, type FicheChoisie } from './ChoixFiche';
+
+/** Ce que « Déplacer » sait de la séance : de quoi la refaire ailleurs, et sa révision. */
+export type SeanceADeplacer = Pick<Seance, 'id' | 'debut' | 'revision' | 'dureeMin' | 'type' | 'libelleImporte' | 'personne'>;
 
 export const PoserRendezVous: React.FC<{
   fiche?: FicheChoisie;
-  /** La date proposée à l'ouverture, `AAAA-MM-JJ` : celle du jour affiché dans le planning. */
+  /** La date proposée à l'ouverture, `AAAA-MM-JJ`. */
   date?: string;
+  /** L'heure proposée, `HH:MM` (« Poser le suivant » : la même heure). */
+  heureInitiale?: string;
+  /** Le type proposé (« Poser le suivant » : le même type). */
+  typeInitial?: string;
+  /** Présent : la fenêtre déplace cette séance au lieu d'en poser une. */
+  deplacer?: SeanceADeplacer;
   onFermer: () => void;
   onPose: (seanceId: string) => void;
-}> = ({ fiche, date: dateInitiale, onFermer, onPose }) => {
+}> = ({ fiche, date: dateInitiale, heureInitiale, typeInitial, deplacer, onFermer, onPose }) => {
   const [personne, setPersonne] = useState<FicheChoisie | null>(fiche ?? null);
   const [types, setTypes] = useState<TypeReservation[]>([]);
-  const [typeId, setTypeId] = useState('');
-  const [date, setDate] = useState(dateInitiale ?? aujourdhui());
-  const [h, setH] = useState('09:30');
+  const [typeId, setTypeId] = useState(typeInitial ?? '');
+  const [date, setDate] = useState(deplacer ? jourDe(deplacer.debut) : dateInitiale ?? aujourdhui());
+  const [h, setH] = useState(deplacer ? heure(deplacer.debut) : heureInitiale ?? '09:30');
   const [duree, setDuree] = useState('');
   const [mode, setMode] = useState<ModeSeance | ''>('');
   const [montant, setMontant] = useState('');
   const [duJour, setDuJour] = useState<Seance[] | null>(null);
   const [refus, setRefus] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
-  const modal = useModalFocus(true);
-  const titreId = useId();
-  useEscapeClose(true, onFermer, enCours);
 
   useEffect(() => {
+    if (deplacer) return;
     Clients.lireReservation()
       .then((r) => {
         const actifs = r.types.filter((t) => t.actif);
@@ -49,27 +55,35 @@ export const PoserRendezVous: React.FC<{
         setTypeId((v) => v || actifs.find((t) => t.cle === 'seance')?.id || actifs[0]?.id || '');
       })
       .catch((e) => setRefus(messageDe(e)));
-  }, []);
+  }, [deplacer]);
 
   useEffect(() => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { setDuJour(null); return; }
     let vivant = true;
     Clients.seancesDeLaPeriode(date, date)
-      .then((r) => { if (vivant) setDuJour(r.seances.filter((s) => s.statut === 'prevue')); })
+      .then((r) => { if (vivant) setDuJour(r.seances.filter((s) => s.statut === 'prevue' && s.id !== deplacer?.id)); })
       .catch(() => { if (vivant) setDuJour(null); });
     return () => { vivant = false; };
-  }, [date]);
+  }, [date, deplacer?.id]);
 
   const type = types.find((t) => t.id === typeId);
 
-  const poser = async (e: React.FormEvent) => {
+  const valider = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRefus(null);
+    if (deplacer) {
+      setEnCours(true);
+      try {
+        await Clients.deplacerSeance(deplacer.id, isoDepuis(date, h), deplacer.revision);
+        onPose(deplacer.id);
+      } catch (err) { setRefus(messageDe(err)); setEnCours(false); }
+      return;
+    }
     if (!personne) { setRefus('Choisir la personne.'); return; }
     if (!typeId) { setRefus('Choisir le type de séance.'); return; }
     const centimes = montant.trim() ? centimesDepuis(montant) : undefined;
     if (centimes === null) { setRefus('Le montant ne se lit pas : un nombre, en euros.'); return; }
     setEnCours(true);
-    setRefus(null);
     try {
       const { id } = await Clients.poserRendezVous({
         clientId: personne.id, typeSeanceId: typeId, debut: isoDepuis(date, h),
@@ -79,88 +93,83 @@ export const PoserRendezVous: React.FC<{
       });
       onPose(id);
     } catch (err) {
-      // « Ce créneau chevauche un autre rendez-vous. » : la saisie reste, l'heure se change.
+      // « Ce créneau chevauche le rendez-vous de … » : la saisie reste, l'heure se change.
       setRefus(messageDe(err));
       setEnCours(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-70 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in" onClick={enCours ? undefined : onFermer}>
-      <div
-        ref={modal}
-        role="dialog" aria-modal="true" aria-labelledby={titreId} tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
-        className="ui-dialog bg-white dark:bg-dark-surface w-full max-w-lg max-h-full overflow-y-auto rounded-xl shadow-lg border border-brand-border dark:border-dark-sec-border p-6"
-      >
-      <form onSubmit={poser} className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <h3 id={titreId} className={CLASSES_TITRE}>Poser un rendez-vous</h3>
-          <button type="button" aria-label="Fermer" onClick={onFermer} className="text-brand-main dark:text-dark-text"><X className="size-5" /></button>
-        </div>
+  const resumeRepli = [
+    duree ? `${duree} min` : type ? `${type.dureeMin} min` : null,
+    mode ? MODES[mode].toLowerCase() : 'mode du type',
+    montant ? `${montant} €` : type ? euros(type.montantCentimes) : null,
+  ].filter(Boolean).join(' · ');
 
-        {fiche ? (
-          <p className="text-sm text-brand-main dark:text-white"><Etiquette as="span">Personne</Etiquette> {nomComplet(fiche)}</p>
+  return (
+    <Fenetre
+      ouverte
+      titre={deplacer ? 'Déplacer le rendez-vous' : 'Poser un rendez-vous'}
+      onFermer={() => { if (!enCours) onFermer(); }}
+      actions={<>
+        <Bouton intention="souligne" onClick={onFermer} disabled={enCours}>Annuler</Bouton>
+        <Bouton type="submit" form="fenetre-rdv" disabled={enCours}>
+          {enCours ? (deplacer ? 'Déplacement…' : 'Pose…') : deplacer ? 'Déplacer le rendez-vous' : 'Poser le rendez-vous'}
+        </Bouton>
+      </>}
+    >
+      <form id="fenetre-rdv" onSubmit={valider} className="flex flex-col gap-4 font-charte text-courant">
+        {deplacer ? (
+          <p><span className="font-semibold">{nomComplet(deplacer.personne)}</span> · {deplacer.type?.libelle ?? deplacer.libelleImporte ?? 'Type inconnu'}, {deplacer.dureeMin} min</p>
+        ) : fiche ? (
+          <p><span className="text-second">Personne : </span><span className="font-semibold">{nomComplet(fiche)}</span></p>
         ) : (
           <ChoixFiche id="rdv-personne" label="Personne" valeur={personne} onChange={setPersonne} autoFocus />
         )}
 
-        <div>
-          <Etiquette as="label" htmlFor="rdv-type" className="mb-1">Type</Etiquette>
-          <select id="rdv-type" className={CLASSES_SELECT} value={typeId} onChange={(e) => setTypeId(e.target.value)} autoFocus={!!fiche}>
+        {!deplacer && (
+          <Choix id="rdv-type" label="Type" value={typeId} onChange={(e) => setTypeId(e.target.value)} autoFocus={!!fiche}>
             {types.map((t) => <option key={t.id} value={t.id}>{t.libelle} — {t.dureeMin} min</option>)}
-          </select>
-        </div>
+          </Choix>
+        )}
 
-        <div className="grid gap-3 grid-cols-2">
-          <Champ id="rdv-date" label="Date" type="date" value={date} onChange={(e) => setDate((e.target as HTMLInputElement).value)} required />
-          <Champ id="rdv-heure" label="Heure" type="time" step={300} value={h} onChange={(e) => setH((e.target as HTMLInputElement).value)} required />
+        <div className="grid grid-cols-2 gap-3">
+          <Champ id="rdv-date" label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required autoFocus={!!deplacer} />
+          <Champ id="rdv-heure" label="Heure" type="time" step={300} value={h} onChange={(e) => setH(e.target.value)} required />
         </div>
 
         <div>
-          <Etiquette className="mb-1">Déjà prévu ce jour-là</Etiquette>
-          {duJour === null ? <p className="text-xs text-brand-main dark:text-dark-text">—</p>
-            : duJour.length === 0 ? <p className="text-xs text-brand-main dark:text-dark-text">Rien.</p> : (
-              <ul className="space-y-1">
+          <p className="mb-1 text-secondaire font-semibold">Déjà prévu ce jour-là</p>
+          {duJour === null ? <Secondaire>—</Secondaire>
+            : duJour.length === 0 ? <Secondaire>Rien : la journée est libre.</Secondaire> : (
+              <ul className="flex flex-col gap-1">
                 {duJour.map((s) => (
-                  <li key={s.id} className="flex items-center gap-2 text-xs text-brand-main dark:text-dark-text">
+                  <li key={s.id} className="flex items-center gap-2 text-secondaire">
                     <span className="font-semibold tabular-nums">{heure(s.debut)}–{heure(s.occupeJusqua)}</span>
-                    <span className="truncate">{nomComplet(s.personne)} · {s.type?.libelle ?? s.libelleImporte ?? 'Type inconnu'}</span>
-                    <PastilleStatut statut={s.statut} />
+                    <span className="min-w-0 flex-1 truncate">{nomComplet(s.personne)} · {s.type?.libelle ?? s.libelleImporte ?? 'Type inconnu'}</span>
+                    <Pastille>{STATUTS[s.statut].libelle}</Pastille>
                   </li>
                 ))}
               </ul>
             )}
         </div>
 
-        <details className="rounded-lg border border-brand-border dark:border-dark-sec-border px-3 py-2">
-          <summary className="text-sm font-semibold text-brand-main dark:text-white cursor-pointer">Durée, mode, montant</summary>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <Champ id="rdv-duree" label="Durée (min)" type="number" min={5} value={duree} placeholder={type ? String(type.dureeMin) : ''} onChange={(e) => setDuree((e.target as HTMLInputElement).value)} />
-            <div>
-              <Etiquette as="label" htmlFor="rdv-mode" className="mb-1">Mode</Etiquette>
-              <select id="rdv-mode" className={CLASSES_SELECT} value={mode} onChange={(e) => setMode(e.target.value as ModeSeance | '')}>
+        {!deplacer && (
+          <Repliable titre="Durée, mode et montant" resume={resumeRepli}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Champ id="rdv-duree" label="Durée (min)" type="number" min={5} value={duree} placeholder={type ? String(type.dureeMin) : ''} onChange={(e) => setDuree(e.target.value)} />
+              <Choix id="rdv-mode" label="Mode" value={mode} onChange={(e) => setMode(e.target.value as ModeSeance | '')}>
                 <option value="">Selon le type</option>
                 {(Object.keys(MODES) as ModeSeance[]).map((m) => <option key={m} value={m}>{MODES[m]}</option>)}
-              </select>
+              </Choix>
+              <Champ id="rdv-montant" label="Montant (€)" inputMode="decimal" value={montant} placeholder={type ? String(type.montantCentimes / 100) : ''} onChange={(e) => setMontant(e.target.value)} />
             </div>
-            <Champ id="rdv-montant" label="Montant (€)" inputMode="decimal" value={montant} placeholder={type ? String(type.montantCentimes / 100) : ''} onChange={(e) => setMontant((e.target as HTMLInputElement).value)} />
-          </div>
-        </details>
+          </Repliable>
+        )}
 
-        <p className="text-xs text-brand-main dark:text-dark-text">
-          Ce rendez-vous n’est pas écrit dans l’agenda Google, et aucun message ne part.
-        </p>
-
-        {refus && <Avis ton="erreur">{refus}</Avis>}
-
-        <div className="flex justify-end gap-3">
-          <Bouton type="button" intention="discrete" onClick={onFermer} disabled={enCours}>Annuler</Bouton>
-          <Bouton type="submit" intention="principale" posee disabled={enCours}>{enCours ? 'Pose…' : 'Poser le rendez-vous'}</Bouton>
-        </div>
+        <Secondaire>Il s’écrit dans l’agenda Google quand l’agenda est relié ; aucun message ne part.</Secondaire>
+        {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
       </form>
-      </div>
-    </div>
+    </Fenetre>
   );
 };
 

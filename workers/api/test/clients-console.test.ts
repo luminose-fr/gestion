@@ -513,7 +513,9 @@ describe('NORMATIF — l’agenda ne se modifie que par ses décisions', () => {
       .toEqual({ duree_min: 90, montant_centimes: 8000, etat_paiement: 'a_payer', mode: 'sur_place', origine: 'console', agenda_etat: 'a_ecrire' });
     const refus = await poser('client-b', LUNDI + 30 * MINUTE);
     expect(refus.status).toBe(409);
-    expect(await json(refus)).toEqual({ error: MESSAGE_CHEVAUCHEMENT });
+    // Le refus dit avec qui (refonte, lot 4) : le nom de l'autre personne et ses heures, à Paris.
+    expect(await json(refus)).toEqual({ error: 'Ce créneau chevauche le rendez-vous de Émilie Martin, de 9 h 30 à 11 h.' });
+    expect(MESSAGE_CHEVAUCHEMENT).toMatch(/^Ce créneau chevauche/);
     expect([compter(base, 'seances'), compter(base, 'seances_mouvements')]).toEqual([1, 1]);
   });
 

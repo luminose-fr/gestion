@@ -16,7 +16,7 @@ import { Refus } from '../refus';
 import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSeance } from '../clients/decisions';
 import { apresChangement } from '../clients/agenda-seances';
 import { lireAujourdhui, provenanceEnClair, HEURE_DU_SOIR } from '../clients/aujourdhui';
-import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens } from '../clients/seances';
+import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
 import { lireNotesSeance, ecrireNotesSeance } from '../clients/sensible';
 import { famille, corps, valider, dateSimple, identifiant, instantIso, iso } from './clients-commun';
@@ -25,6 +25,30 @@ import { MESSAGE_NOTE_MODIFIEE } from './clients';
 export const seances = famille();
 
 export const MESSAGE_CHEVAUCHEMENT = 'Ce créneau chevauche un autre rendez-vous.';
+
+/** « 9 h », « 10 h 15 », à l'heure de Paris. */
+const heureDeParis = (instant: number) => isoDeParis(instant).slice(11, 16).replace(/^0/, '').replace(':', ' h ').replace(/ h 00$/, ' h');
+
+/**
+ * Le refus d'un chevauchement dit avec qui (refonte, lot 4 ; 04, §5) : « …
+ * le rendez-vous de Camille Martin, de 9 h à 10 h 30 ». La lecture vient après
+ * le refus et ne décide de rien ; si l'autre séance a disparu entre-temps, le
+ * message générique reste vrai. Le nom n'est rendu qu'à Florent, et un refus
+ * ne se journalise pas (CLAUDE.md, « Un refus n'est pas une panne »).
+ */
+const refusChevauchement = async (db: D1Database, debut: number, dureeMin: number, typeId: string | null, sauf: string | null = null) => {
+  const autre = await quiOccupe(db, debut, dureeMin, typeId, sauf);
+  if (!autre) return new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+  const qui = [autre.prenom, autre.nom].filter(Boolean).join(' ') || 'une personne sans nom';
+  return new Refus(`Ce créneau chevauche le rendez-vous de ${qui}, de ${heureDeParis(autre.debut)} à ${heureDeParis(autre.occupe_jusqua)}.`, 409);
+};
+
+/** Le même refus pour une séance déjà posée, lue telle qu'elle est (ou avec sa nouvelle durée, son nouveau type). */
+const refusPourLaSeance = async (db: D1Database, id: string, debut?: number, change: { dureeMin?: number; typeId?: string | null } = {}) => {
+  const g = await gabaritSeance(db, id);
+  if (!g) return new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+  return refusChevauchement(db, debut ?? g.debut, change.dureeMin ?? g.duree_min, change.typeId !== undefined ? change.typeId : g.type_seance_id, id);
+};
 const SEANCE_INTROUVABLE = 'Cette séance n’existe pas.';
 const JOURS_MAX = 62;
 
@@ -98,6 +122,11 @@ seances.get('/:id', async (c) => {
   return c.json({
     ...enSortie(lue.seance),
     creeeLe: iso(lue.seance.created_at as number),
+    // Refonte, lot 4 : ce que l'écran de la séance montre selon le moment.
+    nature: lue.seance.type_nature ?? null,
+    provenance: lue.seance.type_nature === 'rencontre' ? provenanceEnClair(lue.seance) : null,
+    questionnaire: (lue.seance.questionnaire as string | null) ?? (Number(lue.seance.questionnaire_requis) === 1 ? 'pas_recu' : null),
+    precedente: lue.precedente ? { id: lue.precedente.id, debut: iso(lue.precedente.debut as number) } : null,
     mouvements: lue.mouvements.map((m) => ({
       id: m.id, nature: m.nature, par: m.par, ancienDebut: iso(m.ancien_debut as number | null),
       nouveauDebut: iso(m.nouveau_debut as number | null), revision: m.revision, le: iso(m.created_at as number),
@@ -161,7 +190,7 @@ seances.post('/', async (c) => {
     mode: pose.mode ?? modeDuLieu(type.lieu),
     origine: 'console',
   }, 'florent', Date.now());
-  if (!issue.faite) throw new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+  if (!issue.faite) throw await refusChevauchement(db, pose.debut, pose.dureeMin ?? type.dureeMin, type.id);
   apresChangement(c.env, () => c.executionCtx, id);
   return c.json({ id }, 201);
 });
@@ -181,7 +210,7 @@ seances.post('/:id/deplacer', async (c) => {
   if (!etat) throw new Refus(SEANCE_INTROUVABLE, 404);
   if (etat.statut !== 'prevue') throw new Refus('Seule une séance prévue se déplace.', 409);
   if (Number(etat.revision) !== revision) throw new Refus('Cette séance a changé depuis son affichage. Rechargez-la.', 409);
-  throw new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+  throw await refusPourLaSeance(db, id, debut);
 });
 
 seances.post('/:id/annuler', async (c) => {
@@ -202,7 +231,7 @@ seances.post('/:id/prevoir', async (c) => {
   const etat = await etatSeance(db, id);
   if (!etat) throw new Refus(SEANCE_INTROUVABLE, 404);
   if (etat.statut === 'prevue') throw new Refus('Cette séance est déjà prévue.', 409);
-  throw new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+  throw await refusPourLaSeance(db, id);
 });
 
 // ─── Modifier une séance ────────────────────────────────────────────────────
@@ -230,7 +259,7 @@ seances.patch('/:id', async (c) => {
     return c.json({ id });
   }
   if (!(await etatSeance(db, id))) throw new Refus(SEANCE_INTROUVABLE, 404);
-  throw new Refus(MESSAGE_CHEVAUCHEMENT, 409);
+  throw await refusPourLaSeance(db, id, undefined, { dureeMin, typeId: typeSeanceId });
 });
 
 // ─── Les liens d'une séance (SPEC §14.5, phase S2b) ─────────────────────────

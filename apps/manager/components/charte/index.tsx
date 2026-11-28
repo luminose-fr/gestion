@@ -154,6 +154,22 @@ export const ZoneTexte = React.forwardRef<HTMLTextAreaElement, BaseChamp & React
 );
 ZoneTexte.displayName = 'ZoneTexte';
 
+/** Une liste de choix, avec le même bord, la même hauteur, le même focus qu'un champ. */
+export const Choix = React.forwardRef<HTMLSelectElement, BaseChamp & React.SelectHTMLAttributes<HTMLSelectElement>>(
+  ({ label, aide, masquerLabel, id, className, children, ...reste }, ref) => {
+    const auto = useId();
+    const ident = id ?? auto;
+    return (
+      <div className={className}>
+        <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-semibold text-texte', masquerLabel && 'sr-only')}>{label}</label>
+        <select ref={ref} id={ident} className={cx(CLASSES_CONTROLE, 'h-11 md:h-10 pr-8')} {...reste}>{children}</select>
+        {aide && <p className="mt-1 font-charte text-secondaire text-second">{aide}</p>}
+      </div>
+    );
+  },
+);
+Choix.displayName = 'Choix';
+
 // ─── Onglets ────────────────────────────────────────────────────────────────
 
 export type Onglet<T extends string> = { id: T; libelle: string; compte?: number };
@@ -250,11 +266,11 @@ export const Fenetre: React.FC<{ ouverte: boolean; titre: string; onFermer: () =
         onCancel={(e) => { e.preventDefault(); onFermer(); }}
         className={cx(
           'm-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-texte backdrop:bg-voile',
-          'md:m-auto md:h-auto md:max-h-[85vh] md:max-w-[560px] md:rounded-carte md:shadow-fenetre',
+          'md:m-auto md:h-fit md:max-h-[85vh] md:max-w-[560px] md:rounded-carte md:shadow-fenetre',
         )}
       >
         {ouverte && (
-          <div className="flex h-full flex-col font-charte">
+          <div className="flex h-full flex-col font-charte md:h-auto md:max-h-[85vh]">
             <div className="flex items-center justify-between gap-4 border-b border-bord px-5 py-4">
               <h2 id={titreId} className="text-courant font-semibold">{titre}</h2>
               <Bouton intention="souligne" taille="petit" onClick={onFermer}>Fermer</Bouton>

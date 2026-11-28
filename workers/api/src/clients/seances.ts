@@ -7,6 +7,8 @@
  * reçue ne sortent que le prénom et le nom — ni l'adresse, ni le téléphone.
  */
 
+import { etatQuestionnaireSql } from './sensible';
+
 type Brut = Record<string, unknown>;
 
 /** Le prénom et le nom de la personne : sa fiche, sinon ce qu'elle a envoyé. */
@@ -32,11 +34,16 @@ export const seancesDeLaPeriode = async (db: D1Database, du: number, au: number)
   return results as Brut[];
 };
 
-/** Une séance, sa personne, son type, ses mouvements : deux instructions, un aller-retour. */
-export const lireSeance = async (db: D1Database, id: string): Promise<{ seance: Brut; mouvements: Brut[] } | null> => {
-  const [seance, mouvements] = await db.batch([
+/**
+ * Une séance, sa personne, son type, ses mouvements, et la séance réalisée
+ * qui la précède pour la même personne (« La dernière fois », refonte lot 4) :
+ * trois instructions, un aller-retour. Du questionnaire, l'ÉTAT seulement.
+ */
+export const lireSeance = async (db: D1Database, id: string): Promise<{ seance: Brut; mouvements: Brut[]; precedente: Brut | null } | null> => {
+  const [seance, mouvements, precedente] = await db.batch([
     db.prepare(`
-      SELECT ${COLONNES}
+      SELECT ${COLONNES}, s.provenance, t.nature AS type_nature, t.questionnaire_requis,
+        c.origine AS client_origine, c.mot_cle_google_ads, ${etatQuestionnaireSql('s')} AS questionnaire
       FROM seances s
       LEFT JOIN clients c ON c.id = s.client_id
       LEFT JOIN types_seance t ON t.id = s.type_seance_id
@@ -44,9 +51,13 @@ export const lireSeance = async (db: D1Database, id: string): Promise<{ seance: 
     db.prepare(`
       SELECT id, nature, par, ancien_debut, nouveau_debut, revision, created_at
       FROM seances_mouvements WHERE seance_id = ?1 ORDER BY created_at, id`).bind(id),
+    db.prepare(`
+      SELECT p.id, p.debut FROM seances s JOIN seances p ON p.client_id = s.client_id
+      WHERE s.id = ?1 AND p.id <> s.id AND p.statut = 'realisee' AND p.debut < s.debut
+      ORDER BY p.debut DESC LIMIT 1`).bind(id),
   ]);
   const s = seance.results[0] as Brut | undefined;
-  return s ? { seance: s, mouvements: mouvements.results as Brut[] } : null;
+  return s ? { seance: s, mouvements: mouvements.results as Brut[], precedente: (precedente.results[0] as Brut | undefined) ?? null } : null;
 };
 
 /** L'état d'une séance, pour dire pourquoi une décision n'a rien écrit. */
@@ -85,3 +96,29 @@ export const revoquerLesLiens = async (db: D1Database, id: string, maintenant: n
     .bind(id, maintenant).run();
   return r.meta.changes === 1;
 };
+
+// ─── Avec qui un créneau se chevauche (refonte de la console, lot 4) ────────
+
+/**
+ * La séance prévue qui occupe déjà [debut, debut + durée + marge du type[ —
+ * la même règle que `libre` dans decisions.ts. Lue SEULEMENT après un refus,
+ * pour dire avec qui : le refus lui-même reste décidé par l'écriture, jamais
+ * par cette lecture. Une instruction. `sauf` : la séance qui se déplace.
+ */
+export const quiOccupe = (
+  db: D1Database, debut: number, dureeMin: number, typeId: string | null, sauf: string | null,
+) => db.prepare(`
+  SELECT autre.debut, autre.occupe_jusqua,
+    COALESCE(c.prenom, json_extract(autre.identite_recue, '$.prenom')) AS prenom,
+    COALESCE(c.nom, json_extract(autre.identite_recue, '$.nom')) AS nom
+  FROM seances autre LEFT JOIN clients c ON c.id = autre.client_id
+  WHERE autre.statut = 'prevue' AND autre.id <> COALESCE(?4, '')
+    AND autre.debut < ?1 + (?2 + COALESCE((SELECT t.marge_apres_min FROM types_seance t WHERE t.id = ?3), 0)) * 60000
+    AND autre.occupe_jusqua > ?1
+  ORDER BY autre.debut LIMIT 1`).bind(debut, dureeMin, typeId, sauf)
+  .first<{ debut: number; occupe_jusqua: number; prenom: string | null; nom: string | null }>();
+
+/** Ce qu'une séance déjà posée apporte à cette lecture : son début, sa durée, son type. */
+export const gabaritSeance = (db: D1Database, id: string) =>
+  db.prepare('SELECT debut, duree_min, type_seance_id FROM seances WHERE id = ?1')
+    .bind(id).first<{ debut: number; duree_min: number; type_seance_id: string | null }>();
