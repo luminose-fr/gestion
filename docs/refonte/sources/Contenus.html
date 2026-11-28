@@ -1,0 +1,56 @@
+@title Contenus, conversations
+@size 1440 1000
+@body
+@@MAC@@
+@@NAV contenus@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Contenus</h1>
+<label for="modele" style="position: absolute; left: -9999px">Modèle de rédaction</label><select id="modele" class="f" style="width: 180px"><option>Claude Opus 5.5</option></select>
+<button type="button" class="b">Nouveau</button></header>
+<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)">
+<div role="tablist" style="display: flex; gap: 4px">
+<a role="tab" aria-selected="true" href="Contenus.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Conversations <span class="s">70</span></a>
+<a role="tab" aria-selected="false" href="Idees.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Idées <span class="s">24</span></a>
+<a role="tab" aria-selected="false" href="Publies.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Publiés <span class="s">19</span></a>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+<label for="rc" style="position: absolute; left: -9999px">Rechercher dans les conversations</label><input id="rc" class="f" type="search" placeholder="Rechercher" style="width: 260px">
+<div role="radiogroup" aria-label="Étape" style="display: flex; gap: 4px; flex-wrap: wrap">
+<button type="button" role="radio" aria-checked="true" class="b o p" style="background: var(--actif)">Tout 70</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Écrire 67</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Tourner 0</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Monter 0</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">Publier 3</button>
+</div>
+</div>
+<sc-for list="{{series}}" as="s" hint-placeholder-count="2">
+<section class="c">
+<div style="padding: 12px 16px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h2 style="flex: 1">Série · {{s.nom}}</h2><span class="s">{{s.compte}}</span><a href="#plan" class="s" style="text-decoration: underline">Ouvrir le plan</a></div>
+<sc-for list="{{s.items}}" as="i" hint-placeholder-count="4">
+<a href="Contenu.dc.html" class="l" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span class="p" style="flex: none">{{i.rang}}</span>
+<span style="flex: 1; min-width: 260px; display: flex; flex-direction: column"><span><span style="font-weight: 600">{{i.titre}}</span> <span class="p">{{i.format}}</span></span><span class="s" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{i.dernier}}</span></span>
+<span style="width: 200px; display: flex; flex-direction: column; gap: 4px"><span style="display: flex; gap: 3px"><sc-for list="{{i.barres}}" as="b" hint-placeholder-count="5"><span style="flex: 1; height: 4px; border-radius: 999px; background: {{b}}"></span></sc-for></span><span class="s" style="color: {{i.etatCoul}}">{{i.etat}}</span></span>
+<span class="s" style="width: 56px; text-align: right">{{i.date}}</span>
+</a>
+</sc-for>
+</section>
+</sc-for>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const I = (rang, titre, format, dernier, fait, total, etat, date, fini) => ({ rang: rang, titre: titre, format: format, dernier: dernier, etat: etat, date: date, etatCoul: fini ? 'var(--succes)' : 'var(--second)',
+barres: Array.from({ length: total }, (_, k) => (k < fait ? (fini ? 'var(--succes)' : 'var(--marque)') : 'var(--bord)')) });
+return { series: [
+{ nom: 'Ce qu’on refuse de sentir', compte: '7 publications · 0 publiée', items: [
+I('1/7', 'Débrancher les émotions', 'Reel expliqué', 'Rédacteur · Ajusté : 8 séquences, ≈ 66 s.', 2, 5, 'Script écrit', '12 nov.'),
+I('2/7', 'Tout ce qui ne s’exprime pas s’imprime', 'Carrousel', 'Coach · Carrousel, 7 slides : le carnet et la page d’en dessous', 1, 6, 'Atelier · 1 tour', '9 nov.'),
+I('5/7', 'Une armure plus solide', 'Reel expliqué', 'Rédacteur · Script rédigé.', 5, 5, '✓ Exportée le 30 oct. · 9:16', '7 nov.', true),
+I('6/7', '« Gestion du stress » ?', 'Article', 'Vous · Rangé dans « Ce qu’on refuse de sentir » n° 6.', 3, 4, 'Brouillon écrit', '7 nov.')
+] },
+{ nom: 'Ce qu’on attend de la thérapie', compte: '4 publications · 0 publiée', items: [
+I('1/4', 'Pourquoi cherche-t-on un truc magique ?', 'Article', 'Coach · Promesse : comprendre pourquoi on cherche le déclic', 1, 4, 'Atelier · 1 tour', '7 nov.'),
+I('3/4', 'Une séance, c’est un plâtre. Un suivi, c’est la rééducation', 'Reel expliqué', 'Vous · Repassé en écriture.', 2, 5, '! Script · 1 point à corriger', '9 nov.')
+] }
+] };
+}

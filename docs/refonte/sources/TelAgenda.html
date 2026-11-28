@@ -1,0 +1,46 @@
+@title Agenda, semaine, iPhone
+@size 390 844
+@body
+@@TEL@@
+<header style="padding: 8px 16px 0; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px"><h1 style="flex: 1; padding-left: 4px">Agenda</h1><a href="TelRendezVous.dc.html" class="b">Poser un rendez-vous</a></div>
+<div style="display: flex; align-items: center; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="true" href="TelAgenda.dc.html" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Semaine</a>
+<a role="tab" aria-selected="false" href="TelAgendaMois.dc.html" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 500; color: var(--second)">Mois</a>
+<span style="flex: 1"></span>
+<button type="button" class="b d" aria-label="Semaine précédente" style="min-width: 44px; text-decoration: none">‹</button><span style="font-weight: 600">23 – 29 nov.</span><button type="button" class="b d" aria-label="Semaine suivante" style="min-width: 44px; text-decoration: none">›</button>
+</div>
+</header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{jours}}" as="j" hint-placeholder-count="4">
+<section style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 4px"><span style="font-weight: 600; color: {{j.coul}}">{{j.nom}}</span><span class="s">{{j.note}}</span></div>
+<sc-if value="{{j.ferme}}" hint-placeholder-val="{{ false }}"><div style="padding: 4px 14px; min-height: 44px; border-radius: 12px; background: var(--bas); display: flex; align-items: center; gap: 8px"><span class="p">× Jour fermé</span><span style="flex: 1"></span><button type="button" class="b d">Ouvrir ce jour</button></div></sc-if>
+<sc-if value="{{j.ouvert}}" hint-placeholder-val="{{ true }}">
+<div class="c">
+<sc-for list="{{j.seances}}" as="s" hint-placeholder-count="2">
+<a href="TelSeance.dc.html" class="{{s.cls}}" style="padding: 10px 14px; display: flex; gap: 12px">
+<span style="width: 46px; flex: none; font-weight: 600">{{s.heure}}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span><span style="font-weight: 500">{{s.qui}}</span> <span class="s">· {{s.type}}</span></span><span style="display: flex; gap: 6px; flex-wrap: wrap"><span class="{{s.statutCls}}">{{s.statut}}</span><span class="{{s.paieCls}}">{{s.paie}}</span></span></span>
+</a>
+</sc-for>
+</div>
+</sc-if>
+</section>
+</sc-for>
+<a href="TelFermerJours.dc.html" class="b o">Fermer des jours…</a>
+</div>
+@@TAB agenda@@
+</div>
+@logic
+vals() {
+const S = (heure, qui, type, st, pa) => ({ heure: heure, qui: qui, type: type,
+statut: { r: '✓ Réalisée', p: '○ Prévue' }[st], statutCls: st === 'r' ? 'p ok' : 'p',
+paie: { o: '✓ Payé', e: '! À encaisser', f: 'Offert' }[pa], paieCls: pa === 'o' ? 'p ok' : pa === 'e' ? 'p al' : 'p' });
+const J = (nom, seances, o) => Object.assign({ nom: nom, note: '', ferme: false, ouvert: true, coul: 'inherit', seances: seances.map((x, i) => ({ ...x, cls: i ? 'l' : '' })) }, o || {});
+return { jours: [
+J('Vendredi 27', [S('09:00', 'Camille Martin', 'Accompagnement', 'p', 'e'), S('11:00', 'Julien Roux', 'Entretien préalable', 'p', 'f'), S('14:00', 'Nadia Benali', 'Hypnose', 'p', 'e')], { note: 'aujourd’hui', coul: 'var(--marque)' }),
+J('Samedi 28', [], { ferme: true, ouvert: false }),
+J('Dimanche 29', [], { ferme: true, ouvert: false })
+] };
+}

@@ -1,0 +1,23 @@
+@title Le bouton +, iPhone
+@size 390 844
+@body
+<div class="{{theme}} app tel" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; background: var(--voile)">
+<div class="c" role="dialog" aria-modal="true" aria-label="Ajouter" style="border-radius: 12px 12px 0 0; border-bottom: 0; padding: 8px 16px 12px; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; min-height: 44px"><span class="e" style="flex: 1; padding-left: 4px">Ajouter</span><a href="TelAujourdhui.dc.html" class="b d">Fermer</a></div>
+<sc-for list="{{gestes}}" as="g" hint-placeholder-count="3">
+<a href="{{g.href}}" class="l" style="min-height: 64px; box-sizing: border-box; padding: 8px 4px; display: flex; align-items: center; gap: 14px">
+<span style="width: 40px; height: 40px; flex: none; border-radius: 8px; background: var(--actif); color: var(--marque); display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="{{g.d}}"/></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">{{g.nom}}</span><span class="s">{{g.detail}}</span></span>
+</a>
+</sc-for>
+</div>
+<dc-import name="TabBar" actif="aucun" sombre="{{sombre}}" hint-size="390px,84px"></dc-import>
+</div>
+@logic
+vals() {
+return { gestes: [
+{ nom: 'Noter une idée', detail: 'Pour un contenu, sans quitter l’écran', d: 'M8 2a4 4 0 00-2.5 7.1V11h5V9.1A4 4 0 008 2zM6.5 13.5h3', href: '#idee' },
+{ nom: 'Nouvelle fiche', detail: 'Pendant l’entretien préalable', d: 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.5-2.5 2.5-3.5 5-3.5M12 10v4M10 12h4', href: 'TelNouvelleFiche.dc.html' },
+{ nom: 'Poser un rendez-vous', detail: 'Choisir la personne, puis le créneau', d: 'M3 4h10v9H3zM3 7h10M6 2v3M10 2v3', href: 'TelRendezVous.dc.html' }
+] };
+}

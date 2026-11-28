@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Réglages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app" style="display: flex; flex-wrap: wrap; min-height: 960px">
+<div style="flex: none; display: flex; background: var(--bas); border-right: 1px solid var(--bord)"><dc-import name="Nav" actif="reglages" sombre="{{sombre}}" replie="{{replie}}" hint-size="232px,900px"></dc-import></div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 24px">
+<h1>Réglages</h1>
+<div style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Sections des réglages" style="flex: 1 1 200px; max-width: 240px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{groupes}}" as="g" hint-placeholder-count="3">
+<div class="e" style="padding: 14px 10px 6px">{{g.nom}}</div>
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="4"><a href="{{i.href}}" style="min-height: 36px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: {{i.gras}}; background: {{i.fond}}; color: {{i.coul}}"><span style="flex: 1">{{i.nom}}</span><span class="s">{{i.note}}</span></a></sc-for>
+</sc-for>
+</nav>
+<sc-if value="{{reception}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 3 1 480px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<section class="c" style="padding: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap">
+<div style="flex: 1; min-width: 260px"><h2>Réception du site : ouverte</h2><p class="s">Le site luminose.fr enregistre les réservations, les questionnaires de santé, les inscriptions aux stages et les paiements.</p></div>
+<div role="radiogroup" aria-label="Réception du site" style="display: flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--bas); border: 1px solid var(--bord)">
+<button type="button" role="radio" aria-checked="true" style="height: 44px; min-width: 124px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--succes); background: var(--sf); color: var(--succes); font-weight: 600">✓ Ouverte</button>
+<button type="button" role="radio" aria-checked="false" style="height: 44px; min-width: 124px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--second); font-weight: 500">Coupée</button>
+</div>
+</section>
+<section class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; border-style: dashed">
+<div class="e">Confirmation affichée avant de couper</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div><p style="font-weight: 600">S’arrête</p><p class="s">Réservations · Questionnaires de santé · Inscriptions aux stages · Paiements</p></div>
+<div><p style="font-weight: 600">Ne s’arrête pas</p><p class="s">Le site reste visible · La console · Les rappels déjà programmés</p></div>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="b o p">Couper la réception</button><button type="button" class="b d p">Laisser ouverte</button><span class="s" style="align-self: center">« Rouvrir » ne demande aucune confirmation.</span></div>
+</section>
+<section class="c">
+<div style="padding: 12px 20px"><h2>Reçu aujourd’hui</h2></div>
+<sc-for list="{{recus}}" as="r" hint-placeholder-count="3"><div class="l" style="padding: 10px 20px; display: flex; gap: 16px"><span style="width: 56px; font-weight: 600">{{r.h}}</span><span style="flex: 1">{{r.quoi}}</span><span class="{{r.cls}}">{{r.etat}}</span></div></sc-for>
+</section>
+<details class="c" style="padding: 12px 20px"><summary style="font-weight: 600">Limites de sécurité</summary><p class="s" style="padding-top: 8px">Nombre d’envois acceptés par heure et par adresse. À ne toucher qu’en cas d’abus.</p></details>
+</div>
+</sc-if>
+<sc-if value="{{types}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 3 1 480px; max-width: 900px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px"><h2 style="flex: 1">Types de rendez-vous</h2><button type="button" class="b p">Nouveau type</button></div>
+<p role="status" class="c" style="padding: 10px 16px; border-color: var(--succes); color: var(--succes); font-weight: 500">✓ Séance d’hypnose enregistrée. Le changement s’applique aux rendez-vous posés à partir de maintenant ; ceux déjà posés gardent leur durée et leur montant.</p>
+<div class="c">
+<sc-for list="{{lignes}}" as="t" hint-placeholder-count="4">
+<div class="{{t.cls}}" style="padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 240px; display: flex; flex-direction: column"><span style="font-weight: 600">{{t.nom}}</span><span class="s">{{t.detail}}</span></span>
+<span style="width: 90px; text-align: right; font-weight: 600">{{t.montant}}</span>
+<span style="width: 150px"><span class="{{t.pCls}}">{{t.ligne}}</span></span>
+<button type="button" class="b o p">Modifier</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "replie": {"editor": "boolean", "default": false}, "section": {"editor": "enum", "default": "reception", "options": ["reception", "types"]}, "$preview": {"width": 1440, "height": 960}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const sec = this.props.section ?? 'reception';
+const G = (nom, items) => ({ nom: nom, items: items.map((x) => { const on = x[1] === sec; return { nom: x[0], href: x[1] === 'types' ? 'ReglagesTypes.dc.html' : x[1] === 'reception' ? 'Reglages.dc.html' : '#', note: x[2] || '', gras: on ? 600 : 500, fond: on ? 'var(--actif)' : 'transparent', coul: on ? 'var(--marque)' : 'inherit' }; }) });
+const T = (nom, detail, montant, enLigne, i) => ({ nom: nom, detail: detail, montant: montant, ligne: enLigne ? '✓ Réservable en ligne' : 'Posé par vous', pCls: enLigne ? 'p ok' : 'p' });
+return {
+reception: sec === 'reception', types: sec === 'types',
+groupes: [
+G('Pratique', [['Réception du site', 'reception', 'ouverte'], ['Types de rendez-vous', 'types'], ['Horaires habituels', 'h'], ['Règles', 'r'], ['Messages', 'm', 'à venir']]),
+G('Rédaction IA', [['Modèles', 'a'], ['Modèle par usage', 'b'], ['Coûts et durées', 'c'], ['Clés des fournisseurs', 'd']]),
+G('Données et fonctionnement', [['État', 'e'], ['Hébergement', 'f'], ['Export éditorial', 'g']])
+],
+recus: [{ h: '08:14', quoi: 'Réservation · Thomas Petit · entretien préalable', etat: '✓ Rattachée', cls: 'p ok' }, { h: '09:02', quoi: 'Questionnaire de santé · Julien Roux', etat: '! Non relu', cls: 'p al' }, { h: '10:47', quoi: 'Paiement · Marc Fabre', etat: '✓ Enregistré', cls: 'p ok' }],
+lignes: [
+T('Entretien préalable', '20 min · sans marge · au téléphone · réservable jusqu’à 30 jours', 'Offert', true),
+T('Séance d’accompagnement', '1 h · marge 15 min · en séance ou en visio', '[MONTANT]', true),
+T('Séance d’hypnose', '1 h · marge 15 min · en séance, à Villefranche-de-Lauragais', '[MONTANT]', true),
+T('Breathwork holotropique individuel', '[DURÉE] · marge 30 min · en séance', '[MONTANT]', false)
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' }))
+};
+}
+}
+</script>
+</body>
+</html>

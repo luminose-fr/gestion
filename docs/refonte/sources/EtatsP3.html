@@ -1,0 +1,39 @@
+@title États de la priorité 3
+@size 1440 1000
+@body
+<div class="{{theme}} app" style="width: 1440px; min-height: 1000px; padding: 40px; display: flex; flex-direction: column; gap: 24px">
+<header><h1>Éditorial, réglages, professionnels, psychédéliques · leurs états</h1></header>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Contenus : aucune conversation</div>
+<div class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 8px"><p>Aucune conversation en cours.</p><p class="s">Une idée s’ouvre depuis Idées ; « Nouveau » crée une série ou une vidéo directe.</p><a href="Idees.dc.html" class="b o p" style="align-self: flex-start">Aller aux idées</a></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Contenus : aucun modèle configuré</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--alerte)"><p style="font-weight: 600; color: var(--alerte)">! Aucun modèle de rédaction n’est configuré.</p><p class="s">Vous pouvez lire et ranger vos contenus. Pour écrire avec l’IA, choisissez un modèle.</p><a href="Reglages.dc.html" class="b o p" style="align-self: flex-start">Ouvrir Réglages › Modèles</a></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Le fil : l’IA écrit</div>
+<div class="c" aria-busy="true" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px"><span class="s"><span style="font-weight: 600">Rédacteur</span> · écrit le script…</span><span style="width: 80%; height: 12px; border-radius: 8px; background: var(--actif)"></span><span style="width: 55%; height: 12px; border-radius: 8px; background: var(--actif)"></span><button type="button" class="b d p" style="align-self: flex-start">Arrêter</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Le fil : l’appel a échoué</div>
+<div role="alert" class="c" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--erreur)"><p style="font-weight: 600; color: var(--erreur)">× Le Rédacteur n’a pas répondu.</p><p class="s">Votre message est gardé. Le brouillon n’a pas changé.</p><div style="display: flex; gap: 8px"><button type="button" class="b o p">Renvoyer</button><button type="button" class="b d p">Changer de modèle</button></div></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Étape verrouillée</div>
+<div class="c" style="padding: 14px 16px; display: flex; align-items: center; gap: 10px; color: var(--second)"><span style="width: 24px; height: 24px; flex: none; border-radius: 8px; border: 1px solid var(--champ); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600">4</span><span style="flex: 1"><span style="font-weight: 500">Slides</span><br><span class="s">S’ouvre quand le brouillon est validé.</span></span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Noter une idée : sans réseau</div>
+<div class="c" role="status" style="padding: 12px 16px; border-color: var(--alerte)"><span style="font-weight: 600; color: var(--alerte)">! Idée gardée sur ce téléphone.</span><br><span class="s">Elle partira dès que la connexion revient.</span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Corpus : tout est à jour</div>
+<div class="c" style="padding: 16px"><span class="p ok">✓ Aucune surface à recoller</span><p class="s" style="padding-top: 6px">Dernière publication du corpus : 12 novembre.</p></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Corpus : la copie a échoué</div>
+<div role="alert" class="c" style="padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px; border-color: var(--erreur)"><span style="flex: 1; color: var(--erreur); font-weight: 600">× Rien n’a été copié. La surface reste « à recoller ».</span><button type="button" class="b o p">Copier à nouveau</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Corpus : rien à ranger</div>
+<div class="c" style="padding: 20px"><p>Rien à ranger.</p></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Réception du site : coupée</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 10px; border-color: var(--alerte)"><div><h2 style="color: var(--alerte)">! Réception du site : coupée</h2><p class="s">Depuis 14 h 05. Le site reste visible, mais n’enregistre plus rien.</p></div>
+<div role="radiogroup" aria-label="Réception du site" style="align-self: flex-start; display: flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--bas); border: 1px solid var(--bord)"><button type="button" role="radio" aria-checked="false" style="height: 44px; min-width: 110px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--second); font-weight: 500">Ouverte</button><button type="button" role="radio" aria-checked="true" style="height: 44px; min-width: 110px; border-radius: 8px; border: 1px solid var(--alerte); background: var(--af); color: var(--alerte); font-weight: 600">! Coupée</button></div></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Type de rendez-vous : champ refusé</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 4px"><label for="duree" style="font-weight: 500">Durée</label><input id="duree" class="f" type="text" value="0 min" aria-invalid="true" aria-describedby="duree-aide" style="border-color: var(--erreur)"><span id="duree-aide" style="font-size: 13px; color: var(--erreur)">× La durée doit être d’au moins 5 minutes.</span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Clé d’un fournisseur : refusée</div>
+<div role="alert" class="c" style="padding: 14px 16px; border-color: var(--erreur)"><span style="font-weight: 600; color: var(--erreur)">× Le fournisseur refuse cette clé.</span><br><span class="s">L’ancienne clé reste en service. La nouvelle n’est jamais affichée après la saisie.</span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Professionnels : le filtre ne trouve rien</div>
+<div class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 8px"><p>Aucun professionnel ne correspond à « podologue ».</p><div style="display: flex; gap: 8px"><button type="button" class="b p">Nouveau professionnel</button><button type="button" class="b d p">Effacer le filtre</button></div></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Psychédéliques : poids hors limites</div>
+<div class="c" style="padding: 16px; border-color: var(--alerte)"><span style="font-weight: 600; color: var(--alerte)">! Aucun palier affiché.</span><br><span class="s">Le calculateur ne donne de repères qu’entre 40 et 130 kg.</span></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Base non reliée : l’éditorial fonctionne</div>
+<div class="c" style="padding: 16px"><span class="s">Contenus, Corpus et Réglages restent ouverts. La recherche ne propose que des écrans, des actions et des contenus.</span></div></section>
+</div>
+</div>

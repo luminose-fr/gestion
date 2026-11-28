@@ -1,0 +1,80 @@
+@title Corpus, documents, à ranger et carte
+@size 1440 960
+@props {"vue":{"editor":"enum","default":"documents","options":["documents","aranger","carte"]}}
+@body
+@@MAC@@
+@@NAV corpus@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Corpus</h1><span class="s">28 documents · 6 blocs · relevé du 27 novembre</span></header>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
+<sc-for list="{{onglets}}" as="o" hint-placeholder-count="4"><a role="tab" aria-selected="{{o.on}}" href="{{o.href}}" style="padding: 10px 12px; font-weight: {{o.gras}}; color: {{o.coul}}; border-bottom: 2px solid {{o.trait}}">{{o.nom}} <span class="s">{{o.n}}</span></a></sc-for>
+</div>
+<sc-if value="{{documents}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Documents du corpus" style="flex: 1 1 220px; max-width: 280px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{blocs}}" as="b" hint-placeholder-count="6">
+<details open="{{b.ouvert}}"><summary class="e" style="padding: 10px 8px 6px"><span style="flex: 1">{{b.nom}}</span><span>{{b.n}}</span></summary>
+<sc-for list="{{b.docs}}" as="d" hint-placeholder-count="2"><a href="#doc" style="min-height: 34px; padding: 0 10px 0 22px; border-radius: 8px; display: flex; align-items: center; font-weight: {{d.gras}}; background: {{d.fond}}; color: {{d.coul}}">{{d.nom}}</a></sc-for>
+</details>
+</sc-for>
+</nav>
+<article class="c" style="flex: 3 1 480px; min-width: 0">
+<div style="padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><div style="flex: 1; min-width: 220px"><h2>Voix · Ton et registre</h2><span class="s">Profils : noyau, complet · 2 140 car. · modifié le 12 novembre</span></div><span class="s" role="status" style="color: var(--succes)">✓ Enregistré</span><button type="button" class="b o p">Historique</button><button type="button" class="b p">Publier le corpus</button></div>
+<div class="l" role="textbox" aria-multiline="true" aria-label="Contenu du document" tabindex="0" style="padding: 18px 20px 24px; min-height: 420px; font-size: 16px; line-height: 1.55; display: flex; flex-direction: column; gap: 10px">
+<h2>Ce que la voix fait</h2><p>[CONTENU DU DOCUMENT]</p>
+<h2>Ce qu’elle ne fait jamais</h2><p>[CONTENU DU DOCUMENT]</p>
+</div>
+<p class="l s" style="padding: 10px 20px">Un changement enregistré ne part chez les IA qu’après « Publier le corpus ». L’onglet État dit alors quelles surfaces sont à recoller.</p>
+</article>
+</div>
+</sc-if>
+<sc-if value="{{aranger}}" hint-placeholder-val="{{ false }}">
+<p class="s">Ce qui est arrivé sans place : notes dictées, décisions prises en conversation, extraits collés. Chaque ligne attend un seul geste.</p>
+<div class="c">
+<sc-for list="{{entrees}}" as="e" hint-placeholder-count="3">
+<div class="{{e.cls}}" style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 300px; display: flex; flex-direction: column"><span style="font-weight: 600">{{e.titre}}</span><span class="s">{{e.origine}}</span></span>
+<span class="s">Proposé : <span style="font-weight: 600; color: var(--texte)">{{e.bloc}}</span></span>
+<button type="button" class="b p">Ranger ici</button><button type="button" class="b o p">Choisir un autre bloc</button><button type="button" class="b d p">Écarter</button>
+</div>
+</sc-for>
+</div>
+<p class="s">État vide : « Rien à ranger. »</p>
+</sc-if>
+<sc-if value="{{carte}}" hint-placeholder-val="{{ false }}">
+<p class="s">Ce que chaque rôle IA reçoit, bloc par bloc. Une case pleine : le rôle lit ce bloc à chaque appel.</p>
+<div class="c" style="overflow-x: auto">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; text-align: left">
+<thead><tr class="e"><th scope="col" style="padding: 10px 16px; font: inherit">Rôle</th><sc-for list="{{colonnes}}" as="c" hint-placeholder-count="6"><th scope="col" style="padding: 10px 8px; font: inherit; text-align: center">{{c}}</th></sc-for></tr></thead>
+<tbody>
+<sc-for list="{{roles}}" as="r" hint-placeholder-count="4">
+<tr class="l"><th scope="row" style="padding: 12px 16px; text-align: left"><span style="font-weight: 600">{{r.nom}}</span><br><span class="s" style="font-weight: 400">{{r.sert}}</span></th>
+<sc-for list="{{r.cases}}" as="k" hint-placeholder-count="6"><td style="padding: 8px; text-align: center"><span class="{{k.cls}}">{{k.txt}}</span></td></sc-for></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</sc-if>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const v = this.props.vue ?? 'documents';
+const O = (id, nom, n, href) => { const on = id === v; return { nom: nom, n: n, href: href, on: on, gras: on ? 600 : 500, coul: on ? 'var(--marque)' : 'var(--second)', trait: on ? 'var(--marque)' : 'transparent' }; };
+const D = (nom, on) => ({ nom: nom, gras: on ? 600 : 500, fond: on ? 'var(--actif)' : 'transparent', coul: on ? 'var(--marque)' : 'inherit' });
+const B = (nom, n, docs, ouvert) => ({ nom: nom, n: n, docs: docs, ouvert: !!ouvert });
+const colonnes = ['Socle', 'Voix', 'Stratégie', 'Canaux', 'Répertoire', 'Outils'];
+const R = (nom, sert, bits) => ({ nom: nom, sert: sert, cases: bits.map((b) => ({ txt: b ? '✓ Lu' : '–', cls: b ? 'p ok' : 's' })) });
+return { documents: v === 'documents', aranger: v === 'aranger', carte: v === 'carte', colonnes: colonnes,
+onglets: [O('etat', 'État', '', 'Corpus.dc.html'), O('documents', 'Documents', '28', 'CorpusDocuments.dc.html'), O('aranger', 'À ranger', '3', 'CorpusARanger.dc.html'), O('carte', 'Carte', '', 'CorpusCarte.dc.html')],
+blocs: [B('Socle', 5, [D('Identité'), D('Cadre et limites')]), B('Voix', 4, [D('Ton et registre', true), D('Vocabulaire'), D('Exemples')], true), B('Stratégie', 6, []), B('Canaux', 5, []), B('Répertoire', 5, []), B('Outils', 3, [])],
+entrees: [
+{ titre: 'Décision : ne plus écrire « gestion du stress » en titre', origine: 'Prise dans le fil de « Gestion du stress » ? · 7 nov.', bloc: 'Stratégie' },
+{ titre: 'Note dictée : l’image du voyant de réserve', origine: 'Notée depuis l’iPhone · 12 nov.', bloc: 'Répertoire' },
+{ titre: 'Extrait collé : présentation du stage de mars', origine: 'Collé à la main · 20 nov.', bloc: 'Canaux' }
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })),
+roles: [R('Analyste', 'Prépare l’ouverture d’une idée', [1, 0, 1, 0, 1, 0]), R('Coach', 'Tient l’atelier, valide la direction', [1, 1, 1, 1, 1, 0]), R('Rédacteur', 'Écrit et ajuste le contenu', [1, 1, 0, 1, 1, 1]), R('Lecteur froid', 'Relit sans rien savoir', [0, 0, 0, 0, 0, 0])]
+};
+}

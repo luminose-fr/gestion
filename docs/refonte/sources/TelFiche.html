@@ -1,0 +1,47 @@
+@title Une fiche, iPhone
+@size 390 1180
+@body
+<div class="{{theme}} app tel" style="width: 390px; min-height: 1180px; box-sizing: border-box; padding-top: 54px; display: flex; flex-direction: column">
+<header style="padding: 0 16px 12px; display: flex; flex-direction: column; gap: 4px">
+<a href="TelClients.dc.html" class="s" style="min-height: 44px; display: flex; align-items: center; align-self: flex-start">‹ Clients</a>
+<h1>Camille Martin</h1>
+<p>34 ans</p>
+<p><a href="tel:0600000001" style="min-height: 44px; display: inline-flex; align-items: center; text-decoration: underline">06 00 00 00 01</a> · <a href="mailto:camille.martin@exemple.fr" style="min-height: 44px; display: inline-flex; align-items: center; text-decoration: underline">camille.martin@exemple.fr</a></p>
+<p class="s">Provenance : Google Ads · mot-clé : accompagnement Toulouse</p>
+<a href="TelRendezVous.dc.html" class="b" style="margin-top: 8px">Poser un rendez-vous</a>
+</header>
+<div style="flex: 1; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{cartes}}" as="k" hint-placeholder-count="4">
+<section class="c" style="padding: 6px 6px 12px 14px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; align-items: center; gap: 8px"><h2 style="flex: 1">{{k.titre}}</h2><button type="button" class="b d">Modifier</button></div>
+<sc-for list="{{k.lignes}}" as="x" hint-placeholder-count="2"><div style="display: flex; gap: 10px; padding-right: 8px"><span class="s" style="width: 96px; flex: none">{{x.nom}}</span><span style="min-width: 0">{{x.val}}</span></div></sc-for>
+</section>
+</sc-for>
+<section class="c">
+<div style="padding: 12px 14px; display: flex; align-items: baseline; gap: 8px"><h2 style="flex: 1">Séances</h2><span class="s">9 réalisées · 1 à venir</span></div>
+<sc-for list="{{seances}}" as="s" hint-placeholder-count="3">
+<a href="TelSeance.dc.html" class="l" style="padding: 10px 14px; display: flex; flex-direction: column; gap: 4px"><span><span style="font-weight: 600">{{s.quand}}</span> <span class="s">· {{s.type}}</span></span><span style="display: flex; gap: 6px"><span class="{{s.statutCls}}">{{s.statut}}</span><span class="{{s.paieCls}}">{{s.paie}}</span></span></a>
+</sc-for>
+</section>
+<section class="c">
+<div style="padding: 12px 14px"><h2>Stages et questionnaires</h2></div>
+<a href="#stage" class="l" style="padding: 10px 14px; display: flex; flex-direction: column; gap: 4px"><span>Stage de breathwork holotropique · 14-15 mars</span><span style="display: flex; gap: 6px"><span class="p ok">✓ Inscrite</span><span class="p al">! À encaisser</span></span></a>
+<a href="#questionnaire" class="l" style="min-height: 44px; box-sizing: border-box; padding: 10px 14px; display: flex; align-items: center; gap: 8px"><span style="flex: 1">Questionnaire du 20 novembre</span><span class="p al">! Non relu</span></a>
+</section>
+</div>
+<div style="position: sticky; bottom: 0">@@TAB clients@@</div>
+</div>
+@logic
+vals() {
+const L = (a) => a.map((x) => ({ nom: x[0], val: x[1] }));
+const S = (quand, type, st, pa) => ({ quand: quand, type: type, statut: st === 'p' ? '○ Prévue' : '✓ Réalisée', statutCls: st === 'p' ? 'p' : 'p ok', paie: pa === 'e' ? '! À encaisser' : '✓ Payé', paieCls: pa === 'e' ? 'p al' : 'p ok' });
+return {
+cartes: [
+{ titre: 'Identité et coordonnées', lignes: L([['Naissance', '14 mai 1992'], ['Adresse', 'Villefranche-de-Lauragais']]) },
+{ titre: 'Provenance et liens', lignes: L([['Origine', 'Google Ads'], ['Venue par', 'personne']]) },
+{ titre: 'Personne de confiance', lignes: L([['Nom', 'Hélène Martin, sa sœur'], ['Téléphone', '06 00 00 00 09']]) },
+{ titre: 'Notes de la fiche', lignes: L([['', 'Préfère les séances du matin.']]) }
+],
+seances: [S('lun. 30 nov., 9 h', 'Accompagnement', 'p', 'e'), S('lun. 23 nov., 9 h', 'Accompagnement', 'r', 'e'), S('lun. 16 nov., 9 h', 'Hypnose', 'r', 'o')]
+};
+}

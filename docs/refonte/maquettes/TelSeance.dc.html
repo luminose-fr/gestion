@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Une séance, iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app tel" style="width: 390px; height: 844px; box-sizing: border-box; padding-top: 54px; display: flex; flex-direction: column; overflow: hidden">
+<header style="padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px">
+<a href="TelAgenda.dc.html" class="s" style="min-height: 44px; display: flex; align-items: center; align-self: flex-start">‹ Agenda</a>
+<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><div style="padding: 8px 12px; border-radius: 8px; background: var(--actif)"><div class="e">D’où vient la personne</div><div style="font-weight: 600">Google Ads · mot-clé : hypnose arrêt tabac</div></div></sc-if>
+<h1><a href="TelFiche.dc.html" style="text-decoration: underline; text-underline-offset: 4px">{{d.qui}}</a></h1>
+<p>{{d.type}} · {{d.quand}}</p>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="{{d.statutCls}}">{{d.statut}}</span><span class="{{d.paieCls}}">{{d.paie}}</span><span class="{{d.qCls}}">{{d.q}}</span></div>
+</header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px">
+<section class="c" aria-label="Notes de la séance" style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 0 6px; display: flex; align-items: center">
+<button type="button" class="b d" style="font-weight: 600; text-decoration: none; min-width: 44px">G</button>
+<button type="button" class="b d" style="font-style: italic; text-decoration: none; min-width: 44px">I</button>
+<button type="button" class="b d" style="text-decoration: none">Titre</button>
+<button type="button" class="b d" style="text-decoration: none">Liste</button>
+<span style="flex: 1"></span><span class="s" role="status" style="color: var(--succes); padding-right: 8px">{{d.temoin}}</span>
+</div>
+<div class="l" role="textbox" aria-multiline="true" aria-label="Notes" tabindex="0" style="flex: 1; padding: 12px 16px; font-size: 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+<h2>Séance</h2>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ true }}"><p>Arrivée fatiguée, semaine chargée au travail. Clarification autour de la reprise du sport, puis une induction courte.</p></sc-if>
+<h2>Travail personnel</h2>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ true }}"><p>Dix minutes de marche chaque matin, sans téléphone.</p></sc-if>
+<h2>Idées pour la suite</h2>
+</div>
+</section>
+</div>
+<div style="padding: 12px 16px; display: flex; gap: 8px">
+<a href="TelRendezVous.dc.html" class="b o" style="flex: 1">Déplacer</a>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ true }}"><button type="button" class="b" style="flex: 1">Terminer la séance</button></sc-if>
+<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><a href="TelNouvelleFiche.dc.html" class="b" style="flex: 1">Compléter la fiche</a></sc-if>
+</div>
+<dc-import name="TabBar" actif="agenda" sombre="{{sombre}}" hint-size="390px,84px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "moment": {"editor": "enum", "default": "apres", "options": ["avant", "entretien", "apres"]}, "$preview": {"width": 390, "height": 844}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const m = this.props.moment ?? 'apres';
+const d = {
+avant: { qui: 'Camille Martin', type: 'Séance d’accompagnement', quand: 'lundi 30 nov., 9 h', statut: '○ Prévue', statutCls: 'p', paie: '! À encaisser', paieCls: 'p al', q: '✓ Questionnaire relu', qCls: 'p ok', temoin: '' },
+entretien: { qui: 'Julien Roux', type: 'Entretien préalable', quand: 'aujourd’hui, 11 h', statut: '○ Prévue', statutCls: 'p', paie: 'Offert', paieCls: 'p', q: 'Questionnaire pas reçu', qCls: 'p', temoin: '✓ Enregistré' },
+apres: { qui: 'Élodie Garcia', type: 'Séance d’accompagnement', quand: 'hier, 15 h 30', statut: '! Restée « prévue »', statutCls: 'p al', paie: '! À encaisser', paieCls: 'p al', q: '✓ Questionnaire relu', qCls: 'p ok', temoin: '✓ Enregistré' }
+}[m];
+return { d: d, entretien: m === 'entretien', apres: m === 'apres' };
+}
+}
+</script>
+</body>
+</html>

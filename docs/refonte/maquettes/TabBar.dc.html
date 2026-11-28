@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Barre du bas de l’iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.clair{--surface:#FFFFFF;--bord:#E3DCEB;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF}
+.sombre{--surface:#211A2A;--bord:#3B304A;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424}
+.tab a{text-decoration:none}
+</style>
+</helmet>
+<nav class="{{theme}} tab" aria-label="Navigation" style="width: 390px; box-sizing: border-box; padding: 6px 8px 28px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; background: var(--surface); border-top: 1px solid var(--bord); font: 500 12px/1.2 Figtree, system-ui, sans-serif">
+<sc-for list="{{items}}" as="i" hint-placeholder-count="5">
+<a href="{{i.href}}" aria-label="{{i.aria}}" style="height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: {{i.coul}}; font-weight: {{i.gras}}">
+<span style="width: {{i.w}}; height: {{i.h}}; border-radius: 8px; background: {{i.fond}}; color: {{i.trait}}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="{{i.t}}" height="{{i.t}}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="{{i.d}}"/></svg></span>
+<sc-if value="{{i.libelle}}" hint-placeholder-val="{{ true }}"><span>{{i.nom}}</span></sc-if>
+</a>
+</sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"actif":{"editor":"enum","default":"aujourdhui","options":["aujourdhui","agenda","clients","plus","aucun"]},"sombre":{"editor":"boolean","default":false},"$preview":{"width":390,"height":84}}'>
+class Component extends DCLogic {
+renderVals() {
+const actif = this.props.actif ?? 'aujourdhui';
+const it = (id, nom, d, href) => ({ nom: nom, aria: nom, d: d, href: href, libelle: true, w: '24px', h: '22px', t: 20, fond: 'transparent', trait: 'inherit', coul: id === actif ? 'var(--marque)' : 'var(--second)', gras: id === actif ? 600 : 500 });
+return {
+theme: this.props.sombre ? 'sombre' : 'clair',
+items: [
+it('aujourdhui', 'Aujourd’hui', 'M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M8 5a3 3 0 100 6 3 3 0 000-6z', 'TelAujourdhui.dc.html'),
+it('agenda', 'Agenda', 'M3 4h10v9H3zM3 7h10M6 2v3M10 2v3', 'TelAgenda.dc.html'),
+{ nom: '', aria: 'Ajouter : noter une idée, nouvelle fiche, poser un rendez-vous', d: 'M8 3v10M3 8h10', href: 'TelAjouter.dc.html', libelle: false, w: '52px', h: '44px', t: 22, fond: 'var(--marque)', trait: 'var(--sur)', coul: 'var(--marque)', gras: 500 },
+it('clients', 'Clients', 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.5-2.5 2.5-3.5 5-3.5s4.5 1 5 3.5', 'TelClients.dc.html'),
+it('plus', 'Plus', 'M3 4.5h10M3 8h10M3 11.5h10', 'TelPlus.dc.html')
+]
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Barre latérale</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.nav a,.nav button{color:inherit;text-decoration:none;transition:background .14s}
+.nav a:hover,.nav button:hover{background:var(--survol)}
+.nav a.on{background:var(--actif);color:var(--marque);font-weight:600}
+.nav :focus-visible{outline:2px solid var(--marque);outline-offset:-2px}
+</style>
+</helmet>
+<nav class="{{theme}} nav" aria-label="Navigation principale" style="width: {{largeur}}; min-height: 900px; box-sizing: border-box; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; background: var(--bas); color: var(--texte); font: 15px/1.4 Figtree, system-ui, sans-serif">
+<div style="height: 40px; margin-bottom: 8px; padding: {{entetePad}}; display: flex; align-items: center; justify-content: center; gap: 8px">
+<sc-if value="{{ouverte}}" hint-placeholder-val="{{ true }}"><span style="flex: 1; font: 500 19px/1 Fraunces, Georgia, serif; letter-spacing: -0.01em">Luminose</span></sc-if>
+<button type="button" aria-label="{{replierNom}}" style="width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--second)"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h11v10h-11zM6 3v10"/></svg></button>
+</div>
+<sc-for list="{{blocs}}" as="b" hint-placeholder-count="3">
+<sc-if value="{{b.entete}}" hint-placeholder-val="{{ true }}">
+<div style="margin-top: 14px; padding: 12px 10px 6px; min-height: 2px; border-top: 1px solid var(--bord); font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--second)"><sc-if value="{{ouverte}}" hint-placeholder-val="{{ true }}">{{b.nom}}</sc-if></div>
+</sc-if>
+<sc-for list="{{b.items}}" as="i" hint-placeholder-count="4">
+<a href="{{i.href}}" aria-label="{{i.nom}}" class="{{i.cls}}" style="height: 36px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; gap: 10px; font-weight: 500">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="{{i.d}}"/></svg>
+<sc-if value="{{ouverte}}" hint-placeholder-val="{{ true }}"><span style="flex: 1">{{i.nom}}</span><span style="font-size: 13px; font-weight: 400; color: var(--second)">{{i.raccourci}}</span></sc-if>
+</a>
+</sc-for>
+<sc-if value="{{b.pousse}}" hint-placeholder-val="{{ false }}"><div style="flex: 1; min-height: 24px"></div></sc-if>
+</sc-for>
+<a href="#reception" aria-label="Réception du site : ouverte" style="margin-top: 6px; padding: 10px 12px 4px; border-top: 1px solid var(--bord); font-size: 13px; color: var(--second); display: flex; align-items: center; gap: 8px">
+<span style="width: 8px; height: 8px; flex: none; margin: 0 4px; border-radius: 999px; background: var(--succes)"></span>
+<sc-if value="{{ouverte}}" hint-placeholder-val="{{ true }}"><span>Réception du site : ouverte</span></sc-if>
+</a>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"actif":{"editor":"enum","default":"aujourdhui","options":["aujourdhui","agenda","clients","paiements","stages","professionnels","psychedeliques","contenus","corpus","reglages"]},"replie":{"editor":"boolean","default":false},"sombre":{"editor":"boolean","default":false},"$preview":{"width":232,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const actif = this.props.actif ?? 'aujourdhui';
+const it = (a) => a.map((x) => {
+const on = x[0] === actif;
+return { nom: x[1], d: x[2], href: x[3] || '#', raccourci: x[4] || '', cls: on ? 'on' : '' };
+});
+return {
+theme: this.props.sombre ? 'sombre' : 'clair',
+ouverte: !this.props.replie,
+largeur: this.props.replie ? '56px' : '232px',
+entetePad: this.props.replie ? '0' : '0 0 0 12px',
+replierNom: this.props.replie ? 'Déplier la barre latérale' : 'Replier la barre latérale',
+blocs: [
+{ entete: false, items: it([['aujourdhui', 'Aujourd’hui', 'M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M8 5a3 3 0 100 6 3 3 0 000-6z', 'Aujourdhui.dc.html']]) },
+{ entete: true, nom: 'Pratique', items: it([
+['agenda', 'Agenda', 'M3 4h10v9H3zM3 7h10M6 2v3M10 2v3', 'Agenda.dc.html'],
+['clients', 'Clients', 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.5-2.5 2.5-3.5 5-3.5s4.5 1 5 3.5', 'Clients.dc.html'],
+['paiements', 'Paiements', 'M2 4h12v8H2zM2 7h12', 'Paiements.dc.html'],
+['stages', 'Stages', 'M5 7a2 2 0 100-4 2 2 0 000 4zM11 7a2 2 0 100-4 2 2 0 000 4zM1.5 13c.3-2 1.7-3 3.5-3s3.2 1 3.5 3M10 10.1c.3-.1.7-.1 1-.1 1.8 0 3.2 1 3.5 3', 'Stages.dc.html'],
+['professionnels', 'Professionnels', 'M3 5h10v8H3zM6 5V3h4v2', 'Professionnels.dc.html'],
+['psychedeliques', 'Psychédéliques', 'M4 2h8v12H4zM6 5h4M6 8h.01M8 8h.01M10 8h.01M6 11h.01M8 11h.01M10 11h.01', 'Psychedeliques.dc.html']
+]) },
+{ entete: true, nom: 'Éditorial', pousse: true, items: it([
+['contenus', 'Contenus', 'M3 3h10v10H3zM5 6h6M5 8.5h6M5 11h3', 'Contenus.dc.html'],
+['corpus', 'Corpus', 'M3 3h3.5v10H3zM6.5 3H10v10H6.5zM10.6 4.2l2.4-.6 2 9-2.4.6z', 'Corpus.dc.html']
+]) },
+{ entete: false, items: it([
+['rechercher', 'Rechercher', 'M7 12A5 5 0 107 2a5 5 0 000 10zM11 11l3 3', 'Recherche.dc.html', '⌘K'],
+['reglages', 'Réglages', 'M3 5h6M12 5h1M3 11h1M7 11h6M10.5 3.5v3M5.5 9.5v3', 'Reglages.dc.html']
+]) }
+]
+};
+}
+}
+</script>
+</body>
+</html>

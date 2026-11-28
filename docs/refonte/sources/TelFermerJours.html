@@ -1,0 +1,27 @@
+@title Fermer des jours, iPhone
+@size 390 844
+@body
+@@TEL@@
+<header style="padding: 0 8px 4px 20px; display: flex; align-items: center; gap: 8px"><h1 style="flex: 1">Fermer des jours</h1><a href="TelAgenda.dc.html" class="b d">Fermer</a></header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 8px 16px; display: flex; flex-direction: column; gap: 14px">
+<p class="s">Aucune réservation ne sera possible sur le site pendant ces jours.</p>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="du" style="font-weight: 500">Du</label><input id="du" class="f" type="text" value="lundi 21 décembre 2026"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="au" style="font-weight: 500">Au</label><input id="au" class="f" type="text" value="vendredi 1er janvier 2027"></div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div><span class="p al">! 3 séances déjà prévues</span></div>
+<div class="c">
+<sc-for list="{{seances}}" as="s" hint-placeholder-count="3">
+<div class="{{s.cls}}" style="padding: 6px 6px 6px 14px; display: flex; align-items: center; gap: 8px"><span style="flex: 1; min-width: 0"><span style="font-weight: 600">{{s.quand}}</span><br><span class="s">{{s.qui}}</span></span><a href="TelRendezVous.dc.html" class="b o">Déplacer</a></div>
+</sc-for>
+</div>
+<p class="s">Fermer les jours n’annule pas ces séances. Pensez à fermer aussi ces jours dans Calendly.</p>
+</div>
+</div>
+<div style="padding: 12px 16px 28px; border-top: 1px solid var(--bord); background: var(--surface)"><button type="button" class="b" style="width: 100%">Fermer ces jours</button></div>
+</div>
+@logic
+vals() {
+return { seances: [
+{ quand: 'lun. 21 déc., 9 h', qui: 'Camille Martin' }, { quand: 'mar. 22 déc., 14 h', qui: 'Nadia Benali' }, { quand: 'mer. 23 déc., 10 h', qui: 'Marc Fabre' }
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}

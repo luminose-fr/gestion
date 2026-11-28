@@ -1,0 +1,42 @@
+@title Paiements
+@size 1440 900
+@body
+@@MAC@@
+@@NAV paiements@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Paiements</h1><span><span class="s">À encaisser :</span> <span style="font-weight: 600">[TOTAL] · 5 lignes</span></span></header>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="true" href="Paiements.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">À encaisser</a>
+<a role="tab" aria-selected="false" href="Encaisses.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Encaissés</a>
+</div>
+<div class="c">
+<sc-for list="{{lignes}}" as="l" hint-placeholder-count="5">
+<div class="{{l.cls}}" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<a href="Fiche.dc.html" style="width: 170px; font-weight: 600">{{l.qui}}</a>
+<span style="flex: 1; min-width: 220px">{{l.quoi}}<br><span class="s">{{l.date}}</span></span>
+<span class="{{l.ancCls}}">{{l.anc}}</span>
+<span style="width: 90px; text-align: right; font-weight: 600">[MONTANT]</span>
+<sc-if value="{{l.aPayer}}" hint-placeholder-val="{{ true }}"><button type="button" class="b o p" style="width: 150px">Marquer payé</button></sc-if>
+<sc-if value="{{l.choix}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="Moyen de paiement" style="flex-basis: 100%; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap"><span class="s" style="align-self: center">Payé par</span><button type="button" class="b p">Carte</button><button type="button" class="b o p">Espèces</button><button type="button" class="b o p">Virement</button><button type="button" class="b o p">Chèque</button></div>
+</sc-if>
+<sc-if value="{{l.fait}}" hint-placeholder-val="{{ false }}"><span role="status" style="width: 150px; display: flex; align-items: center; gap: 8px"><span class="p ok">✓ Payé, carte</span><button type="button" class="b d p">Annuler</button></span></sc-if>
+</div>
+</sc-for>
+</div>
+<p class="s">« Annuler » reste quelques secondes après « Marquer payé », puis la ligne passe dans Encaissés. État vide : « Rien à encaisser ».</p>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const L = (qui, quoi, date, j, etat) => ({ qui: qui, quoi: quoi, date: date, anc: (j > 7 ? '! ' : '') + 'depuis ' + j + ' jours', ancCls: j > 7 ? 'p al' : 'p', aPayer: !etat, choix: etat === 'choix', fait: etat === 'fait' });
+return { lignes: [
+L('Camille Martin', 'Séance d’accompagnement', 'mercredi 18 novembre', 9, ''),
+L('Marc Fabre', 'Séance d’accompagnement', 'mardi 24 novembre', 3, 'choix'),
+L('Camille Martin', 'Séance d’accompagnement', 'lundi 23 novembre', 4, ''),
+L('Nadia Benali', 'Stage de breathwork holotropique, 14-15 mars', 'inscrite le 12 novembre', 15, ''),
+L('Élodie Garcia', 'Séance d’accompagnement', 'jeudi 19 novembre', 8, 'fait')
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}

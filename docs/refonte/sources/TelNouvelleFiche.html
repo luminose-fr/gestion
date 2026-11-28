@@ -1,0 +1,24 @@
+@title Nouvelle fiche, iPhone
+@size 390 844
+@body
+@@TEL@@
+<header style="padding: 0 8px 4px 20px; display: flex; align-items: center; gap: 8px"><h1 style="flex: 1">Nouvelle fiche</h1><a href="TelClients.dc.html" class="b d">Fermer</a></header>
+<form style="flex: 1; min-height: 0; overflow: hidden; padding: 8px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="prenom" style="font-weight: 500">Prénom</label><input id="prenom" class="f" type="text" value="Julien"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="nom" style="font-weight: 500">Nom</label><input id="nom" class="f" type="text" value="Roux"></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="mail" style="font-weight: 500">E-mail</label><input id="mail" class="f" type="email" value=""></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="tel" style="font-weight: 500">Téléphone</label><input id="tel" class="f" type="tel" value="06 00 00 00 04"></div>
+<section aria-live="polite" class="c" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; border-color: var(--alerte)">
+<div class="e">Fiche semblable</div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 1"><span style="font-weight: 600">Camille Roux</span><br><span class="s">Toulouse · 2 séances</span></span><a href="TelFiche.dc.html" class="b o">Ouvrir cette fiche</a></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="p ok">✓ Même nom</span><span class="p">× Téléphone différent</span></div>
+</section>
+<details class="c" style="padding: 12px 14px"><summary style="font-weight: 600; min-height: 20px">Le reste, quand vous l’avez</summary><p class="s" style="padding-top: 6px">Date de naissance, ville, provenance, venu par, personne de confiance.</p></details>
+</form>
+<div style="padding: 12px 16px 28px; border-top: 1px solid var(--bord); background: var(--surface); display: flex; flex-direction: column; gap: 8px">
+<a href="TelRendezVous.dc.html" class="b">Enregistrer et poser un rendez-vous</a>
+<button type="button" class="b o">Enregistrer</button>
+</div>
+</div>

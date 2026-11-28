@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Poser ou déplacer un rendez-vous</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app" style="box-sizing: border-box; min-height: 860px; padding: 40px; background: var(--voile); display: flex; justify-content: center; align-items: flex-start"><div class="c" role="dialog" aria-modal="true" style="width: 100%; max-width: 640px; box-shadow: 0 16px 48px rgba(0,0,0,.25); display: flex; flex-direction: column">
+<div style="padding: 20px 24px 12px"><h1>{{titre}}</h1><p class="s">{{sous}}</p></div>
+<div style="padding: 8px 24px 16px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 40px">
+<span style="width: 96px; flex: none; font-weight: 500">Personne</span>
+<span style="flex: 1; font-weight: 600">Camille Martin <span class="s" style="font-weight: 400">· Villefranche-de-Lauragais</span></span>
+<button type="button" class="b d p">Changer</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="type" style="font-weight: 500">Type</label>
+<select id="type" class="f"><option>Séance d’accompagnement</option><option>Entretien préalable (20 min, offert)</option><option>Séance d’hypnose</option><option>Breathwork holotropique individuel</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="date" style="font-weight: 500">Date</label><input id="date" class="f" type="text" value="lundi 7 décembre 2026"><span style="display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px"><button type="button" class="b o p" aria-pressed="true" style="background: var(--actif)">Dans 7 jours</button><button type="button" class="b o p" style="font-weight: 500">Dans 14 jours</button><button type="button" class="b o p" style="font-weight: 500">Premier créneau libre</button></span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 500">Créneaux libres ce jour</span>
+<div role="radiogroup" aria-label="Créneaux libres" style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{groupes}}" as="g" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 12px"><span class="s" style="width: 88px; flex: none">{{g.nom}}</span><span style="display: flex; gap: 8px; flex-wrap: wrap"><sc-for list="{{g.creneaux}}" as="c" hint-placeholder-count="3"><button type="button" role="radio" aria-checked="{{c.on}}" class="b o" style="width: 84px; background: {{c.fond}}; font-weight: {{c.gras}}">{{c.h}}</button></sc-for></span></div>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{chevauchement}}" hint-placeholder-val="{{ false }}">
+<p role="alert" class="c" style="padding: 10px 12px; border-color: var(--erreur); background: var(--ef); color: var(--erreur); font-weight: 500">× L’heure saisie, 10 h 30, chevauche la séance de Marc Fabre, de 10 h 00 à 11 h 00. Choisissez un autre créneau.</p>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span class="e">Déjà prévu ce jour</span>
+<sc-for list="{{prevus}}" as="p" hint-placeholder-count="2"><div style="display: flex; gap: 12px"><span style="width: 110px; flex: none; font-weight: 600">{{p.h}}</span><span>{{p.qui}}</span><span class="s">{{p.type}}</span></div></sc-for>
+</div>
+<details class="c" style="padding: 12px 16px"><summary style="font-weight: 600">Durée, mode et montant <span class="s" style="font-weight: 400">· 1 h · en séance, à Villefranche-de-Lauragais · [MONTANT]</span></summary>
+<div style="padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="duree" style="font-weight: 500">Durée</label><input id="duree" class="f" type="text" value="1 h"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="mode" style="font-weight: 500">Mode</label><select id="mode" class="f"><option>En séance, à Villefranche-de-Lauragais</option><option>En visio</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="montant" style="font-weight: 500">Montant</label><input id="montant" class="f" type="text" value="[MONTANT]"></div>
+</div></details>
+</div>
+<p class="s l" style="padding: 12px 24px">Calendly et l’agenda Google servent encore : pensez à y reporter ce rendez-vous.</p>
+<div class="l" style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 8px">
+<button type="button" class="b d">Fermer sans enregistrer</button>
+<button type="button" class="b">{{action}}</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "deplacer": {"editor": "boolean", "default": false}, "chevauchement": {"editor": "boolean", "default": false}, "$preview": {"width": 720, "height": 860}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const dep = !!this.props.deplacer;
+const chev = !!this.props.chevauchement;
+const pris = chev ? '' : '09:00';
+return {
+titre: dep ? 'Déplacer le rendez-vous' : 'Poser un rendez-vous',
+sous: dep ? 'Actuellement : lundi 30 novembre, 9 h 00. La personne est prévenue par e-mail.' : 'Suivant de Camille Martin : même type, sept jours plus tard, à la même heure.',
+aideDate: dep ? '' : 'Proposée : sept jours après la séance du 30 novembre.',
+action: dep ? 'Déplacer à ce créneau' : 'Poser le rendez-vous',
+chevauchement: chev,
+groupes: [['Matin', ['09:00', '11:30']], ['Après-midi', ['14:00', '15:30', '17:00']]].map((g) => ({ nom: g[0], creneaux: g[1].map((h) => ({ h: h, on: h === pris, fond: h === pris ? 'var(--actif)' : 'transparent', gras: h === pris ? 600 : 500 })) })),
+prevus: [{ h: '10:00 – 11:00', qui: 'Marc Fabre', type: 'Séance d’accompagnement' }, { h: '16:30 – 16:50', qui: 'Thomas Petit', type: 'Entretien préalable' }]
+};
+}
+}
+</script>
+</body>
+</html>

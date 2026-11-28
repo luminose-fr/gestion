@@ -1,0 +1,25 @@
+@title États de l’écran Aujourd’hui
+@size 1440 760
+@body
+<div class="{{theme}} app" style="width: 1440px; min-height: 760px; box-sizing: border-box; padding: 40px; display: flex; flex-direction: column; gap: 24px">
+<header><h1>Aujourd’hui · ses états</h1><p class="s">Chaque cadre montre la zone de travail de l’écran, sans la barre latérale.</p></header>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Journée sans séance</div>
+<div class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 8px"><p style="font-weight: 600">Pas de séance aujourd’hui.</p><p class="s">Prochaine séance : lundi 30 novembre, 9 h 00, Camille Martin.</p><a href="Agenda.dc.html" class="b o p" style="align-self: flex-start">Ouvrir l’agenda</a></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Rien à traiter</div>
+<div class="c" style="padding: 20px"><p>Tout est à jour. Rien ne vous attend ici.</p></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Le soir : le lendemain matin s’ajoute</div>
+<div class="c"><div class="s" style="padding: 10px 16px 0">Demain matin</div><div style="padding: 8px 16px 12px; display: flex; gap: 16px"><span style="width: 48px; font-weight: 600">09:00</span><span style="flex: 1"><span style="font-weight: 500">Camille Martin</span><br><span class="s">Séance d’accompagnement</span></span><span class="p">○ Prévue</span></div></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Réception coupée : la ligne passe en tête</div>
+<div role="alert" class="c" style="padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px; border-color: var(--alerte); background: var(--af); color: var(--alerte)"><span style="flex: 1"><span style="font-weight: 600">! Réception du site : coupée</span><br><span style="font-size: 13px">Depuis 14 h 05. Le site n’enregistre ni réservation, ni questionnaire, ni inscription, ni paiement.</span></span><button type="button" class="b o" style="border-color: var(--alerte); color: var(--alerte)">Rouvrir</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Chargement</div>
+<div class="c" aria-busy="true" style="padding: 16px; display: flex; flex-direction: column; gap: 14px"><span style="position: absolute; left: -9999px">Chargement de la journée</span>
+<div style="display: flex; gap: 16px"><span style="width: 48px; height: 14px; border-radius: 8px; background: var(--actif)"></span><span style="width: 180px; height: 14px; border-radius: 8px; background: var(--actif)"></span></div>
+<div style="display: flex; gap: 16px"><span style="width: 48px; height: 14px; border-radius: 8px; background: var(--actif)"></span><span style="width: 240px; height: 14px; border-radius: 8px; background: var(--actif)"></span></div>
+<div style="display: flex; gap: 16px"><span style="width: 48px; height: 14px; border-radius: 8px; background: var(--actif)"></span><span style="width: 150px; height: 14px; border-radius: 8px; background: var(--actif)"></span></div></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Erreur de chargement</div>
+<div role="alert" class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--erreur)"><p style="font-weight: 600; color: var(--erreur)">× La journée n’a pas pu être chargée.</p><p class="s">La connexion a été interrompue. Vos données ne sont pas touchées.</p><button type="button" class="b o p" style="align-self: flex-start">Réessayer</button></div></section>
+<section style="grid-column: span 2; display: flex; flex-direction: column; gap: 8px"><div class="e">Base non reliée : la console s’ouvre sur Contenus</div>
+<div class="c" style="padding: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-color: var(--alerte)"><span style="flex: 1; min-width: 260px"><span style="font-weight: 600; color: var(--alerte)">! La pratique n’est pas disponible : la base n’est pas reliée.</span><br><span class="s">Aujourd’hui, Agenda, Clients, Paiements et Stages sont grisés dans la barre latérale. L’éditorial fonctionne.</span></span><a href="#etat" class="b o p">Voir l’état dans les Réglages</a></div></section>
+</div>
+</div>

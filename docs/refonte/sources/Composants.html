@@ -1,0 +1,45 @@
+@title Composants
+@size 1440 1460
+@body
+<div class="{{theme}} app" style="width: 1440px; min-height: 1460px; box-sizing: border-box; padding: 40px; display: flex; flex-direction: column; gap: 28px">
+<header><h1>Composants</h1><p class="s">Tout ce qui se répète dans la console. Trois hauteurs, trois intentions, trois couleurs de sens, deux ombres.</p></header>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 40px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Boutons · trois intentions</div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center"><button type="button" class="b">Poser un rendez-vous</button><button type="button" class="b o">Déplacer</button><button type="button" class="b d">Annuler la séance</button><button type="button" class="b" disabled="disabled" style="opacity: 1; background: var(--bord); border-color: var(--bord); color: var(--second)">Inscrire une personne</button></div>
+<p class="s">Pleine : l’action principale, une par écran. Bordée : secondaire. Soulignée : discrète. Grisé : toujours accompagné de sa raison (« Complet : 12 inscrits sur 12 »).</p></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Boutons · trois hauteurs</div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center"><button type="button" class="b" style="height: 44px">44 · iPhone</button><button type="button" class="b">40 · Mac</button><button type="button" class="b p">32 · dans une ligne</button><button type="button" class="b o p" aria-label="Semaine précédente">‹</button></div>
+<p class="s">Rayon de 8 px partout, jamais de bouton rond. Le focus se voit : contour de 2 px, décalé de 2 px.</p></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Champs</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="c1" style="font-weight: 500">Nom</label><input id="c1" class="f" type="text" value="Roux"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="c2" style="font-weight: 500">Nom, avec le focus</label><input id="c2" class="f" type="text" value="Roux" style="outline: 2px solid var(--marque); outline-offset: 2px"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="c3" style="font-weight: 500">E-mail, refusé</label><input id="c3" class="f" type="email" value="julien.roux@exemple" aria-invalid="true" style="border-color: var(--erreur)"><span style="font-size: 13px; color: var(--erreur)">× Il manque la fin de l’adresse.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="c4" style="font-weight: 500">Type</label><select id="c4" class="f"><option>Séance d’accompagnement</option></select></div>
+</div></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Pastilles · un signe et un libellé, jamais la couleur seule</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><span class="s" style="width: 80px">Statut</span><span class="p">○ Prévue</span><span class="p ok">✓ Réalisée</span><span class="p">× Annulée</span><span class="p er">– Absente</span><span class="p al">! Restée « prévue »</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><span class="s" style="width: 80px">Paiement</span><span class="p ok">✓ Payé</span><span class="p al">! À encaisser</span><span class="p">Offert</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><span class="s" style="width: 80px">Questionnaire</span><span class="p">Pas reçu</span><span class="p al">! Non relu</span><span class="p ok">✓ Relu</span></div></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Ligne d’À traiter · le geste, l’objet, l’échéance</div>
+<div class="c"><a href="#geste" style="min-height: 44px; box-sizing: border-box; padding: 8px 16px; display: flex; align-items: center; gap: 12px"><span style="font-weight: 600; color: var(--marque)">Relire le questionnaire</span><span style="flex: 1">Camille Martin</span><span class="s">séance demain 9 h</span><span aria-hidden="true">›</span></a>
+<a href="#geste" class="l" style="min-height: 44px; box-sizing: border-box; padding: 8px 16px; display: flex; align-items: center; gap: 12px; background: var(--actif)"><span style="font-weight: 600; color: var(--marque)">Encaisser</span><span style="flex: 1">Camille Martin</span><span class="s">depuis 9 jours</span><span aria-hidden="true">›</span></a></div>
+<p class="s">La seconde ligne est survolée ou a le focus.</p></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Onglets · quatre vues au plus</div>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)"><a role="tab" aria-selected="true" href="#a" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">À encaisser</a><a role="tab" aria-selected="false" href="#b" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Encaissés</a></div>
+<p class="s">Au-delà de quatre vues : une liste à gauche, dans l’écran (Réglages, documents du Corpus).</p></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Carte</div>
+<div class="c" style="padding: 16px 20px; box-shadow: 0 1px 2px rgba(35,26,46,.06); display: flex; flex-direction: column; gap: 6px"><div style="display: flex; align-items: center"><h2 style="flex: 1">Personne de confiance</h2><button type="button" class="b d p">Modifier</button></div><div style="display: flex; gap: 12px"><span class="s" style="width: 110px">Nom</span><span>Hélène Martin, sa sœur</span></div></div>
+<p class="s">Rayon 12 px, bordure, ombre très légère en clair ; en sombre, la surface suffit.</p></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Témoin d’enregistrement</div>
+<div class="c" style="padding: 12px 16px; display: flex; gap: 24px; flex-wrap: wrap; align-items: center"><span class="s">Enregistrement…</span><span class="s" style="color: var(--succes)">✓ Enregistré à 16 h 42</span><span style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 600; color: var(--erreur)">× Non enregistré</span><button type="button" class="b o p">Réessayer</button></span></div></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">États d’un bouton</div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center"><button type="button" class="b">Repos</button><button type="button" class="b" style="background: var(--marqueh); border-color: var(--marqueh)">Survol</button><button type="button" class="b" style="background: var(--marqueh); border-color: var(--marqueh); transform: translateY(1px)">Appui</button><button type="button" class="b" style="outline: 2px solid var(--marque); outline-offset: 2px">Focus</button><button type="button" class="b o" aria-pressed="true" style="background: var(--actif)">✓ Choisi</button></div>
+<p class="s">Transitions de 140 ms, retirées si les animations sont réduites. Un choix actif porte une coche, pas seulement une teinte.</p></section>
+<section style="display: flex; flex-direction: column; gap: 10px"><div class="e">Section repliable · ce qui sert rarement reste fermé</div>
+<details class="c" style="padding: 12px 16px"><summary style="font-weight: 600"><span style="flex: 1">Durée, mode et montant</span><span class="s" style="font-weight: 400">1 h · en séance · [MONTANT]</span></summary></details>
+<details class="c" style="padding: 12px 16px" open="open"><summary style="font-weight: 600">La dernière fois · lundi 23 novembre</summary><p class="s" style="padding-top: 8px">Repliée, la section dit en une ligne ce qu’elle contient. Ouverte, elle montre le détail.</p></details></section>
+<section style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px"><div class="e">Fenêtre · ombre de menu et de fenêtre, voile derrière</div>
+<div style="padding: 24px; border-radius: 12px; background: var(--voile); display: flex; justify-content: center"><div class="c" role="dialog" aria-label="Exemple de fenêtre" style="width: 520px; box-shadow: 0 16px 48px rgba(0,0,0,.25)"><div style="padding: 16px 20px 8px"><h1>Couper la réception du site ?</h1><p class="s">Réservations, questionnaires de santé, inscriptions et paiements s’arrêtent. Le site reste visible.</p></div><div style="padding: 12px 20px 16px; display: flex; justify-content: flex-end; gap: 8px"><button type="button" class="b d">Laisser ouverte</button><button type="button" class="b">Couper la réception</button></div></div></div></section>
+</div>
+</div>

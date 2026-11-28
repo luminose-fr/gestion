@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Paiements, iPhone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app tel" style="width: 390px; height: 844px; box-sizing: border-box; padding-top: 54px; display: flex; flex-direction: column; overflow: hidden">
+<header style="padding: 8px 16px 0; display: flex; flex-direction: column; gap: 4px">
+<h1 style="padding-left: 4px">Paiements</h1>
+<p class="s" style="padding-left: 4px">À encaisser : <span style="font-weight: 600; color: var(--texte)">[TOTAL] · 4 lignes</span></p>
+<div role="tablist" style="display: flex; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="true" href="TelPaiements.dc.html" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">À encaisser</a>
+<a role="tab" aria-selected="false" href="#encaisses" style="min-height: 44px; padding: 0 12px; display: flex; align-items: center; font-weight: 500; color: var(--second)">Encaissés</a>
+</div>
+</header>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px">
+<div class="c">
+<sc-for list="{{lignes}}" as="l" hint-placeholder-count="4">
+<div class="{{l.cls}}" style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 10px"><span style="flex: 1; min-width: 0"><a href="TelFiche.dc.html" style="font-weight: 600">{{l.qui}}</a><br><span class="s">{{l.quoi}} · {{l.date}}</span></span><span style="font-weight: 600">[MONTANT]</span></div>
+<div style="display: flex; align-items: center; gap: 8px"><span class="{{l.ancCls}}">{{l.anc}}</span><span style="flex: 1"></span>
+<sc-if value="{{l.aPayer}}" hint-placeholder-val="{{ true }}"><button type="button" class="b o">Marquer payé</button></sc-if>
+<sc-if value="{{l.fait}}" hint-placeholder-val="{{ false }}"><span class="p ok">✓ Payé, espèces</span><button type="button" class="b d">Annuler</button></sc-if>
+</div>
+<sc-if value="{{l.choix}}" hint-placeholder-val="{{ false }}">
+<div role="group" aria-label="Moyen de paiement" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><button type="button" class="b o">Carte</button><button type="button" class="b o">Espèces</button><button type="button" class="b o">Virement</button><button type="button" class="b o">Chèque</button></div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+<dc-import name="TabBar" actif="plus" sombre="{{sombre}}" hint-size="390px,84px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "$preview": {"width": 390, "height": 844}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const L = (qui, quoi, date, j, etat) => ({ qui: qui, quoi: quoi, date: date, anc: (j > 7 ? '! ' : '') + 'depuis ' + j + ' jours', ancCls: j > 7 ? 'p al' : 'p', aPayer: !etat, choix: etat === 'choix', fait: etat === 'fait' });
+return { lignes: [
+L('Camille Martin', 'Accompagnement', '18 nov.', 9, ''),
+L('Marc Fabre', 'Accompagnement', '24 nov.', 3, 'choix'),
+L('Nadia Benali', 'Stage des 14-15 mars', 'inscrite le 12 nov.', 15, ''),
+L('Élodie Garcia', 'Accompagnement', '19 nov.', 8, 'fait')
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })) };
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+@title Fenêtre d’un professionnel
+@size 720 900
+@body
+@@WIN@@
+<div style="padding: 20px 24px 12px; display: flex; align-items: flex-start; gap: 12px"><div style="flex: 1"><h1>Claire Dumas</h1><p class="s">Ostéopathe · 4 personnes adressées</p></div><span class="p ok">✓ Connue</span></div>
+<div style="padding: 8px 24px 16px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="pnom" style="font-weight: 500">Nom</label><input id="pnom" class="f" type="text" value="Claire Dumas"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="pville" style="font-weight: 500">Ville</label><input id="pville" class="f" type="text" value="Villefranche-de-Lauragais"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="ptel" style="font-weight: 500">Téléphone</label><input id="ptel" class="f" type="tel" value="05 00 00 00 11"></div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="pmail" style="font-weight: 500">E-mail</label><input id="pmail" class="f" type="email" value="claire.dumas@exemple.fr"></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-weight: 500">Catégories</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><button type="button" aria-pressed="true" class="b o p" style="background: var(--actif)">✓ Ostéopathe</button><button type="button" aria-pressed="false" class="b o p" style="font-weight: 500">Médecin généraliste</button><button type="button" aria-pressed="false" class="b o p" style="font-weight: 500">Psychologue</button><button type="button" aria-pressed="false" class="b o p" style="font-weight: 500">Sage-femme</button><button type="button" class="b d p">Autre…</button></div></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 1"><span style="font-weight: 500">Relation</span><br><span class="s">« Connu » : vous vous êtes déjà parlé.</span></span>
+<div role="radiogroup" aria-label="Relation" style="display: flex; gap: 6px"><button type="button" role="radio" aria-checked="true" class="b o p" style="background: var(--actif)">✓ Connue</button><button type="button" role="radio" aria-checked="false" class="b o p" style="font-weight: 500">À rencontrer</button></div></div>
+<details class="c" style="padding: 12px 16px" open="open"><summary style="font-weight: 600"><span style="flex: 1">Courriers de prospection</span><span class="s" style="font-weight: 400">2 envoyés</span></summary>
+<div style="padding-top: 10px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; gap: 12px; align-items: center"><span class="s" style="width: 100px">3 mars</span><span style="flex: 1">Présentation de l’accompagnement</span><span class="p ok">✓ Réponse reçue</span></div>
+<div style="display: flex; gap: 12px; align-items: center"><span class="s" style="width: 100px">12 oct.</span><span style="flex: 1">Annonce du stage de mars</span><span class="p">Sans réponse</span></div>
+<button type="button" class="b o p" style="align-self: flex-start; margin-top: 4px">Noter un courrier</button>
+</div></details>
+<details class="c" style="padding: 12px 16px"><summary style="font-weight: 600"><span style="flex: 1">Personnes adressées</span><span class="s" style="font-weight: 400">4 · ouvre leurs fiches</span></summary></details>
+</div>
+<div class="l" style="padding: 16px 24px; display: flex; align-items: center; gap: 8px">
+<button type="button" class="b d" style="color: var(--erreur)">Supprimer</button><span style="flex: 1"></span>
+<button type="button" class="b d">Fermer sans enregistrer</button><button type="button" class="b">Enregistrer</button>
+</div>
+</div>
+</div>

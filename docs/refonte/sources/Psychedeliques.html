@@ -1,0 +1,48 @@
+@title Psychédéliques
+@size 1440 1040
+@body
+@@MAC@@
+@@NAV psychedeliques@@
+@@MAIN@@
+<header><h1>Psychédéliques</h1><p class="s">Calculateur de repères de dosage et aide à la réduction des risques.</p></header>
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; max-width: 1150px">
+<section class="c" style="flex: 1 1 320px; max-width: 380px; padding: 20px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-weight: 600">Produit</span>
+<div role="radiogroup" aria-label="Produit" style="display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 8px">
+<button type="button" role="radio" aria-checked="true" class="b o" style="padding: 0 8px; border-color: {{c.t}}; background: {{c.f}}; color: {{c.t}}">✓ Champignons</button><button type="button" role="radio" aria-checked="false" class="b o" style="font-weight: 500; border-color: var(--champ); color: var(--texte)">LSD</button><button type="button" role="radio" aria-checked="false" class="b o" style="font-weight: 500; border-color: var(--champ); color: var(--texte)">MDMA</button>
+</div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline"><label for="poids" style="flex: 1; font-weight: 600">Poids corporel</label><span style="font-weight: 600">70 kg</span></div><input id="poids" type="range" min="40" max="130" value="70" style="width: 100%; height: 24px; accent-color: var(--marque)"></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-weight: 600">Type de champignon</span>
+<div role="radiogroup" aria-label="Type de champignon" style="display: grid; grid-template-columns: 1.2fr 1fr 1.3fr; gap: 8px"><button type="button" role="radio" aria-checked="true" class="b o" style="padding: 0 8px; background: var(--actif)">✓ Cubensis</button><button type="button" role="radio" aria-checked="false" class="b o" style="font-weight: 500">Truffes</button><button type="button" role="radio" aria-checked="false" class="b o" style="padding: 0 8px; font-weight: 500">Copelandia</button></div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-weight: 600">État du produit</span>
+<div role="radiogroup" aria-label="État du produit" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px"><button type="button" role="radio" aria-checked="false" class="b o" style="font-weight: 500">Frais</button><button type="button" role="radio" aria-checked="true" class="b o" style="background: var(--actif)">✓ Sec</button></div></div>
+</section>
+<section style="flex: 2 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h2 style="flex: 1">Paliers estimatifs <span class="s" style="font-weight: 400">· Psilocybe Cubensis sec, 70 kg</span></h2><span class="p" style="border-color: {{c.t}}; background: {{c.f}}; color: {{c.t}}">Champignons</span></div>
+<sc-for list="{{paliers}}" as="p" hint-placeholder-count="5">
+<div class="c" style="padding: 12px 20px; display: flex; align-items: center; gap: 20px; border-color: {{p.bord}}; border-width: {{p.ep}}">
+<div style="flex: 1; min-width: 0"><div><span style="font-weight: 600">{{p.nom}}</span> <sc-if value="{{p.repere}}" hint-placeholder-val="{{ false }}"><span class="p" style="border-color: {{c.t}}; background: {{c.f}}; color: {{c.t}}">Repère</span></sc-if></div><div class="s">{{p.texte}}</div></div>
+<div style="flex: none; font-size: 44px; line-height: 1; font-weight: 600; color: {{c.t}}">{{p.dose}}<span style="font-size: 20px; font-weight: 500; color: var(--second)"> g</span></div>
+</div>
+</sc-for>
+<div class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; border-color: var(--alerte)">
+<h2>Réduction des risques</h2>
+<p class="s">Les quantités restent des repères : la puissance réelle du produit peut varier fortement. Commencer bas. Éviter les mélanges. Le lieu, l’état émotionnel et la présence d’une personne de confiance changent beaucoup l’expérience.</p>
+<p style="font-weight: 500; color: var(--alerte)">! En cas de malaise, de confusion sévère ou de signes physiques inquiétants, contactez immédiatement les secours. Ce module ne remplace jamais une prise en charge médicale.</p>
+</div>
+</section>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const c = this.props.sombre ? { t: '#F0C36A', f: '#3A2C10' } : { t: '#7A4F00', f: '#FBF0D9' };
+const P = (nom, texte, dose, repere) => ({ nom: nom, texte: texte, dose: dose, repere: !!repere, bord: repere ? c.t : 'var(--bord)', ep: repere ? '2px' : '1px' });
+return { c: c, paliers: [
+P('Micro-dose', 'Sub-perceptuel. Usage distinct, généralement recherché pour sa discrétion.', '0,21'),
+P('Faible', 'Léger. Couleurs plus vives, rires, ouverture émotionnelle.', '1,05'),
+P('Normal', 'Standard. Visuels, introspection, immersion marquée.', '2,1', true),
+P('Fort', 'Très intense. Distorsions importantes et perte de repères possible.', '3,5'),
+P('Héroïque', 'Extrême. Risque psychologique élevé, approche prudente indispensable.', '4,9')
+] };
+}

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Contenus, idées et publiés</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app" style="display: flex; flex-wrap: wrap; min-height: 960px">
+<div style="flex: none; display: flex; background: var(--bas); border-right: 1px solid var(--bord)"><dc-import name="Nav" actif="contenus" sombre="{{sombre}}" replie="{{replie}}" hint-size="232px,900px"></dc-import></div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 24px">
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Contenus</h1>
+<label for="modele" style="position: absolute; left: -9999px">Modèle de rédaction</label><select id="modele" class="f" style="width: 180px"><option>Claude Opus 5.5</option></select>
+<button type="button" class="b">Nouveau</button></header>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="false" href="Contenus.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Conversations <span class="s">70</span></a>
+<a role="tab" aria-selected="{{estIdees}}" href="Idees.dc.html" style="padding: 10px 12px; font-weight: {{i.gras}}; color: {{i.coul}}; border-bottom: 2px solid {{i.trait}}">Idées <span class="s">24</span></a>
+<a role="tab" aria-selected="{{estPublies}}" href="Publies.dc.html" style="padding: 10px 12px; font-weight: {{p.gras}}; color: {{p.coul}}; border-bottom: 2px solid {{p.trait}}">Publiés <span class="s">19</span></a>
+</div>
+<sc-if value="{{estIdees}}" hint-placeholder-val="{{ true }}">
+<form class="c" style="padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end">
+<div style="flex: 3 1 320px; display: flex; flex-direction: column; gap: 4px"><label for="nidee" class="s">Une idée, en une ligne</label><input id="nidee" class="f" type="text" placeholder="Ce que vous voulez dire, tel que ça vient"></div>
+<div style="flex: 1 1 180px; display: flex; flex-direction: column; gap: 4px"><label for="nformat" class="s">Format</label><select id="nformat" class="f"><option>Carrousel</option><option>Reel expliqué</option><option>Article</option><option>Script Youtube</option></select></div>
+<button type="button" class="b">Ajouter</button>
+</form>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><label for="ridee" style="position: absolute; left: -9999px">Rechercher dans les idées</label><input id="ridee" class="f" type="search" placeholder="Rechercher" style="width: 260px"><span class="s" style="flex: 1">L’Analyste prépare l’ouverture de chaque idée : ce qu’elle dit et ce qui lui manque. Pas de verdict.</span><button type="button" class="b o p">Préparer 3 idées</button></div>
+<div class="c">
+<sc-for list="{{idees}}" as="x" hint-placeholder-count="6">
+<div class="{{x.cls}}" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 300px; display: flex; flex-direction: column"><span style="font-weight: 600">{{x.titre}}</span><span class="s">{{x.note}}</span></span>
+<span class="p">{{x.format}}</span>
+<span style="width: 150px"><span class="{{x.eCls}}">{{x.etat}}</span></span>
+<span class="s" style="width: 60px; text-align: right">{{x.date}}</span>
+<a href="Contenu.dc.html" class="b o p">Ouvrir</a>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{estPublies}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><label for="rpub" style="position: absolute; left: -9999px">Rechercher dans les publiés</label><input id="rpub" class="f" type="search" placeholder="Rechercher" style="width: 260px"><span style="flex: 1"></span><span class="s">19 contenus publiés depuis février</span></div>
+<div class="c">
+<sc-for list="{{publies}}" as="x" hint-placeholder-count="6">
+<a href="Contenu.dc.html" class="{{x.cls}}" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span class="s" style="width: 90px">{{x.date}}</span>
+<span style="flex: 1; min-width: 300px; display: flex; flex-direction: column"><span style="font-weight: 600">{{x.titre}}</span><span class="s">{{x.serie}}</span></span>
+<span class="p">{{x.format}}</span>
+<span class="s" style="width: 220px">{{x.canaux}}</span>
+<span class="p ok">✓ Publié</span>
+</a>
+</sc-for>
+</div>
+<p class="s">Un contenu publié peut devenir le pilier d’une série : « Décliner en série », depuis le contenu ouvert.</p>
+</sc-if>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "replie": {"editor": "boolean", "default": false}, "onglet": {"editor": "enum", "default": "idees", "options": ["idees", "publies"]}, "$preview": {"width": 1440, "height": 960}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const o = this.props.onglet ?? 'idees';
+const T = (on) => ({ gras: on ? 600 : 500, coul: on ? 'var(--marque)' : 'var(--second)', trait: on ? 'var(--marque)' : 'transparent' });
+const I = (titre, note, format, etat, date) => ({ titre: titre, note: note, format: format, etat: etat === 'p' ? '✓ Préparée' : etat === 'c' ? 'Préparation…' : 'À préparer', eCls: etat === 'p' ? 'p ok' : 'p', date: date });
+const P = (date, titre, serie, format, canaux) => ({ date: date, titre: titre, serie: serie, format: format, canaux: canaux });
+const l = (a) => a.map((x, i) => ({ ...x, cls: i ? 'l' : '' }));
+return { estIdees: o === 'idees', estPublies: o === 'publies', i: T(o === 'idees'), p: T(o === 'publies'),
+idees: l([
+I('Le corps garde la trace de ce qu’on n’a pas dit', 'Notée depuis l’iPhone', 'Carrousel', 'p', '26 nov.'),
+I('Pourquoi une seule séance ne suffit presque jamais', 'Peut rejoindre « Ce qu’on attend de la thérapie »', 'Reel expliqué', 'p', '24 nov.'),
+I('Respirer n’est pas se calmer', '', 'Article', 'c', '22 nov.'),
+I('Ce que l’entretien préalable permet de décider', '', 'Carrousel', 'a', '19 nov.'),
+I('Hypnose : ce que vous gardez le contrôle de faire', '', 'Script Youtube', 'a', '15 nov.'),
+I('Le stage, de l’intérieur : une journée type', '', 'Article', 'a', '9 nov.')
+]),
+publies: l([
+P('30 oct.', 'Une armure plus solide', 'Série · Ce qu’on refuse de sentir', 'Reel expliqué', 'Instagram · Facebook · Youtube'),
+P('22 oct.', 'Le breathwork holotropique, en trois questions', 'Hors série', 'Carrousel', 'Instagram · Facebook'),
+P('14 oct.', 'Ce qui se passe pendant un entretien préalable', 'Hors série', 'Article', 'luminose.fr · Google My Business'),
+P('6 oct.', 'On ne se débarrasse pas d’une émotion', 'Hors série', 'Reel expliqué', 'Instagram · Youtube'),
+P('28 sept.', 'Méditer quand on n’y arrive pas', 'Hors série', 'Carrousel', 'Instagram · Facebook'),
+P('19 sept.', 'Trois idées reçues sur l’hypnose', 'Hors série', 'Article', 'luminose.fr')
+]) };
+}
+}
+</script>
+</body>
+</html>

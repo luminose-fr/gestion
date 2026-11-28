@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Corpus, documents, à ranger et carte</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.app *{box-sizing:border-box}
+.app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.app a{color:inherit;text-decoration:none}
+.app button,.app input,.app select,.app textarea{font:inherit;color:inherit}
+.app h1{font:500 26px/1.2 Fraunces,Georgia,serif;letter-spacing:-.01em;text-wrap:balance;margin:0}
+.tel h1{font-size:23px}
+.app h2{font-size:15px;font-weight:600;margin:0}
+.app p{margin:0}
+.app .e{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--second)}
+.app .s{font-size:13px;color:var(--second)}
+.app .c{background:var(--surface);border:1px solid var(--bord);border-radius:12px;box-shadow:var(--ombre)}
+.app .c>a,.app a.l,.app tr.l{transition:background .14s}
+.app .c>a:hover,.app a.l:hover,.app tr.l:hover{background:var(--survol)}
+.app .l{border-top:1px solid var(--bord)}
+.app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
+.app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
+.app .b:active{transform:translateY(1px)}
+.app .b.o{background:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
+.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.p{height:32px;padding:0 12px;font-size:13px}
+.app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
+.app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
+.app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
+.app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
+.app .f:hover{border-color:var(--marque)}
+.app .f::placeholder{color:var(--second)}
+.app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
+.app summary::-webkit-details-marker{display:none}
+.app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
+.app details[open]>summary::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+.app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
+.tel .f{height:44px;font-size:16px}.tel .b{height:44px}
+</style>
+</helmet>
+<div class="{{theme}} app" style="display: flex; flex-wrap: wrap; min-height: 960px">
+<div style="flex: none; display: flex; background: var(--bas); border-right: 1px solid var(--bord)"><dc-import name="Nav" actif="corpus" sombre="{{sombre}}" replie="{{replie}}" hint-size="232px,900px"></dc-import></div>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 24px">
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Corpus</h1><span class="s">28 documents · 6 blocs · relevé du 27 novembre</span></header>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
+<sc-for list="{{onglets}}" as="o" hint-placeholder-count="4"><a role="tab" aria-selected="{{o.on}}" href="{{o.href}}" style="padding: 10px 12px; font-weight: {{o.gras}}; color: {{o.coul}}; border-bottom: 2px solid {{o.trait}}">{{o.nom}} <span class="s">{{o.n}}</span></a></sc-for>
+</div>
+<sc-if value="{{documents}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
+<nav aria-label="Documents du corpus" style="flex: 1 1 220px; max-width: 280px; display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{blocs}}" as="b" hint-placeholder-count="6">
+<details open="{{b.ouvert}}"><summary class="e" style="padding: 10px 8px 6px"><span style="flex: 1">{{b.nom}}</span><span>{{b.n}}</span></summary>
+<sc-for list="{{b.docs}}" as="d" hint-placeholder-count="2"><a href="#doc" style="min-height: 34px; padding: 0 10px 0 22px; border-radius: 8px; display: flex; align-items: center; font-weight: {{d.gras}}; background: {{d.fond}}; color: {{d.coul}}">{{d.nom}}</a></sc-for>
+</details>
+</sc-for>
+</nav>
+<article class="c" style="flex: 3 1 480px; min-width: 0">
+<div style="padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><div style="flex: 1; min-width: 220px"><h2>Voix · Ton et registre</h2><span class="s">Profils : noyau, complet · 2 140 car. · modifié le 12 novembre</span></div><span class="s" role="status" style="color: var(--succes)">✓ Enregistré</span><button type="button" class="b o p">Historique</button><button type="button" class="b p">Publier le corpus</button></div>
+<div class="l" role="textbox" aria-multiline="true" aria-label="Contenu du document" tabindex="0" style="padding: 18px 20px 24px; min-height: 420px; font-size: 16px; line-height: 1.55; display: flex; flex-direction: column; gap: 10px">
+<h2>Ce que la voix fait</h2><p>[CONTENU DU DOCUMENT]</p>
+<h2>Ce qu’elle ne fait jamais</h2><p>[CONTENU DU DOCUMENT]</p>
+</div>
+<p class="l s" style="padding: 10px 20px">Un changement enregistré ne part chez les IA qu’après « Publier le corpus ». L’onglet État dit alors quelles surfaces sont à recoller.</p>
+</article>
+</div>
+</sc-if>
+<sc-if value="{{aranger}}" hint-placeholder-val="{{ false }}">
+<p class="s">Ce qui est arrivé sans place : notes dictées, décisions prises en conversation, extraits collés. Chaque ligne attend un seul geste.</p>
+<div class="c">
+<sc-for list="{{entrees}}" as="e" hint-placeholder-count="3">
+<div class="{{e.cls}}" style="padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 300px; display: flex; flex-direction: column"><span style="font-weight: 600">{{e.titre}}</span><span class="s">{{e.origine}}</span></span>
+<span class="s">Proposé : <span style="font-weight: 600; color: var(--texte)">{{e.bloc}}</span></span>
+<button type="button" class="b p">Ranger ici</button><button type="button" class="b o p">Choisir un autre bloc</button><button type="button" class="b d p">Écarter</button>
+</div>
+</sc-for>
+</div>
+<p class="s">État vide : « Rien à ranger. »</p>
+</sc-if>
+<sc-if value="{{carte}}" hint-placeholder-val="{{ false }}">
+<p class="s">Ce que chaque rôle IA reçoit, bloc par bloc. Une case pleine : le rôle lit ce bloc à chaque appel.</p>
+<div class="c" style="overflow-x: auto">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; text-align: left">
+<thead><tr class="e"><th scope="col" style="padding: 10px 16px; font: inherit">Rôle</th><sc-for list="{{colonnes}}" as="c" hint-placeholder-count="6"><th scope="col" style="padding: 10px 8px; font: inherit; text-align: center">{{c}}</th></sc-for></tr></thead>
+<tbody>
+<sc-for list="{{roles}}" as="r" hint-placeholder-count="4">
+<tr class="l"><th scope="row" style="padding: 12px 16px; text-align: left"><span style="font-weight: 600">{{r.nom}}</span><br><span class="s" style="font-weight: 400">{{r.sert}}</span></th>
+<sc-for list="{{r.cases}}" as="k" hint-placeholder-count="6"><td style="padding: 8px; text-align: center"><span class="{{k.cls}}">{{k.txt}}</span></td></sc-for></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</sc-if>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "replie": {"editor": "boolean", "default": false}, "vue": {"editor": "enum", "default": "documents", "options": ["documents", "aranger", "carte"]}, "$preview": {"width": 1440, "height": 960}}'>
+class Component extends DCLogic {
+renderVals() {
+const sombre = !!this.props.sombre;
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+}
+vals() {
+const v = this.props.vue ?? 'documents';
+const O = (id, nom, n, href) => { const on = id === v; return { nom: nom, n: n, href: href, on: on, gras: on ? 600 : 500, coul: on ? 'var(--marque)' : 'var(--second)', trait: on ? 'var(--marque)' : 'transparent' }; };
+const D = (nom, on) => ({ nom: nom, gras: on ? 600 : 500, fond: on ? 'var(--actif)' : 'transparent', coul: on ? 'var(--marque)' : 'inherit' });
+const B = (nom, n, docs, ouvert) => ({ nom: nom, n: n, docs: docs, ouvert: !!ouvert });
+const colonnes = ['Socle', 'Voix', 'Stratégie', 'Canaux', 'Répertoire', 'Outils'];
+const R = (nom, sert, bits) => ({ nom: nom, sert: sert, cases: bits.map((b) => ({ txt: b ? '✓ Lu' : '–', cls: b ? 'p ok' : 's' })) });
+return { documents: v === 'documents', aranger: v === 'aranger', carte: v === 'carte', colonnes: colonnes,
+onglets: [O('etat', 'État', '', 'Corpus.dc.html'), O('documents', 'Documents', '28', 'CorpusDocuments.dc.html'), O('aranger', 'À ranger', '3', 'CorpusARanger.dc.html'), O('carte', 'Carte', '', 'CorpusCarte.dc.html')],
+blocs: [B('Socle', 5, [D('Identité'), D('Cadre et limites')]), B('Voix', 4, [D('Ton et registre', true), D('Vocabulaire'), D('Exemples')], true), B('Stratégie', 6, []), B('Canaux', 5, []), B('Répertoire', 5, []), B('Outils', 3, [])],
+entrees: [
+{ titre: 'Décision : ne plus écrire « gestion du stress » en titre', origine: 'Prise dans le fil de « Gestion du stress » ? · 7 nov.', bloc: 'Stratégie' },
+{ titre: 'Note dictée : l’image du voyant de réserve', origine: 'Notée depuis l’iPhone · 12 nov.', bloc: 'Répertoire' },
+{ titre: 'Extrait collé : présentation du stage de mars', origine: 'Collé à la main · 20 nov.', bloc: 'Canaux' }
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' })),
+roles: [R('Analyste', 'Prépare l’ouverture d’une idée', [1, 0, 1, 0, 1, 0]), R('Coach', 'Tient l’atelier, valide la direction', [1, 1, 1, 1, 1, 0]), R('Rédacteur', 'Écrit et ajuste le contenu', [1, 1, 0, 1, 1, 1]), R('Lecteur froid', 'Relit sans rien savoir', [0, 0, 0, 0, 0, 0])]
+};
+}
+}
+</script>
+</body>
+</html>

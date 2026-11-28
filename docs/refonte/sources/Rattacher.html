@@ -1,0 +1,45 @@
+@title Rattacher une réservation
+@size 1440 900
+@body
+@@MAC@@
+@@NAV aujourdhui@@
+@@MAIN@@
+<a href="Aujourdhui.dc.html" class="s" style="align-self: flex-start">‹ Aujourd’hui</a>
+<header><h1>Rattacher une réservation</h1><p class="s">Arrivée du site hier à 21 h 12. Deux fiches peuvent correspondre.</p></header>
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; max-width: 1150px">
+<section style="flex: 1 1 320px; max-width: 380px; display: flex; flex-direction: column; gap: 8px">
+<div class="e">Ce qui a été reçu</div>
+<div class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{recu}}" as="x" hint-placeholder-count="5"><div style="display: flex; gap: 12px"><span class="s" style="width: 96px; flex: none">{{x.nom}}</span><span style="min-width: 0">{{x.val}}</span></div></sc-for>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><a href="NouvelleFiche.dc.html" class="b o">Créer une fiche</a><button type="button" class="b d">Plus tard</button></div>
+</section>
+<section style="flex: 2 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<div class="e">Fiches candidates</div>
+<sc-for list="{{fiches}}" as="f" hint-placeholder-count="2">
+<div class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; border-color: {{f.bord}}">
+<div style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap"><span style="flex: 1; min-width: 200px"><a href="Fiche.dc.html" style="font-weight: 600; text-decoration: underline">{{f.nom}}</a><br><span class="s">{{f.detail}}</span></span><button type="button" class="{{f.btn}}">Rattacher à cette fiche</button></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><sc-for list="{{f.indices}}" as="i" hint-placeholder-count="3"><span class="{{i.cls}}">{{i.txt}}</span></sc-for></div>
+<sc-if value="{{f.ecart}}" hint-placeholder-val="{{ false }}">
+<div class="l" style="padding-top: 10px; display: flex; flex-direction: column; gap: 8px">
+<p><span style="font-weight: 600">Téléphone différent.</span> Fiche : 06 00 00 00 06 · Reçu : 06 00 00 00 16</p>
+<div role="radiogroup" aria-label="Quel téléphone garder" style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" role="radio" aria-checked="true" class="b o p" style="background: var(--actif)">✓ Garder la fiche</button><button type="button" role="radio" aria-checked="false" class="b o p">Prendre la valeur reçue</button></div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</section>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const I = (a) => a.map((x) => ({ txt: (x[1] ? '✓ ' : '× ') + x[0], cls: x[1] ? 'p ok' : 'p' }));
+return {
+recu: [['Nom', 'S. Lacombe'], ['E-mail', 'sophie.lacombe@exemple.fr'], ['Téléphone', '06 00 00 00 16'], ['Demande', 'Séance d’hypnose'], ['Créneau', 'mardi 1er décembre, 14 h 00']].map((x) => ({ nom: x[0], val: x[1] })),
+fiches: [
+{ nom: 'Sophie Lacombe', detail: 'Castelnaudary · aucune séance · entretien préalable du 24 novembre (absente)', bord: 'var(--marque)', btn: 'b', ecart: true, indices: I([['Même e-mail', true], ['Même nom', true], ['Téléphone différent', false]]) },
+{ nom: 'Simon Lacombe', detail: 'Toulouse · 3 séances', bord: 'var(--bord)', btn: 'b o', ecart: false, indices: I([['Même nom', true], ['E-mail différent', false], ['Téléphone différent', false]]) }
+]
+};
+}

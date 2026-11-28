@@ -1,0 +1,78 @@
+@title Contenus, idées et publiés
+@size 1440 960
+@props {"onglet":{"editor":"enum","default":"idees","options":["idees","publies"]}}
+@body
+@@MAC@@
+@@NAV contenus@@
+@@MAIN@@
+<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Contenus</h1>
+<label for="modele" style="position: absolute; left: -9999px">Modèle de rédaction</label><select id="modele" class="f" style="width: 180px"><option>Claude Opus 5.5</option></select>
+<button type="button" class="b">Nouveau</button></header>
+<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
+<a role="tab" aria-selected="false" href="Contenus.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Conversations <span class="s">70</span></a>
+<a role="tab" aria-selected="{{estIdees}}" href="Idees.dc.html" style="padding: 10px 12px; font-weight: {{i.gras}}; color: {{i.coul}}; border-bottom: 2px solid {{i.trait}}">Idées <span class="s">24</span></a>
+<a role="tab" aria-selected="{{estPublies}}" href="Publies.dc.html" style="padding: 10px 12px; font-weight: {{p.gras}}; color: {{p.coul}}; border-bottom: 2px solid {{p.trait}}">Publiés <span class="s">19</span></a>
+</div>
+<sc-if value="{{estIdees}}" hint-placeholder-val="{{ true }}">
+<form class="c" style="padding: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end">
+<div style="flex: 3 1 320px; display: flex; flex-direction: column; gap: 4px"><label for="nidee" class="s">Une idée, en une ligne</label><input id="nidee" class="f" type="text" placeholder="Ce que vous voulez dire, tel que ça vient"></div>
+<div style="flex: 1 1 180px; display: flex; flex-direction: column; gap: 4px"><label for="nformat" class="s">Format</label><select id="nformat" class="f"><option>Carrousel</option><option>Reel expliqué</option><option>Article</option><option>Script Youtube</option></select></div>
+<button type="button" class="b">Ajouter</button>
+</form>
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><label for="ridee" style="position: absolute; left: -9999px">Rechercher dans les idées</label><input id="ridee" class="f" type="search" placeholder="Rechercher" style="width: 260px"><span class="s" style="flex: 1">L’Analyste prépare l’ouverture de chaque idée : ce qu’elle dit et ce qui lui manque. Pas de verdict.</span><button type="button" class="b o p">Préparer 3 idées</button></div>
+<div class="c">
+<sc-for list="{{idees}}" as="x" hint-placeholder-count="6">
+<div class="{{x.cls}}" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 300px; display: flex; flex-direction: column"><span style="font-weight: 600">{{x.titre}}</span><span class="s">{{x.note}}</span></span>
+<span class="p">{{x.format}}</span>
+<span style="width: 150px"><span class="{{x.eCls}}">{{x.etat}}</span></span>
+<span class="s" style="width: 60px; text-align: right">{{x.date}}</span>
+<a href="Contenu.dc.html" class="b o p">Ouvrir</a>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{estPublies}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><label for="rpub" style="position: absolute; left: -9999px">Rechercher dans les publiés</label><input id="rpub" class="f" type="search" placeholder="Rechercher" style="width: 260px"><span style="flex: 1"></span><span class="s">19 contenus publiés depuis février</span></div>
+<div class="c">
+<sc-for list="{{publies}}" as="x" hint-placeholder-count="6">
+<a href="Contenu.dc.html" class="{{x.cls}}" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span class="s" style="width: 90px">{{x.date}}</span>
+<span style="flex: 1; min-width: 300px; display: flex; flex-direction: column"><span style="font-weight: 600">{{x.titre}}</span><span class="s">{{x.serie}}</span></span>
+<span class="p">{{x.format}}</span>
+<span class="s" style="width: 220px">{{x.canaux}}</span>
+<span class="p ok">✓ Publié</span>
+</a>
+</sc-for>
+</div>
+<p class="s">Un contenu publié peut devenir le pilier d’une série : « Décliner en série », depuis le contenu ouvert.</p>
+</sc-if>
+</div>
+</main>
+</div>
+@logic
+vals() {
+const o = this.props.onglet ?? 'idees';
+const T = (on) => ({ gras: on ? 600 : 500, coul: on ? 'var(--marque)' : 'var(--second)', trait: on ? 'var(--marque)' : 'transparent' });
+const I = (titre, note, format, etat, date) => ({ titre: titre, note: note, format: format, etat: etat === 'p' ? '✓ Préparée' : etat === 'c' ? 'Préparation…' : 'À préparer', eCls: etat === 'p' ? 'p ok' : 'p', date: date });
+const P = (date, titre, serie, format, canaux) => ({ date: date, titre: titre, serie: serie, format: format, canaux: canaux });
+const l = (a) => a.map((x, i) => ({ ...x, cls: i ? 'l' : '' }));
+return { estIdees: o === 'idees', estPublies: o === 'publies', i: T(o === 'idees'), p: T(o === 'publies'),
+idees: l([
+I('Le corps garde la trace de ce qu’on n’a pas dit', 'Notée depuis l’iPhone', 'Carrousel', 'p', '26 nov.'),
+I('Pourquoi une seule séance ne suffit presque jamais', 'Peut rejoindre « Ce qu’on attend de la thérapie »', 'Reel expliqué', 'p', '24 nov.'),
+I('Respirer n’est pas se calmer', '', 'Article', 'c', '22 nov.'),
+I('Ce que l’entretien préalable permet de décider', '', 'Carrousel', 'a', '19 nov.'),
+I('Hypnose : ce que vous gardez le contrôle de faire', '', 'Script Youtube', 'a', '15 nov.'),
+I('Le stage, de l’intérieur : une journée type', '', 'Article', 'a', '9 nov.')
+]),
+publies: l([
+P('30 oct.', 'Une armure plus solide', 'Série · Ce qu’on refuse de sentir', 'Reel expliqué', 'Instagram · Facebook · Youtube'),
+P('22 oct.', 'Le breathwork holotropique, en trois questions', 'Hors série', 'Carrousel', 'Instagram · Facebook'),
+P('14 oct.', 'Ce qui se passe pendant un entretien préalable', 'Hors série', 'Article', 'luminose.fr · Google My Business'),
+P('6 oct.', 'On ne se débarrasse pas d’une émotion', 'Hors série', 'Reel expliqué', 'Instagram · Youtube'),
+P('28 sept.', 'Méditer quand on n’y arrive pas', 'Hors série', 'Carrousel', 'Instagram · Facebook'),
+P('19 sept.', 'Trois idées reçues sur l’hypnose', 'Hors série', 'Article', 'luminose.fr')
+]) };
+}

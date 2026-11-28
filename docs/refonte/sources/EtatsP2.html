@@ -1,0 +1,37 @@
+@title États de la priorité 2
+@size 1440 1000
+@body
+<div class="{{theme}} app" style="width: 1440px; min-height: 1000px; padding: 40px; display: flex; flex-direction: column; gap: 24px">
+<header><h1>Questionnaire, rattachement, paiements, stages · leurs états</h1></header>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start">
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Questionnaire : ses trois états</div>
+<div class="c" style="padding: 16px; display: flex; gap: 8px; flex-wrap: wrap"><span class="p al">! Non relu</span><span class="p ok">✓ Relu le 27 novembre</span><span class="p al">! À revoir avec la personne</span></div></section>
+<section style="grid-column: span 2; display: flex; flex-direction: column; gap: 8px"><div class="e">Questionnaire : second envoi, les deux versions côte à côte</div>
+<div class="c" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr))">
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><div class="e">Reçu le 10 octobre · relu</div><div style="display: flex; gap: 12px"><span class="s" style="flex: 1">Traitement en cours</span><span>Non</span></div><div style="display: flex; gap: 12px"><span class="s" style="flex: 1">Opération récente</span><span>Non</span></div></div>
+<div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid var(--bord)"><div class="e">Reçu le 20 novembre · non relu</div><div style="display: flex; gap: 12px; padding: 2px 6px; margin: 0 -6px; border-radius: 8px; background: var(--af)"><span style="flex: 1; color: var(--alerte); font-weight: 600">! Traitement en cours · a changé</span><span style="font-weight: 600">Oui</span></div><div style="display: flex; gap: 12px"><span class="s" style="flex: 1">Opération récente</span><span>Non</span></div></div>
+</div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Questionnaire : pas encore reçu</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px"><p>Camille Martin n’a pas encore répondu. Envoyé le 12 novembre.</p><button type="button" class="b o p" style="align-self: flex-start">Renvoyer le lien</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Rattacher : aucune fiche ne correspond</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px"><p>Aucune fiche ne ressemble à cette réservation.</p><a href="NouvelleFiche.dc.html" class="b p" style="align-self: flex-start">Créer une fiche</a><p class="s">Le nom, l’e-mail et le téléphone reçus sont reportés.</p></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Rattacher : fait</div>
+<div class="c" role="status" style="padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px"><span style="flex: 1"><span style="color: var(--succes); font-weight: 600">✓ Rattachée à Sophie Lacombe.</span> Le téléphone de la fiche est gardé.</span><button type="button" class="b d p">Annuler</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Paiements : rien à encaisser</div>
+<div class="c" style="padding: 20px"><p>Rien à encaisser.</p><p class="s">Dernier encaissement : jeudi 26 novembre.</p></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Paiements : payé, annulable quelques secondes</div>
+<div class="c" role="status" style="padding: 10px 12px 10px 16px; display: flex; align-items: center; gap: 12px"><span style="flex: 1; font-weight: 600">Marc Fabre</span><span class="p ok">✓ Payé, carte</span><button type="button" class="b d p">Annuler</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Paiements : l’enregistrement a échoué</div>
+<div role="alert" class="c" style="padding: 12px 12px 12px 16px; display: flex; align-items: center; gap: 12px; border-color: var(--erreur)"><span style="flex: 1; color: var(--erreur); font-weight: 600">× Le paiement n’a pas été enregistré. La ligne reste à encaisser.</span><button type="button" class="b o p">Réessayer</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Stage complet : l’action est grisée et dit pourquoi</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px"><button type="button" class="b" disabled="disabled" aria-describedby="complet" style="align-self: flex-start; background: var(--bord); border-color: var(--bord); color: var(--second); cursor: not-allowed">Inscrire une personne</button><span id="complet" class="s">Complet : 12 inscrits sur 12. Vous pouvez ajouter à la liste d’attente.</span><button type="button" class="b o p" style="align-self: flex-start">Ajouter à la liste d’attente</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Inscrire : la recherche ne trouve personne</div>
+<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px"><p>Personne ne correspond à « dupont ».</p><button type="button" class="b p" style="align-self: flex-start">Créer la fiche « dupont »</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Stages : aucun stage à venir</div>
+<div class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 8px"><p>Aucun stage à venir.</p><button type="button" class="b p" style="align-self: flex-start">Nouveau stage</button></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div class="e">Chargement d’une liste</div>
+<div class="c" aria-busy="true" style="padding: 16px; display: flex; flex-direction: column; gap: 14px"><span style="width: 60%; height: 14px; border-radius: 8px; background: var(--actif)"></span><span style="width: 75%; height: 14px; border-radius: 8px; background: var(--actif)"></span><span style="width: 50%; height: 14px; border-radius: 8px; background: var(--actif)"></span></div></section>
+<section style="grid-column: span 2; display: flex; flex-direction: column; gap: 8px"><div class="e">Erreur de chargement et base non reliée : les mêmes messages que sur les écrans de priorité 1</div>
+<div class="c" style="padding: 16px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center"><span style="flex: 1; min-width: 260px; font-weight: 600; color: var(--erreur)">× Les paiements n’ont pas pu être chargés.</span><button type="button" class="b o p">Réessayer</button><span style="flex-basis: 100%; font-weight: 600; color: var(--alerte)">! La pratique n’est pas disponible : la base n’est pas reliée.</span></div></section>
+</div>
+</div>
