@@ -40,13 +40,13 @@ export const Bandeau: React.FC<{
               {fil.libelle} <span aria-hidden="true">›</span>
             </a>
           )}
-          {titre && <TitreEcran className="truncate">{titre}</TitreEcran>}
+          {titre && <TitreEcran className="truncate !text-nowrap">{titre}</TitreEcran>}
         </div>
   ) : null;
   const suite = (onglets || actions) ? (
     <>
       {onglets}
-      {actions && <div className="ml-auto flex flex-none items-center gap-2 py-2">{actions}</div>}
+      {actions && <div className="ml-auto flex flex-wrap items-center justify-end gap-2 py-2">{actions}</div>}
     </>
   ) : null;
   if (!slots) return <div className="flex flex-wrap items-center gap-3">{tete}{suite}</div>;

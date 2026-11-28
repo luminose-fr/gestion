@@ -1348,7 +1348,7 @@ function App() {
         {/* Le bandeau du haut (retours du 28/11, §1.4) : le titre — ou le fil et le nom d'une page de
             détail —, les vues en onglets, l'action principale à droite. Un écran y écrit par <Bandeau>. */}
         {!isEditorTakeover && <header className="relative flex min-h-16 flex-wrap items-stretch gap-x-6 border-b border-bord bg-surface px-4 shrink-0 z-20 md:flex-nowrap md:px-8">
-            <div ref={setSlotTitre} className="group flex h-16 min-w-0 flex-none items-center gap-3 md:max-w-[45%]">
+            <div ref={setSlotTitre} className="group flex h-16 min-w-0 flex-1 items-center gap-3 md:flex-initial">
             <div className="flex min-w-0 items-center gap-3 group-has-[[data-titre-ecran]]:hidden">
               <TitreCharte className="truncate">
                   {currentSpace === 'social' && (currentSocialTab === 'series'
@@ -1379,7 +1379,7 @@ function App() {
             </div>
 
             {/* La suite : les onglets de l'écran, puis son action principale. Sur l'iPhone, une seconde rangée. */}
-            <div ref={setSlotSuite} className="order-last flex w-full min-w-0 items-stretch gap-4 overflow-x-auto [scrollbar-width:none] md:order-none md:w-auto md:flex-1 md:overflow-visible" />
+            <div ref={setSlotSuite} className="order-last flex w-full min-w-0 flex-wrap items-stretch gap-x-4 md:order-none md:w-auto md:min-w-fit md:flex-1 md:flex-nowrap" />
 
             <div className="ml-auto flex h-16 flex-none items-center gap-1.5">
                  {/* Sélecteur global du modèle IA — le repli des familles sans réglage. Il n'a de sens que dans
