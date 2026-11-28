@@ -25,8 +25,24 @@ describe('la fiche', () => {
     routesChargees();
     vi.spyOn(Clients, 'lireFiche').mockResolvedValue({ ...FICHE, origine: 'Publicité - Google', motCleGoogleAds: 'hypnose arrêt tabac' });
     const { container } = render(<FicheView id="fiche-1" />);
-    await waitFor(() => expect(container.textContent).toContain('Provenance : Publicité - Google · mot-clé : hypnose arrêt tabac'));
+    await waitFor(() => expect(container.textContent).toContain('Venue par Publicité - Google · mot-clé : hypnose arrêt tabac'));
     expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('les séances se lisent par leur date, sous « À venir » puis « Passées » ; un champ vide se complète (retours du 28/11, §3)', async () => {
+    routesChargees();
+    const passee = { ...FICHE.seances[0], id: 'passee', numero: 6, statut: 'realisee' as const, etatPaiement: 'payee' as const, debut: '2026-11-23T08:30:00.000Z' };
+    const avenir = { ...FICHE.seances[0], id: 'avenir', numero: 7, statut: 'prevue' as const, debut: '2099-12-07T08:30:00.000Z' };
+    vi.spyOn(Clients, 'lireFiche').mockResolvedValue({ ...FICHE, profession: null, seances: [passee, avenir] });
+    const { container } = render(<FicheView id="fiche-1" />);
+    await waitFor(() => expect(container.textContent).toContain('lun. 23 nov. · 09:30'));
+    const texte = container.textContent ?? '';
+    expect(texte.indexOf('À venir')).toBeLessThan(texte.indexOf('Passées'));
+    expect(texte.indexOf('Passées')).toBeLessThan(texte.indexOf('lun. 23 nov.'));
+    expect(texte).not.toMatch(/Séance [67]/);
+    expect(texte).toContain('Compléter : ');
+    expect(texte).toContain('profession');
+    expect(texte).not.toContain('—');
   });
 
   it('une absence non réglée : un bandeau rouge, avec la date et le montant', async () => {

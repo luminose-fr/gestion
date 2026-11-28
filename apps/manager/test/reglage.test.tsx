@@ -72,3 +72,13 @@ describe('la garde', () => {
     expect(confirmer).not.toHaveBeenCalled();
   });
 });
+
+import { estUnMorceauPerime } from '../lib/rechargement';
+
+describe('un morceau périmé après un déploiement', () => {
+  it('se reconnaît à son message, et seulement lui', () => {
+    expect(estUnMorceauPerime(new TypeError('Failed to fetch dynamically imported module: https://x/assets/Espaces-Bv.js'))).toBe(true);
+    expect(estUnMorceauPerime(new TypeError('Importing a module script failed.'))).toBe(true);
+    expect(estUnMorceauPerime(new Error('Cannot read properties of undefined'))).toBe(false);
+  });
+});

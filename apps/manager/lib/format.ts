@@ -27,6 +27,11 @@ const HEURE_LISTE = new Intl.DateTimeFormat('fr-FR', { timeZone: PARIS, hour: '2
 /** `09:30`, l'heure d'une liste ou de l'agenda. */
 export const heureListe = (iso: string | number): string => HEURE_LISTE.format(typeof iso === 'number' ? iso : Date.parse(iso));
 
+const JOUR_COURT = new Intl.DateTimeFormat('fr-FR', { timeZone: PARIS, weekday: 'short', day: 'numeric', month: 'short' });
+
+/** `lun. 7 déc.` : le jour d'une séance dans une liste. */
+export const jourCourt = (iso: string | number): string => JOUR_COURT.format(typeof iso === 'number' ? iso : Date.parse(iso));
+
 /** `9 h 30`, `13 h` : l'heure d'un créneau à choisir, comme sur le site. */
 export const heureCreneau = (iso: string | number): string => {
   const [h, m] = heureListe(iso).split(':');

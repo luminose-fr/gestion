@@ -1,11 +1,16 @@
 import React from 'react';
 import { Bouton } from './ui';
+import { estUnMorceauPerime, rechargerUneFois } from '../lib/rechargement';
 
 /** Une erreur de rendu ne doit plus laisser une page blanche sans issue. */
 export class ErreurEcran extends React.Component<React.PropsWithChildren, { erreur: boolean }> {
   state = { erreur: false };
   static getDerivedStateFromError() { return { erreur: true }; }
-  componentDidCatch(erreur: Error) { console.error('Erreur de rendu :', erreur); }
+  componentDidCatch(erreur: Error) {
+    // Un morceau de l'ancienne version, retiré par un déploiement : on recharge, une fois.
+    if (estUnMorceauPerime(erreur) && rechargerUneFois()) return;
+    console.error('Erreur de rendu :', erreur);
+  }
   render() {
     if (!this.state.erreur) return this.props.children;
     return (

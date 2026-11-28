@@ -9,9 +9,9 @@
  * après un refus, la saisie reste en place.
  */
 import { Bandeau } from '../charte/bandeau';
-import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
+import { duree as dureeEnClair, heureListe, jourCourt, montant as montantEnClair } from '../../lib/format';
 import React, { useEffect, useState } from 'react';
-import { Bouton, Carte, Champ, FOCUS, Pastille as PastilleCharte, TitreCarte, TitreEcran, ZoneTexte } from '../charte';
+import { Bouton, Carte, Champ, Etiquette, FOCUS, Pastille as PastilleCharte, Secondaire, ZoneTexte } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { Confiance, Fiche, Professionnel } from '../../types-clients';
 import {
@@ -25,13 +25,31 @@ import { ChampsCoordonnees, ChampsEssentiels, ChampsProvenance, ChoixProfessionn
 import { ChoixFiche, type FicheChoisie } from './ChoixFiche';
 import { PoserRendezVous } from './PoserRendezVous';
 
-/** Une ligne « libellé : valeur » d'une carte en lecture. */
+/**
+ * Une ligne « libellé : valeur » d'une carte en lecture : la valeur dans une
+ * seconde colonne de 150 px, alignée à gauche (retours du 28/11, §3). Une
+ * valeur vide ne s'affiche pas : la carte dit « Compléter : … » une fois.
+ */
 const Ligne: React.FC<{ libelle: string; valeur: React.ReactNode }> = ({ libelle, valeur }) => (
-  <div className="flex justify-between gap-3">
-    <span className="text-second">{libelle}</span>
-    <span className="min-w-0 break-words text-right font-semibold">{valeur || '—'}</span>
-  </div>
+  valeur ? (
+    <div className="grid grid-cols-[150px_1fr] gap-3">
+      <span className="text-second">{libelle}</span>
+      <span className="min-w-0 break-words">{valeur}</span>
+    </div>
+  ) : null
 );
+
+/** « Compléter : naissance, profession », à la place des « — ». */
+const Completer: React.FC<{ manque: (string | false | null | undefined)[]; onCompleter: () => void }> = ({ manque, onCompleter }) => {
+  const liste = manque.filter((m): m is string => !!m);
+  if (liste.length === 0) return null;
+  return (
+    <div className="grid grid-cols-[150px_1fr] gap-3">
+      <span />
+      <Bouton taille="petit" intention="souligne" className="!h-auto min-h-8 justify-self-start !whitespace-normal !px-0 text-left" onClick={onCompleter}>Compléter : {liste.join(', ')}</Bouton>
+    </div>
+  );
+};
 
 /**
  * Une carte qui se lit, puis se modifie. `enregistrer` lève en cas de refus : la
@@ -63,9 +81,10 @@ const CarteModifiable: React.FC<{
     }
   };
   return (
-    <Carte className="flex flex-col gap-3 px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <TitreCarte as="h3">{titre}</TitreCarte>
+    <Carte as="section" className="flex flex-col gap-2.5 px-5 pb-4 pt-3.5">
+      <div className="flex min-h-8 items-center justify-between gap-3">
+        {/* Un sur-titre, pas un titre d'élément (retours du 28/11, §3). */}
+        <Etiquette as="h2">{titre}</Etiquette>
         {!enEdition && <Bouton taille="petit" intention="souligne" onClick={onModifier}>Modifier</Bouton>}
       </div>
       {enEdition ? (
@@ -95,6 +114,8 @@ const extrait = (s: SaisieFiche, champs: (keyof SaisieFiche)[]) => Object.fromEn
 const differe = (a: SaisieFiche, b: SaisieFiche, champs: (keyof SaisieFiche)[]) => champs.some((c) => a[c] !== b[c]);
 
 type Carteid = 'identite' | 'provenance' | 'confiance' | 'notes';
+
+const LIEN = `rounded-controle font-semibold text-marque ${FOCUS}`;
 
 export const FicheView: React.FC<{ id: string }> = ({ id }) => {
   const lecture = useLecture(() => Clients.lireFiche(id), [id]);
@@ -146,23 +167,23 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
   const provenance = [fiche.origine, fiche.motCleGoogleAds ? `mot-clé : ${fiche.motCleGoogleAds}` : null].filter(Boolean).join(' · ');
   const realisees = fiche.seances.filter((x) => x.statut === 'realisee').length;
   const aVenir = fiche.seances.filter((x) => x.statut === 'prevue' && Date.parse(x.debut) > Date.now()).length;
-  const seancesVues = toutesLesSeances ? fiche.seances : fiche.seances.slice(0, 5);
+  // « À venir » puis « Passées » (§3), chacune de la plus tardive à la plus ancienne, comme la maquette.
+  const parDateDecroissante = (a: { debut: string }, b: { debut: string }) => Date.parse(b.debut) - Date.parse(a.debut);
+  const seancesAVenir = fiche.seances.filter((x) => x.statut === 'prevue' && Date.parse(x.debut) > Date.now()).sort(parDateDecroissante);
+  const passees = fiche.seances.filter((x) => !seancesAVenir.includes(x)).sort(parDateDecroissante);
+  const passeesVues = toutesLesSeances ? passees : passees.slice(0, 5);
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
       <Bandeau fil={{ libelle: 'Clients', href: '#clients' }} titre={nomComplet(fiche)}
         actions={<Bouton onClick={() => setRdvOuvert(true)}>Poser un rendez-vous</Bouton>} />
-      <header className="flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap gap-x-2 text-second">
-            {/* Le « · » ne vient qu'entre deux éléments présents (retours du 28/11, §3). */}
-            {fiche.age !== null && <span>{fiche.age} ans</span>}
-            {fiche.telephone && <>{fiche.age !== null && <span aria-hidden="true">·</span>}<a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`tel:${fiche.telephone.replace(/\s/g, '')}`}>{fiche.telephone}</a></>}
-            {fiche.email && <>{(fiche.age !== null || fiche.telephone) && <span aria-hidden="true">·</span>}<a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
-          </p>
-          <p className="mt-1"><span className="text-second">Provenance : </span><span className="font-semibold">{provenance || 'inconnue'}</span></p>
-        </div>
-      </header>
+      {/* L'âge, le téléphone et l'e-mail sur une ligne, sans « · » : des liens de la marque, sans soulignement (§3). */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        {fiche.age !== null && <span>{fiche.age} ans</span>}
+        {fiche.telephone && <a className={`rounded-controle font-semibold text-marque ${FOCUS}`} href={`tel:${fiche.telephone.replace(/\s/g, '')}`}>{fiche.telephone}</a>}
+        {fiche.email && <a className={`rounded-controle font-semibold text-marque ${FOCUS}`} href={`mailto:${fiche.email}`}>{fiche.email}</a>}
+        <Secondaire>{provenance ? `Venue par ${provenance}` : 'Provenance inconnue'}</Secondaire>
+      </div>
 
       {dettes.length > 0 && (
         <Carte as="div" role="alert" className="!border-sens-erreur !bg-sens-erreur-fond px-4 py-3 text-sens-erreur">
@@ -182,11 +203,15 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
             enregistrer={async () => { await Clients.modifierFiche(id, versRoute(extrait(saisie, CHAMPS_IDENTITE)) as never); await terminer(); }}
             saisie={<><ChampsEssentiels saisie={saisie} changer={changer} prefixe="fiche" focus /><ChampsCoordonnees saisie={saisie} changer={changer} prefixe="fiche" /></>}
             lecture={(
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2.5">
                 <Ligne libelle="Civilité" valeur={fiche.civilite} />
                 <Ligne libelle="Date de naissance" valeur={fiche.dateNaissance ? dateCourte(`${fiche.dateNaissance}T12:00:00Z`) : null} />
                 <Ligne libelle="Profession" valeur={fiche.profession} />
                 <Ligne libelle="Adresse" valeur={[fiche.adresse, [fiche.codePostal, fiche.ville].filter(Boolean).join(' '), fiche.pays].filter(Boolean).join(', ')} />
+                <Completer onCompleter={() => setEdition('identite')} manque={[
+                  !fiche.civilite && 'civilité', !fiche.dateNaissance && 'naissance', !fiche.profession && 'profession',
+                  !(fiche.adresse || fiche.ville) && 'adresse',
+                ]} />
               </div>
             )}
           />
@@ -215,15 +240,16 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               </>
             )}
             lecture={(
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2.5">
                 <Ligne libelle="Origine" valeur={fiche.origine} />
                 <Ligne libelle="Mot-clé" valeur={fiche.motCleGoogleAds} />
                 <Ligne libelle="Venu par un professionnel" valeur={fiche.viaProfessionnel?.nom} />
-                <Ligne libelle="Venu par" valeur={fiche.viaClient && <a className="underline-offset-[3px] hover:underline" href={`#clients/${fiche.viaClient.id}`}>{nomComplet(fiche.viaClient)}</a>} />
-                <Ligne libelle="Couple" valeur={fiche.couple && <a className="underline-offset-[3px] hover:underline" href={`#clients/${fiche.couple.id}`}>{nomComplet(fiche.couple)}</a>} />
+                <Ligne libelle="Venu par" valeur={fiche.viaClient && <a className={LIEN} href={`#clients/${fiche.viaClient.id}`}>{nomComplet(fiche.viaClient)}</a>} />
+                <Ligne libelle="Couple" valeur={fiche.couple && <a className={LIEN} href={`#clients/${fiche.couple.id}`}>{nomComplet(fiche.couple)}</a>} />
                 <Ligne libelle="A recommandé" valeur={fiche.aRecommande.length ? fiche.aRecommande.map((r, i) => (
-                  <React.Fragment key={r.id}>{i > 0 && ', '}<a className="underline-offset-[3px] hover:underline" href={`#clients/${r.id}`}>{nomComplet(r)}</a></React.Fragment>
+                  <React.Fragment key={r.id}>{i > 0 && ', '}<a className={LIEN} href={`#clients/${r.id}`}>{nomComplet(r)}</a></React.Fragment>
                 )) : null} />
+                <Completer onCompleter={() => setEdition('provenance')} manque={[!fiche.origine && 'origine']} />
               </div>
             )}
           />
@@ -250,16 +276,16 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               </div>
             )}
             lecture={confiance ? (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2.5">
                 <Ligne libelle="Nom" valeur={[confiance.civilite, confiance.prenom, confiance.nom].filter(Boolean).join(' ')} />
                 <Ligne libelle="Téléphone" valeur={confiance.telephone} />
                 <Ligne libelle="E-mail" valeur={confiance.email} />
               </div>
-            ) : <p className="text-second">Aucune personne de confiance.</p>}
+            ) : <Bouton taille="petit" intention="souligne" className="self-start !px-0" onClick={() => { setSaisieConfiance(confianceDe(confiance)); setEdition('confiance'); }}>Compléter : la personne de confiance</Bouton>}
           />
 
           <CarteModifiable
-            titre="Notes"
+            titre="Notes de la fiche"
             enEdition={edition === 'notes'}
             modifiee={saisieNote !== (note?.texte ?? '')}
             onModifier={() => setEdition('notes')}
@@ -271,61 +297,63 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               setEdition(null);
             }}
             saisie={<ZoneTexte id="fiche-note" label="Note" rows={8} value={saisieNote} autoFocus onChange={(e) => setSaisieNote(e.target.value)} />}
-            lecture={note?.texte ? <p className="whitespace-pre-wrap">{note.texte}</p> : <p className="text-second">Aucune note.</p>}
+            lecture={note?.texte ? <p className="whitespace-pre-wrap">{note.texte}</p> : <Secondaire>Aucune note.</Secondaire>}
           />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
           <Carte as="section" className="overflow-hidden">
-            <div className="flex items-baseline justify-between gap-3 px-4 py-3">
-              <TitreCarte as="h3">Séances</TitreCarte>
-              <span className="text-secondaire text-second">{realisees} réalisée{realisees > 1 ? 's' : ''} · {aVenir} à venir</span>
+            <div className="flex items-baseline justify-between gap-3 px-5 pb-1.5 pt-3.5">
+              <Etiquette as="h2">Séances</Etiquette>
+              <Secondaire>{realisees} réalisée{realisees > 1 ? 's' : ''} · {aVenir} à venir</Secondaire>
             </div>
-            {fiche.seances.length === 0 ? <p className="border-t border-bord px-4 py-3 text-second">Aucune séance.</p> : (
-              <ul>
-                {seancesVues.map((x) => (
-                  <li key={x.id} className="border-t border-bord">
-                    <a href={`#agenda/${encodeURIComponent(x.id)}`} className="block px-4 py-2.5 hover:bg-survole outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marque">
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className="font-semibold">
-                          {x.numero !== null && <span className="tabular-nums">Séance {x.numero} · </span>}
-                          <span className="first-letter:uppercase inline-block">{jourEnLettres(x.debut)}</span>, {heure(x.debut)}
-                        </span>
-                        <span className="text-secondaire text-second tabular-nums">{montantEnClair(x.montantCentimes)}</span>
-                      </span>
-                      <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <span className="text-secondaire text-second">{x.type?.libelle ?? x.libelleImporte ?? 'Type inconnu'}{x.mode && ` · ${MODES[x.mode].toLowerCase()}`}</span>
-                        {x.statut === 'realisee' ? <PastilleCharte ton="succes">Réalisée</PastilleCharte>
-                          : x.statut === 'annulee' ? <PastilleCharte ton="erreur">Annulée</PastilleCharte>
-                            : x.statut === 'absent' ? <PastilleCharte ton="erreur">Absente</PastilleCharte>
-                              : <PastilleCharte>Prévue</PastilleCharte>}
-                        {x.etatPaiement === 'payee' ? <PastilleCharte ton="succes">Payée</PastilleCharte>
-                          : x.etatPaiement === 'offerte' ? <PastilleCharte signe="">Offerte</PastilleCharte>
-                            : x.etatPaiement === 'annulee' || x.statut === 'annulee' || (x.statut === 'prevue' && Date.parse(x.debut) > Date.now()) ? null
-                              : <PastilleCharte ton={x.statut === 'absent' ? 'erreur' : 'alerte'}>{PAIEMENTS[x.etatPaiement].libelle}</PastilleCharte>}
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+            {fiche.seances.length === 0 ? <Secondaire className="px-5 pb-3">Aucune séance.</Secondaire> : (
+              [{ nom: 'À venir', seances: seancesAVenir }, { nom: 'Passées', seances: passeesVues }].filter((g) => g.seances.length > 0).map((g) => (
+                <div key={g.nom}>
+                  <p className="px-5 pb-1 pt-2.5 text-secondaire font-medium text-second">{g.nom}</p>
+                  <ul>
+                    {g.seances.map((x) => (
+                      <li key={x.id}>
+                        {/* Une séance se lit par sa date ; plus de « Séance 6 » dans le titre (§3). */}
+                        <a href={`#agenda/${encodeURIComponent(x.id)}`} className="flex items-center gap-3 px-5 py-2 outline-none hover:bg-survole focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marque">
+                          <span className="flex min-w-38 flex-1 flex-col">
+                            <span className="whitespace-nowrap font-semibold tabular-nums">{jourCourt(x.debut)} · {heureListe(x.debut)}</span>
+                            <Secondaire className="truncate">{[x.type?.libelle ?? x.libelleImporte ?? 'Type inconnu', x.mode && MODES[x.mode].toLowerCase(), dureeEnClair(x.dureeMin)].filter(Boolean).join(' · ')}</Secondaire>
+                          </span>
+                          <span className="flex min-w-0 flex-wrap justify-end gap-1.5">
+                            {x.statut === 'realisee' ? <PastilleCharte ton="succes">Réalisée</PastilleCharte>
+                              : x.statut === 'annulee' ? <PastilleCharte signe="×">Annulée</PastilleCharte>
+                                : x.statut === 'absent' ? <PastilleCharte ton="erreur">Absente</PastilleCharte>
+                                  : <PastilleCharte signe="○">Prévue</PastilleCharte>}
+                            {x.etatPaiement === 'payee' ? <PastilleCharte ton="succes">Payée</PastilleCharte>
+                              : x.etatPaiement === 'offerte' || x.etatPaiement === 'annulee' || x.statut === 'annulee' || (x.statut === 'prevue' && Date.parse(x.debut) > Date.now()) ? null
+                                : <PastilleCharte ton={x.statut === 'absent' ? 'erreur' : 'alerte'}>{PAIEMENTS[x.etatPaiement].libelle}</PastilleCharte>}
+                          </span>
+                          <Secondaire className="w-14 flex-none text-right tabular-nums">{x.etatPaiement === 'offerte' ? 'offerte' : montantEnClair(x.montantCentimes)}</Secondaire>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
             )}
-            {fiche.seances.length > 5 && !toutesLesSeances && (
-              <div className="border-t border-bord px-4 py-2">
-                <Bouton taille="petit" intention="souligne" onClick={() => setToutesLesSeances(true)}>Voir les {fiche.seances.length - 5} séances plus anciennes</Bouton>
+            {passees.length > 5 && !toutesLesSeances && (
+              <div className="border-t border-bord px-3 py-2">
+                <Bouton taille="petit" intention="souligne" onClick={() => setToutesLesSeances(true)}>Voir les {passees.length - 5} séances plus anciennes</Bouton>
               </div>
             )}
           </Carte>
 
           <Carte as="section" className="overflow-hidden">
-            <div className="px-4 py-3"><TitreCarte as="h3">Inscriptions aux stages</TitreCarte></div>
-            {fiche.inscriptions.length === 0 ? <p className="border-t border-bord px-4 py-3 text-second">Aucune inscription.</p> : (
-              <ul>
+            <div className="px-5 pb-1.5 pt-3.5"><Etiquette as="h2">Stages</Etiquette></div>
+            {fiche.inscriptions.length === 0 ? <Secondaire className="px-5 pb-3">Aucune inscription.</Secondaire> : (
+              <ul className="pb-1.5">
                 {fiche.inscriptions.map((i) => (
-                  <li key={i.id} className="flex items-center justify-between gap-2 border-t border-bord px-4 py-2.5">
-                    <a className={`underline-offset-[3px] hover:underline ${FOCUS}`} href={`#stages/${encodeURIComponent(i.evenement.id)}`}>
-                      {i.evenement.nom} · {dateCourte(i.evenement.debut)}
+                  <li key={i.id}>
+                    <a className="flex items-center gap-3 px-5 py-2 outline-none hover:bg-survole focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marque" href={`#stages/${encodeURIComponent(i.evenement.id)}`}>
+                      <span className="flex min-w-0 flex-1 flex-col"><span className="font-semibold">{i.evenement.nom}</span><Secondaire>{jourEnLettres(i.evenement.debut)}</Secondaire></span>
+                      <PastilleCharte ton={TONS[INSCRIPTIONS[i.statut].ton]}>{INSCRIPTIONS[i.statut].libelle}</PastilleCharte>
                     </a>
-                    <PastilleCharte ton={TONS[INSCRIPTIONS[i.statut].ton]}>{INSCRIPTIONS[i.statut].libelle}</PastilleCharte>
                   </li>
                 ))}
               </ul>
@@ -333,18 +361,21 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
           </Carte>
 
           <Carte as="section" className="overflow-hidden">
-            <div className="px-4 py-3"><TitreCarte as="h3">Questionnaires de santé</TitreCarte></div>
-            {fiche.listeQuestionnaires.length === 0 ? <p className="border-t border-bord px-4 py-3 text-second">Aucun questionnaire.</p> : (
-              <ul>
+            <div className="px-5 pb-1.5 pt-3.5"><Etiquette as="h2">Questionnaires de santé</Etiquette></div>
+            {fiche.listeQuestionnaires.length === 0 ? <Secondaire className="px-5 pb-3">Aucun questionnaire.</Secondaire> : (
+              <ul className="pb-1.5">
                 {fiche.listeQuestionnaires.map((q) => (
-                  <li key={q.id} className="flex items-center justify-between gap-2 border-t border-bord px-4 py-2.5">
-                    <a href={`#clients/questionnaire/${encodeURIComponent(q.id)}`} className={`underline-offset-[3px] hover:underline ${FOCUS}`}>
-                      Reçu le {dateCourte(q.date)}{q.version && <span className="text-secondaire text-second"> · {q.version === 'complet' ? 'complet' : 'suivi'}</span>}
+                  <li key={q.id}>
+                    <a href={`#clients/questionnaire/${encodeURIComponent(q.id)}`} className="flex items-center gap-3 px-5 py-2 outline-none hover:bg-survole focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marque">
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="font-semibold">Reçu le {dateCourte(q.date)}</span>
+                        {q.version && <Secondaire>version {q.version === 'complet' ? 'complète' : 'de suivi'}</Secondaire>}
+                      </span>
+                      <span className="flex gap-1.5">
+                        <PastilleCharte ton={q.relu ? 'succes' : 'alerte'}>{q.relu ? 'Relu' : 'Non relu'}</PastilleCharte>
+                        {q.aRevoir && <PastilleCharte ton="erreur">À revoir</PastilleCharte>}
+                      </span>
                     </a>
-                    <span className="flex gap-1.5">
-                      <PastilleCharte ton={q.relu ? 'succes' : 'alerte'}>{q.relu ? 'Relu' : 'Non relu'}</PastilleCharte>
-                      {q.aRevoir && <PastilleCharte ton="erreur">À revoir</PastilleCharte>}
-                    </span>
                   </li>
                 ))}
               </ul>
