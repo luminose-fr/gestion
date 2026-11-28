@@ -26,7 +26,10 @@ import {
     AI_ACTION_CATALOG, ATTENDU_FAMILLES, FAMILLES_MODELE, sortieDeFamille,
     profilerModele, normaliserNomModele,
 } from '@luminose/editorial';
-import { SettingsSection, grouperParAdaptateur } from './sections';
+import { SettingsSection, grouperParAdaptateur, SETTINGS_SECTIONS, settingsSectionLabel, settingsSectionSousTitre } from './sections';
+
+/** Les sections qui se lisent comme un formulaire : la pratique et la console. */
+const ETROITES: SettingsSection[] = SETTINGS_SECTIONS.filter((s) => s.groupe !== 'Rédaction IA').map((s) => s.id);
 import { propositionsAVoir } from '../../services/catalogueModeles';
 import { Bouton, Carte, CLASSES_CHAMP, ControleSegmente, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
 
@@ -913,7 +916,15 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
     return (
         <div className="flex-1 overflow-y-auto">
-            <div className={ecran('liste')}>
+            {/* Pratique et Console : une zone de travail de 770 px au plus, alignée sur la liste
+                (retours du 28/11, §2.2). La rédaction IA garde la largeur de ses catalogues. */}
+            <div className={ETROITES.includes(section) ? 'flex max-w-[770px] flex-col gap-5 px-4 py-5 md:px-10 md:py-6' : ecran('liste')}>
+                {section !== 'personas' && (
+                    <header className={ETROITES.includes(section) ? '' : 'mb-5'}>
+                        <h2 className="font-titre text-ecran-tel font-medium text-texte">{settingsSectionLabel(section)}</h2>
+                        <p className="font-charte text-secondaire text-second">{settingsSectionSousTitre(section)}</p>
+                    </header>
+                )}
 
                 {/* ─── MODÈLES IA — catalogue ─── */}
                 {section === 'models' && !isInModelEditor && !isInExplorer && (
@@ -1969,10 +1980,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 
                 {/* Réglages → Pratique (refonte, lot 9) : la réception du site et ses limites, puis la réservation en trois parties. */}
                 {section === 'reception' && (
-                    <div className="space-y-4">
-                        <BaseClients partie="reception" />
-                        <ReservationReglages partie="gardefous" />
-                    </div>
+                    <BaseClients partie="reception"><ReservationReglages partie="gardefous" /></BaseClients>
                 )}
                 {section === 'types' && <ReservationReglages partie="types" />}
                 {section === 'horaires' && <ReservationReglages partie="horaires" />}

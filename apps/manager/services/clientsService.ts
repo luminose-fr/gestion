@@ -133,6 +133,7 @@ export const supprimerProfessionnel = (proId: string) => appel<{ id: string }>(`
 
 export const lireReservation = () => appel<Reservation>('/reservation');
 export const modifierType = (typeId: string, champs: ChampsType) => appel<{ id: string }>(`/reservation/types/${id(typeId)}`, 'PATCH', champs);
+export const ordonnerTypes = (ids: string[]) => appel<{ types: number }>('/reservation/types/ordre', 'PUT', { ids });
 export const remplacerSemaine = (plages: ({ jour: number } & PlageHoraire)[]) =>
   appel<{ plages: number }>('/reservation/semaine', 'PUT', { plages });
 /** Une liste vide ferme la journée. */

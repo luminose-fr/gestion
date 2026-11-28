@@ -183,4 +183,4 @@ export type Reservation = {
   reglages: Record<string, number>;
 };
 export type ChampsType = Partial<Pick<TypeReservation,
-  'dureeMin' | 'margeApresMin' | 'pasMin' | 'lieu' | 'montantCentimes' | 'fenetreDebutH' | 'fenetreFinH' | 'reservableEnLigne' | 'actif' | 'ordre'>>;
+  'libelle' | 'dureeMin' | 'margeApresMin' | 'pasMin' | 'lieu' | 'montantCentimes' | 'fenetreDebutH' | 'fenetreFinH' | 'reservableEnLigne' | 'actif' | 'ordre'>>;

@@ -9,7 +9,7 @@ import { jourDeParis } from '@luminose/pratique';
 import { baseClients } from '../clients/base';
 import { Refus } from '../refus';
 import {
-  lireReservation, modifierType, remplacerSemaine, poserDate, retirerDate, modifierReglages, REGLAGES_CONNUS,
+  lireReservation, modifierType, ordonnerTypes, remplacerSemaine, poserDate, retirerDate, modifierReglages, REGLAGES_CONNUS,
   type CleReglage,
 } from '../clients/reservation';
 import { famille, corps, valider, dateSimple, heure } from './clients-commun';
@@ -42,6 +42,7 @@ reservation.get('/', async (c) => {
 });
 
 const ModificationType = z.strictObject({
+  libelle: z.string().trim().min(1).max(120).optional(),
   dureeMin: z.number().int().min(5).max(24 * 60).optional(),
   margeApresMin: z.number().int().min(0).max(24 * 60).optional(),
   pasMin: z.number().int().min(5).max(24 * 60).optional(),
@@ -62,6 +63,13 @@ reservation.patch('/types/:id', async (c) => {
   }
   if (!(await modifierType(baseClients(c.env), c.req.param('id'), champs, Date.now()))) throw new Refus('Ce type n’existe pas.', 404);
   return c.json({ id: c.req.param('id') });
+});
+
+// Avant `/types/:id` dans la lecture, sans conflit : la méthode diffère (PUT).
+reservation.put('/types/ordre', async (c) => {
+  const { ids } = await corps(c, z.strictObject({ ids: z.array(z.string().min(1).max(64)).min(1).max(40) }));
+  await ordonnerTypes(baseClients(c.env), ids, Date.now());
+  return c.json({ types: ids.length });
 });
 
 const plage = z.strictObject({ debut: heure, fin: heure });

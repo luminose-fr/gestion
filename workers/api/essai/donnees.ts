@@ -58,8 +58,8 @@ export const EFFECTIFS = {
   seances: 12,
   // Un « créée » par séance, et l'annulation.
   seances_mouvements: 13,
-  // Une place libre ; complet ; inscription ailleurs.
-  evenements: 3,
+  // Une place libre ; complet ; inscription ailleurs ; les deux stages du site de recette.
+  evenements: 5,
   inscriptions: 6,
   paiements: 2,
   // Les tables sensibles : quelques lignes, manifestement factices.
@@ -236,6 +236,17 @@ export const jeuDEssai = (dateReference: string): JeuDEssai => {
     evenement('essai-evenement-une-place', 'Journée d’essai — une place libre', 4, 9000, null, 0),
     evenement('essai-evenement-complet', 'Journée d’essai — complète', 2, 9000, null, 1),
     evenement('essai-evenement-ailleurs', 'Journée d’essai — inscription ailleurs', 12, null, 'https://example.org/inscription-essai', 2),
+    // Les deux stages des parcours d'inscription du site de recette (recette.luminose.fr) :
+    // leurs identifiants et leurs dates sont ceux que ses pages appellent, ils ne bougent pas.
+    {
+      ...evenement('essai-stage-breathwork', 'Breathwork holotropique', 6, 16000, null, 0),
+      debut: aParis(lireDate('2027-01-30'), '09:30'), fin: aParis(lireDate('2027-01-30'), '18:30'), ville: 'Villefranche-de-Lauragais',
+    },
+    {
+      ...evenement('essai-stage-meditation', 'Méditation', 8, 3000, null, 0),
+      type: 'meditation', questionnaire_requis: 0,
+      debut: aParis(lireDate('2027-01-17'), '09:30'), fin: aParis(lireDate('2027-01-17'), '11:30'), ville: 'Villefranche-de-Lauragais',
+    },
   ];
 
   const inscription = (id: string, evenementId: string, client: string, statut: string, reference: string, champs: Ligne = {}): Ligne => ({

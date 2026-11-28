@@ -38,13 +38,13 @@ export const lireReservation = async (db: D1Database, aPartirDu: string) => {
 };
 
 export type ChampsType = Partial<{
-  dureeMin: number; margeApresMin: number; pasMin: number; lieu: 'sur_place' | 'visio' | 'visio_ou_appel';
+  libelle: string; dureeMin: number; margeApresMin: number; pasMin: number; lieu: 'sur_place' | 'visio' | 'visio_ou_appel';
   montantCentimes: number; fenetreDebutH: number; fenetreFinH: number;
   reservableEnLigne: boolean; actif: boolean; ordre: number;
 }>;
 
 const COLONNES_TYPE: Record<keyof ChampsType, string> = {
-  dureeMin: 'duree_min', margeApresMin: 'marge_apres_min', pasMin: 'pas_min', lieu: 'lieu',
+  libelle: 'libelle', dureeMin: 'duree_min', margeApresMin: 'marge_apres_min', pasMin: 'pas_min', lieu: 'lieu',
   montantCentimes: 'montant_centimes', fenetreDebutH: 'fenetre_debut_h', fenetreFinH: 'fenetre_fin_h',
   reservableEnLigne: 'reservable_en_ligne', actif: 'actif', ordre: 'ordre',
 };
@@ -62,6 +62,16 @@ export const modifierType = async (db: D1Database, id: string, champs: ChampsTyp
   const r = await db.prepare(`UPDATE types_seance SET ${[...sets, 'updated_at = ?2'].join(', ')} WHERE id = ?1 AND deleted_at IS NULL`)
     .bind(...valeurs).run();
   return r.meta.changes === 1;
+};
+
+/**
+ * L'ordre des types, en un lot (retours du 28/11, §2.6 : on glisse une ligne).
+ * Le rang suit la liste reçue, de 10 en 10 ; un type absent de la liste garde le sien.
+ */
+export const ordonnerTypes = async (db: D1Database, ids: string[], maintenant: number) => {
+  if (ids.length === 0) return;
+  await db.batch(ids.map((id, i) => db.prepare('UPDATE types_seance SET ordre = ?2, updated_at = ?3 WHERE id = ?1 AND deleted_at IS NULL')
+    .bind(id, (i + 1) * 10, maintenant)));
 };
 
 export type PlageJour = { jour: number; debut: string; fin: string };

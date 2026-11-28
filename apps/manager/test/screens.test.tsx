@@ -1004,8 +1004,9 @@ describe('la porte publique, dans Réglages (SPEC §14.5)', () => {
     const appels = brancher();
     const { findByText, getByText, container } = render(<PortePublique />);
     await findByText('Ouverte');
-    expect(container.textContent).toContain('3 commandes sur 24 h · 2 ordres prévus · 1 confié à Make · 0 en échec · 4 alertes ouvertes');
-    fireEvent.click(getByText('Couper'));
+    // Les cinq tuiles des dernières 24 heures (retours du 28/11, §2.5).
+    for (const t of ['3commandes reçues', '2ordres prévus', '1confiés à Make', '0en échec', '4alertes ouvertes']) expect(container.textContent).toContain(t);
+    fireEvent.click(getByText('Coupée'));
     expect(appels.some((a) => a.methode === 'PUT')).toBe(false);
     fireEvent.click(getByText('Couper la réception'));
     await findByText('Coupée');
@@ -1019,7 +1020,7 @@ describe('la porte publique, dans Réglages (SPEC §14.5)', () => {
     const appels = brancher({ ...ETAT, ouverte: false });
     const { findByText, getByText } = render(<PortePublique />);
     await findByText('Coupée');
-    fireEvent.click(getByText('Rouvrir'));
+    fireEvent.click(getByText('Ouverte'));
     await findByText('Ouverte');
     expect(appels.find((a) => a.methode === 'PUT')?.corps).toBe('{"ouverte":true}');
   });
@@ -3095,7 +3096,10 @@ describe('la console des clients — tranche C2b', () => {
     ['Évènements', () => <ListeEvenements />, 'Journée d’essai'],
     ['Un évènement', () => <EvenementView id="ev-1" />, 'Inscrits'],
     ['Professionnels', () => <ProfessionnelsView />, 'Cabinet d’essai'],
-    ['Réglages → Réservation', () => <ReservationReglages />, 'La semaine type'],
+    ['Réglages → Types', () => <ReservationReglages partie="types" />, 'Modifier'],
+    ['Réglages → Horaires', () => <ReservationReglages partie="horaires" />, 'La semaine type'],
+    ['Réglages → Règles', () => <ReservationReglages partie="regles" />, 'Un SMS de rappel part'],
+    ['Réglages → Limites', () => <ReservationReglages partie="gardefous" />, 'Limites de sécurité'],
   ];
 
   it.each(ECRANS)('%s : chargé', async (_, ecranRendu, attendu) => {

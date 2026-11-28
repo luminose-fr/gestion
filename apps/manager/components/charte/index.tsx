@@ -176,7 +176,12 @@ export const Choix = React.forwardRef<HTMLSelectElement, BaseChamp & React.Selec
     return (
       <div className={className}>
         <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-medium text-second', masquerLabel && 'sr-only')}>{label}</label>
-        <select ref={ref} id={ident} className={cx(CLASSES_CONTROLE, 'h-11 md:h-10 pr-8')} {...reste}>{children}</select>
+        {/* Une flèche dessinée, pas celle du système (retours du 28/11, §2.3). */}
+        <span className="relative block">
+          <select ref={ref} id={ident} className={cx(CLASSES_CONTROLE, 'h-11 md:h-10 cursor-pointer appearance-none pr-9')} {...reste}>{children}</select>
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+            className="pointer-events-none absolute right-3 top-1/2 -mt-1.5 text-second"><path d="M3 4.5l3 3 3-3" /></svg>
+        </span>
         {aide && <p className="mt-1 font-charte text-secondaire text-second">{aide}</p>}
       </div>
     );

@@ -18,7 +18,7 @@ import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings
 import { BLOCS, CORPUS_SECTIONS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
 import { fetchDocumentsCorpus, fetchInbox } from './services/apiService';
 import {
-  SettingsSection, isSettingsSection, sectionDAvant, settingsSectionLabel, settingsSectionSousTitre,
+  SettingsSection, isSettingsSection, sectionDAvant,
   grouperParAdaptateur,
 } from './components/Settings/sections';
 import AnalysisModal from './components/AnalysisModal';
@@ -36,6 +36,7 @@ import { Recherche, type Resultat } from './components/charte/Recherche';
 import { PRATIQUE, EDITORIAL, AUJOURDHUI } from './components/charte/cadre';
 import { proposerSaisie } from './components/Clients/NouvelleFicheView';
 import { SETTINGS_SECTIONS } from './components/Settings/sections';
+import { peutQuitter } from './lib/garde';
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { SeriePlanView } from './components/Series/SeriePlanView';
 import { ConversationsView, type FiltreGeste, type DernierMot } from './components/Contenus/ConversationsView';
@@ -366,7 +367,14 @@ function App() {
   };
 
   useEffect(() => {
+      // L'adresse acceptée en dernier : celle qu'on remet si l'on refuse de quitter
+      // un écran aux modifications non enregistrées (retours du 28/11, §2.4).
+      let adresseAcceptee = window.location.hash;
       const handleHashChange = () => {
+          if (window.location.hash !== adresseAcceptee && !peutQuitter()) {
+              window.history.replaceState(null, '', adresseAcceptee || window.location.pathname);
+              return;
+          }
           // Une adresse d'avant la v2.19 est remplacée sans entrée d'historique :
           // « retour » ne doit pas y ramener.
           const remplacee = adresseRemplacee();
@@ -390,6 +398,7 @@ function App() {
           setEditingItemId(itemId);
           setEditingSerieId(serieId);
           setCurrentEditorStep(step);
+          adresseAcceptee = window.location.hash;
       };
       
       handleHashChange();
@@ -1363,16 +1372,11 @@ function App() {
                   {currentSpace === 'professionnels' && 'Professionnels'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
                   {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
-                  {currentSpace === 'settings' && settingsSectionLabel(currentSettingsSection)}
+                  {currentSpace === 'settings' && 'Réglages'}
               </TitreCharte>
               {currentSpace === 'corpus' && (
                   <p className="hidden lg:block text-xs text-second truncate">
                       {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
-                  </p>
-              )}
-              {currentSpace === 'settings' && (
-                  <p className="hidden lg:block text-xs text-second truncate">
-                      {settingsSectionSousTitre(currentSettingsSection)}
                   </p>
               )}
             </div>

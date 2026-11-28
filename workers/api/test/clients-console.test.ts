@@ -739,6 +739,17 @@ describe('Les réglages de la réservation', () => {
     expect((await appeler('PATCH', `/api/reservation/types/${TYPES.seance}`, { fenetreFinH: 100 })).status).toBe(400);
   });
 
+  it('renomme un type, et range les types en un lot (retours du 28/11, §2.6)', async () => {
+    expect((await appeler('PATCH', `/api/reservation/types/${TYPES.seance}`, { libelle: 'Séance individuelle' })).status).toBe(200);
+    expect((await appeler('PATCH', `/api/reservation/types/${TYPES.seance}`, { libelle: '  ' })).status).toBe(400);
+    const avant = (await json(await appeler('GET', '/api/reservation'))).types as { id: string; libelle: string }[];
+    expect(avant.find((t) => t.id === TYPES.seance)?.libelle).toBe('Séance individuelle');
+    const inverse = avant.map((t) => t.id).reverse();
+    expect((await appeler('PUT', '/api/reservation/types/ordre', { ids: inverse })).status).toBe(200);
+    expect(((await json(await appeler('GET', '/api/reservation'))).types as { id: string }[]).map((t) => t.id)).toEqual(inverse);
+    expect((await appeler('PUT', '/api/reservation/types/ordre', { ids: [] })).status).toBe(400);
+  });
+
   it('remplace la semaine ; refuse des plages qui se chevauchent', async () => {
     expect((await appeler('PUT', '/api/reservation/semaine', { plages: [{ jour: 2, debut: '09:00', fin: '12:00' }, { jour: 2, debut: '11:00', fin: '13:00' }] })).status).toBe(400);
     expect((await appeler('PUT', '/api/reservation/semaine', { plages: [{ jour: 2, debut: '09:00', fin: '12:00' }] })).status).toBe(200);

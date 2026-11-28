@@ -426,14 +426,15 @@ export function ListeSecondNiveau<T extends string>({ entrees, actif, onChoisir,
   return (
     <nav aria-label={libelle} className={cx(
       'flex flex-none gap-1 overflow-x-auto border-b border-bord bg-fond px-3 py-2 font-charte [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-      'md:w-[220px] md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-b-0 md:border-r md:px-2 md:py-4',
+      'md:w-[216px] md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-b-0 md:border-r md:px-2 md:py-4',
     )}>
-      <Etiquette as="h2" className="hidden px-3 pb-2 md:block">{libelle}</Etiquette>
+      {/* Groupée, la liste n'a pas de sur-titre : le titre de l'écran le dit déjà (retours du 28/11, §2.1). */}
+      {!entrees.some((e) => e.groupe) && <Etiquette as="h2" className="hidden px-3 pb-2 md:block">{libelle}</Etiquette>}
       {entrees.map((e, i) => {
         const choisi = e.id === actif;
         // Un titre de groupe quand le groupe change — sur le Mac seulement : la rangée de l'iPhone reste une rangée.
         const titreGroupe = e.groupe && e.groupe !== entrees[i - 1]?.groupe
-          ? <Etiquette key={`g-${e.groupe}`} as="h3" className={cx('hidden px-3 pb-1 md:block', i > 0 && 'mt-3')}>{e.groupe}</Etiquette>
+          ? <Etiquette key={`g-${e.groupe}`} as="h3" className={cx('hidden whitespace-nowrap px-3 pb-1 md:block', i > 0 && 'mt-3')}>{e.groupe}</Etiquette>
           : null;
         return (
           <React.Fragment key={e.id}>

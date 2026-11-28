@@ -1,191 +1,374 @@
 /**
- * Réglages → Réservation (SPEC §15.4). Quatre cartes, dans l'ordre où l'on
- * s'en sert : les types de rendez-vous, la semaine type, les dates
- * d'exception à venir, et les réglages.
+ * Réglages → Pratique (SPEC §15.4 ; refonte, lot 9 ; retours du 28/11/2026,
+ * §2.2 à §2.6). Les types de rendez-vous, la semaine type et les dates
+ * d'exception, les règles, et les limites de sécurité de la réception.
  *
- * Refaite le 27/11/2026 sur le retour de Florent (« semble fonctionner mais
- * UI merdique ») : un type se lit en une ligne et ne s'ouvre en formulaire
- * qu'à « Modifier » ; la fenêtre de réservation se règle en jours, pas en
- * heures ; un jour sans plage dit « Fermé » ; les réglages sont groupés par
- * usage, les garde-fous techniques repliés. Les routes, elles, n'ont pas
- * changé : des heures et des minutes, converties ici.
+ * Une règle s'écrit en phrase, le champ dans la phrase, et ses valeurs sont
+ * celles d'une liste courte ; une valeur enregistrée hors de la liste reste
+ * affichée et conservée (§2.3). Rien ne s'enregistre en haut de carte : une
+ * barre apparaît au bas de l'écran quand quelque chose a changé. Les routes,
+ * elles, n'ont pas changé d'unité : des heures et des minutes.
  *
  * Ce qui change ici change ce que la réservation en ligne proposera, rien de ce
  * qui est déjà posé.
  */
 import React, { useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { Bouton, Carte, Champ, CLASSES_SURTITRE, Etiquette, TitreSection } from '../ui';
+import { Bouton, Carte, Champ, Etiquette, Pastille, Secondaire, TitreCarte, FOCUS } from '../charte';
+import { BarreEnregistrer, ChampSuffixe, Compteur, ListeValeurs, Phrase, Positions, type OptionValeur } from '../charte/reglage';
 import * as Clients from '../../services/clientsService';
 import type { PlageHoraire, Reservation, TypeReservation } from '../../types-clients';
-import { Avis, centimesDepuis, CLASSES_SELECT, EtatLecture, euros, jourEnLettres, messageDe, Pastille, useLecture, Vide } from '../Clients/commun';
+import { delai, duree, montant as montantEnClair } from '../../lib/format';
+import { useGardeQuitter } from '../../lib/garde';
+import { centimesDepuis, EtatLecture, jourEnLettres, messageDe, useLecture } from '../Clients/commun';
 
-const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-const LIEUX: Record<TypeReservation['lieu'], string> = { sur_place: 'Sur place', visio: 'En visio', visio_ou_appel: 'Visio ou téléphone' };
-const NON_ENREGISTRE = <span className="text-alerte">Modifications non enregistrées.</span>;
+const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
-/** Les réglages, par usage. Une clé inconnue de cette liste va dans les garde-fous, sous son nom. */
-const GROUPES: { titre: string; replie?: boolean; reglages: Record<string, { libelle: string; unite: string }> }[] = [
-  {
-    titre: 'Rappels',
-    reglages: {
-      rappel_email_avant_h: { libelle: 'Rappel par e-mail', unite: 'h avant' },
-      rappel_sms_avant_h: { libelle: 'Rappel par SMS', unite: 'h avant' },
-    },
-  },
-  {
-    titre: 'Retenue d’une place, en attendant le paiement',
-    reglages: {
-      retenue_carte_h: { libelle: 'Par carte', unite: 'h' },
-      retenue_virement_h: { libelle: 'Par virement', unite: 'h' },
-    },
-  },
-  {
-    titre: 'Liste d’attente',
-    reglages: {
-      liste_attente_creneau_min_h: { libelle: 'Un créneau libéré est proposé s’il commence dans', unite: 'h ou plus' },
-      liste_attente_seance_min_h: { libelle: 'Une personne est prévenue si sa séance est dans', unite: 'h ou plus' },
-      liste_attente_personnes_max: { libelle: 'Personnes prévenues, au plus', unite: 'personnes' },
-    },
-  },
-  {
-    titre: 'Garde-fous techniques',
-    replie: true,
-    reglages: {
-      commandes_questionnaire_max_jour: { libelle: 'Questionnaires acceptés', unite: 'par 24 h' },
-      commandes_reservation_max_jour: { libelle: 'Réservations acceptées', unite: 'par 24 h' },
-      emails_max_jour: { libelle: 'E-mails confiés à Make', unite: 'par 24 h' },
-      recus_garde_h: { libelle: 'Garde des reçus de commande', unite: 'h' },
-      ordre_relance_min: { libelle: 'Relance d’un ordre non confirmé', unite: 'min' },
-      ordre_tentatives_max: { libelle: 'Tentatives d’un ordre avant l’échec', unite: 'tentatives' },
-    },
-  },
-];
+// ─── Les listes de valeurs (§2.3) ───────────────────────────────────────────
+
+const O = (...o: OptionValeur[]) => o;
+const OPTIONS = {
+  rappel: O([0, 'pas de rappel'], [12, '12 heures'], [24, '1 jour'], [48, '2 jours'], [72, '3 jours'], [168, '1 semaine']),
+  carte: O([1, '1 heure'], [2, '2 heures'], [6, '6 heures'], [12, '12 heures'], [24, '1 jour']),
+  virement: O([24, '1 jour'], [48, '2 jours'], [72, '3 jours'], [120, '5 jours'], [168, '7 jours'], [336, '14 jours']),
+  attente: O([12, '12 heures'], [24, '1 jour'], [48, '2 jours'], [72, '3 jours'], [168, '1 semaine']),
+  relance: O([5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min'], [60, '1 h']),
+  garde: O([168, '7 jours'], [336, '14 jours'], [720, '30 jours'], [2160, '90 jours']),
+  duree: O([20, '20 min'], [30, '30 min'], [45, '45 min'], [60, '1 h'], [75, '1 h 15'], [90, '1 h 30'], [105, '1 h 45'], [120, '2 h'], [150, '2 h 30'], [180, '3 h']),
+  marge: O([0, 'aucun'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']),
+  pas: O([15, '15 min'], [20, '20 min'], [30, '30 min'], [45, '45 min'], [60, '1 h']),
+  delaiMin: O([2, '2 heures'], [6, '6 heures'], [12, '12 heures'], [24, '1 jour'], [48, '2 jours'], [168, '1 semaine'], [336, '2 semaines'], [504, '3 semaines']),
+  horizon: O([720, '1 mois'], [1464, '2 mois'], [2184, '3 mois'], [4392, '6 mois'], [8760, '1 an']),
+};
+const enHeures = (h: number) => delai(h);
+const enJoursPleins = (h: number) => delai(h, { retenue: true });
+
+// Un seul libellé par lieu, partout (§2.6 : la liste disait « En visio », le formulaire « Visio ou téléphone »).
+export const LIEUX: Record<TypeReservation['lieu'], string> = { sur_place: 'Sur place', visio: 'En visio', visio_ou_appel: 'Visio ou téléphone' };
+
+// ─── L'état des réglages : ce qui a changé, l'enregistrer, l'annuler ───────
+
+const useReglages = (reservation: Reservation, cles: readonly string[], onEnregistre: () => void) => {
+  const lus = () => Object.fromEntries(cles.map((k) => [k, Number(reservation.reglages[k] ?? 0)]));
+  const [s, setS] = useState<Record<string, number>>(lus);
+  const [refus, setRefus] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+  useEffect(() => { setS(lus()); }, [reservation]);
+  const changes = cles.filter((k) => k in reservation.reglages && s[k] !== Number(reservation.reglages[k]));
+  useGardeQuitter(changes.length > 0);
+  return {
+    valeur: (k: string) => s[k] ?? 0,
+    poser: (k: string) => (v: number) => { setRefus(null); setS((x) => ({ ...x, [k]: v })); },
+    modifie: (k: string) => changes.includes(k),
+    existe: (k: string) => k in reservation.reglages,
+    barre: (
+      <BarreEnregistrer modifications={changes.length} enCours={enCours} refus={refus}
+        onAnnuler={() => { setS(lus()); setRefus(null); }}
+        onEnregistrer={async () => {
+          setEnCours(true);
+          try { await Clients.modifierReglages(Object.fromEntries(changes.map((k) => [k, s[k]]))); onEnregistre(); }
+          catch (e) { setRefus(messageDe(e)); }
+          finally { setEnCours(false); }
+        }} />
+    ),
+  };
+};
+type EtatReglages = ReturnType<typeof useReglages>;
+
+const Liste: React.FC<{ r: EtatReglages; cle: string; libelle: string; options: readonly OptionValeur[]; horsListe?: (v: number) => string }> =
+  ({ r, cle, libelle, options, horsListe = enHeures }) => (
+    <ListeValeurs id={`reglage-${cle}`} libelle={libelle} valeur={r.valeur(cle)} options={options} horsListe={horsListe} onChange={r.poser(cle)} modifie={r.modifie(cle)} />
+  );
+
+/** L'exemple d'un rappel, sur une séance d'un lundi à 9 h. */
+const exempleRappel = (heures: number, lundi: Date) => {
+  if (heures === 0) return null;
+  const d = new Date(lundi.getTime() - heures * 3_600_000);
+  return `${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })} à ${d.getHours()} h`;
+};
+const lundiProchain = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7) + 7);
+  d.setHours(9, 0, 0, 0);
+  return d;
+};
+
+const SectionPhrases: React.FC<{ titre: string; children: React.ReactNode }> = ({ titre, children }) => (
+  <Carte as="section" className="px-5 py-4">
+    <TitreCarte className="mb-1">{titre}</TitreCarte>
+    {children}
+  </Carte>
+);
+
+// ─── Les règles ─────────────────────────────────────────────────────────────
+
+const CLES_REGLES = ['rappel_email_avant_h', 'rappel_sms_avant_h', 'retenue_carte_h', 'retenue_virement_h',
+  'liste_attente_creneau_min_h', 'liste_attente_seance_min_h', 'liste_attente_personnes_max'] as const;
+
+const Regles: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = ({ reservation, onEnregistre }) => {
+  const r = useReglages(reservation, CLES_REGLES, onEnregistre);
+  const lundi = lundiProchain();
+  const exMail = exempleRappel(r.valeur('rappel_email_avant_h'), lundi);
+  const exSms = exempleRappel(r.valeur('rappel_sms_avant_h'), lundi);
+  return (
+    <div className="flex flex-col gap-5">
+      <SectionPhrases titre="Rappels">
+        <Phrase>Un e-mail de rappel part <Liste r={r} cle="rappel_email_avant_h" libelle="Délai du rappel par e-mail" options={OPTIONS.rappel} /> avant la séance.</Phrase>
+        <Phrase>Un SMS de rappel part <Liste r={r} cle="rappel_sms_avant_h" libelle="Délai du rappel par SMS" options={OPTIONS.rappel} /> avant la séance.</Phrase>
+        <Secondaire className="pt-1">
+          Exemple, pour une séance le {lundi.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à 9 h :{' '}
+          {exMail ? `e-mail le ${exMail}` : 'pas d’e-mail'}, {exSms ? `SMS le ${exSms}` : 'pas de SMS'}.
+        </Secondaire>
+      </SectionPhrases>
+      <SectionPhrases titre="Place retenue en attendant le paiement">
+        <Phrase>Par carte, la place reste retenue <Liste r={r} cle="retenue_carte_h" libelle="Place retenue, par carte" options={OPTIONS.carte} />.</Phrase>
+        <Phrase>Par virement, la place reste retenue <Liste r={r} cle="retenue_virement_h" libelle="Place retenue, par virement" options={OPTIONS.virement} horsListe={enJoursPleins} />.</Phrase>
+        <Secondaire className="pt-1">Passé ce délai sans paiement, la place est libérée.</Secondaire>
+      </SectionPhrases>
+      <SectionPhrases titre="Liste d’attente">
+        <Phrase>Un créneau libéré est proposé s’il commence dans <Liste r={r} cle="liste_attente_creneau_min_h" libelle="Délai minimum d’un créneau libéré" options={OPTIONS.attente} /> ou plus.</Phrase>
+        <Phrase>Une personne est prévenue si sa séance est dans <Liste r={r} cle="liste_attente_seance_min_h" libelle="Délai minimum avant la séance de la personne prévenue" options={OPTIONS.attente} /> ou plus.</Phrase>
+        <Phrase>Au plus <Compteur id="reglage-liste_attente_personnes_max" libelle="Nombre maximum de personnes prévenues" min={1} max={100} valeur={r.valeur('liste_attente_personnes_max')} onChange={r.poser('liste_attente_personnes_max')} modifie={r.modifie('liste_attente_personnes_max')} /> personnes sont prévenues.</Phrase>
+      </SectionPhrases>
+      {r.barre}
+    </div>
+  );
+};
+
+// ─── Les limites de sécurité (sous Réception du site) ──────────────────────
+
+const CLES_LIMITES = ['commandes_questionnaire_max_jour', 'commandes_reservation_max_jour', 'emails_max_jour',
+  'ordre_relance_min', 'ordre_tentatives_max', 'recus_garde_h'] as const;
+
+const Limites: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = ({ reservation, onEnregistre }) => {
+  const r = useReglages(reservation, CLES_LIMITES, onEnregistre);
+  const quota = (cle: string, libelle: string) => r.existe(cle) && (
+    <Phrase className="justify-between">
+      <label htmlFor={`reglage-${cle}`}>{libelle}</label>
+      <Compteur id={`reglage-${cle}`} libelle={`${libelle} acceptés par 24 heures`} min={0} max={10_000} valeur={r.valeur(cle)} onChange={r.poser(cle)} modifie={r.modifie(cle)} />
+    </Phrase>
+  );
+  return (
+    <>
+      <details className="group rounded-carte border border-bord bg-surface shadow-carte">
+        <summary className={cx('flex min-h-14 cursor-pointer list-none items-center gap-3 px-5 font-charte [&::-webkit-details-marker]:hidden', FOCUS)}>
+          <span aria-hidden="true" className="size-[7px] flex-none -rotate-45 border-b-[1.6px] border-r-[1.6px] border-second transition-transform duration-[var(--duree)] group-open:rotate-45" />
+          <span className="flex-1 font-semibold text-texte">Limites de sécurité</span>
+          <span className="hidden text-secondaire text-second sm:inline">À ne toucher qu’en cas d’abus</span>
+        </summary>
+        <div className="divide-y divide-bord px-5 pb-4">
+          <div className="pb-2">
+            <Etiquette as="h3" className="pb-1 pt-2">Acceptés par 24 heures</Etiquette>
+            {quota('commandes_questionnaire_max_jour', 'Questionnaires de santé')}
+            {quota('commandes_reservation_max_jour', 'Réservations')}
+            {quota('emails_max_jour', 'E-mails confiés à Make')}
+          </div>
+          <div className="pb-2">
+            <Etiquette as="h3" className="pb-1 pt-4">Ordres non confirmés</Etiquette>
+            <Phrase>
+              Relancer un ordre après <Liste r={r} cle="ordre_relance_min" libelle="Relancer après" options={OPTIONS.relance} horsListe={duree} />,
+              et le déclarer en échec après <Compteur id="reglage-ordre_tentatives_max" libelle="Tentatives avant l’échec" min={1} max={50} valeur={r.valeur('ordre_tentatives_max')} onChange={r.poser('ordre_tentatives_max')} modifie={r.modifie('ordre_tentatives_max')} /> tentatives.
+            </Phrase>
+          </div>
+          <div>
+            <Etiquette as="h3" className="pb-1 pt-4">Conservation</Etiquette>
+            <Phrase>Garder les reçus de commande pendant <Liste r={r} cle="recus_garde_h" libelle="Durée de conservation des reçus" options={OPTIONS.garde} horsListe={enJoursPleins} />.</Phrase>
+          </div>
+        </div>
+      </details>
+      {r.barre}
+    </>
+  );
+};
 
 // ─── Les types ──────────────────────────────────────────────────────────────
 
-const jours = (h: number) => String(Math.round((h / 24) * 10) / 10).replace('.', ',');
-const heuresDepuisJours = (j: string) => {
-  const n = Number(j.replace(',', '.'));
-  return j.trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.round(n * 24) : null;
+type Proposition = 'site' | 'console' | 'archive';
+const PROPOSITIONS: { valeur: Proposition; nom: string; aide: string }[] = [
+  { valeur: 'site', nom: 'Sur le site et dans la console', aide: 'Réservable en ligne.' },
+  { valeur: 'console', nom: 'Dans la console seulement', aide: 'Vous seul pouvez le poser. La réservation en ligne disparaît.' },
+  { valeur: 'archive', nom: 'Archivé', aide: 'Plus proposé nulle part. Les rendez-vous passés le gardent.' },
+];
+const propositionDe = (t: Pick<TypeReservation, 'actif' | 'reservableEnLigne'>): Proposition =>
+  !t.actif ? 'archive' : t.reservableEnLigne ? 'site' : 'console';
+const PASTILLE: Record<Proposition, React.ReactNode> = {
+  site: <Pastille ton="succes">Sur le site</Pastille>,
+  console: <Pastille>Console seulement</Pastille>,
+  archive: <Pastille>Archivé</Pastille>,
 };
-const duree = (min: number) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}`);
 
-/** Un type : une ligne qui se lit, et un formulaire qui ne s'ouvre qu'à « Modifier ». */
-const LigneType: React.FC<{ type: TypeReservation; onEnregistre: () => void }> = ({ type, onEnregistre }) => {
+const resumeType = (t: TypeReservation) => [
+  duree(t.dureeMin), montantEnClair(t.montantCentimes), LIEUX[t.lieu].toLowerCase(),
+  t.actif && t.reservableEnLigne ? `se réserve de ${delai(t.fenetreDebutH)} à ${delai(t.fenetreFinH)} à l’avance` : null,
+].filter(Boolean).join(' · ');
+
+const LIBELLE = 'text-secondaire font-medium text-second';
+
+/** Le formulaire d'un type, ouvert dans sa ligne (§2.6). */
+const FormulaireType: React.FC<{ type: TypeReservation; onFermer: () => void; onEnregistre: () => void }> = ({ type, onFermer, onEnregistre }) => {
   const initial = {
-    dureeMin: String(type.dureeMin), margeApresMin: String(type.margeApresMin), pasMin: String(type.pasMin), lieu: type.lieu,
-    montant: String(type.montantCentimes / 100).replace('.', ','), debutJours: jours(type.fenetreDebutH), finJours: jours(type.fenetreFinH),
-    reservableEnLigne: type.reservableEnLigne, actif: type.actif, ordre: String(type.ordre),
+    libelle: type.libelle, dureeMin: type.dureeMin, margeApresMin: type.margeApresMin, pasMin: type.pasMin, lieu: type.lieu,
+    montant: String(type.montantCentimes / 100).replace('.', ','), fenetreDebutH: type.fenetreDebutH, fenetreFinH: type.fenetreFinH,
+    proposition: propositionDe(type),
   };
-  const [ouvert, setOuvert] = useState(false);
   const [s, setS] = useState(initial);
   const [refus, setRefus] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
-  const modifie = JSON.stringify(s) !== JSON.stringify(initial);
-  const prefixe = `type-${type.id}`;
-  const nombre = (cle: 'dureeMin' | 'margeApresMin' | 'pasMin' | 'ordre', label: string) => (
-    <Champ id={`${prefixe}-${cle}`} label={label} type="number" min={0} value={s[cle]} onChange={(e) => setS((x) => ({ ...x, [cle]: (e.target as HTMLInputElement).value }))} />
-  );
+  const changes = (Object.keys(initial) as (keyof typeof initial)[]).filter((k) => s[k] !== initial[k]);
+  const mod = (k: keyof typeof initial) => changes.includes(k);
+  const poser = <K extends keyof typeof initial>(k: K) => (v: (typeof initial)[K]) => { setRefus(null); setS((x) => ({ ...x, [k]: v })); };
+  useGardeQuitter(changes.length > 0);
+  const p = `type-${type.id}`;
 
-  const enregistrer = async () => {
-    const montant = centimesDepuis(s.montant);
-    const debut = heuresDepuisJours(s.debutJours);
-    const fin = heuresDepuisJours(s.finJours);
-    if (montant === null) { setRefus('Le montant ne se lit pas : un nombre, en euros.'); return; }
-    if (debut === null || fin === null) { setRefus('La fenêtre se règle en jours : un nombre, 0 ou plus.'); return; }
-    setRefus(null);
+  const enregistrer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const centimes = centimesDepuis(s.montant);
+    if (centimes === null) { setRefus('Le montant ne se lit pas : un nombre, en euros.'); return; }
+    if (!s.libelle.trim()) { setRefus('Le type a besoin d’un nom.'); return; }
+    if (s.fenetreFinH <= s.fenetreDebutH) { setRefus('L’horizon doit être plus loin que le délai minimum.'); return; }
     setEnCours(true);
     try {
       await Clients.modifierType(type.id, {
-        dureeMin: Number(s.dureeMin), margeApresMin: Number(s.margeApresMin), pasMin: Number(s.pasMin), lieu: s.lieu,
-        montantCentimes: montant, fenetreDebutH: debut, fenetreFinH: fin,
-        reservableEnLigne: s.reservableEnLigne, actif: s.actif, ordre: Number(s.ordre),
+        libelle: s.libelle.trim(), dureeMin: s.dureeMin, margeApresMin: s.margeApresMin, pasMin: s.pasMin, lieu: s.lieu,
+        montantCentimes: centimes, fenetreDebutH: s.fenetreDebutH, fenetreFinH: s.fenetreFinH,
+        actif: s.proposition !== 'archive', reservableEnLigne: s.proposition === 'site',
       });
-      setOuvert(false);
       onEnregistre();
-    } catch (e) {
-      setRefus(messageDe(e));
-    } finally {
-      setEnCours(false);
-    }
+      onFermer();
+    } catch (err) { setRefus(messageDe(err)); setEnCours(false); }
   };
 
-  const resume = [
-    duree(type.dureeMin), euros(type.montantCentimes), LIEUX[type.lieu],
-    type.reservableEnLigne ? `réservable de ${jours(type.fenetreDebutH)} à ${jours(type.fenetreFinH)} jours avant` : null,
-  ].filter(Boolean).join(' · ');
-
-  if (!ouvert) {
-    return (
-      <div className="flex items-start justify-between gap-3 py-3">
-        <div className="min-w-0 space-y-1">
-          <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-texte">
-            {type.libelle}
-            {!type.actif && <Pastille libelle="Inactif" ton="neutre" />}
-            {type.actif && !type.reservableEnLigne && <Pastille libelle="Pas en ligne" ton="neutre" />}
-          </p>
-          <p className="text-xs text-second">{resume}</p>
-        </div>
-        <Bouton taille="petit" intention="secondaire" onClick={() => { setS(initial); setOuvert(true); }} aria-label={`Modifier ${type.libelle}`}><Pencil /> Modifier</Bouton>
+  return (
+    <form onSubmit={enregistrer} className="flex flex-col gap-5 pb-5 pl-12 pr-5 pt-1 font-charte">
+      <Champ id={`${p}-libelle`} label="Nom affiché" value={s.libelle} onChange={(e) => poser('libelle')(e.target.value)}
+        className={cx('max-w-[420px]', mod('libelle') && '[&_input]:!border-marque')} />
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-col gap-1"><label htmlFor={`${p}-duree`} className={LIBELLE}>Durée</label>
+          <ListeValeurs id={`${p}-duree`} libelle="Durée" valeur={s.dureeMin} options={OPTIONS.duree} horsListe={duree} onChange={poser('dureeMin')} modifie={mod('dureeMin')} className="w-36" /></div>
+        <div className="flex flex-col gap-1"><label htmlFor={`${p}-marge`} className={LIBELLE}>Temps libre après</label>
+          <ListeValeurs id={`${p}-marge`} libelle="Temps libre après" valeur={s.margeApresMin} options={OPTIONS.marge} horsListe={duree} onChange={poser('margeApresMin')} modifie={mod('margeApresMin')} className="w-36" /></div>
+        <div className="flex flex-col gap-1"><label htmlFor={`${p}-montant`} className={LIBELLE}>Montant</label>
+          <ChampSuffixe id={`${p}-montant`} suffixe="€" inputMode="decimal" value={s.montant} onChange={(e) => poser('montant')(e.target.value)} modifie={mod('montant')} /></div>
+        <Secondaire className="pb-2.5">0 € s’affiche « offert ».</Secondaire>
       </div>
-    );
-  }
+      <div className="flex flex-col gap-1.5">
+        <span id={`${p}-lieu`} className={LIBELLE}>Lieu</span>
+        <Positions libelleId={`${p}-lieu`} valeur={s.lieu} onChange={poser('lieu')}
+          options={(Object.keys(LIEUX) as TypeReservation['lieu'][]).map((l) => ({ valeur: l, libelle: LIEUX[l] }))} />
+      </div>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className={cx(LIBELLE, 'pb-1.5')}>Où ce type est proposé</legend>
+        {PROPOSITIONS.map((o) => {
+          const choisi = s.proposition === o.valeur;
+          return (
+            <label key={o.valeur} className={cx('flex cursor-pointer items-start gap-2.5 rounded-controle px-3 py-2', choisi && 'bg-surface')}>
+              <input type="radio" name={`${p}-proposition`} checked={choisi} onChange={() => poser('proposition')(o.valeur)} className="mt-1 accent-marque" />
+              <span className="flex flex-col"><span className={choisi ? 'font-semibold' : 'font-medium'}>{o.nom}</span><Secondaire>{o.aide}</Secondaire></span>
+            </label>
+          );
+        })}
+      </fieldset>
+      {s.proposition === 'site' && (
+        <div className="flex flex-col gap-0.5 rounded-carte border border-bord bg-surface px-4 py-3">
+          <Etiquette as="h3" className="pb-1">Réservation sur le site</Etiquette>
+          <Phrase>
+            Se réserve au moins <ListeValeurs id={`${p}-min`} libelle="Délai minimum de réservation" valeur={s.fenetreDebutH} options={OPTIONS.delaiMin} horsListe={enHeures} onChange={poser('fenetreDebutH')} modifie={mod('fenetreDebutH')} /> à l’avance,
+            et au plus <ListeValeurs id={`${p}-max`} libelle="Horizon de réservation" valeur={s.fenetreFinH} options={OPTIONS.horizon} horsListe={enJoursPleins} onChange={poser('fenetreFinH')} modifie={mod('fenetreFinH')} /> à l’avance.
+          </Phrase>
+          <Phrase>Les créneaux proposés commencent toutes les <ListeValeurs id={`${p}-pas`} libelle="Intervalle entre deux créneaux" valeur={s.pasMin} options={OPTIONS.pas} horsListe={duree} onChange={poser('pasMin')} modifie={mod('pasMin')} />.</Phrase>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={cx('min-w-60 flex-1 text-secondaire', refus ? 'font-semibold text-sens-erreur' : 'text-second')}>
+          {refus ? `× ${refus}` : `${changes.length ? `${changes.length} modification${changes.length > 1 ? 's' : ''}. ` : ''}Les rendez-vous déjà posés gardent leur durée et leur montant.`}
+        </span>
+        <Bouton intention="borde" onClick={onFermer} disabled={enCours}>Annuler</Bouton>
+        <Bouton type="submit" disabled={enCours || changes.length === 0}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</Bouton>
+      </div>
+    </form>
+  );
+};
+
+const Poignee: React.FC<{ nom: string; onMonter: () => void; onDescendre: () => void }> = ({ nom, onMonter, onDescendre }) => (
+  <button type="button" aria-label={`Changer l’ordre : ${nom}`} title="Glisser, ou ⌥↑ ⌥↓"
+    onKeyDown={(e) => {
+      if (!e.altKey) return;
+      if (e.key === 'ArrowUp') { e.preventDefault(); onMonter(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); onDescendre(); }
+    }}
+    className={cx('flex h-9 w-7 flex-none cursor-grab items-center justify-center rounded-controle text-second hover:bg-survole active:cursor-grabbing', FOCUS)}>
+    <svg aria-hidden="true" width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3" /><circle cx="9" cy="3" r="1.3" /><circle cx="3" cy="8" r="1.3" /><circle cx="9" cy="8" r="1.3" /><circle cx="3" cy="13" r="1.3" /><circle cx="9" cy="13" r="1.3" /></svg>
+  </button>
+);
+
+const Types: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = ({ reservation, onEnregistre }) => {
+  const [ordre, setOrdre] = useState(() => reservation.types.map((t) => t.id));
+  const [ouvert, setOuvert] = useState<string | null>(null);
+  const [glisse, setGlisse] = useState<string | null>(null);
+  const [refus, setRefus] = useState<string | null>(null);
+  useEffect(() => { setOrdre(reservation.types.map((t) => t.id)); }, [reservation]);
+  const types = ordre.map((id) => reservation.types.find((t) => t.id === id)).filter((t): t is TypeReservation => !!t);
+
+  /** L'ordre se pose tout de suite : un glissé n'a pas d'« Enregistrer ». Refusé, la liste revient. */
+  const ranger = async (ids: string[]) => {
+    setOrdre(ids);
+    setRefus(null);
+    try { await Clients.ordonnerTypes(ids); onEnregistre(); }
+    catch (e) { setRefus(messageDe(e)); setOrdre(reservation.types.map((t) => t.id)); }
+  };
+  /** Place `id` au rang `vers` de la liste. */
+  const deplacer = (id: string, vers: number) => {
+    if (vers < 0 || vers >= ordre.length) return;
+    const sans = ordre.filter((x) => x !== id);
+    void ranger([...sans.slice(0, vers), id, ...sans.slice(vers)]);
+  };
 
   return (
-    <div className="space-y-4 py-3">
-      <TitreSection as="h4" titre={type.libelle} sousTitre={modifie ? NON_ENREGISTRE : undefined} />
-      <fieldset className="space-y-2">
-        <legend className={`mb-2 ${CLASSES_SURTITRE}`}>Le rendez-vous</legend>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-          {nombre('dureeMin', 'Durée (min)')}
-          {nombre('margeApresMin', 'Marge après (min)')}
-          <Champ id={`${prefixe}-montant`} label="Montant (€)" inputMode="decimal" value={s.montant} onChange={(e) => setS((x) => ({ ...x, montant: (e.target as HTMLInputElement).value }))} />
-          <div>
-            <Etiquette as="label" htmlFor={`${prefixe}-lieu`} className="mb-1">Lieu</Etiquette>
-            <select id={`${prefixe}-lieu`} className={CLASSES_SELECT} value={s.lieu} onChange={(e) => setS((x) => ({ ...x, lieu: e.target.value as TypeReservation['lieu'] }))}>
-              {(Object.keys(LIEUX) as TypeReservation['lieu'][]).map((l) => <option key={l} value={l}>{LIEUX[l]}</option>)}
-            </select>
-          </div>
-        </div>
-      </fieldset>
-      <fieldset className="space-y-2">
-        <legend className={`mb-2 ${CLASSES_SURTITRE}`}>La réservation en ligne</legend>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-          <Champ id={`${prefixe}-debut`} label="Au plus tôt (jours)" aide="Dans combien de jours, au moins." inputMode="decimal" value={s.debutJours} onChange={(e) => setS((x) => ({ ...x, debutJours: (e.target as HTMLInputElement).value }))} />
-          <Champ id={`${prefixe}-fin`} label="Au plus tard (jours)" aide="Dans combien de jours, au plus." inputMode="decimal" value={s.finJours} onChange={(e) => setS((x) => ({ ...x, finJours: (e.target as HTMLInputElement).value }))} />
-          {nombre('pasMin', 'Créneaux tous les (min)')}
-          {nombre('ordre', 'Rang dans la liste')}
-        </div>
-        <div className="flex flex-wrap gap-4 text-sm text-texte">
-          <label className="flex items-center gap-2"><input type="checkbox" checked={s.reservableEnLigne} onChange={(e) => setS((x) => ({ ...x, reservableEnLigne: e.target.checked }))} /> Réservable en ligne</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={s.actif} onChange={(e) => setS((x) => ({ ...x, actif: e.target.checked }))} /> Actif</label>
-        </div>
-      </fieldset>
-      {refus && <Avis ton="erreur">{refus}</Avis>}
-      <div className="flex justify-end gap-2">
-        <Bouton taille="petit" intention="discrete" onClick={() => { setS(initial); setRefus(null); setOuvert(false); }}>Annuler</Bouton>
-        <Bouton taille="petit" intention="principale" disabled={!modifie || enCours} onClick={enregistrer}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</Bouton>
-      </div>
+    <div className="flex flex-col gap-3">
+      {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
+      <Carte className="overflow-hidden">
+        {types.map((t, i) => {
+          const estOuvert = ouvert === t.id;
+          return (
+            <div key={t.id} data-type={t.cle}
+              className={cx(i > 0 && 'border-t border-bord', estOuvert && 'bg-survole', glisse === t.id && 'opacity-50')}
+              onDragOver={(e) => { if (glisse && glisse !== t.id) e.preventDefault(); }}
+              onDrop={(e) => { e.preventDefault(); if (glisse && glisse !== t.id) deplacer(glisse, i); setGlisse(null); }}>
+              <div className="flex items-center gap-2.5 py-2.5 pl-2 pr-4"
+                draggable={!estOuvert} onDragStart={(e) => { setGlisse(t.id); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={() => setGlisse(null)}>
+                <Poignee nom={t.libelle} onMonter={() => deplacer(t.id, i - 1)} onDescendre={() => deplacer(t.id, i + 1)} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-semibold text-texte">{t.libelle}</span>
+                  <Secondaire className="truncate">{resumeType(t)}</Secondaire>
+                </span>
+                {PASTILLE[propositionDe(t)]}
+                {!estOuvert && <Bouton intention="borde" taille="petit" onClick={() => setOuvert(t.id)} aria-label={`Modifier ${t.libelle}`}>Modifier</Bouton>}
+              </div>
+              {estOuvert && <FormulaireType type={t} onFermer={() => setOuvert(null)} onEnregistre={onEnregistre} />}
+            </div>
+          );
+        })}
+      </Carte>
     </div>
   );
 };
 
 // ─── Les plages horaires ────────────────────────────────────────────────────
 
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
 /** Des plages sur une ligne : début, fin, retirer ; et « Une plage » au bout. */
 const Plages: React.FC<{ plages: PlageHoraire[]; onChange: (p: PlageHoraire[]) => void; prefixe: string; nom: string }> = ({ plages, onChange, prefixe, nom }) => (
   <div className="flex flex-wrap items-center gap-2">
-    {plages.length === 0 && <span className="text-sm text-second">Fermé</span>}
+    {plages.length === 0 && <span className="text-second">Fermé</span>}
     {plages.map((p, i) => (
-      <span key={i} className="flex items-center gap-1">
-        <Champ id={`${prefixe}-${i}-debut`} aria-label={`${nom}, plage ${i + 1} : de`} type="time" className="w-28" value={p.debut} onChange={(e) => onChange(plages.map((x, j) => (j === i ? { ...x, debut: (e.target as HTMLInputElement).value } : x)))} />
-        <span className="text-xs text-second">à</span>
-        <Champ id={`${prefixe}-${i}-fin`} aria-label={`${nom}, plage ${i + 1} : à`} type="time" className="w-28" value={p.fin} onChange={(e) => onChange(plages.map((x, j) => (j === i ? { ...x, fin: (e.target as HTMLInputElement).value } : x)))} />
-        <Bouton taille="petit" intention="discrete" aria-label={`Retirer la plage ${i + 1} (${nom})`} onClick={() => onChange(plages.filter((_, j) => j !== i))}><Trash2 /></Bouton>
+      <span key={i} className="flex items-center gap-1.5">
+        <Champ id={`${prefixe}-${i}-debut`} label={`${nom}, plage ${i + 1} : de`} masquerLabel type="time" className="w-28" value={p.debut} onChange={(e) => onChange(plages.map((x, j) => (j === i ? { ...x, debut: e.target.value } : x)))} />
+        <span className="text-second">à</span>
+        <Champ id={`${prefixe}-${i}-fin`} label={`${nom}, plage ${i + 1} : à`} masquerLabel type="time" className="w-28" value={p.fin} onChange={(e) => onChange(plages.map((x, j) => (j === i ? { ...x, fin: e.target.value } : x)))} />
+        <Bouton intention="souligne" taille="petit" aria-label={`Retirer la plage ${i + 1} (${nom})`} onClick={() => onChange(plages.filter((_, j) => j !== i))}>×</Bouton>
       </span>
     ))}
-    <Bouton taille="petit" intention="discrete" aria-label={`Ajouter une plage (${nom})`} onClick={() => onChange([...plages, plages.length ? { debut: '14:00', fin: '18:00' } : { debut: '09:30', fin: '12:30' }])}><Plus /> Une plage</Bouton>
+    <Bouton intention="souligne" taille="petit" aria-label={`Ajouter une plage (${nom})`} onClick={() => onChange([...plages, plages.length ? { debut: '14:00', fin: '18:00' } : { debut: '09:30', fin: '12:30' }])}>+ Une plage</Bouton>
   </div>
 );
 
@@ -193,34 +376,35 @@ const Semaine: React.FC<{ reservation: Reservation; onEnregistre: () => void }> 
   const initiale = () => JOURS.map((_, i) => reservation.semaine.filter((h) => h.jour === i + 1).map(({ debut, fin }) => ({ debut, fin })));
   const [semaine, setSemaine] = useState<PlageHoraire[][]>(initiale);
   const [refus, setRefus] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
   useEffect(() => { setSemaine(initiale()); }, [reservation]);
-  const modifie = JSON.stringify(semaine) !== JSON.stringify(initiale());
-  const enregistrer = async () => {
-    setRefus(null);
-    try {
-      await Clients.remplacerSemaine(semaine.flatMap((plages, i) => plages.map((p) => ({ jour: i + 1, ...p }))));
-      onEnregistre();
-    } catch (e) {
-      setRefus(messageDe(e));
-    }
-  };
+  const lus = initiale();
+  const change = (i: number) => JSON.stringify(semaine[i]) !== JSON.stringify(lus[i]);
+  const changes = JOURS.filter((_, i) => change(i)).length;
+  useGardeQuitter(changes > 0);
   return (
-    <Carte densite="contenu" rythme>
-      <TitreSection
-        as="h3" titre="La semaine type"
-        sousTitre={modifie ? NON_ENREGISTRE : 'Un seul horaire pour tous les types.'}
-        action={<Bouton taille="petit" intention="principale" disabled={!modifie} onClick={enregistrer}>Enregistrer</Bouton>}
-      />
-      <div className="divide-y divide-bord">
-        {JOURS.map((nom, i) => (
-          <div key={nom} className="grid gap-2 py-2 sm:grid-cols-[7rem_1fr] sm:items-center">
-            <p className="text-sm font-semibold text-texte">{nom}</p>
-            <Plages prefixe={`semaine-${i}`} nom={nom} plages={semaine[i]} onChange={(p) => setSemaine((j) => j.map((x, k) => (k === i ? p : x)))} />
-          </div>
-        ))}
-      </div>
-      {refus && <Avis ton="erreur">{refus}</Avis>}
-    </Carte>
+    <>
+      <Carte as="section" className="px-5 py-4">
+        <TitreCarte>La semaine type</TitreCarte>
+        <Secondaire>Un seul horaire pour tous les types.</Secondaire>
+        <div className="mt-2 divide-y divide-bord">
+          {JOURS.map((nom, i) => (
+            <div key={nom} className="grid gap-2 py-2 sm:grid-cols-[7rem_1fr] sm:items-center">
+              <p className={cx('font-semibold', change(i) ? 'text-marque' : 'text-texte')}>{nom}</p>
+              <Plages prefixe={`semaine-${i}`} nom={nom} plages={semaine[i]} onChange={(p) => { setRefus(null); setSemaine((j) => j.map((x, k) => (k === i ? p : x))); }} />
+            </div>
+          ))}
+        </div>
+      </Carte>
+      <BarreEnregistrer modifications={changes} enCours={enCours} refus={refus}
+        onAnnuler={() => { setSemaine(initiale()); setRefus(null); }}
+        onEnregistrer={async () => {
+          setEnCours(true);
+          try { await Clients.remplacerSemaine(semaine.flatMap((plages, i) => plages.map((p) => ({ jour: i + 1, ...p })))); onEnregistre(); }
+          catch (e) { setRefus(messageDe(e)); }
+          finally { setEnCours(false); }
+        }} />
+    </>
   );
 };
 
@@ -233,135 +417,57 @@ const Dates: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = 
     try { await action(); setDate(''); setPlages([]); onEnregistre(); } catch (e) { setRefus(messageDe(e)); }
   };
   return (
-    <Carte densite="contenu" rythme>
-      <TitreSection as="h3" titre="Les dates d’exception à venir" sousTitre="Une date posée remplace la semaine type ce jour-là ; sans plage, la journée est fermée. Fermer des jours se fait aussi depuis l’Agenda." />
-      {reservation.dates.length === 0 ? <Vide>Aucune exception à venir.</Vide> : (
-        <ul className="divide-y divide-bord">
+    <Carte as="section" className="px-5 py-4">
+      <TitreCarte>Les dates d’exception à venir</TitreCarte>
+      <Secondaire>Une date posée remplace la semaine type ce jour-là ; sans plage, la journée est fermée. Fermer des jours se fait aussi depuis l’Agenda.</Secondaire>
+      {reservation.dates.length === 0 ? <Secondaire className="py-3">Aucune exception à venir.</Secondaire> : (
+        <ul className="mt-2 divide-y divide-bord">
           {reservation.dates.map((d) => (
             <li key={d.date} className="flex items-center justify-between gap-2 py-2">
-              <span className="text-sm text-texte">
+              <span>
                 <span className="font-semibold first-letter:uppercase">{jourEnLettres(`${d.date}T12:00:00+01:00`)}</span>
                 {' · '}{d.plages.length === 0 ? 'fermée' : d.plages.map((p) => `${p.debut}–${p.fin}`).join(', ')}
               </span>
-              <Bouton taille="petit" intention="discrete" onClick={() => void agir(() => Clients.rendreDateALaSemaine(d.date))}>Rendre à la semaine type</Bouton>
+              <Bouton intention="souligne" taille="petit" onClick={() => void agir(() => Clients.rendreDateALaSemaine(d.date))}>Rendre à la semaine type</Bouton>
             </li>
           ))}
         </ul>
       )}
-      <div className="space-y-3 border-t border-bord pt-3">
-        <p className="text-sm font-semibold text-texte">Poser une exception</p>
+      <div className="mt-3 flex flex-col gap-3 border-t border-bord pt-3">
+        <p className="font-semibold">Poser une exception</p>
         <div className="grid gap-2 sm:grid-cols-[10rem_1fr] sm:items-center">
-          <Champ id="exception-date" aria-label="Date de l’exception" type="date" value={date} onChange={(e) => setDate((e.target as HTMLInputElement).value)} />
+          <Champ id="exception-date" label="Date de l’exception" masquerLabel type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <Plages prefixe="exception" nom="Exception" plages={plages} onChange={setPlages} />
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           {plages.length === 0
-            ? <Bouton taille="petit" intention="principale" disabled={!date} onClick={() => void agir(() => Clients.poserDate(date, []))}>Fermer cette date</Bouton>
-            : <Bouton taille="petit" intention="principale" disabled={!date} onClick={() => void agir(() => Clients.poserDate(date, plages))}>Ouvrir avec ces plages</Bouton>}
+            ? <Bouton disabled={!date} onClick={() => void agir(() => Clients.poserDate(date, []))}>Fermer cette date</Bouton>
+            : <Bouton disabled={!date} onClick={() => void agir(() => Clients.poserDate(date, plages))}>Ouvrir avec ces plages</Bouton>}
         </div>
       </div>
-      {refus && <Avis ton="erreur">{refus}</Avis>}
+      {refus && <p role="alert" className="mt-2 text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
     </Carte>
   );
 };
 
-// ─── Les réglages ───────────────────────────────────────────────────────────
-
-/** Les groupes d'une partie : les règles d'usage, ou les garde-fous (sous Réception du site, refonte lot 9). */
-const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void; gardeFous?: boolean }> = ({ reservation, onEnregistre, gardeFous = false }) => {
-  const initial = () => Object.fromEntries(Object.entries(reservation.reglages).map(([k, v]) => [k, String(v)]));
-  const [s, setS] = useState<Record<string, string>>(initial);
-  const [refus, setRefus] = useState<string | null>(null);
-  useEffect(() => { setS(initial()); }, [reservation]);
-  // L'interrupteur de la porte a sa route et sa confirmation (Réglages → Base des clients) : il n'est pas ici.
-  const cles = Object.keys(reservation.reglages).filter((k) => k !== 'porte_publique_ouverte');
-  const changes = cles.filter((k) => s[k] !== String(reservation.reglages[k]));
-  const connues = new Set(GROUPES.flatMap((g) => Object.keys(g.reglages)));
-  const groupes = GROUPES.map((g, i) => ({
-    ...g,
-    cles: [...Object.keys(g.reglages).filter((k) => cles.includes(k)), ...(i === GROUPES.length - 1 ? cles.filter((k) => !connues.has(k)) : [])],
-  })).filter((g) => g.cles.length > 0 && (g.titre === 'Garde-fous techniques') === gardeFous);
-  const changesVues = changes.filter((k) => groupes.some((g) => g.cles.includes(k)));
-
-  const enregistrer = async () => {
-    setRefus(null);
-    try {
-      await Clients.modifierReglages(Object.fromEntries(changesVues.map((k) => [k, Number(s[k])])));
-      onEnregistre();
-    } catch (e) {
-      setRefus(messageDe(e));
-    }
-  };
-
-  const ligne = (k: string, def?: { libelle: string; unite: string }) => (
-    <div key={k} className="flex items-center justify-between gap-3 py-2">
-      <label htmlFor={`reglage-${k}`} className="text-sm text-texte">{def?.libelle ?? k}</label>
-      <span className="flex shrink-0 items-center gap-2">
-        {/* La largeur va à une enveloppe : la classe du champ porte déjà w-full. */}
-        <span className="w-24"><Champ id={`reglage-${k}`} type="number" min={0} className="text-right" value={s[k] ?? ''} onChange={(e) => setS((x) => ({ ...x, [k]: (e.target as HTMLInputElement).value }))} /></span>
-        <span className="w-20 text-xs text-second">{def?.unite ?? ''}</span>
-      </span>
-    </div>
-  );
-
-  return (
-    <Carte densite="contenu" rythme>
-      <TitreSection
-        as="h3" titre={gardeFous ? 'Les limites de sécurité' : 'Les règles'}
-        sousTitre={changesVues.length ? NON_ENREGISTRE : undefined}
-        action={<Bouton taille="petit" intention="principale" disabled={changesVues.length === 0} onClick={enregistrer}>Enregistrer</Bouton>}
-      />
-      {groupes.map((g) => {
-        const corps = <div className="divide-y divide-bord">{g.cles.map((k) => ligne(k, g.reglages[k]))}</div>;
-        return g.replie ? (
-          <details key={g.titre} className="pt-2">
-            <summary className={`cursor-pointer ${CLASSES_SURTITRE}`}>{g.titre}</summary>
-            <div className="mt-2">{corps}</div>
-          </details>
-        ) : (
-          <section key={g.titre} className="pt-2">
-            <p className={CLASSES_SURTITRE}>{g.titre}</p>
-            {corps}
-          </section>
-        );
-      })}
-      {refus && <Avis ton="erreur">{refus}</Avis>}
-    </Carte>
-  );
-};
+// ─── L'écran ────────────────────────────────────────────────────────────────
 
 /**
- * Une partie des réglages de la réservation (refonte, lot 9 : Réglages →
- * Pratique). Types de rendez-vous ; horaires habituels et dates d'exception ;
- * règles (rappels, retenue, liste d'attente) ; limites de sécurité, sous
- * Réception du site. Sans partie : tout, comme avant.
+ * Une partie des réglages de la réservation : types de rendez-vous ; horaires
+ * habituels et dates d'exception ; règles ; limites de sécurité, sous
+ * Réception du site.
  */
 export type PartieReservation = 'types' | 'horaires' | 'regles' | 'gardefous';
 
-export const ReservationReglages: React.FC<{ partie?: PartieReservation }> = ({ partie }) => {
+export const ReservationReglages: React.FC<{ partie: PartieReservation }> = ({ partie }) => {
   const lecture = useLecture(() => Clients.lireReservation(), []);
   if (lecture.phase !== 'prete') return <EtatLecture lecture={lecture} />;
   const r = lecture.donnees;
   const relire = () => void lecture.recharger();
-  if (partie === 'horaires') return <div className="space-y-4"><Semaine reservation={r} onEnregistre={relire} /><Dates reservation={r} onEnregistre={relire} /></div>;
-  if (partie === 'regles') return <Reglages reservation={r} onEnregistre={relire} />;
-  if (partie === 'gardefous') return <Reglages reservation={r} onEnregistre={relire} gardeFous />;
-  return (
-    <div className="space-y-4">
-      <Carte densite="contenu">
-        <TitreSection as="h3" titre="Les types de rendez-vous" sousTitre="Ce que la réservation en ligne propose, type par type." />
-        <div className="divide-y divide-bord">
-          {r.types.map((t) => <LigneType key={`${t.id}-${t.dureeMin}-${t.montantCentimes}-${t.actif}-${t.fenetreDebutH}-${t.fenetreFinH}`} type={t} onEnregistre={relire} />)}
-        </div>
-      </Carte>
-      {partie !== 'types' && <>
-        <Semaine reservation={r} onEnregistre={relire} />
-        <Dates reservation={r} onEnregistre={relire} />
-        <Reglages reservation={r} onEnregistre={relire} />
-        <Reglages reservation={r} onEnregistre={relire} gardeFous />
-      </>}
-    </div>
-  );
+  if (partie === 'horaires') return <div className="flex flex-col gap-5"><Semaine reservation={r} onEnregistre={relire} /><Dates reservation={r} onEnregistre={relire} /></div>;
+  if (partie === 'regles') return <Regles reservation={r} onEnregistre={relire} />;
+  if (partie === 'gardefous') return <Limites reservation={r} onEnregistre={relire} />;
+  return <Types reservation={r} onEnregistre={relire} />;
 };
 
 export default ReservationReglages;

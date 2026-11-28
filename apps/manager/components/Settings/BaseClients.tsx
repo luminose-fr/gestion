@@ -26,7 +26,7 @@ const nombre = (n: number, un: string, plusieurs: string) =>
   `${n.toLocaleString('fr-FR')} ${n > 1 ? plusieurs : un}`;
 
 /** `partie` (refonte, lot 9) : « etat » sans la porte (Données → État), « reception » la porte seule (Pratique → Réception du site). */
-export const BaseClients: React.FC<{ partie?: 'etat' | 'reception' }> = ({ partie }) => {
+export const BaseClients: React.FC<{ partie?: 'etat' | 'reception'; children?: React.ReactNode }> = ({ partie, children }) => {
   const [etat, setEtat] = useState<Etat>({ phase: 'lecture' });
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export const BaseClients: React.FC<{ partie?: 'etat' | 'reception' }> = ({ parti
   if (partie === 'reception') {
     if (etat.phase === 'lecture') return null;
     return reliee
-      ? <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'} />
+      ? <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'}>{children}</PortePublique>
       : <Carte densite="contenu"><p className="text-sm text-second">La base des clients n’est pas reliée ici : le site ne reçoit rien, il n’y a pas de réception à couper.</p></Carte>;
   }
 
