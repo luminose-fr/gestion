@@ -3264,7 +3264,7 @@ describe('la console des clients — tranche C2b', () => {
     vi.spyOn(ClientsService, 'listeEvenements').mockResolvedValue({ evenements: [] });
     vi.spyOn(ClientsService, 'listeProfessionnels').mockResolvedValue({ professionnels: [] });
     const ev = render(<ListeEvenements />);
-    await waitFor(() => expect(ev.container.textContent).toContain('Aucun évènement'));
+    await waitFor(() => expect(ev.container.textContent).toContain('Aucun stage'));
     cleanup();
     const pros = render(<ProfessionnelsView />);
     await waitFor(() => expect(pros.container.textContent).toContain('Aucun professionnel'));
@@ -3272,7 +3272,7 @@ describe('la console des clients — tranche C2b', () => {
 
   it('nouvel évènement, fenêtre d’un professionnel, et l’adresse de l’espace', async () => {
     routesChargeesC2b();
-    expect(render(<NouvelEvenement />).container.textContent).toContain('Créer l’évènement');
+    expect(render(<NouvelEvenement />).container.textContent).toContain('Créer le stage');
     cleanup();
     expect(render(<FenetreProfessionnel pro={PROFESSIONNEL} onFermer={() => {}} onEnregistre={() => {}} />).container.textContent).toContain('Modifier le professionnel');
     cleanup();

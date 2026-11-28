@@ -1,26 +1,26 @@
 /**
- * Évènements (SPEC §15.4) — un espace au premier niveau depuis la décision du
- * 27/11/2026. À venir, puis passés : nom, date, ville, places libres sur places
- * totales. Un évènement : ses champs (le prix en euros à l'écran, en centimes
- * en base), ses contenus HTML en zones de texte, et ses inscrits — personne,
- * statut, mode de paiement —, avec « Inscrire une personne » et le changement
- * de statut.
+ * Stages (SPEC §15.4 ; refonte de la console, lot 8 — maquettes Stages, Stage,
+ * StageInfos). « Stages » est le mot du site ; l'adresse est `#stages`. À
+ * venir, puis passés : nom, date, ville, places libres sur places totales. Un
+ * stage : ses inscrits d'abord — personne, statut, paiement — avec « Inscrire
+ * une personne » ; puis ses informations (le prix en euros à l'écran, en
+ * centimes en base) et ses contenus HTML, repliés.
  *
  * Les places et la dernière place se décident côté route (§15.2, règle 12) :
  * l'écran affiche le refus tel qu'il est écrit (« Cette journée est complète. »).
  * La publication sur le site n'est pas d'ici.
  */
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Plus, Trash2, UserPlus } from 'lucide-react';
-import { Bouton, Carte, Champ, Etiquette, TitreSection, ecran } from '../ui';
-import { ConfirmModal } from '../CommonModals';
+import { Bouton, Carte, Champ, Choix, Etiquette, Fenetre, FOCUS, Pastille, Repliable, Secondaire, TitreCarte, TitreEcran, ZoneTexte } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { ChampsEvenement, Evenement, EvenementDetaille, StatutInscription } from '../../types-clients';
 import {
-  aller, aujourdhui, Avis, centimesDepuis, CLASSES_SELECT, dateCourte, euros, EtatLecture, heure, INSCRIPTIONS, isoDepuis, jourDe,
-  messageDe, nomComplet, Pastille, useAdresse, useGardeSaisie, useLecture, Vide,
+  aller, aujourdhui, centimesDepuis, dateCourte, euros, EtatLecture, heure, INSCRIPTIONS, isoDepuis, jourDe,
+  messageDe, nomComplet, useAdresse, useGardeSaisie, useLecture,
 } from './commun';
 import { ChoixFiche, type FicheChoisie } from './ChoixFiche';
+
+const TON: Record<string, 'succes' | 'alerte' | 'erreur' | 'neutre'> = { succes: 'succes', alerte: 'alerte', erreur: 'erreur', neutre: 'neutre' };
 
 const TYPES = [
   { valeur: 'meditation', libelle: 'Méditation' },
@@ -28,17 +28,19 @@ const TYPES = [
   { valeur: 'respiration-holotropique', libelle: 'Respiration holotropique' },
 ];
 
-const LigneEvenement: React.FC<{ e: Evenement }> = ({ e }) => (
-  <li>
-    <a href={`#stages/${encodeURIComponent(e.id)}`} className="ui-list-action flex items-center justify-between gap-3 px-4 py-3 hover:bg-survol dark:hover:bg-dark-sec-bg">
+const LigneEvenement: React.FC<{ e: Evenement; premiere: boolean }> = ({ e, premiere }) => (
+  <li className={premiere ? '' : 'border-t border-bord'}>
+    <a href={`#stages/${encodeURIComponent(e.id)}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-survole outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marque">
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-brand-main dark:text-white truncate">{e.nom}</span>
-        <span className="block text-xs text-brand-main dark:text-dark-text">{dateCourte(e.debut)}{e.ville && ` · ${e.ville}`}</span>
+        <span className="block truncate font-semibold">{e.nom}</span>
+        <span className="block text-secondaire text-second">{dateCourte(e.debut)}{e.ville && ` · ${e.ville}`}</span>
       </span>
-      <span className="shrink-0 text-right text-xs text-brand-main dark:text-dark-text tabular-nums">
+      <span className="flex-none text-right text-secondaire text-second tabular-nums">
         {e.placesTotales === null
           ? (e.urlInscription ? 'Inscription ailleurs' : 'Places non fixées')
-          : <><span className="text-sm font-semibold text-brand-main dark:text-white">{e.placesLibres}</span> libres sur {e.placesTotales}</>}
+          : e.placesLibres !== null && e.placesLibres <= 0
+            ? <Pastille ton="neutre" signe="●">Complet</Pastille>
+            : <><span className="font-semibold text-texte">{e.placesLibres}</span> libres sur {e.placesTotales}</>}
       </span>
     </a>
   </li>
@@ -46,25 +48,26 @@ const LigneEvenement: React.FC<{ e: Evenement }> = ({ e }) => (
 
 export const ListeEvenements: React.FC = () => {
   const lecture = useLecture(() => Clients.listeEvenements(), []);
-  if (lecture.phase !== 'prete') return <div className={ecran('liste')}><EtatLecture lecture={lecture} /></div>;
+  const [vue, setVue] = useState<'avenir' | 'passes'>('avenir');
+  if (lecture.phase !== 'prete') return <div className="mx-auto max-w-[960px] px-4 py-5 md:px-8"><EtatLecture lecture={lecture} /></div>;
   const auj = aujourdhui();
   const tous = lecture.donnees.evenements;
   const aVenir = tous.filter((e) => jourDe(e.debut) >= auj).sort((a, b) => a.debut.localeCompare(b.debut));
   const passes = tous.filter((e) => jourDe(e.debut) < auj);
+  const liste = vue === 'avenir' ? aVenir : passes;
   return (
-    <div className={`${ecran('liste')} space-y-4`}>
-      <div className="flex justify-end">
-        <Bouton taille="grand" intention="principale" posee onClick={() => aller('stages/nouveau')}><Plus /> Nouvel évènement</Bouton>
+    <div className="mx-auto flex max-w-[960px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex gap-1" role="tablist" aria-label="Stages">
+          {([['avenir', `À venir · ${aVenir.length}`], ['passes', `Passés · ${passes.length}`]] as const).map(([id, libelle]) => (
+            <Bouton key={id} role="tab" aria-selected={vue === id} taille="petit" intention={vue === id ? 'plein' : 'borde'} onClick={() => setVue(id)}>{libelle}</Bouton>
+          ))}
+        </div>
+        <Bouton onClick={() => aller('stages/nouveau')}>Nouveau stage</Bouton>
       </div>
-      {tous.length === 0 && <Vide>Aucun évènement pour l’instant.</Vide>}
-      {[['À venir', aVenir], ['Passés', passes]].map(([titre, liste]) => (liste as Evenement[]).length > 0 && (
-        <section key={titre as string} className="space-y-2">
-          <Etiquette as="h2">{titre as string}</Etiquette>
-          <Carte densite="tableau">
-            <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">{(liste as Evenement[]).map((e) => <LigneEvenement key={e.id} e={e} />)}</ul>
-          </Carte>
-        </section>
-      ))}
+      {tous.length === 0 ? <Carte className="px-4 py-4"><p>Aucun stage pour l’instant.</p></Carte>
+        : liste.length === 0 ? <Carte className="px-4 py-4"><p>{vue === 'avenir' ? 'Aucun stage à venir.' : 'Aucun stage passé.'}</p></Carte>
+          : <Carte as="div" className="overflow-hidden"><ul>{liste.map((e, i) => <LigneEvenement key={e.id} e={e} premiere={i === 0} />)}</ul></Carte>}
     </div>
   );
 };
@@ -125,17 +128,14 @@ const FormulaireEvenement: React.FC<{ initiale: Saisie; enregistrer: (s: Saisie)
     try { await enregistrer(s); } catch (err) { setRefus(messageDe(err)); } finally { setEnCours(false); }
   };
   return (
-    <form onSubmit={valider} className="space-y-4">
-      <Carte densite="contenu" rythme>
-        <Champ {...champ('nom')} label="Nom" autoFocus />
+    <form onSubmit={valider} className="flex flex-col gap-4">
+      <Carte className="flex flex-col gap-3 px-4 py-4">
+        <Champ {...champ('nom')} label="Nom" autoFocus={!initiale.nom} />
         <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <Etiquette as="label" htmlFor="evenement-type" className="mb-1">Type</Etiquette>
-            <select id="evenement-type" className={CLASSES_SELECT} value={s.type} onChange={(e) => setS((x) => ({ ...x, type: e.target.value }))}>
-              <option value="">—</option>
-              {TYPES.map((t) => <option key={t.valeur} value={t.valeur}>{t.libelle}</option>)}
-            </select>
-          </div>
+          <Choix id="evenement-type" label="Type" value={s.type} onChange={(e) => setS((x) => ({ ...x, type: e.target.value }))}>
+            <option value="">—</option>
+            {TYPES.map((t) => <option key={t.valeur} value={t.valeur}>{t.libelle}</option>)}
+          </Choix>
           <Champ {...champ('ville')} label="Ville" />
           <Champ {...champ('date')} label="Date" type="date" />
           <Champ {...champ('heureDebut')} label="Début" type="time" />
@@ -144,38 +144,41 @@ const FormulaireEvenement: React.FC<{ initiale: Saisie; enregistrer: (s: Saisie)
           <Champ {...champ('places')} label="Places" type="number" min={0} aide="Vide : inscription ailleurs, ou places non fixées." />
           <Champ {...champ('prix')} label="Prix (€)" inputMode="decimal" />
         </div>
-        <label className="flex items-center gap-2 text-sm text-brand-main dark:text-white">
-          <input type="checkbox" checked={s.questionnaireRequis} onChange={(e) => setS((x) => ({ ...x, questionnaireRequis: e.target.checked }))} />
+        <label className="flex min-h-11 items-center gap-2 md:min-h-10">
+          <input type="checkbox" className="size-4 accent-[var(--marque)]" checked={s.questionnaireRequis} onChange={(e) => setS((x) => ({ ...x, questionnaireRequis: e.target.checked }))} />
           Questionnaire de santé demandé
         </label>
         <Champ {...champ('urlInscription')} label="Adresse d’inscription extérieure" type="url" />
         <Champ {...champ('metaDescription')} label="Description (moteurs de recherche)" />
       </Carte>
-      <Carte densite="contenu" rythme>
-        <TitreSection as="h3" titre="Contenus HTML" sousTitre="Repris tels quels sur la page de l’évènement : ils ne sont pas interprétés ici." />
-        <Champ {...champ('htmlPermalink')} label="Adresse de la page" />
-        <Champ {...champ('htmlProgramme')} multiligne rows={6} label="Programme" />
-        <Champ {...champ('htmlPrix')} multiligne rows={3} label="Prix" />
-        <Champ {...champ('htmlLieuAdresse')} multiligne rows={3} label="Lieu — adresse" />
-        <Champ {...champ('htmlLieuInstructions')} multiligne rows={3} label="Lieu — instructions" />
+      <Carte className="px-4 py-3">
+        <Repliable titre="Contenus de la page du site" resume="repris tels quels, sans être interprétés ici">
+          <div className="flex flex-col gap-3">
+            <Champ {...champ('htmlPermalink')} label="Adresse de la page" />
+            <ZoneTexte {...champ('htmlProgramme')} rows={6} label="Programme" />
+            <ZoneTexte {...champ('htmlPrix')} rows={3} label="Prix" />
+            <ZoneTexte {...champ('htmlLieuAdresse')} rows={3} label="Lieu — adresse" />
+            <ZoneTexte {...champ('htmlLieuInstructions')} rows={3} label="Lieu — instructions" />
+          </div>
+        </Repliable>
       </Carte>
-      {refus && <Avis ton="erreur">{refus}</Avis>}
-      <div className="flex justify-end items-center gap-3">
-        {modifie && <span className="text-xs text-alerte">Modifications non enregistrées.</span>}
-        <Bouton type="submit" intention="principale" posee disabled={enCours}>{enCours ? 'Enregistrement…' : libelle}</Bouton>
+      {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
+      <div className="flex items-center justify-end gap-3">
+        {modifie && <span className="text-secondaire text-sens-alerte">! Modifications non enregistrées.</span>}
+        <Bouton type="submit" disabled={enCours}>{enCours ? 'Enregistrement…' : libelle}</Bouton>
       </div>
     </form>
   );
 };
 
 export const NouvelEvenement: React.FC = () => (
-  <div className={`${ecran('travail')} space-y-4`}>
-    <TitreSection titre="Nouvel évènement" action={<Bouton intention="discrete" onClick={() => aller('stages')}><ArrowLeft /> Évènements</Bouton>} />
-    <FormulaireEvenement initiale={SAISIE_VIDE} libelle="Créer l’évènement" enregistrer={async (s) => {
+  <div className="mx-auto flex max-w-[960px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
+    <a href="#stages" className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Stages</a>
+    <FormulaireEvenement initiale={SAISIE_VIDE} libelle="Créer le stage" enregistrer={async (s) => {
       const r = versRoute(s);
       if (typeof r === 'string') throw new Error(r);
       const { id } = await Clients.creerEvenement(r);
-      aller(`evenements/${encodeURIComponent(id)}`);
+      aller(`stages/${encodeURIComponent(id)}`);
     }} />
   </div>
 );
@@ -190,7 +193,7 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
   const [refusSuppression, setRefusSuppression] = useState<string | null>(null);
   const initiale = React.useMemo(() => (lecture.phase === 'prete' ? depuis(lecture.donnees) : null), [lecture.phase === 'prete' ? lecture.donnees : null]);
 
-  if (lecture.phase !== 'prete' || !initiale) return <div className={ecran('liste')}><EtatLecture lecture={lecture} /></div>;
+  if (lecture.phase !== 'prete' || !initiale) return <div className="mx-auto max-w-[1180px] px-4 py-5 md:px-8"><EtatLecture lecture={lecture} /></div>;
   const e = lecture.donnees;
   const complet = e.placesTotales !== null && e.placesLibres !== null && e.placesLibres <= 0;
 
@@ -217,80 +220,96 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
     }
   };
 
+  const inscrits = e.inscriptions.filter((i) => i.statut !== 'annulee' && i.statut !== 'expiree').length;
+
   return (
-    <div className={`${ecran('liste')} space-y-4`}>
+    <div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
       <div className="flex items-center justify-between gap-3">
-        <Bouton taille="petit" intention="discrete" onClick={() => aller('stages')}><ArrowLeft /> Évènements</Bouton>
-        <Bouton taille="petit" intention="secondaire" ton="erreur" onClick={() => setSupprimer(true)} disabled={e.inscriptions.length > 0}
-          title={e.inscriptions.length > 0 ? 'Un évènement qui a des inscrits ne se supprime pas.' : undefined}>
-          <Trash2 /> Supprimer
+        <a href="#stages" className={`rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Stages</a>
+        <Bouton taille="petit" intention="souligne" onClick={() => setSupprimer(true)} disabled={e.inscriptions.length > 0}
+          title={e.inscriptions.length > 0 ? 'Un stage qui a des inscrits ne se supprime pas.' : undefined}>
+          Supprimer
         </Bouton>
       </div>
-      {refusSuppression && <Avis ton="erreur">{refusSuppression}</Avis>}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
-        <FormulaireEvenement initiale={initiale} libelle="Enregistrer" enregistrer={async (s) => {
-          const r = versRoute(s);
-          if (typeof r === 'string') throw new Error(r);
-          await Clients.modifierEvenement(id, r);
-          await lecture.recharger();
-        }} />
-        <Carte densite="contenu" rythme>
-          <TitreSection
-            as="h3"
-            titre="Inscrits"
-            sousTitre={e.placesTotales === null ? 'Places non fixées' : `${e.placesLibres} places libres sur ${e.placesTotales} — ${euros(e.prixCentimes)}`}
-          />
-          {e.inscriptions.length === 0 ? <Vide>Aucun inscrit.</Vide> : (
-            <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
+      <header>
+        <TitreEcran>{e.nom}</TitreEcran>
+        <p className="mt-1 text-second">
+          <span className="inline-block first-letter:uppercase">{dateCourte(e.debut)}</span>{e.ville && ` · ${e.ville}`}
+          {' · '}{e.placesTotales === null ? 'places non fixées' : `${inscrits} inscrit${inscrits > 1 ? 's' : ''} sur ${e.placesTotales}`}
+          {e.prixCentimes !== null && ` · ${euros(e.prixCentimes)}`}
+        </p>
+      </header>
+      {refusSuppression && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refusSuppression}</p>}
+
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <Carte as="section" className="overflow-hidden">
+          <div className="flex items-baseline justify-between gap-3 px-4 py-3">
+            <TitreCarte>Inscrits</TitreCarte>
+            <Secondaire>{e.placesTotales === null ? 'Places non fixées' : `${e.placesLibres} places libres sur ${e.placesTotales}`}</Secondaire>
+          </div>
+          {e.inscriptions.length === 0 ? <p className="border-t border-bord px-4 py-3 text-second">Aucun inscrit.</p> : (
+            <ul>
               {e.inscriptions.map((i) => (
-                <li key={i.id} className="py-2 space-y-1">
+                <li key={i.id} className="flex flex-col gap-1.5 border-t border-bord px-4 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     {i.personne.clientId
-                      ? <a className="text-sm font-semibold text-brand-main dark:text-white underline hover:no-underline" href={`#clients/${encodeURIComponent(i.personne.clientId)}`}>{nomComplet(i.personne)}</a>
-                      : <span className="text-sm text-brand-main dark:text-white">{nomComplet(i.personne)} <span className="text-xs text-alerte">· à rapprocher</span></span>}
-                    <Pastille libelle={INSCRIPTIONS[i.statut].libelle} ton={INSCRIPTIONS[i.statut].ton} />
+                      ? <a className={`font-semibold underline underline-offset-[3px] hover:text-marque ${FOCUS}`} href={`#clients/${encodeURIComponent(i.personne.clientId)}`}>{nomComplet(i.personne)}</a>
+                      : <span>{nomComplet(i.personne)} <Pastille ton="alerte">À rattacher</Pastille></span>}
+                    <Pastille ton={TON[INSCRIPTIONS[i.statut].ton]}>{INSCRIPTIONS[i.statut].libelle}</Pastille>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-brand-main dark:text-dark-text">
+                    <span className="text-secondaire text-second">
                       {i.modePaiement === 'carte' ? 'Par carte' : i.modePaiement === 'virement' ? 'Par virement' : 'Sans paiement en ligne'}
                       {i.retenueJusqua && ` · retenue jusqu’au ${dateCourte(i.retenueJusqua)}`}
                     </span>
-                    <select aria-label={`Statut de ${nomComplet(i.personne)}`} className={`${CLASSES_SELECT} w-auto`} value={STATUTS_POSSIBLES.includes(i.statut) ? i.statut : ''}
+                    <Choix id={`statut-${i.id}`} label={`Statut de ${nomComplet(i.personne)}`} masquerLabel className="w-44"
+                      value={STATUTS_POSSIBLES.includes(i.statut) ? i.statut : ''}
                       onChange={(ev) => void changerStatut(i.id, ev.target.value as StatutInscription)}>
                       {!STATUTS_POSSIBLES.includes(i.statut) && <option value="">{INSCRIPTIONS[i.statut].libelle}</option>}
                       {STATUTS_POSSIBLES.map((st) => <option key={st} value={st}>{INSCRIPTIONS[st].libelle}</option>)}
-                    </select>
+                    </Choix>
                   </div>
                 </li>
               ))}
             </ul>
           )}
-          {complet ? (
-            // Complet : l'inscription est grisée et dit pourquoi, au lieu d'attendre le refus de la route.
-            <div className="space-y-1">
-              <Bouton taille="petit" intention="secondaire" disabled aria-describedby="inscrire-complet"><UserPlus /> Inscrire une personne</Bouton>
-              <p id="inscrire-complet" className="text-xs text-brand-main dark:text-dark-text">
-                Complet : {e.placesTotales === 1 ? 'la place est prise' : `les ${e.placesTotales} places sont prises`}. Une place se libère quand un inscrit passe à « annulée ».
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <ChoixFiche id="inscrire-personne" label="Inscrire une personne" valeur={personne} onChange={setPersonne} />
-              {personne && <div className="flex justify-end"><Bouton taille="petit" intention="principale" onClick={inscrire}><UserPlus /> Inscrire</Bouton></div>}
-            </div>
-          )}
-          {refusInscription && <Avis ton="erreur">{refusInscription}</Avis>}
+          <div className="flex flex-col gap-2 border-t border-bord px-4 py-3">
+            {complet ? (
+              // Complet : l'inscription est grisée et dit pourquoi, au lieu d'attendre le refus de la route.
+              <>
+                <Bouton taille="petit" intention="borde" className="self-start" disabled aria-describedby="inscrire-complet">Inscrire une personne</Bouton>
+                <Secondaire id="inscrire-complet">
+                  Complet : {e.placesTotales === 1 ? 'la place est prise' : `les ${e.placesTotales} places sont prises`}. Une place se libère quand un inscrit passe à « annulée ».
+                </Secondaire>
+              </>
+            ) : (
+              <>
+                <ChoixFiche id="inscrire-personne" label="Inscrire une personne" valeur={personne} onChange={setPersonne} />
+                {personne && <Bouton taille="petit" className="self-end" onClick={inscrire}>Inscrire</Bouton>}
+              </>
+            )}
+            {refusInscription && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refusInscription}</p>}
+          </div>
         </Carte>
+
+        <section aria-label="Informations du stage" className="flex flex-col gap-2">
+          <Etiquette as="h2">Informations du stage</Etiquette>
+          <FormulaireEvenement initiale={initiale} libelle="Enregistrer" enregistrer={async (s) => {
+            const r = versRoute(s);
+            if (typeof r === 'string') throw new Error(r);
+            await Clients.modifierEvenement(id, r);
+            await lecture.recharger();
+          }} />
+        </section>
       </div>
-      <ConfirmModal
-        isOpen={supprimer}
-        onClose={() => setSupprimer(false)}
-        onConfirm={() => void Clients.supprimerEvenement(id).then(() => aller('stages')).catch((err) => setRefusSuppression(messageDe(err)))}
-        title="Supprimer cet évènement ?"
-        message="Il disparaît des listes. Un évènement qui a des inscrits ne se supprime pas."
-        confirmLabel="Supprimer"
-        isDestructive
-      />
+
+      <Fenetre ouverte={supprimer} titre="Supprimer ce stage ?" onFermer={() => setSupprimer(false)}
+        actions={<>
+          <Bouton intention="souligne" onClick={() => setSupprimer(false)}>Garder le stage</Bouton>
+          <Bouton onClick={() => { setSupprimer(false); void Clients.supprimerEvenement(id).then(() => aller('stages')).catch((err) => setRefusSuppression(messageDe(err))); }}>Supprimer</Bouton>
+        </>}>
+        <p>Il disparaît des listes. Un stage qui a des inscrits ne se supprime pas.</p>
+      </Fenetre>
     </div>
   );
 };
