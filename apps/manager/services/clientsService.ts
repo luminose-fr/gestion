@@ -75,6 +75,15 @@ export const seancesDeLaPeriode = (du: string, au: string) =>
 export const lireQuestionnaireSante = (qid: string) => appel<QuestionnaireSante>(`/sante/${id(qid)}`);
 export const marquerQuestionnaireRelu = (qid: string) => appel<{ id: string }>(`/sante/${id(qid)}/relu`, 'POST');
 export const marquerQuestionnaireARevoir = (qid: string) => appel<{ id: string }>(`/sante/${id(qid)}/a-revoir`, 'POST');
+/** Ce qui attend une fiche : les réservations et les envois de santé reçus sans fiche (lot 8). */
+export type ARattacher = {
+  seances: (Seance & { email: string | null; telephone: string | null })[];
+  sante: { id: string; recuLe: string; contexte: string; prenom: string | null; nom: string | null; email: string | null }[];
+};
+export const lireARattacher = () => appel<ARattacher>('/seances/a-rattacher');
+export const rattacherSeance = (seanceId: string, clientId: string) => appel<{ id: string }>(`/seances/${id(seanceId)}/rattacher`, 'POST', { clientId });
+export const rattacherEnvoiSante = (qid: string, clientId: string) => appel<{ id: string }>(`/sante/${id(qid)}/rattacher`, 'POST', { clientId });
+
 /** L'écran Paiements : à encaisser, ou encaissés ces trois derniers mois, et le total. */
 export const lirePaiements = (vue: 'a_encaisser' | 'encaisses') =>
   appel<{ seances: Seance[]; nombre: number; totalCentimes: number }>(`/seances/paiements?vue=${vue}`);

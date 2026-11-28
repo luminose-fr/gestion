@@ -17,9 +17,9 @@ import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSean
 import { apresChangement } from '../clients/agenda-seances';
 import { lireAujourdhui, provenanceEnClair, HEURE_DU_SOIR } from '../clients/aujourdhui';
 import { disponibilites } from '../clients/disponibilites';
-import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance, lirePaiements } from '../clients/seances';
+import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance, lirePaiements, seancesARattacher, rattacherSeance } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
-import { lireNotesSeance, ecrireNotesSeance } from '../clients/sensible';
+import { lireNotesSeance, ecrireNotesSeance, questionnairesARattacher } from '../clients/sensible';
 import { famille, corps, valider, dateSimple, identifiant, instantIso, iso } from './clients-commun';
 import { MESSAGE_NOTE_MODIFIEE } from './clients';
 
@@ -76,6 +76,26 @@ seances.get('/', async (c) => {
   if (fin <= debut) throw new Refus('La fin de la période précède son début.', 400);
   if (fin - debut > (JOURS_MAX + 1) * 24 * 3_600_000) throw new Refus(`Une période couvre ${JOURS_MAX} jours au plus.`, 400);
   return c.json({ seances: (await seancesDeLaPeriode(baseClients(c.env), debut, fin)).map(enSortie) });
+});
+
+/**
+ * Rattacher (refonte, lot 8 ; maquette Rattacher) : les réservations et les
+ * envois de santé (questionnaire) reçus sans fiche, avec l’identité envoyée — jamais une
+ * réponse. Deux instructions. Déclarée avant `/:id`.
+ */
+seances.get('/a-rattacher', async (c) => {
+  const db = baseClients(c.env);
+  const [lignes, recus] = await Promise.all([seancesARattacher(db), questionnairesARattacher(db)]);
+  return c.json({
+    seances: lignes.map((s) => ({ ...enSortie(s), email: s.recu_email ?? null, telephone: s.recu_telephone ?? null })),
+    sante: recus.map((q) => ({ id: q.id, recuLe: iso(q.created_at as number), contexte: q.contexte, prenom: q.prenom ?? null, nom: q.nom ?? null, email: q.email ?? null })),
+  });
+});
+
+seances.post('/:id/rattacher', async (c) => {
+  const { clientId } = await corps(c, z.strictObject({ clientId: identifiant }));
+  if (await rattacherSeance(baseClients(c.env), c.req.param('id'), clientId, Date.now())) return c.json({ id: c.req.param('id') });
+  throw new Refus('Rien à rattacher : la séance a déjà une fiche, ou l’une des deux n’existe pas.', 409);
 });
 
 /**
@@ -139,6 +159,7 @@ seances.get('/aujourdhui', async (c) => {
       ...lu.aClore.map((s) => ({ sorte: 'clore' as const, s })),
       ...lu.notes.map((s) => ({ sorte: 'notes' as const, s })),
       ...lu.aRelire.map((s) => ({ sorte: 'questionnaire' as const, s })),
+      ...lu.aRattacher.map((s) => ({ sorte: 'rattacher' as const, s })),
     ].sort((a, b) => Number(a.s.debut) - Number(b.s.debut)).map(({ sorte, s }) => ({ sorte, seance: enLigne(s) })),
   });
 });

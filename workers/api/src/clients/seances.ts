@@ -153,3 +153,40 @@ export const lirePaiements = async (db: D1Database, vue: 'a_encaisser' | 'encais
   const t = total.results[0] as { n: number; centimes: number };
   return { lignes: lignes.results as Brut[], nombre: Number(t.n), centimes: Number(t.centimes) };
 };
+
+// ─── Rattacher une réservation à une fiche (refonte, lot 8) ─────────────────
+
+/**
+ * Les séances sans fiche — une réservation reçue « à rapprocher » (§14.4) —,
+ * de la plus proche à la plus lointaine. Ce que la personne a envoyé (prénom,
+ * nom, e-mail, téléphone) sert à choisir la bonne fiche : c'est l'écran de
+ * Florent, et rien d'autre ne le lit. Une instruction.
+ */
+export const seancesARattacher = async (db: D1Database): Promise<Brut[]> => {
+  const { results } = await db.prepare(`
+    SELECT ${COLONNES},
+      json_extract(s.identite_recue, '$.email') AS recu_email,
+      json_extract(s.identite_recue, '$.telephone') AS recu_telephone
+    FROM seances s
+    LEFT JOIN clients c ON c.id = s.client_id
+    LEFT JOIN types_seance t ON t.id = s.type_seance_id
+    WHERE s.client_id IS NULL AND s.statut <> 'annulee'
+    ORDER BY s.debut, s.id LIMIT 100`).all();
+  return results as Brut[];
+};
+
+/**
+ * Rattacher : la séance prend la fiche, si elle n'en a pas encore et que la
+ * fiche existe ; l'alerte « à rapprocher » qui la désignait se résout dans le
+ * même lot. `false` : rien d'écrit (déjà rattachée, ou l'une des deux absente).
+ */
+export const rattacherSeance = async (db: D1Database, id: string, clientId: string, maintenant: number): Promise<boolean> => {
+  const [maj] = await db.batch([
+    db.prepare(`UPDATE seances SET client_id = ?2, updated_at = ?3
+      WHERE id = ?1 AND client_id IS NULL AND EXISTS (SELECT 1 FROM clients WHERE id = ?2)`).bind(id, clientId, maintenant),
+    db.prepare(`UPDATE alertes SET resolue_le = ?2, updated_at = ?2
+      WHERE sorte = 'a_rapprocher' AND objet_type = 'seance' AND objet_id = ?1 AND resolue_le IS NULL
+        AND EXISTS (SELECT 1 FROM seances WHERE id = ?1 AND client_id IS NOT NULL)`).bind(id, maintenant),
+  ]);
+  return maj.meta.changes === 1;
+};

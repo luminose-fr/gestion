@@ -6,6 +6,7 @@
  *   #clients/nouvelle             une nouvelle fiche
  *   #clients/<id>                 une fiche
  *   #clients/questionnaire/<id>   un questionnaire de santé (lot 8)
+ *   #clients/rattacher            ce qui attend une fiche (lot 8)
  *   #agenda[/semaine/<lundi>]     le planning, à la semaine
  *   #agenda/mois/<premier>        le planning, au mois
  *   #agenda/calendly              l'ancien écran Calendly, tant qu'il sert
@@ -27,11 +28,13 @@ import { FicheView } from './FicheView';
 import { SeanceView } from './SeanceView';
 import { PlanningView } from './PlanningView';
 import { QuestionnaireView } from './QuestionnaireView';
+import { RattacherView } from './RattacherView';
 import { useAdresse } from './commun';
 
 export const EspaceClients: React.FC = () => {
   const [premier, second] = useAdresse();
   if (!premier) return <FichesView />;
+  if (premier === 'rattacher') return <RattacherView />;
   if (premier === 'questionnaire' && second) return <QuestionnaireView key={second} id={decodeURIComponent(second)} />;
   if (premier === 'nouvelle') return <NouvelleFicheView />;
   return <FicheView key={premier} id={decodeURIComponent(premier)} />;

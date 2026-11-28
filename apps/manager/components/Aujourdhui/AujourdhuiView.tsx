@@ -23,7 +23,8 @@ const FOCUS_DEDANS = 'outline-none focus-visible:outline-2 focus-visible:-outlin
 const adresseSeance = (s: SeanceDuJour) => `#agenda/${encodeURIComponent(s.id)}`;
 /** Une ligne d'À traiter mène à l'écran où son geste se fait. */
 const adresseDe = (t: ATraiter) =>
-  t.sorte === 'questionnaire' && t.seance.questionnaireId ? `#clients/questionnaire/${encodeURIComponent(t.seance.questionnaireId)}` : adresseSeance(t.seance);
+  t.sorte === 'questionnaire' && t.seance.questionnaireId ? `#clients/questionnaire/${encodeURIComponent(t.seance.questionnaireId)}`
+    : t.sorte === 'rattacher' ? '#clients/rattacher' : adresseSeance(t.seance);
 const typeDe = (s: SeanceDuJour) => s.type?.libelle ?? s.libelleImporte ?? 'Type inconnu';
 
 /** « dans 25 min », « dans 2 h 10 », « en cours » ; rien au-delà de la journée. */
@@ -161,6 +162,7 @@ const GESTES: Record<ATraiter['sorte'], string> = {
   clore: 'Clore la séance restée « prévue »',
   notes: 'Écrire les notes',
   questionnaire: 'Relire le questionnaire',
+  rattacher: 'Rattacher la réservation',
 };
 
 const ATraiterBloc: React.FC<{ a: Aujourdhui }> = ({ a }) => {
@@ -190,7 +192,7 @@ const ATraiterBloc: React.FC<{ a: Aujourdhui }> = ({ a }) => {
                 'flex flex-wrap items-center gap-x-4 gap-y-0.5 px-4 py-2.5 hover:bg-survole md:flex-nowrap', i > 0 && 'border-t border-bord', FOCUS_DEDANS,
               )}>
                 <span className="w-full font-semibold md:w-72 md:flex-none">{GESTES[t.sorte]}</span>
-                <span className="min-w-0 flex-1 truncate">{nomComplet(t.seance.personne)}</span>
+                <span className="min-w-0 flex-1 truncate">{t.sorte === 'rattacher' ? `reçue au nom de ${nomComplet(t.seance.personne)}` : nomComplet(t.seance.personne)}</span>
                 <span className="text-secondaire text-second">{t.sorte === 'questionnaire' ? `séance ${echeance(t, a.jour)}` : echeance(t, a.jour)}</span>
                 <span aria-hidden="true" className="hidden text-second md:inline">›</span>
               </a>

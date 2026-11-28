@@ -493,3 +493,26 @@ export const marquerQuestionnaireARevoir = async (db: D1Database, id: string, ma
   const r = await db.prepare('UPDATE questionnaires SET a_revoir = 1, relu_le = NULL, updated_at = ?2 WHERE id = ?1').bind(id, maintenant).run();
   return r.meta.changes === 1;
 };
+
+/** Les questionnaires reçus sans fiche (« à rapprocher ») : l'identité envoyée, jamais les réponses. Une instruction. */
+export const questionnairesARattacher = async (db: D1Database) => {
+  const { results } = await db.prepare(`
+    SELECT id, created_at, contexte,
+      json_extract(identite, '$.prenom') AS prenom, json_extract(identite, '$.nom') AS nom,
+      json_extract(identite, '$.email') AS email
+    FROM questionnaires WHERE rattachement = 'a_rapprocher' AND client_id IS NULL
+    ORDER BY created_at LIMIT 100`).all();
+  return results as Record<string, unknown>[];
+};
+
+/** Rattacher un questionnaire à une fiche ; l'alerte qui le désignait se résout. `false` : rien d'écrit. */
+export const rattacherQuestionnaire = async (db: D1Database, id: string, clientId: string, maintenant: number): Promise<boolean> => {
+  const [maj] = await db.batch([
+    db.prepare(`UPDATE questionnaires SET client_id = ?2, rattachement = 'fait', updated_at = ?3
+      WHERE id = ?1 AND rattachement = 'a_rapprocher' AND EXISTS (SELECT 1 FROM clients WHERE id = ?2)`).bind(id, clientId, maintenant),
+    db.prepare(`UPDATE alertes SET resolue_le = ?2, updated_at = ?2
+      WHERE sorte = 'a_rapprocher' AND objet_type = 'questionnaire' AND objet_id = ?1 AND resolue_le IS NULL
+        AND EXISTS (SELECT 1 FROM questionnaires WHERE id = ?1 AND rattachement = 'fait')`).bind(id, maintenant),
+  ]);
+  return maj.meta.changes === 1;
+};

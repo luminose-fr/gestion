@@ -9,8 +9,9 @@
  */
 import { baseClients } from '../clients/base';
 import { Refus } from '../refus';
-import { lireQuestionnaire, marquerQuestionnaireARevoir, marquerQuestionnaireRelu } from '../clients/sensible';
-import { famille, iso } from './clients-commun';
+import { z } from 'zod';
+import { lireQuestionnaire, marquerQuestionnaireARevoir, marquerQuestionnaireRelu, rattacherQuestionnaire } from '../clients/sensible';
+import { corps, famille, identifiant, iso } from './clients-commun';
 
 export const sante = famille();
 
@@ -40,4 +41,10 @@ sante.post('/:id/relu', async (c) => {
 sante.post('/:id/a-revoir', async (c) => {
   if (!(await marquerQuestionnaireARevoir(baseClients(c.env), c.req.param('id'), Date.now()))) throw new Refus(INTROUVABLE, 404);
   return c.json({ id: c.req.param('id') });
+});
+
+sante.post('/:id/rattacher', async (c) => {
+  const { clientId } = await corps(c, z.strictObject({ clientId: identifiant }));
+  if (await rattacherQuestionnaire(baseClients(c.env), c.req.param('id'), clientId, Date.now())) return c.json({ id: c.req.param('id') });
+  throw new Refus('Rien à rattacher : le questionnaire est déjà rattaché, ou l’un des deux n’existe pas.', 409);
 });

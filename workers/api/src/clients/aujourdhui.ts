@@ -1,7 +1,7 @@
 /**
  * L'écran Aujourd'hui (refonte de la console, lot 3 — docs/refonte/01, §3).
  *
- * Une lecture groupée, en UN aller-retour de cinq instructions, chacune
+ * Une lecture groupée, en UN aller-retour de six instructions, chacune
  * bornée : son nombre de requêtes ne dépend pas du volume (CLAUDE.md, « Pas
  * de N+1 »).
  *
@@ -18,8 +18,11 @@
  * - « Relire le questionnaire » (lot 8) : reçu, pas relu, pour une séance des
  *   sept prochains jours ; elle sort quand on le marque relu.
  *
- * La réservation à rattacher et les autres alertes entreront avec leurs
- * écrans : une ligne qui mène à une impasse apprend à ne plus lire la liste.
+ * - « Rattacher la réservation » (lot 8) : une séance reçue sans fiche ; elle
+ *   sort quand elle est rattachée, depuis l'écran Rattacher.
+ *
+ * Les autres alertes entreront avec leurs écrans : une ligne qui mène à une
+ * impasse apprend à ne plus lire la liste.
  *
  * Des listes : l'état d'une note ou d'un questionnaire, jamais leur contenu
  * (04, §4) — les deux fragments viennent de `sensible.ts`.
@@ -54,14 +57,14 @@ const FIN = `(s.debut + s.duree_min * 60000)`;
 /** Un questionnaire non relu se signale une semaine avant sa séance. */
 export const JOURS_DU_QUESTIONNAIRE = 7;
 
-export type LectureAujourdhui = { journee: Brut[]; prochaine: Brut | null; aClore: Brut[]; notes: Brut[]; aRelire: Brut[] };
+export type LectureAujourdhui = { journee: Brut[]; prochaine: Brut | null; aClore: Brut[]; notes: Brut[]; aRelire: Brut[]; aRattacher: Brut[] };
 
 /**
  * `du`–`au` : la journée affichée (le lendemain midi s'y ajoute le soir, c'est
  * l'appelant qui le décide). `maintenant` sépare le passé de l'avenir.
  */
 export const lireAujourdhui = async (db: D1Database, du: number, au: number, maintenant: number): Promise<LectureAujourdhui> => {
-  const [journee, prochaine, aClore, notes, aRelire] = await db.batch([
+  const [journee, prochaine, aClore, notes, aRelire, aRattacher] = await db.batch([
     db.prepare(`
       SELECT ${SEANCE}, ${etatQuestionnaireSql('s')} AS questionnaire, ${notesEcritesSql('s')} AS notes_ecrites
       ${JOINTURES}
@@ -89,6 +92,12 @@ export const lireAujourdhui = async (db: D1Database, du: number, au: number, mai
       ${JOINTURES}
       WHERE s.statut = 'prevue' AND s.debut >= ?1 AND s.debut < ?2 AND ${etatQuestionnaireSql('s')} = 'non_relu'
       ORDER BY s.debut, s.id LIMIT ${LIGNES_PAR_SORTE}`).bind(maintenant, maintenant + JOURS_DU_QUESTIONNAIRE * 86_400_000),
+    // Une réservation reçue sans fiche (« à rapprocher »), tant qu'elle compte encore.
+    db.prepare(`
+      SELECT ${SEANCE}
+      ${JOINTURES}
+      WHERE s.client_id IS NULL AND s.statut <> 'annulee' AND s.debut >= ?1
+      ORDER BY s.debut, s.id LIMIT ${LIGNES_PAR_SORTE}`).bind(maintenant - JOURS_DES_SEANCES_PREVUES * 86_400_000),
   ]);
   return {
     journee: journee.results as Brut[],
@@ -96,6 +105,7 @@ export const lireAujourdhui = async (db: D1Database, du: number, au: number, mai
     aClore: aClore.results as Brut[],
     notes: notes.results as Brut[],
     aRelire: aRelire.results as Brut[],
+    aRattacher: aRattacher.results as Brut[],
   };
 };
 

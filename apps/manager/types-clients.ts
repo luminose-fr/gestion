@@ -97,7 +97,7 @@ export type SeanceDuJour = Seance & {
 };
 /** Un jour de l'Agenda (refonte, lot 5). `libres` : les créneaux de séance libres dans les horaires. */
 export type JourAgenda = { date: string; ferme: 'exception' | 'habitude' | null; exception: boolean; libres: number | null };
-export type ATraiter = { sorte: 'clore' | 'notes' | 'questionnaire'; seance: SeanceDuJour };
+export type ATraiter = { sorte: 'clore' | 'notes' | 'questionnaire' | 'rattacher'; seance: SeanceDuJour };
 
 /** Un questionnaire de santé, sur son écran seulement (refonte, lot 8). */
 export type QuestionnaireSante = {

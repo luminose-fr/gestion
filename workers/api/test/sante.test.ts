@@ -60,3 +60,34 @@ describe('un questionnaire de santé', () => {
     expect((await appeler('GET', '/api/sante/q', makeEnv())).status).toBe(409);
   });
 });
+
+describe('rattacher (lot 8)', () => {
+  it('une réservation sans fiche : listée avec l’identité reçue ; rattachée, l’alerte se résout et elle sort', async () => {
+    await base.prepare(`INSERT INTO seances (id, client_id, type_seance_id, identite_recue, debut, duree_min, occupe_jusqua, statut, etat_paiement, origine, created_at, updated_at)
+      VALUES ('s', NULL, NULL, ?, 1, 60, 3600001, 'prevue', 'a_payer', 'site', 0, 0)`).bind(JSON.stringify({ prenom: 'Sophie', nom: 'Lacombe', email: 's.lacombe@example.org' })).run();
+    await base.prepare(`INSERT INTO alertes (id, sorte, objet_type, objet_id, created_at, updated_at) VALUES ('ar', 'a_rapprocher', 'seance', 's', 1, 1)`).run();
+    let liste = await (await appeler('GET', '/api/seances/a-rattacher')).json() as any;
+    expect(liste.seances.map((s: any) => [s.personne.prenom, s.email])).toEqual([['Sophie', 's.lacombe@example.org']]);
+    const res = await app.fetch(new Request('https://api.test/api/seances/s/rattacher', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': await createSessionToken(env) }, body: JSON.stringify({ clientId: 'client-a' }),
+    }), env as any);
+    expect(res.status).toBe(200);
+    expect(base.query("SELECT client_id FROM seances WHERE id = 's'")[0].client_id).toBe('client-a');
+    expect(base.query("SELECT resolue_le FROM alertes WHERE id = 'ar'")[0].resolue_le).not.toBeNull();
+    liste = await (await appeler('GET', '/api/seances/a-rattacher')).json() as any;
+    expect(liste.seances).toEqual([]);
+  });
+
+  it('un questionnaire « à rapprocher » : listé sans ses réponses ; rattaché, il sort', async () => {
+    await base.prepare(`INSERT INTO questionnaires (id, contexte, identite, reponses, rattachement, created_at, updated_at)
+      VALUES ('qr', 'seance', ?, 'REPERE-REPONSES', 'a_rapprocher', 2, 2)`).bind(JSON.stringify({ prenom: 'Sophie', nom: 'Lacombe', email: 's@example.org' })).run();
+    const liste = await (await appeler('GET', '/api/seances/a-rattacher')).json() as any;
+    expect(liste.sante.map((q: any) => q.prenom)).toEqual(['Sophie']);
+    expect(JSON.stringify(liste)).not.toContain('REPERE-REPONSES');
+    const res = await app.fetch(new Request('https://api.test/api/sante/qr/rattacher', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': await createSessionToken(env) }, body: JSON.stringify({ clientId: 'client-a' }),
+    }), env as any);
+    expect(res.status).toBe(200);
+    expect(base.query("SELECT client_id, rattachement FROM questionnaires WHERE id = 'qr'")[0]).toEqual({ client_id: 'client-a', rattachement: 'fait' });
+  });
+});
