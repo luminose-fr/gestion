@@ -1860,9 +1860,9 @@ describe('Corpus — lecture des documents', () => {
       corps: '# Le Seuil\n\nStatut **suspendu** depuis août.',
     } as any);
 
-    const { container, getByText } = render(<DocumentsView bloc="socle" />);
+    const { container, getByRole } = render(<DocumentsView bloc="socle" />);
     await waitFor(() => expect(container.textContent).toContain('Le Seuil'));
-    fireEvent.click(getByText('Le Seuil'));
+    fireEvent.click(getByRole('button', { name: /Le Seuil/ }));
     await waitFor(() => expect(container.textContent).toContain('depuis août'));
   });
 
@@ -1897,7 +1897,7 @@ describe('Corpus — lecture des documents', () => {
     } as any);
     const vue = render(<DocumentsView bloc="socle" />);
     await waitFor(() => expect(vue.container.textContent).toContain('Le Seuil'));
-    fireEvent.click(vue.getByText('Le Seuil'));
+    fireEvent.click(vue.getByRole('button', { name: /Le Seuil/ }));
     await waitFor(() => expect(vue.container.textContent).toContain('Corps du bundle'));
     return vue;
   };
@@ -2031,9 +2031,9 @@ describe('Corpus — lecture des documents', () => {
       meta: {}, corps: '# Google Ads',
     } as any);
 
-    const { container, getByText } = render(<DocumentsView bloc="canaux" />);
+    const { container, getByRole } = render(<DocumentsView bloc="canaux" />);
     await waitFor(() => expect(container.textContent).toContain('Google Ads'));
-    fireEvent.click(getByText('Google Ads'));
+    fireEvent.click(getByRole('button', { name: /Google Ads/ }));
 
     const lien = await waitFor(() => {
       const a = container.querySelector('article a') as HTMLAnchorElement | null;

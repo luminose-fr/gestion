@@ -15,7 +15,7 @@ import { enregistrerCatalogue, modelesDeTexte, propositionsAVoir } from './servi
 import { generateSeriePlan } from './services/seriesService';
 
 import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings/apercus';
-import { BLOCS, CORPUS_SECTIONS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
+import { BLOCS, CORPUS_SECTIONS, CorpusSection, isBloc, isCorpusSection } from './components/Corpus/sections';
 import { fetchDocumentsCorpus, fetchInbox } from './services/apiService';
 import {
   SettingsSection, isSettingsSection, sectionDAvant,
@@ -1371,14 +1371,9 @@ function App() {
                   {currentSpace === 'paiements' && 'Paiements'}
                   {currentSpace === 'professionnels' && 'Professionnels'}
                   {currentSpace === 'psychedelics' && 'Psychédéliques'}
-                  {currentSpace === 'corpus' && corpusSectionLabel(currentCorpusSection, currentCorpusBloc)}
+                  {currentSpace === 'corpus' && 'Corpus'}
                   {currentSpace === 'settings' && 'Réglages'}
               </TitreCharte>
-              {currentSpace === 'corpus' && (
-                  <p className="hidden lg:block text-xs text-second truncate">
-                      {corpusSectionSousTitre(currentCorpusSection, currentCorpusBloc)}
-                  </p>
-              )}
             </div>
             </div>
 
@@ -1551,14 +1546,7 @@ function App() {
 
         {currentSpace === 'corpus' && (
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-            {currentCorpusSection === 'documents' && (
-                <ListeSecondNiveau
-                    libelle="Documents"
-                    actif={currentCorpusBloc}
-                    onChoisir={(id) => updateCorpusRoute('documents', id)}
-                    entrees={BLOCS.map(b => ({ id: b.id, libelle: b.label, compte: corpusCounts.parBloc?.[b.id] }))}
-                />
-            )}
+            {/* Documents porte sa liste dans l'écran, les six blocs en sur-titre (retours du 28/11, §2.7). */}
             <main className="flex-1 min-w-0 overflow-y-auto">
                 <div className={ecran('liste')}>
                     <CorpusSpace section={currentCorpusSection} bloc={currentCorpusBloc} />

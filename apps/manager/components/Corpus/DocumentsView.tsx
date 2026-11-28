@@ -17,6 +17,8 @@ import {
   type DocumentCorpus, type DocumentListe, type EtatDeploiement,
 } from '../../services/apiService';
 import { Bouton, Champ, Markdown } from '../ui';
+import { Carte, Etiquette, FOCUS, Pastille, Secondaire } from '../charte';
+import { BLOCS } from './sections';
 
 /**
  * Le fichier, ouvert dans l'éditeur web de GitHub.
@@ -30,6 +32,29 @@ import { Bouton, Champ, Markdown } from '../ui';
  */
 const EDITEUR = (chemin: string) =>
   `https://github.com/luminose-fr/gestion/edit/main/packages/corpus/content/${chemin}.md`;
+
+/** Le statut d'une fiche, en clair ; « actif » n'a pas de pastille dans la liste (retours du 28/11, §2.7). */
+const STATUTS: Record<string, string> = { actif: 'Actif', active: 'Actif', suspendu: 'suspendu', termine: 'terminé', candidat: 'candidat', 'volontairement-absent': 'volontairement absent' };
+const estActif = (statut: string | null | undefined) => !statut || statut === 'actif' || statut === 'active';
+
+/** Les profils composés qui retiennent une fiche — la règle de packages/corpus/profils.ts, lue en clair. */
+const profilsDe = (bloc: string, meta: Record<string, unknown>): string[] => [
+  meta.noyau === true && ['socle', 'voix'].includes(bloc) ? 'noyau' : null,
+  ['socle', 'voix', 'canaux', 'repertoire', 'outils'].includes(bloc) && meta.statut !== 'candidat' ? 'complet' : null,
+  bloc === 'strategie' ? 'stratégie' : null,
+].filter((p): p is string => !!p);
+
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const revuLe = (revu: unknown) => {
+  const m = /^(\d{4})-(\d{2})/.exec(String(revu ?? ''));
+  return m ? `revu en ${MOIS[Number(m[2]) - 1]} ${m[1]}` : null;
+};
+
+/** Le titre est déjà dans l'en-tête : un « # Titre » identique en tête du texte ne le répète pas. */
+const sansTitre = (corps: string, titre: string) => {
+  const m = /^\s*#\s+(.+)\n+/.exec(corps);
+  return m && m[1].trim() === titre.trim() ? corps.slice(m[0].length) : corps;
+};
 
 const COULEUR_STATUT: Record<string, string> = {
   actif: 'text-succes',
@@ -76,17 +101,21 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
       .catch((e) => setErreur(e?.message ?? 'Liste injoignable.'));
   }, []);
 
-  const docs = useMemo(
-    () => (liste ?? []).filter((d) => !bloc || d.bloc === bloc),
-    [liste, bloc],
+  /** Les six blocs, dans l'ordre, chacun avec ses fiches : une seule liste dans l'écran (retours du 28/11, §2.7). */
+  const blocs = useMemo(
+    () => BLOCS.map((b) => ({ ...b, docs: (liste ?? []).filter((d) => d.bloc === b.id) })),
+    [liste],
   );
 
   /**
-   * Changer de bloc referme la fiche ouverte. Laisser afficher un document de
-   * `socle/` alors que le panneau dit `canaux/` ferait mentir la navigation —
-   * et c'est exactement le genre d'écart que cet écran existe pour traquer.
+   * L'adresse dit le bloc ; la fiche ouverte est la première de ce bloc, tant
+   * qu'aucune fiche de ce bloc n'est déjà ouverte. Sans bloc, la première du corpus.
    */
-  useEffect(() => { setOuvert(null); }, [bloc]);
+  useEffect(() => {
+    if (!liste?.length || (ouvert && (!bloc || ouvert.bloc === bloc))) return;
+    const premiere = liste.find((d) => d.bloc === bloc) ?? liste[0];
+    void ouvrir(premiere.chemin);
+  }, [liste, bloc]);
 
   // Le jeton GitHub est facultatif : sans lui, la console lit le corpus et ne
   // l'écrit pas. On demande une fois, et on cache le bouton plutôt que de le
@@ -190,139 +219,90 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
     }
   };
 
-  if (erreur && !liste) return <p className="text-sm text-erreur">Échec — {erreur}</p>;
-  if (!liste) return <p className="text-sm text-second">Lecture des documents…</p>;
+  if (erreur && !liste) return <p className="text-secondaire text-sens-erreur">× {erreur}</p>;
+  if (!liste) return <Secondaire>Lecture des documents…</Secondaire>;
+
+  const fiche = ouvert ? liste.find((d) => d.chemin === ouvert.chemin) : undefined;
+  const profils = ouvert ? profilsDe(ouvert.bloc, ouvert.meta) : [];
+  const statut = ouvert ? String(ouvert.meta.statut ?? '') : '';
 
   return (
-    /*
-      La colonne de gauche fait 210 px — la largeur des deux panneaux de
-      navigation qui la précèdent. Quatre niveaux côte à côte qui ne font pas
-      la même largeur se lisent comme une hiérarchie qui n'existe pas.
-    */
-    <div className="grid gap-5 lg:grid-cols-[210px_1fr]">
-      <nav>
-        {docs.length === 0 ? (
-          <p className="text-sm text-second">
-            Ce bloc est vide — il se remplira quand un cas d'usage l'exigera.
-          </p>
-        ) : (
-          /*
-            Pas d'en-tête ici : le panneau précédent montre déjà le bloc
-            sélectionné et son compte. Le répéter à 20 px de distance ne dit
-            rien de plus et pousse la liste vers le bas.
-          */
-          <ul className="space-y-0.5">
-            {docs.map((d) => (
-              <li key={d.chemin}>
-                <button
-                  onClick={() => void ouvrir(d.chemin)}
-                  /* La colonne tronque : le titre entier reste lisible au survol. */
-                  title={d.titre}
-                  className={`w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
-                    ouvert?.chemin === d.chemin
-                      ? 'bg-marque text-sur-marque'
-                      : 'hover:bg-survole text-second'
-                  }`}
-                >
-                  <span className="block truncate">{d.titre}</span>
-                  <span className={`block text-micro font-mono ${
-                    ouvert?.chemin === d.chemin ? 'opacity-70' : COULEUR_STATUT[d.statut ?? ''] ?? 'text-second'
-                  }`}>
-                    {d.statut ?? d.type ?? '—'}
-                    {chargement === d.chemin && ' · ouverture…'}
-                  </span>
+    <div className="flex flex-col gap-6 font-charte md:flex-row md:items-start md:gap-10">
+      <nav aria-label="Documents du corpus" className="flex flex-none flex-col gap-0.5 md:w-64">
+        {blocs.map((b) => (
+          <React.Fragment key={b.id}>
+            <Etiquette as="h2" className="flex whitespace-nowrap px-3 pb-1.5 pt-4 first:pt-0"><span className="flex-1">{b.label}</span><span>{b.docs.length}</span></Etiquette>
+            {b.docs.length === 0 && <Secondaire className="px-3">Vide pour l’instant.</Secondaire>}
+            {b.docs.map((d) => {
+              const choisi = ouvert?.chemin === d.chemin;
+              return (
+                <button key={d.chemin} type="button" aria-current={choisi ? 'page' : undefined} title={d.titre}
+                  onClick={() => {
+                    // L'adresse suit le bloc sans relancer la route : la fiche choisie reste ouverte.
+                    if (d.bloc !== bloc) window.history.replaceState(null, '', `#corpus/documents/${d.bloc}`);
+                    void ouvrir(d.chemin);
+                  }}
+                  className={`flex min-h-9 items-center gap-2 rounded-controle px-3 py-1.5 text-left text-courant ${FOCUS} ${choisi ? 'bg-actif font-semibold text-marque' : 'font-medium text-texte hover:bg-survole'}`}>
+                  <span className="min-w-0 flex-1">{d.titre}{chargement === d.chemin && <span className="text-second"> · ouverture…</span>}</span>
+                  {!estActif(d.statut) && <Pastille>{STATUTS[d.statut ?? ''] ?? d.statut}</Pastille>}
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
+              );
+            })}
+          </React.Fragment>
+        ))}
       </nav>
 
-      <article className="bg-surface rounded-xl border border-bord p-4 md:p-6 min-h-[20rem]">
-        {erreur && <p className="text-sm text-erreur mb-3">Échec — {erreur}</p>}
+      <article className="flex min-w-0 max-w-[770px] flex-1 flex-col gap-4 md:pt-2">
+        {erreur && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {erreur}</p>}
         {!ouvert ? (
-          <p className="text-sm text-second">
-            Choisissez un document. Le corpus est en lecture seule ici — il se modifie dans Git,
-            et le déploiement le republie.
-          </p>
+          <Secondaire>Choisissez un document.</Secondaire>
         ) : (
           <>
-            <header className="mb-4 pb-3 border-b border-bord">
-              <p className="font-mono text-micro text-second">{ouvert.chemin}.md</p>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-micro font-mono">
-                {Object.entries(ouvert.meta)
-                  .filter(([, v]) => v !== null && v !== undefined && v !== '')
-                  .map(([k, v]) => (
-                    <span key={k} className="text-second">
-                      {k}: <span className={k === 'statut' ? COULEUR_STATUT[String(v)] ?? '' : 'text-second'}>
-                        {Array.isArray(v) ? v.join(', ') : String(v)}
-                      </span>
-                    </span>
-                  ))}
+            <header className="flex flex-col gap-1.5">
+              <Etiquette>{BLOCS.find((b) => b.id === ouvert.bloc)?.label ?? ouvert.bloc}</Etiquette>
+              <h2 className="font-titre text-ecran-tel font-medium text-texte">{ouvert.titre}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                {statut && <Pastille ton={estActif(statut) ? 'succes' : 'alerte'}>{estActif(statut) ? '✓ Actif' : STATUTS[statut] ?? statut}</Pastille>}
+                <Secondaire>
+                  {[profils.length ? `Dans ${profils.length > 1 ? 'les profils' : 'le profil'} ${profils.join(' et ')}` : 'Dans aucun profil composé',
+                    fiche ? `${fiche.taille.toLocaleString('fr-FR')} signes` : null, revuLe(ouvert.meta.revu)].filter(Boolean).join(' · ')}
+                </Secondaire>
               </div>
-              <div className="flex flex-wrap items-center gap-2 mt-3">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 {depotOuvert && !edition && (
-                  <Bouton
-                    onClick={() => void ouvrirEdition()}
-                    disabled={occupe === 'ouverture'}
-                    taille="petit" intention="principale">
-                    {occupe === 'ouverture'
-                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lecture…</>
-                      : <><PenLine className="w-3.5 h-3.5" /> Modifier</>}
+                  <Bouton onClick={() => void ouvrirEdition()} disabled={occupe === 'ouverture'} taille="petit" intention="secondaire">
+                    {occupe === 'ouverture' ? <><Loader2 className="size-3.5 animate-spin" /> Lecture…</> : <><PenLine className="size-3.5" /> Modifier</>}
                   </Bouton>
                 )}
-                <a
-                  href={EDITEUR(ouvert.chemin)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-micro text-texte hover:text-second dark:hover:text-white"
-                >
-                  <ExternalLink className="w-3 h-3" /> {depotOuvert ? 'ou sur GitHub' : 'Modifier sur GitHub'}
+                <a href={EDITEUR(ouvert.chemin)} target="_blank" rel="noreferrer"
+                  className={`inline-flex items-center gap-1 rounded-controle text-secondaire font-semibold text-marque ${FOCUS}`}>
+                  <ExternalLink className="size-3" /> {depotOuvert ? 'ou sur GitHub' : 'Modifier sur GitHub'}
                 </a>
-                {/*
-                  Dit à voix haute ce que la mécanique impose : le corpus est
-                  une constante du bundle du Worker, donc une correction
-                  commitée ne se voit ici qu'au déploiement suivant. Sans cette
-                  ligne, on corrige, on revient, on ne voit rien, et on conclut
-                  que c'est cassé.
-                */}
-                {!edition && !retardDeLaFiche && (
-                  <span className="text-micro text-second">
-                    une correction n'entre dans les prompts qu'au déploiement
-                  </span>
-                )}
               </div>
             </header>
 
             {!edition && retardDeLaFiche && (
               /*
                 Ce qu'on lit ici vient du bundle — donc de ce que les prompts
-                reçoivent. Le dépôt, lui, a déjà autre chose. C'est l'exacte
-                situation qui faisait conclure « ma correction n'a pas été
-                enregistrée » alors qu'elle l'était.
+                reçoivent. Le dépôt, lui, a déjà autre chose.
               */
-              <div className="mb-3 rounded-lg border border-alerte/30 bg-alerte/10 p-3 space-y-2">
-                <p className="text-sm text-alerte">
-                  <AlertTriangle className="w-3.5 h-3.5 inline -mt-0.5" />{' '}
+              <div className="flex flex-col gap-2 rounded-carte border border-sens-alerte bg-sens-alerte-fond p-3">
+                <p className="text-sens-alerte">
+                  <AlertTriangle className="-mt-0.5 inline size-3.5" />{' '}
                   {retardDeLaFiche.etat === 'supprime'
                     ? <>Cette fiche <strong>n'existe plus dans le dépôt</strong>, mais le Worker la sert encore.</>
                     : <>Le dépôt porte une version plus récente. <strong>Ce que vous lisez ici est celle que reçoivent les prompts.</strong></>}
                 </p>
-                <Bouton
-                  onClick={() => void deployer()}
-                  disabled={occupe === 'deploiement'}
-                  taille="petit" intention="principale">
-                  {occupe === 'deploiement'
-                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lancement…</>
-                    : <><Rocket className="w-3.5 h-3.5" /> Déployer maintenant</>}
+                <Bouton onClick={() => void deployer()} disabled={occupe === 'deploiement'} taille="petit" intention="principale" className="self-start">
+                  {occupe === 'deploiement' ? <><Loader2 className="size-3.5 animate-spin" /> Lancement…</> : <><Rocket className="size-3.5" /> Déployer maintenant</>}
                 </Bouton>
               </div>
             )}
 
             {!edition ? (
-              <Markdown texte={ouvert.corps} />
+              <Carte className="px-6 pb-6 pt-5"><Markdown texte={sansTitre(ouvert.corps, ouvert.titre)} /></Carte>
             ) : (
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {/*
                   Le fichier ENTIER, frontmatter compris : c'est là que vit
                   `statut`, et « Le Seuil repasse actif » est précisément le
@@ -333,63 +313,40 @@ const DocumentsView: React.FC<Props> = ({ bloc }) => {
                   onChange={(e) => setEdition({ ...edition, contenu: e.target.value })}
                   spellCheck={false}
                   rows={26}
-                  className="w-full font-mono text-xs leading-relaxed p-3 rounded-lg border border-bord bg-fond/40 text-second resize-y outline-hidden focus:border-marque"
+                  className="w-full resize-y rounded-controle border border-champ-bord bg-champ-fond p-3 font-mono text-secondaire text-texte outline-hidden focus:border-marque"
                 />
-
                 {commit ? (
                   /* Commité, pas déployé — l'état que rien n'annonçait avant. */
-                  <div className="rounded-lg border border-succes/30 bg-succes/10 p-3 space-y-2">
-                    <p className="text-sm text-succes">
-                      <Check className="w-3.5 h-3.5 inline -mt-0.5" />{' '}
-                      Commité (<span className="font-mono text-xs">{commit}</span>).{' '}
+                  <div className="flex flex-col gap-2 rounded-carte border border-sens-succes bg-sens-succes-fond p-3">
+                    <p className="text-sens-succes">
+                      <Check className="-mt-0.5 inline size-3.5" />{' '}
+                      Commité (<span className="font-mono">{commit}</span>).{' '}
                       <strong>Les prompts reçoivent encore l'ancienne version</strong> tant que le Worker n'est pas redéployé.
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <Bouton
-                        onClick={() => void deployer()}
-                        disabled={occupe === 'deploiement'}
-                        taille="petit" intention="principale">
-                        {occupe === 'deploiement'
-                          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lancement…</>
-                          : <><Rocket className="w-3.5 h-3.5" /> Déployer maintenant</>}
+                      <Bouton onClick={() => void deployer()} disabled={occupe === 'deploiement'} taille="petit" intention="principale">
+                        {occupe === 'deploiement' ? <><Loader2 className="size-3.5 animate-spin" /> Lancement…</> : <><Rocket className="size-3.5" /> Déployer maintenant</>}
                       </Bouton>
-                      <Bouton
-                        onClick={quitterEdition}
-                        taille="petit" intention="discrete">
-                        Plus tard
-                      </Bouton>
+                      <Bouton onClick={quitterEdition} taille="petit" intention="discrete">Plus tard</Bouton>
                     </div>
-                    <p className="text-micro text-succes/70">
-                      « Plus tard » est légitime : on groupe plusieurs corrections, puis on déploie une fois.
-                      Corpus → État dira que la source a de l'avance.
-                    </p>
+                    <Secondaire>« Plus tard » est légitime : on groupe plusieurs corrections, puis on déploie une fois. Corpus → État dira que la source a de l'avance.</Secondaire>
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
-                    <Champ
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder={`Message de commit — défaut : « Corpus : ${ouvert.chemin} »`}
-                      className="flex-1 min-w-[16rem]"
-                    />
-                    <Bouton
-                      onClick={() => void enregistrer()}
-                      disabled={!modifie || occupe === 'enregistrement'}
-                      taille="petit" intention="principale">
-                      {occupe === 'enregistrement'
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Envoi…</>
-                        : <><Check className="w-3.5 h-3.5" /> Enregistrer</>}
+                    <Champ value={message} onChange={(e) => setMessage(e.target.value)}
+                      placeholder={`Message de commit — défaut : « Corpus : ${ouvert.chemin} »`} className="min-w-64 flex-1" />
+                    <Bouton onClick={() => void enregistrer()} disabled={!modifie || occupe === 'enregistrement'} taille="petit" intention="principale">
+                      {occupe === 'enregistrement' ? <><Loader2 className="size-3.5 animate-spin" /> Envoi…</> : <><Check className="size-3.5" /> Enregistrer</>}
                     </Bouton>
-                    <Bouton
-                      onClick={quitterEdition}
-                      title="Abandonner les modifications"
-                      taille="petit" intention="discrete">
-                      <X className="w-3.5 h-3.5" /> Annuler
-                    </Bouton>
+                    <Bouton onClick={quitterEdition} title="Abandonner les modifications" taille="petit" intention="discrete"><X className="size-3.5" /> Annuler</Bouton>
                   </div>
                 )}
               </div>
             )}
+            <Secondaire>
+              Le corpus se modifie dans Git, et le déploiement le republie : une correction n'entre dans les prompts qu'au déploiement.
+              L’onglet État dit ensuite quelles surfaces sont à recoller.
+            </Secondaire>
           </>
         )}
       </article>
