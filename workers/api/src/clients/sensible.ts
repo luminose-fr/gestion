@@ -369,6 +369,19 @@ export const questionnairesDeLaFiche = (db: D1Database, clientId: string): D1Pre
     SELECT id, created_at AS date, version, (relu_le IS NOT NULL) AS relu, a_revoir
     FROM questionnaires WHERE client_id = ?1 ORDER BY created_at DESC, id`).bind(clientId);
 
+/**
+ * Le questionnaire d'une inscription (retours du 28/11, §4) : le plus récent
+ * de la personne pour ce stage. Son identifiant, pour l'ouvrir, et son état —
+ * 'relu' ou 'non_relu' — ; NULL quand aucun n'est arrivé. Rien d'autre.
+ */
+export const questionnaireInscriptionSql = (i: string) => {
+  const dernier = `FROM questionnaires q WHERE q.evenement_id = ${i}.evenement_id AND q.client_id = ${i}.client_id ORDER BY q.created_at DESC LIMIT 1`;
+  return {
+    id: `(SELECT q.id ${dernier})`,
+    etat: `(SELECT CASE WHEN q.relu_le IS NULL THEN 'non_relu' ELSE 'relu' END ${dernier})`,
+  };
+};
+
 // ─── Les notes d'une séance ─────────────────────────────────────────────────
 //
 // Un seul texte Markdown (notes.ts) : il s'écrit dans la colonne `seance`, et

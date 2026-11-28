@@ -693,6 +693,34 @@ describe('NORMATIF — une place ne se prend que par sa décision', () => {
     expect((await appeler('GET', '/api/evenements/ev')).status).toBe(200);
   });
 
+  it('un stage sur deux jours : `debut`–`fin` suivent les jours ; un jour qui finit avant de commencer → 400 (retours du 28/11, §4)', async () => {
+    const jours = [
+      { debut: '2027-03-15T10:00:00+01:00', fin: '2027-03-15T16:00:00+01:00' },
+      { debut: '2027-03-14T10:00:00+01:00', fin: '2027-03-14T17:00:00+01:00' },
+    ];
+    expect((await appeler('PATCH', '/api/evenements/ev', { jours })).status).toBe(200);
+    const e = await json(await appeler('GET', '/api/evenements/ev'));
+    expect([Date.parse(e.debut), Date.parse(e.fin)]).toEqual([Date.parse('2027-03-14T09:00:00Z'), Date.parse('2027-03-15T15:00:00Z')]);
+    expect(e.jours.map((j: { debut: string }) => Date.parse(j.debut))).toEqual([Date.parse('2027-03-14T09:00:00Z'), Date.parse('2027-03-15T09:00:00Z')]);
+    expect((await appeler('PATCH', '/api/evenements/ev', { jours: [{ debut: '2027-03-14T10:00:00+01:00', fin: '2027-03-14T09:00:00+01:00' }] })).status).toBe(400);
+    // Un seul jour : la colonne se vide, `debut`–`fin` suffisent.
+    expect((await appeler('PATCH', '/api/evenements/ev', { jours: [jours[1]] })).status).toBe(200);
+    expect((await json(await appeler('GET', '/api/evenements/ev'))).jours).toBeNull();
+  });
+
+  it('chaque inscrit porte l’état de son questionnaire pour ce stage, et rien d’autre (retours du 28/11, §4)', async () => {
+    await base.prepare('UPDATE evenements SET places_totales = 4').run();
+    await inscrire('a');
+    await inscrire('b');
+    await base.prepare(`INSERT INTO questionnaires (id, contexte, client_id, evenement_id, reponses, created_at, updated_at) VALUES ('q-a', 'groupe', 'a', 'ev', 'REPERE', 1, 1)`).run();
+    const reponse = await appeler('GET', '/api/evenements/ev');
+    const texte = await reponse.clone().text();
+    expect(texte).not.toContain('REPERE');
+    const { inscriptions } = await json(reponse);
+    const par = Object.fromEntries(inscriptions.map((i: { personne: { clientId: string }; questionnaire: unknown }) => [i.personne.clientId, i.questionnaire]));
+    expect(par).toEqual({ a: { id: 'q-a', etat: 'non_relu' }, b: null });
+  });
+
   it('un évènement : créé, modifié, le prix en centimes, `publie` hors de portée', async () => {
     const { id } = await json(await appeler('POST', '/api/evenements', { nom: 'Journée d’essai', debut: '2027-01-16T10:00:00+01:00', prixCentimes: 9000, placesTotales: 12 }));
     expect((await appeler('PATCH', `/api/evenements/${id}`, { publie: true })).status).toBe(400);

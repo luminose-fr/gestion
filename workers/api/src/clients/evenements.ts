@@ -8,6 +8,7 @@
 import { placesOccupees, conditionPlaces } from './decisions';
 import { newId } from '../db';
 import { inscrireOrdre } from './ordres';
+import { questionnaireInscriptionSql } from './sensible';
 
 type Brut = Record<string, unknown>;
 
@@ -28,6 +29,8 @@ export type ChampsEvenement = Partial<{
   htmlPrix: string | null;
   htmlLieuAdresse: string | null;
   htmlLieuInstructions: string | null;
+  /** Les jours d'un stage, en JSON : `[{ debut, fin }]`, en millisecondes (0005). */
+  jours: string | null;
 }>;
 
 const COLONNES: Record<keyof ChampsEvenement, string> = {
@@ -35,6 +38,7 @@ const COLONNES: Record<keyof ChampsEvenement, string> = {
   prixCentimes: 'prix_centimes', questionnaireRequis: 'questionnaire_requis', urlInscription: 'url_inscription',
   metaDescription: 'meta_description', htmlPermalink: 'html_permalink', htmlProgramme: 'html_programme',
   htmlPrix: 'html_prix', htmlLieuAdresse: 'html_lieu_adresse', htmlLieuInstructions: 'html_lieu_instructions',
+  jours: 'jours',
 };
 
 const enValeur = (v: unknown) => (typeof v === 'boolean' ? (v ? 1 : 0) : v);
@@ -58,13 +62,15 @@ export const lireEvenement = async (
   const [evenement, inscriptions] = await db.batch([
     db.prepare(`
       SELECT ${CHAMPS_LISTE}, e.meta_description, e.html_permalink, e.html_programme, e.html_prix,
-        e.html_lieu_adresse, e.html_lieu_instructions, e.created_at, e.updated_at
+        e.html_lieu_adresse, e.html_lieu_instructions, e.jours, e.created_at, e.updated_at
       FROM evenements e WHERE e.id = ?2 AND e.deleted_at IS NULL`).bind(maintenant, id),
     db.prepare(`
       SELECT i.id, i.statut, i.mode_paiement, i.retenue_jusqua, i.montant_centimes, i.origine, i.created_at,
         (SELECT p.prestataire FROM paiements p WHERE p.inscription_id = i.id AND p.statut = 'reussi' ORDER BY p.reussi_le DESC LIMIT 1) AS paye_par,
         (SELECT p.reussi_le FROM paiements p WHERE p.inscription_id = i.id AND p.statut = 'reussi' ORDER BY p.reussi_le DESC LIMIT 1) AS paye_le,
         c.id AS client_id,
+        ${questionnaireInscriptionSql('i').id} AS questionnaire_id,
+        ${questionnaireInscriptionSql('i').etat} AS questionnaire_etat,
         COALESCE(c.prenom, json_extract(i.identite_recue, '$.prenom')) AS personne_prenom,
         COALESCE(c.nom, json_extract(i.identite_recue, '$.nom')) AS personne_nom
       FROM inscriptions i LEFT JOIN clients c ON c.id = i.client_id

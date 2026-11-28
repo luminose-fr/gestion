@@ -144,6 +144,8 @@ export type InscriptionVue = {
   montantCentimes: number | null; origine: 'site' | 'console' | 'import'; le: string; personne: PersonneVue;
   /** Le paiement réussi, s'il y en a un (refonte, lot 8). */
   paiement?: { moyen: 'stancer' | 'stripe' | 'virement' | 'especes'; le: string | null } | null;
+  /** Le questionnaire de la personne pour ce stage : de quoi l'ouvrir, et relu ou non (retours du 28/11, §4). */
+  questionnaire?: { id: string; etat: 'relu' | 'non_relu' } | null;
 };
 /** Une inscription à encaisser, sur l'écran Paiements. */
 export type InscriptionAEncaisser = {
@@ -153,12 +155,15 @@ export type InscriptionAEncaisser = {
 export type EvenementDetaille = Evenement & {
   metaDescription: string | null; htmlPermalink: string | null; htmlProgramme: string | null; htmlPrix: string | null;
   htmlLieuAdresse: string | null; htmlLieuInstructions: string | null; inscriptions: InscriptionVue[];
+  /** Les jours d'un stage de plusieurs jours, chacun avec ses heures ; `null` : `debut`–`fin` suffisent. */
+  jours?: { debut: string; fin: string }[] | null;
 };
 export type ChampsEvenement = Partial<{
   nom: string; type: string | null; debut: string; fin: string | null; ville: string | null;
   placesTotales: number | null; prixCentimes: number | null; questionnaireRequis: boolean; urlInscription: string | null;
   metaDescription: string | null; htmlPermalink: string | null; htmlProgramme: string | null; htmlPrix: string | null;
   htmlLieuAdresse: string | null; htmlLieuInstructions: string | null;
+  jours: { debut: string; fin: string }[] | null;
 }>;
 
 export type Professionnel = {

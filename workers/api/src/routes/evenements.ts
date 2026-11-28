@@ -53,14 +53,27 @@ evenements.get('/:id', async (c) => {
     ...enSortie(e),
     metaDescription: e.meta_description, htmlPermalink: e.html_permalink, htmlProgramme: e.html_programme,
     htmlPrix: e.html_prix, htmlLieuAdresse: e.html_lieu_adresse, htmlLieuInstructions: e.html_lieu_instructions,
+    jours: lireJours(e.jours),
     inscriptions: lu.inscriptions.map((i) => ({
       id: i.id, statut: i.statut, modePaiement: i.mode_paiement, retenueJusqua: iso(i.retenue_jusqua as number | null),
       montantCentimes: i.montant_centimes, origine: i.origine, le: iso(i.created_at as number),
       paiement: i.paye_par ? { moyen: i.paye_par, le: iso(i.paye_le as number) } : null,
+      questionnaire: i.questionnaire_id ? { id: i.questionnaire_id, etat: i.questionnaire_etat } : null,
       personne: { clientId: i.client_id ?? null, prenom: i.personne_prenom ?? null, nom: i.personne_nom ?? null },
     })),
   });
 });
+
+/** Les jours d'un stage (0005), en ISO ; une colonne illisible se lit comme absente. */
+const lireJours = (brut: unknown): { debut: string; fin: string }[] | null => {
+  if (typeof brut !== 'string' || !brut) return null;
+  try {
+    const jours = JSON.parse(brut) as { debut: number; fin: number }[];
+    return Array.isArray(jours) ? jours.map((j) => ({ debut: iso(j.debut) as string, fin: iso(j.fin) as string })) : null;
+  } catch { return null; }
+};
+
+const Jour = z.strictObject({ debut: instantIso, fin: instantIso });
 
 /** Les contenus HTML voyagent tels quels : ils ne sont pas interprétés ici. */
 const html = z.string().max(100_000).nullable();
@@ -80,21 +93,36 @@ const CHAMPS = {
   htmlPrix: html.optional(),
   htmlLieuAdresse: html.optional(),
   htmlLieuInstructions: html.optional(),
+  /** Plusieurs jours, chacun avec ses heures : `debut` et `fin` les suivent (premier début, dernière fin). */
+  jours: z.array(Jour).min(1).max(14).nullable().optional(),
 };
 const Modification = z.strictObject(CHAMPS);
+
+/**
+ * Les jours reçus deviennent la colonne `jours`, et `debut`–`fin` les suivent :
+ * le début du premier, la fin du dernier — ce que lisent les listes et les places.
+ */
+const avecJours = <T extends { jours?: { debut: number; fin: number }[] | null }>(champs: T) => {
+  const { jours, ...reste } = champs;
+  if (jours === undefined) return reste;
+  if (jours === null) return { ...reste, jours: null };
+  const tries = [...jours].sort((a, b) => a.debut - b.debut);
+  if (tries.some((j) => j.fin <= j.debut)) throw new Refus('Chaque jour doit finir après avoir commencé.', 400);
+  return { ...reste, debut: tries[0].debut, fin: tries[tries.length - 1].fin, jours: tries.length > 1 ? JSON.stringify(tries) : null };
+};
 const Creation = z.strictObject({ ...CHAMPS, nom: z.string().trim().min(1).max(200), debut: instantIso });
 
 evenements.post('/', async (c) => {
-  const champs = await corps(c, Creation);
+  const champs = avecJours(await corps(c, Creation));
   const id = newId();
-  await creerEvenement(baseClients(c.env), id, champs, Date.now());
+  await creerEvenement(baseClients(c.env), id, champs as typeof champs & { nom: string; debut: number }, Date.now());
   return c.json({ id }, 201);
 });
 
 evenements.patch('/:id', async (c) => {
   const db = baseClients(c.env);
   const id = c.req.param('id');
-  const champs = await corps(c, Modification);
+  const champs = avecJours(await corps(c, Modification));
   if (await modifierEvenement(db, id, champs, Date.now())) return c.json({ id });
   const etat = await etatEvenement(db, id);
   if (!etat || etat.deleted_at !== null) throw new Refus(EVENEMENT_INTROUVABLE, 404);

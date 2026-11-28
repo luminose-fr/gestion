@@ -262,14 +262,49 @@ describe('la console des clients — évènements', () => {
     expect(vue.queryByLabelText('Inscrire une personne')).toBeNull();
   });
 
+  it('Inscrits : une seule pastille de statut, le questionnaire à côté ; Le stage : en lecture, puis Modifier sur plusieurs jours (retours du 28/11, §4)', async () => {
+    routesChargeesC2b();
+    vi.spyOn(ClientsService, 'lireEvenement').mockResolvedValue({
+      ...EVENEMENT, placesTotales: 3, placesOccupees: 2, placesLibres: 1,
+      inscriptions: [
+        { ...EVENEMENT.inscriptions[0], questionnaire: { id: 'q-1', etat: 'non_relu' } },
+        { ...EVENEMENT.inscriptions[0], id: 'ins-2', statut: 'retenue', modePaiement: 'virement', retenueJusqua: '2027-01-02T12:00:00+01:00', personne: { clientId: 'fiche-2', prenom: 'Ève', nom: 'Dupont' } },
+      ],
+    });
+    const modifier = vi.spyOn(ClientsService, 'modifierEvenement').mockResolvedValue({ id: 'ev-1' } as never);
+    const vue = render(<EvenementView id="ev-1" />);
+    await waitFor(() => expect(vue.container.textContent).toContain('Ève Dupont'));
+    const texte = vue.container.textContent ?? '';
+    expect(texte).toContain('Place retenue');
+    expect(texte).toContain('Par virement · retenue jusqu’au');
+    expect(texte).toContain('Non relu');
+    expect(texte).toContain('Pas reçu');
+    expect(vue.container.querySelector('select[id^="statut-"]')).toBeNull();
+    expect(vue.getAllByText('Encaisser')).toHaveLength(2);
+
+    fireEvent.click(vue.getByRole('tab', { name: /Le stage/ }));
+    expect(vue.container.textContent).toContain('Breathwork holotropique');
+    expect(vue.container.textContent).toContain('3 · 1 place libre');
+    fireEvent.click(vue.getByText('Modifier'));
+    fireEvent.click(vue.getByText('+ Ajouter un jour'));
+    expect(vue.getByLabelText('Jour 2')).toBeTruthy();
+    fireEvent.click(vue.getByText('Enregistrer'));
+    await waitFor(() => expect(modifier).toHaveBeenCalled());
+    const envoye = modifier.mock.calls[0][1] as { jours: { debut: string }[]; placesTotales: number };
+    expect(envoye.jours).toHaveLength(2);
+    expect(envoye.placesTotales).toBe(3);
+  });
+
   it('la dernière place prise ailleurs entre-temps : le refus s’affiche tel que la route l’écrit', async () => {
     routesChargeesC2b();
     vi.spyOn(ClientsService, 'lireEvenement').mockResolvedValue({ ...EVENEMENT, placesOccupees: 1, placesLibres: 1 });
     vi.spyOn(ClientsService, 'rechercherFiches').mockResolvedValue({ fiches: [{ id: 'fiche-2', prenom: 'Ève', nom: 'Dupont', ville: null, nbSeances: 0, derniereSeance: null, prochaineSeance: null }], page: 0, suite: false });
     const inscrire = vi.spyOn(ClientsService, 'inscrire').mockRejectedValue(new ClientsService.ErreurClients('Cette journée est complète.', 409));
     const vue = render(<EvenementView id="ev-1" />);
-    await waitFor(() => expect(vue.getByLabelText('Inscrire une personne')).toBeTruthy());
-    fireEvent.change(vue.getByLabelText('Inscrire une personne'), { target: { value: 'Ève' } });
+    // « Inscrire une personne » est l'action du bandeau ; elle ouvre une fenêtre (retours du 28/11, §4).
+    await waitFor(() => expect((vue.getByText('Inscrire une personne').closest('button') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(vue.getByText('Inscrire une personne'));
+    fireEvent.change(vue.getByLabelText('Personne'), { target: { value: 'Ève' } });
     await waitFor(() => expect(vue.getByText('Ève Dupont')).toBeTruthy());
     fireEvent.click(vue.getByText('Ève Dupont'));
     fireEvent.click(vue.getByText('Inscrire'));
