@@ -6,11 +6,10 @@
  * c'est là que se décide de ne pas créer un doublon.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import { Bouton, Carte, TitreSection, ecran } from '../ui';
+import { Bouton, Carte, FOCUS, Repliable, Secondaire, TitreCarte, TitreEcran } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { FicheSemblable, Professionnel } from '../../types-clients';
-import { aller, Avis, messageDe, useGardeSaisie } from './commun';
+import { aller, messageDe, useGardeSaisie } from './commun';
 import { ChampsCoordonnees, ChampsEssentiels, ChampsProvenance, ChoixProfessionnel, SAISIE_VIDE, versRoute, type SaisieFiche } from './champsFiche';
 import { ChoixFiche, type FicheChoisie } from './ChoixFiche';
 
@@ -65,49 +64,66 @@ export const NouvelleFicheView: React.FC = () => {
     }
   };
 
+  // ⌘↵ (ou Ctrl+↵) enregistre, où que soit le focus : la fiche se remplit pendant un appel.
+  const raccourci = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); (e.currentTarget as HTMLFormElement).requestSubmit(); }
+  };
+  const vides = (['dateNaissance', 'ville', 'origine', 'motCleGoogleAds'] as const).filter((k) => !saisie[k].trim()).length;
+
   return (
-    <form onSubmit={enregistrer} className={`${ecran('travail')} space-y-4`}>
-      <TitreSection
-        titre="Nouvelle fiche"
-        action={<Bouton type="button" intention="discrete" onClick={() => aller('clients')}><ArrowLeft /> Fiches</Bouton>}
-      />
+    <form onSubmit={enregistrer} onKeyDown={raccourci} className="mx-auto flex max-w-[1080px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
+      <a href="#clients" className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Clients</a>
+      <div>
+        <TitreEcran>Nouvelle fiche</TitreEcran>
+        <Secondaire className="mt-1">Tout se remplit au clavier : Tab passe au champ suivant, ⌘↵ enregistre.</Secondaire>
+      </div>
 
-      <Carte densite="contenu" rythme>
-        <ChampsEssentiels saisie={saisie} changer={changer} prefixe="nouvelle" focus />
-      </Carte>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Carte className="px-4 py-4">
+            <ChampsEssentiels saisie={saisie} changer={changer} prefixe="nouvelle" focus />
+            <Secondaire className="mt-2">L’e-mail est facultatif pendant l’appel : il sert aux rappels.</Secondaire>
+          </Carte>
 
-      {semblables.length > 0 && (
-        <Carte densite="contenu" rythme aria-live="polite">
-          <TitreSection as="h3" titre="Fiches semblables" sousTitre="Même clé, même adresse, ou même prénom et nom : la personne est peut-être déjà là." />
-          <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
-            {semblables.map((f) => (
-              <li key={f.id} className="flex items-center justify-between gap-3 py-2">
-                <span className="text-sm text-brand-main dark:text-white">
-                  {f.prenom} {f.nom}{f.ville && <span className="text-xs text-brand-main dark:text-dark-text"> · {f.ville}</span>}
-                </span>
-                <Bouton type="button" taille="petit" intention="secondaire" onClick={() => aller(`clients/${encodeURIComponent(f.id)}`)}>
-                  Ouvrir cette fiche
-                </Bouton>
-              </li>
-            ))}
-          </ul>
-        </Carte>
-      )}
+          <Carte className="px-4 py-3">
+            <Repliable titre="Le reste, quand vous l’avez" resume={`${vides} champ${vides > 1 ? 's' : ''} de provenance et d’identité vides`}>
+              <div className="flex flex-col gap-3">
+                <ChampsCoordonnees saisie={saisie} changer={changer} prefixe="nouvelle" />
+                <ChampsProvenance saisie={saisie} changer={changer} prefixe="nouvelle" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ChoixProfessionnel id="nouvelle-via-pro" valeur={viaProfessionnel} onChange={setViaProfessionnel} professionnels={professionnels} />
+                  <ChoixFiche id="nouvelle-via-client" label="Venu par une personne" valeur={viaClient} onChange={setViaClient} />
+                </div>
+              </div>
+            </Repliable>
+          </Carte>
 
-      <Carte densite="contenu" rythme>
-        <ChampsCoordonnees saisie={saisie} changer={changer} prefixe="nouvelle" />
-        <ChampsProvenance saisie={saisie} changer={changer} prefixe="nouvelle" />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ChoixProfessionnel id="nouvelle-via-pro" valeur={viaProfessionnel} onChange={setViaProfessionnel} professionnels={professionnels} />
-          <ChoixFiche id="nouvelle-via-client" label="Venu par une personne" valeur={viaClient} onChange={setViaClient} />
+          {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
+
+          <div className="flex justify-end gap-2">
+            <Bouton intention="souligne" onClick={() => aller('clients')}>Annuler</Bouton>
+            <Bouton type="submit" disabled={enCours}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</Bouton>
+          </div>
         </div>
-      </Carte>
 
-      {refus && <Avis ton="erreur">{refus}</Avis>}
-
-      <div className="flex justify-end gap-3">
-        <Bouton type="button" intention="discrete" onClick={() => aller('clients')}>Annuler</Bouton>
-        <Bouton type="submit" intention="principale" posee disabled={enCours}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</Bouton>
+        <aside aria-live="polite" className="flex flex-col gap-2">
+          <TitreCarte as="h2">Fiches semblables</TitreCarte>
+          {semblables.length === 0 ? (
+            <Secondaire>Les fiches proches s’affichent dès la saisie du nom ou de l’e-mail. C’est ici que se décide de ne pas créer de doublon.</Secondaire>
+          ) : (
+            <Carte as="div" className="overflow-hidden">
+              {semblables.map((f, i) => (
+                <div key={f.id} className={`flex flex-col gap-2 px-4 py-3 ${i ? 'border-t border-bord' : ''}`}>
+                  <span>
+                    <span className="block font-semibold">{f.prenom} {f.nom}</span>
+                    {f.ville && <span className="block text-secondaire text-second">{f.ville}</span>}
+                  </span>
+                  <Bouton taille="petit" intention="borde" className="self-start" onClick={() => aller(`clients/${encodeURIComponent(f.id)}`)}>Ouvrir cette fiche</Bouton>
+                </div>
+              ))}
+            </Carte>
+          )}
+        </aside>
       </div>
     </form>
   );

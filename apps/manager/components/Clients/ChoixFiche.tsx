@@ -4,8 +4,7 @@
  * fiche. La saisie part dans le corps d'un `POST`, jamais dans une adresse.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
-import { Bouton, Champ, Etiquette } from '../ui';
+import { Bouton, Champ } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { LigneFiche } from '../../types-clients';
 
@@ -38,41 +37,39 @@ export const ChoixFiche: React.FC<{
 
   if (valeur) {
     return (
-      <div>
-        <Etiquette className="mb-1">{label}</Etiquette>
-        <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-brand-border dark:border-dark-sec-border bg-brand-light dark:bg-dark-bg">
-          <span className="text-sm font-semibold text-brand-main dark:text-white truncate">{valeur.prenom} {valeur.nom}</span>
-          <Bouton taille="petit" intention="discrete" onClick={() => onChange(null)} aria-label={`Retirer ${valeur.prenom} ${valeur.nom}`}>
-            <X /> Retirer
-          </Bouton>
+      <div className="font-charte">
+        <p className="mb-1 text-secondaire font-semibold">{label}</p>
+        <div className="flex h-11 items-center justify-between gap-2 rounded-controle border border-bord bg-bas px-3 md:h-10">
+          <span className="truncate font-semibold">{valeur.prenom} {valeur.nom}</span>
+          <Bouton taille="petit" intention="souligne" onClick={() => onChange(null)} aria-label={`Retirer ${valeur.prenom} ${valeur.nom}`}>Retirer</Bouton>
         </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="font-charte">
       <Champ
         id={id}
         label={label}
         value={q}
         autoFocus={autoFocus}
-        onChange={(e) => setQ((e.target as HTMLInputElement).value)}
+        onChange={(e) => setQ(e.target.value)}
         placeholder="Chercher une fiche"
         autoComplete="off"
       />
-      {erreur && <p className="mt-1 text-xs text-erreur">{erreur}</p>}
+      {erreur && <p className="mt-1 text-secondaire text-sens-erreur">{erreur}</p>}
       {resultats.length > 0 && (
-        <ul className="mt-1 rounded-lg border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface divide-y divide-brand-border dark:divide-dark-sec-border">
-          {resultats.map((f) => (
-            <li key={f.id}>
+        <ul className="mt-1 overflow-hidden rounded-controle border border-bord bg-surface">
+          {resultats.map((f, i) => (
+            <li key={f.id} className={i ? 'border-t border-bord' : ''}>
               <button
                 type="button"
                 onClick={() => { onChange({ id: f.id, prenom: f.prenom, nom: f.nom }); setQ(''); }}
-                className="ui-list-action w-full text-left px-3 py-2 text-sm text-brand-main dark:text-white hover:bg-survol dark:hover:bg-dark-sec-bg"
+                className="w-full px-3 py-2 text-left hover:bg-survole outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marque"
               >
                 {f.prenom} {f.nom}
-                {f.ville && <span className="text-xs text-brand-main dark:text-dark-text"> · {f.ville}</span>}
+                {f.ville && <span className="text-secondaire text-second"> · {f.ville}</span>}
               </button>
             </li>
           ))}

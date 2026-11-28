@@ -4,8 +4,8 @@
  * d'autre : ni la clé, ni le nom de recherche, ni un identifiant de paiement.
  */
 import React from 'react';
-import { Champ, Etiquette } from '../ui';
-import { CLASSES_SELECT, ORIGINES } from './commun';
+import { Champ, Choix } from '../charte';
+import { ORIGINES } from './commun';
 
 /** Ce qu'un formulaire de fiche tient en mémoire : des textes, comme les champs. */
 export type SaisieFiche = {
@@ -41,7 +41,7 @@ const ChampTexte: React.FC<Proprietes & { champ: keyof SaisieFiche; label: strin
     autoFocus={autoFocus}
     autoComplete={autoComplete}
     list={list}
-    onChange={(e) => changer(champ, (e.target as HTMLInputElement).value)}
+    onChange={(e) => changer(champ, e.target.value)}
   />
 );
 
@@ -56,14 +56,11 @@ export const ChampsEssentiels: React.FC<Proprietes & { focus?: boolean }> = (p) 
 );
 
 export const ChampCivilite: React.FC<Proprietes> = ({ saisie, changer, prefixe }) => (
-  <div>
-    <Etiquette as="label" htmlFor={`${prefixe}-civilite`} className="mb-1">Civilité</Etiquette>
-    <select id={`${prefixe}-civilite`} className={CLASSES_SELECT} value={saisie.civilite} onChange={(e) => changer('civilite', e.target.value)}>
-      <option value="">—</option>
-      <option value="Mme">Mme</option>
-      <option value="M.">M.</option>
-    </select>
-  </div>
+  <Choix id={`${prefixe}-civilite`} label="Civilité" value={saisie.civilite} onChange={(e) => changer('civilite', e.target.value)}>
+    <option value="">—</option>
+    <option value="Mme">Mme</option>
+    <option value="M.">M.</option>
+  </Choix>
 );
 
 /** Civilité, naissance, profession, adresse. */
@@ -93,11 +90,8 @@ export const ChampsProvenance: React.FC<Proprietes> = (p) => (
 export const ChoixProfessionnel: React.FC<{
   id: string; valeur: string; onChange: (id: string) => void; professionnels: { id: string; nom: string }[];
 }> = ({ id, valeur, onChange, professionnels }) => (
-  <div>
-    <Etiquette as="label" htmlFor={id} className="mb-1">Venu par un professionnel</Etiquette>
-    <select id={id} className={CLASSES_SELECT} value={valeur} onChange={(e) => onChange(e.target.value)}>
-      <option value="">—</option>
-      {professionnels.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
-    </select>
-  </div>
+  <Choix id={id} label="Venu par un professionnel" value={valeur} onChange={(e) => onChange(e.target.value)}>
+    <option value="">—</option>
+    {professionnels.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
+  </Choix>
 );
