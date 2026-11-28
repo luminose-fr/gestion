@@ -11,11 +11,12 @@
  * et les horaires, pas l'agenda : un chevauchement est refusé par la route,
  * qui dit avec qui, et la saisie reste pour changer l'heure.
  */
+import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useEffect, useState } from 'react';
 import { Bouton, Champ, Choix, Fenetre, Pastille, Repliable, Secondaire } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { ModeSeance, Seance, TypeReservation } from '../../types-clients';
-import { aujourdhui, centimesDepuis, euros, heure, isoDepuis, jourDe, messageDe, MODES, nomComplet, STATUTS } from './commun';
+import { aujourdhui, centimesDepuis, heure, isoDepuis, jourDe, messageDe, MODES, nomComplet, STATUTS } from './commun';
 import { ChoixFiche, type FicheChoisie } from './ChoixFiche';
 
 /** Ce que « Déplacer » sait de la séance : de quoi la refaire ailleurs, et sa révision. */
@@ -100,9 +101,9 @@ export const PoserRendezVous: React.FC<{
   };
 
   const resumeRepli = [
-    duree ? `${duree} min` : type ? `${type.dureeMin} min` : null,
+    duree ? dureeEnClair(Number(duree)) : type ? dureeEnClair(type.dureeMin) : null,
     mode ? MODES[mode].toLowerCase() : 'mode du type',
-    montant ? `${montant} €` : type ? euros(type.montantCentimes) : null,
+    montant ? `${montant} €` : type ? montantEnClair(type.montantCentimes) : null,
   ].filter(Boolean).join(' · ');
 
   return (
@@ -119,7 +120,7 @@ export const PoserRendezVous: React.FC<{
     >
       <form id="fenetre-rdv" onSubmit={valider} className="flex flex-col gap-4 font-charte text-courant">
         {deplacer ? (
-          <p><span className="font-semibold">{nomComplet(deplacer.personne)}</span> · {deplacer.type?.libelle ?? deplacer.libelleImporte ?? 'Type inconnu'}, {deplacer.dureeMin} min</p>
+          <p><span className="font-semibold">{nomComplet(deplacer.personne)}</span> · {deplacer.type?.libelle ?? deplacer.libelleImporte ?? 'Type inconnu'}, {dureeEnClair(deplacer.dureeMin)}</p>
         ) : fiche ? (
           <p><span className="text-second">Personne : </span><span className="font-semibold">{nomComplet(fiche)}</span></p>
         ) : (
@@ -128,7 +129,7 @@ export const PoserRendezVous: React.FC<{
 
         {!deplacer && (
           <Choix id="rdv-type" label="Type" value={typeId} onChange={(e) => setTypeId(e.target.value)} autoFocus={!!fiche}>
-            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle} — {t.dureeMin} min</option>)}
+            {types.map((t) => <option key={t.id} value={t.id}>{t.libelle} · {dureeEnClair(t.dureeMin)} · {montantEnClair(t.montantCentimes)}</option>)}
           </Choix>
         )}
 

@@ -323,7 +323,7 @@ export const FeuilleAjouter: React.FC<{
         <div className="flex flex-col px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 font-charte text-courant">
           <div className="flex min-h-11 items-center">
             <Etiquette as="h2" className="flex-1 pl-1"><span id={titre}>Ajouter</span></Etiquette>
-            <button type="button" onClick={onFermer} className={cx('h-11 px-1 font-medium text-marque underline underline-offset-[3px]', FOCUS)}>Fermer</button>
+            <button type="button" onClick={onFermer} className={cx('h-11 px-1 font-medium font-semibold text-marque underline-offset-[3px] hover:underline', FOCUS)}>Fermer</button>
           </div>
           {GESTES.map((g) => {
             const grise = !!g.base && baseReliee === false;
@@ -375,7 +375,7 @@ export const EcranPlus: React.FC<{
           <a href={ADRESSE_RECEPTION} role="alert" onClick={(e) => suivre(e, () => onNaviguer('reglages'))}
             className={cx('flex min-h-11 items-center gap-2.5 rounded-carte px-3.5 py-2 font-semibold text-sens-alerte', FOCUS)}>
             <span className="flex-1">! Réception du site : coupée</span>
-            <span className="text-secondaire underline underline-offset-[3px]">Rouvrir</span>
+            <span className="text-secondaire font-semibold">Rouvrir</span>
           </a>
         </Carte>
       ))}

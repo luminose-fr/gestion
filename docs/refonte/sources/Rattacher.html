@@ -4,8 +4,8 @@
 @@MAC@@
 @@NAV aujourdhui@@
 @@MAIN@@
-<a href="Aujourdhui.dc.html" class="s" style="align-self: flex-start">‹ Aujourd’hui</a>
-<header><h1>Rattacher une réservation</h1><p class="s">Arrivée du site hier à 21 h 12. Deux fiches peuvent correspondre.</p></header>
+@@TOP@@<a href="Aujourdhui.dc.html" class="fil">Aujourd’hui ›</a><h1>Rattacher une réservation</h1>@@/TOP@@
+<p class="s">Arrivée du site hier à 21 h 12. Deux fiches peuvent correspondre.</p>
 <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; max-width: 1150px">
 <section style="flex: 1 1 320px; max-width: 380px; display: flex; flex-direction: column; gap: 8px">
 <div class="e">Ce qui a été reçu</div>
@@ -18,7 +18,7 @@
 <div class="e">Fiches candidates</div>
 <sc-for list="{{fiches}}" as="f" hint-placeholder-count="2">
 <div class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; border-color: {{f.bord}}">
-<div style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap"><span style="flex: 1; min-width: 200px"><a href="Fiche.dc.html" style="font-weight: 600; text-decoration: underline">{{f.nom}}</a><br><span class="s">{{f.detail}}</span></span><button type="button" class="{{f.btn}}">Rattacher à cette fiche</button></div>
+<div style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap"><span style="flex: 1; min-width: 200px"><a href="Fiche.dc.html" style="font-weight: 600; ">{{f.nom}}</a><br><span class="s">{{f.detail}}</span></span><button type="button" class="{{f.btn}}">Rattacher à cette fiche</button></div>
 <div style="display: flex; gap: 6px; flex-wrap: wrap"><sc-for list="{{f.indices}}" as="i" hint-placeholder-count="3"><span class="{{i.cls}}">{{i.txt}}</span></sc-for></div>
 <sc-if value="{{f.ecart}}" hint-placeholder-val="{{ false }}">
 <div class="l" style="padding-top: 10px; display: flex; flex-direction: column; gap: 8px">

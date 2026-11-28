@@ -13,7 +13,7 @@
 <div style="flex: 1; display: flex; flex-wrap: wrap">
 <nav aria-label="Plan de la série" style="flex: 1 1 220px; max-width: 260px; box-sizing: border-box; padding: 16px 12px; background: var(--bas); border-right: 1px solid var(--bord); display: flex; flex-direction: column; gap: 4px">
 <div class="e" style="padding: 0 8px">Série</div><div style="padding: 0 8px 8px; font-weight: 600">Ce qu’on refuse de sentir</div>
-<a href="#plan" style="padding: 8px; text-decoration: underline" class="s">Plan de la série</a>
+<a href="#plan" style="padding: 8px; " class="s">Plan de la série</a>
 <sc-for list="{{plan}}" as="p" hint-placeholder-count="7">
 <a href="Contenu.dc.html" style="padding: 8px; border-radius: 8px; display: flex; gap: 10px; background: {{p.fond}}">
 <span style="width: 24px; height: 24px; flex: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; background: {{p.numFond}}; color: {{p.numCoul}}; border: 1px solid var(--bord)">{{p.n}}</span>
@@ -27,12 +27,12 @@
 <sc-for list="{{fil}}" as="m" hint-placeholder-count="6">
 <div style="display: flex; flex-direction: column; gap: 4px; align-items: {{m.cote}}">
 <span class="s"><span style="font-weight: 600">{{m.qui}}</span> · {{m.date}}</span>
-<div style="max-width: 86%; padding: 8px 12px; border-radius: 12px; border: 1px solid {{m.bord}}; background: {{m.fond}}; color: {{m.coul}}">{{m.texte}}<sc-if value="{{m.retour}}" hint-placeholder-val="{{ false }}"><br><a href="#version" class="s" style="text-decoration: underline">Revenir à la version précédente</a></sc-if></div>
+<div style="max-width: 86%; padding: 8px 12px; border-radius: 12px; border: 1px solid {{m.bord}}; background: {{m.fond}}; color: {{m.coul}}">{{m.texte}}<sc-if value="{{m.retour}}" hint-placeholder-val="{{ false }}"><br><a href="#version" class="lien" style="font-size: 13px">Revenir à la version précédente</a></sc-if></div>
 </div>
 </sc-for>
 </div>
 <div style="padding: 12px 20px 16px; border-top: 1px solid var(--bord); display: flex; flex-direction: column; gap: 8px">
-<span class="s"><span style="font-weight: 600">Au Rédacteur</span> · un message = un ajustement · <a href="#coach" style="text-decoration: underline">Parler au Coach</a></span>
+<span class="s"><span style="font-weight: 600">Au Rédacteur</span> · un message = un ajustement · <a href="#coach" >Parler au Coach</a></span>
 <div style="display: flex; gap: 8px"><label for="msg" style="position: absolute; left: -9999px">Message au Rédacteur</label><input id="msg" class="f" type="text" placeholder="Ce que le Rédacteur doit changer, et rien d’autre"><button type="button" class="b">Envoyer</button></div>
 </div>
 </section>

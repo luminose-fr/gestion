@@ -4,12 +4,9 @@
 @@MAC@@
 @@NAV paiements@@
 @@MAIN@@
+@@TOP@@<h1>Paiements</h1><nav class="ong" role="tablist" aria-label="Vues"><a role="tab" aria-selected="true" href="Paiements.dc.html">À encaisser <span class="n">5</span></a><a role="tab" aria-selected="false" href="Encaisses.dc.html">Encaissés</a></nav>@@/TOP@@
 <div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
-<header style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Paiements</h1><span><span class="s">À encaisser :</span> <span style="font-weight: 600">[TOTAL] · 5 lignes</span></span></header>
-<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
-<a role="tab" aria-selected="true" href="Paiements.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">À encaisser</a>
-<a role="tab" aria-selected="false" href="Encaisses.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Encaissés</a>
-</div>
+<p><span class="s">Reste à encaisser :</span> <span style="font-size: 22px; font-weight: 600">[TOTAL]</span> <span class="s">· 5 lignes, séances et stages compris</span></p>
 <div class="c">
 <sc-for list="{{lignes}}" as="l" hint-placeholder-count="5">
 <div class="{{l.cls}}" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
@@ -21,7 +18,7 @@
 <sc-if value="{{l.choix}}" hint-placeholder-val="{{ false }}">
 <div role="group" aria-label="Moyen de paiement" style="flex-basis: 100%; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap"><span class="s" style="align-self: center">Payé par</span><button type="button" class="b p">Carte</button><button type="button" class="b o p">Espèces</button><button type="button" class="b o p">Virement</button><button type="button" class="b o p">Chèque</button></div>
 </sc-if>
-<sc-if value="{{l.fait}}" hint-placeholder-val="{{ false }}"><span role="status" style="width: 150px; display: flex; align-items: center; gap: 8px"><span class="p ok">✓ Payé, carte</span><button type="button" class="b d p">Annuler</button></span></sc-if>
+<sc-if value="{{l.fait}}" hint-placeholder-val="{{ false }}"><span role="status" style="width: 200px; display: flex; align-items: center; justify-content: flex-end; gap: 4px"><span class="p ok">✓ Payé, carte</span><button type="button" class="b d p">Annuler</button></span></sc-if>
 </div>
 </sc-for>
 </div>

@@ -1,31 +1,29 @@
 @title Corpus, documents, à ranger et carte
-@size 1440 960
+@size 1440 1420
 @props {"vue":{"editor":"enum","default":"documents","options":["documents","aranger","carte"]}}
 @body
 @@MAC@@
 @@NAV corpus@@
 @@MAIN@@
+@@TOP@@<h1>Corpus</h1><nav class="ong" role="tablist" aria-label="Vues"><sc-for list="{{onglets}}" as="o" hint-placeholder-count="4"><a role="tab" aria-selected="{{o.on}}" href="{{o.href}}">{{o.nom}} <span class="n">{{o.n}}</span></a></sc-for></nav>@@/TOP@@
 <div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
-<header style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Corpus</h1><span class="s">28 documents · 6 blocs · relevé du 27 novembre</span></header>
-<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
-<sc-for list="{{onglets}}" as="o" hint-placeholder-count="4"><a role="tab" aria-selected="{{o.on}}" href="{{o.href}}" style="padding: 10px 12px; font-weight: {{o.gras}}; color: {{o.coul}}; border-bottom: 2px solid {{o.trait}}">{{o.nom}} <span class="s">{{o.n}}</span></a></sc-for>
-</div>
 <sc-if value="{{documents}}" hint-placeholder-val="{{ true }}">
-<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
-<nav aria-label="Documents du corpus" style="flex: 1 1 220px; max-width: 280px; display: flex; flex-direction: column; gap: 2px">
+<div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap">
+<nav aria-label="Documents du corpus" style="flex: 0 0 256px; display: flex; flex-direction: column; gap: 2px">
 <sc-for list="{{blocs}}" as="b" hint-placeholder-count="6">
-<details open="{{b.ouvert}}"><summary class="e" style="padding: 10px 8px 6px"><span style="flex: 1">{{b.nom}}</span><span>{{b.n}}</span></summary>
-<sc-for list="{{b.docs}}" as="d" hint-placeholder-count="2"><a href="#doc" style="min-height: 34px; padding: 0 10px 0 22px; border-radius: 8px; display: flex; align-items: center; font-weight: {{d.gras}}; background: {{d.fond}}; color: {{d.coul}}">{{d.nom}}</a></sc-for>
-</details>
+<div class="e" style="padding: 18px 12px 6px; display: flex; white-space: nowrap"><span style="flex: 1">{{b.nom}}</span><span style="font-weight: 500">{{b.n}}</span></div>
+<sc-for list="{{b.docs}}" as="d" hint-placeholder-count="3"><a href="#doc" aria-current="{{d.cur}}" style="min-height: 34px; padding: 6px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: {{d.gras}}; background: {{d.fond}}; color: {{d.coul}}"><span style="flex: 1; min-width: 0">{{d.nom}}</span><sc-if value="{{d.statut}}" hint-placeholder-val="{{ false }}"><span class="p">{{d.statut}}</span></sc-if></a></sc-for>
 </sc-for>
 </nav>
-<article class="c" style="flex: 3 1 480px; min-width: 0">
-<div style="padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><div style="flex: 1; min-width: 220px"><h2>Voix · Ton et registre</h2><span class="s">Profils : noyau, complet · 2 140 car. · modifié le 12 novembre</span></div><span class="s" role="status" style="color: var(--succes)">✓ Enregistré</span><button type="button" class="b o p">Historique</button><button type="button" class="b p">Publier le corpus</button></div>
-<div class="l" role="textbox" aria-multiline="true" aria-label="Contenu du document" tabindex="0" style="padding: 18px 20px 24px; min-height: 420px; font-size: 16px; line-height: 1.55; display: flex; flex-direction: column; gap: 10px">
-<h2>Ce que la voix fait</h2><p>[CONTENU DU DOCUMENT]</p>
-<h2>Ce qu’elle ne fait jamais</h2><p>[CONTENU DU DOCUMENT]</p>
+<article style="flex: 1 1 480px; max-width: 770px; min-width: 0; padding-top: 8px; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; flex-direction: column; gap: 6px"><div class="e">Socle</div><h2 style="font: 500 22px/1.2 Fraunces, Georgia, serif">Identité</h2>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><span class="p ok">✓ Actif</span><span class="s">Dans les profils noyau et complet · 3 120 signes · modifié le 12 novembre</span></div></header>
+<div class="c" style="padding: 20px 24px 24px; font-size: 16px; line-height: 1.6; display: flex; flex-direction: column; gap: 10px">
+<h2>Qui je suis</h2><p>[CONTENU DU DOCUMENT]</p>
+<h2>Ce que je propose</h2><p>[CONTENU DU DOCUMENT]</p>
+<h2>Ce que je ne fais pas</h2><p>[CONTENU DU DOCUMENT]</p>
 </div>
-<p class="l s" style="padding: 10px 20px">Un changement enregistré ne part chez les IA qu’après « Publier le corpus ». L’onglet État dit alors quelles surfaces sont à recoller.</p>
+<p class="s">En lecture seule : le corpus se modifie dans Git, et le déploiement le republie. L’onglet État dit ensuite quelles surfaces sont à recoller.</p>
 </article>
 </div>
 </sc-if>
@@ -69,7 +67,7 @@ const colonnes = ['Socle', 'Voix', 'Stratégie', 'Canaux', 'Répertoire', 'Outil
 const R = (nom, sert, bits) => ({ nom: nom, sert: sert, cases: bits.map((b) => ({ txt: b ? '✓ Lu' : '–', cls: b ? 'p ok' : 's' })) });
 return { documents: v === 'documents', aranger: v === 'aranger', carte: v === 'carte', colonnes: colonnes,
 onglets: [O('etat', 'État', '', 'Corpus.dc.html'), O('documents', 'Documents', '28', 'CorpusDocuments.dc.html'), O('aranger', 'À ranger', '3', 'CorpusARanger.dc.html'), O('carte', 'Carte', '', 'CorpusCarte.dc.html')],
-blocs: [B('Socle', 5, [D('Identité'), D('Cadre et limites')]), B('Voix', 4, [D('Ton et registre', true), D('Vocabulaire'), D('Exemples')], true), B('Stratégie', 6, []), B('Canaux', 5, []), B('Répertoire', 5, []), B('Outils', 3, [])],
+blocs: [{"nom": "Socle", "n": 12, "docs": [{"nom": "Identité", "statut": ""}, {"nom": "Audiences", "statut": ""}, {"nom": "Cadre déontologique et légal", "statut": ""}, {"nom": "Ce qui fonctionne", "statut": ""}, {"nom": "Parcours et formations", "statut": ""}, {"nom": "Séance individuelle", "statut": ""}, {"nom": "La rencontre — 20 minutes, offerte", "statut": ""}, {"nom": "Grof® Breathwork individuel", "statut": ""}, {"nom": "Journées de Grof® Breathwork en groupe", "statut": ""}, {"nom": "L’Oracle de mes ressources", "statut": ""}, {"nom": "Le Seuil", "statut": "suspendu"}, {"nom": "Ateliers de groupe", "statut": "terminé"}]}, {"nom": "Voix", "n": 2, "docs": [{"nom": "Règles de voix", "statut": ""}, {"nom": "Direction artistique", "statut": ""}]}, {"nom": "Stratégie", "n": 6, "docs": [{"nom": "Comment lire ce bloc", "statut": ""}, {"nom": "Hypothèses en cours", "statut": ""}, {"nom": "Le plafond des cinq séances", "statut": "candidat"}, {"nom": "Le Seuil passe en suspendu", "statut": ""}, {"nom": "Reliance passe en veille", "statut": ""}, {"nom": "Les ateliers archétypes s’arrêtent", "statut": ""}]}, {"nom": "Canaux", "n": 6, "docs": [{"nom": "Blog — luminose.fr/blog", "statut": ""}, {"nom": "Newsletter", "statut": ""}, {"nom": "Instagram", "statut": ""}, {"nom": "Facebook", "statut": ""}, {"nom": "LinkedIn", "statut": ""}, {"nom": "Google Ads", "statut": ""}]}, {"nom": "Répertoire", "n": 1, "docs": [{"nom": "Références théoriques et métaphores éprouvées", "statut": ""}]}, {"nom": "Outils", "n": 1, "docs": [{"nom": "Parc d’outils", "statut": ""}]}].map((b) => ({ ...b, docs: b.docs.map((d) => { const on = d.nom === 'Identité'; return { ...d, cur: on ? 'page' : 'false', gras: on ? 600 : 500, fond: on ? 'var(--actif)' : 'transparent', coul: on ? 'var(--marque)' : 'inherit' }; }) })),
 entrees: [
 { titre: 'Décision : ne plus écrire « gestion du stress » en titre', origine: 'Prise dans le fil de « Gestion du stress » ? · 7 nov.', bloc: 'Stratégie' },
 { titre: 'Note dictée : l’image du voyant de réserve', origine: 'Notée depuis l’iPhone · 12 nov.', bloc: 'Répertoire' },

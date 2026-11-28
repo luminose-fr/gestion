@@ -1,42 +1,73 @@
 @title Un stage, onglet Le stage
-@size 1440 960
+@size 1440 1080
+@props {"edition":{"editor":"boolean","default":false}}
 @body
 @@MAC@@
 @@NAV stages@@
 @@MAIN@@
-<a href="Stages.dc.html" class="s" style="align-self: flex-start">‹ Stages</a>
-<div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
-<header style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap">
-<div style="flex: 1; min-width: 280px"><h1>Stage de breathwork holotropique</h1><p>14-15 mars · Villefranche-de-Lauragais · 12 places</p></div>
-<button type="button" class="b">Enregistrer</button>
-</header>
-<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
-<a role="tab" aria-selected="false" href="Stage.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Inscrits <span class="s">7</span></a>
-<a role="tab" aria-selected="true" href="StageInfos.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Le stage</a>
-</div>
-<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
-<form style="flex: 1 1 520px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
-<section class="c" style="padding: 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
-<div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px"><label for="snom" style="font-weight: 500">Nom</label><input id="snom" class="f" type="text" value="Stage de breathwork holotropique"></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="stype" style="font-weight: 500">Type</label><select id="stype" class="f"><option>Breathwork holotropique</option><option>Méditation</option></select></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="slieu" style="font-weight: 500">Lieu</label><input id="slieu" class="f" type="text" value="Villefranche-de-Lauragais"></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="sdu" style="font-weight: 500">Du</label><input id="sdu" class="f" type="text" value="14 mars 2027"></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="sau" style="font-weight: 500">Au</label><input id="sau" class="f" type="text" value="15 mars 2027"></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="splaces" style="font-weight: 500">Places</label><input id="splaces" class="f" type="text" inputmode="numeric" value="12"><span class="s">7 inscrits : pas moins de 7.</span></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="sprix" style="font-weight: 500">Prix</label><input id="sprix" class="f" type="text" value="[PRIX]"></div>
+@@TOP@@<a href="Stages.dc.html" class="fil">Stages ›</a><h1>Stage de breathwork holotropique</h1>
+<nav class="ong" role="tablist" aria-label="Vues du stage"><a role="tab" aria-selected="false" href="Stage.dc.html">Inscrits <span class="n">7</span></a><a role="tab" aria-selected="true" href="StageInfos.dc.html">Le stage</a></nav>
+<span style="flex: 1"></span><sc-if value="{{lecture}}" hint-placeholder-val="{{ true }}"><a href="StageEdition.dc.html" class="b o">Modifier</a></sc-if>@@/TOP@@
+<div style="max-width: 770px; width: 100%; display: flex; flex-direction: column; gap: 16px">
+
+<sc-if value="{{lecture}}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{blocs}}" as="b" hint-placeholder-count="3">
+<section class="c" style="padding: 14px 20px 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 class="e">{{b.titre}}</h2>
+<sc-for list="{{b.lignes}}" as="x" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 170px 1fr; gap: 12px"><span class="s" style="line-height: 21px">{{x.nom}}</span><span>{{x.val}}</span></div></sc-for>
 </section>
-<details class="c" style="padding: 14px 20px" open="open"><summary style="font-weight: 600"><span style="flex: 1">Textes de présentation</span><span class="s" style="font-weight: 400">affichés sur luminose.fr</span></summary>
-<div style="padding-top: 14px; display: flex; flex-direction: column; gap: 12px">
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="saccroche" style="font-weight: 500">Accroche</label><input id="saccroche" class="f" type="text" value="[ACCROCHE DU STAGE]"></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="sdesc" style="font-weight: 500">Présentation</label><textarea id="sdesc" class="f" rows="5" style="height: 120px; padding: 10px 12px; resize: vertical">[TEXTE DE PRÉSENTATION]</textarea></div>
-</div></details>
-<details class="c" style="padding: 14px 20px"><summary style="font-weight: 600"><span style="flex: 1">Inscriptions en ligne</span><span class="s" style="font-weight: 400">ouvertes · place retenue 48 h · liste d’attente activée</span></summary></details>
-</form>
-<aside style="flex: 1 1 260px; max-width: 320px; display: flex; flex-direction: column; gap: 12px">
-<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 6px"><h2>Sur le site</h2><div><span class="p ok">✓ Publié</span></div><p class="s">Les changements de dates et de prix s’appliquent aux prochaines inscriptions. Les 7 inscrits gardent leur prix.</p></div>
-<div class="c" style="padding: 16px; display: flex; flex-direction: column; gap: 8px"><h2>Fin de vie</h2><p class="s">Annuler le stage prévient les inscrits. Cela ne se fait pas d’ici sans confirmation.</p><button type="button" class="b d p" style="align-self: flex-start; color: var(--erreur)">Annuler le stage…</button></div>
-</aside>
+</sc-for>
+<p class="s">Le texte de la page du site est repris tel quel de luminose.fr : il se modifie là-bas.</p>
+</sc-if>
+
+<sc-if value="{{edition}}" hint-placeholder-val="{{ false }}">
+<form class="c" style="padding: 20px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="snom">Nom</label><input id="snom" class="f" type="text" defaultValue="Stage de breathwork holotropique"></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="stype">Type</label>@@SEL e.type@@</div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="sville">Ville</label><input id="sville" class="f" type="text" defaultValue="Villefranche-de-Lauragais"></div>
 </div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 500; color: var(--second)">Quand</span>
+<div class="phrase"><input id="sdate" class="f" type="text" aria-label="Date" defaultValue="sam. 14 mars 2027" style="width: 180px"> de @@SEL e.debut@@ à @@SEL e.fin@@</div>
+<div class="phrase"><input id="sdate2" class="f" type="text" aria-label="Date de fin" defaultValue="dim. 15 mars 2027" style="width: 180px"> de @@SEL e.debut2@@ à @@SEL e.fin2@@ <button type="button" class="b d p">Retirer ce jour</button></div>
+<button type="button" class="b d p" style="align-self: flex-start; padding: 0">+ Ajouter un jour</button>
+</div>
+<div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="splaces">Places</label>@@PAS e.places@@</div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="sprix">Prix par personne</label><span class="suf"><input id="sprix" type="text" inputmode="decimal" defaultValue="90">€</span></div>
+<span class="s" style="padding-bottom: 10px">7 inscrits : pas moins de 7 places.</span>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--texte); font-weight: 400"><input type="checkbox" defaultChecked="{{ true }}" style="width: 18px; height: 18px; accent-color: var(--marque)">Questionnaire de santé demandé à l’inscription</label>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="sdesc">Description pour les moteurs de recherche <span style="font-weight: 400">· 98 / 160 signes</span></label><textarea id="sdesc" class="f" rows="3" style="height: 76px; padding: 10px 12px; resize: vertical">Deux jours de breathwork holotropique en petit groupe, à Villefranche-de-Lauragais, les 14 et 15 mars.</textarea></div>
+<details style="padding: 0"><summary class="s" style="font-weight: 500">Inscriptions prises ailleurs <span style="font-weight: 400">· adresse d’inscription extérieure, places non fixées</span></summary>
+<div style="padding: 10px 0 0 20px; display: flex; flex-direction: column; gap: 4px"><label for="sext">Adresse d’inscription extérieure</label><input id="sext" class="f" type="url" placeholder="https://"></div></details>
+<details style="padding: 0"><summary class="s" style="font-weight: 500">Contenus de la page du site <span style="font-weight: 400">· repris tels quels, sans être interprétés ici</span></summary></details>
+<div class="l" style="padding-top: 16px; display: flex; align-items: center; gap: 8px"><button type="button" class="b d" style="color: var(--erreur)">Supprimer le stage…</button><span style="flex: 1"></span><a href="StageInfos.dc.html" class="b d">Annuler</a><button type="button" class="b">Enregistrer</button></div>
+</form>
+</sc-if>
+
 </div>
 </main>
 </div>
+@logic
+vals() {
+const ed = !!this.props.edition;
+const L = (a) => a.map((x) => ({ nom: x[0], val: x[1] }));
+const heures = [];
+for (let h = 8; h <= 20; h++) { ['00', '30'].forEach((m) => heures.push([h + ':' + m, (h < 10 ? '0' + h : h) + ':' + m])); }
+const S = (id, aria, opts, v, w) => ({ id: id, aria: aria, v: v, w: w || 'auto', cls: 'f', opts: opts.map((o) => ({ v: String(o[0]), t: o[1] })) });
+return { lecture: !ed, edition: ed,
+blocs: [
+{ titre: 'Le stage', lignes: L([['Type', 'Breathwork holotropique'], ['Ville', 'Villefranche-de-Lauragais'], ['Quand', 'sam. 14 mars, 10:00 – 17:00 · dim. 15 mars, 10:00 – 16:00']]) },
+{ titre: 'Inscriptions', lignes: L([['Places', '12 · 5 libres'], ['Prix', '90 € par personne'], ['Questionnaire de santé', 'demandé à l’inscription'], ['Inscription ailleurs', 'non']]) },
+{ titre: 'Pour les moteurs de recherche', lignes: L([['Description', 'Deux jours de breathwork holotropique en petit groupe, à Villefranche-de-Lauragais, les 14 et 15 mars.']]) }
+],
+e: {
+type: S('stype', 'Type', [['bh', 'Breathwork holotropique'], ['med', 'Méditation'], ['atl', 'Atelier']], 'bh', '100%'),
+debut: S('sdeb', 'Début', heures, '10:00'), fin: S('sfin', 'Fin', heures, '17:00'),
+debut2: S('sdeb2', 'Début, second jour', heures, '10:00'), fin2: S('sfin2', 'Fin, second jour', heures, '16:00'),
+places: { id: 'splaces', aria: 'Places', v: '12' }
+}
+};
+}

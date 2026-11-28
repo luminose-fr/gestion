@@ -210,7 +210,7 @@ export const FermerJours: React.FC<{ onFermer: () => void; onFait: () => void }>
               <div key={s.id} className="flex items-center gap-3">
                 <span className="w-32 flex-none text-secondaire tabular-nums">{enLettres(jourDe(s.debut), JOUR_COURT)}, {heure(s.debut)}</span>
                 <span className="min-w-0 flex-1 truncate">{nomComplet(s.personne)}</span>
-                <a href={`#agenda/${encodeURIComponent(s.id)}`} className={`text-secondaire text-marque underline underline-offset-[3px] ${FOCUS}`}>Ouvrir</a>
+                <a href={`#agenda/${encodeURIComponent(s.id)}`} className={`text-secondaire font-semibold text-marque underline-offset-[3px] hover:underline ${FOCUS}`}>Ouvrir</a>
               </div>
             ))}
           </div>

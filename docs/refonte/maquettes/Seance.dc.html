@@ -12,8 +12,8 @@
 <style>
 
 body{margin:0}
-.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
-.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--doux:#EFE9F6;--douxh:#E4DAF0;--champb:#D9D0E4;--champf:#FCFBFD;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--doux:#2C2238;--douxh:#362A46;--champb:#4A3E5C;--champf:#1C1624;--ombre:none;color-scheme:dark}
 .app *{box-sizing:border-box}
 .app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
 .app a{color:inherit;text-decoration:none}
@@ -31,22 +31,52 @@ body{margin:0}
 .app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
 .app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
 .app .b:active{transform:translateY(1px)}
-.app .b.o{background:transparent;color:var(--marque)}
-.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
-.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
-.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.o{background:var(--doux);border-color:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--douxh);border-color:transparent}
+.app .b.o[aria-checked="true"],.app .b.o[aria-pressed="true"]{background:var(--marque)!important;border-color:var(--marque)!important;color:var(--sur)!important;font-weight:600!important}
+.app .b.d{border-color:transparent;background:none;padding:0 8px;color:var(--marque);text-decoration:none;font-weight:600}
+.app .b.d:hover{background:var(--survol);border-color:transparent;color:var(--marqueh)}
+.app a.lien{color:var(--marque);font-weight:600}
+.app a.lien:hover,.app a.nom:hover{text-decoration:underline;text-underline-offset:3px}
+.app p a{text-decoration:underline;text-underline-offset:3px}
 .app .b.p{height:32px;padding:0 12px;font-size:13px}
 .app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
 .app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
 .app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
 .app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
-.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
-.app .f:hover{border-color:var(--marque)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champb);background:var(--champf);box-sizing:border-box;width:100%;transition:border-color .14s,background .14s}
+.app .f:hover{border-color:var(--champ)}
+.app .f:focus{border-color:var(--marque);background:var(--surface);outline:2px solid var(--marque);outline-offset:-1px}
+.app label{font-size:13px;font-weight:500;color:var(--second)}
 .app .f::placeholder{color:var(--second)}
 .app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
 .app summary::-webkit-details-marker{display:none}
 .app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
 .app details[open]>summary::before{transform:rotate(45deg)}
+.app .top{margin:-32px -40px 0;padding:0 40px;min-height:68px;display:flex;align-items:center;gap:8px 24px;flex-wrap:wrap;background:var(--surface);border-bottom:1px solid var(--bord)}
+.app .top h1{font-size:24px;white-space:nowrap}
+.app .top .fil{font-size:13px;color:var(--second);font-weight:500;white-space:nowrap}
+.app .top .fil:hover{color:var(--texte)}
+.app .ong{display:flex;gap:2px;align-self:stretch}
+.app .ong a{display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--second);font-weight:500;white-space:nowrap}
+.app .ong a:hover{color:var(--texte)}
+.app .ong a[aria-selected="true"]{color:var(--texte);border-bottom-color:var(--marque);font-weight:600}
+.app .ong .n{font-size:12px;color:var(--second);font-weight:500}
+.app .sel{position:relative;display:inline-flex;vertical-align:middle;align-self:flex-start}
+.app .sel select.f{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer}
+.app .sel:has(select[style*="100%"]){display:flex;align-self:stretch}
+.app .sel>svg{position:absolute;right:12px;top:50%;margin-top:-6px;pointer-events:none;color:var(--second)}
+.app .pas{display:inline-flex;align-items:stretch;height:40px;border:1px solid var(--champb);border-radius:8px;background:var(--champf);overflow:hidden;vertical-align:middle}
+.app .pas button{width:36px;border:0;background:none;color:var(--marque);font-size:18px;font-weight:600;cursor:pointer}
+.app .pas button:hover{background:var(--doux)}
+.app .pas input{width:52px;border:0;text-align:center;font:inherit;font-weight:600;background:none}
+.app .suf{display:inline-flex;align-items:center;height:40px;border:1px solid var(--champb);border-radius:8px;background:var(--champf);padding-right:12px;color:var(--second)}
+.app .suf input{border:0;background:none;height:38px;width:72px;padding:0 4px 0 12px;font:inherit;text-align:right;color:var(--texte)}
+.app .phrase{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:44px}
+.app .mod{border-color:var(--marque)!important;box-shadow:0 0 0 1px var(--marque)}
+.app .grp{display:flex;padding:3px;gap:2px;border-radius:10px;background:var(--bas)}
+.app .grp button{height:34px;padding:0 14px;border:0;border-radius:8px;background:none;color:var(--second);font-weight:500;cursor:pointer;white-space:nowrap}
+.app .grp button[aria-checked="true"]{background:var(--surface);color:var(--texte);font-weight:600;box-shadow:var(--ombre),0 0 0 1px var(--bord)}
 @media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
 .app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
 .tel .f{height:44px;font-size:16px}.tel .b{height:44px}
@@ -55,26 +85,18 @@ body{margin:0}
 <div class="{{theme}} app" style="display: flex; flex-wrap: wrap; min-height: 1180px">
 <div style="flex: none; display: flex; background: var(--bas); border-right: 1px solid var(--bord)"><dc-import name="Nav" actif="agenda" sombre="{{sombre}}" replie="{{replie}}" hint-size="232px,900px"></dc-import></div>
 <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px 48px; display: flex; flex-direction: column; gap: 24px">
-<a href="Agenda.dc.html" class="s" style="align-self: flex-start">‹ Agenda</a>
+<header class="top"><a href="Agenda.dc.html" class="fil">Agenda ›</a><h1>{{d.qui}}</h1><span class="s" style="font-size: 15px">{{d.type}}</span><span style="flex: 1"></span>
+<details style="position: relative"><summary class="b o" style="font-weight: 500">Autres actions</summary>
+<div class="c" role="menu" style="position: absolute; right: 0; top: 46px; z-index: 2; width: 240px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.2); display: flex; flex-direction: column"><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; padding: 0 10px">Remettre à « prévue »</button><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; padding: 0 10px; color: var(--erreur)">Annuler la séance</button></div></details>
+<a href="RendezVous.dc.html" class="b o">Déplacer</a>
+<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><a href="NouvelleFiche.dc.html" class="b">Compléter la fiche</a></sc-if>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ false }}"><button type="button" class="b">Terminer la séance</button></sc-if></header>
 <sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}">
-<div class="c" style="max-width: 1114px; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--actif); border-color: transparent">
+<div class="c" style="max-width: 1114px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--actif); border-color: transparent">
 <span class="e">D’où vient la personne</span><span style="font-weight: 600; flex: 1">Google Ads · mot-clé : hypnose arrêt tabac</span>
 </div>
 </sc-if>
-<header style="max-width: 1114px; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap">
-<div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 6px">
-<h1><a href="Fiche.dc.html" style="text-decoration: underline; text-underline-offset: 4px">{{d.qui}}</a> · {{d.type}}</h1>
-<p>{{d.quand}} · {{d.lieu}}</p>
-<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><span class="{{d.statutCls}}">{{d.statut}}</span><span class="{{d.paieCls}}">{{d.paie}}</span><span class="s">{{d.montant}}</span></div>
-</div>
-<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
-<details style="position: relative"><summary class="b o" style="font-weight: 500">Autres actions</summary>
-<div class="c" role="menu" style="position: absolute; right: 0; top: 46px; z-index: 2; width: 240px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.2); display: flex; flex-direction: column"><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; text-decoration: none; padding: 0 10px">Remettre à « prévue »</button><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; text-decoration: none; padding: 0 10px; color: var(--erreur)">Annuler la séance</button></div></details>
-<a href="RendezVous.dc.html" class="b o">Déplacer</a>
-<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><a href="NouvelleFiche.dc.html" class="b">Compléter la fiche</a></sc-if>
-<sc-if value="{{apres}}" hint-placeholder-val="{{ false }}"><button type="button" class="b">Terminer la séance</button></sc-if>
-</div>
-</header>
+<div style="max-width: 1114px; display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center"><span style="font-weight: 600">{{d.quand}}</span><span class="s">{{d.lieu}}</span><span class="{{d.statutCls}}">{{d.statut}}</span><span class="{{d.paieCls}}">{{d.paie}}</span><span class="s">{{d.montant}}</span><a href="Fiche.dc.html" class="lien" style="margin-left: auto">Ouvrir la fiche</a></div>
 <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
 <div style="flex: 1 1 520px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
 <section class="c" aria-label="Notes de la séance">
@@ -109,7 +131,7 @@ body{margin:0}
 <div style="padding: 14px 16px 10px"><h2>Terminer la séance</h2><p class="s">Trois gestes, dans l’ordre. Chacun s’ouvre quand le précédent est fait.</p></div>
 <div class="l" style="padding: 10px 16px; display: flex; align-items: center; gap: 10px"><span style="width: 24px; height: 24px; flex: none; border-radius: 8px; background: var(--succes); color: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600">✓</span><span style="flex: 1; font-weight: 500">Séance réalisée</span><button type="button" class="b d p">Revenir</button></div>
 <div class="l" style="padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--survol)">
-<div style="display: flex; align-items: center; gap: 10px"><span style="width: 24px; height: 24px; flex: none; border-radius: 8px; background: var(--marque); color: var(--sur); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600">2</span><span style="flex: 1; font-weight: 600">Encaissement · [MONTANT]</span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 24px; height: 24px; flex: none; border-radius: 8px; background: var(--marque); color: var(--sur); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600">2</span><span style="flex: 1; font-weight: 600">Encaissement · 80 €</span></div>
 <div role="radiogroup" aria-label="Moyen de paiement" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
 <button type="button" role="radio" aria-checked="false" class="b o">Carte</button><button type="button" role="radio" aria-checked="false" class="b o">Espèces</button><button type="button" role="radio" aria-checked="false" class="b o">Virement</button><button type="button" role="radio" aria-checked="false" class="b o">Chèque</button>
 </div>
@@ -139,14 +161,14 @@ body{margin:0}
 class Component extends DCLogic {
 renderVals() {
 const sombre = !!this.props.sombre;
-return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie, noop: function () {} }, this.vals());
 }
 vals() {
 const m = this.props.moment ?? 'avant';
 const d = {
-avant: { qui: 'Camille Martin', type: 'Séance d’accompagnement', quand: 'Lundi 30 novembre, 9 h 00 – 10 h 00', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '○ Prévue', statutCls: 'p', paie: '! À encaisser', paieCls: 'p al', montant: '[MONTANT]', q: '✓ Relu le 12 octobre', qCls: 'p ok', qVoir: true, derniere: 'lundi 23 novembre', temoin: '' },
-entretien: { qui: 'Julien Roux', type: 'Entretien préalable', quand: 'Aujourd’hui, 11 h 00 – 11 h 20', lieu: 'au téléphone', statut: '○ Prévue', statutCls: 'p', paie: 'Offert', paieCls: 'p', montant: '', q: 'Pas reçu', qCls: 'p', qVoir: false, derniere: '', temoin: '✓ Enregistré à 11 h 07' },
-apres: { qui: 'Élodie Garcia', type: 'Séance d’accompagnement', quand: 'Hier, 15 h 30 – 16 h 30', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '! Passée, restée « prévue »', statutCls: 'p al', paie: '! À encaisser', paieCls: 'p al', montant: '[MONTANT]', q: '✓ Relu le 3 novembre', qCls: 'p ok', qVoir: true, derniere: 'jeudi 19 novembre', temoin: '✓ Enregistré à 16 h 42' }
+avant: { qui: 'Camille Martin', type: 'Séance · 1 h 30', quand: 'Lundi 30 novembre, 9 h 30 – 11 h', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '○ Prévue', statutCls: 'p', paie: '! À encaisser', paieCls: 'p al', montant: '80 €', q: '✓ Relu le 12 octobre', qCls: 'p ok', qVoir: true, derniere: 'lundi 23 novembre', temoin: '' },
+entretien: { qui: 'Julien Roux', type: 'Entretien préalable · 20 min', quand: 'Aujourd’hui, 11 h – 11 h 20', lieu: 'au téléphone', statut: '○ Prévue', statutCls: 'p', paie: 'Offert', paieCls: 'p', montant: '', q: 'Pas reçu', qCls: 'p', qVoir: false, derniere: '', temoin: '✓ Enregistré à 11 h 07' },
+apres: { qui: 'Élodie Garcia', type: 'Séance · 1 h 30', quand: 'Hier, 15 h 30 – 17 h', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '! Passée, restée « prévue »', statutCls: 'p al', paie: '! À encaisser', paieCls: 'p al', montant: '80 €', q: '✓ Relu le 3 novembre', qCls: 'p ok', qVoir: true, derniere: 'jeudi 19 novembre', temoin: '✓ Enregistré à 16 h 42' }
 }[m];
 return { d: d, entretien: m === 'entretien', apres: m === 'apres', histoire: [
 { quand: '2 nov., 18 h 40', quoi: 'Posé depuis le site' },

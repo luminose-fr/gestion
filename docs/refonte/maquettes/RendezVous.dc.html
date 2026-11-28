@@ -12,8 +12,8 @@
 <style>
 
 body{margin:0}
-.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
-.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--ombre:none;color-scheme:dark}
+.clair{--fond:#FAF8FC;--surface:#FFFFFF;--bas:#F2EEF6;--actif:#E2D8EF;--bord:#E3DCEB;--champ:#8E84A0;--texte:#231A2E;--second:#5E5470;--marque:#5A3E85;--sur:#FFFFFF;--succes:#0F6B4F;--alerte:#9A4A06;--erreur:#B3261E;--sf:#E3F3EC;--af:#FBEBD6;--ef:#FBE6E3;--voile:rgba(35,26,46,.45);--fil:#F5F1F9;--survol:#F6F2FA;--marqueh:#472E6C;--doux:#EFE9F6;--douxh:#E4DAF0;--champb:#D9D0E4;--champf:#FCFBFD;--ombre:0 1px 2px rgba(35,26,46,.07),0 0 1px rgba(35,26,46,.04)}
+.sombre{--fond:#17121D;--surface:#211A2A;--bas:#1C1624;--actif:#32264A;--bord:#3B304A;--champ:#7C7092;--texte:#EDE7F3;--second:#B3A8C2;--marque:#BDA6E8;--sur:#1B1424;--succes:#6FD6AE;--alerte:#F2C063;--erreur:#F4A199;--sf:#14332A;--af:#3A2A12;--ef:#3D1D1A;--voile:rgba(0,0,0,.6);--fil:#1B1523;--survol:#2A2135;--marqueh:#D2C2F2;--doux:#2C2238;--douxh:#362A46;--champb:#4A3E5C;--champf:#1C1624;--ombre:none;color-scheme:dark}
 .app *{box-sizing:border-box}
 .app{background:var(--fond);color:var(--texte);font:15px/1.4 Figtree,system-ui,sans-serif;font-variant-numeric:tabular-nums}
 .app a{color:inherit;text-decoration:none}
@@ -31,88 +31,115 @@ body{margin:0}
 .app .b{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--marque);background:var(--marque);color:var(--sur);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;white-space:nowrap;cursor:pointer;transition:background .14s,border-color .14s,color .14s,transform .08s}
 .app .b:hover{background:var(--marqueh);border-color:var(--marqueh)}
 .app .b:active{transform:translateY(1px)}
-.app .b.o{background:transparent;color:var(--marque)}
-.app .b.o:hover{background:var(--actif);border-color:var(--marque)}
-.app .b.d{border-color:transparent;background:none;padding:0 4px;color:var(--marque);text-decoration:underline;text-underline-offset:3px;font-weight:500}
-.app .b.d:hover{background:none;border-color:transparent;color:var(--marqueh)}
+.app .b.o{background:var(--doux);border-color:transparent;color:var(--marque)}
+.app .b.o:hover{background:var(--douxh);border-color:transparent}
+.app .b.o[aria-checked="true"],.app .b.o[aria-pressed="true"]{background:var(--marque)!important;border-color:var(--marque)!important;color:var(--sur)!important;font-weight:600!important}
+.app .b.d{border-color:transparent;background:none;padding:0 8px;color:var(--marque);text-decoration:none;font-weight:600}
+.app .b.d:hover{background:var(--survol);border-color:transparent;color:var(--marqueh)}
+.app a.lien{color:var(--marque);font-weight:600}
+.app a.lien:hover,.app a.nom:hover{text-decoration:underline;text-underline-offset:3px}
+.app p a{text-decoration:underline;text-underline-offset:3px}
 .app .b.p{height:32px;padding:0 12px;font-size:13px}
 .app .p:not(.b){display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--bord);color:var(--second);font-size:12px;line-height:18px;font-weight:600;white-space:nowrap}
 .app .p.ok{border-color:var(--succes);background:var(--sf);color:var(--succes)}
 .app .p.al{border-color:var(--alerte);background:var(--af);color:var(--alerte)}
 .app .p.er{border-color:var(--erreur);background:var(--ef);color:var(--erreur)}
-.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champ);background:var(--surface);box-sizing:border-box;width:100%;transition:border-color .14s}
-.app .f:hover{border-color:var(--marque)}
+.app .f{height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--champb);background:var(--champf);box-sizing:border-box;width:100%;transition:border-color .14s,background .14s}
+.app .f:hover{border-color:var(--champ)}
+.app .f:focus{border-color:var(--marque);background:var(--surface);outline:2px solid var(--marque);outline-offset:-1px}
+.app label{font-size:13px;font-weight:500;color:var(--second)}
 .app .f::placeholder{color:var(--second)}
 .app summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px}
 .app summary::-webkit-details-marker{display:none}
 .app summary::before{content:"";flex:none;width:7px;height:7px;margin:0 4px 0 2px;border-right:1.6px solid var(--second);border-bottom:1.6px solid var(--second);transform:rotate(-45deg);transition:transform .14s}
 .app details[open]>summary::before{transform:rotate(45deg)}
+.app .top{margin:-32px -40px 0;padding:0 40px;min-height:68px;display:flex;align-items:center;gap:8px 24px;flex-wrap:wrap;background:var(--surface);border-bottom:1px solid var(--bord)}
+.app .top h1{font-size:24px;white-space:nowrap}
+.app .top .fil{font-size:13px;color:var(--second);font-weight:500;white-space:nowrap}
+.app .top .fil:hover{color:var(--texte)}
+.app .ong{display:flex;gap:2px;align-self:stretch}
+.app .ong a{display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--second);font-weight:500;white-space:nowrap}
+.app .ong a:hover{color:var(--texte)}
+.app .ong a[aria-selected="true"]{color:var(--texte);border-bottom-color:var(--marque);font-weight:600}
+.app .ong .n{font-size:12px;color:var(--second);font-weight:500}
+.app .sel{position:relative;display:inline-flex;vertical-align:middle;align-self:flex-start}
+.app .sel select.f{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer}
+.app .sel:has(select[style*="100%"]){display:flex;align-self:stretch}
+.app .sel>svg{position:absolute;right:12px;top:50%;margin-top:-6px;pointer-events:none;color:var(--second)}
+.app .pas{display:inline-flex;align-items:stretch;height:40px;border:1px solid var(--champb);border-radius:8px;background:var(--champf);overflow:hidden;vertical-align:middle}
+.app .pas button{width:36px;border:0;background:none;color:var(--marque);font-size:18px;font-weight:600;cursor:pointer}
+.app .pas button:hover{background:var(--doux)}
+.app .pas input{width:52px;border:0;text-align:center;font:inherit;font-weight:600;background:none}
+.app .suf{display:inline-flex;align-items:center;height:40px;border:1px solid var(--champb);border-radius:8px;background:var(--champf);padding-right:12px;color:var(--second)}
+.app .suf input{border:0;background:none;height:38px;width:72px;padding:0 4px 0 12px;font:inherit;text-align:right;color:var(--texte)}
+.app .phrase{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:44px}
+.app .mod{border-color:var(--marque)!important;box-shadow:0 0 0 1px var(--marque)}
+.app .grp{display:flex;padding:3px;gap:2px;border-radius:10px;background:var(--bas)}
+.app .grp button{height:34px;padding:0 14px;border:0;border-radius:8px;background:none;color:var(--second);font-weight:500;cursor:pointer;white-space:nowrap}
+.app .grp button[aria-checked="true"]{background:var(--surface);color:var(--texte);font-weight:600;box-shadow:var(--ombre),0 0 0 1px var(--bord)}
 @media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
 .app :focus-visible{outline:2px solid var(--marque);outline-offset:2px}
 .tel .f{height:44px;font-size:16px}.tel .b{height:44px}
 </style>
 </helmet>
-<div class="{{theme}} app" style="box-sizing: border-box; min-height: 860px; padding: 40px; background: var(--voile); display: flex; justify-content: center; align-items: flex-start"><div class="c" role="dialog" aria-modal="true" style="width: 100%; max-width: 640px; box-shadow: 0 16px 48px rgba(0,0,0,.25); display: flex; flex-direction: column">
-<div style="padding: 20px 24px 12px"><h1>{{titre}}</h1><p class="s">{{sous}}</p></div>
-<div style="padding: 8px 24px 16px; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; align-items: center; gap: 12px; min-height: 40px">
-<span style="width: 96px; flex: none; font-weight: 500">Personne</span>
-<span style="flex: 1; font-weight: 600">Camille Martin <span class="s" style="font-weight: 400">· Villefranche-de-Lauragais</span></span>
-<button type="button" class="b d p">Changer</button>
+<div class="{{theme}} app" style="box-sizing: border-box; min-height: 900px; padding: 40px; background: var(--voile); display: flex; justify-content: center; align-items: flex-start"><div class="c" role="dialog" aria-modal="true" style="width: 100%; max-width: 780px; box-shadow: 0 16px 48px rgba(0,0,0,.25); display: flex; flex-direction: column">
+<div style="padding: 20px 24px 8px; display: flex; align-items: flex-start; gap: 12px"><div style="flex: 1"><h1>{{titre}}</h1><p class="s">{{sous}}</p></div><button type="button" class="b d" aria-label="Fermer">✕</button></div>
+<div style="padding: 8px 24px 16px; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end">
+<div style="flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 13px; font-weight: 500; color: var(--second)">Personne</span><span style="height: 40px; display: flex; align-items: center; gap: 8px"><span style="font-weight: 600">Camille Martin</span><button type="button" class="b d p">Changer</button></span></div>
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 4px"><label for="rvtype">Type</label><span class="sel"><select id="{{typ.id}}" class="{{typ.cls}}" aria-label="{{typ.aria}}" value="{{typ.v}}" onChange="{{noop}}" style="width: {{typ.w}}"><sc-for list="{{typ.opts}}" as="o" hint-placeholder-count="4"><option value="{{o.v}}">{{o.t}}</option></sc-for></select><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></span></div>
 </div>
-<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="type" style="font-weight: 500">Type</label>
-<select id="type" class="f"><option>Séance d’accompagnement</option><option>Entretien préalable (20 min, offert)</option><option>Séance d’hypnose</option><option>Breathwork holotropique individuel</option></select></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="date" style="font-weight: 500">Date</label><input id="date" class="f" type="text" value="lundi 7 décembre 2026"><span style="display: flex; gap: 6px; flex-wrap: wrap; padding-top: 4px"><button type="button" class="b o p" aria-pressed="true" style="background: var(--actif)">Dans 7 jours</button><button type="button" class="b o p" style="font-weight: 500">Dans 14 jours</button><button type="button" class="b o p" style="font-weight: 500">Premier créneau libre</button></span></div>
+<div class="l" style="padding: 20px 24px; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start">
+<section aria-label="Calendrier" style="flex: 0 0 372px; padding: 16px; border-radius: 12px; background: var(--bas)">
+<div style="display: flex; align-items: center; gap: 8px; padding: 0 4px 12px"><span style="flex: 1; font-weight: 600">Décembre 2026</span><button type="button" class="b o p" aria-label="Mois précédent" style="width: 36px; padding: 0">‹</button><button type="button" class="b o p" aria-label="Mois suivant" style="width: 36px; padding: 0">›</button></div>
+<div role="grid" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px 0; text-align: center">
+<sc-for list="{{jours7}}" as="j" hint-placeholder-count="7"><span class="s" style="padding-bottom: 6px">{{j}}</span></sc-for>
+<sc-for list="{{cases}}" as="c" hint-placeholder-count="35"><button type="button" aria-label="{{c.aria}}" aria-pressed="{{c.on}}" disabled="{{c.ferme}}" style="justify-self: center; width: 42px; height: 42px; border-radius: 999px; border: 0; background: {{c.fond}}; color: {{c.coul}}; font-weight: {{c.gras}}; cursor: {{c.cur}}; opacity: {{c.op}}; position: relative">{{c.n}}</button></sc-for>
 </div>
-<div style="display: flex; flex-direction: column; gap: 8px">
-<span style="font-weight: 500">Créneaux libres ce jour</span>
-<div role="radiogroup" aria-label="Créneaux libres" style="display: flex; flex-direction: column; gap: 8px">
-<sc-for list="{{groupes}}" as="g" hint-placeholder-count="2">
-<div style="display: flex; align-items: center; gap: 12px"><span class="s" style="width: 88px; flex: none">{{g.nom}}</span><span style="display: flex; gap: 8px; flex-wrap: wrap"><sc-for list="{{g.creneaux}}" as="c" hint-placeholder-count="3"><button type="button" role="radio" aria-checked="{{c.on}}" class="b o" style="width: 84px; background: {{c.fond}}; font-weight: {{c.gras}}">{{c.h}}</button></sc-for></span></div>
+</section>
+<section aria-label="Heures libres" style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 8px"><h2 style="flex: 1">Lundi 7 décembre</h2><span class="s">{{nb}} heures libres</span></div>
+<sc-for list="{{creneaux}}" as="c" hint-placeholder-count="5">
+<div style="display: flex; gap: 8px">
+<button type="button" class="b o" aria-pressed="{{c.on}}" style="flex: 1">{{c.h}}</button>
+<sc-if value="{{c.on}}" hint-placeholder-val="{{ false }}"><button type="button" class="b" style="flex: 1">{{action}}</button></sc-if>
+</div>
 </sc-for>
+<button type="button" class="b d p" style="align-self: flex-start; margin-top: 2px">Autre heure…</button>
+<sc-if value="{{chevauchement}}" hint-placeholder-val="{{ false }}"><p role="alert" class="c" style="padding: 10px 12px; border-color: var(--erreur); background: var(--ef); color: var(--erreur); font-weight: 500">× 10 h 30 chevauche la séance de Marc Fabre, de 10 h à 11 h 30.</p></sc-if>
+<div class="l" style="margin-top: 6px; padding-top: 10px; display: flex; flex-direction: column; gap: 2px"><span class="e">Déjà prévu ce jour</span><span class="s"><span style="color: var(--texte); font-weight: 600">10 h – 11 h 30</span> Marc Fabre · Séance</span><span class="s"><span style="color: var(--texte); font-weight: 600">16 h 30 – 16 h 50</span> Thomas Petit · Rencontre</span></div>
+</section>
 </div>
-</div>
-<sc-if value="{{chevauchement}}" hint-placeholder-val="{{ false }}">
-<p role="alert" class="c" style="padding: 10px 12px; border-color: var(--erreur); background: var(--ef); color: var(--erreur); font-weight: 500">× L’heure saisie, 10 h 30, chevauche la séance de Marc Fabre, de 10 h 00 à 11 h 00. Choisissez un autre créneau.</p>
-</sc-if>
-<div style="display: flex; flex-direction: column; gap: 4px">
-<span class="e">Déjà prévu ce jour</span>
-<sc-for list="{{prevus}}" as="p" hint-placeholder-count="2"><div style="display: flex; gap: 12px"><span style="width: 110px; flex: none; font-weight: 600">{{p.h}}</span><span>{{p.qui}}</span><span class="s">{{p.type}}</span></div></sc-for>
-</div>
-<details class="c" style="padding: 12px 16px"><summary style="font-weight: 600">Durée, mode et montant <span class="s" style="font-weight: 400">· 1 h · en séance, à Villefranche-de-Lauragais · [MONTANT]</span></summary>
-<div style="padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="duree" style="font-weight: 500">Durée</label><input id="duree" class="f" type="text" value="1 h"></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="mode" style="font-weight: 500">Mode</label><select id="mode" class="f"><option>En séance, à Villefranche-de-Lauragais</option><option>En visio</option></select></div>
-<div style="display: flex; flex-direction: column; gap: 4px"><label for="montant" style="font-weight: 500">Montant</label><input id="montant" class="f" type="text" value="[MONTANT]"></div>
-</div></details>
-</div>
+<details class="l" style="padding: 12px 24px"><summary><span style="flex: 1; font-weight: 600">Durée, lieu et montant</span><span class="s">1 h 30 · sur place, à Villefranche-de-Lauragais · 80 €</span></summary></details>
 <p class="s l" style="padding: 12px 24px">Calendly et l’agenda Google servent encore : pensez à y reporter ce rendez-vous.</p>
-<div class="l" style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 8px">
-<button type="button" class="b d">Fermer sans enregistrer</button>
-<button type="button" class="b">{{action}}</button>
-</div>
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "deplacer": {"editor": "boolean", "default": false}, "chevauchement": {"editor": "boolean", "default": false}, "$preview": {"width": 720, "height": 860}}'>
+<script type="text/x-dc" data-dc-script data-props='{"sombre": {"editor": "boolean", "default": false}, "deplacer": {"editor": "boolean", "default": false}, "chevauchement": {"editor": "boolean", "default": false}, "$preview": {"width": 860, "height": 900}}'>
 class Component extends DCLogic {
 renderVals() {
 const sombre = !!this.props.sombre;
-return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie }, this.vals());
+return Object.assign({ theme: sombre ? 'sombre' : 'clair', sombre: sombre, replie: !!this.props.replie, noop: function () {} }, this.vals());
 }
 vals() {
 const dep = !!this.props.deplacer;
 const chev = !!this.props.chevauchement;
-const pris = chev ? '' : '09:00';
+const cases = [];
+cases.push({ n: '', ferme: true, op: 0 });
+const fermes = [5, 6, 12, 13, 19, 20, 24, 25, 26, 27, 31];
+for (let d = 1; d <= 31; d++) {
+const f = fermes.indexOf(d) >= 0, on = d === 7;
+cases.push({ n: d, ferme: f, on: on, aria: d + ' décembre' + (f ? ', aucune heure libre' : ''), op: 1,
+fond: on ? 'var(--marque)' : f ? 'transparent' : 'var(--doux)', coul: on ? 'var(--sur)' : f ? 'var(--second)' : 'var(--marque)', gras: f ? 400 : 600, cur: f ? 'default' : 'pointer' });
+}
+cases.forEach((c) => { c.on = !!c.on; c.aria = c.aria || ''; c.fond = c.fond || 'transparent'; c.coul = c.coul || 'inherit'; c.gras = c.gras || 400; c.cur = c.cur || 'default'; });
+const heures = ['9 h 30', '13 h', '14 h 30', '18 h'];
 return {
 titre: dep ? 'Déplacer le rendez-vous' : 'Poser un rendez-vous',
-sous: dep ? 'Actuellement : lundi 30 novembre, 9 h 00. La personne est prévenue par e-mail.' : 'Suivant de Camille Martin : même type, sept jours plus tard, à la même heure.',
-aideDate: dep ? '' : 'Proposée : sept jours après la séance du 30 novembre.',
-action: dep ? 'Déplacer à ce créneau' : 'Poser le rendez-vous',
-chevauchement: chev,
-groupes: [['Matin', ['09:00', '11:30']], ['Après-midi', ['14:00', '15:30', '17:00']]].map((g) => ({ nom: g[0], creneaux: g[1].map((h) => ({ h: h, on: h === pris, fond: h === pris ? 'var(--actif)' : 'transparent', gras: h === pris ? 600 : 500 })) })),
-prevus: [{ h: '10:00 – 11:00', qui: 'Marc Fabre', type: 'Séance d’accompagnement' }, { h: '16:30 – 16:50', qui: 'Thomas Petit', type: 'Entretien préalable' }]
+sous: dep ? 'Actuellement : lundi 30 novembre, 9 h 30. La personne est prévenue par e-mail.' : 'Suivant de Camille Martin : même type, sept jours plus tard.',
+action: dep ? 'Déplacer ici' : 'Poser à cette heure',
+chevauchement: chev, jours7: ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'], cases: cases, nb: heures.length,
+creneaux: heures.map((h) => ({ h: h, on: !chev && h === '9 h 30' })),
+typ: { id: 'rvtype', aria: 'Type', v: 'seance', w: '100%', cls: 'f', opts: [{ v: 'seance', t: 'Séance · 1 h 30 · 80 €' }, { v: 'distance', t: 'Séance à distance · 1 h 30 · 80 €' }, { v: 'enfant', t: 'Séance enfant · 1 h · 60 €' }, { v: 'bh', t: 'Séance de breathwork holotropique · 1 h 45 · 140 €' }, { v: 'rencontre', t: 'Rencontre · 20 min · offerte' }] }
 };
 }
 }

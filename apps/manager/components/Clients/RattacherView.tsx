@@ -49,7 +49,7 @@ const Element: React.FC<{ recu: Recu; premiere: boolean; onFait: () => void }> =
           <p className="text-secondaire font-semibold">Fiches semblables</p>
           {semblables.map((f) => (
             <div key={f.id} className="flex flex-wrap items-center gap-2">
-              <a href={`#clients/${encodeURIComponent(f.id)}`} className={`min-w-0 flex-1 truncate underline underline-offset-[3px] hover:text-marque ${FOCUS}`}>
+              <a href={`#clients/${encodeURIComponent(f.id)}`} className={`min-w-0 flex-1 truncate underline-offset-[3px] hover:underline ${FOCUS}`}>
                 {f.prenom} {f.nom}{f.ville ? ` · ${f.ville}` : ''}
               </a>
               <Bouton taille="petit" disabled={enCours} onClick={() => void rattacher(f.id)}>Rattacher à cette fiche</Bouton>

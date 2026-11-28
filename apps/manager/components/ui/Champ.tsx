@@ -16,8 +16,8 @@ import { Etiquette } from './Etiquette';
  */
 export const CLASSES_CHAMP =
   'w-full px-3 py-2 rounded-lg text-sm ' +
-  'bg-surface ' +
-  'border border-champ ' +
+  'bg-champ-fond hover:border-champ focus:bg-surface ' +
+  'border border-champ-bord ' +
   'text-texte ' +
   'placeholder:text-second ' +
   'outline-hidden focus:border-marque ' +

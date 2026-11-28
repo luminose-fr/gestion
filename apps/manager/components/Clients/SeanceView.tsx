@@ -6,6 +6,7 @@
  * Le statut passe par la décision qui lui revient : annuler et remettre à
  * « prévue » ont leurs routes ; réalisée et absent, une simple modification.
  */
+import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bouton, Carte, Champ, Choix, Etiquette, Fenetre, FOCUS, Pastille, Repliable, Secondaire, TitreCarte, TitreEcran } from '../charte';
 import { Markdown } from '../ui';
@@ -228,7 +229,7 @@ const DerniereFois: React.FC<{ id: string; debut: string }> = ({ id, debut }) =>
             : notes === undefined ? <p className="text-secondaire text-second">Lecture des notes…</p>
               : notes === null ? <p className="text-secondaire text-second">Pas de notes pour cette séance.</p>
                 : <Markdown texte={notes} />}
-          <a href={`#agenda/${encodeURIComponent(id)}`} className="mt-2 inline-block text-secondaire text-marque underline underline-offset-[3px]">Ouvrir cette séance</a>
+          <a href={`#agenda/${encodeURIComponent(id)}`} className="mt-2 inline-block text-secondaire font-semibold text-marque underline-offset-[3px] hover:underline">Ouvrir cette séance</a>
         </div>
       </details>
     </Carte>
@@ -283,7 +284,7 @@ const Terminer: React.FC<{
       <div className={`flex flex-col gap-2 border-t border-bord px-4 py-3 ${etape1 ? '' : 'opacity-50'}`}>
         <div className="flex items-center gap-3">
           <Numero fait={etape2} n={2} />
-          <span className="flex-1">Encaissement · {euros(s.montantCentimes)}</span>
+          <span className="flex-1">Encaissement · {montantEnClair(s.montantCentimes)}</span>
           {etape2 && <span className="text-secondaire text-second">{PAIEMENTS[s.etatPaiement].libelle}</span>}
         </div>
         {etape1 && !etape2 && (
@@ -370,7 +371,7 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
   };
 
   const typeLibelle = s.type?.libelle ?? s.libelleImporte ?? 'Type inconnu';
-  const resume = [`${s.dureeMin} min`, s.mode ? MODES[s.mode].toLowerCase() : null, euros(s.montantCentimes)].filter(Boolean).join(' · ');
+  const resume = [dureeEnClair(s.dureeMin), s.mode ? MODES[s.mode].toLowerCase() : null, montantEnClair(s.montantCentimes)].filter(Boolean).join(' · ');
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
@@ -388,7 +389,7 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
         <div className="min-w-0 flex-1">
           <TitreEcran>
             {s.personne.clientId
-              ? <a href={`#clients/${encodeURIComponent(s.personne.clientId)}`} className="underline decoration-1 underline-offset-4 hover:text-marque">{nomComplet(s.personne)}</a>
+              ? <a href={`#clients/${encodeURIComponent(s.personne.clientId)}`} className="underline-offset-4 hover:underline">{nomComplet(s.personne)}</a>
               : nomComplet(s.personne)}
             {' · '}{typeLibelle}
           </TitreEcran>
@@ -406,7 +407,7 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
                 : s.etatPaiement === 'offerte' ? <Pastille signe="">Offerte</Pastille>
                   : s.etatPaiement === 'annulee' ? null
                     : <Pastille ton="alerte">{PAIEMENTS[s.etatPaiement].libelle}</Pastille>}
-            <span className="text-secondaire text-second tabular-nums">{euros(s.montantCentimes)}</span>
+            <span className="text-secondaire text-second tabular-nums">{montantEnClair(s.montantCentimes)}</span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -475,7 +476,7 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-second">Montant</span>
                     <span className="flex items-center gap-2">
-                      <span className="font-semibold tabular-nums">{euros(s.montantCentimes)}</span>
+                      <span className="font-semibold tabular-nums">{montantEnClair(s.montantCentimes)}</span>
                       <Bouton taille="petit" intention="souligne" onClick={() => setMontant(String(s.montantCentimes / 100))}>Modifier</Bouton>
                     </span>
                   </div>

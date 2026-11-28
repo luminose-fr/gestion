@@ -6,7 +6,7 @@
 <header style="padding: 0 16px 12px; display: flex; flex-direction: column; gap: 6px">
 <a href="TelAgenda.dc.html" class="s" style="min-height: 44px; display: flex; align-items: center; align-self: flex-start">‹ Agenda</a>
 <sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><div style="padding: 8px 12px; border-radius: 8px; background: var(--actif)"><div class="e">D’où vient la personne</div><div style="font-weight: 600">Google Ads · mot-clé : hypnose arrêt tabac</div></div></sc-if>
-<h1><a href="TelFiche.dc.html" style="text-decoration: underline; text-underline-offset: 4px">{{d.qui}}</a></h1>
+<h1><a href="TelFiche.dc.html" >{{d.qui}}</a></h1>
 <p>{{d.type}} · {{d.quand}}</p>
 <div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="{{d.statutCls}}">{{d.statut}}</span><span class="{{d.paieCls}}">{{d.paie}}</span><span class="{{d.qCls}}">{{d.q}}</span></div>
 </header>

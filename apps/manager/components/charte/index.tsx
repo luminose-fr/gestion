@@ -21,14 +21,21 @@ const MOUVEMENT = 'transition-[background-color,border-color,color,transform] du
 
 // ─── Bouton ─────────────────────────────────────────────────────────────────
 
+/**
+ * Trois intentions. Retours du 28/11/2026 (§1.1) : le bouton bordé, jugé
+ * lourd, devient DOUX — fond `--doux`, sans bordure, texte marque ; le bouton
+ * discret n'est plus souligné, un fond paraît au survol. Les noms `borde` et
+ * `souligne` restent, pour ne pas réécrire chaque écran : ils désignent ces
+ * deux intentions. Un choix sélectionné passe en plein.
+ */
 export type IntentionCharte = 'plein' | 'borde' | 'souligne';
 /** 32, 40, 44 px. Sous `md` (l'iPhone), un bouton normal prend 44 px. */
 export type TailleCharte = 'petit' | 'normal' | 'tactile';
 
 const INTENTIONS: Record<IntentionCharte, string> = {
   plein: 'border border-marque bg-marque text-sur-marque hover:bg-marque-survol hover:border-marque-survol font-semibold',
-  borde: 'border border-marque bg-transparent text-marque hover:bg-actif font-semibold',
-  souligne: 'border border-transparent bg-transparent text-marque underline underline-offset-[3px] hover:text-marque-survol font-medium !px-1',
+  borde: 'border border-transparent bg-doux text-marque hover:bg-doux-survol font-semibold',
+  souligne: 'border border-transparent bg-transparent text-marque hover:bg-survole font-semibold !px-2',
 };
 const TAILLES: Record<TailleCharte, string> = {
   petit: 'h-8 px-3 text-secondaire [&_svg]:size-4',
@@ -43,7 +50,7 @@ export type BoutonCharteProps = React.ButtonHTMLAttributes<HTMLButtonElement> & 
 
 /** Un bouton dit ce qu'il fait (« Marquer payé », pas « Valider »). Rayon 8 px, jamais rond. */
 export const Bouton = React.forwardRef<HTMLButtonElement, BoutonCharteProps>(
-  ({ intention = 'plein', taille = 'normal', className, type = 'button', ...reste }, ref) => (
+  ({ intention = 'plein', taille = 'normal', className, type = 'button', children, ...reste }, ref) => (
     <button
       ref={ref}
       type={type}
@@ -53,7 +60,11 @@ export const Bouton = React.forwardRef<HTMLButtonElement, BoutonCharteProps>(
         INTENTIONS[intention], TAILLES[taille], FOCUS, MOUVEMENT, className,
       )}
       {...reste}
-    />
+    >
+      {/* Un choix sélectionné (radio, bascule) se dit aussi par un signe, pas seulement par la couleur. */}
+      {(reste['aria-checked'] === true || reste['aria-pressed'] === true) && <span aria-hidden="true">✓</span>}
+      {children}
+    </button>
   ),
 );
 Bouton.displayName = 'Bouton';
@@ -115,7 +126,10 @@ export const LigneCarte: React.FC<React.AnchorHTMLAttributes<HTMLAnchorElement>>
 
 type BaseChamp = { label: string; aide?: React.ReactNode; erreur?: string | null; masquerLabel?: boolean };
 const CLASSES_CONTROLE = cx(
-  'w-full rounded-controle border border-champ bg-surface px-3 font-charte text-texte placeholder:text-second hover:border-marque',
+  // Retours du 28/11 (§1.3) : un champ plus léger — bordure claire, fond teinté ;
+  // la bordure foncée au survol, la marque au focus. Le libellé toujours visible
+  // et le fond le désignent : la bordure seule n'atteint plus 3:1, c'est assumé.
+  'w-full rounded-controle border border-champ-bord bg-champ-fond px-3 font-charte text-texte placeholder:text-second hover:border-champ focus:border-marque focus:bg-surface',
   'text-champ-tel md:text-courant', // 16 px sur l'iPhone : en dessous, Safari zoome au focus
   'aria-[invalid=true]:border-sens-erreur', FOCUS, MOUVEMENT,
 );
@@ -129,7 +143,7 @@ export const Champ = React.forwardRef<HTMLInputElement, ChampCharteProps>(({ lab
   const decrit = [aide ? `${ident}-aide` : null, erreur ? `${ident}-erreur` : null].filter(Boolean).join(' ') || undefined;
   return (
     <div className={className}>
-      <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-semibold text-texte', masquerLabel && 'sr-only')}>{label}</label>
+      <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-medium text-second', masquerLabel && 'sr-only')}>{label}</label>
       <input ref={ref} id={ident} aria-invalid={erreur ? true : undefined} aria-describedby={decrit} className={cx(CLASSES_CONTROLE, 'h-11 md:h-10')} {...reste} />
       {aide && <p id={`${ident}-aide`} className="mt-1 font-charte text-secondaire text-second">{aide}</p>}
       {erreur && <p id={`${ident}-erreur`} className="mt-1 font-charte text-secondaire text-sens-erreur">{erreur}</p>}
@@ -145,7 +159,7 @@ export const ZoneTexte = React.forwardRef<HTMLTextAreaElement, BaseChamp & React
     const ident = id ?? auto;
     return (
       <div className={className}>
-        <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-semibold text-texte', masquerLabel && 'sr-only')}>{label}</label>
+        <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-medium text-second', masquerLabel && 'sr-only')}>{label}</label>
         <textarea ref={ref} id={ident} className={cx(CLASSES_CONTROLE, 'py-2 text-champ-tel md:text-champ-tel min-h-24')} {...reste} />
         {aide && <p className="mt-1 font-charte text-secondaire text-second">{aide}</p>}
       </div>
@@ -161,7 +175,7 @@ export const Choix = React.forwardRef<HTMLSelectElement, BaseChamp & React.Selec
     const ident = id ?? auto;
     return (
       <div className={className}>
-        <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-semibold text-texte', masquerLabel && 'sr-only')}>{label}</label>
+        <label htmlFor={ident} className={cx('mb-1 block font-charte text-secondaire font-medium text-second', masquerLabel && 'sr-only')}>{label}</label>
         <select ref={ref} id={ident} className={cx(CLASSES_CONTROLE, 'h-11 md:h-10 pr-8')} {...reste}>{children}</select>
         {aide && <p className="mt-1 font-charte text-secondaire text-second">{aide}</p>}
       </div>

@@ -1,49 +1,49 @@
 @title Un stage, onglet Inscrits
-@size 1440 960
+@size 1440 980
 @body
 @@MAC@@
 @@NAV stages@@
 @@MAIN@@
-<a href="Stages.dc.html" class="s" style="align-self: flex-start">‹ Stages</a>
+@@TOP@@<a href="Stages.dc.html" class="fil">Stages ›</a><h1>Stage de breathwork holotropique</h1>
+<nav class="ong" role="tablist" aria-label="Vues du stage"><a role="tab" aria-selected="true" href="Stage.dc.html">Inscrits <span class="n">7</span></a><a role="tab" aria-selected="false" href="StageInfos.dc.html">Le stage</a></nav>
+<span style="flex: 1"></span><button type="button" class="b">Inscrire une personne</button>@@/TOP@@
 <div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
-<header style="display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap">
-<div style="flex: 1; min-width: 280px"><h1>Stage de breathwork holotropique</h1><p>14-15 mars · Villefranche-de-Lauragais · 12 places</p></div>
-<button type="button" class="b">Inscrire une personne</button>
-</header>
-<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
-<a role="tab" aria-selected="true" href="Stage.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Inscrits</a>
-<a role="tab" aria-selected="false" href="StageInfos.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Le stage</a>
-</div>
+<p class="s">sam. 14 et dim. 15 mars · Villefranche-de-Lauragais · 90 € par personne</p>
 <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
-<sc-for list="{{resume}}" as="r" hint-placeholder-count="4"><div class="c" style="padding: 12px 16px"><div class="s">{{r.nom}}</div><div style="font-weight: 600">{{r.val}}</div></div></sc-for>
+<sc-for list="{{resume}}" as="r" hint-placeholder-count="4"><div class="c" style="padding: 12px 16px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 22px; font-weight: 600; color: {{r.coul}}">{{r.val}}</span><span class="s">{{r.nom}}</span></div></sc-for>
 </div>
-<div class="c" style="overflow-x: auto">
-<table style="width: 100%; min-width: 720px; border-collapse: collapse; text-align: left">
-<thead><tr class="e"><th scope="col" style="padding: 10px 16px; font: inherit">Personne</th><th scope="col" style="padding: 10px 16px; font: inherit">Inscription</th><th scope="col" style="padding: 10px 16px; font: inherit">Paiement</th><th scope="col" style="padding: 10px 16px; font: inherit">Questionnaire de santé</th></tr></thead>
-<tbody>
+<div class="c">
 <sc-for list="{{inscrits}}" as="i" hint-placeholder-count="7">
-<tr class="l">
-<td style="padding: 0"><a href="Fiche.dc.html" style="display: block; padding: 12px 16px; font-weight: 600">{{i.nom}}</a></td>
-<td style="padding: 10px 16px"><span class="{{i.sCls}}">{{i.s}}</span></td>
-<td style="padding: 10px 16px"><span class="{{i.pCls}}">{{i.p}}</span></td>
-<td style="padding: 10px 16px"><a href="Questionnaire.dc.html" class="{{i.qCls}}">{{i.q}}</a></td>
-</tr>
-</sc-for>
-</tbody>
-</table>
+<div class="{{i.cls}}" style="padding: 10px 12px 10px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+<span style="flex: 1; min-width: 240px; display: flex; flex-direction: column"><a href="Fiche.dc.html" class="nom" style="font-weight: 600; align-self: flex-start">{{i.nom}}</a><span class="s">{{i.detail}}</span></span>
+<span style="width: 130px"><span class="{{i.sCls}}">{{i.s}}</span></span>
+<span style="width: 130px"><a href="Questionnaire.dc.html" class="{{i.qCls}}">{{i.q}}</a></span>
+<span style="width: 150px; display: flex; justify-content: flex-end; gap: 4px">
+<sc-if value="{{i.encaisser}}" hint-placeholder-val="{{ false }}"><button type="button" class="b o p" aria-haspopup="menu">Encaisser</button></sc-if>
+<button type="button" class="b d p" aria-label="Autres actions pour {{i.nom}}" aria-haspopup="menu">···</button>
+</span>
 </div>
-<p class="s">Stage complet : « Inscrire une personne » est grisé et dit pourquoi (« Complet : 12 inscrits sur 12 »). Si la recherche ne trouve personne : « Créer la fiche ».</p>
+</sc-for>
+</div>
+<p class="s">« Encaisser » propose carte, espèces ou virement. « ··· » : changer le statut, désinscrire. Une place retenue se libère seule à son échéance.</p>
 </div>
 </main>
 </div>
 @logic
 vals() {
-const I = (nom, s, p, q) => ({ nom: nom,
-s: { i: '✓ Inscrit', a: 'Liste d’attente', r: '○ Place retenue' }[s], sCls: s === 'i' ? 'p ok' : 'p',
-p: { o: '✓ Payé', e: '! À encaisser' }[p], pCls: p === 'o' ? 'p ok' : 'p al',
+const I = (nom, s, detail, q) => ({ nom: nom, detail: detail,
+s: { r: '! Place retenue', c: '✓ Confirmée', p: '✓ Payée', a: 'Liste d’attente' }[s], sCls: s === 'r' ? 'p al' : s === 'a' ? 'p' : 'p ok', encaisser: s === 'r' || s === 'c',
 q: { r: '✓ Relu', n: '! Non relu', x: 'Pas reçu' }[q], qCls: q === 'r' ? 'p ok' : q === 'n' ? 'p al' : 'p' });
 return {
-resume: [{ nom: 'Inscrits', val: '7 sur 12 places' }, { nom: 'Places libres', val: '5' }, { nom: 'Questionnaires', val: '2 à relire · 1 pas reçu' }, { nom: 'Paiements', val: '3 à encaisser' }],
-inscrits: [I('Nadia Benali', 'i', 'e', 'r'), I('Marc Fabre', 'i', 'o', 'r'), I('Élodie Garcia', 'i', 'o', 'n'), I('Simon Lacombe', 'r', 'e', 'x'), I('Camille Martin', 'i', 'e', 'n'), I('Thomas Petit', 'i', 'o', 'r'), I('Camille Roux', 'i', 'o', 'r')]
+resume: [{ nom: 'inscrits sur 12 places', val: '7', coul: 'inherit' }, { nom: 'places retenues, non payées', val: '2', coul: 'var(--alerte)' }, { nom: 'questionnaires à relire', val: '2', coul: 'var(--alerte)' }, { nom: 'questionnaire pas reçu', val: '1', coul: 'inherit' }],
+inscrits: [
+I('Nadia Benali', 'p', 'Payé en ligne le 12 nov.', 'r'),
+I('Marc Fabre', 'p', 'Payé en espèces le 20 nov.', 'r'),
+I('Élodie Garcia', 'c', 'Confirmée par vous · à encaisser', 'n'),
+I('Simon Lacombe', 'r', 'Par virement · retenue jusqu’au 2 déc.', 'x'),
+I('Camille Martin', 'r', 'Par carte · retenue jusqu’au 29 nov.', 'n'),
+I('Thomas Petit', 'p', 'Payé en ligne le 23 nov.', 'r'),
+I('Camille Roux', 'p', 'Payé par chèque le 12 nov.', 'r')
+].map((x, i) => ({ ...x, cls: i ? 'l' : '' }))
 };
 }

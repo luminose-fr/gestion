@@ -5,26 +5,18 @@
 @@MAC@@
 @@NAV agenda@@
 @@MAIN@@
-<a href="Agenda.dc.html" class="s" style="align-self: flex-start">‹ Agenda</a>
+@@TOP@@<a href="Agenda.dc.html" class="fil">Agenda ›</a><h1>{{d.qui}}</h1><span class="s" style="font-size: 15px">{{d.type}}</span><span style="flex: 1"></span>
+<details style="position: relative"><summary class="b o" style="font-weight: 500">Autres actions</summary>
+<div class="c" role="menu" style="position: absolute; right: 0; top: 46px; z-index: 2; width: 240px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.2); display: flex; flex-direction: column"><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; padding: 0 10px">Remettre à « prévue »</button><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; padding: 0 10px; color: var(--erreur)">Annuler la séance</button></div></details>
+<a href="RendezVous.dc.html" class="b o">Déplacer</a>
+<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><a href="NouvelleFiche.dc.html" class="b">Compléter la fiche</a></sc-if>
+<sc-if value="{{apres}}" hint-placeholder-val="{{ false }}"><button type="button" class="b">Terminer la séance</button></sc-if>@@/TOP@@
 <sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}">
-<div class="c" style="max-width: 1114px; box-sizing: border-box; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--actif); border-color: transparent">
+<div class="c" style="max-width: 1114px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--actif); border-color: transparent">
 <span class="e">D’où vient la personne</span><span style="font-weight: 600; flex: 1">Google Ads · mot-clé : hypnose arrêt tabac</span>
 </div>
 </sc-if>
-<header style="max-width: 1114px; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap">
-<div style="flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 6px">
-<h1><a href="Fiche.dc.html" style="text-decoration: underline; text-underline-offset: 4px">{{d.qui}}</a> · {{d.type}}</h1>
-<p>{{d.quand}} · {{d.lieu}}</p>
-<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><span class="{{d.statutCls}}">{{d.statut}}</span><span class="{{d.paieCls}}">{{d.paie}}</span><span class="s">{{d.montant}}</span></div>
-</div>
-<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
-<details style="position: relative"><summary class="b o" style="font-weight: 500">Autres actions</summary>
-<div class="c" role="menu" style="position: absolute; right: 0; top: 46px; z-index: 2; width: 240px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,.2); display: flex; flex-direction: column"><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; text-decoration: none; padding: 0 10px">Remettre à « prévue »</button><button type="button" role="menuitem" class="b d" style="justify-content: flex-start; text-decoration: none; padding: 0 10px; color: var(--erreur)">Annuler la séance</button></div></details>
-<a href="RendezVous.dc.html" class="b o">Déplacer</a>
-<sc-if value="{{entretien}}" hint-placeholder-val="{{ false }}"><a href="NouvelleFiche.dc.html" class="b">Compléter la fiche</a></sc-if>
-<sc-if value="{{apres}}" hint-placeholder-val="{{ false }}"><button type="button" class="b">Terminer la séance</button></sc-if>
-</div>
-</header>
+<div style="max-width: 1114px; display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center"><span style="font-weight: 600">{{d.quand}}</span><span class="s">{{d.lieu}}</span><span class="{{d.statutCls}}">{{d.statut}}</span><span class="{{d.paieCls}}">{{d.paie}}</span><span class="s">{{d.montant}}</span><a href="Fiche.dc.html" class="lien" style="margin-left: auto">Ouvrir la fiche</a></div>
 <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
 <div style="flex: 1 1 520px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
 <section class="c" aria-label="Notes de la séance">
@@ -59,7 +51,7 @@
 <div style="padding: 14px 16px 10px"><h2>Terminer la séance</h2><p class="s">Trois gestes, dans l’ordre. Chacun s’ouvre quand le précédent est fait.</p></div>
 <div class="l" style="padding: 10px 16px; display: flex; align-items: center; gap: 10px"><span style="width: 24px; height: 24px; flex: none; border-radius: 8px; background: var(--succes); color: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600">✓</span><span style="flex: 1; font-weight: 500">Séance réalisée</span><button type="button" class="b d p">Revenir</button></div>
 <div class="l" style="padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--survol)">
-<div style="display: flex; align-items: center; gap: 10px"><span style="width: 24px; height: 24px; flex: none; border-radius: 8px; background: var(--marque); color: var(--sur); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600">2</span><span style="flex: 1; font-weight: 600">Encaissement · [MONTANT]</span></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="width: 24px; height: 24px; flex: none; border-radius: 8px; background: var(--marque); color: var(--sur); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600">2</span><span style="flex: 1; font-weight: 600">Encaissement · 80 €</span></div>
 <div role="radiogroup" aria-label="Moyen de paiement" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
 <button type="button" role="radio" aria-checked="false" class="b o">Carte</button><button type="button" role="radio" aria-checked="false" class="b o">Espèces</button><button type="button" role="radio" aria-checked="false" class="b o">Virement</button><button type="button" role="radio" aria-checked="false" class="b o">Chèque</button>
 </div>
@@ -88,9 +80,9 @@
 vals() {
 const m = this.props.moment ?? 'avant';
 const d = {
-avant: { qui: 'Camille Martin', type: 'Séance d’accompagnement', quand: 'Lundi 30 novembre, 9 h 00 – 10 h 00', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '○ Prévue', statutCls: 'p', paie: '! À encaisser', paieCls: 'p al', montant: '[MONTANT]', q: '✓ Relu le 12 octobre', qCls: 'p ok', qVoir: true, derniere: 'lundi 23 novembre', temoin: '' },
-entretien: { qui: 'Julien Roux', type: 'Entretien préalable', quand: 'Aujourd’hui, 11 h 00 – 11 h 20', lieu: 'au téléphone', statut: '○ Prévue', statutCls: 'p', paie: 'Offert', paieCls: 'p', montant: '', q: 'Pas reçu', qCls: 'p', qVoir: false, derniere: '', temoin: '✓ Enregistré à 11 h 07' },
-apres: { qui: 'Élodie Garcia', type: 'Séance d’accompagnement', quand: 'Hier, 15 h 30 – 16 h 30', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '! Passée, restée « prévue »', statutCls: 'p al', paie: '! À encaisser', paieCls: 'p al', montant: '[MONTANT]', q: '✓ Relu le 3 novembre', qCls: 'p ok', qVoir: true, derniere: 'jeudi 19 novembre', temoin: '✓ Enregistré à 16 h 42' }
+avant: { qui: 'Camille Martin', type: 'Séance · 1 h 30', quand: 'Lundi 30 novembre, 9 h 30 – 11 h', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '○ Prévue', statutCls: 'p', paie: '! À encaisser', paieCls: 'p al', montant: '80 €', q: '✓ Relu le 12 octobre', qCls: 'p ok', qVoir: true, derniere: 'lundi 23 novembre', temoin: '' },
+entretien: { qui: 'Julien Roux', type: 'Entretien préalable · 20 min', quand: 'Aujourd’hui, 11 h – 11 h 20', lieu: 'au téléphone', statut: '○ Prévue', statutCls: 'p', paie: 'Offert', paieCls: 'p', montant: '', q: 'Pas reçu', qCls: 'p', qVoir: false, derniere: '', temoin: '✓ Enregistré à 11 h 07' },
+apres: { qui: 'Élodie Garcia', type: 'Séance · 1 h 30', quand: 'Hier, 15 h 30 – 17 h', lieu: 'en séance, à Villefranche-de-Lauragais', statut: '! Passée, restée « prévue »', statutCls: 'p al', paie: '! À encaisser', paieCls: 'p al', montant: '80 €', q: '✓ Relu le 3 novembre', qCls: 'p ok', qVoir: true, derniere: 'jeudi 19 novembre', temoin: '✓ Enregistré à 16 h 42' }
 }[m];
 return { d: d, entretien: m === 'entretien', apres: m === 'apres', histoire: [
 { quand: '2 nov., 18 h 40', quoi: 'Posé depuis le site' },

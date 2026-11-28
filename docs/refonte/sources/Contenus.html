@@ -4,17 +4,8 @@
 @@MAC@@
 @@NAV contenus@@
 @@MAIN@@
+@@TOP@@<h1>Contenus</h1><nav class="ong" role="tablist" aria-label="Vues"><a role="tab" aria-selected="true" href="Contenus.dc.html">Conversations <span class="n">70</span></a><a role="tab" aria-selected="false" href="Idees.dc.html">Idées <span class="n">24</span></a><a role="tab" aria-selected="false" href="Publies.dc.html">Publiés <span class="n">19</span></a></nav><span style="flex: 1"></span><label for="modele" style="position: absolute; left: -9999px">Modèle de rédaction</label><span class="sel"><select id="modele" class="f" style="width: 190px; height: 36px"><option>Claude Opus 5.5</option></select><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></span><button type="button" class="b">Nouveau</button>@@/TOP@@
 <div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
-<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Contenus</h1>
-<label for="modele" style="position: absolute; left: -9999px">Modèle de rédaction</label><select id="modele" class="f" style="width: 180px"><option>Claude Opus 5.5</option></select>
-<button type="button" class="b">Nouveau</button></header>
-<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)">
-<div role="tablist" style="display: flex; gap: 4px">
-<a role="tab" aria-selected="true" href="Contenus.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Conversations <span class="s">70</span></a>
-<a role="tab" aria-selected="false" href="Idees.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Idées <span class="s">24</span></a>
-<a role="tab" aria-selected="false" href="Publies.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Publiés <span class="s">19</span></a>
-</div>
-</div>
 <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
 <label for="rc" style="position: absolute; left: -9999px">Rechercher dans les conversations</label><input id="rc" class="f" type="search" placeholder="Rechercher" style="width: 260px">
 <div role="radiogroup" aria-label="Étape" style="display: flex; gap: 4px; flex-wrap: wrap">
@@ -23,7 +14,7 @@
 </div>
 <sc-for list="{{series}}" as="s" hint-placeholder-count="2">
 <section class="c">
-<div style="padding: 12px 16px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h2 style="flex: 1">Série · {{s.nom}}</h2><span class="s">{{s.compte}}</span><a href="#plan" class="s" style="text-decoration: underline">Ouvrir le plan</a></div>
+<div style="padding: 12px 16px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap"><h2 style="flex: 1">Série · {{s.nom}}</h2><span class="s">{{s.compte}}</span><a href="#plan" class="lien" style="font-size: 13px">Ouvrir le plan</a></div>
 <sc-for list="{{s.items}}" as="i" hint-placeholder-count="4">
 <a href="Contenu.dc.html" class="l" style="padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
 <span class="p" style="flex: none">{{i.rang}}</span>

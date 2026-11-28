@@ -260,7 +260,7 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
                 <li key={i.id} className="flex flex-col gap-1.5 border-t border-bord px-4 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     {i.personne.clientId
-                      ? <a className={`font-semibold underline underline-offset-[3px] hover:text-marque ${FOCUS}`} href={`#clients/${encodeURIComponent(i.personne.clientId)}`}>{nomComplet(i.personne)}</a>
+                      ? <a className={`font-semibold underline-offset-[3px] hover:underline ${FOCUS}`} href={`#clients/${encodeURIComponent(i.personne.clientId)}`}>{nomComplet(i.personne)}</a>
                       : <span>{nomComplet(i.personne)} <Pastille ton="alerte">À rattacher</Pastille></span>}
                     <Pastille ton={TON[INSCRIPTIONS[i.statut].ton]}>{INSCRIPTIONS[i.statut].libelle}</Pastille>
                   </div>

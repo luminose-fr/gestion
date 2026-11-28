@@ -8,6 +8,7 @@
  * Une carte modifiée et non enregistrée se signale avant de quitter l'écran ;
  * après un refus, la saisie reste en place.
  */
+import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useEffect, useState } from 'react';
 import { Bouton, Carte, Champ, FOCUS, Pastille as PastilleCharte, TitreCarte, TitreEcran, ZoneTexte } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -154,8 +155,8 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
           <TitreEcran>{nomComplet(fiche)}</TitreEcran>
           <p className="mt-1 flex flex-wrap gap-x-2 text-second">
             {fiche.age !== null && <span>{fiche.age} ans</span>}
-            {fiche.telephone && <><span aria-hidden="true">·</span><a className="underline underline-offset-[3px] hover:text-texte" href={`tel:${fiche.telephone.replace(/\s/g, '')}`}>{fiche.telephone}</a></>}
-            {fiche.email && <><span aria-hidden="true">·</span><a className="underline underline-offset-[3px] hover:text-texte" href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
+            {fiche.telephone && <><span aria-hidden="true">·</span><a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`tel:${fiche.telephone.replace(/\s/g, '')}`}>{fiche.telephone}</a></>}
+            {fiche.email && <><span aria-hidden="true">·</span><a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
           </p>
           <p className="mt-1"><span className="text-second">Provenance : </span><span className="font-semibold">{provenance || 'inconnue'}</span></p>
         </div>
@@ -165,7 +166,7 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
       {dettes.length > 0 && (
         <Carte as="div" role="alert" className="!border-sens-erreur !bg-sens-erreur-fond px-4 py-3 text-sens-erreur">
           <p className="font-semibold">× {dettes.length === 1 ? 'Une absence n’est pas réglée' : `${dettes.length} absences ne sont pas réglées`} : à régulariser avant toute nouvelle séance.</p>
-          <p className="text-secondaire">{dettes.map((x) => `${jourEnLettres(x.debut)} (${euros(x.montantCentimes)})`).join(' · ')}</p>
+          <p className="text-secondaire">{dettes.map((x) => `${jourEnLettres(x.debut)} (${montantEnClair(x.montantCentimes)})`).join(' · ')}</p>
         </Carte>
       )}
 
@@ -217,10 +218,10 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
                 <Ligne libelle="Origine" valeur={fiche.origine} />
                 <Ligne libelle="Mot-clé" valeur={fiche.motCleGoogleAds} />
                 <Ligne libelle="Venu par un professionnel" valeur={fiche.viaProfessionnel?.nom} />
-                <Ligne libelle="Venu par" valeur={fiche.viaClient && <a className="underline underline-offset-[3px] hover:text-marque" href={`#clients/${fiche.viaClient.id}`}>{nomComplet(fiche.viaClient)}</a>} />
-                <Ligne libelle="Couple" valeur={fiche.couple && <a className="underline underline-offset-[3px] hover:text-marque" href={`#clients/${fiche.couple.id}`}>{nomComplet(fiche.couple)}</a>} />
+                <Ligne libelle="Venu par" valeur={fiche.viaClient && <a className="underline-offset-[3px] hover:underline" href={`#clients/${fiche.viaClient.id}`}>{nomComplet(fiche.viaClient)}</a>} />
+                <Ligne libelle="Couple" valeur={fiche.couple && <a className="underline-offset-[3px] hover:underline" href={`#clients/${fiche.couple.id}`}>{nomComplet(fiche.couple)}</a>} />
                 <Ligne libelle="A recommandé" valeur={fiche.aRecommande.length ? fiche.aRecommande.map((r, i) => (
-                  <React.Fragment key={r.id}>{i > 0 && ', '}<a className="underline underline-offset-[3px] hover:text-marque" href={`#clients/${r.id}`}>{nomComplet(r)}</a></React.Fragment>
+                  <React.Fragment key={r.id}>{i > 0 && ', '}<a className="underline-offset-[3px] hover:underline" href={`#clients/${r.id}`}>{nomComplet(r)}</a></React.Fragment>
                 )) : null} />
               </div>
             )}
@@ -289,7 +290,7 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
                           {x.numero !== null && <span className="tabular-nums">Séance {x.numero} · </span>}
                           <span className="first-letter:uppercase inline-block">{jourEnLettres(x.debut)}</span>, {heure(x.debut)}
                         </span>
-                        <span className="text-secondaire text-second tabular-nums">{euros(x.montantCentimes)}</span>
+                        <span className="text-secondaire text-second tabular-nums">{montantEnClair(x.montantCentimes)}</span>
                       </span>
                       <span className="mt-1 flex flex-wrap items-center gap-1.5">
                         <span className="text-secondaire text-second">{x.type?.libelle ?? x.libelleImporte ?? 'Type inconnu'}{x.mode && ` · ${MODES[x.mode].toLowerCase()}`}</span>
@@ -320,7 +321,7 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               <ul>
                 {fiche.inscriptions.map((i) => (
                   <li key={i.id} className="flex items-center justify-between gap-2 border-t border-bord px-4 py-2.5">
-                    <a className={`underline underline-offset-[3px] hover:text-marque ${FOCUS}`} href={`#stages/${encodeURIComponent(i.evenement.id)}`}>
+                    <a className={`underline-offset-[3px] hover:underline ${FOCUS}`} href={`#stages/${encodeURIComponent(i.evenement.id)}`}>
                       {i.evenement.nom} · {dateCourte(i.evenement.debut)}
                     </a>
                     <PastilleCharte ton={TONS[INSCRIPTIONS[i.statut].ton]}>{INSCRIPTIONS[i.statut].libelle}</PastilleCharte>
@@ -336,7 +337,7 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
               <ul>
                 {fiche.listeQuestionnaires.map((q) => (
                   <li key={q.id} className="flex items-center justify-between gap-2 border-t border-bord px-4 py-2.5">
-                    <a href={`#clients/questionnaire/${encodeURIComponent(q.id)}`} className={`underline underline-offset-[3px] hover:text-marque ${FOCUS}`}>
+                    <a href={`#clients/questionnaire/${encodeURIComponent(q.id)}`} className={`underline-offset-[3px] hover:underline ${FOCUS}`}>
                       Reçu le {dateCourte(q.date)}{q.version && <span className="text-secondaire text-second"> · {q.version === 'complet' ? 'complet' : 'suivi'}</span>}
                     </a>
                     <span className="flex gap-1.5">

@@ -222,7 +222,7 @@ describe('la console des clients', () => {
     vi.spyOn(ClientsService, 'poserRendezVous').mockRejectedValue(new ClientsService.ErreurClients('Ce créneau chevauche un autre rendez-vous.', 409));
     const pose = vi.fn();
     const vue = render(<PoserRendezVous fiche={{ id: FICHE.id, prenom: FICHE.prenom, nom: FICHE.nom }} date="2027-01-11" onFermer={() => {}} onPose={pose} />);
-    await waitFor(() => expect(vue.getByText(/Séance — 90 min/)).toBeTruthy());
+    await waitFor(() => expect(vue.getByText(/Séance · 1 h 30/)).toBeTruthy());
     fireEvent.click(vue.getByText('Poser le rendez-vous'));
     await waitFor(() => expect(vue.container.textContent).toContain('Ce créneau chevauche un autre rendez-vous.'));
     expect(pose).not.toHaveBeenCalled();

@@ -9,11 +9,15 @@
   --survol: #F6F2FA;        /* ligne survolée ou au focus */
   --actif: #E2D8EF;         /* entrée de menu active, choix sélectionné */
   --bord: #E3DCEB;          /* filets, bordures de carte */
-  --champ: #8E84A0;         /* bordure de champ (≥ 3:1 sur surface) */
+  --champ: #8E84A0;         /* bordure de champ au survol */
   --texte: #231A2E;         /* 15,8:1 sur fond */
   --second: #5E5470;        /* 6,7:1 sur fond */
   --marque: #5A3E85;        /* 8,1:1 sur fond ; fond des boutons pleins */
   --marque-survol: #472E6C;
+  --doux: #EFE9F6;          /* fond des boutons secondaires (7,2:1 avec --marque) */
+  --doux-survol: #E4DAF0;
+  --champ-bord: #D9D0E4;    /* bordure d'un champ au repos */
+  --champ-fond: #FCFBFD;    /* fond d'un champ au repos */
   --sur-marque: #FFFFFF;    /* texte sur --marque */
   --succes: #0F6B4F;  --succes-fond: #E3F3EC;
   --alerte: #9A4A06;  --alerte-fond: #FBEBD6;
@@ -60,6 +64,7 @@
   --second: #B3A8C2;        /* 7,5:1 sur surface */
   --marque: #BDA6E8;        /* 7,9:1 sur surface */
   --marque-survol: #D2C2F2;
+  --doux: #2C2238; --doux-survol: #362A46; --champ-bord: #4A3E5C; --champ-fond: #1C1624;
   --sur-marque: #1B1424;
   --succes: #6FD6AE;  --succes-fond: #14332A;
   --alerte: #F2C063;  --alerte-fond: #3A2A12;
@@ -74,6 +79,7 @@
     --fond: #17121D; --surface: #211A2A; --bas: #1C1624; --fil: #1B1523; --survol: #2A2135;
     --actif: #32264A; --bord: #3B304A; --champ: #7C7092;
     --texte: #EDE7F3; --second: #B3A8C2; --marque: #BDA6E8; --marque-survol: #D2C2F2; --sur-marque: #1B1424;
+    --doux: #2C2238; --doux-survol: #362A46; --champ-bord: #4A3E5C; --champ-fond: #1C1624;
     --succes: #6FD6AE; --succes-fond: #14332A; --alerte: #F2C063; --alerte-fond: #3A2A12;
     --erreur: #F4A199; --erreur-fond: #3D1D1A; --voile: rgba(0, 0, 0, .6);
     --champignons: #F0C36A; --champignons-fond: #3A2C10; --ombre-carte: none;

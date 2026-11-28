@@ -1,79 +1,177 @@
 @title Réglages
-@size 1440 960
-@props {"section":{"editor":"enum","default":"reception","options":["reception","types"]}}
+@size 1440 1240
+@props {"section":{"editor":"enum","default":"reception","options":["reception","types","regles"]},"modifie":{"editor":"boolean","default":false}}
 @body
 @@MAC@@
 @@NAV reglages@@
 @@MAIN@@
-<h1>Réglages</h1>
-<div style="display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start">
-<nav aria-label="Sections des réglages" style="flex: 1 1 200px; max-width: 240px; display: flex; flex-direction: column; gap: 2px">
+@@TOP@@<h1>Réglages</h1>@@/TOP@@
+<div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap">
+<nav aria-label="Sections des réglages" style="flex: 0 0 216px; display: flex; flex-direction: column; gap: 2px">
 <sc-for list="{{groupes}}" as="g" hint-placeholder-count="3">
-<div class="e" style="padding: 14px 10px 6px">{{g.nom}}</div>
-<sc-for list="{{g.items}}" as="i" hint-placeholder-count="4"><a href="{{i.href}}" style="min-height: 36px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: {{i.gras}}; background: {{i.fond}}; color: {{i.coul}}"><span style="flex: 1">{{i.nom}}</span><span class="s">{{i.note}}</span></a></sc-for>
+<div class="e" style="padding: 18px 12px 6px; white-space: nowrap">{{g.nom}}</div>
+<sc-for list="{{g.items}}" as="i" hint-placeholder-count="4"><a href="{{i.href}}" aria-current="{{i.cur}}" style="min-height: 36px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: {{i.gras}}; background: {{i.fond}}; color: {{i.coul}}"><span style="flex: 1">{{i.nom}}</span><span class="s">{{i.note}}</span></a></sc-for>
 </sc-for>
 </nav>
+<div style="flex: 1 1 560px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding-top: 8px">
+
 <sc-if value="{{reception}}" hint-placeholder-val="{{ true }}">
-<div style="flex: 3 1 480px; max-width: 770px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<header><h2 style="font: 500 22px/1.2 Fraunces, Georgia, serif">Réception du site</h2><p class="s">Ce que luminose.fr enregistre : réservations, questionnaires de santé, inscriptions et paiements.</p></header>
 <section class="c" style="padding: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap">
-<div style="flex: 1; min-width: 260px"><h2>Réception du site : ouverte</h2><p class="s">Le site luminose.fr enregistre les réservations, les questionnaires de santé, les inscriptions aux stages et les paiements.</p></div>
-<div role="radiogroup" aria-label="Réception du site" style="display: flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--bas); border: 1px solid var(--bord)">
-<button type="button" role="radio" aria-checked="true" style="height: 44px; min-width: 124px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--succes); background: var(--sf); color: var(--succes); font-weight: 600">✓ Ouverte</button>
-<button type="button" role="radio" aria-checked="false" style="height: 44px; min-width: 124px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--second); font-weight: 500">Coupée</button>
+<div style="flex: 1; min-width: 240px"><div style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 999px; background: var(--succes)"></span><h2>Ouverte</h2></div><p class="s">Le site enregistre tout ce qu’il reçoit.</p></div>
+<div class="grp" role="radiogroup" aria-label="Réception du site"><button type="button" role="radio" aria-checked="true">✓ Ouverte</button><button type="button" role="radio" aria-checked="false">Coupée</button></div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 8px">
+<div class="e">Ces dernières 24 heures</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{stats}}" as="t" hint-placeholder-count="5"><a href="{{t.href}}" class="c" style="padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; border-color: {{t.bord}}"><span style="font-size: 24px; font-weight: 600; color: {{t.coul}}">{{t.n}}</span><span class="s">{{t.nom}}</span></a></sc-for>
 </div>
 </section>
-<section class="c" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; border-style: dashed">
-<div class="e">Confirmation affichée avant de couper</div>
-<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
-<div><p style="font-weight: 600">S’arrête</p><p class="s">Réservations · Questionnaires de santé · Inscriptions aux stages · Paiements</p></div>
-<div><p style="font-weight: 600">Ne s’arrête pas</p><p class="s">Le site reste visible · La console · Les rappels déjà programmés</p></div>
+<details class="c" open="open" style="padding: 0">
+<summary style="padding: 16px 20px"><span style="flex: 1; font-weight: 600">Limites de sécurité</span><span class="s">À ne toucher qu’en cas d’abus</span></summary>
+<div class="l" style="padding: 4px 20px 16px">
+<div class="e" style="padding: 14px 0 4px">Acceptés par 24 heures</div>
+<div class="phrase" style="justify-content: space-between"><label for="lq" style="font-size: 15px; color: var(--texte); font-weight: 400">Questionnaires de santé</label>@@PAS lim.q@@</div>
+<div class="phrase" style="justify-content: space-between"><label for="lr" style="font-size: 15px; color: var(--texte); font-weight: 400">Réservations</label>@@PAS lim.r@@</div>
+<div class="phrase" style="justify-content: space-between"><label for="lm" style="font-size: 15px; color: var(--texte); font-weight: 400">E-mails confiés à Make</label>@@PAS lim.m@@</div>
+<div class="e" style="padding: 18px 0 4px">Ordres non confirmés</div>
+<div class="phrase">Relancer un ordre après @@SEL lim.relance@@, et le déclarer en échec après @@PAS lim.essais@@ tentatives.</div>
+<div class="e" style="padding: 18px 0 4px">Conservation</div>
+<div class="phrase">Garder les reçus de commande pendant @@SEL lim.garde@@.</div>
 </div>
-<div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="b o p">Couper la réception</button><button type="button" class="b d p">Laisser ouverte</button><span class="s" style="align-self: center">« Rouvrir » ne demande aucune confirmation.</span></div>
-</section>
-<section class="c">
-<div style="padding: 12px 20px"><h2>Reçu aujourd’hui</h2></div>
-<sc-for list="{{recus}}" as="r" hint-placeholder-count="3"><div class="l" style="padding: 10px 20px; display: flex; gap: 16px"><span style="width: 56px; font-weight: 600">{{r.h}}</span><span style="flex: 1">{{r.quoi}}</span><span class="{{r.cls}}">{{r.etat}}</span></div></sc-for>
-</section>
-<details class="c" style="padding: 12px 20px"><summary style="font-weight: 600">Limites de sécurité</summary><p class="s" style="padding-top: 8px">Nombre d’envois acceptés par heure et par adresse. À ne toucher qu’en cas d’abus.</p></details>
-</div>
+</details>
+<details class="c" style="padding: 0">
+<summary style="padding: 16px 20px"><span style="flex: 1; font-weight: 600">Tester la réception</span><span class="s">Un lien d’essai pour une séance</span></summary>
+</details>
 </sc-if>
+
 <sc-if value="{{types}}" hint-placeholder-val="{{ false }}">
-<div style="flex: 3 1 480px; max-width: 900px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
-<div style="display: flex; align-items: center; gap: 12px"><h2 style="flex: 1">Types de rendez-vous</h2><button type="button" class="b p">Nouveau type</button></div>
-<p role="status" class="c" style="padding: 10px 16px; border-color: var(--succes); color: var(--succes); font-weight: 500">✓ Séance d’hypnose enregistrée. Le changement s’applique aux rendez-vous posés à partir de maintenant ; ceux déjà posés gardent leur durée et leur montant.</p>
+<header style="display: flex; align-items: flex-end; gap: 16px"><div style="flex: 1"><h2 style="font: 500 22px/1.2 Fraunces, Georgia, serif">Types de rendez-vous</h2><p class="s">Ce que la réservation propose, dans cet ordre. Glissez une ligne pour la déplacer.</p></div><button type="button" class="b">Nouveau type</button></header>
 <div class="c">
-<sc-for list="{{lignes}}" as="t" hint-placeholder-count="4">
-<div class="{{t.cls}}" style="padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
-<span style="flex: 1; min-width: 240px; display: flex; flex-direction: column"><span style="font-weight: 600">{{t.nom}}</span><span class="s">{{t.detail}}</span></span>
-<span style="width: 90px; text-align: right; font-weight: 600">{{t.montant}}</span>
-<span style="width: 150px"><span class="{{t.pCls}}">{{t.ligne}}</span></span>
-<button type="button" class="b o p">Modifier</button>
+<sc-for list="{{lignes}}" as="t" hint-placeholder-count="5">
+<div class="{{t.cls}}" style="background: {{t.fond}}">
+<div style="padding: 10px 16px 10px 8px; display: flex; align-items: center; gap: 10px">
+<button type="button" class="b d p" aria-label="Changer l’ordre : {{t.nom}}" title="Glisser, ou ⌥↑ ⌥↓" style="padding: 0 6px; color: var(--second); cursor: grab"><svg aria-hidden="true" width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></button>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column"><span style="font-weight: 600">{{t.nom}}</span><span class="s">{{t.resume}}</span></span>
+<span class="p ok">✓ Sur le site</span>
+<sc-if value="{{t.ferme}}" hint-placeholder-val="{{ true }}"><button type="button" class="b o p">Modifier</button></sc-if>
+</div>
+<sc-if value="{{t.ouvert}}" hint-placeholder-val="{{ false }}">
+<form style="padding: 4px 20px 20px 46px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 4px; max-width: 420px"><label for="tnom">Nom affiché</label><input id="tnom" class="f" type="text" defaultValue="Rencontre — découvrir le breathwork"></div>
+<div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="tduree">Durée</label>@@SEL f.duree@@</div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="tmarge">Temps libre après <span class="p" style="margin-left: 4px; border-color: var(--marque); color: var(--marque)">modifié</span></label>@@SEL f.marge@@</div>
+<div style="display: flex; flex-direction: column; gap: 4px"><label for="tmontant">Montant</label><span class="suf"><input id="tmontant" type="text" inputmode="decimal" defaultValue="0">€</span></div>
+<span class="s" style="padding-bottom: 10px">0 € s’affiche « offert ».</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span id="tlieu" style="font-size: 13px; font-weight: 500; color: var(--second)">Lieu</span>
+<div class="grp" role="radiogroup" aria-labelledby="tlieu" style="align-self: flex-start"><button type="button" role="radio" aria-checked="false">Sur place</button><button type="button" role="radio" aria-checked="false">En visio</button><button type="button" role="radio" aria-checked="true">✓ Visio ou téléphone</button></div></div>
+<fieldset style="border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px"><legend style="font-size: 13px; font-weight: 500; color: var(--second); padding: 0 0 6px">Où ce type est proposé</legend>
+<sc-for list="{{dispo}}" as="d" hint-placeholder-count="3">
+<label style="font-size: 15px; color: var(--texte); font-weight: 400; display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; border-radius: 8px; background: {{d.fond}}; cursor: pointer"><input type="radio" name="dispo" defaultChecked="{{d.on}}" style="margin-top: 4px; accent-color: var(--marque)"><span style="display: flex; flex-direction: column"><span style="font-weight: {{d.gras}}">{{d.nom}}</span><span class="s">{{d.aide}}</span></span></label>
+</sc-for>
+</fieldset>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 10px; background: var(--surface); border: 1px solid var(--bord)">
+<div class="e" style="padding-bottom: 4px">Réservation sur le site</div>
+<div class="phrase">Se réserve au moins @@SEL f.min@@ à l’avance, et au plus @@SEL f.max@@ à l’avance.</div>
+<div class="phrase">Les créneaux proposés commencent toutes les @@SEL f.pas@@.</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span class="s" style="flex: 1; min-width: 240px">1 modification. Les rendez-vous déjà posés gardent leur durée et leur montant.</span><button type="button" class="b d">Annuler</button><button type="button" class="b">Enregistrer</button></div>
+</form>
+</sc-if>
 </div>
 </sc-for>
 </div>
-</div>
 </sc-if>
+
+<sc-if value="{{regles}}" hint-placeholder-val="{{ false }}">
+<header><h2 style="font: 500 22px/1.2 Fraunces, Georgia, serif">Règles</h2><p class="s">Rappels, place retenue en attendant le paiement, liste d’attente.</p></header>
+<section class="c" style="padding: 16px 20px">
+<h2>Rappels</h2>
+<div class="phrase">Un e-mail de rappel part @@SEL rg.mail@@ avant la séance.</div>
+<div class="phrase">Un SMS de rappel part @@SEL rg.sms@@ avant la séance.</div>
+<p class="s" style="padding-top: 4px">Exemple, pour une séance le lundi 7 décembre à 9 h : e-mail le {{rg.exMail}}, SMS le {{rg.exSms}}.</p>
+</section>
+<section class="c" style="padding: 16px 20px">
+<h2>Place retenue en attendant le paiement</h2>
+<div class="phrase">Par carte, la place reste retenue @@SEL rg.carte@@.</div>
+<div class="phrase">Par virement, la place reste retenue @@SEL rg.virement@@.</div>
+<p class="s" style="padding-top: 4px">Passé ce délai sans paiement, la place est libérée.</p>
+</section>
+<section class="c" style="padding: 16px 20px">
+<h2>Liste d’attente</h2>
+<div class="phrase">Un créneau libéré est proposé s’il commence dans @@SEL rg.libere@@ ou plus.</div>
+<div class="phrase">Une personne est prévenue si sa séance est dans @@SEL rg.prevenue@@ ou plus.</div>
+<div class="phrase">Au plus @@PAS rg.nb@@ personnes sont prévenues.</div>
+</section>
+<sc-if value="{{modifie}}" hint-placeholder-val="{{ false }}">
+<div role="status" class="c" style="position: sticky; bottom: 16px; padding: 10px 12px 10px 20px; display: flex; align-items: center; gap: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.18); border-color: var(--marque)"><span style="flex: 1; font-weight: 500">1 modification non enregistrée</span><button type="button" class="b d">Annuler</button><button type="button" class="b">Enregistrer</button></div>
+</sc-if>
+</sc-if>
+
+</div>
 </div>
 </main>
 </div>
 @logic
 vals() {
 const sec = this.props.section ?? 'reception';
-const G = (nom, items) => ({ nom: nom, items: items.map((x) => { const on = x[1] === sec; return { nom: x[0], href: x[1] === 'types' ? 'ReglagesTypes.dc.html' : x[1] === 'reception' ? 'Reglages.dc.html' : '#', note: x[2] || '', gras: on ? 600 : 500, fond: on ? 'var(--actif)' : 'transparent', coul: on ? 'var(--marque)' : 'inherit' }; }) });
-const T = (nom, detail, montant, enLigne, i) => ({ nom: nom, detail: detail, montant: montant, ligne: enLigne ? '✓ Réservable en ligne' : 'Posé par vous', pCls: enLigne ? 'p ok' : 'p' });
+const mod = !!this.props.modifie;
+const S = (id, aria, opts, v, w, chg) => ({ id: id, aria: aria, v: String(v), w: w || 'auto', cls: chg ? 'f mod' : 'f', opts: opts.map((o) => ({ v: String(o[0]), t: o[1] })) });
+const P = (id, aria, v) => ({ id: id, aria: aria, v: String(v) });
+const heures = [[2, '2 heures'], [6, '6 heures'], [12, '12 heures'], [24, '1 jour'], [48, '2 jours'], [72, '3 jours'], [168, '1 semaine'], [336, '2 semaines'], [504, '3 semaines']];
+const G = (nom, items) => ({ nom: nom, items: items.map((x) => { const on = x[1] === sec; return { nom: x[0], href: x[2] || '#', note: x[3] || '', cur: on ? 'page' : 'false', gras: on ? 600 : 500, fond: on ? 'var(--actif)' : 'transparent', coul: on ? 'var(--marque)' : 'inherit' }; }) });
+const resume = (d, m, l, a, b) => d + ' · ' + m + ' · ' + l + ' · se réserve de ' + a + ' à ' + b + ' à l’avance';
+const ouvert = sec === 'types';
 return {
-reception: sec === 'reception', types: sec === 'types',
+reception: sec === 'reception', types: sec === 'types', regles: sec === 'regles', modifie: mod,
 groupes: [
-G('Pratique', [['Réception du site', 'reception', 'ouverte'], ['Types de rendez-vous', 'types'], ['Horaires habituels', 'h'], ['Règles', 'r'], ['Messages', 'm', 'à venir']]),
-G('Rédaction IA', [['Modèles', 'a'], ['Modèle par usage', 'b'], ['Coûts et durées', 'c'], ['Clés des fournisseurs', 'd']]),
-G('Données et fonctionnement', [['État', 'e'], ['Hébergement', 'f'], ['Export éditorial', 'g']])
+G('Pratique', [['Réception du site', 'reception', 'Reglages.dc.html'], ['Types de rendez-vous', 'types', 'ReglagesTypes.dc.html'], ['Horaires habituels', 'h'], ['Règles', 'regles', 'ReglagesRegles.dc.html'], ['Agenda Google', 'g']]),
+G('Rédaction IA', [['Modèles', 'a'], ['Modèle par usage', 'b'], ['Coûts et durées', 'c'], ['Clés des fournisseurs', 'd'], ['Rôles IA', 'e']]),
+G('Console', [['État', 'f'], ['Hébergement', 'i'], ['Export éditorial', 'j'], ['Apparence', 'k']])
 ],
-recus: [{ h: '08:14', quoi: 'Réservation · Thomas Petit · entretien préalable', etat: '✓ Rattachée', cls: 'p ok' }, { h: '09:02', quoi: 'Questionnaire de santé · Julien Roux', etat: '! Non relu', cls: 'p al' }, { h: '10:47', quoi: 'Paiement · Marc Fabre', etat: '✓ Enregistré', cls: 'p ok' }],
+stats: [
+{ n: '11', nom: 'commandes reçues', href: '#', bord: 'var(--bord)', coul: 'inherit' },
+{ n: '2', nom: 'ordres prévus', href: '#', bord: 'var(--bord)', coul: 'inherit' },
+{ n: '0', nom: 'confiés à Make', href: '#', bord: 'var(--bord)', coul: 'inherit' },
+{ n: '0', nom: 'en échec', href: '#', bord: 'var(--bord)', coul: 'inherit' },
+{ n: '5', nom: 'alertes ouvertes', href: '#', bord: 'var(--alerte)', coul: 'var(--alerte)' }
+],
+lim: {
+q: P('lq', 'Questionnaires de santé acceptés par 24 heures', 30), r: P('lr', 'Réservations acceptées par 24 heures', 30), m: P('lm', 'E-mails confiés à Make par 24 heures', 50),
+relance: S('lrel', 'Relancer après', [[5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min'], [60, '1 h']], 15),
+essais: P('less', 'Tentatives avant l’échec', 5),
+garde: S('lgarde', 'Durée de conservation des reçus', [[168, '7 jours'], [336, '14 jours'], [720, '30 jours'], [2160, '90 jours']], 720)
+},
 lignes: [
-T('Entretien préalable', '20 min · sans marge · au téléphone · réservable jusqu’à 30 jours', 'Offert', true),
-T('Séance d’accompagnement', '1 h · marge 15 min · en séance ou en visio', '[MONTANT]', true),
-T('Séance d’hypnose', '1 h · marge 15 min · en séance, à Villefranche-de-Lauragais', '[MONTANT]', true),
-T('Breathwork holotropique individuel', '[DURÉE] · marge 30 min · en séance', '[MONTANT]', false)
-].map((x, i) => ({ ...x, cls: i ? 'l' : '' }))
+{ nom: 'Rencontre — découvrir le breathwork', resume: resume('20 min', 'offert', 'visio ou téléphone', '12 heures', '6 mois') },
+{ nom: 'Séance', resume: resume('1 h 30', '80 €', 'sur place', '3 semaines', '6 mois') },
+{ nom: 'Séance à distance', resume: resume('1 h 30', '80 €', 'en visio', '3 semaines', '6 mois') },
+{ nom: 'Séance enfant', resume: resume('1 h', '60 €', 'sur place', '3 semaines', '6 mois') },
+{ nom: 'Séance de breathwork holotropique', resume: resume('1 h 45', '140 €', 'sur place', '3 semaines', '6 mois') }
+].map((x, i) => ({ ...x, cls: i ? 'l' : '', ouvert: ouvert && i === 0, ferme: !(ouvert && i === 0), fond: ouvert && i === 0 ? 'var(--survol)' : 'transparent' })),
+f: {
+duree: S('tduree', 'Durée', [[20, '20 min'], [30, '30 min'], [45, '45 min'], [60, '1 h'], [75, '1 h 15'], [90, '1 h 30'], [105, '1 h 45'], [120, '2 h'], [150, '2 h 30'], [180, '3 h']], 20, '140px'),
+marge: S('tmarge', 'Temps libre après', [[0, 'Aucun'], [5, '5 min'], [10, '10 min'], [15, '15 min'], [30, '30 min']], 10, '140px', true),
+min: S('tmin', 'Délai minimum de réservation', heures, 12),
+max: S('tmax', 'Horizon de réservation', [[30, '1 mois'], [61, '2 mois'], [91, '3 mois'], [183, '6 mois'], [365, '1 an']], 183),
+pas: S('tpas', 'Intervalle entre deux créneaux', [[15, '15 min'], [20, '20 min'], [30, '30 min'], [45, '45 min'], [60, '1 h']], 30)
+},
+dispo: [
+{ nom: 'Sur le site et dans la console', aide: 'Réservable en ligne.', on: true },
+{ nom: 'Dans la console seulement', aide: 'Vous seul pouvez le poser. La réservation en ligne disparaît.', on: false },
+{ nom: 'Archivé', aide: 'Plus proposé nulle part. Les rendez-vous passés le gardent.', on: false }
+].map((d) => ({ ...d, gras: d.on ? 600 : 500, fond: d.on ? 'var(--surface)' : 'transparent' })),
+rg: {
+mail: S('rmail', 'Délai du rappel par e-mail', [[0, 'pas de rappel']].concat(heures.slice(2, 7)), 72),
+sms: S('rsms', 'Délai du rappel par SMS', [[0, 'pas de rappel']].concat(heures.slice(2, 7)), mod ? 24 : 48, 'auto', mod),
+exMail: 'vendredi 4 à 9 h', exSms: mod ? 'dimanche 6 à 9 h' : 'samedi 5 à 9 h',
+carte: S('rcarte', 'Place retenue, par carte', [[1, '1 heure'], [2, '2 heures'], [6, '6 heures'], [12, '12 heures'], [24, '1 jour']], 1),
+virement: S('rvir', 'Place retenue, par virement', [[24, '1 jour'], [48, '2 jours'], [72, '3 jours'], [120, '5 jours'], [168, '7 jours'], [336, '14 jours']], 168),
+libere: S('rlib', 'Délai minimum d’un créneau libéré', heures.slice(2, 7), 48),
+prevenue: S('rprev', 'Délai minimum avant la séance de la personne prévenue', heures.slice(2, 7), 48),
+nb: P('rnb', 'Nombre maximum de personnes prévenues', 8)
+}
 };
 }

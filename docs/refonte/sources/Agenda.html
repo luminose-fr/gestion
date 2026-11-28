@@ -4,22 +4,8 @@
 @@MAC@@
 @@NAV agenda@@
 @@MAIN@@
-<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
-<h1 style="flex: 1; min-width: 200px">Agenda</h1>
-<a href="FermerJours.dc.html" class="b o">Fermer des jours…</a>
-<a href="RendezVous.dc.html" class="b">Poser un rendez-vous</a>
-</header>
-<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--bord)">
-<div role="tablist" style="display: flex; gap: 4px">
-<a role="tab" aria-selected="true" href="Agenda.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">Semaine</a>
-<a role="tab" aria-selected="false" href="AgendaMois.dc.html" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Mois</a>
-</div>
-<span style="flex: 1"></span>
-<span style="font-weight: 600">23 – 29 novembre 2026</span>
-<div style="display: flex; gap: 4px; padding-bottom: 6px">
-<button type="button" class="b o p" aria-label="Semaine précédente">‹</button><button type="button" class="b o p">Aujourd’hui</button><button type="button" class="b o p" aria-label="Semaine suivante">›</button>
-</div>
-</div>
+@@TOP@@<h1>Agenda</h1><nav class="ong" role="tablist" aria-label="Vues"><a role="tab" aria-selected="true" href="Agenda.dc.html">Semaine</a><a role="tab" aria-selected="false" href="AgendaMois.dc.html">Mois</a></nav><span style="flex: 1"></span><a href="FermerJours.dc.html" class="b o">Fermer des jours…</a><a href="RendezVous.dc.html" class="b">Poser un rendez-vous</a>@@/TOP@@
+<div style="display: flex; align-items: center; gap: 8px"><button type="button" class="b o p" aria-label="Semaine précédente">‹</button><button type="button" class="b o p">Aujourd’hui</button><button type="button" class="b o p" aria-label="Semaine suivante">›</button><span style="font-weight: 600; padding-left: 8px">23 – 29 novembre 2026</span></div>
 <div style="overflow-x: auto">
 <div style="display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); gap: 8px; min-height: 560px">
 <sc-for list="{{jours}}" as="j" hint-placeholder-count="7">

@@ -4,8 +4,8 @@
 @@MAC@@
 @@NAV professionnels@@
 @@MAIN@@
+@@TOP@@<h1>Professionnels</h1><span style="flex: 1"></span><button type="button" class="b">Nouveau professionnel</button>@@/TOP@@
 <div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
-<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Professionnels</h1><button type="button" class="b">Nouveau professionnel</button></header>
 <div style="display: flex; flex-direction: column; gap: 4px; max-width: 360px"><label for="filtre" class="s">Nom, catégorie ou ville</label><input id="filtre" class="f" type="search" placeholder="Filtrer"></div>
 <div class="c" style="overflow-x: auto">
 <table style="width: 100%; min-width: 820px; border-collapse: collapse; text-align: left">
@@ -15,7 +15,7 @@
 <tr class="l">
 <td style="padding: 0"><a href="Professionnel.dc.html" style="display: block; padding: 12px 16px; font-weight: 600">{{p.nom}}</a></td>
 <td style="padding: 12px 16px">{{p.cat}}</td><td style="padding: 12px 16px">{{p.ville}}</td>
-<td style="padding: 12px 16px"><a href="tel:0500000000" style="text-decoration: underline">{{p.tel}}</a></td>
+<td style="padding: 12px 16px"><a href="tel:0500000000" >{{p.tel}}</a></td>
 <td style="padding: 10px 16px"><span class="{{p.cls}}">{{p.rel}}</span></td>
 <td style="padding: 12px 16px; text-align: right">{{p.n}}</td>
 </tr>

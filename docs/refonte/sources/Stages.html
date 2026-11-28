@@ -4,12 +4,8 @@
 @@MAC@@
 @@NAV stages@@
 @@MAIN@@
+@@TOP@@<h1>Stages</h1><nav class="ong" role="tablist" aria-label="Vues"><a role="tab" aria-selected="true" href="Stages.dc.html">À venir <span class="n">3</span></a><a role="tab" aria-selected="false" href="#passes">Passés <span class="n">4</span></a></nav><span style="flex: 1"></span><button type="button" class="b">Nouveau stage</button>@@/TOP@@
 <div style="max-width: 1150px; width: 100%; display: flex; flex-direction: column; gap: 16px">
-<header style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><h1 style="flex: 1">Stages</h1><button type="button" class="b">Nouveau stage</button></header>
-<div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid var(--bord)">
-<a role="tab" aria-selected="true" href="Stages.dc.html" style="padding: 10px 12px; font-weight: 600; color: var(--marque); border-bottom: 2px solid var(--marque)">À venir</a>
-<a role="tab" aria-selected="false" href="#passes" style="padding: 10px 12px; font-weight: 500; color: var(--second)">Passés</a>
-</div>
 <div class="c">
 <sc-for list="{{stages}}" as="s" hint-placeholder-count="3">
 <a href="Stage.dc.html" class="{{s.cls}}" style="padding: 14px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">

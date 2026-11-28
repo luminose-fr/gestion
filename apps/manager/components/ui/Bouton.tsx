@@ -44,10 +44,11 @@ const INTENTIONS: Record<TonBouton, Record<IntentionBouton, string>> = {
     // souligné) — un écran pas encore refait parle déjà la même langue que les autres.
     principale:
       'border border-marque bg-marque text-sur-marque hover:bg-marque-survol hover:border-marque-survol',
+    // Retours du 28/11 (§1.1) : doux, sans bordure ; discret, sans soulignement.
     secondaire:
-      'border border-marque text-marque hover:bg-actif',
+      'border border-transparent bg-doux text-marque hover:bg-doux-survol',
     discrete:
-      'border border-transparent text-marque underline underline-offset-[3px] hover:text-marque-survol',
+      'border border-transparent text-marque hover:bg-survole',
   },
   /*
     Les tokens de sens s'éclaircissent en sombre (#6ee7b7, #fcd34d) : un texte

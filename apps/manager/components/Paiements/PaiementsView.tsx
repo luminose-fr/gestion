@@ -12,6 +12,7 @@
  * bientôt Stancer, ils sortent d'ici seuls ; payés en espèces ou par virement,
  * Florent les encaisse à la main, et la facture brouillon est demandée.
  */
+import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useState } from 'react';
 import { Bouton, Carte, Etiquette, FOCUS, Onglets, Pastille, Secondaire } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -39,7 +40,7 @@ const Ligne: React.FC<{ s: Seance; vue: Vue; premiere: boolean; onPaye: (s: Sean
       {vue === 'a_encaisser' && s.etatPaiement === 'attente_especes' && <Pastille ton="alerte">Espèces attendues</Pastille>}
       {vue === 'a_encaisser' && <span className="text-secondaire text-second">{depuis(s)}</span>}
     </span>
-    <span className="w-20 text-right font-semibold tabular-nums">{euros(s.montantCentimes)}</span>
+    <span className="w-20 text-right font-semibold tabular-nums">{montantEnClair(s.montantCentimes)}</span>
     {vue === 'a_encaisser'
       ? <Bouton taille="petit" disabled={enCours} onClick={() => onPaye(s)}>Marquer payé</Bouton>
       : <Pastille ton="succes">Payé</Pastille>}
@@ -78,8 +79,16 @@ export const PaiementsView: React.FC = () => {
         <>
           <p className="flex flex-wrap items-baseline gap-x-3">
             <span className="text-second">{vue === 'a_encaisser' ? 'Reste à encaisser' : 'Encaissé ces trois derniers mois'}</span>
-            <span className="font-titre text-ecran-tel md:text-ecran tabular-nums">{euros(lecture.donnees.totalCentimes)}</span>
-            <span className="text-secondaire text-second">{lecture.donnees.nombre} séance{lecture.donnees.nombre > 1 ? 's' : ''}</span>
+            {/* Le total compte les séances ET les stages à encaisser (retours du 28/11, §6). */}
+            <span className="font-titre text-ecran-tel md:text-ecran tabular-nums">
+              {euros(lecture.donnees.totalCentimes + lecture.donnees.inscriptions.reduce((t, i) => t + i.montantCentimes, 0))}
+            </span>
+            <span className="text-secondaire text-second">
+              {[
+                `${lecture.donnees.nombre} séance${lecture.donnees.nombre > 1 ? 's' : ''}`,
+                lecture.donnees.inscriptions.length ? `${lecture.donnees.inscriptions.length} stage${lecture.donnees.inscriptions.length > 1 ? 's' : ''}` : null,
+              ].filter(Boolean).join(' · ')}
+            </span>
           </p>
           {lecture.donnees.seances.length === 0 ? (
             <Carte className="px-4 py-4"><p>{vue === 'a_encaisser' ? 'Tout est encaissé. Rien ne vous attend ici.' : 'Aucun encaissement ces trois derniers mois.'}</p></Carte>

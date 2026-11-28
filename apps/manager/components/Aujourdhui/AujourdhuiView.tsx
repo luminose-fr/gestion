@@ -10,6 +10,7 @@
  * Premier écran refait : il ne compose que la charte (components/charte) et
  * n'écrit ni couleur, ni taille, ni rayon (DESIGN.md, « La charte »).
  */
+import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useRef, useState } from 'react';
 import { Bouton, Carte, Etiquette, Fenetre, FOCUS, Pastille, Secondaire } from '../charte';
 import { ADRESSE_RECEPTION, type Reception } from '../charte/cadre';
@@ -58,7 +59,7 @@ const Pastilles: React.FC<{ s: SeanceDuJour; maintenant: number; className?: str
 const Detail: React.FC<{ s: SeanceDuJour }> = ({ s }) => (
   <>
     <span className="block text-secondaire text-second">
-      {typeDe(s)}{s.nature === 'rencontre' ? ` · ${s.dureeMin} min` : ''}{s.mode ? `, ${MODES[s.mode].toLowerCase()}` : ''}
+      {typeDe(s)}{s.nature === 'rencontre' ? ` · ${dureeEnClair(s.dureeMin)}` : ''}{s.mode ? `, ${MODES[s.mode].toLowerCase()}` : ''}
     </span>
     {s.nature === 'rencontre' && (
       <span className="block text-secondaire text-second">Vient de : {s.provenance ?? 'provenance inconnue'}</span>

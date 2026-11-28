@@ -46,6 +46,11 @@
   --color-actif: var(--actif);
   --color-bord: var(--bord);
   --color-champ: var(--champ);
+  /* Retours du 28/11/2026 (docs/refonte/05-retours) : le bouton doux et le champ léger. */
+  --color-doux: var(--doux);
+  --color-doux-survol: var(--doux-survol);
+  --color-champ-bord: var(--champ-bord);
+  --color-champ-fond: var(--champ-fond);
   --color-texte: var(--texte);
   --color-second: var(--second);
   --color-marque: var(--marque);
