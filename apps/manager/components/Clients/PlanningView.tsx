@@ -13,7 +13,7 @@
  * Calendly a été retiré le 28/11/2026 (décision de Florent : la réservation
  * passe par le site et gestion) ; `#agenda/calendly` mène à la semaine.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bouton, Carte, Champ, Etiquette, Fenetre, FOCUS, Onglets, Pastille, Secondaire } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { JourAgenda, Seance } from '../../types-clients';
@@ -250,7 +250,27 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string; poser?: b
     try { await Clients.rendreDateALaSemaine(d); await lecture.recharger(); } catch (e) { setRefus(messageDe(e)); }
   };
 
-  const changerVue = (v: VuePlanning) => aller(`agenda/${v}/${v === 'mois' ? premier : lundi}`);
+  // Passer de la semaine au mois et retour ramène à la MÊME semaine : la
+  // semaine quittée est retenue tant que le mois affiché la contient. Sans elle,
+  // « le 1er du mois » puis « son lundi » reculaient d'une semaine à chaque aller-retour.
+  const semaineQuittee = useRef<string | null>(null);
+  const changerVue = (v: VuePlanning) => {
+    if (v === 'mois') {
+      semaineQuittee.current = lundi;
+      // Le mois de la semaine : celui d'aujourd'hui s'il est dedans, sinon celui de son jeudi.
+      const auj = aujourdhui();
+      const jour = auj >= lundi && auj <= plusJours(lundi, 6) ? auj : plusJours(lundi, 3);
+      return aller(`agenda/mois/${jour.slice(0, 7)}-01`);
+    }
+    const mois = premier.slice(0, 7);
+    const retenue = semaineQuittee.current;
+    const auj = aujourdhui();
+    const cible = retenue && (retenue.slice(0, 7) === mois || plusJours(retenue, 6).slice(0, 7) === mois) ? retenue
+      : auj.slice(0, 7) === mois ? lundiDe(auj)
+        // Sinon, la première semaine qui commence dans le mois.
+        : lundiDe(premier) < premier ? plusJours(lundiDe(premier), 7) : lundiDe(premier);
+    return aller(`agenda/semaine/${cible}`);
+  };
   const precedent = () => aller(vue === 'mois' ? `agenda/mois/${moisVoisin(premier, -1)}` : `agenda/semaine/${plusJours(lundi, -7)}`);
   const suivant = () => aller(vue === 'mois' ? `agenda/mois/${moisVoisin(premier, 1)}` : `agenda/semaine/${plusJours(lundi, 7)}`);
   const titre = vue === 'mois'

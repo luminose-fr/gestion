@@ -55,3 +55,19 @@ describe('l’Agenda', () => {
     expect(poser.mock.calls).toEqual([['2027-01-11', []], ['2027-01-12', []], ['2027-01-13', []]]);
   });
 });
+
+describe('l’Agenda — semaine, mois, semaine', () => {
+  it('l’aller-retour ramène à la même semaine, et le mois reste le même', async () => {
+    routesChargees();
+    window.location.hash = '#agenda/semaine/2027-02-01';
+    const { getByRole, rerender } = render(<PlanningView vue="semaine" date="2027-02-01" />);
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(getByRole('tab', { name: 'Mois' }));
+      expect(window.location.hash).toBe('#agenda/mois/2027-02-01');
+      rerender(<PlanningView vue="mois" date="2027-02-01" />);
+      fireEvent.click(getByRole('tab', { name: 'Semaine' }));
+      expect(window.location.hash).toBe('#agenda/semaine/2027-02-01');
+      rerender(<PlanningView vue="semaine" date="2027-02-01" />);
+    }
+  });
+});
