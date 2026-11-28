@@ -17,6 +17,7 @@ import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSean
 import { apresChangement } from '../clients/agenda-seances';
 import { lireAujourdhui, provenanceEnClair, HEURE_DU_SOIR } from '../clients/aujourdhui';
 import { disponibilites } from '../clients/disponibilites';
+import { inscriptionsAEncaisser } from '../clients/evenements';
 import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance, lirePaiements, seancesARattacher, rattacherSeance } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
 import { lireNotesSeance, ecrireNotesSeance, questionnairesARattacher } from '../clients/sensible';
@@ -105,8 +106,17 @@ seances.post('/:id/rattacher', async (c) => {
  */
 seances.get('/paiements', async (c) => {
   const { vue } = valider(z.strictObject({ vue: z.enum(['a_encaisser', 'encaisses']) }), c.req.query());
-  const lu = await lirePaiements(baseClients(c.env), vue, Date.now());
-  return c.json({ seances: lu.lignes.map(enSortie), nombre: lu.nombre, totalCentimes: lu.centimes });
+  const db = baseClients(c.env);
+  const [lu, stages] = await Promise.all([lirePaiements(db, vue, Date.now()), vue === 'a_encaisser' ? inscriptionsAEncaisser(db) : Promise.resolve([])]);
+  return c.json({
+    seances: lu.lignes.map(enSortie), nombre: lu.nombre, totalCentimes: lu.centimes,
+    // Les stages à encaisser (décision du 28/11/2026) : payés en ligne ailleurs, ou à la main ici.
+    inscriptions: stages.map((i) => ({
+      id: i.id, statut: i.statut, modePaiement: i.mode_paiement, retenueJusqua: iso(i.retenue_jusqua as number | null),
+      montantCentimes: Number(i.montant), stage: { id: i.evenement_id, nom: i.evenement_nom, debut: iso(i.evenement_debut as number) },
+      personne: { clientId: i.client_id ?? null, prenom: i.personne_prenom ?? null, nom: i.personne_nom ?? null },
+    })),
+  });
 });
 
 /**

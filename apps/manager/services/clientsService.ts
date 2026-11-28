@@ -19,7 +19,7 @@ import type {
   PageFiches, FicheSemblable, ChampsFiche, Fiche, NoteFiche, Confiance,
   Seance, SeanceDetaillee, NotesSeance, PoseRendezVous, ModificationSeance,
   Evenement, EvenementDetaille, ChampsEvenement, Professionnel, ChampsProfessionnel,
-  Reservation, ChampsType, PlageHoraire, Aujourdhui, JourAgenda, QuestionnaireSante,
+  Reservation, ChampsType, PlageHoraire, Aujourdhui, JourAgenda, QuestionnaireSante, InscriptionAEncaisser,
 } from '../types-clients';
 
 /** Un refus ou une panne d'une route des clients. `champs` : les champs en défaut d'une entrée invalide. */
@@ -86,7 +86,7 @@ export const rattacherEnvoiSante = (qid: string, clientId: string) => appel<{ id
 
 /** L'écran Paiements : à encaisser, ou encaissés ces trois derniers mois, et le total. */
 export const lirePaiements = (vue: 'a_encaisser' | 'encaisses') =>
-  appel<{ seances: Seance[]; nombre: number; totalCentimes: number }>(`/seances/paiements?vue=${vue}`);
+  appel<{ seances: Seance[]; nombre: number; totalCentimes: number; inscriptions: InscriptionAEncaisser[] }>(`/seances/paiements?vue=${vue}`);
 /** Les jours d'une période pour l'Agenda : fermés ou non, et les créneaux libres. 62 jours au plus. */
 export const disponibilites = (du: string, au: string) =>
   appel<{ jours: JourAgenda[]; agendaLu: boolean }>(`/seances/disponibilites?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);
@@ -117,6 +117,9 @@ export const inscrire = (evenementId: string, clientId: string) =>
   appel<{ id: string }>(`/evenements/${id(evenementId)}/inscriptions`, 'POST', { clientId });
 export const changerStatutInscription = (inscriptionId: string, statut: 'annulee' | 'deconseillee' | 'confirmee') =>
   appel<{ id: string }>(`/inscriptions/${id(inscriptionId)}`, 'PATCH', { statut });
+/** Un stage payé en espèces ou par virement : le paiement, et l'ordre de la facture brouillon. */
+export const encaisserInscription = (inscriptionId: string, moyen: 'especes' | 'virement') =>
+  appel<{ id: string }>(`/inscriptions/${id(inscriptionId)}/paiement`, 'POST', { moyen });
 
 // ── Les professionnels ───────────────────────────────────────────────────
 

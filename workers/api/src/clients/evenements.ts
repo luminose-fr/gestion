@@ -6,6 +6,8 @@
  * dépendent d'un compte (places, suppression, dernière place) y vivent aussi.
  */
 import { placesOccupees, conditionPlaces } from './decisions';
+import { newId } from '../db';
+import { inscrireOrdre } from './ordres';
 
 type Brut = Record<string, unknown>;
 
@@ -60,6 +62,8 @@ export const lireEvenement = async (
       FROM evenements e WHERE e.id = ?2 AND e.deleted_at IS NULL`).bind(maintenant, id),
     db.prepare(`
       SELECT i.id, i.statut, i.mode_paiement, i.retenue_jusqua, i.montant_centimes, i.origine, i.created_at,
+        (SELECT p.prestataire FROM paiements p WHERE p.inscription_id = i.id AND p.statut = 'reussi' ORDER BY p.reussi_le DESC LIMIT 1) AS paye_par,
+        (SELECT p.reussi_le FROM paiements p WHERE p.inscription_id = i.id AND p.statut = 'reussi' ORDER BY p.reussi_le DESC LIMIT 1) AS paye_le,
         c.id AS client_id,
         COALESCE(c.prenom, json_extract(i.identite_recue, '$.prenom')) AS personne_prenom,
         COALESCE(c.nom, json_extract(i.identite_recue, '$.nom')) AS personne_nom
@@ -119,4 +123,63 @@ export const changerStatutInscription = async (
 ): Promise<boolean> => {
   const r = await db.prepare('UPDATE inscriptions SET statut = ?2, updated_at = ?3 WHERE id = ?1').bind(id, statut, maintenant).run();
   return r.meta.changes === 1;
+};
+
+// ─── Encaisser une inscription à la main (refonte, lot 8) ───────────────────
+
+/**
+ * Florent a reçu le paiement d'un stage en espèces ou par virement (décision du
+ * 28/11/2026 : le paiement en ligne passe par Stripe, bientôt Stancer ; le
+ * reste se valide à la main). Un lot :
+ *
+ * 1. le paiement, `reussi`, du montant de l'inscription (sinon du prix du
+ *    stage) — seulement si l'inscription existe, n'est pas annulée et n'a pas
+ *    déjà un paiement réussi ;
+ * 2. une inscription « retenue » (place gardée en attendant le paiement)
+ *    devient « payée » ;
+ * 3. l'ordre de la facture brouillon (`facture.qonto.creer`), qui attend que
+ *    Make sache la créer : il n'est remis à personne tant que la remise ne
+ *    connaît que les e-mails.
+ *
+ * `false` : rien d'écrit (absente, annulée, ou déjà payée).
+ */
+export const encaisserInscription = async (
+  db: D1Database, inscriptionId: string, moyen: 'especes' | 'virement', maintenant: number,
+): Promise<boolean> => {
+  const paiementId = newId();
+  const [paiement] = await db.batch([
+    db.prepare(`
+      INSERT INTO paiements (id, inscription_id, prestataire, reference, montant_centimes, statut, reussi_le, created_at, updated_at)
+      SELECT ?1, i.id, ?3, ?1, COALESCE(i.montant_centimes, e.prix_centimes, 0), 'reussi', ?4, ?4, ?4
+      FROM inscriptions i JOIN evenements e ON e.id = i.evenement_id
+      WHERE i.id = ?2 AND i.statut NOT IN ('annulee', 'expiree', 'deconseillee')
+        AND NOT EXISTS (SELECT 1 FROM paiements p WHERE p.inscription_id = i.id AND p.statut = 'reussi')`)
+      .bind(paiementId, inscriptionId, moyen, maintenant),
+    db.prepare(`UPDATE inscriptions SET statut = 'payee', updated_at = ?2
+      WHERE id = ?1 AND statut = 'retenue' AND EXISTS (SELECT 1 FROM paiements WHERE id = ?3)`).bind(inscriptionId, maintenant, paiementId),
+    inscrireOrdre(db, {
+      sorte: 'facture.qonto.creer', modeleCle: null, objetType: 'paiement', objetId: paiementId,
+      prevuLe: maintenant, cleUnicite: `facture:${paiementId}`,
+    }, maintenant, 'EXISTS (SELECT 1 FROM paiements WHERE id = ?5)'),
+  ]);
+  return paiement.meta.changes === 1;
+};
+
+/**
+ * Les inscriptions à encaisser, pour l'écran Paiements : une place gardée ou
+ * confirmée, d'un stage payant, sans paiement réussi — du stage le plus proche
+ * au plus lointain. L'identité par le prénom et le nom. Une instruction.
+ */
+export const inscriptionsAEncaisser = async (db: D1Database): Promise<Brut[]> => {
+  const { results } = await db.prepare(`
+    SELECT i.id, i.statut, i.mode_paiement, i.retenue_jusqua, COALESCE(i.montant_centimes, e.prix_centimes) AS montant,
+      e.id AS evenement_id, e.nom AS evenement_nom, e.debut AS evenement_debut,
+      c.id AS client_id,
+      COALESCE(c.prenom, json_extract(i.identite_recue, '$.prenom')) AS personne_prenom,
+      COALESCE(c.nom, json_extract(i.identite_recue, '$.nom')) AS personne_nom
+    FROM inscriptions i JOIN evenements e ON e.id = i.evenement_id LEFT JOIN clients c ON c.id = i.client_id
+    WHERE i.statut IN ('retenue', 'confirmee') AND e.deleted_at IS NULL AND COALESCE(i.montant_centimes, e.prix_centimes, 0) > 0
+      AND NOT EXISTS (SELECT 1 FROM paiements p WHERE p.inscription_id = i.id AND p.statut = 'reussi')
+    ORDER BY e.debut, i.created_at LIMIT 200`).all();
+  return results as Brut[];
 };

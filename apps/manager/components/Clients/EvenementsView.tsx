@@ -20,6 +20,7 @@ import {
 } from './commun';
 import { ChoixFiche, type FicheChoisie } from './ChoixFiche';
 
+const MOYENS: Record<string, string> = { especes: 'espèces', virement: 'virement', stripe: 'en ligne', stancer: 'en ligne' };
 const TON: Record<string, 'succes' | 'alerte' | 'erreur' | 'neutre'> = { succes: 'succes', alerte: 'alerte', erreur: 'erreur', neutre: 'neutre' };
 
 const TYPES = [
@@ -209,6 +210,12 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
     }
   };
 
+  const encaisser = async (inscriptionId: string, moyen: 'especes' | 'virement') => {
+    setRefusInscription(null);
+    try { await Clients.encaisserInscription(inscriptionId, moyen); await lecture.recharger(); }
+    catch (err) { setRefusInscription(messageDe(err)); }
+  };
+
   const changerStatut = async (inscriptionId: string, statut: StatutInscription) => {
     setRefusInscription(null);
     try {
@@ -258,9 +265,17 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
                     <Pastille ton={TON[INSCRIPTIONS[i.statut].ton]}>{INSCRIPTIONS[i.statut].libelle}</Pastille>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-secondaire text-second">
-                      {i.modePaiement === 'carte' ? 'Par carte' : i.modePaiement === 'virement' ? 'Par virement' : 'Sans paiement en ligne'}
-                      {i.retenueJusqua && ` · retenue jusqu’au ${dateCourte(i.retenueJusqua)}`}
+                    <span className="flex flex-wrap items-center gap-1.5 text-secondaire text-second">
+                      {i.paiement
+                        ? <Pastille ton="succes">Payé · {MOYENS[i.paiement.moyen] ?? i.paiement.moyen}</Pastille>
+                        : <>
+                            {i.modePaiement === 'carte' ? 'Par carte' : i.modePaiement === 'virement' ? 'Par virement' : 'Sans paiement en ligne'}
+                            {i.retenueJusqua && ` · retenue jusqu’au ${dateCourte(i.retenueJusqua)}`}
+                            {(i.statut === 'retenue' || i.statut === 'confirmee') && (e.prixCentimes ?? 0) > 0 && <>
+                              <Bouton taille="petit" intention="souligne" onClick={() => void encaisser(i.id, 'especes')}>Encaisser en espèces</Bouton>
+                              <Bouton taille="petit" intention="souligne" onClick={() => void encaisser(i.id, 'virement')}>par virement</Bouton>
+                            </>}
+                          </>}
                     </span>
                     <Choix id={`statut-${i.id}`} label={`Statut de ${nomComplet(i.personne)}`} masquerLabel className="w-44"
                       value={STATUTS_POSSIBLES.includes(i.statut) ? i.statut : ''}

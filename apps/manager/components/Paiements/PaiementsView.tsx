@@ -8,11 +8,12 @@
  * Florent ne reprend pas la personne avant qu'elle soit réglée (décision du
  * 28/11/2026). « Marquer payé » sur chaque ligne ; la ligne sort de la liste.
  *
- * Les inscriptions aux stages y entreront quand leur paiement aura sa place
- * dans la console.
+ * Les stages ensuite (décision du 28/11/2026) : payés en ligne par Stripe,
+ * bientôt Stancer, ils sortent d'ici seuls ; payés en espèces ou par virement,
+ * Florent les encaisse à la main, et la facture brouillon est demandée.
  */
 import React, { useState } from 'react';
-import { Bouton, Carte, FOCUS, Onglets, Pastille, Secondaire } from '../charte';
+import { Bouton, Carte, Etiquette, FOCUS, Onglets, Pastille, Secondaire } from '../charte';
 import * as Clients from '../../services/clientsService';
 import type { Seance } from '../../types-clients';
 import { aller, euros, EtatLecture, heure, jourEnLettres, messageDe, nomComplet, useAdresse, useLecture } from '../Clients/commun';
@@ -52,6 +53,14 @@ export const PaiementsView: React.FC = () => {
   const [enCours, setEnCours] = useState(false);
   const [refus, setRefus] = useState<string | null>(null);
 
+  const encaisserStage = async (inscriptionId: string, moyen: 'especes' | 'virement') => {
+    setEnCours(true);
+    setRefus(null);
+    try { await Clients.encaisserInscription(inscriptionId, moyen); await lecture.recharger(); }
+    catch (e) { setRefus(messageDe(e)); }
+    finally { setEnCours(false); }
+  };
+
   const marquerPaye = async (s: Seance) => {
     setEnCours(true);
     setRefus(null);
@@ -82,7 +91,31 @@ export const PaiementsView: React.FC = () => {
           {lecture.donnees.nombre > lecture.donnees.seances.length && (
             <Secondaire>Les {lecture.donnees.seances.length} premières sont affichées ; le total les compte toutes.</Secondaire>
           )}
-          <Secondaire>Une séance s’encaisse aussi depuis son écran, en la terminant. Les inscriptions aux stages entreront ici avec leur paiement.</Secondaire>
+          {vue === 'a_encaisser' && lecture.donnees.inscriptions.length > 0 && (
+            <section aria-labelledby="titre-stages" className="flex flex-col gap-2">
+              <Etiquette as="h2" id="titre-stages">Stages à encaisser · {lecture.donnees.inscriptions.length}</Etiquette>
+              <Carte as="div" className="overflow-hidden">
+                <ul>
+                  {lecture.donnees.inscriptions.map((i, n) => (
+                    <li key={i.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 md:flex-nowrap ${n ? 'border-t border-bord' : ''}`}>
+                      <a href={`#stages/${encodeURIComponent(i.stage.id)}`} className={`min-w-0 flex-1 rounded-controle hover:text-marque ${FOCUS}`}>
+                        <span className="block truncate font-semibold">{nomComplet(i.personne)}</span>
+                        <span className="block truncate text-secondaire text-second">{i.stage.nom} · {jourEnLettres(i.stage.debut)}</span>
+                      </a>
+                      {i.statut === 'retenue' && <Pastille ton="alerte">Place retenue</Pastille>}
+                      <span className="w-20 text-right font-semibold tabular-nums">{euros(i.montantCentimes)}</span>
+                      <span className="flex gap-1.5">
+                        <Bouton taille="petit" intention="borde" disabled={enCours} onClick={() => void encaisserStage(i.id, 'especes')}>Espèces</Bouton>
+                        <Bouton taille="petit" intention="borde" disabled={enCours} onClick={() => void encaisserStage(i.id, 'virement')}>Virement</Bouton>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Carte>
+              <Secondaire>Payé en ligne, un stage sort d’ici seul. Encaisser à la main demande la facture brouillon.</Secondaire>
+            </section>
+          )}
+          <Secondaire>Une séance s’encaisse aussi depuis son écran, en la terminant.</Secondaire>
         </>
       )}
     </div>

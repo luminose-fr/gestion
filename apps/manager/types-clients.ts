@@ -142,6 +142,13 @@ export type Evenement = {
 export type InscriptionVue = {
   id: string; statut: StatutInscription; modePaiement: 'carte' | 'virement' | null; retenueJusqua: string | null;
   montantCentimes: number | null; origine: 'site' | 'console' | 'import'; le: string; personne: PersonneVue;
+  /** Le paiement réussi, s'il y en a un (refonte, lot 8). */
+  paiement?: { moyen: 'stancer' | 'stripe' | 'virement' | 'especes'; le: string | null } | null;
+};
+/** Une inscription à encaisser, sur l'écran Paiements. */
+export type InscriptionAEncaisser = {
+  id: string; statut: StatutInscription; modePaiement: 'carte' | 'virement' | null; retenueJusqua: string | null;
+  montantCentimes: number; stage: { id: string; nom: string; debut: string }; personne: PersonneVue;
 };
 export type EvenementDetaille = Evenement & {
   metaDescription: string | null; htmlPermalink: string | null; htmlProgramme: string | null; htmlPrix: string | null;

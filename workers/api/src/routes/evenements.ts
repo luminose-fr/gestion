@@ -16,7 +16,7 @@ import { Refus } from '../refus';
 import { prendrePlace, confirmerInscription, supprimerEvenement } from '../clients/decisions';
 import {
   listeEvenements, lireEvenement, creerEvenement, modifierEvenement, etatEvenement, inscriptionExiste,
-  changerStatutInscription,
+  changerStatutInscription, encaisserInscription,
 } from '../clients/evenements';
 import { famille, corps, estUnicite, identifiant, instantIso, texte, iso } from './clients-commun';
 
@@ -56,6 +56,7 @@ evenements.get('/:id', async (c) => {
     inscriptions: lu.inscriptions.map((i) => ({
       id: i.id, statut: i.statut, modePaiement: i.mode_paiement, retenueJusqua: iso(i.retenue_jusqua as number | null),
       montantCentimes: i.montant_centimes, origine: i.origine, le: iso(i.created_at as number),
+      paiement: i.paye_par ? { moyen: i.paye_par, le: iso(i.paye_le as number) } : null,
       personne: { clientId: i.client_id ?? null, prenom: i.personne_prenom ?? null, nom: i.personne_nom ?? null },
     })),
   });
@@ -151,4 +152,13 @@ inscriptions.patch('/:id', async (c) => {
   }
   if (!(await inscriptionExiste(db, id))) throw new Refus('Cette inscription n’existe pas.', 404);
   throw new Refus(MESSAGE_COMPLET, 409);
+});
+
+/** Encaisser à la main un stage payé en espèces ou par virement (refonte, lot 8). */
+inscriptions.post('/:id/paiement', async (c) => {
+  const db = baseClients(c.env);
+  const { moyen } = await corps(c, z.strictObject({ moyen: z.enum(['especes', 'virement']) }));
+  if (await encaisserInscription(db, c.req.param('id'), moyen, Date.now())) return c.json({ id: c.req.param('id') });
+  if (!(await inscriptionExiste(db, c.req.param('id')))) throw new Refus('Cette inscription n’existe pas.', 404);
+  throw new Refus('Rien à encaisser : l’inscription est déjà payée, ou elle est annulée.', 409);
 });

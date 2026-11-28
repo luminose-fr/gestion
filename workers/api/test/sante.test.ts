@@ -91,3 +91,30 @@ describe('rattacher (lot 8)', () => {
     expect(base.query("SELECT client_id, rattachement FROM questionnaires WHERE id = 'qr'")[0]).toEqual({ client_id: 'client-a', rattachement: 'fait' });
   });
 });
+
+describe('encaisser un stage à la main (lot 8)', () => {
+  const poser = async (statut = 'retenue') => {
+    await base.prepare(`INSERT INTO evenements (id, nom, debut, places_totales, prix_centimes, created_at, updated_at) VALUES ('ev', 'Stage', 1, 10, 15000, 0, 0)`).run();
+    await base.prepare(`INSERT INTO inscriptions (id, evenement_id, client_id, statut, mode_paiement, retenue_jusqua, reference, origine, created_at, updated_at)
+      VALUES ('ins', 'ev', 'client-a', ?, ?, ?, 'REF', 'console', 0, 0)`).bind(statut, statut === 'retenue' ? 'virement' : null, statut === 'retenue' ? 9 : null).run();
+  };
+  const encaisser = async (moyen: string) => app.fetch(new Request('https://api.test/api/inscriptions/ins/paiement', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Session-Token': await createSessionToken(env) }, body: JSON.stringify({ moyen }),
+  }), env as any);
+
+  it('par virement : le paiement au prix du stage, la place payée, l’ordre de la facture brouillon ; deux fois : refusé', async () => {
+    await poser();
+    expect((await encaisser('virement')).status).toBe(200);
+    expect(base.query("SELECT prestataire, montant_centimes, statut FROM paiements WHERE inscription_id = 'ins'")).toEqual([{ prestataire: 'virement', montant_centimes: 15000, statut: 'reussi' }]);
+    expect(base.query("SELECT statut FROM inscriptions WHERE id = 'ins'")[0].statut).toBe('payee');
+    expect(base.query("SELECT sorte, etat FROM ordres WHERE objet_type = 'paiement'")).toEqual([{ sorte: 'facture.qonto.creer', etat: 'prevu' }]);
+    expect((await encaisser('especes')).status).toBe(409);
+    expect(base.query('SELECT COUNT(*) AS n FROM paiements')[0].n).toBe(1);
+  });
+
+  it('une inscription annulée ne s’encaisse pas ; un moyen inconnu : 400', async () => {
+    await poser('annulee');
+    expect((await encaisser('especes')).status).toBe(409);
+    expect((await encaisser('cheque')).status).toBe(400);
+  });
+});
