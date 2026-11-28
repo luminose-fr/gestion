@@ -55,6 +55,8 @@ export const routesChargees = () => {
   vi.spyOn(Clients, 'lireNotesSeance').mockResolvedValue(NOTES);
   vi.spyOn(Clients, 'seancesDeLaPeriode').mockResolvedValue({ seances: [SEANCE] });
   vi.spyOn(Clients, 'disponibilites').mockResolvedValue({ jours: [], agendaLu: true });
+  // Les heures libres de la fenêtre des rendez-vous (retours du 28/11, §5) : deux, le lundi 11 janvier.
+  vi.spyOn(Clients, 'creneauxLibres').mockResolvedValue({ creneaux: ['2027-01-11T09:30:00+01:00', '2027-01-11T14:00:00+01:00'], agendaLu: true });
   vi.spyOn(Clients, 'lireReservation').mockResolvedValue(RESERVATION);
   vi.spyOn(Clients, 'listeEvenements').mockResolvedValue({ evenements: [] });
 };

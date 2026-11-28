@@ -81,9 +81,13 @@ describe('la fenêtre des rendez-vous', () => {
     const { getByText, getByLabelText, container } = render(<PoserRendezVous deplacer={{ ...SEANCE, revision: 3 }} onFermer={() => {}} onPose={pose} />);
     expect(container.textContent).toContain('Déplacer le rendez-vous');
     expect(container.querySelector('#rdv-type')).toBeNull();
-    fireEvent.change(getByLabelText('Heure'), { target: { value: '14:00' } });
-    fireEvent.click(getByText('Déplacer le rendez-vous', { selector: 'button' }));
+    await waitFor(() => expect(getByText('14 h')).toBeTruthy());
+    fireEvent.click(getByText('14 h'));
+    fireEvent.click(getByText('Déplacer ici'));
     await waitFor(() => expect(deplacer).toHaveBeenCalledWith('seance-1', '2027-01-11T14:00:00+01:00', 3));
+    // Les heures se lisent sans la séance déplacée : elle ne s'occupe pas elle-même.
+    expect(Clients.creneauxLibres).toHaveBeenCalledWith('type-seance', '2027-01-01', '2027-01-31', 'seance-1');
+    expect(getByLabelText(/, 2 heures libres$/)).toBeTruthy();
     expect(pose).toHaveBeenCalledWith('seance-1');
   });
 
@@ -91,7 +95,20 @@ describe('la fenêtre des rendez-vous', () => {
     routesChargees();
     vi.spyOn(Clients, 'deplacerSeance').mockRejectedValue(new Clients.ErreurClients('Ce créneau chevauche le rendez-vous de Léo Martin, de 14 h à 15 h 30.', 409));
     const { getByText, getByRole } = render(<PoserRendezVous deplacer={SEANCE} onFermer={() => {}} onPose={() => {}} />);
-    fireEvent.click(getByText('Déplacer le rendez-vous', { selector: 'button' }));
+    await waitFor(() => expect(getByText('14 h')).toBeTruthy());
+    fireEvent.click(getByText('14 h'));
+    fireEvent.click(getByText('Déplacer ici'));
     await waitFor(() => expect(getByRole('alert').textContent).toContain('Léo Martin, de 14 h à 15 h 30'));
+  });
+
+  it('« Autre heure… » pose hors des heures libres (Florent peut le faire, le site non)', async () => {
+    routesChargees();
+    const poser = vi.spyOn(Clients, 'poserRendezVous').mockResolvedValue({ id: 'nouvelle' });
+    const { getByText, getByLabelText } = render(<PoserRendezVous fiche={{ id: 'fiche-1', prenom: 'Émilie', nom: 'Martin' }} date="2027-01-11" onFermer={() => {}} onPose={() => {}} />);
+    await waitFor(() => expect(getByText('14 h')).toBeTruthy());
+    fireEvent.click(getByText('Autre heure…'));
+    fireEvent.change(getByLabelText('Heure'), { target: { value: '19:15' } });
+    fireEvent.click(getByText('Poser à cette heure'));
+    await waitFor(() => expect(poser).toHaveBeenCalledWith(expect.objectContaining({ clientId: 'fiche-1', debut: '2027-01-11T19:15:00+01:00' })));
   });
 });

@@ -8,6 +8,7 @@ import app from '../src/index';
 import { createSessionToken } from '../src/auth';
 import { makeEnv, type TestD1 } from './helpers/d1';
 import { ajouterClient, TYPES, MINUTE } from './helpers/clients';
+import { creneaux as creneauxDuSite } from '../src/clients/portes/reservation';
 
 let env: ReturnType<typeof makeEnv>;
 let base: TestD1;
@@ -61,6 +62,36 @@ describe('les jours de l’Agenda', () => {
 
   it('63 jours : refusé', async () => {
     expect((await appeler('GET', '/api/seances/disponibilites?du=2027-01-01&au=2027-03-04')).status).toBe(400);
+  });
+});
+
+describe('les heures libres d’un type, pour poser un rendez-vous (retours du 28/11, §5)', () => {
+  const creneauxConsole = async (du: string, au: string, sauf?: string) =>
+    (await (await appeler('GET', `/api/seances/creneaux?type=${TYPES.seance}&du=${du}&au=${au}${sauf ? `&sauf=${sauf}` : ''}`)).json()) as { creneaux: string[] };
+
+  it('dans la fenêtre du site, les mêmes heures que le site — le même calcul', async () => {
+    const site = await creneauxDuSite(env as any, { type: 'seance', du: '2027-01-11', au: '2027-01-15' }, Date.now());
+    expect(site.ok).toBe(true);
+    const console = await creneauxConsole('2027-01-11', '2027-01-15');
+    expect(console.creneaux.map(Date.parse)).toEqual((site as unknown as { creneaux: string[] }).creneaux.map(Date.parse));
+    expect(console.creneaux.length).toBeGreaterThan(0);
+  });
+
+  it('hors de la fenêtre du site, la console propose encore : Florent remplit sa semaine', async () => {
+    const site = await creneauxDuSite(env as any, { type: 'seance', du: '2026-12-07', au: '2026-12-07' }, Date.now());
+    expect((site as unknown as { creneaux: string[] }).creneaux).toEqual([]);
+    expect((await creneauxConsole('2026-12-07', '2026-12-07')).creneaux.length).toBeGreaterThan(0);
+  });
+
+  it('la séance qu’on déplace ne s’occupe pas elle-même ; un type inconnu → 404', async () => {
+    const debut = Date.UTC(2027, 0, 11, 8, 0); // 9 h à Paris
+    await base.prepare(`INSERT INTO seances (id, client_id, type_seance_id, debut, duree_min, occupe_jusqua, statut, etat_paiement, origine, created_at, updated_at)
+      VALUES ('s', 'client-a', ?, ?, 90, ?, 'prevue', 'a_payer', 'console', 0, 0)`).bind(TYPES.seance, debut, debut + 90 * MINUTE).run();
+    const occupe = (await creneauxConsole('2027-01-11', '2027-01-11')).creneaux.map(Date.parse);
+    const libre = (await creneauxConsole('2027-01-11', '2027-01-11', 's')).creneaux.map(Date.parse);
+    expect(occupe).not.toContain(debut);
+    expect(libre).toContain(debut);
+    expect((await appeler('GET', '/api/seances/creneaux?type=inconnu&du=2027-01-11&au=2027-01-11')).status).toBe(404);
   });
 });
 

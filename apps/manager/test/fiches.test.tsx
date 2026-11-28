@@ -66,6 +66,6 @@ describe('la liste des fiches', () => {
     fireEvent.keyDown(lien, { key: '/' });
     expect(document.activeElement).toBe(champ);
     fireEvent.click(getByRole('button', { name: 'Poser un rendez-vous pour Émilie Martin' }));
-    await waitFor(() => expect(container.textContent).toContain('Personne : Émilie Martin'));
+    await waitFor(() => expect(container.textContent).toContain('PersonneÉmilie Martin'));
   });
 });

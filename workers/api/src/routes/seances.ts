@@ -16,7 +16,7 @@ import { Refus } from '../refus';
 import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSeance } from '../clients/decisions';
 import { apresChangement } from '../clients/agenda-seances';
 import { lireAujourdhui, provenanceEnClair, HEURE_DU_SOIR } from '../clients/aujourdhui';
-import { disponibilites } from '../clients/disponibilites';
+import { creneauxDuType, disponibilites } from '../clients/disponibilites';
 import { inscriptionsAEncaisser } from '../clients/evenements';
 import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens, quiOccupe, gabaritSeance, lirePaiements, seancesARattacher, rattacherSeance } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
@@ -130,6 +130,24 @@ seances.get('/disponibilites', async (c) => {
   const jours = Math.round((instantDeParis(au, '12:00') - instantDeParis(du, '12:00')) / 86_400_000) + 1;
   if (jours > JOURS_MAX) throw new Refus(`Une période couvre ${JOURS_MAX} jours au plus.`, 400);
   return c.json(await disponibilites(c.env, du, au, Date.now()));
+});
+
+/**
+ * Les heures libres d'un type, pour poser ou déplacer un rendez-vous (retours
+ * du 28/11, §5) : le calcul du site, sans sa fenêtre de réservation en ligne.
+ * `sauf` : la séance qu'on déplace, qui ne s'occupe pas elle-même. 62 jours au
+ * plus. Déclarée avant `/:id`.
+ */
+seances.get('/creneaux', async (c) => {
+  const q = c.req.query();
+  const { du, au } = valider(Periode, { du: q.du, au: q.au });
+  const { type, sauf } = valider(z.object({ type: identifiant, sauf: identifiant.optional() }), { type: q.type, sauf: q.sauf });
+  if (au < du) throw new Refus('La fin de la période précède son début.', 400);
+  const jours = Math.round((instantDeParis(au, '12:00') - instantDeParis(du, '12:00')) / 86_400_000) + 1;
+  if (jours > JOURS_MAX) throw new Refus(`Une période couvre ${JOURS_MAX} jours au plus.`, 400);
+  const r = await creneauxDuType(c.env, type, du, au, Date.now(), sauf ?? null);
+  if (!r) throw new Refus('Ce type de rendez-vous n’existe pas ou n’est plus actif.', 404);
+  return c.json({ creneaux: r.creneaux.map(isoDeParis), agendaLu: r.agendaLu });
 });
 
 /**

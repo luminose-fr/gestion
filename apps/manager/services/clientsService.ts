@@ -90,6 +90,9 @@ export const lirePaiements = (vue: 'a_encaisser' | 'encaisses') =>
 /** Les jours d'une période pour l'Agenda : fermés ou non, et les créneaux libres. 62 jours au plus. */
 export const disponibilites = (du: string, au: string) =>
   appel<{ jours: JourAgenda[]; agendaLu: boolean }>(`/seances/disponibilites?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);
+/** Les heures libres d'un type, du jour `du` au jour `au` (62 jours au plus) ; `sauf` : la séance qu'on déplace. */
+export const creneauxLibres = (typeId: string, du: string, au: string, sauf?: string) =>
+  appel<{ creneaux: string[]; agendaLu: boolean }>(`/seances/creneaux?type=${encodeURIComponent(typeId)}&du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}${sauf ? `&sauf=${encodeURIComponent(sauf)}` : ''}`);
 export const lireSeance = (seanceId: string) => appel<SeanceDetaillee>(`/seances/${id(seanceId)}`);
 /** L'écran Aujourd'hui : la journée, la prochaine séance, À traiter — une lecture. */
 export const lireAujourdhui = () => appel<Aujourdhui>('/seances/aujourdhui');

@@ -3066,7 +3066,7 @@ describe('la console des clients — chaque écran chargé, vide, base non reli�
     await waitFor(() => expect(notes.container.textContent).toContain('Réponse SMS'));
     cleanup();
     const fenetre = render(<PoserRendezVous fiche={{ id: 'fiche-1', prenom: 'Émilie', nom: 'Martin' }} onFermer={() => {}} onPose={() => {}} />);
-    await waitFor(() => expect(fenetre.container.textContent).toContain('aucun message ne part'));
+    await waitFor(() => expect(fenetre.container.textContent).toContain('Il s’écrit dans l’agenda Google'));
   });
 
   it('les espaces lisent leur adresse', async () => {

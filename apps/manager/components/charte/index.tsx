@@ -267,8 +267,12 @@ export const Repliable: React.FC<{ titre: string; resume?: React.ReactNode; ouve
  * Retour anticipé sans hook (CLAUDE.md) : le dialogue est toujours monté,
  * ouvert ou fermé selon `ouverte`.
  */
-export const Fenetre: React.FC<{ ouverte: boolean; titre: string; onFermer: () => void; children: React.ReactNode; actions?: React.ReactNode }> =
-  ({ ouverte, titre, onFermer, children, actions }) => {
+export const Fenetre: React.FC<{
+  ouverte: boolean; titre: string; onFermer: () => void; children: React.ReactNode; actions?: React.ReactNode;
+  /** 780 px : la fenêtre d'un rendez-vous, calendrier et heures côte à côte (retours du 28/11, §5). */
+  large?: boolean;
+}> =
+  ({ ouverte, titre, onFermer, children, actions, large }) => {
     const ref = useRef<HTMLDialogElement>(null);
     const titreId = useId();
     useEffect(() => {
@@ -285,7 +289,8 @@ export const Fenetre: React.FC<{ ouverte: boolean; titre: string; onFermer: () =
         onCancel={(e) => { e.preventDefault(); onFermer(); }}
         className={cx(
           'm-0 h-full max-h-none w-full max-w-none bg-surface p-0 text-texte backdrop:bg-voile',
-          'md:m-auto md:h-fit md:max-h-[85vh] md:max-w-[560px] md:rounded-carte md:shadow-fenetre',
+          'md:m-auto md:h-fit md:max-h-[85vh] md:rounded-carte md:shadow-fenetre',
+          large ? 'md:max-w-[780px]' : 'md:max-w-[560px]',
         )}
       >
         {ouverte && (
