@@ -14,7 +14,8 @@
  */
 import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useState } from 'react';
-import { Bouton, Carte, Etiquette, FOCUS, Onglets, Pastille, Secondaire } from '../charte';
+import { Bouton, Carte, Etiquette, FOCUS, Pastille, Secondaire } from '../charte';
+import { Bandeau, OngletsBarre } from '../charte/bandeau';
 import * as Clients from '../../services/clientsService';
 import type { Seance } from '../../types-clients';
 import { aller, euros, EtatLecture, heure, jourEnLettres, messageDe, nomComplet, useAdresse, useLecture } from '../Clients/commun';
@@ -72,8 +73,11 @@ export const PaiementsView: React.FC = () => {
 
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <Onglets<Vue> libelle="Paiements" actif={vue} onChange={(v) => aller(v === 'encaisses' ? 'paiements/encaisses' : 'paiements')}
-        onglets={[{ id: 'a_encaisser', libelle: 'À encaisser' }, { id: 'encaisses', libelle: 'Encaissés' }]} />
+      <Bandeau onglets={<OngletsBarre<Vue> libelle="Paiements" actif={vue} onChange={(v) => aller(v === 'encaisses' ? 'paiements/encaisses' : 'paiements')}
+        onglets={[
+          { id: 'a_encaisser', libelle: 'À encaisser', compte: vue === 'a_encaisser' && lecture.phase === 'prete' ? lecture.donnees.nombre + lecture.donnees.inscriptions.length : undefined },
+          { id: 'encaisses', libelle: 'Encaissés', compte: vue === 'encaisses' && lecture.phase === 'prete' ? lecture.donnees.nombre : undefined },
+        ]} />} />
       {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
       {lecture.phase !== 'prete' ? <EtatLecture lecture={lecture} titre="Lecture des paiements" /> : (
         <>

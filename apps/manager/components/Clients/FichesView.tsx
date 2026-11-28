@@ -8,6 +8,7 @@
  *
  * La liste ne montre ni notes, ni réponses de santé, ni personne de confiance.
  */
+import { Bandeau } from '../charte/bandeau';
 import React, { useEffect, useRef, useState } from 'react';
 import { Bouton, Carte, Champ, Secondaire } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -105,7 +106,7 @@ export const FichesView: React.FC = () => {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Nom, e-mail ou téléphone · / pour y revenir"
         />
-        <Bouton onClick={() => aller('clients/nouvelle')}>Nouvelle fiche</Bouton>
+        <Bandeau actions={<Bouton onClick={() => aller('clients/nouvelle')}>Nouvelle fiche</Bouton>} />
       </div>
 
       {lecture.phase !== 'prete' ? <EtatLecture lecture={lecture} /> : (

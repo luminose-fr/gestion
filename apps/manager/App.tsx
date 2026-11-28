@@ -30,7 +30,8 @@ import { ecran, TitreEcran } from './components/ui';
 
 // Components refactorisés
 import { BarreLaterale, BarreDuBas, FeuilleAjouter, EcranPlus, ListeSecondNiveau, useReception, type IdNav, type Geste } from './components/charte/cadre';
-import { Onglets, TitreEcran as TitreCharte } from './components/charte';
+import { TitreEcran as TitreCharte } from './components/charte';
+import { Bandeau, OngletsBarre, SlotsBandeauContext } from './components/charte/bandeau';
 import { Recherche, type Resultat } from './components/charte/Recherche';
 import { PRATIQUE, EDITORIAL, AUJOURDHUI } from './components/charte/cadre';
 import { proposerSaisie } from './components/Clients/NouvelleFicheView';
@@ -230,6 +231,10 @@ function App() {
   const [fils, setFils] = useState<ResumeFils | null>(null);
   const [montages, setMontages] = useState<ResumeMontages | null>(null);
   
+  /** Les deux portails du bandeau du haut, où un écran écrit son titre, ses onglets et son action. */
+  const [slotTitre, setSlotTitre] = useState<HTMLElement | null>(null);
+  const [slotSuite, setSlotSuite] = useState<HTMLElement | null>(null);
+  const slotsBandeau = useMemo(() => ({ titre: slotTitre, suite: slotSuite }), [slotTitre, slotSuite]);
   /** Le « + » de la barre du bas (refonte, lot 2). */
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
   /** La base des clients : `null` tant qu'on ne sait pas, et rien ne se grise pendant ce temps. */
@@ -1307,6 +1312,7 @@ function App() {
   );
 
   return (
+    <SlotsBandeauContext.Provider value={slotsBandeau}>
     <div className="flex flex-col h-screen">
     {/* Au-dessus de tout, barre latérale comprise : il ne s'efface jamais (SPEC §14.8). */}
     <BandeauEnvironnement nom={nomEnvironnement} />
@@ -1339,8 +1345,11 @@ function App() {
 
         {/* 64 px, à la hauteur de l'en-tête du panneau : les deux bordures basses se prolongent.
             Un contenu ouvert a son propre bandeau (SPEC §13.9) : celui-ci s'efface. */}
-        {!isEditorTakeover && <header className="relative h-16 px-4 md:px-8 flex items-center justify-between border-b border-bord bg-surface shrink-0 z-20">
-            <div className="flex items-center gap-3 min-w-0">
+        {/* Le bandeau du haut (retours du 28/11, §1.4) : le titre — ou le fil et le nom d'une page de
+            détail —, les vues en onglets, l'action principale à droite. Un écran y écrit par <Bandeau>. */}
+        {!isEditorTakeover && <header className="relative flex min-h-16 flex-wrap items-stretch gap-x-6 border-b border-bord bg-surface px-4 shrink-0 z-20 md:flex-nowrap md:px-8">
+            <div ref={setSlotTitre} className="group flex h-16 min-w-0 flex-none items-center gap-3 md:max-w-[45%]">
+            <div className="flex min-w-0 items-center gap-3 group-has-[[data-titre-ecran]]:hidden">
               <TitreCharte className="truncate">
                   {currentSpace === 'social' && (currentSocialTab === 'series'
                       ? (editingSerie ? `Série · ${editingSerie.titre}` : 'Série')
@@ -1367,11 +1376,15 @@ function App() {
                   </p>
               )}
             </div>
+            </div>
 
-            <div className="flex items-center gap-1.5">
-                 {/* Sélecteur global du modèle IA — le repli des familles sans réglage (Réglages → Modèles
-                     par famille). Sur téléphone, il céderait toute la place au titre : chaque famille garde le sien. */}
-                 <div className="relative hidden md:flex items-center">
+            {/* La suite : les onglets de l'écran, puis son action principale. Sur l'iPhone, une seconde rangée. */}
+            <div ref={setSlotSuite} className="order-last flex w-full min-w-0 items-stretch gap-4 overflow-x-auto [scrollbar-width:none] md:order-none md:w-auto md:flex-1 md:overflow-visible" />
+
+            <div className="ml-auto flex h-16 flex-none items-center gap-1.5">
+                 {/* Sélecteur global du modèle IA — le repli des familles sans réglage. Il n'a de sens que dans
+                     l'éditorial (retours du 28/11, §1.4) ; sur téléphone, il céderait toute la place au titre. */}
+                 {(currentSpace === 'social' || currentSpace === 'corpus') && <div className="relative hidden md:flex items-center">
                      <Cpu className="w-[13px] h-[13px] absolute left-2 text-second pointer-events-none" />
                      <select
                         value={activeModelId}
@@ -1393,7 +1406,7 @@ function App() {
                             ))}
                      </select>
                      <ChevronDown className="w-3 h-3 absolute right-2 text-second pointer-events-none" />
-                 </div>
+                 </div>}
 
                  {/* L'icône tourne, pas le bouton : `disabled:animate-spin` faisait
                      pivoter la zone cliquable entière, halo de survol compris. */}
@@ -1423,26 +1436,19 @@ function App() {
             depuis l'atelier reste visible quand on revient à la liste (SPEC §3.5.1). */}
         <BandeauActivite />
 
-        {/* Le second niveau, jusqu'à quatre vues : des onglets en haut de l'écran (refonte, lot 2). */}
+        {/* Le second niveau, jusqu'à quatre vues : des onglets dans le bandeau (retours du 28/11, §1.4). */}
         {currentSpace === 'social' && !isEditorTakeover && (
-          <div className="flex-none overflow-x-auto bg-surface px-4 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <Onglets
-                libelle="Contenus"
-                actif={currentSocialTab === 'series' ? 'conversations' : currentSocialTab}
-                onChange={(tab) => updateRoute('social', tab)}
-                onglets={LISTES.map(l => ({ id: l.id, libelle: l.label, compte: counts[l.id] }))}
-            />
-          </div>
+          <Bandeau onglets={
+            <OngletsBarre libelle="Contenus" actif={currentSocialTab === 'series' ? 'conversations' : currentSocialTab}
+              onChange={(tab) => updateRoute('social', tab)}
+              onglets={LISTES.map(l => ({ id: l.id, libelle: l.label, compte: counts[l.id] }))} />
+          } />
         )}
         {currentSpace === 'corpus' && (
-          <div className="flex-none overflow-x-auto bg-surface px-4 md:px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <Onglets
-                libelle="Corpus"
-                actif={currentCorpusSection}
-                onChange={(section) => updateCorpusRoute(section)}
-                onglets={CORPUS_SECTIONS.map(c => ({ id: c.id, libelle: c.label, compte: c.id === 'inbox' ? corpusCounts.inbox : undefined }))}
-            />
-          </div>
+          <Bandeau onglets={
+            <OngletsBarre libelle="Corpus" actif={currentCorpusSection} onChange={(section) => updateCorpusRoute(section)}
+              onglets={CORPUS_SECTIONS.map(c => ({ id: c.id, libelle: c.label, compte: c.id === 'inbox' ? corpusCounts.inbox : undefined }))} />
+          } />
         )}
 
         {error && (
@@ -1725,6 +1731,7 @@ function App() {
     />
     <FeuilleAjouter ouverte={ajoutOuvert} onFermer={() => setAjoutOuvert(false)} onGeste={faireGeste} baseReliee={baseReliee} />
     </div>
+    </SlotsBandeauContext.Provider>
   );
 }
 

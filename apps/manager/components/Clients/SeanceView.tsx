@@ -6,6 +6,7 @@
  * Le statut passe par la décision qui lui revient : annuler et remettre à
  * « prévue » ont leurs routes ; réalisée et absent, une simple modification.
  */
+import { Bandeau } from '../charte/bandeau';
 import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bouton, Carte, Champ, Choix, Etiquette, Fenetre, FOCUS, Pastille, Repliable, Secondaire, TitreCarte, TitreEcran } from '../charte';
@@ -375,45 +376,19 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <a href="#agenda" onClick={(e) => { if (window.history.length > 1) { e.preventDefault(); window.history.back(); } }}
-        className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Agenda</a>
-
-      {entretien && (
-        <Carte className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
-          <Etiquette>D’où vient la personne</Etiquette>
-          <span className="font-semibold">{s.provenance ?? 'Provenance inconnue'}</span>
-        </Carte>
-      )}
-
-      <header className="flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="min-w-0 flex-1">
-          <TitreEcran>
-            {s.personne.clientId
-              ? <a href={`#clients/${encodeURIComponent(s.personne.clientId)}`} className="underline-offset-4 hover:underline">{nomComplet(s.personne)}</a>
-              : nomComplet(s.personne)}
-            {' · '}{typeLibelle}
-          </TitreEcran>
-          <p className="mt-1 text-second">
-            <span className="first-letter:uppercase inline-block">{jourEnLettres(s.debut)}</span>, {heure(s.debut)} – {heure(s.fin)}{s.mode ? ` · ${LIEUX[s.mode] ?? MODES[s.mode]}` : ''}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {s.statut === 'prevue' && passee ? <Pastille ton="alerte">Passée, restée « prévue »</Pastille>
-              : s.statut === 'prevue' ? <Pastille>Prévue</Pastille>
-                : s.statut === 'realisee' ? <Pastille ton="succes">Réalisée</Pastille>
-                  : s.statut === 'absent' ? <Pastille ton="erreur">Absente</Pastille>
-                    : <Pastille ton="erreur">Annulée</Pastille>}
-            {dette ? <Pastille ton="erreur">À régulariser avant toute nouvelle séance</Pastille>
-              : s.etatPaiement === 'payee' ? <Pastille ton="succes">Payée</Pastille>
-                : s.etatPaiement === 'offerte' ? <Pastille signe="">Offerte</Pastille>
-                  : s.etatPaiement === 'annulee' ? null
-                    : <Pastille ton="alerte">{PAIEMENTS[s.etatPaiement].libelle}</Pastille>}
-            <span className="text-secondaire text-second tabular-nums">{montantEnClair(s.montantCentimes)}</span>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Le bandeau (retours du 28/11, §1.4) : le fil, le nom et le type, les actions. */}
+      <Bandeau
+        fil={{ libelle: 'Agenda', href: '#agenda' }}
+        titre={<>
+          {s.personne.clientId
+            ? <a href={`#clients/${encodeURIComponent(s.personne.clientId)}`} className="underline-offset-4 hover:underline">{nomComplet(s.personne)}</a>
+            : nomComplet(s.personne)}
+          {' · '}{typeLibelle}
+        </>}
+        actions={<>
           <details className="relative">
-            <summary className={`flex h-11 cursor-pointer list-none items-center rounded-controle border border-marque px-4 font-semibold text-marque hover:bg-actif md:h-10 [&::-webkit-details-marker]:hidden ${FOCUS}`}>Autres actions</summary>
-            <div role="menu" className="absolute right-0 z-20 mt-1 flex min-w-[220px] flex-col rounded-carte border border-bord bg-surface p-1 shadow-fenetre">
+            <summary className={`flex h-11 cursor-pointer list-none items-center rounded-controle bg-doux px-4 font-semibold text-marque hover:bg-doux-survol md:h-10 [&::-webkit-details-marker]:hidden ${FOCUS}`}>Autres actions</summary>
+            <div role="menu" className="absolute right-0 z-30 mt-1 flex min-w-[220px] flex-col rounded-carte border border-bord bg-surface p-1 shadow-fenetre">
               {s.statut !== 'prevue' && <Bouton role="menuitem" intention="souligne" className="justify-start" disabled={enCours} onClick={() => void agir(() => Clients.remettreAPrevue(id))}>Remettre à « prévue »</Bouton>}
               {s.statut === 'prevue' && <Bouton role="menuitem" intention="souligne" className="justify-start" onClick={() => setDecision('annuler')}>Annuler la séance</Bouton>}
             </div>
@@ -423,6 +398,32 @@ export const SeanceView: React.FC<{ id: string }> = ({ id }) => {
             <a href={`#clients/${encodeURIComponent(s.personne.clientId)}`} className={`inline-flex h-11 items-center rounded-controle bg-marque px-4 font-semibold text-sur-marque hover:bg-marque-survol md:h-10 ${FOCUS}`}>Compléter la fiche</a>
           )}
           {apres && <Bouton onClick={() => document.getElementById('terminer')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>Terminer la séance</Bouton>}
+        </>}
+      />
+
+      {entretien && (
+        <Carte className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3">
+          <Etiquette>D’où vient la personne</Etiquette>
+          <span className="font-semibold">{s.provenance ?? 'Provenance inconnue'}</span>
+        </Carte>
+      )}
+
+      <header>
+        <p className="text-second">
+          <span className="first-letter:uppercase inline-block">{jourEnLettres(s.debut)}</span>, {heure(s.debut)} – {heure(s.fin)}{s.mode ? ` · ${LIEUX[s.mode] ?? MODES[s.mode]}` : ''}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {s.statut === 'prevue' && passee ? <Pastille ton="alerte">Passée, restée « prévue »</Pastille>
+            : s.statut === 'prevue' ? <Pastille>Prévue</Pastille>
+              : s.statut === 'realisee' ? <Pastille ton="succes">Réalisée</Pastille>
+                : s.statut === 'absent' ? <Pastille ton="erreur">Absente</Pastille>
+                  : <Pastille ton="erreur">Annulée</Pastille>}
+          {dette ? <Pastille ton="erreur">À régulariser avant toute nouvelle séance</Pastille>
+            : s.etatPaiement === 'payee' ? <Pastille ton="succes">Payée</Pastille>
+              : s.etatPaiement === 'offerte' ? <Pastille signe="">Offerte</Pastille>
+                : s.etatPaiement === 'annulee' ? null
+                  : <Pastille ton="alerte">{PAIEMENTS[s.etatPaiement].libelle}</Pastille>}
+          <span className="text-secondaire text-second tabular-nums">{montantEnClair(s.montantCentimes)}</span>
         </div>
       </header>
 

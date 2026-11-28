@@ -8,6 +8,7 @@
  * geste ferme l'alerte, et la ligne sort d'Aujourd'hui. Aucune réponse de
  * santé ne s'affiche ici : seulement qui a écrit, et quand.
  */
+import { Bandeau } from '../charte/bandeau';
 import React, { useEffect, useState } from 'react';
 import { Bouton, Carte, FOCUS, Secondaire, TitreCarte } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -87,7 +88,7 @@ export const RattacherView: React.FC = () => {
   ];
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <a href="#aujourdhui" className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Aujourd’hui</a>
+      <Bandeau fil={{ libelle: 'Aujourd’hui', href: '#aujourdhui' }} titre="Rattacher" />
       {seances.length + sante.length === 0 && <Carte className="px-4 py-4"><p>Rien à rattacher. Chaque réservation et chaque questionnaire a sa fiche.</p></Carte>}
       {recus.filter((g) => g.items.length).map((g) => (
         <Carte as="section" key={g.titre} className="overflow-hidden">

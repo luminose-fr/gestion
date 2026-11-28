@@ -10,6 +10,7 @@
  * Premier écran refait : il ne compose que la charte (components/charte) et
  * n'écrit ni couleur, ni taille, ni rayon (DESIGN.md, « La charte »).
  */
+import { Bandeau } from '../charte/bandeau';
 import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useRef, useState } from 'react';
 import { Bouton, Carte, Etiquette, Fenetre, FOCUS, Pastille, Secondaire } from '../charte';
@@ -270,7 +271,8 @@ export const AujourdhuiView: React.FC<{ reception: Reception }> = ({ reception }
 
   return (
     <div className="mx-auto flex max-w-[880px] flex-col gap-6 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-8">
-      <Etiquette className="first-letter:uppercase">{DATE_HEURE.format(maintenant).replace(':', ' h ')}</Etiquette>
+      {/* La date, dans le bandeau, à côté du titre (retours du 28/11, §1.4). */}
+      <Bandeau onglets={<span className="flex items-center whitespace-nowrap text-second first-letter:uppercase">{DATE_HEURE.format(maintenant).replace(':', ' h ')}</span>} />
       <LigneReception reception={reception} enTete />
 
       {lecture.phase === 'chargement' && (

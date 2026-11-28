@@ -5,6 +5,7 @@
  * prénom, le nom ou l'e-mail sont saisis, les fiches semblables s'affichent :
  * c'est là que se décide de ne pas créer un doublon.
  */
+import { Bandeau } from '../charte/bandeau';
 import React, { useEffect, useRef, useState } from 'react';
 import { Bouton, Carte, FOCUS, Repliable, Secondaire, TitreCarte, TitreEcran } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -89,11 +90,8 @@ export const NouvelleFicheView: React.FC = () => {
 
   return (
     <form onSubmit={enregistrer} onKeyDown={raccourci} className="mx-auto flex max-w-[1080px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <a href="#clients" className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Clients</a>
-      <div>
-        <TitreEcran>Nouvelle fiche</TitreEcran>
-        <Secondaire className="mt-1">Tout se remplit au clavier : Tab passe au champ suivant, ⌘↵ enregistre.</Secondaire>
-      </div>
+      <Bandeau fil={{ libelle: 'Clients', href: '#clients' }} titre="Nouvelle fiche" />
+      <Secondaire>Tout se remplit au clavier : Tab passe au champ suivant, ⌘↵ enregistre.</Secondaire>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-4">

@@ -8,6 +8,7 @@
  * C'est aussi un fichier de prospection (inventaire, §4.7) : les courriers
  * envoyés s'y tiennent.
  */
+import { Bandeau } from '../charte/bandeau';
 import React, { useMemo, useState } from 'react';
 import { Bouton, Carte, Champ, Etiquette, Fenetre, Pastille } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -37,7 +38,7 @@ export const ProfessionnelsView: React.FC = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <Champ className="flex-1" label="Filtrer les professionnels" masquerLabel type="search" value={filtre}
           onChange={(e) => setFiltre(e.target.value)} placeholder="Filtrer : nom, ville, catégorie" />
-        <Bouton onClick={() => setFenetre({})}>Nouveau professionnel</Bouton>
+        <Bandeau actions={<Bouton onClick={() => setFenetre({})}>Nouveau professionnel</Bouton>} />
       </div>
       {refus && <p role="alert" className="text-secondaire font-semibold text-sens-erreur">× {refus}</p>}
       {visibles.length === 0 ? <Carte className="px-4 py-4"><p>{filtre ? 'Aucun professionnel ne répond à ce filtre.' : 'Aucun professionnel pour l’instant.'}</p></Carte> : (

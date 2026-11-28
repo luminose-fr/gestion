@@ -14,7 +14,8 @@
  * passe par le site et gestion) ; `#agenda/calendly` mène à la semaine.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bouton, Carte, Champ, Etiquette, Fenetre, FOCUS, Onglets, Pastille, Secondaire } from '../charte';
+import { Bouton, Carte, Champ, Etiquette, Fenetre, FOCUS, Pastille, Secondaire } from '../charte';
+import { Bandeau, OngletsBarre } from '../charte/bandeau';
 import * as Clients from '../../services/clientsService';
 import type { JourAgenda, Seance } from '../../types-clients';
 import { aller, aujourdhui, EtatLecture, heure, jourDe, lundiDe, messageDe, nomComplet, plusJours, useLecture } from './commun';
@@ -279,16 +280,18 @@ export const PlanningView: React.FC<{ vue: VuePlanning; date?: string; poser?: b
 
   return (
     <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Bouton intention="borde" onClick={() => setFermer(true)}>Fermer des jours…</Bouton>
-        <Bouton onClick={() => setRdv(true)}>Poser un rendez-vous</Bouton>
-      </div>
+      <Bandeau
+        onglets={<OngletsBarre<VuePlanning> libelle="Vue de l’agenda" actif={vue} onChange={changerVue}
+          onglets={[{ id: 'semaine', libelle: 'Semaine' }, { id: 'mois', libelle: 'Mois' }]} />}
+        actions={<>
+          <Bouton intention="borde" onClick={() => setFermer(true)}>Fermer des jours…</Bouton>
+          <Bouton onClick={() => setRdv(true)}>Poser un rendez-vous</Bouton>
+        </>}
+      />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-6">
-        <Onglets<VuePlanning> libelle="Vue de l’agenda" actif={vue} onChange={changerVue}
-          onglets={[{ id: 'semaine', libelle: 'Semaine' }, { id: 'mois', libelle: 'Mois' }]} />
         {(
-          <div className="flex flex-1 items-center gap-2 md:justify-end">
+          <div className="flex flex-1 items-center gap-2">
             <span className="mr-auto min-w-0 font-semibold first-letter:uppercase md:mr-2">{titre}</span>
             <Bouton taille="petit" intention="borde" onClick={precedent} aria-label={vue === 'mois' ? 'Mois précédent' : 'Semaine précédente'}>‹</Bouton>
             <Bouton taille="petit" intention="borde" onClick={() => aller(`agenda/${vue}/${vue === 'mois' ? `${aujourdhui().slice(0, 7)}-01` : lundiDe(aujourdhui())}`)}>Aujourd’hui</Bouton>

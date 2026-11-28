@@ -10,6 +10,7 @@
  * l'écran affiche le refus tel qu'il est écrit (« Cette journée est complète. »).
  * La publication sur le site n'est pas d'ici.
  */
+import { Bandeau, OngletsBarre } from '../charte/bandeau';
 import React, { useEffect, useState } from 'react';
 import { Bouton, Carte, Champ, Choix, Etiquette, Fenetre, FOCUS, Pastille, Repliable, Secondaire, TitreCarte, TitreEcran, ZoneTexte } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -58,14 +59,11 @@ export const ListeEvenements: React.FC = () => {
   const liste = vue === 'avenir' ? aVenir : passes;
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex gap-1" role="tablist" aria-label="Stages">
-          {([['avenir', `À venir · ${aVenir.length}`], ['passes', `Passés · ${passes.length}`]] as const).map(([id, libelle]) => (
-            <Bouton key={id} role="tab" aria-selected={vue === id} taille="petit" intention={vue === id ? 'plein' : 'borde'} onClick={() => setVue(id)}>{libelle}</Bouton>
-          ))}
-        </div>
-        <Bouton onClick={() => aller('stages/nouveau')}>Nouveau stage</Bouton>
-      </div>
+      <Bandeau
+        onglets={<OngletsBarre libelle="Stages" actif={vue} onChange={setVue}
+          onglets={[{ id: 'avenir', libelle: 'À venir', compte: aVenir.length }, { id: 'passes', libelle: 'Passés', compte: passes.length }]} />}
+        actions={<Bouton onClick={() => aller('stages/nouveau')}>Nouveau stage</Bouton>}
+      />
       {tous.length === 0 ? <Carte className="px-4 py-4"><p>Aucun stage pour l’instant.</p></Carte>
         : liste.length === 0 ? <Carte className="px-4 py-4"><p>{vue === 'avenir' ? 'Aucun stage à venir.' : 'Aucun stage passé.'}</p></Carte>
           : <Carte as="div" className="overflow-hidden"><ul>{liste.map((e, i) => <LigneEvenement key={e.id} e={e} premiere={i === 0} />)}</ul></Carte>}
@@ -174,7 +172,7 @@ const FormulaireEvenement: React.FC<{ initiale: Saisie; enregistrer: (s: Saisie)
 
 export const NouvelEvenement: React.FC = () => (
   <div className="mx-auto flex max-w-[960px] flex-col gap-4 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-    <a href="#stages" className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Stages</a>
+    <Bandeau fil={{ libelle: 'Stages', href: '#stages' }} titre="Nouveau stage" />
     <FormulaireEvenement initiale={SAISIE_VIDE} libelle="Créer le stage" enregistrer={async (s) => {
       const r = versRoute(s);
       if (typeof r === 'string') throw new Error(r);
@@ -231,16 +229,13 @@ export const EvenementView: React.FC<{ id: string }> = ({ id }) => {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <div className="flex items-center justify-between gap-3">
-        <a href="#stages" className={`rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Stages</a>
-        <Bouton taille="petit" intention="souligne" onClick={() => setSupprimer(true)} disabled={e.inscriptions.length > 0}
+      <Bandeau fil={{ libelle: 'Stages', href: '#stages' }} titre={e.nom}
+        actions={<Bouton taille="petit" intention="souligne" onClick={() => setSupprimer(true)} disabled={e.inscriptions.length > 0}
           title={e.inscriptions.length > 0 ? 'Un stage qui a des inscrits ne se supprime pas.' : undefined}>
           Supprimer
-        </Bouton>
-      </div>
+        </Bouton>} />
       <header>
-        <TitreEcran>{e.nom}</TitreEcran>
-        <p className="mt-1 text-second">
+        <p className="text-second">
           <span className="inline-block first-letter:uppercase">{dateCourte(e.debut)}</span>{e.ville && ` · ${e.ville}`}
           {' · '}{e.placesTotales === null ? 'places non fixées' : `${inscrits} inscrit${inscrits > 1 ? 's' : ''} sur ${e.placesTotales}`}
           {e.prixCentimes !== null && ` · ${euros(e.prixCentimes)}`}

@@ -8,6 +8,7 @@
  * Une carte modifiée et non enregistrée se signale avant de quitter l'écran ;
  * après un refus, la saisie reste en place.
  */
+import { Bandeau } from '../charte/bandeau';
 import { duree as dureeEnClair, montant as montantEnClair } from '../../lib/format';
 import React, { useEffect, useState } from 'react';
 import { Bouton, Carte, Champ, FOCUS, Pastille as PastilleCharte, TitreCarte, TitreEcran, ZoneTexte } from '../charte';
@@ -149,18 +150,18 @@ export const FicheView: React.FC<{ id: string }> = ({ id }) => {
 
   return (
     <div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <a href="#clients" className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>‹ Clients</a>
+      <Bandeau fil={{ libelle: 'Clients', href: '#clients' }} titre={nomComplet(fiche)}
+        actions={<Bouton onClick={() => setRdvOuvert(true)}>Poser un rendez-vous</Bouton>} />
       <header className="flex flex-col gap-4 md:flex-row md:items-start">
         <div className="min-w-0 flex-1">
-          <TitreEcran>{nomComplet(fiche)}</TitreEcran>
-          <p className="mt-1 flex flex-wrap gap-x-2 text-second">
+          <p className="flex flex-wrap gap-x-2 text-second">
+            {/* Le « · » ne vient qu'entre deux éléments présents (retours du 28/11, §3). */}
             {fiche.age !== null && <span>{fiche.age} ans</span>}
-            {fiche.telephone && <><span aria-hidden="true">·</span><a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`tel:${fiche.telephone.replace(/\s/g, '')}`}>{fiche.telephone}</a></>}
-            {fiche.email && <><span aria-hidden="true">·</span><a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
+            {fiche.telephone && <>{fiche.age !== null && <span aria-hidden="true">·</span>}<a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`tel:${fiche.telephone.replace(/\s/g, '')}`}>{fiche.telephone}</a></>}
+            {fiche.email && <>{(fiche.age !== null || fiche.telephone) && <span aria-hidden="true">·</span>}<a className="font-semibold text-marque underline-offset-[3px] hover:underline" href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
           </p>
           <p className="mt-1"><span className="text-second">Provenance : </span><span className="font-semibold">{provenance || 'inconnue'}</span></p>
         </div>
-        <Bouton onClick={() => setRdvOuvert(true)}>Poser un rendez-vous</Bouton>
       </header>
 
       {dettes.length > 0 && (

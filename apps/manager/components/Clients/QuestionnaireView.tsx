@@ -7,6 +7,7 @@
  * l'action principale ; « À revoir avec la personne » la garde à traiter.
  * Il s'ouvre depuis la séance, la fiche et Aujourd'hui.
  */
+import { Bandeau } from '../charte/bandeau';
 import React, { useState } from 'react';
 import { Bouton, Carte, Etiquette, FOCUS, Pastille, Secondaire, TitreCarte, TitreEcran } from '../charte';
 import * as Clients from '../../services/clientsService';
@@ -31,27 +32,26 @@ export const QuestionnaireView: React.FC<{ id: string }> = ({ id }) => {
     try { await action(); await lecture.recharger(); } catch (e) { setRefus(messageDe(e)); } finally { setEnCours(false); }
   };
 
-  const retour = q.seanceId ? { href: `#agenda/${encodeURIComponent(q.seanceId)}`, libelle: '‹ La séance' }
-    : q.clientId ? { href: `#clients/${encodeURIComponent(q.clientId)}`, libelle: '‹ La fiche' } : { href: '#aujourdhui', libelle: '‹ Aujourd’hui' };
+  const retour = q.seanceId ? { href: `#agenda/${encodeURIComponent(q.seanceId)}`, libelle: 'La séance' }
+    : q.clientId ? { href: `#clients/${encodeURIComponent(q.clientId)}`, libelle: 'La fiche' } : { href: '#aujourdhui', libelle: 'Aujourd’hui' };
 
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-5 px-4 py-5 font-charte text-courant text-texte md:px-8 md:py-6">
-      <a href={retour.href} className={`self-start rounded-controle text-secondaire text-second hover:text-texte ${FOCUS}`}>{retour.libelle}</a>
+      <Bandeau fil={retour} titre={`Questionnaire de santé · ${nomComplet(q.personne)}`}
+        actions={<>
+          {!q.aRevoir && <Bouton intention="borde" disabled={enCours} onClick={() => void agir(() => Clients.marquerQuestionnaireARevoir(id))}>À revoir avec la personne</Bouton>}
+          {!q.reluLe && <Bouton disabled={enCours} onClick={() => void agir(() => Clients.marquerQuestionnaireRelu(id))}>Marquer relu</Bouton>}
+        </>} />
 
       <header className="flex flex-col gap-4 md:flex-row md:items-start">
         <div className="min-w-0 flex-1">
-          <TitreEcran>Questionnaire de santé · {nomComplet(q.personne)}</TitreEcran>
-          <p className="mt-1 text-second">Reçu le {dateCourte(q.recuLe)}, {CONTEXTES[q.contexte] ?? q.contexte}{q.version ? ` · version ${q.version === 'complet' ? 'complète' : 'de suivi'}` : ''}.</p>
+          <p className="text-second">Reçu le {dateCourte(q.recuLe)}, {CONTEXTES[q.contexte] ?? q.contexte}{q.version ? ` · version ${q.version === 'complet' ? 'complète' : 'de suivi'}` : ''}.</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {q.reluLe ? <Pastille ton="succes">Relu le {dateCourte(q.reluLe)}</Pastille>
               : q.aRevoir ? <Pastille ton="alerte">À revoir avec la personne</Pastille>
                 : <Pastille ton="alerte">Non relu</Pastille>}
             {q.aRapprocher && <Pastille ton="alerte">À rattacher à une fiche</Pastille>}
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {!q.aRevoir && <Bouton intention="borde" disabled={enCours} onClick={() => void agir(() => Clients.marquerQuestionnaireARevoir(id))}>À revoir avec la personne</Bouton>}
-          {!q.reluLe && <Bouton disabled={enCours} onClick={() => void agir(() => Clients.marquerQuestionnaireRelu(id))}>Marquer relu</Bouton>}
         </div>
       </header>
 
