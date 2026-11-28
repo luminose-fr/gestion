@@ -19,7 +19,7 @@ import type {
   PageFiches, FicheSemblable, ChampsFiche, Fiche, NoteFiche, Confiance,
   Seance, SeanceDetaillee, NotesSeance, PoseRendezVous, ModificationSeance,
   Evenement, EvenementDetaille, ChampsEvenement, Professionnel, ChampsProfessionnel,
-  Reservation, ChampsType, PlageHoraire,
+  Reservation, ChampsType, PlageHoraire, Aujourdhui,
 } from '../types-clients';
 
 /** Un refus ou une panne d'une route des clients. `champs` : les champs en défaut d'une entrée invalide. */
@@ -72,6 +72,8 @@ export const ecrireConfiance = (ficheId: string, confiance: Omit<Confiance, 'mis
 export const seancesDeLaPeriode = (du: string, au: string) =>
   appel<{ seances: Seance[] }>(`/seances?du=${encodeURIComponent(du)}&au=${encodeURIComponent(au)}`);
 export const lireSeance = (seanceId: string) => appel<SeanceDetaillee>(`/seances/${id(seanceId)}`);
+/** L'écran Aujourd'hui : la journée, la prochaine séance, À traiter — une lecture. */
+export const lireAujourdhui = () => appel<Aujourdhui>('/seances/aujourdhui');
 export const lireNotesSeance = (seanceId: string) => appel<NotesSeance>(`/seances/${id(seanceId)}/notes`);
 export const ecrireNotesSeance = (seanceId: string, texte: string | null, version: number | null) =>
   appel<{ version: number }>(`/seances/${id(seanceId)}/notes`, 'PUT', { texte, version });

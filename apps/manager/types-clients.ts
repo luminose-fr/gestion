@@ -74,6 +74,28 @@ export type MouvementSeance = {
 };
 export type SeanceDetaillee = Seance & { creeeLe: string; mouvements: MouvementSeance[] };
 
+/**
+ * Une séance vue d'Aujourd'hui (refonte, lot 3) : l'état d'une note et d'un
+ * questionnaire, jamais leur contenu ; la provenance pour un entretien seulement.
+ */
+export type SeanceDuJour = Seance & {
+  nature: 'rencontre' | 'seance' | null;
+  provenance: string | null;
+  questionnaire: 'relu' | 'non_relu' | 'pas_recu' | null;
+  /** `null` quand la lecture ne le dit pas (la prochaine séance, À traiter). */
+  notesEcrites: boolean | null;
+};
+export type ATraiter = { sorte: 'clore' | 'notes'; seance: SeanceDuJour };
+export type Aujourdhui = {
+  maintenant: string;
+  jour: string;
+  /** Le soir : la date du lendemain, dont la matinée s'ajoute à la journée. */
+  lendemainMatin: string | null;
+  journee: SeanceDuJour[];
+  prochaine: SeanceDuJour | null;
+  aTraiter: ATraiter[];
+};
+
 /** Les notes d'une séance : un seul texte Markdown (retour de Florent du 27/11/2026). */
 export type NotesSeance = {
   texte: string | null;

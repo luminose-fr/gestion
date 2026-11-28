@@ -11,7 +11,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 import {
-  BarreLaterale, BarreDuBas, FeuilleAjouter, EcranPlus, ListeSecondNiveau, PRATIQUE, EDITORIAL,
+  BarreLaterale, BarreDuBas, FeuilleAjouter, EcranPlus, ListeSecondNiveau, AUJOURDHUI, PRATIQUE, EDITORIAL,
 } from '../components/charte/cadre';
 import type * as Api from '../services/apiService';
 
@@ -26,10 +26,10 @@ const COUPEE: Api.EtatDesPortes = { ...OUVERTE, ouverte: false };
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 describe('la barre latérale', () => {
-  it('deux groupes à libellés, dans l’ordre de la fréquence, Réglages en bas', () => {
+  it('Aujourd’hui en tête, deux groupes à libellés dans l’ordre de la fréquence, Réglages en bas', () => {
     const { container, getByRole } = render(<BarreLaterale actif="agenda" onNaviguer={() => {}} baseReliee reception={OUVERTE} />);
     const textes = [...container.querySelectorAll('a, span[aria-disabled]')].map(a => a.textContent);
-    expect(textes.slice(0, 7)).toEqual([...PRATIQUE, ...EDITORIAL].map(e => e.libelle));
+    expect(textes.slice(0, 8)).toEqual([AUJOURDHUI, ...PRATIQUE, ...EDITORIAL].map(e => e.libelle));
     expect(container.textContent).toContain('Pratique');
     expect(container.textContent).toContain('Éditorial');
     expect(getByRole('link', { name: 'Agenda' }).getAttribute('aria-current')).toBe('page');
@@ -58,9 +58,9 @@ describe('la barre latérale', () => {
 
   it('base non reliée : la pratique se grise, sauf Psychédéliques ; pas de ligne d’état', () => {
     const { container, queryByRole } = render(<BarreLaterale actif="contenus" onNaviguer={() => {}} baseReliee={false} reception={null} />);
-    for (const nom of ['Agenda', 'Clients', 'Stages', 'Professionnels']) expect(queryByRole('link', { name: nom })).toBeNull();
+    for (const nom of ['Aujourd’hui', 'Agenda', 'Clients', 'Stages', 'Professionnels']) expect(queryByRole('link', { name: nom })).toBeNull();
     expect(queryByRole('link', { name: 'Psychédéliques' })).not.toBeNull();
-    expect(container.querySelectorAll('[aria-disabled="true"]')).toHaveLength(4);
+    expect(container.querySelectorAll('[aria-disabled="true"]')).toHaveLength(5);
     expect(container.textContent).not.toContain('Réception du site');
   });
 
@@ -82,10 +82,13 @@ describe('la barre latérale', () => {
 });
 
 describe('l’iPhone', () => {
-  it('la barre du bas : quatre entrées et le « + »', () => {
+  it('la barre du bas : quatre entrées et le « + » ; sans la base, Contenus prend la première place', () => {
     const ajouter = vi.fn();
+    const sansBase = render(<BarreDuBas actif="contenus" onNaviguer={() => {}} onAjouter={ajouter} baseReliee={false} />);
+    expect([...sansBase.container.querySelectorAll('a')].map(a => a.textContent)).toEqual(['Contenus', 'Plus']);
+    cleanup();
     const { container, getByRole } = render(<BarreDuBas actif="plus" onNaviguer={() => {}} onAjouter={ajouter} baseReliee />);
-    expect([...container.querySelectorAll('a')].map(a => a.textContent)).toEqual(['Contenus', 'Agenda', 'Clients', 'Plus']);
+    expect([...container.querySelectorAll('a')].map(a => a.textContent)).toEqual(['Aujourd’hui', 'Agenda', 'Clients', 'Plus']);
     expect(getByRole('link', { name: 'Plus' }).getAttribute('aria-current')).toBe('page');
     fireEvent.click(getByRole('button', { name: /Ajouter/ }));
     expect(ajouter).toHaveBeenCalled();
@@ -112,7 +115,7 @@ describe('l’iPhone', () => {
     const texte = container.textContent ?? '';
     expect(texte.indexOf('Réception du site : ouverte')).toBe(0);
     expect(texte).toContain('3 reçus sur 24 h');
-    for (const nom of ['Stages', 'Professionnels', 'Psychédéliques', 'Corpus', 'Réglages']) expect(texte).toContain(nom);
+    for (const nom of ['Stages', 'Professionnels', 'Psychédéliques', 'Contenus', 'Corpus', 'Réglages']) expect(texte).toContain(nom);
     expect([...container.querySelectorAll('a')].map(a => a.textContent)).not.toContain('Agenda');
   });
 

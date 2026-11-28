@@ -19,11 +19,12 @@ const FOCUS_DEDANS = 'outline-none focus-visible:outline-2 focus-visible:-outlin
 // ─── Les entrées ────────────────────────────────────────────────────────────
 
 export type IdNav =
-  | 'agenda' | 'clients' | 'stages' | 'professionnels' | 'psychedeliques'
+  | 'aujourdhui' | 'agenda' | 'clients' | 'stages' | 'professionnels' | 'psychedeliques'
   | 'contenus' | 'corpus' | 'reglages' | 'plus';
 
 /** Les tracés des maquettes (Nav.dc.html), sur une grille de 16. */
 const TRACES: Record<IdNav | 'ajouter' | 'replier' | 'idee' | 'fiche', string> = {
+  aujourdhui: 'M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M8 5a3 3 0 100 6 3 3 0 000-6z',
   agenda: 'M3 4h10v9H3zM3 7h10M6 2v3M10 2v3',
   clients: 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.5-2.5 2.5-3.5 5-3.5s4.5 1 5 3.5',
   stages: 'M5 7a2 2 0 100-4 2 2 0 000 4zM11 7a2 2 0 100-4 2 2 0 000 4zM1.5 13c.3-2 1.7-3 3.5-3s3.2 1 3.5 3M10 10.1c.3-.1.7-.1 1-.1 1.8 0 3.2 1 3.5 3',
@@ -51,9 +52,10 @@ type Entree = { id: IdNav; libelle: string; adresse: string; base?: boolean };
 /**
  * L'ordre suit la fréquence (01, §3, règle 3). `base` : l'entrée lit la base
  * des clients, et se grise tant qu'elle n'est pas reliée (la production,
- * jusqu'à la phase S4). Aujourd'hui (lot 3) et Paiements (lot 8) entreront
- * avec leur écran : une entrée qui ne mène nulle part n'a pas sa place.
+ * jusqu'à la phase S4). Paiements entrera avec son écran (lot 8) : une
+ * entrée qui ne mène nulle part n'a pas sa place.
  */
+export const AUJOURDHUI: Entree = { id: 'aujourdhui', libelle: 'Aujourd’hui', adresse: '#aujourdhui', base: true };
 export const PRATIQUE: Entree[] = [
   { id: 'agenda', libelle: 'Agenda', adresse: '#agenda', base: true },
   { id: 'clients', libelle: 'Clients', adresse: '#clients', base: true },
@@ -83,7 +85,13 @@ const suivre = (e: React.MouseEvent, agir: () => void) => {
  * Il n'existe que si la base est reliée ; il se relit quand la fenêtre revient
  * au premier plan, pour qu'une coupure faite ailleurs se voie.
  */
-export const useReception = (baseReliee: boolean | null): Api.EtatDesPortes | null => {
+export type Reception = {
+  portes: Api.EtatDesPortes | null;
+  /** Couper ou rouvrir ; l'état revient de la route, pas d'une supposition. */
+  poser: (ouverte: boolean) => Promise<void>;
+};
+
+export const useReception = (baseReliee: boolean | null): Reception => {
   const [portes, setPortes] = useState<Api.EtatDesPortes | null>(null);
   useEffect(() => {
     if (!baseReliee) { setPortes(null); return; }
@@ -96,7 +104,11 @@ export const useReception = (baseReliee: boolean | null): Api.EtatDesPortes | nu
     document.addEventListener('visibilitychange', auRetour);
     return () => { vivant = false; document.removeEventListener('visibilitychange', auRetour); };
   }, [baseReliee]);
-  return portes;
+  const poser = async (ouverte: boolean) => {
+    const p = await Api.poserInterrupteurDesPortes(ouverte);
+    if (typeof p?.ouverte === 'boolean') setPortes(p);
+  };
+  return { portes, poser };
 };
 
 /** Où l'interrupteur se pose aujourd'hui : Réglages → Quotas, carte « Base des clients ». */
@@ -197,6 +209,7 @@ export const BarreLaterale: React.FC<{
         )}
       </div>
 
+      {lien(AUJOURDHUI)}
       <TitreGroupe nom="Pratique" repliee={repliee} />
       {PRATIQUE.map(lien)}
       <TitreGroupe nom="Éditorial" repliee={repliee} />
@@ -225,16 +238,13 @@ export const BarreLaterale: React.FC<{
 // ─── La barre du bas (iPhone) ───────────────────────────────────────────────
 
 /**
- * Aujourd'hui · Agenda · + · Clients · Plus (01, §3). Tant qu'Aujourd'hui
- * n'existe pas (lot 3), la première place revient à Contenus, l'écran
- * d'ouverture actuel.
+ * Aujourd'hui · Agenda · + · Clients · Plus (01, §3). Sans la base des
+ * clients, la première place revient à Contenus, l'écran d'ouverture : une
+ * barre de trois cases grisées ne servirait à rien.
  */
-const BAS: Entree[] = [
-  EDITORIAL[0],
-  PRATIQUE[0],
-  PRATIQUE[1],
-  { id: 'plus', libelle: 'Plus', adresse: '#plus' },
-];
+const PLUS: Entree = { id: 'plus', libelle: 'Plus', adresse: '#plus' };
+const entreesDuBas = (baseReliee: boolean | null): Entree[] =>
+  [baseReliee === false ? EDITORIAL[0] : AUJOURDHUI, PRATIQUE[0], PRATIQUE[1], PLUS];
 
 export const BarreDuBas: React.FC<{
   actif: IdNav | null;
@@ -242,6 +252,7 @@ export const BarreDuBas: React.FC<{
   onAjouter: () => void;
   baseReliee: boolean | null;
 }> = ({ actif, onNaviguer, onAjouter, baseReliee }) => {
+  const BAS = entreesDuBas(baseReliee);
   const case_ = (e: Entree) => {
     const grisee = !!e.base && baseReliee === false;
     const choisi = actif === e.id;
@@ -329,6 +340,7 @@ export const EcranPlus: React.FC<{
   reception: Api.EtatDesPortes | null;
   compteReglages?: number;
 }> = ({ onNaviguer, baseReliee, reception, compteReglages }) => {
+  const BAS = entreesDuBas(baseReliee);
   const groupes: { nom: string; entrees: Entree[] }[] = [
     { nom: 'Pratique', entrees: PRATIQUE.filter(e => !BAS.includes(e)) },
     { nom: 'Éditorial', entrees: EDITORIAL.filter(e => !BAS.includes(e)) },

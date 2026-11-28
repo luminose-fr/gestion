@@ -324,12 +324,13 @@ pendant le chantier (septembre 2026) ; toute autre valeur hors échelle est un b
 
 ## Comment on saura que c'est fini
 
-Ces commandes, lancées à la racine, doivent rendre **zéro ligne**. Les exclusions
+Ces commandes, lancées à la racine, doivent rendre **zéro ligne**. Un écran refait (lot 3 et suivants)
+en sort par son dossier, au moment où il entre dans les commandes de la charte, plus haut. Les exclusions
 correspondent exactement au tableau ci-dessus — en ajouter une sans l'y écrire, c'est
 tricher avec le garde-fou.
 
 ```
-OPTS='-rhoE --include=*.tsx --exclude-dir=Layout --exclude-dir=ui --exclude-dir=charte --exclude-dir=test'
+OPTS='-rhoE --include=*.tsx --exclude-dir=ui --exclude-dir=charte --exclude-dir=Aujourdhui --exclude-dir=test'
 MODALES='--exclude=CommonModals.tsx --exclude=AnalysisModal.tsx --exclude=ConfirmSuppressionSerie.tsx --exclude=SubtitleConverter.tsx --exclude=PoserRendezVous.tsx --exclude=FenetreProfessionnel.tsx --exclude=LoginPage.tsx --exclude=Feedback.tsx'
 LECTURE='--exclude-dir=renderers --exclude=PsychedelicsCalculator.tsx'
 

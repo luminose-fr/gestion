@@ -4125,6 +4125,7 @@ traces d'envoi vers Brevo et la comptabilité — un envoi qui en porte un est r
 | Route | Ce qu'elle fait |
 | :--- | :--- |
 | `GET /api/seances?du=&au=` | les séances de la période (62 jours au plus), tous statuts, **avec ou sans fiche, avec ou sans type** (règle 13) : heure, durée, type, statut, paiement, mode, et le prénom et le nom de la personne. **Une instruction.** |
+| `GET /api/seances/aujourdhui` | l'écran Aujourd'hui (refonte de la console, lot 3 — `docs/refonte/`) : la journée (le soir, jusqu'au lendemain midi), la prochaine séance, et À traiter — les séances passées restées « prévues » (60 jours) et les séances réalisées sans notes (14 jours). L'**état** d'une note et d'un questionnaire, jamais leur contenu ; la provenance d'un entretien préalable en une ligne. **Quatre instructions, un aller-retour**, chacune bornée. |
 | `GET /api/seances/:id` | la séance, sa personne, son type, ses mouvements. |
 | `GET`, `PUT /api/seances/:id/notes` | les notes, **un seul texte Markdown** (`texte`, avec `version`) ; en lecture seule, les réponses données à la réservation et la copie brute reprise de Notion (règles 4 et 7). Voir l'écart du 27/11/2026 au §15.4. |
 | `POST /api/seances` | pose un rendez-vous : personne, type, début, et — facultatifs — durée, mode, montant. Durée, marge, montant et état de paiement viennent du type par défaut. Origine `console`. Refus 409 si l'intervalle chevauche une séance prévue. |

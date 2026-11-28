@@ -416,3 +416,21 @@ export const ecrireNotesSeance = (
       WHERE seance_id = ?1 AND updated_at = ?4`)
     .bind(seanceId, texte, maintenant, version).run(),
 version, maintenant);
+
+// ═══ Refonte de la console, lot 3 : l'écran Aujourd'hui ═══════════════════
+//
+// Aujourd'hui montre l'ÉTAT d'une note et d'un questionnaire, jamais leur
+// contenu (docs/refonte/04, §4) : deux fragments qui rendent un drapeau ou un
+// mot, à placer dans un SELECT sur `seances` sous l'alias donné. Rien de ce
+// que contient la table ne sort d'ici.
+
+/** 1 si la séance a des notes écrites (une ligne de notes qui n'est pas vide), 0 sinon. */
+export const notesEcritesSql = (s: string) => `EXISTS (
+  SELECT 1 FROM seances_notes n WHERE n.seance_id = ${s}.id
+  AND TRIM(COALESCE(n.seance, '') || COALESCE(n.demande, '') || COALESCE(n.objectif, '')
+    || COALESCE(n.travail_personnel, '') || COALESCE(n.idees_suite, '') || COALESCE(n.import_notion, '')) <> '')`;
+
+/** 'relu', 'non_relu', ou NULL quand aucun questionnaire n'est attaché à la séance. */
+export const etatQuestionnaireSql = (s: string) => `(
+  SELECT CASE WHEN q.relu_le IS NULL THEN 'non_relu' ELSE 'relu' END
+  FROM questionnaires q WHERE q.id = ${s}.questionnaire_id)`;

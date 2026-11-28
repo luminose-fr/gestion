@@ -9,12 +9,13 @@
  * `agenda_etat = 'a_ecrire'`, et aucun message ne part.
  */
 import { z } from 'zod';
-import { instantDeParis, jourSuivant } from '@luminose/pratique';
+import { instantDeParis, isoDeParis, jourDeParis, jourSuivant } from '@luminose/pratique';
 import { baseClients } from '../clients/base';
 import { newId } from '../db';
 import { Refus } from '../refus';
 import { creerSeance, deplacerSeance, retablirSeance, annulerSeance, changerSeance } from '../clients/decisions';
 import { apresChangement } from '../clients/agenda-seances';
+import { lireAujourdhui, provenanceEnClair, HEURE_DU_SOIR } from '../clients/aujourdhui';
 import { seancesDeLaPeriode, lireSeance, etatSeance, gabaritType, seancePourUnLien, revoquerLesLiens } from '../clients/seances';
 import { secretDesPortes, signerJeton } from '../clients/jetons';
 import { lireNotesSeance, ecrireNotesSeance } from '../clients/sensible';
@@ -50,6 +51,45 @@ seances.get('/', async (c) => {
   if (fin <= debut) throw new Refus('La fin de la période précède son début.', 400);
   if (fin - debut > (JOURS_MAX + 1) * 24 * 3_600_000) throw new Refus(`Une période couvre ${JOURS_MAX} jours au plus.`, 400);
   return c.json({ seances: (await seancesDeLaPeriode(baseClients(c.env), debut, fin)).map(enSortie) });
+});
+
+/**
+ * L'écran Aujourd'hui (refonte, lot 3) : la journée, la prochaine séance, et
+ * À traiter — quatre instructions, un aller-retour (clients/aujourdhui.ts).
+ * Déclarée avant `/:id`, qui la prendrait pour un identifiant.
+ *
+ * Le soir (dès 18 h à Paris), la journée s'étend au lendemain midi. Une ligne
+ * ne porte que l'état d'une note ou d'un questionnaire, jamais leur contenu.
+ */
+seances.get('/aujourdhui', async (c) => {
+  const maintenant = Date.now();
+  const jour = jourDeParis(maintenant);
+  const lendemain = jourSuivant(jour);
+  const soir = Number(isoDeParis(maintenant).slice(11, 13)) >= HEURE_DU_SOIR;
+  const du = instantDeParis(jour, '00:00');
+  const au = soir ? instantDeParis(lendemain, '12:00') : instantDeParis(lendemain, '00:00');
+  const lu = await lireAujourdhui(baseClients(c.env), du, au, maintenant);
+
+  const enLigne = (s: Brut) => ({
+    ...enSortie(s),
+    nature: s.type_nature ?? null,
+    // L'origine ne se dit que pour un entretien préalable : c'est là qu'elle sert (01, §3).
+    provenance: s.type_nature === 'rencontre' ? provenanceEnClair(s) : null,
+    questionnaire: (s.questionnaire as string | null | undefined) ?? (Number(s.questionnaire_requis) === 1 ? 'pas_recu' : null),
+    notesEcrites: s.notes_ecrites === undefined ? null : Number(s.notes_ecrites) === 1,
+  });
+  return c.json({
+    maintenant: iso(maintenant),
+    jour,
+    lendemainMatin: soir ? lendemain : null,
+    journee: lu.journee.map(enLigne),
+    prochaine: lu.prochaine ? enLigne(lu.prochaine) : null,
+    // Du plus ancien au plus récent : le plus en retard est le plus pressé.
+    aTraiter: [
+      ...lu.aClore.map((s) => ({ sorte: 'clore' as const, s })),
+      ...lu.notes.map((s) => ({ sorte: 'notes' as const, s })),
+    ].sort((a, b) => Number(a.s.debut) - Number(b.s.debut)).map(({ sorte, s }) => ({ sorte, seance: enLigne(s) })),
+  });
 });
 
 seances.get('/:id', async (c) => {
