@@ -3,7 +3,7 @@
  * mobiles et l'écran lui-même — pour qu'une section ajoutée le soit à un
  * seul endroit.
  */
-import { Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud, CalendarClock, CalendarCheck, SunMoon, DoorOpen, Clock, ListChecks, Database } from 'lucide-react';
+import { Cpu, Crosshair, KeyRound, Download, Gauge, Cloud, CalendarClock, CalendarCheck, SunMoon, DoorOpen, Clock, ListChecks, Database } from 'lucide-react';
 import type { AIModel } from '../../types';
 import type { ProviderKeyState } from '../../services/apiService';
 
@@ -36,14 +36,17 @@ export const SETTINGS_SECTIONS: Array<{
     { id: 'presets',   groupe: 'Rédaction IA', label: 'Modèle par usage',   sousTitre: 'Quel modèle sert quel travail',          icon: Crosshair },
     { id: 'mesures',   groupe: 'Rédaction IA', label: 'Coûts et durées',    sousTitre: 'Ce que chaque action consomme, et en combien de temps', icon: Gauge },
     { id: 'providers', groupe: 'Rédaction IA', label: 'Clés des fournisseurs', sousTitre: 'Écriture seule — rien ne revient',     icon: KeyRound },
-    { id: 'personas',  groupe: 'Rédaction IA', label: 'Rôles IA',           sousTitre: 'Les prompts système, en lecture',        icon: User },
     { id: 'etat',      groupe: 'Données et fonctionnement', label: 'État',   sousTitre: 'La base des clients, reliée ou non', icon: Database },
     { id: 'quotas',    groupe: 'Données et fonctionnement', label: 'Hébergement', sousTitre: 'La consommation du jour, face au plan gratuit', icon: Cloud },
     { id: 'backup',    groupe: 'Données et fonctionnement', label: 'Export éditorial', sousTitre: 'Les contenus, les séries, le corpus : un fichier JSON', icon: Download },
     { id: 'apparence', groupe: 'Console', label: 'Apparence',               sousTitre: 'Le thème : celui de l’appareil, clair ou sombre', icon: SunMoon },
 ];
 
-/** Les adresses d'avant le lot 9 : `#reglages/reservation` mène aux types de rendez-vous. */
+/**
+ * Les adresses d'avant le lot 9 : `#reglages/reservation` mène aux types de
+ * rendez-vous. `personas` reste une section que l'écran sait montrer (l'adresse
+ * d'avant), mais elle a quitté la liste : les rôles IA vivent dans Corpus → Carte.
+ */
 export const sectionDAvant = (valeur: string): SettingsSection | null =>
     valeur === 'reservation' ? 'types' : null;
 

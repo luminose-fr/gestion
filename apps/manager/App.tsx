@@ -163,6 +163,8 @@ const adresseRemplacee = (): string | null => {
     if (parts[0] === 'videos') return 'social/conversations';
     // Les adresses d'avant la refonte (lot 2) : un lien de l'agenda Google, un favori.
     if (parts[0] === 'seances') return ['agenda', ...parts.slice(1)].join('/');
+    // Les rôles IA ont quitté Réglages pour Corpus → Carte (refonte, lot 9).
+    if ((parts[0] === 'reglages' || parts[0] === 'settings') && parts[1] === 'personas') return 'corpus/carte';
     if (parts[0] === 'evenements') return ['stages', ...parts.slice(1)].join('/');
     if (parts[0] !== 'social') return null;
     if (!parts[1]) return 'social/conversations';

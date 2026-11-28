@@ -9,12 +9,13 @@
  */
 import React, { useEffect, useState } from 'react';
 import {
-    Cpu, Plus, Trash2, Save, ChevronLeft, User, Eye, CheckCircle2,
+    Cpu, Plus, Trash2, Save, ChevronLeft, User, CheckCircle2,
     FlaskConical, AlertCircle, Download, KeyRound, Compass, Search, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { AIModel, MesureSynthese, QuotasReponse, QuotaPoste } from '../../types';
 import { ChoixTheme } from '../charte/ChoixTheme';
 import { BaseClients } from './BaseClients';
+import { RoleIA } from './RoleIA';
 import { ReservationReglages } from './ReservationReglages';
 import { AgendaReglages } from './AgendaReglages';
 import * as Api from '../../services/apiService';
@@ -22,12 +23,11 @@ import * as AiService from '../../services/aiService';
 import { ConfirmModal } from '../CommonModals';
 import { EnCours, Patience } from '../Feedback';
 import {
-    VOICE_RULES, AI_ACTION_CATALOG, ATTENDU_FAMILLES, FAMILLES_MODELE, sortieDeFamille,
+    AI_ACTION_CATALOG, ATTENDU_FAMILLES, FAMILLES_MODELE, sortieDeFamille,
     profilerModele, normaliserNomModele,
 } from '@luminose/editorial';
 import { SettingsSection, grouperParAdaptateur } from './sections';
 import { propositionsAVoir } from '../../services/catalogueModeles';
-import { APERCUS, compterPresences, VOIX_ID } from './apercus';
 import { Bouton, Carte, CLASSES_CHAMP, ControleSegmente, ecran, Etiquette, CLASSES_SURTITRE } from '../ui';
 
 interface SettingsSpaceProps {
@@ -52,56 +52,6 @@ interface SettingsSpaceProps {
     onVeilleChange?: (veille: Api.VeilleReponse) => void;
 }
 
-/**
- * Ce que l'écran donne à lire, rôle par rôle.
- *
- * L'ancienne liste tenait cinq textes de persona choisis à la main : quatre
- * rôles sur sept, et le texte brut du persona — jamais ce qu'un modèle reçoit.
- * Le Verrouilleur, le Lecteur froid et l'Éclateur n'y figuraient pas, si bien
- * qu'un prompt pouvait dériver sans que rien ici ne le montre.
- *
- * Les fiches se déduisent désormais du catalogue des actions : une action
- * ajoutée apparaît sans qu'on y pense, et c'est le prompt COMPOSÉ qui
- * s'affiche. Les règles de voix gardent une fiche à part — c'est un bloc
- * partagé, rien ne l'envoie seul, et le lire une fois vaut mieux que le relire
- * dans neuf prompts.
- *
- * Le CHOIX du rôle, lui, ne vit plus ici : il est passé dans le panneau de
- * troisième niveau et voyage par la route (`#reglages/personas/<role>`).
- */
-interface FichePersona {
-    id: string;
-    /** Le rôle joué — « Rédacteur ». Le libellé de l'action est dans le panneau. */
-    titre: string;
-    /** L'identifiant d'action, ou `null` pour un bloc partagé. */
-    action: string | null;
-    texte: string;
-    /** Ce qui a été substitué pour l'aperçu. `null` = ce texte ne varie pas. */
-    exemple: string | null;
-}
-
-const PRESENCES_VOIX = compterPresences(VOICE_RULES);
-
-const FICHE_VOIX: FichePersona = {
-    id: VOIX_ID,
-    titre: 'Bloc partagé',
-    action: null,
-    texte: VOICE_RULES,
-    exemple: null,
-};
-
-const FICHES: FichePersona[] = [
-    ...APERCUS.map(a => ({
-        id: a.id,
-        titre: a.persona,
-        action: a.id,
-        texte: a.prompt,
-        exemple: a.exemple,
-    })),
-    FICHE_VOIX,
-];
-
-const signes = (n: number) => `${n.toLocaleString('fr-FR')} signes`;
 
 /**
  * Une durée en clair. La bascule à la minute n'est pas cosmétique : « 594 s »
@@ -355,15 +305,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
-    /**
-     * La feuille de salle du rôle ouvert, telle que le Worker la composera.
-     *
-     * Demandée, pas recomposée : c'est le Worker qui la préfixe au prompt, et
-     * un écran de vérification qui refait le calcul de son côté finit par
-     * montrer autre chose que ce qui part.
-     */
-    const [feuille, setFeuille] = useState<Api.FeuilleAction | null>(null);
-    const [feuilleErreur, setFeuilleErreur] = useState<string | null>(null);
 
     const [isSaving, setIsSaving] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -451,19 +392,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
         return () => window.removeEventListener('keydown', handler);
     }, [editingId, isCreating, exploring, isSaving, isDeleting, deleteId]);
 
-    // La feuille de salle du rôle ouvert. Le bloc partagé n'en a pas : rien ne
-    // l'envoie seul, donc rien ne lui joint de corpus.
-    useEffect(() => {
-        const id = persona;
-        setFeuille(null);
-        setFeuilleErreur(null);
-        if (!id || id === VOIX_ID) return;
-        let vivant = true;
-        Api.fetchFeuilleAction(id)
-            .then(f => { if (vivant) setFeuille(f); })
-            .catch(e => { if (vivant) setFeuilleErreur(describeError(e)); });
-        return () => { vivant = false; };
-    }, [persona]);
 
     /**
      * Les mesures se relisent à CHAQUE entrée dans la section, sans cache :
@@ -943,7 +871,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
     const isInExplorer = section === 'models' && exploring && !isInModelEditor;
 
     const groupes = grouperParAdaptateur(aiModels, providers);
-    const fiche = FICHES.find(f => f.id === persona) ?? FICHES[0];
 
     const FilAriane: React.FC<{ label: string }> = ({ label }) => (
         <button
@@ -1843,86 +1770,7 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     d'un rôle, dans l'ordre où le modèle le reçoit — la feuille
                     de salle d'abord, le prompt composé ensuite.
                 */}
-                {section === 'personas' && fiche && (
-                    <div className="max-w-3xl animate-fade-in space-y-5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-micro bg-fond text-second border border-bord px-2 py-0.5 rounded-full font-bold">
-                                {fiche.titre}
-                            </span>
-                            {fiche.action && (
-                                <span className="text-micro font-mono text-second">{fiche.action}</span>
-                            )}
-                            <span className="flex items-center gap-1 text-micro text-second">
-                                <Eye className="w-3 h-3" /> Lecture seule · {signes(fiche.texte.length)}
-                            </span>
-                        </div>
-
-                        {/* La feuille part EN TÊTE du prompt : elle se lit donc en premier. */}
-                        {fiche.action && (
-                            <section>
-                                <EnTeteGroupe titre="1 · La feuille de salle" detail="ce que le corpus ajoute en tête" />
-                                {feuilleErreur && (
-                                    <p className="text-xs font-semibold text-erreur">{feuilleErreur}</p>
-                                )}
-                                {!feuilleErreur && !feuille && <Patience titre="Composition de la feuille…" aspect="ligne" />}
-                                {feuille?.neRecoitRien && (
-                                    <p className="text-sm leading-relaxed text-second bg-surface border border-bord rounded-xl p-4">
-                                        <span className="font-semibold text-texte">Ne reçoit rien du corpus — et c'est voulu.</span>{' '}
-                                        Ce rôle travaille sur ce qu'on lui donne, sans savoir d'où ça vient.
-                                    </p>
-                                )}
-                                {feuille && !feuille.neRecoitRien && !feuille.texte && (
-                                    <p className="text-sm leading-relaxed text-alerte bg-alerte/10 border border-alerte/30 rounded-xl p-4">
-                                        Une feuille est prévue pour ce rôle, mais aucun document du corpus ne correspond
-                                        aux chemins retenus — rien ne partira. À vérifier dans{' '}
-                                        <span className="font-mono text-xs">packages/editorial/src/contexte.ts</span>.
-                                    </p>
-                                )}
-                                {feuille && !!feuille.texte && (
-                                    <div className="bg-surface border border-bord rounded-xl overflow-hidden">
-                                        <div className="flex items-center gap-2 flex-wrap px-4 py-2 border-b border-bord text-micro text-second">
-                                            <span className="font-mono">{feuille.hash}</span>
-                                            <span className="text-texte/20">·</span>
-                                            <span>{signes(feuille.taille)}</span>
-                                            <span className="text-texte/20">·</span>
-                                            <span>{feuille.documents.length} document{feuille.documents.length > 1 ? 's' : ''}</span>
-                                        </div>
-                                        <ul className="px-4 py-3 flex flex-wrap gap-1.5">
-                                            {feuille.documents.map(d => (
-                                                <li key={d} className="text-micro font-mono bg-fond text-second px-1.5 py-0.5 rounded-md">
-                                                    {d}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <details className="border-t border-bord">
-                                            <summary className="px-4 py-2 text-xs font-semibold text-second cursor-pointer hover:text-texte">
-                                                Lire le texte joint
-                                            </summary>
-                                            <pre className="whitespace-pre-wrap text-xs text-second leading-relaxed font-sans px-4 pb-4">
-                                                {feuille.texte}
-                                            </pre>
-                                        </details>
-                                    </div>
-                                )}
-                            </section>
-                        )}
-
-                        <section>
-                            <EnTeteGroupe
-                                titre={fiche.action ? '2 · Le prompt système' : 'Le texte'}
-                                detail={fiche.action ? "composé à l'appel" : `reproduit dans ${PRESENCES_VOIX} des neuf prompts`}
-                            />
-                            {fiche.exemple && (
-                                <p className="text-xs leading-relaxed text-second mb-2">
-                                    <span className="font-semibold">Aperçu.</span> {fiche.exemple}
-                                </p>
-                            )}
-                            <pre className="whitespace-pre-wrap text-xs text-second leading-relaxed font-sans bg-surface border border-bord rounded-xl p-4">
-                                {fiche.texte}
-                            </pre>
-                        </section>
-                    </div>
-                )}
+                {section === 'personas' && <RoleIA persona={persona} />}
 
                 {/* ─── SAUVEGARDE ─── */}
                 {section === 'mesures' && (

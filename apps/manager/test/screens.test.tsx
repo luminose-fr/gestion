@@ -1702,8 +1702,12 @@ describe('Corpus — la carte', () => {
     vi.spyOn(Api, 'fetchEtatCorpus').mockReturnValue(new Promise(() => {}) as any);
     vi.spyOn(Api, 'fetchDocumentsCorpus').mockReturnValue(new Promise(() => {}) as any);
     vi.spyOn(Api, 'fetchFeuilles').mockReturnValue(new Promise(() => {}) as any);
+    vi.spyOn(Api, 'fetchFeuilleAction').mockReturnValue(new Promise(() => {}) as any);
     const { container } = render(<CorpusSpace section="carte" bloc={null} />);
     expect(container.textContent).toContain('Lecture du corpus');
+    // Les rôles IA, venus de Réglages (refonte, lot 9) : sous la Carte, le premier ouvert.
+    expect(container.textContent).toContain('Les rôles IA');
+    expect(container.textContent).toContain(PERSONAS_NAV[0].persona);
   });
 
   it('se monte en panne, sans page blanche', async () => {
