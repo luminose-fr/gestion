@@ -31,6 +31,9 @@ import { ecran, TitreEcran } from './components/ui';
 // Components refactorisés
 import { BarreLaterale, BarreDuBas, FeuilleAjouter, EcranPlus, ListeSecondNiveau, useReception, type IdNav, type Geste } from './components/charte/cadre';
 import { Onglets, TitreEcran as TitreCharte } from './components/charte';
+import { Recherche, type Resultat } from './components/charte/Recherche';
+import { PRATIQUE, EDITORIAL, AUJOURDHUI } from './components/charte/cadre';
+import { proposerSaisie } from './components/Clients/NouvelleFicheView';
 import { SETTINGS_SECTIONS } from './components/Settings/sections';
 import type { ModeSuppressionSerie } from '@luminose/shared';
 import { SeriePlanView } from './components/Series/SeriePlanView';
@@ -226,6 +229,15 @@ function App() {
   /** La base des clients : `null` tant qu'on ne sait pas, et rien ne se grise pendant ce temps. */
   const [baseReliee, setBaseReliee] = useState<boolean | null>(null);
   const reception = useReception(baseReliee);
+  /** Rechercher (⌘K, refonte lot 7) : rien n'en est gardé d'une ouverture à l'autre. */
+  const [rechercheOuverte, setRechercheOuverte] = useState(false);
+  useEffect(() => {
+      const touche = (e: KeyboardEvent) => {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setRechercheOuverte((o) => !o); }
+      };
+      window.addEventListener('keydown', touche);
+      return () => window.removeEventListener('keydown', touche);
+  }, []);
   /** La planche de la charte (refonte, lot 1) : une adresse à part, hors des espaces. */
   const [surComposants, setSurComposants] = useState(() => window.location.hash === '#composants');
   useEffect(() => {
@@ -1249,6 +1261,22 @@ function App() {
       if (id === 'corpus') return updateCorpusRoute(currentCorpusSection, currentCorpusBloc);
       updateRoute(ESPACE_DE[id], 'conversations');
   };
+  // La recherche reste dans le métier où l'on est : les personnes, depuis la pratique seulement.
+  const depuisPratique = idNav !== null && ['aujourdhui', 'agenda', 'clients', 'stages', 'professionnels', 'psychedeliques'].includes(idNav);
+  const ecransCherchables: Resultat[] = [AUJOURDHUI, ...PRATIQUE, ...EDITORIAL]
+      .filter((e) => !(e.base && baseReliee === false))
+      .map((e) => ({ cle: `ecran-${e.id}`, nom: e.libelle, detail: PRATIQUE.includes(e) ? 'Pratique' : EDITORIAL.includes(e) ? 'Éditorial' : undefined, agir: () => naviguer(e.id) }))
+      .concat(SETTINGS_SECTIONS.map((r) => ({ cle: `reglages-${r.id}`, nom: r.label, detail: 'Réglages', agir: () => updateSettingsRoute(r.id) })));
+  const actionsCherchables = (q: string): Resultat[] => [
+      ...(baseReliee !== false && depuisPratique ? [
+          { cle: 'action-fiche', nom: q ? `Nouvelle fiche « ${q} »` : 'Nouvelle fiche', detail: q ? 'Le texte tapé est reporté dans la fiche' : 'Pendant l’entretien préalable',
+            agir: () => { proposerSaisie(q); faireGeste('fiche'); } },
+          { cle: 'action-rdv', nom: 'Poser un rendez-vous', detail: 'Choisir la personne, puis le créneau', agir: () => faireGeste('rendez-vous') },
+      ] : []),
+      { cle: 'action-idee', nom: 'Noter une idée', detail: 'Pour un contenu', agir: () => faireGeste('idee') },
+  ];
+  const contenusCherchables = (depuisPratique && idNav !== 'aujourdhui') ? [] : items.map((i) => ({ id: i.id, titre: i.title || 'Sans titre', detail: libelleDeListe(listeDuContenu(i)) }));
+
   const faireGeste = (g: Geste) => {
       setAjoutOuvert(false);
       if (g === 'idee') { setIdeeEnAvant(true); updateRoute('social', 'ideas'); return; }
@@ -1285,6 +1313,7 @@ function App() {
           reception={reception.portes}
           compteReglages={propositionsAVoir(veille, aiModels).length}
           forcerRepliee={isEditorTakeover}
+          onRechercher={() => setRechercheOuverte(true)}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
@@ -1457,7 +1486,7 @@ function App() {
         {currentSpace === 'plus' && (
             <main className="flex-1 overflow-y-auto bg-fond">
                 <EcranPlus onNaviguer={naviguer} baseReliee={baseReliee} reception={reception.portes}
-                    compteReglages={propositionsAVoir(veille, aiModels).length} />
+                    compteReglages={propositionsAVoir(veille, aiModels).length} onRechercher={() => setRechercheOuverte(true)} />
             </main>
         )}
 
@@ -1673,6 +1702,16 @@ function App() {
     {!isEditorTakeover && (
         <BarreDuBas actif={idNav} onNaviguer={naviguer} onAjouter={() => setAjoutOuvert(true)} baseReliee={baseReliee} />
     )}
+    <Recherche
+        ouverte={rechercheOuverte}
+        onFermer={() => setRechercheOuverte(false)}
+        personnes={depuisPratique && baseReliee !== false}
+        ecrans={ecransCherchables}
+        actions={actionsCherchables}
+        contenus={contenusCherchables}
+        onOuvrirContenu={(contenuId) => { const it = items.find((i) => i.id === contenuId); if (it) ouvrirContenu(it); }}
+        onOuvrirFiche={(ficheId) => { window.location.hash = `clients/${encodeURIComponent(ficheId)}`; }}
+    />
     <FeuilleAjouter ouverte={ajoutOuvert} onFermer={() => setAjoutOuvert(false)} onGeste={faireGeste} baseReliee={baseReliee} />
     </div>
   );

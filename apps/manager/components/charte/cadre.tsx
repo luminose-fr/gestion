@@ -23,7 +23,7 @@ export type IdNav =
   | 'contenus' | 'corpus' | 'reglages' | 'plus';
 
 /** Les tracés des maquettes (Nav.dc.html), sur une grille de 16. */
-const TRACES: Record<IdNav | 'ajouter' | 'replier' | 'idee' | 'fiche', string> = {
+const TRACES: Record<IdNav | 'ajouter' | 'replier' | 'idee' | 'fiche' | 'rechercher', string> = {
   aujourdhui: 'M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M8 5a3 3 0 100 6 3 3 0 000-6z',
   agenda: 'M3 4h10v9H3zM3 7h10M6 2v3M10 2v3',
   clients: 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.5-2.5 2.5-3.5 5-3.5s4.5 1 5 3.5',
@@ -35,6 +35,7 @@ const TRACES: Record<IdNav | 'ajouter' | 'replier' | 'idee' | 'fiche', string> =
   reglages: 'M3 5h6M12 5h1M3 11h1M7 11h6M10.5 3.5v3M5.5 9.5v3',
   plus: 'M3 4.5h10M3 8h10M3 11.5h10',
   ajouter: 'M8 3v10M3 8h10',
+  rechercher: 'M7 12A5 5 0 107 2a5 5 0 000 10zM11 11l3 3',
   replier: 'M2.5 3h11v10h-11zM6 3v10',
   idee: 'M8 2a4 4 0 00-2.5 7.1V11h5V9.1A4 4 0 008 2zM6.5 13.5h3',
   fiche: 'M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 13.5c.5-2.5 2.5-3.5 5-3.5M12 10v4M10 12h4',
@@ -185,7 +186,9 @@ export const BarreLaterale: React.FC<{
   compteReglages?: number;
   /** Un contenu ouvert prend la largeur : la barre se replie, sans changer le choix retenu. */
   forcerRepliee?: boolean;
-}> = ({ actif, onNaviguer, baseReliee, reception, compteReglages, forcerRepliee = false }) => {
+  /** Ouvre la recherche (⌘K). */
+  onRechercher?: () => void;
+}> = ({ actif, onNaviguer, baseReliee, reception, compteReglages, forcerRepliee = false, onRechercher }) => {
   const [choix, setChoix] = useBarreRepliee();
   const repliee = choix || forcerRepliee;
   const lien = (e: Entree) => (
@@ -216,6 +219,13 @@ export const BarreLaterale: React.FC<{
       {EDITORIAL.map(lien)}
 
       <div className="min-h-6 flex-1" />
+      {onRechercher && (
+        <button type="button" onClick={onRechercher} aria-label="Rechercher (⌘K)" title={repliee ? 'Rechercher (⌘K)' : undefined}
+          className={cx('flex h-9 items-center gap-[10px] rounded-controle px-3 font-medium text-texte hover:bg-survole', repliee && 'justify-center px-0', FOCUS_DEDANS)}>
+          <Icone trace="rechercher" />
+          {!repliee && <><span className="flex-1 text-left">Rechercher</span><kbd className="text-secondaire font-normal text-second">⌘K</kbd></>}
+        </button>
+      )}
       <LienBarre entree={REGLAGES} actif={actif === 'reglages'} repliee={repliee} grisee={false} compte={compteReglages} onNaviguer={onNaviguer} />
 
       {reception && (
@@ -339,7 +349,8 @@ export const EcranPlus: React.FC<{
   baseReliee: boolean | null;
   reception: Api.EtatDesPortes | null;
   compteReglages?: number;
-}> = ({ onNaviguer, baseReliee, reception, compteReglages }) => {
+  onRechercher?: () => void;
+}> = ({ onNaviguer, baseReliee, reception, compteReglages, onRechercher }) => {
   const BAS = entreesDuBas(baseReliee);
   const groupes: { nom: string; entrees: Entree[] }[] = [
     { nom: 'Pratique', entrees: PRATIQUE.filter(e => !BAS.includes(e)) },
@@ -384,6 +395,12 @@ export const EcranPlus: React.FC<{
           </Carte>
         </section>
       ))}
+      {onRechercher && (
+        <button type="button" onClick={onRechercher}
+          className={cx('flex min-h-12 items-center gap-3 rounded-carte border border-bord bg-surface px-3.5 shadow-carte', FOCUS)}>
+          <Icone trace="rechercher" taille={18} /><span className="flex-1 text-left font-medium">Rechercher</span>
+        </button>
+      )}
     </div>
   );
 };

@@ -13,8 +13,25 @@ import { aller, messageDe, useGardeSaisie } from './commun';
 import { ChampsCoordonnees, ChampsEssentiels, ChampsProvenance, ChoixProfessionnel, SAISIE_VIDE, versRoute, type SaisieFiche } from './champsFiche';
 import { ChoixFiche, type FicheChoisie } from './ChoixFiche';
 
+/**
+ * Ce que la recherche (⌘K, « Nouvelle fiche « … » ») a tapé, repris dans la
+ * fiche. En mémoire seulement, et pour une seule ouverture : un nom ne va ni
+ * dans l'adresse, ni dans le stockage du navigateur (§15.2, règles 3 et 5).
+ */
+let saisieProposee: string | null = null;
+export const proposerSaisie = (texte: string) => { saisieProposee = texte.trim() || null; };
+const reprendreSaisie = (): SaisieFiche => {
+  const t = saisieProposee;
+  saisieProposee = null;
+  if (!t) return SAISIE_VIDE;
+  if (t.includes('@')) return { ...SAISIE_VIDE, email: t };
+  if (/^[+\d][\d\s.]{5,}$/.test(t)) return { ...SAISIE_VIDE, telephone: t };
+  const [prenom, ...reste] = t.split(/\s+/);
+  return { ...SAISIE_VIDE, prenom, nom: reste.join(' ') };
+};
+
 export const NouvelleFicheView: React.FC = () => {
-  const [saisie, setSaisie] = useState<SaisieFiche>(SAISIE_VIDE);
+  const [saisie, setSaisie] = useState<SaisieFiche>(reprendreSaisie);
   const [viaProfessionnel, setViaProfessionnel] = useState('');
   const [viaClient, setViaClient] = useState<FicheChoisie | null>(null);
   const [professionnels, setProfessionnels] = useState<Pick<Professionnel, 'id' | 'nom'>[]>([]);
