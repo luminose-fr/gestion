@@ -5,6 +5,7 @@
  *   npm run essai -w workers/api -- --local
  *   npm run essai -w workers/api -- --recette
  *   npm run essai -w workers/api -- --recette --date 2026-12-01
+ *   npm run essai -w workers/api -- --recette --volume   # 1 000 personnes, 200 professionnels (volume.ts)
  *
  * Vérifie d'abord la base visée — nom et identifiant, lus dans wrangler.toml
  * résolu, et en recette sur le compte lui-même — et refuse tout ce qui n'est
@@ -19,6 +20,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { jeuDEssai, enSql, aujourdhui, EFFECTIFS, seancesQuiAttendentUnQuestionnaire } from './donnees.ts';
+import { jeuDeVolume } from './volume.ts';
 import { lireCible, baseVisee, lireConfiguration, verifierSurLeCompte, wrangler, optionsCible } from './cible.ts';
 
 const args = process.argv.slice(2);
@@ -31,7 +33,8 @@ try {
   if (cible === 'recette') verifierSurLeCompte(base);
   console.log(`Base visée : ${base.nom} (${base.id}), ${cible === 'local' ? 'sur ce poste' : 'distante'}.`);
 
-  const jeu = jeuDEssai(date);
+  const volume = args.includes('--volume');
+  const jeu = volume ? jeuDeVolume(date) : jeuDEssai(date);
   const sql = enSql(jeu);
   const dossier = mkdtempSync(join(tmpdir(), 'essai-clients-'));
   const fichier = join(dossier, 'essai.sql');
@@ -43,8 +46,10 @@ try {
     rmSync(dossier, { recursive: true, force: true });
   }
 
-  console.log(`Jeu d'essai chargé, date de référence ${date}.`);
-  for (const [table, n] of Object.entries(EFFECTIFS)) if (n > 0) console.log(`  ${table.padEnd(20)} ${n}`);
+  console.log(`${volume ? 'Jeu de volume' : 'Jeu d\'essai'} chargé, date de référence ${date}.`);
+  const effectifs = volume ? Object.fromEntries(jeu.map((t) => [t.table, t.lignes.length])) : EFFECTIFS;
+  for (const [table, n] of Object.entries(effectifs)) if (n > 0) console.log(`  ${table.padEnd(20)} ${n}`);
+  if (volume) process.exit(0);
   // De quoi essayer la page d'essai (phase S2b) : Réglages → Porte publique → Lien d'essai.
   console.log('Séances qui attendent un questionnaire (Réglages → Porte publique → Lien d’essai) :');
   for (const id of seancesQuiAttendentUnQuestionnaire(jeu)) console.log(`  ${id}`);

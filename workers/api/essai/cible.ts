@@ -53,7 +53,9 @@ export const lireConfiguration = () => readFileSync(join(DOSSIER_API, 'wrangler.
 
 /** wrangler, depuis workers/api : la sortie est rendue, l'issue aussi. */
 export const wrangler = (args: string[]) => {
-  const r = spawnSync('npx', ['wrangler', ...args], { cwd: DOSSIER_API, encoding: 'utf8' });
+  // Un gros fichier (le jeu de volume) fait répondre wrangler longuement : sans tampon assez
+  // grand, spawnSync coupe la sortie et rend un échec alors que tout est écrit.
+  const r = spawnSync('npx', ['wrangler', ...args], { cwd: DOSSIER_API, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
   return { ok: r.status === 0, sortie: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 };
 

@@ -203,3 +203,37 @@ describe('les séances qui attendent un questionnaire (phase S2b)', () => {
     expect(ids).not.toContain('essai-seance-avenir-breathwork');
   });
 });
+
+describe('le jeu de volume de la recette (essai/volume.ts)', async () => {
+  const { jeuDeVolume, VOLUME } = await import('../essai/volume.ts');
+  const jeu = jeuDeVolume('2026-11-28');
+  const table = (nom: string) => jeu.find((t) => t.table === nom)?.lignes ?? [];
+
+  it('1 000 personnes, 200 professionnels, une à huit séances chacune, toutes préfixées essai-vol-', () => {
+    expect(table('clients')).toHaveLength(VOLUME.clients);
+    expect(table('professionnels')).toHaveLength(VOLUME.professionnels);
+    const parClient = new Map<string, number>();
+    for (const s of table('seances')) parClient.set(String(s.client_id), (parClient.get(String(s.client_id)) ?? 0) + 1);
+    expect(Math.max(...parClient.values())).toBeLessThanOrEqual(8);
+    expect(parClient.size).toBeGreaterThan(950);
+    for (const t of jeu) for (const l of t.lignes) expect(String(l.id).startsWith('essai-vol-')).toBe(true);
+  });
+
+  it('fictif : adresses en example.org, téléphones en +33 6 39 98', () => {
+    for (const c of table('clients')) {
+      if (c.email !== null) expect(String(c.email)).toMatch(/@example\.org$/);
+      expect(String(c.telephone)).toMatch(/^\+33 6 39 98 /);
+    }
+  });
+
+  it('aucune séance ne se chevauche, et l’avenir commence à J+15', () => {
+    const s = [...table('seances')].sort((a, b) => Number(a.debut) - Number(b.debut));
+    for (let i = 1; i < s.length; i++) expect(Number(s[i].debut)).toBeGreaterThanOrEqual(Number(s[i - 1].occupe_jusqua));
+    const reference = Date.UTC(2026, 10, 28);
+    for (const x of s.filter((x) => x.statut === 'prevue')) expect(Number(x.debut)).toBeGreaterThan(reference + 14 * 86_400_000);
+  });
+
+  it('rejouable : deux tirages à la même date donnent le même contenu', () => {
+    expect(JSON.stringify(jeuDeVolume('2026-11-28'))).toBe(JSON.stringify(jeu));
+  });
+});

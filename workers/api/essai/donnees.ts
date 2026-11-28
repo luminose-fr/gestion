@@ -25,7 +25,7 @@ const HEURE = 60 * MINUTE;
 const JOUR = 24 * HEURE;
 
 /** Les identifiants des types de départ (migrations-clients/0002_reference.sql). */
-const TYPES = {
+export const TYPES = {
   rencontre: '9941effe-66b6-487a-81a0-b0bf833c17fb',
   rencontre_breathwork: 'f65f2eda-d19e-47a7-adbc-7382d4507936',
   seance: '4e7e5b6f-2217-4567-b227-14f2ecbc33b9',
@@ -33,10 +33,10 @@ const TYPES = {
   seance_enfant: '66375c3a-ae15-4b90-9ecc-6bb721d7e863',
   seance_breathwork: '96477be8-8460-4874-bc12-723ca512f586',
 } as const;
-type CleType = keyof typeof TYPES;
+export type CleType = keyof typeof TYPES;
 
 /** Durée, marge et tarif de chaque type, tels que 0002_reference.sql les pose. */
-const GABARITS: Record<CleType, { duree: number; marge: number; montant: number; etat: string; mode: string }> = {
+export const GABARITS: Record<CleType, { duree: number; marge: number; montant: number; etat: string; mode: string }> = {
   rencontre: { duree: 20, marge: 0, montant: 0, etat: 'offerte', mode: 'visio' },
   rencontre_breathwork: { duree: 20, marge: 0, montant: 0, etat: 'offerte', mode: 'visio' },
   seance: { duree: 90, marge: 0, montant: 8000, etat: 'a_payer', mode: 'sur_place' },
