@@ -1008,7 +1008,7 @@ describe('la porte publique, dans Réglages (SPEC §14.5)', () => {
     expect(container.textContent).toContain('3 commandes sur 24 h · 2 ordres prévus · 1 confié à Make · 0 en échec · 4 alertes ouvertes');
     fireEvent.click(getByText('Couper'));
     expect(appels.some((a) => a.methode === 'PUT')).toBe(false);
-    fireEvent.click(getByText('Couper la porte'));
+    fireEvent.click(getByText('Couper la réception'));
     await findByText('Coupée');
     expect(appels.filter((a) => a.methode === 'PUT')).toEqual([
       { url: expect.stringMatching(/\/api\/portes\/interrupteur$/), methode: 'PUT', corps: '{"ouverte":false}' },
@@ -1049,7 +1049,7 @@ describe('la porte publique, dans Réglages (SPEC §14.5)', () => {
     });
     const non = render(<BaseClients />);
     await non.findByText('Non reliée');
-    expect(non.container.textContent).not.toContain('Porte publique');
+    expect(non.container.textContent).not.toContain('Réception du site');
     expect(appels.some((a) => a.url.endsWith('/api/portes'))).toBe(false);
   });
 

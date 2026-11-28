@@ -2041,8 +2041,6 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                             </p>
                         </div>
 
-                        {/* L'état des liaisons de cet environnement : la base des clients (SPEC §14.8). */}
-                        <BaseClients />
 
                         {quotasErreur && (
                             <div className="rounded-xl border border-brand-border dark:border-dark-sec-border bg-white dark:bg-dark-surface p-5">
@@ -2121,7 +2119,18 @@ export const SettingsSpace: React.FC<SettingsSpaceProps> = ({
                     </div>
                 )}
 
-                {section === 'reservation' && <ReservationReglages />}
+                {/* Réglages → Pratique (refonte, lot 9) : la réception du site et ses limites, puis la réservation en trois parties. */}
+                {section === 'reception' && (
+                    <div className="space-y-4">
+                        <BaseClients partie="reception" />
+                        <ReservationReglages partie="gardefous" />
+                    </div>
+                )}
+                {section === 'types' && <ReservationReglages partie="types" />}
+                {section === 'horaires' && <ReservationReglages partie="horaires" />}
+                {section === 'regles' && <ReservationReglages partie="regles" />}
+                {/* Données et fonctionnement → État : la base des clients (SPEC §14.8). */}
+                {section === 'etat' && <BaseClients partie="etat" />}
                 {section === 'agenda' && <AgendaReglages />}
 
                 {section === 'apparence' && <ChoixTheme />}

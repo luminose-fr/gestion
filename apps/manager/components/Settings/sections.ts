@@ -3,31 +3,49 @@
  * mobiles et l'écran lui-même — pour qu'une section ajoutée le soit à un
  * seul endroit.
  */
-import { Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud, CalendarClock, CalendarCheck, SunMoon } from 'lucide-react';
+import { Cpu, Crosshair, KeyRound, User, Download, Gauge, Cloud, CalendarClock, CalendarCheck, SunMoon, DoorOpen, Clock, ListChecks, Database } from 'lucide-react';
 import type { AIModel } from '../../types';
 import type { ProviderKeyState } from '../../services/apiService';
 
 export type SettingsSection =
-    | 'models' | 'presets' | 'mesures' | 'quotas' | 'providers' | 'personas' | 'reservation' | 'agenda' | 'apparence' | 'backup';
+    | 'reception' | 'types' | 'horaires' | 'regles' | 'agenda'
+    | 'models' | 'presets' | 'mesures' | 'providers' | 'personas'
+    | 'etat' | 'quotas' | 'backup'
+    | 'apparence';
 
+/**
+ * Trois groupes, et un dernier pour la console (refonte, lot 9 —
+ * docs/refonte/01, §3, « Réglages ») : la pratique d'abord, puis la rédaction
+ * IA, puis les données. Les anciennes adresses (`reservation`) sont reprises
+ * par `sectionDAvant`.
+ */
 export const SETTINGS_SECTIONS: Array<{
     id: SettingsSection;
     label: string;
+    groupe: 'Pratique' | 'Rédaction IA' | 'Données et fonctionnement' | 'Console';
     /** Ce que la section donne à voir, sous le titre de l'écran. */
     sousTitre: string;
     icon: React.ComponentType<{ className?: string }>;
 }> = [
-    { id: 'models',    label: 'Modèles IA',             sousTitre: 'Le catalogue, rangé par adaptateur',     icon: Cpu },
-    { id: 'presets',   label: 'Modèles par famille',    sousTitre: 'Quel modèle sert quel travail',          icon: Crosshair },
-    { id: 'mesures',   label: 'Mesures',                sousTitre: 'Ce que chaque action consomme, et en combien de temps', icon: Gauge },
-    { id: 'quotas',    label: 'Quotas Cloudflare',      sousTitre: 'La consommation du jour, face au plan gratuit', icon: Cloud },
-    { id: 'providers', label: 'Clés des fournisseurs',  sousTitre: 'Écriture seule — rien ne revient',       icon: KeyRound },
-    { id: 'personas',  label: 'Personas',               sousTitre: 'Les prompts système, en lecture',        icon: User },
-    { id: 'reservation', label: 'Réservation',          sousTitre: 'Types, semaine type, dates d’exception, réglages', icon: CalendarClock },
-    { id: 'agenda',    label: 'Agenda Google',          sousTitre: 'Ce que la réservation lit et écrit dans votre agenda', icon: CalendarCheck },
-    { id: 'apparence', label: 'Apparence',              sousTitre: 'Le thème : celui de l’appareil, clair ou sombre', icon: SunMoon },
-    { id: 'backup',    label: 'Sauvegarde',             sousTitre: 'Export JSON complet',                    icon: Download },
+    { id: 'reception', groupe: 'Pratique', label: 'Réception du site',     sousTitre: 'Ouverte ou coupée, ce qui a été reçu, les limites de sécurité', icon: DoorOpen },
+    { id: 'types',     groupe: 'Pratique', label: 'Types de rendez-vous',  sousTitre: 'Durée, marge, montant, fenêtre, en ligne ou non', icon: CalendarClock },
+    { id: 'horaires',  groupe: 'Pratique', label: 'Horaires habituels',    sousTitre: 'La semaine type, et les dates d’exception à venir', icon: Clock },
+    { id: 'regles',    groupe: 'Pratique', label: 'Règles',                sousTitre: 'Rappels, retenue d’une place, liste d’attente', icon: ListChecks },
+    { id: 'agenda',    groupe: 'Pratique', label: 'Agenda Google',         sousTitre: 'Ce que la réservation lit et écrit dans votre agenda', icon: CalendarCheck },
+    { id: 'models',    groupe: 'Rédaction IA', label: 'Modèles',            sousTitre: 'Le catalogue, rangé par adaptateur',     icon: Cpu },
+    { id: 'presets',   groupe: 'Rédaction IA', label: 'Modèle par usage',   sousTitre: 'Quel modèle sert quel travail',          icon: Crosshair },
+    { id: 'mesures',   groupe: 'Rédaction IA', label: 'Coûts et durées',    sousTitre: 'Ce que chaque action consomme, et en combien de temps', icon: Gauge },
+    { id: 'providers', groupe: 'Rédaction IA', label: 'Clés des fournisseurs', sousTitre: 'Écriture seule — rien ne revient',     icon: KeyRound },
+    { id: 'personas',  groupe: 'Rédaction IA', label: 'Rôles IA',           sousTitre: 'Les prompts système, en lecture',        icon: User },
+    { id: 'etat',      groupe: 'Données et fonctionnement', label: 'État',   sousTitre: 'La base des clients, reliée ou non', icon: Database },
+    { id: 'quotas',    groupe: 'Données et fonctionnement', label: 'Hébergement', sousTitre: 'La consommation du jour, face au plan gratuit', icon: Cloud },
+    { id: 'backup',    groupe: 'Données et fonctionnement', label: 'Export éditorial', sousTitre: 'Les contenus, les séries, le corpus : un fichier JSON', icon: Download },
+    { id: 'apparence', groupe: 'Console', label: 'Apparence',               sousTitre: 'Le thème : celui de l’appareil, clair ou sombre', icon: SunMoon },
 ];
+
+/** Les adresses d'avant le lot 9 : `#reglages/reservation` mène aux types de rendez-vous. */
+export const sectionDAvant = (valeur: string): SettingsSection | null =>
+    valeur === 'reservation' ? 'types' : null;
 
 export const isSettingsSection = (value: string): value is SettingsSection =>
     SETTINGS_SECTIONS.some(s => s.id === value);

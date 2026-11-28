@@ -18,7 +18,7 @@ import { PERSONAS_NAV, personaParId, cheminPersona } from './components/Settings
 import { BLOCS, CORPUS_SECTIONS, CorpusSection, isBloc, isCorpusSection, corpusSectionLabel, corpusSectionSousTitre } from './components/Corpus/sections';
 import { fetchDocumentsCorpus, fetchInbox } from './services/apiService';
 import {
-  SettingsSection, isSettingsSection, settingsSectionLabel, settingsSectionSousTitre,
+  SettingsSection, isSettingsSection, sectionDAvant, settingsSectionLabel, settingsSectionSousTitre,
   grouperParAdaptateur,
 } from './components/Settings/sections';
 import AnalysisModal from './components/AnalysisModal';
@@ -104,7 +104,9 @@ const getHashState = () => {
     // nomme le rôle ouvert sous Personas, comme le bloc sous Documents :
     // une destination, pas un filtre — elle survit au rechargement.
     const settingsSection: SettingsSection =
-        space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1] : 'models';
+        space === 'settings' && parts[1] && isSettingsSection(parts[1]) ? parts[1]
+        : space === 'settings' && parts[1] && sectionDAvant(parts[1]) ? sectionDAvant(parts[1])!
+        : 'models';
     const settingsPersona: string | null =
         settingsSection === 'personas'
             ? (personaParId(parts[2])?.id ?? PERSONAS_NAV[0].id)
@@ -1502,7 +1504,9 @@ function App() {
                 libelle="Réglages"
                 actif={currentSettingsSection}
                 onChoisir={(id) => updateSettingsRoute(id)}
-                entrees={SETTINGS_SECTIONS.map(r => ({ id: r.id, libelle: r.label, compte: r.id === 'models' ? propositionsAVoir(veille, aiModels).length : undefined }))}
+                entrees={SETTINGS_SECTIONS
+                    .filter(r => !(r.groupe === 'Pratique' && baseReliee === false))
+                    .map(r => ({ id: r.id, libelle: r.label, groupe: r.groupe, compte: r.id === 'models' ? propositionsAVoir(veille, aiModels).length : undefined }))}
             />
             {currentSettingsSection === 'personas' && (
                 <ListeSecondNiveau

@@ -286,7 +286,7 @@ export const AujourdhuiView: React.FC<{ reception: Reception }> = ({ reception }
             <span className="block font-semibold text-sens-alerte">! La pratique n’est pas disponible : la base n’est pas reliée.</span>
             <Secondaire>Aujourd’hui, Agenda, Clients et Stages sont grisés dans la barre latérale. L’éditorial fonctionne.</Secondaire>
           </span>
-          <a href="#reglages/quotas" className={cx('inline-flex h-8 items-center rounded-controle border border-marque px-3 text-secondaire font-semibold text-marque hover:bg-actif', FOCUS)}>
+          <a href="#reglages/etat" className={cx('inline-flex h-8 items-center rounded-controle border border-marque px-3 text-secondaire font-semibold text-marque hover:bg-actif', FOCUS)}>
             Voir l’état dans les Réglages
           </a>
         </Carte>

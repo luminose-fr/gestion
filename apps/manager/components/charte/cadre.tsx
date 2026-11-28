@@ -114,8 +114,8 @@ export const useReception = (baseReliee: boolean | null): Reception => {
   return { portes, poser };
 };
 
-/** Où l'interrupteur se pose aujourd'hui : Réglages → Quotas, carte « Base des clients ». */
-export const ADRESSE_RECEPTION = '#reglages/quotas';
+/** Où l'interrupteur se pose : Réglages → Pratique → Réception du site (lot 9). */
+export const ADRESSE_RECEPTION = '#reglages/reception';
 
 const Point: React.FC<{ ouverte: boolean }> = ({ ouverte }) => (
   <span aria-hidden="true" className={cx('mx-1 size-2 flex-none rounded-full', ouverte ? 'bg-sens-succes' : 'bg-sens-alerte')} />
@@ -409,7 +409,7 @@ export const EcranPlus: React.FC<{
 
 // ─── Le second niveau ───────────────────────────────────────────────────────
 
-export type EntreeSecondNiveau<T extends string> = { id: T; libelle: string; compte?: number };
+export type EntreeSecondNiveau<T extends string> = { id: T; libelle: string; compte?: number; groupe?: string };
 
 /**
  * Au-delà de quatre vues, une liste à gauche DANS l'écran (01, §3, règle 4) —
@@ -429,10 +429,16 @@ export function ListeSecondNiveau<T extends string>({ entrees, actif, onChoisir,
       'md:w-[220px] md:flex-col md:overflow-x-visible md:overflow-y-auto md:border-b-0 md:border-r md:px-2 md:py-4',
     )}>
       <Etiquette as="h2" className="hidden px-3 pb-2 md:block">{libelle}</Etiquette>
-      {entrees.map((e) => {
+      {entrees.map((e, i) => {
         const choisi = e.id === actif;
+        // Un titre de groupe quand le groupe change — sur le Mac seulement : la rangée de l'iPhone reste une rangée.
+        const titreGroupe = e.groupe && e.groupe !== entrees[i - 1]?.groupe
+          ? <Etiquette key={`g-${e.groupe}`} as="h3" className={cx('hidden px-3 pb-1 md:block', i > 0 && 'mt-3')}>{e.groupe}</Etiquette>
+          : null;
         return (
-          <button key={e.id} ref={choisi ? actifRef : undefined} type="button" aria-current={choisi ? 'page' : undefined}
+          <React.Fragment key={e.id}>
+          {titreGroupe}
+          <button ref={choisi ? actifRef : undefined} type="button" aria-current={choisi ? 'page' : undefined}
             onClick={() => onChoisir(e.id)}
             className={cx(
               'flex h-11 md:h-9 flex-none items-center justify-between gap-2 whitespace-nowrap rounded-controle px-3 text-courant md:text-left', FOCUS_DEDANS,
@@ -441,6 +447,7 @@ export function ListeSecondNiveau<T extends string>({ entrees, actif, onChoisir,
             <span className="truncate">{e.libelle}</span>
             {!!e.compte && <span className="text-secondaire font-normal text-second tabular-nums">{e.compte}</span>}
           </button>
+          </React.Fragment>
         );
       })}
     </nav>

@@ -234,7 +234,7 @@ const Dates: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = 
   };
   return (
     <Carte densite="contenu" rythme>
-      <TitreSection as="h3" titre="Les dates d’exception à venir" sousTitre="Une date posée remplace la semaine type ce jour-là ; sans plage, la journée est fermée." />
+      <TitreSection as="h3" titre="Les dates d’exception à venir" sousTitre="Une date posée remplace la semaine type ce jour-là ; sans plage, la journée est fermée. Fermer des jours se fait aussi depuis l’Agenda." />
       {reservation.dates.length === 0 ? <Vide>Aucune exception à venir.</Vide> : (
         <ul className="divide-y divide-brand-border dark:divide-dark-sec-border">
           {reservation.dates.map((d) => (
@@ -267,7 +267,8 @@ const Dates: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = 
 
 // ─── Les réglages ───────────────────────────────────────────────────────────
 
-const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void }> = ({ reservation, onEnregistre }) => {
+/** Les groupes d'une partie : les règles d'usage, ou les garde-fous (sous Réception du site, refonte lot 9). */
+const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void; gardeFous?: boolean }> = ({ reservation, onEnregistre, gardeFous = false }) => {
   const initial = () => Object.fromEntries(Object.entries(reservation.reglages).map(([k, v]) => [k, String(v)]));
   const [s, setS] = useState<Record<string, string>>(initial);
   const [refus, setRefus] = useState<string | null>(null);
@@ -279,12 +280,13 @@ const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void }>
   const groupes = GROUPES.map((g, i) => ({
     ...g,
     cles: [...Object.keys(g.reglages).filter((k) => cles.includes(k)), ...(i === GROUPES.length - 1 ? cles.filter((k) => !connues.has(k)) : [])],
-  })).filter((g) => g.cles.length > 0);
+  })).filter((g) => g.cles.length > 0 && (g.titre === 'Garde-fous techniques') === gardeFous);
+  const changesVues = changes.filter((k) => groupes.some((g) => g.cles.includes(k)));
 
   const enregistrer = async () => {
     setRefus(null);
     try {
-      await Clients.modifierReglages(Object.fromEntries(changes.map((k) => [k, Number(s[k])])));
+      await Clients.modifierReglages(Object.fromEntries(changesVues.map((k) => [k, Number(s[k])])));
       onEnregistre();
     } catch (e) {
       setRefus(messageDe(e));
@@ -305,9 +307,9 @@ const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void }>
   return (
     <Carte densite="contenu" rythme>
       <TitreSection
-        as="h3" titre="Les réglages"
-        sousTitre={changes.length ? NON_ENREGISTRE : undefined}
-        action={<Bouton taille="petit" intention="principale" disabled={changes.length === 0} onClick={enregistrer}>Enregistrer</Bouton>}
+        as="h3" titre={gardeFous ? 'Les limites de sécurité' : 'Les règles'}
+        sousTitre={changesVues.length ? NON_ENREGISTRE : undefined}
+        action={<Bouton taille="petit" intention="principale" disabled={changesVues.length === 0} onClick={enregistrer}>Enregistrer</Bouton>}
       />
       {groupes.map((g) => {
         const corps = <div className="divide-y divide-brand-border dark:divide-dark-sec-border">{g.cles.map((k) => ligne(k, g.reglages[k]))}</div>;
@@ -328,11 +330,22 @@ const Reglages: React.FC<{ reservation: Reservation; onEnregistre: () => void }>
   );
 };
 
-export const ReservationReglages: React.FC = () => {
+/**
+ * Une partie des réglages de la réservation (refonte, lot 9 : Réglages →
+ * Pratique). Types de rendez-vous ; horaires habituels et dates d'exception ;
+ * règles (rappels, retenue, liste d'attente) ; limites de sécurité, sous
+ * Réception du site. Sans partie : tout, comme avant.
+ */
+export type PartieReservation = 'types' | 'horaires' | 'regles' | 'gardefous';
+
+export const ReservationReglages: React.FC<{ partie?: PartieReservation }> = ({ partie }) => {
   const lecture = useLecture(() => Clients.lireReservation(), []);
   if (lecture.phase !== 'prete') return <EtatLecture lecture={lecture} />;
   const r = lecture.donnees;
   const relire = () => void lecture.recharger();
+  if (partie === 'horaires') return <div className="space-y-4"><Semaine reservation={r} onEnregistre={relire} /><Dates reservation={r} onEnregistre={relire} /></div>;
+  if (partie === 'regles') return <Reglages reservation={r} onEnregistre={relire} />;
+  if (partie === 'gardefous') return <Reglages reservation={r} onEnregistre={relire} gardeFous />;
   return (
     <div className="space-y-4">
       <Carte densite="contenu">
@@ -341,9 +354,12 @@ export const ReservationReglages: React.FC = () => {
           {r.types.map((t) => <LigneType key={`${t.id}-${t.dureeMin}-${t.montantCentimes}-${t.actif}-${t.fenetreDebutH}-${t.fenetreFinH}`} type={t} onEnregistre={relire} />)}
         </div>
       </Carte>
-      <Semaine reservation={r} onEnregistre={relire} />
-      <Dates reservation={r} onEnregistre={relire} />
-      <Reglages reservation={r} onEnregistre={relire} />
+      {partie !== 'types' && <>
+        <Semaine reservation={r} onEnregistre={relire} />
+        <Dates reservation={r} onEnregistre={relire} />
+        <Reglages reservation={r} onEnregistre={relire} />
+        <Reglages reservation={r} onEnregistre={relire} gardeFous />
+      </>}
     </div>
   );
 };

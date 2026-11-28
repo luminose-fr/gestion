@@ -124,7 +124,7 @@ export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> =
       setEtat({ phase: 'lue', portes: verifiee(await Api.poserInterrupteurDesPortes(ouverte)) });
     } catch (e) {
       const statut = statutDe(e);
-      setEchec(`L’interrupteur n’a pas répondu${statut ? ` (${statut})` : ''} — la porte est restée dans son état.`);
+      setEchec(`L’interrupteur n’a pas répondu${statut ? ` (${statut})` : ''} — la réception est restée dans son état.`);
     } finally {
       setEnCours(false);
     }
@@ -137,7 +137,7 @@ export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> =
       <div className="flex items-center justify-between gap-4">
         <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-main dark:text-white">
           <DoorOpen className="size-4 shrink-0" aria-hidden />
-          Porte publique
+          Réception du site
         </span>
         {etat.phase === 'lecture' && <span className="text-xs text-brand-main dark:text-dark-text">Lecture…</span>}
         {portes && (
@@ -188,9 +188,9 @@ export const PortePublique: React.FC<{ environnement?: Api.NomEnvironnement }> =
         isOpen={confirmer}
         onClose={() => setConfirmer(false)}
         onConfirm={() => basculer(false)}
-        title="Couper la porte publique ?"
-        message="Plus aucun envoi du site ne sera reçu, pas même un questionnaire de santé, jusqu’à ce que vous la rouvriez. Les pages afficheront votre téléphone."
-        confirmLabel="Couper la porte"
+        title="Couper la réception du site ?"
+        message="Le site n’enregistrera plus ni réservation, ni questionnaire de santé, ni inscription, ni paiement, jusqu’à ce que vous la rouvriez. Les pages afficheront votre téléphone."
+        confirmLabel="Couper la réception"
         isDestructive
       />
     </div>

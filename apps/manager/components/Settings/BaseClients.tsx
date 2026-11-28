@@ -25,7 +25,8 @@ type Etat =
 const nombre = (n: number, un: string, plusieurs: string) =>
   `${n.toLocaleString('fr-FR')} ${n > 1 ? plusieurs : un}`;
 
-export const BaseClients: React.FC = () => {
+/** `partie` (refonte, lot 9) : « etat » sans la porte (Données → État), « reception » la porte seule (Pratique → Réception du site). */
+export const BaseClients: React.FC<{ partie?: 'etat' | 'reception' }> = ({ partie }) => {
   const [etat, setEtat] = useState<Etat>({ phase: 'lecture' });
 
   useEffect(() => {
@@ -43,6 +44,13 @@ export const BaseClients: React.FC = () => {
   const reliee = etat.phase === 'lue' && etat.environnement?.clientsReliee === true;
   const fictives = etat.phase === 'lue' && reliee && etat.environnement.nom !== 'production';
   const statut = etat.phase === 'erreur' ? /^Erreur \d+/.exec(etat.message)?.[0] ?? null : null;
+
+  if (partie === 'reception') {
+    if (etat.phase === 'lecture') return null;
+    return reliee
+      ? <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'} />
+      : <Carte densite="contenu"><p className="text-sm text-brand-main dark:text-dark-text">La base des clients n’est pas reliée ici : le site ne reçoit rien, il n’y a pas de réception à couper.</p></Carte>;
+  }
 
   return (
     <Carte densite="contenu" data-base-clients={etat.phase === 'lue' ? (reliee ? 'reliee' : 'non-reliee') : etat.phase}>
@@ -79,7 +87,7 @@ export const BaseClients: React.FC = () => {
 
       {/* Les portes n'existent que là où la base est reliée : ailleurs, la route
           répondrait 409, et l'écran n'a pas à provoquer un refus. */}
-      {reliee && <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'} />}
+      {reliee && partie !== 'etat' && <PortePublique environnement={etat.phase === 'lue' ? etat.environnement.nom : 'production'} />}
 
       {etat.phase === 'lue' && !reliee && (
         <p className="mt-2 text-xs text-brand-main dark:text-dark-text">
