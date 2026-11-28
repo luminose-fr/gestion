@@ -8,6 +8,49 @@
 > de six, deux tailles de bouton au lieu de trois, deux gabarits au lieu de trois, et trois
 > tokens de couleur pour les sens (succès, alerte, erreur).
 
+> **Depuis le 28/11/2026, deux échelles coexistent.** La refonte de la console
+> (`docs/refonte/`, plan en `05-plan-lots.md`) pose la sienne au lot 1 : voir
+> « La charte de la refonte » ci-dessous. Un écran pas encore refait reste soumis à
+> l'échelle de ce document ; un écran refait n'obéit qu'à la charte. Le lot 9 retire
+> l'ancienne échelle, et ce document avec elle.
+
+## La charte de la refonte — NORMATIF pour les écrans refaits
+
+Les valeurs vivent dans **`apps/manager/charte/jetons.css`**, copie de
+`docs/refonte/tokens.css` : on ne les recopie nulle part, on les nomme. `index.css` les
+expose à Tailwind sous des noms de sens :
+
+| Rôle | Classes |
+| :--- | :--- |
+| Fonds | `bg-fond` (la page), `bg-surface` (carte, champ), `bg-bas` (barre, bas de liste), `bg-survole`, `bg-actif` |
+| Textes | `text-texte`, `text-second`, `text-marque`, `text-sur-marque` |
+| Filets | `border-bord` (séparation), `border-champ` (bord d'un champ, contrasté 3:1) |
+| Sens | `sens-succes`, `sens-alerte`, `sens-erreur`, chacun avec son `-fond` teinté |
+| Tailles | `text-etiquette` 12, `text-secondaire` 13, `text-courant` 15, `text-champ-tel` 16, `text-ecran` 26 (`text-ecran-tel` 23) |
+| Polices | `font-charte` (Figtree), `font-titre` (Fraunces 500, titre d'écran et de contenu ouvert seulement) |
+| Formes | `rounded-controle` 8, `rounded-carte` 12, `shadow-carte`, `shadow-fenetre` |
+
+Le thème suit le système ; `data-theme="light"` ou `"dark"` sur `<html>` le force
+(`poserTheme`, retenu dans le navigateur). Les polices sont **servies par la console**
+(fontsource), sans appel à un tiers.
+
+Les composants sont dans **`apps/manager/components/charte/`** : `Bouton` (plein, bordé,
+souligné × petit 32, normal 40 — 44 sur l'iPhone —, tactile 44), `Champ` et `ZoneTexte`
+(16 px sur l'iPhone), `Pastille` (toujours un signe et un libellé), `Carte` et
+`LigneCarte`, `Onglets` (au clavier), `Repliable` (avec sa ligne de résumé), `Fenetre`
+(`<dialog>` natif), `TemoinEnregistrement`, `Etiquette`, `TitreEcran`, `TitreCarte`,
+`Secondaire`. La planche se voit à **`#composants`**, dans les deux thèmes.
+
+Un écran refait **compose ces composants** et n'écrit ni couleur, ni taille de texte, ni
+rayon, ni ombre. Ces commandes, sur les fichiers qui importent la charte, rendent zéro
+ligne (`App.tsx` et `index.tsx` n'importent la charte que pour aiguiller et poser le
+thème : ils sortent de la liste) :
+
+```
+REFAITS=$(grep -rlE "from '(\.\./)+charte'|from '\./charte'|components/charte" apps/manager --include=*.tsx | grep -v '/charte/\|/test/\|manager/App.tsx\|manager/index.tsx')
+[ -n "$REFAITS" ] && grep -hoE "#[0-9a-fA-F]{3,8}\b|rgba?\(|text-\[[0-9]+px\]|\b(brand|dark)-[a-z-]+|rounded-(sm|md|lg|xl|2xl|3xl)\b|shadow-(sm|md|lg|xl)\b|font-(sans|display)\b" $REFAITS | sort -u
+```
+
 ## Le périmètre, et surtout ce qui en est exclu
 
 **Ce qui change :** les tailles de typographie, les espacements (marges, paddings,
@@ -278,7 +321,7 @@ correspondent exactement au tableau ci-dessus — en ajouter une sans l'y écrir
 tricher avec le garde-fou.
 
 ```
-OPTS='-rhoE --include=*.tsx --exclude-dir=Layout --exclude-dir=ui --exclude-dir=test'
+OPTS='-rhoE --include=*.tsx --exclude-dir=Layout --exclude-dir=ui --exclude-dir=charte --exclude-dir=test'
 MODALES='--exclude=CommonModals.tsx --exclude=AnalysisModal.tsx --exclude=ConfirmSuppressionSerie.tsx --exclude=SubtitleConverter.tsx --exclude=PoserRendezVous.tsx --exclude=FenetreProfessionnel.tsx --exclude=LoginPage.tsx --exclude=Feedback.tsx'
 LECTURE='--exclude-dir=renderers --exclude=PsychedelicsCalculator.tsx'
 

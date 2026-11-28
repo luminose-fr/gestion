@@ -1,10 +1,60 @@
 /* ── Fonts Luminose ── */
 
 @import 'tailwindcss';
+/* La charte de la refonte (docs/refonte, lot 1) : ses jetons, et ses deux polices, servies par la
+   console — aucun appel à Google Fonts. Figtree variable (400 à 600), Fraunces 500. */
+@import '@fontsource-variable/figtree';
+@import '@fontsource/fraunces/500.css';
+@import './charte/jetons.css';
 
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme {
+  /*
+    La charte de la refonte (lot 1, docs/refonte/tokens.css). Des noms qui ne croisent pas ceux de
+    l'échelle d'avant : les écrans refaits s'en servent, les autres gardent l'ancienne jusqu'au
+    lot 9. Chaque couleur suit le thème, par la variable du jeton.
+  */
+  --font-charte: 'Figtree Variable', Figtree, system-ui, sans-serif;
+  --font-titre: Fraunces, Georgia, serif;
+  --text-etiquette: 12px;
+  --text-etiquette--line-height: 16px;
+  --text-secondaire: 13px;
+  --text-secondaire--line-height: 18px;
+  --text-courant: 15px;
+  --text-courant--line-height: 21px;
+  --text-champ-tel: 16px;
+  --text-champ-tel--line-height: 22px;
+  --text-ecran: 26px;
+  --text-ecran--line-height: 31px;
+  --text-ecran-tel: 23px;
+  --text-ecran-tel--line-height: 28px;
+  --color-fond: var(--fond);
+  --color-surface: var(--surface);
+  --color-bas: var(--bas);
+  --color-survole: var(--survol);
+  --color-actif: var(--actif);
+  --color-bord: var(--bord);
+  --color-champ: var(--champ);
+  --color-texte: var(--texte);
+  --color-second: var(--second);
+  --color-marque: var(--marque);
+  --color-marque-survol: var(--marque-survol);
+  --color-sur-marque: var(--sur-marque);
+  --color-voile: var(--voile);
+  --color-sens-succes: var(--succes);
+  --color-sens-succes-fond: var(--succes-fond);
+  --color-sens-alerte: var(--alerte);
+  --color-sens-alerte-fond: var(--alerte-fond);
+  --color-sens-erreur: var(--erreur);
+  --color-sens-erreur-fond: var(--erreur-fond);
+  --color-champignons: var(--champignons);
+  --color-champignons-fond: var(--champignons-fond);
+  --radius-controle: 8px;
+  --radius-carte: 12px;
+  --shadow-carte: var(--ombre-carte);
+  --shadow-fenetre: var(--ombre-fenetre);
+
   --font-sans: 'Futura LT', Futura, Century Gothic, sans-serif;
   --font-display: 'Abril Display', Georgia, serif;
 

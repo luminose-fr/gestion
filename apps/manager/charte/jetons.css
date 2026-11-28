@@ -1,0 +1,84 @@
+/* Console Luminose — jetons de design (charte validée le 27/11/2026)
+   Copie de docs/refonte/tokens.css, la source de vérité : une valeur se change là-bas, puis ici.
+   Thème : [data-theme="light"|"dark"] sur <html>, sinon la préférence du système.
+   Thème clair par défaut ; thème sombre par [data-theme="dark"] ou prefers-color-scheme. */
+:root {
+  /* Couleurs · clair */
+  --fond: #FAF8FC;          /* fond d'écran */
+  --surface: #FFFFFF;       /* cartes, champs, fenêtres */
+  --bas: #F2EEF6;           /* barre latérale, en-têtes de tableau, jours fermés */
+  --fil: #F5F1F9;           /* colonne « le fil » d'un contenu */
+  --survol: #F6F2FA;        /* ligne survolée ou au focus */
+  --actif: #E2D8EF;         /* entrée de menu active, choix sélectionné */
+  --bord: #E3DCEB;          /* filets, bordures de carte */
+  --champ: #8E84A0;         /* bordure de champ (≥ 3:1 sur surface) */
+  --texte: #231A2E;         /* 15,8:1 sur fond */
+  --second: #5E5470;        /* 6,7:1 sur fond */
+  --marque: #5A3E85;        /* 8,1:1 sur fond ; fond des boutons pleins */
+  --marque-survol: #472E6C;
+  --sur-marque: #FFFFFF;    /* texte sur --marque */
+  --succes: #0F6B4F;  --succes-fond: #E3F3EC;
+  --alerte: #9A4A06;  --alerte-fond: #FBEBD6;
+  --erreur: #B3261E;  --erreur-fond: #FBE6E3;
+  --voile: rgba(35, 26, 46, .45);
+
+  /* Substances (Psychédéliques) — seule la première est fixée */
+  --champignons: #7A4F00;  --champignons-fond: #FBF0D9;
+
+  /* Typographie : Figtree (interface), Fraunces (titre d'écran, titre d'un contenu ouvert) */
+  --police: Figtree, system-ui, sans-serif;
+  --police-titre: Fraunces, Georgia, serif;
+  --t-etiquette: 12px;      /* capitales, 600, interlettrage .1em */
+  --t-secondaire: 13px;
+  --t-courant: 15px;        /* corps ; 16px dans les champs sur iPhone et dans l'éditeur de notes */
+  --t-titre: 20px;          /* réservé ; les titres de carte sont en 15px/600 */
+  --t-ecran: 26px;          /* Fraunces 500, -0.01em ; 23px sur iPhone */
+  --g-normal: 400; --g-moyen: 500; --g-fort: 600;
+
+  /* Espacements : 4 · 8 · 12 · 16 · 24 · 32 · 48 */
+  --e-1: 4px; --e-2: 8px; --e-3: 12px; --e-4: 16px; --e-5: 24px; --e-6: 32px; --e-7: 48px;
+
+  /* Formes */
+  --r-controle: 8px;        /* bouton, champ — jamais de bouton rond */
+  --r-carte: 12px;
+  --r-pastille: 999px;
+  --h-petit: 32px; --h-normal: 40px; --h-tactile: 44px;
+  --ombre-carte: 0 1px 2px rgba(35, 26, 46, .07), 0 0 1px rgba(35, 26, 46, .04);
+  --ombre-fenetre: 0 16px 48px rgba(0, 0, 0, .25);
+
+  /* Mise en page */
+  --l-barre: 232px; --l-barre-repliee: 56px;
+  --l-liste: 1150px; --l-travail: 770px;
+
+  /* Mouvement */
+  --duree: 140ms;           /* 120 à 220 ms ; retiré si prefers-reduced-motion */
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fond: #17121D; --surface: #211A2A; --bas: #1C1624; --fil: #1B1523; --survol: #2A2135;
+  --actif: #32264A; --bord: #3B304A; --champ: #7C7092;
+  --texte: #EDE7F3;         /* 13,9:1 sur surface */
+  --second: #B3A8C2;        /* 7,5:1 sur surface */
+  --marque: #BDA6E8;        /* 7,9:1 sur surface */
+  --marque-survol: #D2C2F2;
+  --sur-marque: #1B1424;
+  --succes: #6FD6AE;  --succes-fond: #14332A;
+  --alerte: #F2C063;  --alerte-fond: #3A2A12;
+  --erreur: #F4A199;  --erreur-fond: #3D1D1A;
+  --voile: rgba(0, 0, 0, .6);
+  --champignons: #F0C36A; --champignons-fond: #3A2C10;
+  --ombre-carte: none;      /* en sombre, la surface suffit */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --fond: #17121D; --surface: #211A2A; --bas: #1C1624; --fil: #1B1523; --survol: #2A2135;
+    --actif: #32264A; --bord: #3B304A; --champ: #7C7092;
+    --texte: #EDE7F3; --second: #B3A8C2; --marque: #BDA6E8; --marque-survol: #D2C2F2; --sur-marque: #1B1424;
+    --succes: #6FD6AE; --succes-fond: #14332A; --alerte: #F2C063; --alerte-fond: #3A2A12;
+    --erreur: #F4A199; --erreur-fond: #3D1D1A; --voile: rgba(0, 0, 0, .6);
+    --champignons: #F0C36A; --champignons-fond: #3A2C10; --ombre-carte: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) { :root { --duree: 0ms; } }

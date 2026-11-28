@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ErreurEcran } from './components/ErreurEcran';
 import './index.css';
+import { lireTheme, poserTheme } from './components/charte';
+
+// Le thème choisi se pose avant le premier rendu, sans quoi la page clignote.
+poserTheme(lireTheme());
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

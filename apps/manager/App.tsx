@@ -44,6 +44,7 @@ import { BandeauEnvironnement } from './components/BandeauEnvironnement';
 const SettingsSpace = lazy(() => import('./components/Settings/SettingsSpace'));
 const CorpusSpace = lazy(() => import('./components/Corpus/CorpusSpace'));
 const ContentEditor = lazy(() => import('./components/ContentEditor'));
+const PageComposants = lazy(() => import('./components/charte/PageComposants'));
 const PsychedelicsCalculator = lazy(() => import('./components/PsychedelicsCalculator'));
 const EspaceClients = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceClients })));
 const EspaceSeances = lazy(() => import('./components/Clients/Espaces').then((m) => ({ default: m.EspaceSeances })));
@@ -211,6 +212,13 @@ function App() {
   const [montages, setMontages] = useState<ResumeMontages | null>(null);
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  /** La planche de la charte (refonte, lot 1) : une adresse à part, hors des espaces. */
+  const [surComposants, setSurComposants] = useState(() => window.location.hash === '#composants');
+  useEffect(() => {
+      const suivre = () => setSurComposants(window.location.hash === '#composants');
+      window.addEventListener('hashchange', suivre);
+      return () => window.removeEventListener('hashchange', suivre);
+  }, []);
   /** Adaptateurs et état de leur clé — l'écriture seule fait que seule l'empreinte revient (SPEC §5.5). */
   const [providers, setProviders] = useState<Api.ProviderKeyState[]>([]);
   /** La veille des modèles (SPEC §5.7) : ses propositions font la pastille de Réglages. */
@@ -1193,6 +1201,10 @@ function App() {
 
   if (!authenticated) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (surComposants) {
+    return <Suspense fallback={null}><PageComposants /></Suspense>;
   }
 
   // Un contenu ouvert, ou un plan de série : le cadre du contenu prend l'écran (SPEC §13.9).
